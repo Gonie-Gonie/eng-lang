@@ -5,7 +5,8 @@ features are supported in the current public package scope. Promoted CSV
 tables now emit `typed_payload.table_diagnostics[]` with schema, row, column,
 missing-cell, parse/conversion, and time-axis coverage summaries. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
-case ID, parameter range, duplicate-case, and row-hash preview metadata. Hybrid
+case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
+`typed_payload.case_manifests[]` case row seeds with sample row hashes. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network, cache, case runner, DB, and
 model modules remain planned or internal until concrete language/runtime/artifact
@@ -30,12 +31,12 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.fs` | Supported narrow scope | copy, move, delete under generated-output boundaries |
 | `eng.config` | Planned | typed JSON/TOML promotion and config validation |
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |
-| `eng.process` | Supported narrow scope | explicit external command boundary and process artifacts |
+| `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
 | `eng.table` | Supported diagnostic artifact seed; planned APIs | promoted table row/column diagnostics; filter/join/derived columns planned |
 | `eng.timeseries` | Supported narrow scope | TimeSeries statistics, table time-axis coverage metadata, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
-| `eng.case` | Planned native module; promoted case-id evidence | case IDs and duplicate checks in sample tables; per-case dirs/process manifests planned |
+| `eng.case` | Supported sample-row artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics; per-case dirs/process manifests planned |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.artifact` | Supported seed | output manifests, hashes, report/review links |
@@ -86,11 +87,14 @@ source span
 ```
 
 For generated files, `output_manifest.json` is the minimum public record. For
-external processes, `process_results.json` is the minimum public record. For
+external processes, `process_results.json` records command, args, cwd, tool
+version, stdout/stderr hashes, expected outputs, output hashes, duration, and
+status. For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
-reviewable schema/row/coverage summary, and `typed_payload.sample_tables[]`
+reviewable schema/row/coverage summary, `typed_payload.sample_tables[]`
 records deterministic sample/case table metadata when a promoted table is
-sample-like. Future network, cache, case, DB, and model modules should follow
+sample-like, and `typed_payload.case_manifests[]` records one case seed per
+sample row. Future network, cache, case, DB, and model modules should follow
 the same artifact pattern.
 
 ## Hybrid Artifact Evidence
@@ -113,6 +117,7 @@ output manifest and report/review entries
 ```text
 typed design, result, and prediction schemas
 promoted sample table artifact with case IDs, parameter ranges, duplicate checks, and row-hash previews
+promoted case manifest seeds with sample row hashes and duplicate/missing case status
 three explicit fixture cases
 per-case patched input, simulator output, and case_manifest.json
 collected summary_results.csv
@@ -171,7 +176,9 @@ should also fit CFD, FEM, Modelica, laboratory equipment, and legacy solvers.
 
 ## Case Manifest Target
 
-The planned `eng.case` module should record:
+The current case artifact seed records `case_id`, source row, sample row
+number, sample row hash, and duplicate/missing case status. The planned native
+`eng.case` runner should add:
 
 ```text
 case_id

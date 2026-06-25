@@ -304,6 +304,7 @@
         "kind": { "type": "string" },
         "name": { "type": "string" },
         "target": { "type": "string" },
+        "tool_version": { "type": ["string", "null"] },
         "expected_outputs": {
           "type": "array",
           "items": { "type": "string" }
@@ -455,6 +456,7 @@
       "properties": {
         "binding": { "type": "string" },
         "command": { "type": "string" },
+        "tool_version": { "type": ["string", "null"] },
         "expected_outputs": {
           "type": "array",
           "items": { "type": "string" }

@@ -28,6 +28,7 @@
       "required": [
         "binding",
         "command",
+        "tool_version",
         "args",
         "cwd",
         "expected_outputs",
@@ -35,7 +36,9 @@
         "exit_code",
         "success",
         "stdout",
+        "stdout_hash",
         "stderr",
+        "stderr_hash",
         "duration_ms",
         "status",
         "line"
@@ -43,6 +46,7 @@
       "properties": {
         "binding": { "type": "string" },
         "command": { "type": "string" },
+        "tool_version": { "type": ["string", "null"] },
         "args": {
           "type": "array",
           "items": { "type": "string" }
@@ -58,7 +62,9 @@
         "exit_code": { "type": ["integer", "null"] },
         "success": { "type": "boolean" },
         "stdout": { "type": "string" },
+        "stdout_hash": { "type": "string" },
         "stderr": { "type": "string" },
+        "stderr_hash": { "type": "string" },
         "duration_ms": { "type": "integer", "minimum": 0 },
         "status": { "enum": ["completed", "failed_allowed", "output_missing_allowed"] },
         "line": { "type": "integer", "minimum": 1 }

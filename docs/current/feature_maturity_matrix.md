@@ -95,7 +95,8 @@ separate.
 - Main status: `Stable`
 - User-facing scope: path helpers, provenance-visible `exists`, read
   text/json/toml, explicit write text/json, constrained copy/move/delete,
-  output manifest, run log, process results, test results, and
+  output manifest, run log, process results with tool version, expected-output
+  status, stdout/stderr hashes, test results, and
   safe/normal/repro profiles.
 - Evidence: official examples 10 through 16, saved artifacts, side-effect
   policy docs.
@@ -232,17 +233,18 @@ separate.
   run log, test, and profile primitives already listed under explicit side
   effects.
 - Main status: `Supported` for those primitives plus promoted table
-  diagnostics, promoted sample-table artifacts, and time-axis coverage
-  artifacts; hybrid fixtures now emit
+  diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
+  and time-axis coverage artifacts; hybrid fixtures now emit
   weather, case, model-card, prediction, and DB side-effect artifacts through
   explicit process/write boundaries; `Planned` for native network, cache,
-  sampling generators, case, SQLite/database, and model-card modules.
+  sampling generators, native case runner, SQLite/database, and model-card
+  modules.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
   `typed_payload.table_diagnostics[]`, `typed_payload.sample_tables[]`,
-  workflow examples under
+  `typed_payload.case_manifests[]`, workflow examples under
   `examples/workflows`, and `docs/current/workflow_modules.md`. The external
   simulation hybrid now
   records three case manifests, collected result rows, surrogate metrics,

@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "case_manifests", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -60,6 +60,10 @@
         "sample_tables": {
           "type": "array",
           "items": { "$ref": "#/$defs/sampleTable" }
+        },
+        "case_manifests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseManifest" }
         },
         "metrics": {
           "type": "array",
@@ -262,6 +266,43 @@
         "min": { "type": ["number", "null"] },
         "max": { "type": ["number", "null"] },
         "missing_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "caseManifest": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "sample_table",
+        "schema_name",
+        "source",
+        "source_hash",
+        "sample_row_number",
+        "source_row",
+        "sample_row_hash",
+        "case_dir",
+        "process_bindings",
+        "output_artifacts",
+        "status"
+      ],
+      "properties": {
+        "case_id": { "type": "string" },
+        "sample_table": { "type": "string" },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "sample_row_number": { "type": "integer", "minimum": 1 },
+        "source_row": { "type": "integer", "minimum": 1 },
+        "sample_row_hash": { "type": "string" },
+        "case_dir": { "type": ["string", "null"] },
+        "process_bindings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "output_artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": { "type": "string" }
       }
     },
     "tableDiagnostic": {

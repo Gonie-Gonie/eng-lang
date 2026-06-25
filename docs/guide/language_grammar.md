@@ -703,6 +703,7 @@ Common accepted option keys:
 | `recursive` | Required for directory delete operations |
 | `args` | External process argument array |
 | `cwd` | External process working directory |
+| `tool_version` | Explicit external tool version metadata |
 | `expected_outputs` | Process output files that must exist after the command exits |
 | `allow_failure` | Record a non-zero process exit instead of failing the run |
 
@@ -1008,6 +1009,8 @@ Current process options:
 |---|---|
 | `args` | String array passed as process arguments |
 | `cwd` | Working directory, resolved source-relative when relative |
+| `tool_version` | Explicit string metadata for the external tool identity |
+| `expected_outputs` | Output files that must exist after the process exits |
 | `allow_failure` | If `true`, non-zero exit code is recorded instead of failing the run |
 
 Rules:
@@ -1021,8 +1024,9 @@ Rules:
 | Reviewable records | `review.json` includes `process_runs[]` |
 | Runtime records | Saved runs write `build/result/process_results.json` |
 
-The process result artifact records command, args, cwd, exit code, success,
-stdout, stderr, duration, status, and source line. The binding itself is typed
+The process result artifact records command, args, cwd, tool version, exit code,
+success, stdout/stderr plus hashes, expected output status and hashes, duration,
+status, and source line. The binding itself is typed
 as `ProcessResult` so IDEs and review tools can show it in variable metadata.
 
 The runnable example is:

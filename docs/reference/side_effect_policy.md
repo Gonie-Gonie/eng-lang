@@ -236,8 +236,11 @@ log info "EnergyPlus process was executed"
 exit_code
 success
 stdout
+stdout_hash
 stderr
+stderr_hash
 command
+tool_version
 args
 cwd
 duration
@@ -251,6 +254,9 @@ Implemented rules:
 - `run command` must bind a result, for example `result = run command "cmd"`
 - args are string arrays such as `args = ["/C", "echo", "ok"]`
 - cwd is a typed path expression resolved source-relative when relative
+- tool_version is an explicit string metadata option recorded in review and
+  process artifacts
+- stdout and stderr are recorded with stable hashes for compact comparison
 - expected outputs are path-expression arrays resolved relative to the process
   cwd and recorded with existence status plus file hashes when readable
 - non-zero exit codes fail the run by default

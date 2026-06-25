@@ -510,8 +510,11 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("eng.cache", "planned module: reproducible cache boundary"),
         ("eng.table", "planned module: schema-aware table transforms"),
         ("eng.timeseries", "stdlib module: TimeSeries helpers"),
-        ("eng.sampling", "planned module: deterministic samples"),
-        ("eng.case", "planned module: case manifests"),
+        (
+            "eng.sampling",
+            "stdlib module: promoted sample table artifacts",
+        ),
+        ("eng.case", "stdlib module: promoted case manifest seeds"),
         ("eng.process", "stdlib module: explicit process boundaries"),
         ("run command", "eng.process command boundary"),
         ("eng.db", "planned module: database side effects"),

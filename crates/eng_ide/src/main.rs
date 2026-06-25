@@ -904,9 +904,13 @@ fn base_completion_items() -> Vec<CompletionView> {
         (
             "eng.sampling",
             "eng.sampling",
-            "planned module: deterministic samples",
+            "stdlib module: promoted sample table artifacts",
         ),
-        ("eng.case", "eng.case", "planned module: case manifests"),
+        (
+            "eng.case",
+            "eng.case",
+            "stdlib module: promoted case manifest seeds",
+        ),
         (
             "eng.process",
             "eng.process",

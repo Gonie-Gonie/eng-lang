@@ -1,13 +1,15 @@
 # module: eng.case
-# status: planned
+# status: supported-sample-row-artifact-seed; planned native runner
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
-#   no native case manifest module yet. Promoted sample tables with case_id
-#   columns are summarized in typed_payload.sample_tables[] with duplicate-case
-#   diagnostics and row-hash previews. Workflow examples still use explicit
-#   external case_manifest.json files, generated files, process results, and
-#   output manifests.
+#   promoted sample tables with case_id columns produce
+#   typed_payload.case_manifests[] entries with case_id, sample row number,
+#   source row, deterministic sample row hash, and duplicate/missing case_id
+#   status. Native apply/run/collect, case directories, process bindings,
+#   resume/cache status, and generated-output linkage remain planned. Workflow
+#   examples still use explicit external case_manifest.json files, generated
+#   files, process results, and output manifests.
 #
 # Planned CaseManifest fields:
 #   case_id

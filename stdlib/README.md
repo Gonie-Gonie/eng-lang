@@ -24,10 +24,11 @@ is still future work.
 | `eng.path` | Typed paths, joins, names, and review-visible `exists`. |
 | `eng.io` | Read text/json/toml, write text/json, exports, and hashes. |
 | `eng.fs` | Explicit generated-output copy/move/delete mutations. |
-| `eng.process` | Explicit external process boundary vocabulary. |
+| `eng.process` | External process boundaries with args, cwd, expected outputs, tool version, stdout/stderr hashes, and status. |
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics for schema rows, columns, and parse/conversion evidence. |
 | `eng.sampling` | Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews. |
+| `eng.case` | Promoted case manifest seeds with case IDs, sample row hashes, and row-level case diagnostics. |
 | `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
 
@@ -46,7 +47,7 @@ APIs unless a status document says so.
 | `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
 | `eng.table` | Planned APIs | Table filters, joins, derived columns, and schema-aware transforms. |
 | `eng.sampling` | Planned generators | Grid/random/LHS sample generation and seed policy. |
-| `eng.case` | Planned | Case manifests and native case runner support for sample-to-run workflows. |
+| `eng.case` | Planned runner | Native apply/run/collect, case directories, resume/cache status, and generated-output linkage. |
 | `eng.db` | Planned | SQLite/database side-effect helpers with transaction artifacts. |
 | `eng.model` | Internal/planned | Model-card, prediction, and residual review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |

@@ -49,7 +49,8 @@ workflow, and covered by the breaking-change policy.
 - Typed CSV promotion for the official schema/data boundary.
 - DateTime-indexed table metadata, row-level CSV runtime pages, source hash
   provenance, `typed_payload.table_diagnostics[]` summaries for promoted data,
-  and `typed_payload.sample_tables[]` summaries for promoted sample/case tables.
+  `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
+  and `typed_payload.case_manifests[]` case row seeds with sample row hashes.
 
 ### TimeSeries, Plot, Report, And Review
 
@@ -80,7 +81,8 @@ review material. It is not a broad solver claim.
 - Explicit `write text/json`, constrained copy/move/delete file operations,
   CSV overwrite hardening, and `output_manifest.json`.
 - Structured `log debug/info/warn/error` and `run_log.json`.
-- Explicit `run command`, `ProcessResult`, and `process_results.json`.
+- Explicit `run command`, `ProcessResult`, `tool_version`, expected-output
+  contracts, stdout/stderr hashes, and `process_results.json`.
 - Named `test` blocks, checked assertions, golden artifact comparisons, and
   `test_results.json`.
 - `eng run --profile safe|normal|repro` runtime policy basics.
@@ -149,9 +151,9 @@ public package claim prematurely.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
-    diagnostics, promoted sample-table artifacts, hybrid artifact fixtures for
-    weather/case/model/prediction/DB contracts, and `Planned` native
-    net/cache/sample generators/case/db/model.
+    diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
+    hybrid artifact fixtures for weather/case/model/prediction/DB contracts,
+    and `Planned` native net/cache/sample generators/case runner/db/model.
   - Keep domain adapters layered above generic module contracts and avoid
     treating hybrid fixtures as native module support.
 ## Planned Tracks

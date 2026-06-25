@@ -2179,6 +2179,10 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"command\": \"{}\",\n",
             json_escape(&process.command)
         ));
+        let tool_version = review_option_values(report, process.line, "tool_version")
+            .into_iter()
+            .next();
+        push_optional_json_string(&mut json, "tool_version", tool_version.as_deref(), 6);
         let expected_outputs = review_option_values(report, process.line, "expected_outputs");
         json.push_str("      \"expected_outputs\": [");
         push_json_string_array(&mut json, &expected_outputs);
@@ -5574,6 +5578,10 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             "        \"target\": \"{}\",\n",
             json_escape(&process.command)
         ));
+        let tool_version = review_option_values(report, process.line, "tool_version")
+            .into_iter()
+            .next();
+        push_optional_json_string(json, "tool_version", tool_version.as_deref(), 8);
         json.push_str("        \"inputs\": [");
         push_json_string_array(json, &review_option_values(report, process.line, "args"));
         json.push_str("],\n");

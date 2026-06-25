@@ -58,6 +58,7 @@ pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
     pub table_diagnostics: Vec<RuntimeTableDiagnostic>,
     pub sample_tables: Vec<RuntimeSampleTable>,
+    pub case_manifests: Vec<RuntimeCaseManifest>,
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub numeric_values: Vec<RuntimeNumericValue>,
@@ -980,6 +981,22 @@ pub struct RuntimeSampleParameterColumn {
     pub min: Option<f64>,
     pub max: Option<f64>,
     pub missing_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeCaseManifest {
+    pub case_id: String,
+    pub sample_table: String,
+    pub schema_name: String,
+    pub source: String,
+    pub source_hash: Option<String>,
+    pub sample_row_number: usize,
+    pub source_row: usize,
+    pub sample_row_hash: String,
+    pub case_dir: Option<String>,
+    pub process_bindings: Vec<String>,
+    pub output_artifacts: Vec<String>,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2543,6 +2560,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_axes = materialize_time_axes(&data.tables);
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.sample_tables = materialize_sample_tables(&data.tables);
+    data.case_manifests = materialize_case_manifests(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
     data.component_solutions = materialize_component_solutions(report, &data.time_series);
@@ -3022,6 +3040,56 @@ fn table_cell_text(column: &RuntimeColumn, row_index: usize) -> String {
             .map(|value| value.to_string())
             .unwrap_or_default(),
     }
+}
+
+fn materialize_case_manifests(tables: &[RuntimeTable]) -> Vec<RuntimeCaseManifest> {
+    let mut manifests = Vec::new();
+    for table in tables
+        .iter()
+        .filter(|table| is_sample_table_candidate(table))
+    {
+        let Some(case_id_column) = table
+            .columns
+            .iter()
+            .find(|column| column.name.eq_ignore_ascii_case("case_id"))
+        else {
+            continue;
+        };
+        let Some(case_ids) = text_column_values(case_id_column) else {
+            continue;
+        };
+        let duplicate_ids = duplicate_case_ids(case_ids)
+            .into_iter()
+            .collect::<HashSet<_>>();
+        for row_index in 0..table.row_count {
+            let case_id = case_ids
+                .get(row_index)
+                .map(|value| value.trim().to_owned())
+                .unwrap_or_default();
+            let status = if case_id.is_empty() {
+                "missing_case_id"
+            } else if duplicate_ids.contains(&case_id) {
+                "duplicate_case_id"
+            } else {
+                "sample_row_manifest_seed"
+            };
+            manifests.push(RuntimeCaseManifest {
+                case_id,
+                sample_table: table.binding.clone(),
+                schema_name: table.schema_name.clone(),
+                source: table.source.clone(),
+                source_hash: table.source_hash.clone(),
+                sample_row_number: row_index + 1,
+                source_row: row_index + 2,
+                sample_row_hash: sample_row_hash(table, row_index),
+                case_dir: None,
+                process_bindings: Vec::new(),
+                output_artifacts: Vec::new(),
+                status: status.to_owned(),
+            });
+        }
+    }
+    manifests
 }
 
 fn stable_hash_text(source: &str) -> String {
@@ -19552,6 +19620,61 @@ with {{
         assert_eq!(sample_tables[0].row_hash_preview.len(), 3);
         assert_eq!(sample_tables[0].generation, "promoted_csv");
         assert_eq!(sample_tables[0].status, "duplicate_case_ids");
+    }
+
+    #[test]
+    fn materializes_case_manifest_seeds_from_sample_table_rows() {
+        let table = RuntimeTable {
+            binding: "designs".to_owned(),
+            schema_name: "DesignSample".to_owned(),
+            source: "args.samples".to_owned(),
+            source_hash: Some("sample-hash".to_owned()),
+            row_count: 3,
+            columns: vec![
+                RuntimeColumn {
+                    name: "case_id".to_owned(),
+                    type_name: "String".to_owned(),
+                    unit: None,
+                    canonical_unit: None,
+                    is_index: false,
+                    values: RuntimeValues::Text(vec![
+                        "case_001".to_owned(),
+                        "case_002".to_owned(),
+                        "case_002".to_owned(),
+                    ]),
+                    canonical_values: Vec::new(),
+                    missing_count: 0,
+                    conversion_failures: Vec::new(),
+                },
+                RuntimeColumn {
+                    name: "cooling_cop".to_owned(),
+                    type_name: "Ratio".to_owned(),
+                    unit: Some("1".to_owned()),
+                    canonical_unit: Some("1".to_owned()),
+                    is_index: false,
+                    values: RuntimeValues::Number(vec![Some(3.2), Some(3.4), Some(3.6)]),
+                    canonical_values: vec![Some(3.2), Some(3.4), Some(3.6)],
+                    missing_count: 0,
+                    conversion_failures: Vec::new(),
+                },
+            ],
+            parse_failures: Vec::new(),
+        };
+
+        let manifests = materialize_case_manifests(&[table]);
+
+        assert_eq!(manifests.len(), 3);
+        assert_eq!(manifests[0].case_id, "case_001");
+        assert_eq!(manifests[0].sample_table, "designs");
+        assert_eq!(manifests[0].sample_row_number, 1);
+        assert_eq!(manifests[0].source_row, 2);
+        assert_eq!(manifests[0].sample_row_hash.len(), 16);
+        assert_eq!(manifests[0].case_dir, None);
+        assert!(manifests[0].process_bindings.is_empty());
+        assert!(manifests[0].output_artifacts.is_empty());
+        assert_eq!(manifests[0].status, "sample_row_manifest_seed");
+        assert_eq!(manifests[1].status, "duplicate_case_id");
+        assert_eq!(manifests[2].status, "duplicate_case_id");
     }
 
     #[test]

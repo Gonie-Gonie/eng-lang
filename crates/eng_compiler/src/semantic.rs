@@ -2426,6 +2426,7 @@ fn known_with_option(key: &str) -> bool {
             | "recursive"
             | "args"
             | "cwd"
+            | "tool_version"
             | "expected_outputs"
             | "allow_failure"
     )

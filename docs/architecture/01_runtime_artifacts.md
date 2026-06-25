@@ -146,6 +146,7 @@ source_path
 process_count
 processes[].binding
 processes[].command
+processes[].tool_version
 processes[].args
 processes[].cwd
 processes[].expected_outputs
@@ -153,7 +154,9 @@ processes[].expected_output_status
 processes[].exit_code
 processes[].success
 processes[].stdout
+processes[].stdout_hash
 processes[].stderr
+processes[].stderr_hash
 processes[].duration_ms
 processes[].status
 processes[].line
@@ -161,7 +164,9 @@ processes[].line
 
 `run command` statements must bind a `ProcessResult`. The compiler records the
 declaration in `review.json`; the runtime writes exit status and captured
-stdout/stderr here. Non-zero exits fail by default unless the owner has
+stdout/stderr plus stable stdout/stderr hashes here. `tool_version` is an
+explicit owner option for workflows that need to pin or review the external
+tool identity. Non-zero exits fail by default unless the owner has
 `with { allow_failure = true }`.
 
 ## `test_results.json`

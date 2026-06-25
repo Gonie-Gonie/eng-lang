@@ -214,12 +214,15 @@ process_count
 processes[]
   binding
   command
+  tool_version
   args
   cwd
   exit_code
   success
   stdout
+  stdout_hash
   stderr
+  stderr_hash
   duration_ms
   status
   line

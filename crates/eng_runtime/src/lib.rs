@@ -1039,6 +1039,7 @@ fn run_log_json(
 struct ProcessExecutionRecord {
     binding: String,
     command: String,
+    tool_version: Option<String>,
     args: Vec<String>,
     cwd: String,
     expected_outputs: Vec<ProcessExpectedOutputRecord>,
@@ -1046,7 +1047,9 @@ struct ProcessExecutionRecord {
     exit_code: Option<i32>,
     success: bool,
     stdout: String,
+    stdout_hash: String,
     stderr: String,
+    stderr_hash: String,
     duration_ms: u128,
     status: String,
     line: usize,
@@ -1066,6 +1069,7 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
     for process in &report.semantic_program.process_runs {
         let args = process_args_for_owner(report, process.line)?;
         let cwd = process_cwd_for_owner(report, process.line)?;
+        let tool_version = process_string_option(report, process.line, "tool_version");
         let allow_failure = process_bool_option(report, process.line, "allow_failure");
         let started = Instant::now();
         let output = Command::new(&process.command)
@@ -1083,6 +1087,8 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
         let success = output.status.success();
         let stdout = String::from_utf8_lossy(&output.stdout).to_string();
         let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let stdout_hash = hash_text(&stdout);
+        let stderr_hash = hash_text(&stderr);
         let expected_outputs = process_expected_outputs_for_owner(report, process.line, &cwd)?;
         let expected_output_status = expected_output_status(&expected_outputs);
         if !success && !allow_failure {
@@ -1109,6 +1115,7 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
         records.push(ProcessExecutionRecord {
             binding: process.binding.clone(),
             command: process.command.clone(),
+            tool_version,
             args,
             cwd: cwd.display().to_string(),
             expected_outputs,
@@ -1116,7 +1123,9 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
             exit_code,
             success,
             stdout,
+            stdout_hash,
             stderr,
+            stderr_hash,
             duration_ms,
             status: if success && expected_output_status != "missing" {
                 "completed".to_owned()
@@ -1166,6 +1175,12 @@ fn process_results_json(
             "      \"command\": \"{}\",\n",
             json_escape(&record.command)
         ));
+        push_optional_json_string_runtime(
+            &mut json,
+            "tool_version",
+            record.tool_version.as_deref(),
+            6,
+        );
         json.push_str("      \"args\": ");
         push_json_string_array_runtime(&mut json, &record.args);
         json.push_str(",\n");
@@ -1210,8 +1225,16 @@ fn process_results_json(
             json_escape(&record.stdout)
         ));
         json.push_str(&format!(
+            "      \"stdout_hash\": \"{}\",\n",
+            json_escape(&record.stdout_hash)
+        ));
+        json.push_str(&format!(
             "      \"stderr\": \"{}\",\n",
             json_escape(&record.stderr)
+        ));
+        json.push_str(&format!(
+            "      \"stderr_hash\": \"{}\",\n",
+            json_escape(&record.stderr_hash)
         ));
         json.push_str(&format!("      \"duration_ms\": {},\n", record.duration_ms));
         json.push_str(&format!(
@@ -1732,6 +1755,10 @@ fn process_bool_option(report: &CheckReport, owner_line: usize, key: &str) -> bo
             )
         })
         .unwrap_or(false)
+}
+
+fn process_string_option(report: &CheckReport, owner_line: usize, key: &str) -> Option<String> {
+    process_option(report, owner_line, key).map(|value| strip_runtime_string_value(&value))
 }
 
 fn process_option(report: &CheckReport, owner_line: usize, key: &str) -> Option<String> {
@@ -3445,6 +3472,7 @@ fn result_json(
 
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let sample_tables = sample_tables_json(runtime_data);
+    let case_manifests = case_manifests_json(runtime_data);
 
     let mut timeseries_uncertainty_calculations = String::new();
     for (index, calculation) in runtime_data
@@ -4056,7 +4084,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4082,6 +4110,7 @@ fn result_json(
         integrations,
         table_diagnostics,
         sample_tables,
+        case_manifests,
         timeseries_uncertainty_calculations,
         metrics,
         validations,
@@ -5447,6 +5476,58 @@ fn sample_tables_json(runtime_data: &RuntimeData) -> String {
     json
 }
 
+fn case_manifests_json(runtime_data: &RuntimeData) -> String {
+    let mut json = String::new();
+    for (index, manifest) in runtime_data.case_manifests.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"case_id\": \"{}\",\n",
+            json_escape(&manifest.case_id)
+        ));
+        json.push_str(&format!(
+            "        \"sample_table\": \"{}\",\n",
+            json_escape(&manifest.sample_table)
+        ));
+        json.push_str(&format!(
+            "        \"schema_name\": \"{}\",\n",
+            json_escape(&manifest.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&manifest.source)
+        ));
+        push_optional_json_string(&mut json, "source_hash", manifest.source_hash.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"sample_row_number\": {},\n",
+            manifest.sample_row_number
+        ));
+        json.push_str(&format!(
+            "        \"source_row\": {},\n",
+            manifest.source_row
+        ));
+        json.push_str(&format!(
+            "        \"sample_row_hash\": \"{}\",\n",
+            json_escape(&manifest.sample_row_hash)
+        ));
+        push_optional_json_string(&mut json, "case_dir", manifest.case_dir.as_deref(), 8);
+        json.push_str("        \"process_bindings\": [");
+        push_json_string_array(&mut json, &manifest.process_bindings);
+        json.push_str("],\n");
+        json.push_str("        \"output_artifacts\": [");
+        push_json_string_array(&mut json, &manifest.output_artifacts);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&manifest.status)
+        ));
+        json.push_str("      }");
+    }
+    json
+}
+
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
@@ -6179,6 +6260,57 @@ mod tests {
     }
 
     #[test]
+    fn run_source_materializes_case_manifest_seeds() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-case-manifest-seed");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-case-manifest-seed-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("samples")).expect("sample data dir");
+        fs::write(
+            source_dir.join("samples").join("design_samples.csv"),
+            "case_id,cooling_cop\ncase_001,3.2\ncase_002,3.4\n",
+        )
+        .expect("sample csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema DesignSample {\n",
+                "    case_id: String\n",
+                "    cooling_cop: Ratio [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    samples: CsvFile = file(\"samples/design_samples.csv\")\n",
+                "}\n\n",
+                "designs = promote csv args.samples as DesignSample\n",
+                "print \"samples={designs.rows}\"\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"case_manifests\""));
+        assert!(output.result_json.contains("\"case_id\": \"case_001\""));
+        assert!(output.result_json.contains("\"sample_table\": \"designs\""));
+        assert!(output.result_json.contains("\"sample_row_number\": 1"));
+        assert!(output.result_json.contains("\"source_row\": 2"));
+        assert!(output.result_json.contains("\"sample_row_hash\""));
+        assert!(output.result_json.contains("\"case_dir\": null"));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"sample_row_manifest_seed\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
     fn run_source_materializes_uncertainty_validation_results() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
@@ -6387,9 +6519,9 @@ mod tests {
         fs::create_dir_all(&source_dir).expect("source dir");
         let source_path = source_dir.join("main.eng");
         let source = if cfg!(windows) {
-            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-ok\"]\n}\n"
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-ok\"]\n    tool_version = \"cmd-test 1.0\"\n}\n"
         } else {
-            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"echo process-ok\"]\n}\n"
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"echo process-ok\"]\n    tool_version = \"sh-test 1.0\"\n}\n"
         };
         fs::write(&source_path, source).expect("write source");
 
@@ -6410,7 +6542,11 @@ mod tests {
         assert!(output
             .process_results_json
             .contains("\"format\": \"eng-process-results-v1\""));
+        assert!(output.review_json.contains("\"tool_version\": \""));
+        assert!(output.process_results_json.contains("\"tool_version\": \""));
         assert!(output.process_results_json.contains("process-ok"));
+        assert!(output.process_results_json.contains("\"stdout_hash\""));
+        assert!(output.process_results_json.contains("\"stderr_hash\""));
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_results\""));
@@ -6461,6 +6597,116 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_expected_output\""));
+    }
+
+    #[test]
+    fn run_file_records_allowed_process_failures() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-process-allow-failure");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-allow-failure-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"exit /B 7\"]\n    allow_failure = true\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"exit 7\"]\n    allow_failure = true\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("allowed process failure");
+
+        assert!(output.process_results_json.contains("\"exit_code\": 7"));
+        assert!(output
+            .process_results_json
+            .contains("\"status\": \"failed_allowed\""));
+    }
+
+    #[test]
+    fn run_file_rejects_missing_process_expected_outputs() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-process-missing-output");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-missing-output-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo done\"]\n    expected_outputs = [\"missing/out.txt\"]\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf done\"]\n    expected_outputs = [\"missing/out.txt\"]\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let error = run_file(&source_path, &build_root, &RunOptions::default())
+            .expect_err("missing process output should fail");
+        let message = error.to_string();
+        assert!(message.contains("did not create expected output(s)"));
+        assert!(message.contains("missing/out.txt"));
+    }
+
+    #[test]
+    fn run_file_records_allowed_missing_process_expected_outputs() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-process-missing-output-allowed");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-missing-output-allowed-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo done\"]\n    expected_outputs = [\"missing/out.txt\"]\n    allow_failure = true\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf done\"]\n    expected_outputs = [\"missing/out.txt\"]\n    allow_failure = true\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("allowed missing process output");
+
+        assert!(output
+            .process_results_json
+            .contains("\"expected_output_status\": \"missing\""));
+        assert!(output
+            .process_results_json
+            .contains("\"status\": \"output_missing_allowed\""));
     }
 
     #[test]

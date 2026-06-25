@@ -3,18 +3,18 @@
 # purpose: external command boundaries that remain explicit, typed, and reviewable.
 #
 # Current implementation:
-#   `result = run command "tool"` with `with { args = [...] }`, process result
-#   metadata, and process_results.json are supported through built-ins.
+#   `result = run command "tool"` with `with { args = [...] }`, optional
+#   `cwd`, `expected_outputs`, `tool_version`, and `allow_failure` metadata,
+#   plus process_results.json, are supported through built-ins.
 #
 # Planned helper vocabulary:
-#   expected_outputs
-#   tool version capture
-#   stdout/stderr hash policy
-#   failure policy per case
+#   structured per-case process manifests
+#   tool version command adapters
+#   process sandbox policy presets
 #
 # Review contract:
-#   command, args, cwd, exit code, stdout/stderr, expected outputs, output
-#   hashes, profile policy, and source span.
+#   command, args, cwd, tool version, exit code, stdout/stderr and their
+#   hashes, expected outputs, output hashes, profile policy, and source span.
 #
 # Non-goal:
 #   process execution is an opaque boundary, not a way to hide unreviewed
