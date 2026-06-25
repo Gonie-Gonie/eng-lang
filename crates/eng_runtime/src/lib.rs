@@ -5784,6 +5784,50 @@ mod tests {
     }
 
     #[test]
+    fn run_source_materializes_uncertainty_validation_results() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-uncertainty-validation");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-uncertainty-validation-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "Q = normal(mean=5 kW, std=0.5 kW, samples=31)\n",
+                "validate p95(Q) < 7 kW\n",
+                "validate probability(Q < 7 kW) > 0.95\n",
+                "validate mean(Q) between 4 kW and 6 kW\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"validations\""));
+        assert!(output.result_json.contains("\"left\": \"p95(Q)\""));
+        assert!(output
+            .result_json
+            .contains("\"left\": \"probability(Q < 7 kW)\""));
+        assert!(output.result_json.contains("\"operator\": \"between\""));
+        assert_eq!(
+            output.result_json.matches("\"status\": \"passed\"").count(),
+            3
+        );
+        assert!(output.report_spec_json.contains("probability(Q < 7 kW)"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
     fn run_file_executes_test_assert_and_golden_checks() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")

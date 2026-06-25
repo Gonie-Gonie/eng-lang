@@ -157,8 +157,10 @@ validate mean(Q) between 4 kW and 6 kW
 The current compiler type-checks `mean(...)`, percentile forms such as
 `p95(...)`, and `probability(uncertain < threshold)`. Invalid probability
 expressions produce `E-UNC-PROBABILITY-EXPR-INVALID`; incompatible percentile
-threshold units produce `E-UNC-PERCENTILE-UNIT-MISMATCH`. Runtime pass/fail
-materialization for probability and `between` is still a follow-up item.
+threshold units produce `E-UNC-PERCENTILE-UNIT-MISMATCH`. Runtime now
+materializes pass/fail records for explicit statistic, probability, and
+`between` validations using deterministic uncertainty samples. Broader
+probability expressions remain follow-up work.
 
 ## TimeSeries Uncertainty
 

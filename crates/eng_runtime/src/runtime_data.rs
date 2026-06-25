@@ -2471,7 +2471,12 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.numeric_values = materialize_numeric_values(report, &data.uncertainties);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
     data.metrics = materialize_metrics(report, &data.time_series, &data.time_alignments);
-    data.validations = materialize_validations(report, &data.metrics, &data.integrations);
+    data.validations = materialize_validations(
+        report,
+        &data.metrics,
+        &data.integrations,
+        &data.uncertainties,
+    );
     data
 }
 
@@ -3015,6 +3020,7 @@ fn materialize_validations(
     report: &CheckReport,
     metrics: &[RuntimeMetric],
     integrations: &[RuntimeIntegration],
+    uncertainties: &[RuntimeUncertainty],
 ) -> Vec<RuntimeValidation> {
     report
         .semantic_program
@@ -3022,40 +3028,38 @@ fn materialize_validations(
         .iter()
         .filter(|command| command.verb == "validate")
         .map(|command| {
+            if let Some(between) = command
+                .clauses
+                .iter()
+                .find(|clause| clause.name == "between")
+            {
+                return materialize_between_validation(
+                    command,
+                    &between.value,
+                    metrics,
+                    integrations,
+                    uncertainties,
+                );
+            }
+
             let expression = command.target.clone();
             let Some((left, operator, right)) = parse_validation_expression(&expression) else {
-                return RuntimeValidation {
-                    expression,
-                    left: String::new(),
-                    operator: String::new(),
-                    right: String::new(),
-                    left_value: None,
-                    right_value: None,
-                    unit: String::new(),
-                    status: "unavailable".to_owned(),
-                    line: command.line,
-                };
+                return unavailable_validation(expression, command.line);
             };
-            let left_metric = metrics.iter().find(|metric| metric.binding == left);
-            let left_integration = integrations
-                .iter()
-                .find(|integration| integration.binding == left);
-            let left_value = left_metric
-                .map(|metric| metric.value)
-                .or_else(|| left_integration.map(|integration| integration.value));
-            let unit = left_metric
-                .map(|metric| metric.unit.clone())
-                .or_else(|| left_integration.map(|integration| integration.unit.clone()))
+            let left_value = validation_runtime_value(&left, metrics, integrations, uncertainties);
+            let right_value =
+                validation_runtime_value(&right, metrics, integrations, uncertainties);
+            let unit = left_value
+                .as_ref()
+                .map(|value| value.unit.clone())
                 .unwrap_or_default();
-            let right_value = number_with_optional_unit(&right).map(|(value, right_unit)| {
-                right_unit
-                    .as_deref()
-                    .map(|right_unit| convert_display_value(value, right_unit, &unit))
-                    .unwrap_or(value)
-            });
-            let status = match (left_value, right_value) {
-                (Some(left_value), Some(right_value)) => {
-                    if compare_values(left_value, right_value, &operator) {
+            let left_number = left_value.as_ref().map(|value| value.value);
+            let right_number = right_value
+                .as_ref()
+                .map(|value| convert_validation_value(value.value, &value.unit, &unit));
+            let status = match (left_number, right_number) {
+                (Some(left_number), Some(right_number)) => {
+                    if compare_values(left_number, right_number, &operator) {
                         "passed"
                     } else {
                         "failed"
@@ -3069,8 +3073,8 @@ fn materialize_validations(
                 left,
                 operator,
                 right,
-                left_value,
-                right_value,
+                left_value: left_number,
+                right_value: right_number,
                 unit,
                 status,
                 line: command.line,
@@ -3079,19 +3083,244 @@ fn materialize_validations(
         .collect()
 }
 
-fn parse_validation_expression(expression: &str) -> Option<(String, String, String)> {
-    for operator in ["<=", ">=", "==", "!=", "<", ">"] {
-        if let Some((left, right)) = expression.split_once(operator) {
-            return Some((
-                left.trim().to_owned(),
-                operator.to_owned(),
-                right.trim().to_owned(),
-            ));
+fn materialize_between_validation(
+    command: &eng_compiler::CommandStyleInfo,
+    between: &str,
+    metrics: &[RuntimeMetric],
+    integrations: &[RuntimeIntegration],
+    uncertainties: &[RuntimeUncertainty],
+) -> RuntimeValidation {
+    let expression = format!("{} between {}", command.target.trim(), between.trim());
+    let Some((lower, upper)) = split_between_bounds(between) else {
+        return unavailable_validation(expression, command.line);
+    };
+    let value = validation_runtime_value(&command.target, metrics, integrations, uncertainties);
+    let unit = value
+        .as_ref()
+        .map(|value| value.unit.clone())
+        .unwrap_or_default();
+    let lower_value = validation_runtime_value(&lower, metrics, integrations, uncertainties)
+        .map(|value| convert_validation_value(value.value, &value.unit, &unit));
+    let upper_value = validation_runtime_value(&upper, metrics, integrations, uncertainties)
+        .map(|value| convert_validation_value(value.value, &value.unit, &unit));
+    let left_value = value.as_ref().map(|value| value.value);
+    let status = match (left_value, lower_value, upper_value) {
+        (Some(value), Some(lower), Some(upper)) => {
+            if value >= lower && value <= upper {
+                "passed"
+            } else {
+                "failed"
+            }
         }
+        _ => "unavailable",
+    }
+    .to_owned();
+    RuntimeValidation {
+        expression,
+        left: command.target.clone(),
+        operator: "between".to_owned(),
+        right: between.trim().to_owned(),
+        left_value,
+        right_value: None,
+        unit,
+        status,
+        line: command.line,
+    }
+}
+
+fn unavailable_validation(expression: String, line: usize) -> RuntimeValidation {
+    RuntimeValidation {
+        expression,
+        left: String::new(),
+        operator: String::new(),
+        right: String::new(),
+        left_value: None,
+        right_value: None,
+        unit: String::new(),
+        status: "unavailable".to_owned(),
+        line,
+    }
+}
+
+#[derive(Clone, Debug)]
+struct ValidationRuntimeValue {
+    value: f64,
+    unit: String,
+}
+
+fn validation_runtime_value(
+    expression: &str,
+    metrics: &[RuntimeMetric],
+    integrations: &[RuntimeIntegration],
+    uncertainties: &[RuntimeUncertainty],
+) -> Option<ValidationRuntimeValue> {
+    let expression = expression.trim();
+    if let Some(metric) = metrics.iter().find(|metric| metric.binding == expression) {
+        return Some(ValidationRuntimeValue {
+            value: metric.value,
+            unit: metric.unit.clone(),
+        });
+    }
+    if let Some(integration) = integrations
+        .iter()
+        .find(|integration| integration.binding == expression)
+    {
+        return Some(ValidationRuntimeValue {
+            value: integration.value,
+            unit: integration.unit.clone(),
+        });
+    }
+    if let Some((name, argument)) = parse_single_argument_call(expression) {
+        if name == "probability" {
+            return probability_runtime_value(&argument, metrics, integrations, uncertainties);
+        }
+        if name == "mean" || percentile_fraction(&name).is_some() {
+            return uncertainty_statistic_runtime_value(&name, &argument, uncertainties);
+        }
+    }
+    number_with_optional_unit(expression).map(|(value, unit)| ValidationRuntimeValue {
+        value,
+        unit: unit.unwrap_or_default(),
+    })
+}
+
+fn probability_runtime_value(
+    expression: &str,
+    metrics: &[RuntimeMetric],
+    integrations: &[RuntimeIntegration],
+    uncertainties: &[RuntimeUncertainty],
+) -> Option<ValidationRuntimeValue> {
+    let (left, operator, right) = parse_validation_expression(expression)?;
+    let left_uncertainty = uncertainties
+        .iter()
+        .find(|uncertainty| uncertainty.binding == left);
+    let right_uncertainty = uncertainties
+        .iter()
+        .find(|uncertainty| uncertainty.binding == right);
+    let (uncertainty, uncertain_on_left, threshold_expression) =
+        match (left_uncertainty, right_uncertainty) {
+            (Some(uncertainty), None) => (uncertainty, true, right.as_str()),
+            (None, Some(uncertainty)) => (uncertainty, false, left.as_str()),
+            _ => return None,
+        };
+    if uncertainty.samples.is_empty() {
+        return None;
+    }
+    let threshold =
+        validation_runtime_value(threshold_expression, metrics, integrations, uncertainties)?;
+    let threshold =
+        convert_validation_value(threshold.value, &threshold.unit, &uncertainty.display_unit);
+    let passed = uncertainty
+        .samples
+        .iter()
+        .filter(|sample| {
+            let (left_value, right_value) = if uncertain_on_left {
+                (**sample, threshold)
+            } else {
+                (threshold, **sample)
+            };
+            compare_values(left_value, right_value, &operator)
+        })
+        .count();
+    Some(ValidationRuntimeValue {
+        value: passed as f64 / uncertainty.samples.len() as f64,
+        unit: "1".to_owned(),
+    })
+}
+
+fn uncertainty_statistic_runtime_value(
+    name: &str,
+    binding: &str,
+    uncertainties: &[RuntimeUncertainty],
+) -> Option<ValidationRuntimeValue> {
+    let uncertainty = uncertainties
+        .iter()
+        .find(|uncertainty| uncertainty.binding == binding.trim())?;
+    let value = match name {
+        "mean" => uncertainty
+            .mean
+            .or_else(|| sample_summary(&uncertainty.samples).mean),
+        percentile => quantile(&uncertainty.samples, percentile_fraction(percentile)?),
+    }?;
+    Some(ValidationRuntimeValue {
+        value,
+        unit: uncertainty.display_unit.clone(),
+    })
+}
+
+fn convert_validation_value(value: f64, from_unit: &str, to_unit: &str) -> f64 {
+    if from_unit.is_empty() || to_unit.is_empty() {
+        value
+    } else {
+        convert_display_value(value, from_unit, to_unit)
+    }
+}
+
+fn parse_single_argument_call(expression: &str) -> Option<(String, String)> {
+    let expression = expression.trim();
+    let open = expression.find('(')?;
+    if !expression.ends_with(')') {
+        return None;
+    }
+    let name = expression[..open].trim();
+    if name.is_empty() {
+        return None;
+    }
+    let argument = expression[open + 1..expression.len().saturating_sub(1)].trim();
+    if argument.is_empty() {
+        return None;
+    }
+    Some((name.to_owned(), argument.to_owned()))
+}
+
+fn split_between_bounds(value: &str) -> Option<(String, String)> {
+    let (lower, upper) = value.split_once(" and ")?;
+    let lower = lower.trim();
+    let upper = upper.trim();
+    if lower.is_empty() || upper.is_empty() {
+        return None;
+    }
+    Some((lower.to_owned(), upper.to_owned()))
+}
+
+fn parse_validation_expression(expression: &str) -> Option<(String, String, String)> {
+    let (index, operator) = top_level_comparison_operator(expression)?;
+    let left = expression[..index].trim();
+    let right = expression[index + operator.len()..].trim();
+    if left.is_empty() || right.is_empty() {
+        return None;
+    }
+    Some((left.to_owned(), operator.to_owned(), right.to_owned()))
+}
+
+fn top_level_comparison_operator(expression: &str) -> Option<(usize, &'static str)> {
+    let mut parens = 0i32;
+    let mut brackets = 0i32;
+    let mut in_string = false;
+    let mut previous = '\0';
+    for (index, character) in expression.char_indices() {
+        if !in_string && parens == 0 && brackets == 0 {
+            for operator in ["<=", ">=", "==", "!=", "<", ">"] {
+                if expression[index..].starts_with(operator) {
+                    return Some((index, operator));
+                }
+            }
+        }
+        if character == '"' && previous != '\\' {
+            in_string = !in_string;
+        } else if !in_string {
+            match character {
+                '(' => parens += 1,
+                ')' => parens -= 1,
+                '[' => brackets += 1,
+                ']' => brackets -= 1,
+                _ => {}
+            }
+        }
+        previous = character;
     }
     None
 }
-
 fn compare_values(left: f64, right: f64, operator: &str) -> bool {
     match operator {
         "<" => left < right,
