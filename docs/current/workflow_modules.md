@@ -3,10 +3,12 @@
 Status: mixed. Existing path, IO, process, output-manifest, run-log, and test
 features are supported in the current public package scope. Promoted CSV
 tables now emit `typed_payload.table_diagnostics[]` with schema, row, column,
-missing-cell, parse/conversion, and time-axis coverage summaries. Hybrid
+missing-cell, parse/conversion, and time-axis coverage summaries. Promoted
+DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
+case ID, parameter range, duplicate-case, and row-hash preview metadata. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
-database side-effect artifacts. Native network, cache, case, DB, and model
-modules remain planned or internal until concrete language/runtime/artifact
+database side-effect artifacts. Native network, cache, case runner, DB, and
+model modules remain planned or internal until concrete language/runtime/artifact
 slices land.
 
 ## Purpose
@@ -32,8 +34,8 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
 | `eng.table` | Supported diagnostic artifact seed; planned APIs | promoted table row/column diagnostics; filter/join/derived columns planned |
 | `eng.timeseries` | Supported narrow scope | TimeSeries statistics, table time-axis coverage metadata, integration |
-| `eng.sampling` | Planned | deterministic sample tables and design sweeps |
-| `eng.case` | Planned native module; hybrid fixture evidence | per-case dirs, inputs, processes, results, metrics |
+| `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
+| `eng.case` | Planned native module; promoted case-id evidence | case IDs and duplicate checks in sample tables; per-case dirs/process manifests planned |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.artifact` | Supported seed | output manifests, hashes, report/review links |
@@ -86,8 +88,10 @@ source span
 For generated files, `output_manifest.json` is the minimum public record. For
 external processes, `process_results.json` is the minimum public record. For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
-reviewable schema/row/coverage summary. Future network, cache, case, DB, and
-model modules should follow the same artifact pattern.
+reviewable schema/row/coverage summary, and `typed_payload.sample_tables[]`
+records deterministic sample/case table metadata when a promoted table is
+sample-like. Future network, cache, case, DB, and model modules should follow
+the same artifact pattern.
 
 ## Hybrid Artifact Evidence
 
@@ -108,6 +112,7 @@ output manifest and report/review entries
 
 ```text
 typed design, result, and prediction schemas
+promoted sample table artifact with case IDs, parameter ranges, duplicate checks, and row-hash previews
 three explicit fixture cases
 per-case patched input, simulator output, and case_manifest.json
 collected summary_results.csv

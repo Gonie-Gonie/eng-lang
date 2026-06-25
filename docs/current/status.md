@@ -48,8 +48,8 @@ workflow, and covered by the breaking-change policy.
   temperature spelling.
 - Typed CSV promotion for the official schema/data boundary.
 - DateTime-indexed table metadata, row-level CSV runtime pages, source hash
-  provenance, and `typed_payload.table_diagnostics[]` summaries for promoted
-  data.
+  provenance, `typed_payload.table_diagnostics[]` summaries for promoted data,
+  and `typed_payload.sample_tables[]` summaries for promoted sample/case tables.
 
 ### TimeSeries, Plot, Report, And Review
 
@@ -148,9 +148,10 @@ public package claim prematurely.
     ReviewDocument and native IDE diff panel remain planned.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
-  - Main status: `Supported` path/io/process/test/profile, hybrid artifact
-    fixtures for weather/case/model/prediction/DB contracts, and `Planned`
-    native net/cache/case/db/model.
+  - Main status: `Supported` path/io/process/test/profile, promoted table
+    diagnostics, promoted sample-table artifacts, hybrid artifact fixtures for
+    weather/case/model/prediction/DB contracts, and `Planned` native
+    net/cache/sample generators/case/db/model.
   - Keep domain adapters layered above generic module contracts and avoid
     treating hybrid fixtures as native module support.
 ## Planned Tracks
@@ -158,8 +159,8 @@ public package claim prematurely.
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Native composite workflow modules for network, cache, sampling, case
-  manifests, database writes, and model-card workflows.
+- Native composite workflow modules for network, cache, sampling generators,
+  case manifests, database writes, and model-card workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

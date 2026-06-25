@@ -3444,6 +3444,7 @@ fn result_json(
     }
 
     let table_diagnostics = table_diagnostics_json(runtime_data);
+    let sample_tables = sample_tables_json(runtime_data);
 
     let mut timeseries_uncertainty_calculations = String::new();
     for (index, calculation) in runtime_data
@@ -4055,7 +4056,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4080,6 +4081,7 @@ fn result_json(
         statistics,
         integrations,
         table_diagnostics,
+        sample_tables,
         timeseries_uncertainty_calculations,
         metrics,
         validations,
@@ -5359,6 +5361,92 @@ fn role_count(system: &eng_compiler::SystemInfo, role: &str) -> usize {
         .count()
 }
 
+fn sample_tables_json(runtime_data: &RuntimeData) -> String {
+    let mut json = String::new();
+    for (index, sample_table) in runtime_data.sample_tables.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&sample_table.binding)
+        ));
+        json.push_str(&format!(
+            "        \"schema_name\": \"{}\",\n",
+            json_escape(&sample_table.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&sample_table.source)
+        ));
+        push_optional_json_string(
+            &mut json,
+            "source_hash",
+            sample_table.source_hash.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"sample_count\": {},\n",
+            sample_table.sample_count
+        ));
+        push_optional_json_string(
+            &mut json,
+            "case_id_column",
+            sample_table.case_id_column.as_deref(),
+            8,
+        );
+        json.push_str("        \"parameter_columns\": [\n");
+        for (column_index, column) in sample_table.parameter_columns.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&column.name)
+            ));
+            json.push_str(&format!(
+                "            \"quantity_kind\": \"{}\",\n",
+                json_escape(&column.quantity_kind)
+            ));
+            json.push_str(&format!(
+                "            \"display_unit\": \"{}\",\n",
+                json_escape(&column.display_unit)
+            ));
+            push_optional_json_number(&mut json, "min", column.min, 12);
+            push_optional_json_number(&mut json, "max", column.max, 12);
+            json.push_str(&format!(
+                "            \"missing_count\": {}\n",
+                column.missing_count
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"duplicate_case_ids\": [");
+        push_json_string_array(&mut json, &sample_table.duplicate_case_ids);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"row_hash_count\": {},\n",
+            sample_table.row_hash_count
+        ));
+        json.push_str("        \"row_hash_preview\": [");
+        push_json_string_array(&mut json, &sample_table.row_hash_preview);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"generation\": \"{}\",\n",
+            json_escape(&sample_table.generation)
+        ));
+        push_optional_json_string(&mut json, "seed", sample_table.seed.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&sample_table.status)
+        ));
+        json.push_str("      }");
+    }
+    json
+}
+
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
@@ -6030,6 +6118,63 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"status\": \"time_axis_irregular\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_sample_table_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-sample-table");
+        let build_root = repo_root.join("build").join("runtime-sample-table-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("samples")).expect("sample data dir");
+        fs::write(
+            source_dir.join("samples").join("design_samples.csv"),
+            "case_id,cooling_cop,lighting_power_density\ncase_001,3.2,8.0\ncase_002,3.4,10.0\ncase_003,3.6,12.0\n",
+        )
+        .expect("sample csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema DesignSample {\n",
+                "    case_id: String\n",
+                "    cooling_cop: Ratio [1]\n",
+                "    lighting_power_density: Irradiance [W/m2]\n",
+                "}\n\n",
+                "args {\n",
+                "    samples: CsvFile = file(\"samples/design_samples.csv\")\n",
+                "}\n\n",
+                "designs = promote csv args.samples as DesignSample\n",
+                "print \"samples={designs.rows}\"\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"sample_tables\""));
+        assert!(output.result_json.contains("\"binding\": \"designs\""));
+        assert!(output
+            .result_json
+            .contains("\"schema_name\": \"DesignSample\""));
+        assert!(output.result_json.contains("\"sample_count\": 3"));
+        assert!(output
+            .result_json
+            .contains("\"case_id_column\": \"case_id\""));
+        assert!(output.result_json.contains("\"parameter_columns\""));
+        assert!(output.result_json.contains("\"row_hash_count\": 3"));
+        assert!(output
+            .result_json
+            .contains("\"generation\": \"promoted_csv\""));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"promoted_sample_table\""));
         assert!(!virtual_path.exists());
     }
 

@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "sample_tables", "metrics", "validations", "time_axes", "time_alignments", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -56,6 +56,10 @@
         "table_diagnostics": {
           "type": "array",
           "items": { "$ref": "#/$defs/tableDiagnostic" }
+        },
+        "sample_tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sampleTable" }
         },
         "metrics": {
           "type": "array",
@@ -197,6 +201,67 @@
         "p95": { "type": ["number", "null"] },
         "sample_count": { "type": "integer", "minimum": 0 },
         "status": { "type": "string" }
+      }
+    },
+    "sampleTable": {
+      "type": "object",
+      "required": [
+        "binding",
+        "schema_name",
+        "source",
+        "source_hash",
+        "sample_count",
+        "case_id_column",
+        "parameter_columns",
+        "duplicate_case_ids",
+        "row_hash_count",
+        "row_hash_preview",
+        "generation",
+        "seed",
+        "status"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "sample_count": { "type": "integer", "minimum": 0 },
+        "case_id_column": { "type": ["string", "null"] },
+        "parameter_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sampleParameterColumn" }
+        },
+        "duplicate_case_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_hash_count": { "type": "integer", "minimum": 0 },
+        "row_hash_preview": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "generation": { "type": "string" },
+        "seed": { "type": ["string", "null"] },
+        "status": { "type": "string" }
+      }
+    },
+    "sampleParameterColumn": {
+      "type": "object",
+      "required": [
+        "name",
+        "quantity_kind",
+        "display_unit",
+        "min",
+        "max",
+        "missing_count"
+      ],
+      "properties": {
+        "name": { "type": "string" },
+        "quantity_kind": { "type": "string" },
+        "display_unit": { "type": "string" },
+        "min": { "type": ["number", "null"] },
+        "max": { "type": ["number", "null"] },
+        "missing_count": { "type": "integer", "minimum": 0 }
       }
     },
     "tableDiagnostic": {

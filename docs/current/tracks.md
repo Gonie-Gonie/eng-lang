@@ -128,9 +128,9 @@ and next cleanup action.
 - Public scope: supported side-effect primitives and workflow skeletons only.
 - Main internal: weather API to standard file and external simulation surrogate
   hybrid examples define target contracts for future generic modules, including
-  promoted table diagnostics, time-axis coverage summaries, process-generated
-  case manifests, model-card/metrics artifacts, predictions, and DB side-effect
-  manifests.
+  promoted table diagnostics, promoted sample-table summaries, time-axis
+  coverage summaries, process-generated case manifests, model-card/metrics
+  artifacts, predictions, and DB side-effect manifests.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

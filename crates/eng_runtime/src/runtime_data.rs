@@ -57,6 +57,7 @@ use crate::solver::{
 pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
     pub table_diagnostics: Vec<RuntimeTableDiagnostic>,
+    pub sample_tables: Vec<RuntimeSampleTable>,
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub numeric_values: Vec<RuntimeNumericValue>,
@@ -952,6 +953,33 @@ pub struct RuntimeTableTimeAxisDiagnostic {
     pub irregular: bool,
     pub missing_count: usize,
     pub coverage_status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSampleTable {
+    pub binding: String,
+    pub schema_name: String,
+    pub source: String,
+    pub source_hash: Option<String>,
+    pub sample_count: usize,
+    pub case_id_column: Option<String>,
+    pub parameter_columns: Vec<RuntimeSampleParameterColumn>,
+    pub duplicate_case_ids: Vec<String>,
+    pub row_hash_count: usize,
+    pub row_hash_preview: Vec<String>,
+    pub generation: String,
+    pub seed: Option<String>,
+    pub status: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSampleParameterColumn {
+    pub name: String,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub min: Option<f64>,
+    pub max: Option<f64>,
+    pub missing_count: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2514,6 +2542,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_axes = materialize_time_axes(&data.tables);
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
+    data.sample_tables = materialize_sample_tables(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
     data.component_solutions = materialize_component_solutions(report, &data.time_series);
@@ -2857,6 +2886,151 @@ fn table_diagnostic_status(
     } else {
         "ok".to_owned()
     }
+}
+
+fn materialize_sample_tables(tables: &[RuntimeTable]) -> Vec<RuntimeSampleTable> {
+    tables.iter().filter_map(materialize_sample_table).collect()
+}
+
+fn materialize_sample_table(table: &RuntimeTable) -> Option<RuntimeSampleTable> {
+    if !is_sample_table_candidate(table) {
+        return None;
+    }
+
+    let case_id_column = table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case("case_id"));
+    let case_id_values = case_id_column.and_then(text_column_values);
+    let duplicate_case_ids = case_id_values
+        .map(duplicate_case_ids)
+        .unwrap_or_else(Vec::new);
+    let parameter_columns = table
+        .columns
+        .iter()
+        .filter(|column| !column.name.eq_ignore_ascii_case("case_id"))
+        .filter(|column| matches!(column.values, RuntimeValues::Number(_)))
+        .map(sample_parameter_column)
+        .collect::<Vec<_>>();
+    let status = if case_id_column.is_none() {
+        "missing_case_id"
+    } else if !duplicate_case_ids.is_empty() {
+        "duplicate_case_ids"
+    } else if parameter_columns.is_empty() {
+        "no_numeric_parameters"
+    } else {
+        "promoted_sample_table"
+    };
+
+    Some(RuntimeSampleTable {
+        binding: table.binding.clone(),
+        schema_name: table.schema_name.clone(),
+        source: table.source.clone(),
+        source_hash: table.source_hash.clone(),
+        sample_count: table.row_count,
+        case_id_column: case_id_column.map(|column| column.name.clone()),
+        parameter_columns,
+        duplicate_case_ids,
+        row_hash_count: table.row_count,
+        row_hash_preview: sample_row_hash_preview(table),
+        generation: "promoted_csv".to_owned(),
+        seed: None,
+        status: status.to_owned(),
+    })
+}
+
+fn is_sample_table_candidate(table: &RuntimeTable) -> bool {
+    let schema = table.schema_name.to_ascii_lowercase();
+    let binding = table.binding.to_ascii_lowercase();
+    let source = table.source.to_ascii_lowercase();
+    schema.contains("sample") || binding.contains("sample") || source.contains("sample")
+}
+
+fn text_column_values(column: &RuntimeColumn) -> Option<&[String]> {
+    let RuntimeValues::Text(values) = &column.values else {
+        return None;
+    };
+    Some(values)
+}
+
+fn duplicate_case_ids(values: &[String]) -> Vec<String> {
+    let mut seen = HashSet::new();
+    let mut duplicates = HashSet::new();
+    for value in values {
+        let value = value.trim();
+        if value.is_empty() {
+            continue;
+        }
+        if !seen.insert(value.to_owned()) {
+            duplicates.insert(value.to_owned());
+        }
+    }
+    let mut duplicates = duplicates.into_iter().collect::<Vec<_>>();
+    duplicates.sort();
+    duplicates
+}
+
+fn sample_parameter_column(column: &RuntimeColumn) -> RuntimeSampleParameterColumn {
+    let (min, max) = numeric_min_max(numeric_values(column));
+    RuntimeSampleParameterColumn {
+        name: column.name.clone(),
+        quantity_kind: column.type_name.clone(),
+        display_unit: column
+            .unit
+            .clone()
+            .or_else(|| column.canonical_unit.clone())
+            .unwrap_or_else(|| "1".to_owned()),
+        min,
+        max,
+        missing_count: column.missing_count,
+    }
+}
+
+fn numeric_min_max(values: &[Option<f64>]) -> (Option<f64>, Option<f64>) {
+    let mut min = None::<f64>;
+    let mut max = None::<f64>;
+    for value in values.iter().filter_map(|value| *value) {
+        min = Some(min.map_or(value, |current| current.min(value)));
+        max = Some(max.map_or(value, |current| current.max(value)));
+    }
+    (min, max)
+}
+
+fn sample_row_hash_preview(table: &RuntimeTable) -> Vec<String> {
+    (0..table.row_count.min(8))
+        .map(|row_index| sample_row_hash(table, row_index))
+        .collect()
+}
+
+fn sample_row_hash(table: &RuntimeTable, row_index: usize) -> String {
+    let mut payload = format!("{}:{}", table.binding, row_index + 2);
+    for column in &table.columns {
+        payload.push('|');
+        payload.push_str(&column.name);
+        payload.push('=');
+        payload.push_str(&table_cell_text(column, row_index));
+    }
+    stable_hash_text(&payload)
+}
+
+fn table_cell_text(column: &RuntimeColumn, row_index: usize) -> String {
+    match &column.values {
+        RuntimeValues::Text(values) => values.get(row_index).cloned().unwrap_or_default(),
+        RuntimeValues::Number(values) => values
+            .get(row_index)
+            .and_then(|value| *value)
+            .map(|value| value.to_string())
+            .unwrap_or_default(),
+    }
+}
+
+fn stable_hash_text(source: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in source.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
 }
 
 fn materialize_time_series(
@@ -19323,6 +19497,61 @@ with {{
         assert_eq!(time_axis.coverage_status, "missing_or_irregular");
         assert!(time_axis.irregular);
         assert_eq!(diagnostics[0].columns[1].status, "has_diagnostics");
+    }
+
+    #[test]
+    fn materializes_promoted_sample_table_artifact() {
+        let table = RuntimeTable {
+            binding: "designs".to_owned(),
+            schema_name: "DesignSample".to_owned(),
+            source: "args.samples".to_owned(),
+            source_hash: Some("sample-hash".to_owned()),
+            row_count: 3,
+            columns: vec![
+                RuntimeColumn {
+                    name: "case_id".to_owned(),
+                    type_name: "String".to_owned(),
+                    unit: None,
+                    canonical_unit: None,
+                    is_index: false,
+                    values: RuntimeValues::Text(vec![
+                        "case_001".to_owned(),
+                        "case_002".to_owned(),
+                        "case_002".to_owned(),
+                    ]),
+                    canonical_values: Vec::new(),
+                    missing_count: 0,
+                    conversion_failures: Vec::new(),
+                },
+                RuntimeColumn {
+                    name: "cooling_cop".to_owned(),
+                    type_name: "Ratio".to_owned(),
+                    unit: Some("1".to_owned()),
+                    canonical_unit: Some("1".to_owned()),
+                    is_index: false,
+                    values: RuntimeValues::Number(vec![Some(3.2), Some(3.4), Some(3.6)]),
+                    canonical_values: vec![Some(3.2), Some(3.4), Some(3.6)],
+                    missing_count: 0,
+                    conversion_failures: Vec::new(),
+                },
+            ],
+            parse_failures: Vec::new(),
+        };
+
+        let sample_tables = materialize_sample_tables(&[table]);
+
+        assert_eq!(sample_tables.len(), 1);
+        assert_eq!(sample_tables[0].binding, "designs");
+        assert_eq!(sample_tables[0].sample_count, 3);
+        assert_eq!(sample_tables[0].case_id_column.as_deref(), Some("case_id"));
+        assert_eq!(sample_tables[0].parameter_columns.len(), 1);
+        assert_eq!(sample_tables[0].parameter_columns[0].min, Some(3.2));
+        assert_eq!(sample_tables[0].parameter_columns[0].max, Some(3.6));
+        assert_eq!(sample_tables[0].duplicate_case_ids, vec!["case_002"]);
+        assert_eq!(sample_tables[0].row_hash_count, 3);
+        assert_eq!(sample_tables[0].row_hash_preview.len(), 3);
+        assert_eq!(sample_tables[0].generation, "promoted_csv");
+        assert_eq!(sample_tables[0].status, "duplicate_case_ids");
     }
 
     #[test]

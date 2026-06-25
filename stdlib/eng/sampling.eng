@@ -1,10 +1,13 @@
 # module: eng.sampling
-# status: planned
+# status: supported-promoted-table-artifact-seed; planned generators
 # purpose: deterministic sample tables and design sweeps with units, constraints, seed policy, and reviewable metadata.
 #
 # Current implementation:
-#   no native sampling module yet. Use typed CSV sample tables and schema
-#   constraints.
+#   promoted CSV tables whose schema/source/binding is sample-like produce
+#   typed_payload.sample_tables[] entries with sample count, case_id column,
+#   numeric parameter ranges, duplicate case IDs, deterministic row-hash
+#   previews, and source hash. Native grid/random/LHS generation is still
+#   planned.
 #
 # Planned helper vocabulary:
 #   grid sample
@@ -13,8 +16,9 @@
 #   sample manifest
 #
 # Review contract:
-#   parameter schema, ranges, seed, sample count, sample row hashes, and
-#   diagnostics for duplicate or invalid case IDs.
+#   parameter schema, ranges, seed when generated, sample count, sample row
+#   hashes or hash previews, source hash, and diagnostics for duplicate or
+#   invalid case IDs.
 #
 # Non-goal:
 #   random sampling without an explicit seed must not pass repro review.
