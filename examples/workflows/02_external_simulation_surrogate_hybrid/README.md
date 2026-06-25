@@ -11,7 +11,8 @@ sample table -> input variants -> external runs -> typed results -> surrogate ->
 The current `main.eng` stays within supported EngLang primitives:
 
 ```text
-typed sample table promotion
+typed sample table promotion with PeopleDensity and power-density columns
+schema constraint policy results for sample and prediction tables
 typed result table promotion
 typed prediction table promotion
 explicit external process boundaries

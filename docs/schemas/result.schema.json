@@ -77,6 +77,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/modelCardSummary" }
         },
+        "policy_results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/policyResult" }
+        },
         "metrics": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultMetric" }
@@ -671,6 +675,46 @@
         "irregular": { "type": "boolean" },
         "missing_count": { "type": "integer", "minimum": 0 },
         "coverage_status": { "type": "string" }
+      }
+    },
+    "policyResult": {
+      "type": "object",
+      "required": [
+        "schema",
+        "binding",
+        "kind",
+        "target",
+        "policy",
+        "status",
+        "checked_rows",
+        "violation_count",
+        "violations",
+        "line"
+      ],
+      "properties": {
+        "schema": { "type": "string" },
+        "binding": { "type": "string" },
+        "kind": { "type": "string" },
+        "target": { "type": "string" },
+        "policy": { "type": "string" },
+        "status": { "enum": ["executed", "recorded"] },
+        "checked_rows": { "type": "integer", "minimum": 0 },
+        "violation_count": { "type": "integer", "minimum": 0 },
+        "violations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/policyViolation" }
+        },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "policyViolation": {
+      "type": "object",
+      "required": ["row", "column", "value", "message"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 1 },
+        "column": { "type": "string" },
+        "value": { "type": "string" },
+        "message": { "type": "string" }
       }
     },
     "resultMetric": {

@@ -251,7 +251,8 @@ separate.
   `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
-  and `docs/current/workflow_modules.md`.
+  data-quality diagnostics for invalid sample rows, and
+  `docs/current/workflow_modules.md`.
   The external simulation hybrid now records three case manifests, collected
   result rows, surrogate metrics, predictions, and a DB write manifest summary
   as reviewable fixture artifacts.

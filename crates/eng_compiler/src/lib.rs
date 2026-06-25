@@ -9923,6 +9923,33 @@ system Envelope {
             "Pa"
         );
     }
+
+    #[test]
+    fn records_people_density_quantity_and_unit_derivation() {
+        let report = check_source(
+            "ok.eng",
+            "occupant_density = 0.08 person/m2",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(
+            report.inferred_declarations[0].quantity_kind,
+            "PeopleDensity"
+        );
+        assert_eq!(report.inferred_declarations[0].display_unit, "person/m2");
+        assert_eq!(
+            report.semantic_program.unit_derivations[0]
+                .source_unit
+                .as_deref(),
+            Some("person/m2")
+        );
+        assert_eq!(
+            report.semantic_program.unit_derivations[0].canonical_unit,
+            "person/m2"
+        );
+    }
+
     #[test]
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(

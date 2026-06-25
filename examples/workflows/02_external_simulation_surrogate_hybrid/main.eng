@@ -1,12 +1,12 @@
 schema DesignSample {
     case_id: String
-    people_density: DimensionlessNumber [1]
+    people_density: PeopleDensity [person/m2]
     lighting_power_density: Irradiance [W/m2]
     equipment_power_density: Irradiance [W/m2]
     cooling_cop: Ratio [1]
 
     constraints {
-        people_density >= 0
+        people_density >= 0 person/m2
         lighting_power_density >= 0 W/m2
         equipment_power_density >= 0 W/m2
         cooling_cop > 0

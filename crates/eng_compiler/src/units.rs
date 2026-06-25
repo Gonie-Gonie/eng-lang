@@ -191,6 +191,22 @@ pub const UNIT_INFOS: &[UnitInfo] = &[
         scale_to_canonical: "1",
         affine_offset: None,
     },
+    UnitInfo {
+        symbol: "person/m2",
+        canonical_unit: "person/m2",
+        quantity_hint: "PeopleDensity",
+        dimension: "Count/Area",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
+    UnitInfo {
+        symbol: "people/m2",
+        canonical_unit: "person/m2",
+        quantity_hint: "PeopleDensity",
+        dimension: "Count/Area",
+        scale_to_canonical: "1",
+        affine_offset: None,
+    },
 ];
 
 pub fn all_unit_infos() -> &'static [UnitInfo] {

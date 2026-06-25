@@ -127,7 +127,8 @@ output manifest and report/review entries
 `examples/workflows/02_external_simulation_surrogate_hybrid` records:
 
 ```text
-typed design, result, and prediction schemas
+typed design, result, and prediction schemas, including PeopleDensity sample parameters
+executed schema constraint policy_results for sample and prediction tables
 promoted sample table artifact with case IDs, parameter ranges, duplicate checks, and row-hash previews
 promoted case manifest seeds with sample row hashes and duplicate/missing case status
 three explicit fixture cases

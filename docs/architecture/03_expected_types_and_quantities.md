@@ -72,9 +72,12 @@ HeatRate [W]
 ElectricPower [W]
 MechanicalPower [W]
 Energy [J]
+Irradiance [W/m2]
+PeopleDensity [person/m2]
 Pressure [Pa]
 MassFlowRate [kg/s]
 Ratio [1]
+DimensionlessNumber [1]
 ReynoldsNumber [1]
 ```
 

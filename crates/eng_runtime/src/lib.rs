@@ -7358,7 +7358,7 @@ mod tests {
         fs::create_dir_all(source_dir.join("samples")).expect("sample data dir");
         fs::write(
             source_dir.join("samples").join("design_samples.csv"),
-            "case_id,cooling_cop,lighting_power_density\ncase_001,3.2,8.0\ncase_002,3.4,10.0\ncase_003,3.6,12.0\n",
+            "case_id,people_density,cooling_cop,lighting_power_density\ncase_001,0.08,3.2,8.0\ncase_002,0.10,3.4,10.0\ncase_003,0.12,3.6,12.0\n",
         )
         .expect("sample csv");
         let virtual_path = source_dir.join("__ide_terminal__.eng");
@@ -7368,6 +7368,7 @@ mod tests {
             concat!(
                 "schema DesignSample {\n",
                 "    case_id: String\n",
+                "    people_density: PeopleDensity [person/m2]\n",
                 "    cooling_cop: Ratio [1]\n",
                 "    lighting_power_density: Irradiance [W/m2]\n",
                 "}\n\n",
@@ -7392,6 +7393,12 @@ mod tests {
             .result_json
             .contains("\"case_id_column\": \"case_id\""));
         assert!(output.result_json.contains("\"parameter_columns\""));
+        assert!(output
+            .result_json
+            .contains("\"quantity_kind\": \"PeopleDensity\""));
+        assert!(output
+            .result_json
+            .contains("\"display_unit\": \"person/m2\""));
         assert!(output.result_json.contains("\"row_hash_count\": 3"));
         assert!(output
             .result_json

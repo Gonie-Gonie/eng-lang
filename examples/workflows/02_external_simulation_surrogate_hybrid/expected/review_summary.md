@@ -3,8 +3,9 @@
 The saved run should show:
 
 ```text
-DesignSample, SimulationResult, and PredictionResult schema promotion
+DesignSample, SimulationResult, and PredictionResult schema promotion, including PeopleDensity sample units
 promoted sample table artifact with case IDs, parameter ranges, and row-hash previews
+schema constraint policy results for sample and prediction ranges
 explicit process boundaries for patching, simulation, collection, case manifests,
 training, prediction, and DB write manifests
 expected output contracts for every external process boundary

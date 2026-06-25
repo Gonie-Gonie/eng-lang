@@ -6457,6 +6457,26 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Ok(output) => {
             if !output.review_json.contains("PredictionResult")
                 || !output.review_json.contains("case_manifest_result_003")
+                || !output.result_json.contains("\"sample_tables\"")
+                || !output
+                    .result_json
+                    .contains("\"schema_name\": \"DesignSample\"")
+                || !output
+                    .result_json
+                    .contains("\"case_id_column\": \"case_id\"")
+                || !output.result_json.contains("\"parameter_columns\"")
+                || !output.result_json.contains("\"policy_results\"")
+                || !output
+                    .result_json
+                    .contains("\"policy\": \"cooling_cop > 0\"")
+                || !output.result_json.contains("\"violation_count\": 0")
+                || !output.report_spec_json.contains("\"policy_results\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"schema\": \"DesignSample\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"policy\": \"lighting_power_density >= 0 W/m2\"")
                 || !output
                     .process_results_json
                     .contains("\"format\": \"eng-process-results-v1\"")
@@ -6494,6 +6514,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"external_commands\"")
                 || !output.review_json.contains("database_target")
                 || !output.review_json.contains("predictions.rows")
+                || !output
+                    .result_json
+                    .contains("\"quantity_kind\": \"PeopleDensity\"")
+                || !output
+                    .result_json
+                    .contains("\"display_unit\": \"person/m2\"")
             {
                 eprintln!(
                     "expected external simulation surrogate workflow to produce case, prediction, DB, review, output manifest, and report artifacts"
@@ -6614,6 +6640,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     if !data_quality_fixture_records_constraint_violation(
         "examples/diagnostics/data_quality/constraint_violation.eng",
         "build/test-constraint-violation",
+    ) {
+        return ExitCode::from(2);
+    }
+    if !data_quality_fixture_records_sample_constraint_violation(
+        "examples/diagnostics/data_quality/sample_constraint_violation.eng",
+        "build/test-sample-constraint-violation",
     ) {
         return ExitCode::from(2);
     }
@@ -8337,6 +8369,45 @@ fn data_quality_fixture_records_constraint_violation(source: &str, build_root: &
         }
         Err(error) => {
             eprintln!("constraint violation fixture failed: {error}");
+            false
+        }
+    }
+}
+
+fn data_quality_fixture_records_sample_constraint_violation(
+    source: &str,
+    build_root: &str,
+) -> bool {
+    match run_file(
+        Path::new(source),
+        Path::new(build_root),
+        &RunOptions::default(),
+    ) {
+        Ok(output) => {
+            let result = output.result_json;
+            let report_spec = output.report_spec_json;
+            if !result.contains("\"sample_tables\"")
+                || !result.contains("\"schema_name\": \"DesignSample\"")
+                || !result.contains("\"case_id_column\": \"case_id\"")
+                || !result.contains("\"policy\": \"cooling_cop > 0\"")
+                || !result.contains("\"violation_count\": 1")
+                || !result.contains("\"row\": 3")
+                || !result.contains("\"column\": \"cooling_cop\"")
+                || !result.contains("value is not greater than 0")
+                || !report_spec.contains("\"schema\": \"DesignSample\"")
+                || !report_spec.contains("\"policy\": \"cooling_cop > 0\"")
+                || !report_spec.contains("\"violation_count\": 1")
+            {
+                eprintln!(
+                    "expected {source} to record a sample-table constraint violation in result and report spec artifacts"
+                );
+                return false;
+            }
+            println!("ok: {source} recorded sample-table constraint violation");
+            true
+        }
+        Err(error) => {
+            eprintln!("sample constraint violation fixture failed: {error}");
             false
         }
     }
