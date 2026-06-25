@@ -7,8 +7,11 @@ outputs/case_001/input.txt
 outputs/case_002/input.txt
 outputs/case_003/input.txt
 outputs/case_001/result.json
+outputs/case_001/simulator.log
 outputs/case_002/result.json
+outputs/case_002/simulator.log
 outputs/case_003/result.json
+outputs/case_003/simulator.log
 outputs/case_001/case_manifest.json
 outputs/case_002/case_manifest.json
 outputs/case_003/case_manifest.json
@@ -22,9 +25,9 @@ outputs/model_card.json
 ```
 
 The per-case artifacts should be classified as `case_input`, `case_result`, and
-`case_manifest` generated files. The patched case inputs should have expected
-output records with hashes in `process_results.json` and output-manifest artifact
-records.
+`case_manifest` generated files. The patched case inputs and simulator logs
+should have expected output records with hashes in `process_results.json` and
+output-manifest artifact records.
 
 The manifest should also include normal EngLang runtime artifacts when the
 example is run with `--save-artifacts`.

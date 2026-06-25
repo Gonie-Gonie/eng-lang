@@ -69,22 +69,25 @@ with {
 
 simulation_result = run command "python"
 with {
-    args = ["tools/run_external_sim.py", "--case", "case_001"]
-    expected_outputs = ["outputs/case_001/result.json"]
+    args = ["tools/run_external_sim.py", "--case", "case_001", "--input", "outputs/case_001/input.txt", "--out", "outputs/case_001/result.json", "--log", "outputs/case_001/simulator.log"]
+    tool_version = "fake-external-sim 1.0"
+    expected_outputs = ["outputs/case_001/result.json", "outputs/case_001/simulator.log"]
     artifact_kind = "case_result"
 }
 
 simulation_result_002 = run command "python"
 with {
-    args = ["tools/run_external_sim.py", "--case", "case_002"]
-    expected_outputs = ["outputs/case_002/result.json"]
+    args = ["tools/run_external_sim.py", "--case", "case_002", "--input", "outputs/case_002/input.txt", "--out", "outputs/case_002/result.json", "--log", "outputs/case_002/simulator.log"]
+    tool_version = "fake-external-sim 1.0"
+    expected_outputs = ["outputs/case_002/result.json", "outputs/case_002/simulator.log"]
     artifact_kind = "case_result"
 }
 
 simulation_result_003 = run command "python"
 with {
-    args = ["tools/run_external_sim.py", "--case", "case_003"]
-    expected_outputs = ["outputs/case_003/result.json"]
+    args = ["tools/run_external_sim.py", "--case", "case_003", "--input", "outputs/case_003/input.txt", "--out", "outputs/case_003/result.json", "--log", "outputs/case_003/simulator.log"]
+    tool_version = "fake-external-sim 1.0"
+    expected_outputs = ["outputs/case_003/result.json", "outputs/case_003/simulator.log"]
     artifact_kind = "case_result"
 }
 

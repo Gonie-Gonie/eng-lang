@@ -8,7 +8,7 @@ promoted sample table artifact with case IDs, parameter ranges, and row-hash pre
 schema constraint policy results for sample and prediction ranges
 explicit process boundaries for input patching, simulation, collection, case manifests,
 training, prediction, and DB write manifests
-expected output contracts and hashed patched inputs for every external process boundary
+expected output contracts, tool-version metadata, stdout/stderr hashes, and hashed patched/simulator outputs for every external process boundary
 three generated case manifests with case directories, process statuses, result files, metrics, and failure reasons
 case input, case result, and case manifest artifact kinds in output_manifest.json
 one generated workflow summary CSV

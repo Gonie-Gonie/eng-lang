@@ -4,8 +4,13 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
+
+
+def file_hash(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
 def main() -> int:
@@ -13,12 +18,20 @@ def main() -> int:
     parser.add_argument("--case", required=True)
     parser.add_argument("--input")
     parser.add_argument("--out")
+    parser.add_argument("--log")
     args = parser.parse_args()
 
     if args.input is None:
         args.input = f"outputs/{args.case}/input.txt"
     if args.out is None:
         args.out = f"outputs/{args.case}/result.json"
+    if args.log is None:
+        args.log = f"outputs/{args.case}/simulator.log"
+
+    input_path = Path(args.input)
+    if not input_path.exists():
+        raise SystemExit(f"input file not found: {args.input}")
+    input_digest = file_hash(input_path)
 
     metrics_by_case = {
         "case_001": {
@@ -48,11 +61,28 @@ def main() -> int:
     result = {
         "case_id": args.case,
         **metrics,
-        "input_hash_hint": Path(args.input).name,
+        "input_hash": input_digest,
     }
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(result, indent=2), encoding="utf-8")
+
+    log = Path(args.log)
+    log.parent.mkdir(parents=True, exist_ok=True)
+    log.write_text(
+        "\n".join(
+            [
+                f"case={args.case}",
+                f"input={args.input}",
+                f"input_sha256={input_digest}",
+                f"result={args.out}",
+                "status=success",
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    print(f"simulated {args.case} -> {args.out}")
     return 0
 
 

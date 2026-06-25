@@ -6522,6 +6522,20 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"path\": \"outputs/case_001/input.txt\"")
                 || !output
                     .process_results_json
+                    .contains("\"binding\": \"simulation_result\"")
+                || !output
+                    .process_results_json
+                    .contains("\"tool_version\": \"fake-external-sim 1.0\"")
+                || !output
+                    .process_results_json
+                    .contains("\"path\": \"outputs/case_001/simulator.log\"")
+                || !output
+                    .result_json
+                    .contains("outputs/case_001/simulator.log")
+                || !output.process_results_json.contains("\"stdout_hash\": \"")
+                || !output.process_results_json.contains("\"stderr_hash\": \"")
+                || !output
+                    .process_results_json
                     .contains("\"rule\": \"exists_and_hash\"")
                 || !output
                     .process_results_json
@@ -6529,6 +6543,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/input.txt")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/case_001/simulator.log")
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/case_manifest.json")
