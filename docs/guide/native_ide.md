@@ -104,7 +104,8 @@ save/open artifacts on demand after a successful run. This keeps the IDE
 focused on code, terminal output, variables, diagnostics, and plot viewing while
 still making `review.json`, `report_spec.json`, `output_manifest.json`,
 `run_log.json`, `process_results.json`, `test_results.json`, PlotSpec, and
-plot manifest outlines inspectable.
+plot manifest outlines inspectable, including `output_manifest.json`
+`artifact_registry` sections.
 
 ## Recommended Smoke Files
 

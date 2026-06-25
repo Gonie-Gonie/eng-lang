@@ -5405,6 +5405,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !manifest.contains("\"path\": \"outputs/run_note.txt\"")
                 || !manifest.contains("\"kind\": \"write_json\"")
                 || !manifest.contains("\"path\": \"outputs/energy.json\"")
+                || !manifest.contains("\"artifact_registry\"")
+                || !manifest.contains("\"source_files\"")
+                || !manifest.contains("\"generated_files\"")
             {
                 eprintln!("expected write/output manifest example to produce export, write, and output manifest artifacts");
                 return ExitCode::from(2);
@@ -5496,6 +5499,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !process_results.contains("\"status\": \"completed\"")
                 || !process_results.contains("eng-process-ok")
                 || !manifest.contains("\"kind\": \"process_results\"")
+                || !manifest.contains("\"external_commands\"")
+                || !manifest.contains("\"stdout_hash\"")
             {
                 eprintln!(
                     "expected process result example to produce review, process_results command/cwd/args/exit-code fields, and manifest records"
@@ -5532,6 +5537,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !test_results.contains("\"artifact\": \"summary.csv\"")
                 || !test_results.contains("\"message\": \"golden matched\"")
                 || !manifest.contains("\"kind\": \"test_results\"")
+                || !manifest.contains("\"tests\"")
+                || !manifest.contains("\"assertion_count\"")
+                || !manifest.contains("\"golden_count\"")
             {
                 eprintln!(
                     "expected test/assert/golden example to produce named tests, assertions, golden comparison status, and manifest records"
@@ -6453,6 +6461,11 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"report_html\"")
+                || !output.output_manifest_json.contains("\"db_writes\"")
+                || !output.output_manifest_json.contains("\"model_artifacts\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"external_commands\"")
                 || !output.review_json.contains("database_target")
                 || !output.review_json.contains("predictions.rows")
             {
@@ -6485,6 +6498,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             let review = std::fs::read_to_string(output.review_path).unwrap_or_default();
             let report_spec = std::fs::read_to_string(output.report_spec_path).unwrap_or_default();
             let plot_spec = std::fs::read_to_string(output.plot_spec_path).unwrap_or_default();
+            let output_manifest =
+                std::fs::read_to_string(output.output_manifest_path).unwrap_or_default();
             if !result.contains("\"ml\"")
                 || !result.contains("\"model_cards\"")
                 || !result.contains("\"rmse\"")
@@ -6500,6 +6515,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !report_spec.contains("\"target_quantity\"")
                 || !plot_spec.contains("\"plot_type\": \"scatter\"")
                 || !plot_spec.contains("Regression parity")
+                || !output_manifest.contains("\"artifact_registry\"")
+                || !output_manifest.contains("\"model_artifacts\"")
+                || !output_manifest.contains("\"training_data_hash\"")
             {
                 eprintln!(
                     "expected data-driven example to produce ML metrics, model-card summary, target contract, leakage lint, and parity plot"
@@ -6680,9 +6698,18 @@ report {
                         .join("result")
                         .join("plots")
                         .join("plot_spec.json");
-                    if !report_spec.exists() || !plot_spec.exists() {
+                    let output_manifest = output
+                        .bundle_path
+                        .join("build")
+                        .join("result")
+                        .join("output_manifest.json");
+                    let manifest = std::fs::read_to_string(&output_manifest).unwrap_or_default();
+                    if !report_spec.exists()
+                        || !plot_spec.exists()
+                        || !manifest.contains("\"artifact_registry\"")
+                    {
                         eprintln!(
-                            "expected standalone runner to produce report and PlotSpec artifacts"
+                            "expected standalone runner to produce report, PlotSpec, and output manifest artifacts"
                         );
                         return ExitCode::from(2);
                     }
@@ -6725,16 +6752,24 @@ report {
                         .join("result")
                         .join("plots")
                         .join("plot_spec.json");
+                    let output_manifest_path = output
+                        .bundle_path
+                        .join("build")
+                        .join("result")
+                        .join("output_manifest.json");
                     let result = std::fs::read_to_string(&result_path).unwrap_or_default();
                     let plot_spec = std::fs::read_to_string(&plot_spec_path).unwrap_or_default();
+                    let output_manifest =
+                        std::fs::read_to_string(&output_manifest_path).unwrap_or_default();
                     if !result.contains("\"binding\": \"rmse_T\"")
                         || !result.contains("\"validations\"")
                         || !result.contains("\"time_alignments\"")
                         || !plot_spec.contains("\"name\": \"measured_data.T_zone\"")
                         || !plot_spec.contains("\"name\": \"sim.T_zone\"")
+                        || !output_manifest.contains("\"artifact_registry\"")
                     {
                         eprintln!(
-                            "expected measured-vs-simulated standalone runner to produce metric, validation, alignment, and multi-series plot artifacts"
+                            "expected measured-vs-simulated standalone runner to produce metric, validation, alignment, multi-series plot, and output manifest artifacts"
                         );
                         return ExitCode::from(2);
                     }

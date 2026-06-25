@@ -118,8 +118,8 @@ and next cleanup action.
   results, output manifests, and safe/normal/repro profiles.
 - Main internal: broader filesystem/process policy plus `eng.net`, `eng.cache`,
   native `eng.db` SQLite writes, and `eng.model` public syntax are planned;
-  DB manifest summaries and internal model-card summaries are supported as
-  artifact seeds.
+  DB manifest summaries, output-manifest `artifact_registry` summaries,
+  and internal model-card summaries are supported as artifact seeds.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 
@@ -133,7 +133,8 @@ and next cleanup action.
   hybrid examples define target contracts for future generic modules, including
   promoted table diagnostics, promoted sample-table summaries, promoted case
   manifest seeds, time-axis coverage summaries, process-generated case
-  manifests, typed model-card summaries with target contracts and hashes,
+  manifests, generic output-manifest artifact registry records, typed
+  model-card summaries with target contracts and hashes,
   predictions, and DB side-effect manifest summaries.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.

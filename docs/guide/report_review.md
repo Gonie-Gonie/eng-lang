@@ -292,11 +292,22 @@ Current output manifest contract:
 format = eng-output-manifest-v1
 runtime_version
 source_path
+execution_profile
 artifact_count
 artifacts:
   kind
   path
   hash
+artifact_registry:
+  source_files
+  generated_files
+  external_commands
+  network_requests
+  db_writes
+  model_artifacts
+  caches
+  tests
+profile_diagnostics
 ```
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
@@ -304,7 +315,9 @@ Common `kind` values include `csv_export`, `write_text`, `write_json`,
 `run_log`, `process_results`, and `test_results`.
 
 Use it when a tool needs to show exactly which files a run produced without
-guessing from the directory layout.
+guessing from the directory layout. The `artifact_registry` section normalizes
+source files, generated files, external command boundaries, DB writes, model
+artifacts, cache/network placeholders, and named test records for review tools.
 
 ## `run_log.json`
 

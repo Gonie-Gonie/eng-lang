@@ -407,6 +407,7 @@ pub fn run_source(
     let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
     let test_results = execute_tests(&check_report, &runtime_data, &result_dir)?;
     let test_results_json = test_results_json(&check_report, &test_results);
+    let db_manifest_records = db_manifest_records(&process_results);
     let csv_export_paths = csv_export_artifacts
         .iter()
         .map(|artifact| artifact.absolute_path.clone())
@@ -562,6 +563,13 @@ pub fn run_source(
         &output_artifacts,
         &options.profile,
         &profile_diagnostics,
+        &ArtifactRegistryContext {
+            report: &check_report,
+            runtime_data: &runtime_data,
+            process_results: &process_results,
+            db_manifest_records: &db_manifest_records,
+            test_results: &test_results,
+        },
     );
     if artifacts_saved || !output_artifacts.is_empty() {
         fs::create_dir_all(&result_dir)?;
@@ -1992,6 +2000,14 @@ struct OutputArtifact {
     absolute_path: PathBuf,
 }
 
+struct ArtifactRegistryContext<'a> {
+    report: &'a CheckReport,
+    runtime_data: &'a RuntimeData,
+    process_results: &'a [ProcessExecutionRecord],
+    db_manifest_records: &'a [DbManifestRecord],
+    test_results: &'a [TestExecutionRecord],
+}
+
 fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<OutputArtifact> {
     records
         .iter()
@@ -2364,6 +2380,7 @@ fn output_manifest_json(
     artifacts: &[OutputArtifact],
     profile: &ExecutionProfile,
     profile_diagnostics: &[ProfileDiagnostic],
+    registry: &ArtifactRegistryContext<'_>,
 ) -> String {
     let mut json = String::new();
     json.push_str("{\n");
@@ -2402,11 +2419,267 @@ fn output_manifest_json(
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str("  \"artifact_registry\": {\n");
+    push_artifact_registry_json(&mut json, artifacts, registry);
+    json.push_str("\n  },\n");
     json.push_str("  \"profile_diagnostics\": [\n");
     push_profile_diagnostics_json(&mut json, profile_diagnostics, "    ");
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
+}
+
+fn push_artifact_registry_json(
+    json: &mut String,
+    artifacts: &[OutputArtifact],
+    registry: &ArtifactRegistryContext<'_>,
+) {
+    json.push_str("    \"format\": \"eng-artifact-registry-v1\",\n");
+    json.push_str("    \"source_files\": [\n");
+    json.push_str("      {\n");
+    json.push_str("        \"kind\": \"source_file\",\n");
+    json.push_str("        \"binding\": \"program\",\n");
+    json.push_str(&format!(
+        "        \"path\": \"{}\",\n",
+        json_escape(&registry.report.source_path.display().to_string())
+    ));
+    json.push_str(&format!(
+        "        \"hash\": \"{}\",\n",
+        json_escape(&registry.report.source_hash)
+    ));
+    json.push_str("        \"status\": \"loaded\",\n");
+    json.push_str("        \"line\": 1\n");
+    json.push_str("      }");
+    for promotion in &registry.report.semantic_program.csv_promotions {
+        json.push_str(",\n      {\n");
+        json.push_str("        \"kind\": \"source_file\",\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&promotion.binding)
+        ));
+        json.push_str(&format!(
+            "        \"path\": \"{}\",\n",
+            json_escape(&promotion.resolved_path)
+        ));
+        push_optional_json_string_runtime(json, "hash", promotion.source_hash.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"schema\": \"{}\",\n",
+            json_escape(&promotion.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"row_count\": {},\n",
+            promotion.row_count
+        ));
+        json.push_str("        \"status\": \"promoted_csv\",\n");
+        json.push_str(&format!("        \"line\": {}\n", promotion.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"generated_files\": [\n");
+    for (index, artifact) in artifacts.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&artifact.kind)
+        ));
+        json.push_str(&format!(
+            "        \"class\": \"{}\",\n",
+            json_escape(artifact_record_class(&artifact.kind))
+        ));
+        json.push_str(&format!(
+            "        \"path\": \"{}\",\n",
+            json_escape(&artifact.path)
+        ));
+        json.push_str(&format!(
+            "        \"hash\": \"{}\",\n",
+            json_escape(&artifact.hash)
+        ));
+        json.push_str("        \"status\": \"generated\"\n");
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"external_commands\": [\n");
+    for (index, process) in registry.process_results.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&process.binding)
+        ));
+        json.push_str(&format!(
+            "        \"command\": \"{}\",\n",
+            json_escape(&process.command)
+        ));
+        push_optional_json_string_runtime(json, "tool_version", process.tool_version.as_deref(), 8);
+        json.push_str("        \"args\": ");
+        push_json_string_array_runtime(json, &process.args);
+        json.push_str(",\n");
+        json.push_str(&format!(
+            "        \"cwd\": \"{}\",\n",
+            json_escape(&process.cwd)
+        ));
+        json.push_str(&format!(
+            "        \"expected_output_count\": {},\n",
+            process.expected_outputs.len()
+        ));
+        json.push_str(&format!(
+            "        \"expected_output_status\": \"{}\",\n",
+            json_escape(&process.expected_output_status)
+        ));
+        json.push_str(&format!(
+            "        \"stdout_hash\": \"{}\",\n",
+            json_escape(&process.stdout_hash)
+        ));
+        json.push_str(&format!(
+            "        \"stderr_hash\": \"{}\",\n",
+            json_escape(&process.stderr_hash)
+        ));
+        json.push_str(&format!("        \"success\": {},\n", process.success));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&process.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", process.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"network_requests\": [],\n");
+
+    json.push_str("    \"db_writes\": [\n");
+    for (index, record) in registry.db_manifest_records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
+        json.push_str(&format!(
+            "        \"manifest_path\": \"{}\",\n",
+            json_escape(&record.manifest_path)
+        ));
+        push_optional_json_string_runtime(json, "hash", record.hash.as_deref(), 8);
+        push_optional_json_string_runtime(json, "database", record.database.as_deref(), 8);
+        push_optional_json_string_runtime(
+            json,
+            "transaction_status",
+            record.transaction_status.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"table_count\": {},\n",
+            record.tables.len()
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&record.status)
+        ));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"model_artifacts\": [\n");
+    let mut model_index = 0usize;
+    for artifact in registry
+        .runtime_data
+        .ml_artifacts
+        .iter()
+        .filter(|artifact| artifact.model_artifact_hash.is_some() || artifact.model_card.is_some())
+    {
+        if model_index > 0 {
+            json.push_str(",\n");
+        }
+        model_index += 1;
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&artifact.binding)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&artifact.kind)
+        ));
+        push_optional_json_string_runtime(json, "source", artifact.source.as_deref(), 8);
+        push_optional_json_string_runtime(json, "target", artifact.target.as_deref(), 8);
+        push_optional_json_string_runtime(
+            json,
+            "target_quantity",
+            artifact.target_quantity.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"target_unit\": \"{}\",\n",
+            json_escape(&artifact.display_unit)
+        ));
+        push_optional_json_string_runtime(
+            json,
+            "training_data_hash",
+            artifact.training_data_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string_runtime(
+            json,
+            "model_artifact_hash",
+            artifact.model_artifact_hash.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&artifact.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", artifact.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"caches\": [],\n");
+
+    json.push_str("    \"tests\": [\n");
+    for (index, test) in registry.test_results.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&test.name)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&test.status)
+        ));
+        json.push_str(&format!(
+            "        \"assertion_count\": {},\n",
+            test.assertion_records.len()
+        ));
+        json.push_str(&format!(
+            "        \"golden_count\": {},\n",
+            test.golden_records.len()
+        ));
+        json.push_str(&format!("        \"line\": {}\n", test.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ]");
+}
+
+fn artifact_record_class(kind: &str) -> &'static str {
+    match kind {
+        "review" | "report_spec" | "report_html" | "result" | "plot_spec" | "plot_svg"
+        | "plot_manifest" | "bytecode" | "run_log" => "review_artifact",
+        "process_results" | "process_expected_output" => "external_boundary",
+        "db_write_manifest" => "db_write",
+        "test_results" => "test",
+        _ => "generated_file",
+    }
 }
 
 fn csv_export_header(field: &eng_compiler::CsvExportFieldInfo) -> String {
@@ -6316,6 +6589,11 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"write_text\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"artifact_registry\""));
+        assert!(output.output_manifest_json.contains("\"source_files\""));
+        assert!(output.output_manifest_json.contains("\"generated_files\""));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
     }
@@ -6875,6 +7153,9 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_results\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"external_commands\""));
     }
 
     #[test]
@@ -6922,6 +7203,7 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_expected_output\""));
+        assert!(output.output_manifest_json.contains("\"generated_files\""));
     }
 
     #[test]
@@ -6994,6 +7276,7 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"db_write_manifest\""));
+        assert!(output.output_manifest_json.contains("\"db_writes\""));
     }
 
     #[test]

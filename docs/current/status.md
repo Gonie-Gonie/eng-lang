@@ -152,8 +152,9 @@ public package claim prematurely.
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
     diagnostics, promoted sample-table artifacts, promoted case manifest seeds,
-    DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
-    summaries in `typed_payload.model_cards[]`, and hybrid artifact fixtures
+    DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
+    `artifact_registry` summaries, internal model-card summaries in
+    `typed_payload.model_cards[]`, and hybrid artifact fixtures
     for weather/case/model/prediction contracts; `Planned` native
     net/cache/sample generators/case runner/sqlite/model public syntax.
   - Keep domain adapters layered above generic module contracts and avoid

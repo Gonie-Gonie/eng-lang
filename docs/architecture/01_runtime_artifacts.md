@@ -236,17 +236,31 @@ Current format:
 eng-output-manifest-v1
 runtime_version
 source_path
+execution_profile
 artifact_count
 artifacts[].kind
 artifacts[].path
 artifacts[].hash
+artifact_registry.format
+artifact_registry.source_files[]
+artifact_registry.generated_files[]
+artifact_registry.external_commands[]
+artifact_registry.network_requests[]
+artifact_registry.db_writes[]
+artifact_registry.model_artifacts[]
+artifact_registry.caches[]
+artifact_registry.tests[]
+profile_diagnostics[]
 ```
 
 When `--save-artifacts` is used, this manifest lists result/report/PlotSpec/SVG
 files alongside explicit CSV exports, write outputs, file operation records,
 run-log records, and process-result records. The saved process artifact is
 listed as `process_results`; the saved test artifact is listed as
-`test_results`.
+`test_results`. The companion `artifact_registry` groups the same outputs
+with source records, external command boundaries, DB-write summaries, model
+artifact summaries, and named test records so report, review, IDE, and CI tools
+can consume one generic artifact shape.
 
 ## `.engres`
 

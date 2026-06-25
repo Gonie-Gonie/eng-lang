@@ -9,42 +9,466 @@
     "source_path",
     "execution_profile",
     "artifact_count",
+    "artifact_registry",
     "artifacts",
     "profile_diagnostics"
   ],
   "properties": {
-    "format": { "const": "eng-output-manifest-v1" },
-    "runtime_version": { "type": "string" },
-    "source_path": { "type": "string" },
-    "execution_profile": { "enum": ["safe", "normal", "repro"] },
-    "artifact_count": { "type": "integer", "minimum": 0 },
+    "format": {
+      "const": "eng-output-manifest-v1"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "execution_profile": {
+      "enum": [
+        "safe",
+        "normal",
+        "repro"
+      ]
+    },
+    "artifact_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "artifact_registry": {
+      "$ref": "#/$defs/artifactRegistry"
+    },
     "artifacts": {
       "type": "array",
-      "items": { "$ref": "#/$defs/outputArtifact" }
+      "items": {
+        "$ref": "#/$defs/outputArtifact"
+      }
     },
     "profile_diagnostics": {
       "type": "array",
-      "items": { "$ref": "#/$defs/profileDiagnostic" }
+      "items": {
+        "$ref": "#/$defs/profileDiagnostic"
+      }
     }
   },
   "$defs": {
+    "artifactRegistry": {
+      "type": "object",
+      "required": [
+        "format",
+        "source_files",
+        "generated_files",
+        "external_commands",
+        "network_requests",
+        "db_writes",
+        "model_artifacts",
+        "caches",
+        "tests"
+      ],
+      "properties": {
+        "format": {
+          "const": "eng-artifact-registry-v1"
+        },
+        "source_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceRecord"
+          }
+        },
+        "generated_files": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/artifactRecord"
+          }
+        },
+        "external_commands": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/externalBoundaryRecord"
+          }
+        },
+        "network_requests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sideEffectRecord"
+          }
+        },
+        "db_writes": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/dbWriteRecord"
+          }
+        },
+        "model_artifacts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/modelRecord"
+          }
+        },
+        "caches": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sideEffectRecord"
+          }
+        },
+        "tests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/testArtifactRecord"
+          }
+        }
+      }
+    },
+    "sourceRecord": {
+      "type": "object",
+      "required": [
+        "kind",
+        "binding",
+        "path",
+        "hash",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "kind": {
+          "const": "source_file"
+        },
+        "binding": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "schema": {
+          "type": "string"
+        },
+        "row_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "artifactRecord": {
+      "type": "object",
+      "required": [
+        "kind",
+        "class",
+        "path",
+        "hash",
+        "status"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "class": {
+          "enum": [
+            "generated_file",
+            "review_artifact",
+            "external_boundary",
+            "db_write",
+            "test"
+          ]
+        },
+        "path": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "sideEffectRecord": {
+      "type": "object",
+      "required": [
+        "kind",
+        "status"
+      ],
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "binding": {
+          "type": "string"
+        },
+        "target": {
+          "type": "string"
+        },
+        "hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "externalBoundaryRecord": {
+      "type": "object",
+      "required": [
+        "binding",
+        "command",
+        "tool_version",
+        "args",
+        "cwd",
+        "expected_output_count",
+        "expected_output_status",
+        "stdout_hash",
+        "stderr_hash",
+        "success",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": {
+          "type": "string"
+        },
+        "command": {
+          "type": "string"
+        },
+        "tool_version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "args": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cwd": {
+          "type": "string"
+        },
+        "expected_output_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "expected_output_status": {
+          "type": "string"
+        },
+        "stdout_hash": {
+          "type": "string"
+        },
+        "stderr_hash": {
+          "type": "string"
+        },
+        "success": {
+          "type": "boolean"
+        },
+        "status": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "dbWriteRecord": {
+      "type": "object",
+      "required": [
+        "binding",
+        "manifest_path",
+        "hash",
+        "database",
+        "transaction_status",
+        "table_count",
+        "status"
+      ],
+      "properties": {
+        "binding": {
+          "type": "string"
+        },
+        "manifest_path": {
+          "type": "string"
+        },
+        "hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "database": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "transaction_status": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "table_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "status": {
+          "type": "string"
+        }
+      }
+    },
+    "modelRecord": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "source",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "training_data_hash",
+        "model_artifact_hash",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string"
+        },
+        "source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_quantity": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "target_unit": {
+          "type": "string"
+        },
+        "training_data_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "model_artifact_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "testArtifactRecord": {
+      "type": "object",
+      "required": [
+        "name",
+        "status",
+        "assertion_count",
+        "golden_count",
+        "line"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "assertion_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "golden_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
     "outputArtifact": {
       "type": "object",
-      "required": ["kind", "path", "hash"],
+      "required": [
+        "kind",
+        "path",
+        "hash"
+      ],
       "properties": {
-        "kind": { "type": "string" },
-        "path": { "type": "string" },
-        "hash": { "type": "string" }
+        "kind": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "hash": {
+          "type": "string"
+        }
       }
     },
     "profileDiagnostic": {
       "type": "object",
-      "required": ["severity", "code", "message", "line"],
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "line"
+      ],
       "properties": {
-        "severity": { "enum": ["warning", "error"] },
-        "code": { "type": "string" },
-        "message": { "type": "string" },
-        "line": { "type": "integer", "minimum": 1 }
+        "severity": {
+          "enum": [
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
       }
     }
   }

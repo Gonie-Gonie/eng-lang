@@ -62,7 +62,8 @@ separate.
   test/output-manifest artifacts; `Internal` for `eng review` summary and IDE
   Review inspector plus first CLI section-hash and item-level semantic diff.
 - User-facing scope: review JSON, report HTML, report spec, result artifact,
-  output manifest, run log, process results, test results, and native tester IDE
+  output manifest with artifact registry, run log, process results, test
+  results, and native tester IDE
   inspection for the current package workflows. `review.json.review_document`
   now normalizes semantic/section hashes, inputs, schemas, units/quantities,
   time axes, symbols, derived values, calculations, report outputs,
@@ -95,8 +96,8 @@ separate.
 - Main status: `Stable`
 - User-facing scope: path helpers, provenance-visible `exists`, read
   text/json/toml, explicit write text/json, constrained copy/move/delete,
-  output manifest, run log, process results with tool version, expected-output
-  status, stdout/stderr hashes, test results, and
+  output manifest artifact registry, run log, process results with tool
+  version, expected-output status, stdout/stderr hashes, test results, and
   safe/normal/repro profiles.
 - Evidence: official examples 10 through 16, saved artifacts, side-effect
   policy docs.

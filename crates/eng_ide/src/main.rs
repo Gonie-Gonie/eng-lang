@@ -2385,6 +2385,12 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
         .get("messages")
         .and_then(Value::as_array)
         .is_some_and(|items| !items.is_empty());
+    let has_registry = effects_inspectors
+        .output_manifest
+        .get("artifact_registry")
+        .and_then(|registry| registry.get("external_commands"))
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
     let has_process = effects_inspectors
         .process_results
         .get("processes")
@@ -2396,11 +2402,12 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
         .and_then(Value::as_array)
         .is_some_and(|items| !items.is_empty())
         && review_document_has_external_boundary(&effects_inspectors.review_document);
-    if !has_manifest || !has_run_log || !has_process || !has_review_document {
+    if !has_manifest || !has_registry || !has_run_log || !has_process || !has_review_document {
         return Err(format!(
-            "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={}, review={})",
+            "{} did not produce IDE side-effect inspector metadata (manifest={}, registry={}, run_log={}, process={}, review={})",
             effects_example.display(),
             has_manifest,
+            has_registry,
             has_run_log,
             has_process,
             has_review_document
@@ -3269,6 +3276,12 @@ fn smoke() -> Result<(), String> {
         .get("messages")
         .and_then(Value::as_array)
         .is_some_and(|items| !items.is_empty());
+    let has_registry = effects_inspectors
+        .output_manifest
+        .get("artifact_registry")
+        .and_then(|registry| registry.get("external_commands"))
+        .and_then(Value::as_array)
+        .is_some_and(|items| !items.is_empty());
     let has_process = effects_inspectors
         .process_results
         .get("processes")
@@ -3276,11 +3289,12 @@ fn smoke() -> Result<(), String> {
         .is_some_and(|items| !items.is_empty());
     let has_review_boundary =
         review_document_has_external_boundary(&effects_inspectors.review_document);
-    if !has_manifest || !has_run_log || !has_process || !has_review_boundary {
+    if !has_manifest || !has_registry || !has_run_log || !has_process || !has_review_boundary {
         return Err(format!(
-            "{} did not produce IDE side-effect inspector metadata (manifest={}, run_log={}, process={}, review_boundary={})",
+            "{} did not produce IDE side-effect inspector metadata (manifest={}, registry={}, run_log={}, process={}, review_boundary={})",
             effects_example.display(),
             has_manifest,
+            has_registry,
             has_run_log,
             has_process,
             has_review_boundary

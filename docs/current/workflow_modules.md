@@ -39,7 +39,7 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.case` | Supported sample-row artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics; per-case dirs/process manifests planned |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
-| `eng.artifact` | Supported seed | output manifests, hashes, report/review links |
+| `eng.artifact` | Supported seed | output manifests, artifact_registry records, hashes, report/review links |
 | `eng.db` | Supported DB-manifest artifact seed; planned native sqlite | DB side-effect manifest summaries; SQLite/open database writes with transaction artifacts planned |
 | `eng.model` | Supported model-card artifact seed; planned public syntax | model cards, target quantity/unit, metrics, residual plots, training/model hashes |
 
@@ -86,7 +86,10 @@ diagnostics and warnings
 source span
 ```
 
-For generated files, `output_manifest.json` is the minimum public record. For
+For generated files, `output_manifest.json` is the minimum public record. Its
+`artifact_registry` section gives source files, generated files, external
+commands, network/cache placeholders, DB writes, model artifacts, and tests a
+shared review shape. For
 external processes, `process_results.json` records command, args, cwd, tool
 version, stdout/stderr hashes, expected outputs, output hashes, duration, and
 status. For
