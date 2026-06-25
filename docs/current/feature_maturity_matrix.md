@@ -181,7 +181,8 @@ separate.
 - User-facing scope: none until a supported workflow has language, runtime,
   report/review, IDE, and tests aligned.
 - Evidence: internal uncertainty example, diagnostics, deterministic samples,
-  scalar `typed_payload.numeric_values`, propagation metadata, validated
+  scalar `typed_payload.numeric_values`, narrow measured/interval arithmetic
+  artifacts, propagation metadata, validated
   `with { uncertainty = ... }` review policy metadata, direct-compare
   diagnostics, explicit uncertainty statistic/probability validation
   type-checking, runtime pass/fail materialization for explicit statistic,

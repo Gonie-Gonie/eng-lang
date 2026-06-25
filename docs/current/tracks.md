@@ -57,7 +57,8 @@ and next cleanup action.
 - Purpose: make uncertainty sources and propagation reviewable.
 - Public scope: none beyond internal examples unless explicitly documented.
 - Main internal: deterministic samples, diagnostics, scalar runtime numeric
-  payloads, narrow arithmetic propagation, validated propagation policy
+  payloads, narrow measured/interval arithmetic propagation, validated
+  propagation policy
   metadata, `review.json` summary/propagation sections, explicit
   statistic/probability validation type-checking, runtime pass/fail
   materialization for explicit statistic/probability/between validations, and

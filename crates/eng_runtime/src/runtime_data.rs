@@ -3816,11 +3816,21 @@ fn materialize_uncertainty(
         (info.kind == "Ensemble" || is_propagation) && source.is_none()
     };
 
+    let arithmetic_propagation = if is_arithmetic_derivation && !source_missing {
+        arithmetic_uncertainty_propagation(info, prior, requested_count)
+    } else {
+        None
+    };
+    let arithmetic_status = arithmetic_propagation
+        .as_ref()
+        .map(|propagation| propagation.status.clone());
+
     let mut samples = match info.kind.as_str() {
         _ if is_arithmetic_derivation && source_missing => Vec::new(),
-        _ if is_arithmetic_derivation => {
-            arithmetic_uncertainty_samples(info, prior, requested_count).unwrap_or_default()
-        }
+        _ if is_arithmetic_derivation => arithmetic_propagation
+            .as_ref()
+            .map(|propagation| propagation.samples.clone())
+            .unwrap_or_default(),
         "Measured" => match (declared_mean, declared_stddev) {
             (Some(mean), Some(stddev)) => normal_samples(mean, stddev, requested_count.max(3)),
             (Some(mean), None) => vec![mean],
@@ -3896,11 +3906,13 @@ fn materialize_uncertainty(
         } else if arithmetic_evaluation_unavailable {
             "arithmetic_evaluation_unavailable".to_owned()
         } else if is_arithmetic_derivation {
-            if info.method.as_deref() == Some("interval") {
-                "propagated_interval_arithmetic".to_owned()
-            } else {
-                "propagated_linear_arithmetic".to_owned()
-            }
+            arithmetic_status.unwrap_or_else(|| {
+                if info.method.as_deref() == Some("interval") {
+                    "propagated_interval_arithmetic".to_owned()
+                } else {
+                    "propagated_linear_arithmetic".to_owned()
+                }
+            })
         } else if is_propagation {
             "propagated_linear".to_owned()
         } else if info.kind == "Measured" {
@@ -3912,23 +3924,142 @@ fn materialize_uncertainty(
     }
 }
 
-fn arithmetic_uncertainty_samples(
+#[derive(Clone, Debug)]
+struct RuntimeArithmeticPropagation {
+    samples: Vec<f64>,
+    status: String,
+}
+
+fn arithmetic_uncertainty_propagation(
     info: &eng_compiler::UncertaintyInfo,
     prior: &[RuntimeUncertainty],
     requested_count: usize,
-) -> Option<Vec<f64>> {
-    let sources = info
-        .propagation
+) -> Option<RuntimeArithmeticPropagation> {
+    let sources = arithmetic_uncertainty_sources(info, prior);
+    if sources.is_empty() {
+        return None;
+    }
+    if let Some(samples) = measured_linear_arithmetic_samples(info, &sources, requested_count) {
+        let status = if sources.len() > 1 {
+            "propagated_independent_linear_arithmetic"
+        } else {
+            "propagated_linear_arithmetic"
+        };
+        return Some(RuntimeArithmeticPropagation {
+            samples,
+            status: status.to_owned(),
+        });
+    }
+    if let Some(samples) = interval_corner_arithmetic_samples(info, &sources) {
+        return Some(RuntimeArithmeticPropagation {
+            samples,
+            status: "propagated_interval_arithmetic".to_owned(),
+        });
+    }
+    sampled_arithmetic_samples(info, &sources, requested_count).map(|samples| {
+        RuntimeArithmeticPropagation {
+            samples,
+            status: if info.method.as_deref() == Some("interval") {
+                "propagated_interval_arithmetic".to_owned()
+            } else {
+                "propagated_linear_arithmetic".to_owned()
+            },
+        }
+    })
+}
+
+fn arithmetic_uncertainty_sources<'a>(
+    info: &eng_compiler::UncertaintyInfo,
+    prior: &'a [RuntimeUncertainty],
+) -> Vec<&'a RuntimeUncertainty> {
+    info.propagation
         .iter()
         .filter_map(|term| {
             prior
                 .iter()
                 .find(|uncertainty| uncertainty.binding == term.source)
         })
-        .collect::<Vec<_>>();
-    if sources.is_empty() {
+        .collect()
+}
+
+fn measured_linear_arithmetic_samples(
+    info: &eng_compiler::UncertaintyInfo,
+    sources: &[&RuntimeUncertainty],
+    requested_count: usize,
+) -> Option<Vec<f64>> {
+    if !sources.iter().all(|source| source.kind == "Measured") {
         return None;
     }
+    let mut means = HashMap::new();
+    for source in sources {
+        means.insert(source.binding.clone(), source.mean?);
+    }
+    let parsed = parse_runtime_arithmetic_expression(info, &means, sources)?;
+    let mean = parsed.evaluate(&means).ok()?;
+    let mut variance = 0.0;
+    for source in sources {
+        let stddev = source.stddev?;
+        if stddev == 0.0 {
+            continue;
+        }
+        let base = means.get(&source.binding).copied()?;
+        let step = (base.abs() * 1.0e-6).max(1.0e-6);
+        let mut plus = means.clone();
+        plus.insert(source.binding.clone(), base + step);
+        let mut minus = means.clone();
+        minus.insert(source.binding.clone(), base - step);
+        let derivative =
+            (parsed.evaluate(&plus).ok()? - parsed.evaluate(&minus).ok()?) / (2.0 * step);
+        variance += derivative * derivative * stddev * stddev;
+    }
+    Some(normal_samples(
+        mean,
+        variance.sqrt(),
+        requested_count.max(3),
+    ))
+}
+
+fn interval_corner_arithmetic_samples(
+    info: &eng_compiler::UncertaintyInfo,
+    sources: &[&RuntimeUncertainty],
+) -> Option<Vec<f64>> {
+    if sources.is_empty() || !sources.iter().all(|source| source.kind == "Interval") {
+        return None;
+    }
+    if sources.len() > 8 {
+        return None;
+    }
+    let bounds = sources
+        .iter()
+        .map(|source| Some((source.binding.clone(), source.lower?, source.upper?)))
+        .collect::<Option<Vec<_>>>()?;
+    let symbols = bounds
+        .iter()
+        .map(|(binding, lower, _upper)| (binding.clone(), *lower))
+        .collect::<HashMap<_, _>>();
+    let parsed = parse_runtime_arithmetic_expression(info, &symbols, sources)?;
+    let corner_count = 1usize << bounds.len();
+    let mut samples = Vec::with_capacity(corner_count);
+    for mask in 0..corner_count {
+        let mut corner = HashMap::new();
+        for (index, (binding, lower, upper)) in bounds.iter().enumerate() {
+            let value = if (mask & (1usize << index)) == 0 {
+                *lower
+            } else {
+                *upper
+            };
+            corner.insert(binding.clone(), value);
+        }
+        samples.push(parsed.evaluate(&corner).ok()?);
+    }
+    Some(samples)
+}
+
+fn sampled_arithmetic_samples(
+    info: &eng_compiler::UncertaintyInfo,
+    sources: &[&RuntimeUncertainty],
+    requested_count: usize,
+) -> Option<Vec<f64>> {
     let count = sources
         .iter()
         .map(|source| source.samples.len())
@@ -3957,28 +4088,7 @@ fn arithmetic_uncertainty_samples(
     if first_symbols.len() != sources.len() {
         return None;
     }
-    let symbol_units = sources
-        .iter()
-        .map(|source| {
-            (
-                source.binding.clone(),
-                ArithmeticUnitMetadata {
-                    display_unit: source.display_unit.clone(),
-                    canonical_unit: source.display_unit.clone(),
-                    quantity_kind: source.quantity_kind.clone(),
-                },
-            )
-        })
-        .collect::<HashMap<_, _>>();
-    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
-    let parsed = parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
-        &info.expression,
-        &first_symbols,
-        &symbol_units,
-        &mut ignore_units,
-        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
-    )
-    .ok()?;
+    let parsed = parse_runtime_arithmetic_expression(info, &first_symbols, sources)?;
     let mut samples = Vec::with_capacity(count);
     for index in 0..count {
         let symbols = resampled
@@ -3993,6 +4103,35 @@ fn arithmetic_uncertainty_samples(
         samples.push(parsed.evaluate(&symbols).ok()?);
     }
     Some(samples)
+}
+
+fn parse_runtime_arithmetic_expression(
+    info: &eng_compiler::UncertaintyInfo,
+    symbols: &HashMap<String, f64>,
+    sources: &[&RuntimeUncertainty],
+) -> Option<ParsedArithmeticExpression> {
+    let symbol_units = sources
+        .iter()
+        .map(|source| {
+            (
+                source.binding.clone(),
+                ArithmeticUnitMetadata {
+                    display_unit: source.display_unit.clone(),
+                    canonical_unit: source.display_unit.clone(),
+                    quantity_kind: source.quantity_kind.clone(),
+                },
+            )
+        })
+        .collect::<HashMap<_, _>>();
+    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        &info.expression,
+        symbols,
+        &symbol_units,
+        &mut ignore_units,
+        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+    )
+    .ok()
 }
 
 fn materialize_ml_artifacts(
@@ -15393,6 +15532,51 @@ Q_total = Q_meas + 2 kW
             .expect("Q_total numeric value");
         assert_eq!(numeric.representation, "Measured");
         assert_eq!(numeric.status, "uncertainty_attached");
+    }
+
+    #[test]
+    fn materializes_independent_measured_uncertainty_arithmetic() {
+        let source = r#"
+Q_left = measured(10 kW, std=1 kW)
+Q_right = measured(4 kW, std=2 kW)
+Q_sum = Q_left + Q_right
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(!report.has_errors());
+        let derived = runtime
+            .uncertainties
+            .iter()
+            .find(|uncertainty| uncertainty.binding == "Q_sum")
+            .expect("Q_sum uncertainty");
+        assert_eq!(derived.status, "propagated_independent_linear_arithmetic");
+        assert_eq!(derived.propagation_count, 2);
+        assert!((derived.mean.unwrap() - 14.0).abs() < 0.05);
+        assert!((derived.stddev.unwrap() - 5.0_f64.sqrt()).abs() < 0.05);
+    }
+
+    #[test]
+    fn materializes_interval_uncertainty_arithmetic_bounds() {
+        let source = r#"
+Q_low = interval(4 kW, 6 kW)
+Q_aux = interval(1 kW, 2 kW)
+Q_band = Q_low + Q_aux
+"#;
+        let report = eng_compiler::check_source("ok.eng", source, &CheckOptions::default());
+        let runtime = materialize_runtime_data(&report, source);
+
+        assert!(!report.has_errors());
+        let derived = runtime
+            .uncertainties
+            .iter()
+            .find(|uncertainty| uncertainty.binding == "Q_band")
+            .expect("Q_band uncertainty");
+        assert_eq!(derived.status, "propagated_interval_arithmetic");
+        assert_eq!(derived.propagation_count, 2);
+        assert_eq!(derived.kind, "Interval");
+        assert_eq!(derived.lower, Some(5.0));
+        assert_eq!(derived.upper, Some(8.0));
     }
 
     #[test]

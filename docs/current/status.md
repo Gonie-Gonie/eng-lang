@@ -126,7 +126,8 @@ public package claim prematurely.
   - Public package: `Internal`
   - Main status: `Internal`
   - Current handling: scalar runtime numeric payloads distinguish
-    Certain/uncertain representations; narrow arithmetic propagation,
+    Certain/uncertain representations; narrow measured/interval arithmetic
+    propagation,
     validated `with { uncertainty = ... }` policy metadata, review summary
     and propagation sections, direct-compare diagnostics, explicit
     statistic/probability validation type-checking, runtime pass/fail
