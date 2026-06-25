@@ -61,12 +61,13 @@ and next cleanup action.
   metadata, `review.json` summary/propagation sections, explicit
   statistic/probability validation type-checking, runtime pass/fail
   materialization for explicit statistic/probability/between validations, and
-  pointwise TimeSeries sensor standard deviation review metadata with metadata-only
-  statistics/integration/duration linkage, `sensor_std` confidence-band
+  pointwise TimeSeries sensor standard deviation review metadata, runtime
+  mean/integration `sensor_std` propagation artifacts with metadata-only
+  percentile/duration linkage, `sensor_std` confidence-band
   PlotSpec rendering, internal IDE variable/inspector metadata, plus histogram
   artifacts.
-- Next cleanup: keep as internal until probabilistic TimeSeries uncertainty,
-  full IDE projection, and tests align.
+- Next cleanup: keep as internal until full probabilistic TimeSeries
+  uncertainty propagation, full IDE projection, and tests align.
 
 ## T7 Data-Driven Modeling
 

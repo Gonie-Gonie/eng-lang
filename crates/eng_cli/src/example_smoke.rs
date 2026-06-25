@@ -6337,6 +6337,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"operation\": \"duration_above\"")
                 || !output.review_json.contains("\"operation\": \"integrate\"")
                 || !output.report_spec_json.contains("\"uncertainty\"")
+                || !output
+                    .result_json
+                    .contains("\"timeseries_uncertainty_calculations\"")
+                || !output
+                    .result_json
+                    .contains("\"status\": \"propagated_sensor_std\"")
+                || !output.result_json.contains("\"status\": \"metadata_only\"")
                 || !output.plot_spec_json.contains("\"confidence_band\"")
                 || !output.plot_spec_json.contains("\"source\": \"sensor_std\"")
                 || !output.plot_svg.contains("data-confidence-band")

@@ -3443,6 +3443,71 @@ fn result_json(
         integrations.push_str("      }");
     }
 
+    let mut timeseries_uncertainty_calculations = String::new();
+    for (index, calculation) in runtime_data
+        .timeseries_uncertainty_calculations
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            timeseries_uncertainty_calculations.push_str(",\n");
+        }
+        timeseries_uncertainty_calculations.push_str("      {\n");
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&calculation.source)
+        ));
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"operation\": \"{}\",\n",
+            json_escape(&calculation.operation)
+        ));
+        push_optional_json_string(
+            &mut timeseries_uncertainty_calculations,
+            "statistic",
+            calculation.statistic.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut timeseries_uncertainty_calculations,
+            "binding",
+            calculation.binding.as_deref(),
+            8,
+        );
+        push_optional_json_number(
+            &mut timeseries_uncertainty_calculations,
+            "nominal_value",
+            calculation.nominal_value,
+            8,
+        );
+        push_optional_json_number(
+            &mut timeseries_uncertainty_calculations,
+            "stddev",
+            calculation.stddev,
+            8,
+        );
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"unit\": \"{}\",\n",
+            json_escape(&calculation.unit)
+        ));
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"sensor_std\": {},\n",
+            calculation.sensor_std
+        ));
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"sensor_std_unit\": \"{}\",\n",
+            json_escape(&calculation.sensor_std_unit)
+        ));
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&calculation.method)
+        ));
+        timeseries_uncertainty_calculations.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&calculation.status)
+        ));
+        timeseries_uncertainty_calculations.push_str("      }");
+    }
+
     let mut uncertainties = String::new();
     for (index, uncertainty) in runtime_data.uncertainties.iter().enumerate() {
         if index > 0 {
@@ -3988,7 +4053,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4012,6 +4077,7 @@ fn result_json(
         numeric_values,
         statistics,
         integrations,
+        timeseries_uncertainty_calculations,
         metrics,
         validations,
         time_axes,

@@ -131,9 +131,10 @@ public package claim prematurely.
     and propagation sections, direct-compare diagnostics, explicit
     statistic/probability validation type-checking, runtime pass/fail
     materialization for explicit statistic/probability/between validations,
-    pointwise TimeSeries `sensor_std` review metadata, confidence-band
-    PlotSpec rendering, and internal IDE metadata are reviewable.
-  - Keep internal until probabilistic TimeSeries uncertainty runtime
+    pointwise TimeSeries `sensor_std` review metadata, runtime mean/integration
+    `sensor_std` propagation artifacts, confidence-band PlotSpec rendering, and
+    internal IDE metadata are reviewable.
+  - Keep internal until full probabilistic TimeSeries uncertainty
     propagation, full IDE projection, and tests align.
 - Reviewability / Review IR
   - Public package: `Stable` artifact family, `Internal` ReviewDocument

@@ -61,6 +61,7 @@ pub struct RuntimeData {
     pub numeric_values: Vec<RuntimeNumericValue>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
+    pub timeseries_uncertainty_calculations: Vec<RuntimeTimeSeriesUncertaintyCalculation>,
     pub uncertainties: Vec<RuntimeUncertainty>,
     pub ml_artifacts: Vec<RuntimeMlArtifact>,
     pub policy_results: Vec<RuntimePolicyResult>,
@@ -1058,6 +1059,21 @@ pub struct RuntimeIntegration {
     pub method: String,
     pub status: String,
     pub interval_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeSeriesUncertaintyCalculation {
+    pub source: String,
+    pub operation: String,
+    pub statistic: Option<String>,
+    pub binding: Option<String>,
+    pub nominal_value: Option<f64>,
+    pub stddev: Option<f64>,
+    pub unit: String,
+    pub sensor_std: f64,
+    pub sensor_std_unit: String,
+    pub method: String,
+    pub status: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2467,6 +2483,12 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_alignments = materialize_time_alignments(&data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
+    data.timeseries_uncertainty_calculations = materialize_timeseries_uncertainty_calculations(
+        report,
+        &data.time_series,
+        &data.statistics,
+        &data.integrations,
+    );
     data.uncertainties = materialize_uncertainties(report);
     data.numeric_values = materialize_numeric_values(report, &data.uncertainties);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
@@ -3014,6 +3036,175 @@ fn parse_rmse_expression(expression: &str) -> Option<(String, String)> {
     let rest = expression.trim().strip_prefix("rmse ")?;
     let (left, right) = rest.split_once(" vs ")?;
     Some((left.trim().to_owned(), right.trim().to_owned()))
+}
+
+fn materialize_timeseries_uncertainty_calculations(
+    report: &CheckReport,
+    series: &[RuntimeTimeSeries],
+    statistics: &[RuntimeStatistics],
+    integrations: &[RuntimeIntegration],
+) -> Vec<RuntimeTimeSeriesUncertaintyCalculation> {
+    let mut calculations = Vec::new();
+    for stats in statistics {
+        let Some(source_series) = series.iter().find(|series| series.name == stats.source) else {
+            continue;
+        };
+        let Some(sensor_std) = sensor_std_for_series(report, source_series) else {
+            continue;
+        };
+        for value in &stats.values {
+            let (stddev, method, status) = statistic_uncertainty_stddev(
+                &value.name,
+                source_series,
+                sensor_std.value_in_series_unit,
+            );
+            calculations.push(RuntimeTimeSeriesUncertaintyCalculation {
+                source: stats.source.clone(),
+                operation: "statistic".to_owned(),
+                statistic: Some(value.name.clone()),
+                binding: None,
+                nominal_value: Some(value.value),
+                stddev,
+                unit: value.unit.clone(),
+                sensor_std: sensor_std.original_value,
+                sensor_std_unit: sensor_std.original_unit.clone(),
+                method,
+                status,
+            });
+        }
+    }
+    for integration in integrations {
+        let Some(source_series) = series
+            .iter()
+            .find(|series| series.name == integration.source)
+        else {
+            continue;
+        };
+        let Some(sensor_std) = sensor_std_for_series(report, source_series) else {
+            continue;
+        };
+        let stddev =
+            trapezoidal_integral_uncertainty_stddev(source_series, sensor_std.value_in_series_unit);
+        calculations.push(RuntimeTimeSeriesUncertaintyCalculation {
+            source: integration.source.clone(),
+            operation: "integration".to_owned(),
+            statistic: None,
+            binding: Some(integration.binding.clone()),
+            nominal_value: (integration.status == "computed").then_some(integration.value),
+            stddev,
+            unit: integration.unit.clone(),
+            sensor_std: sensor_std.original_value,
+            sensor_std_unit: sensor_std.original_unit.clone(),
+            method: "independent_pointwise_sensor_std_trapezoidal".to_owned(),
+            status: if stddev.is_some() {
+                "propagated_sensor_std".to_owned()
+            } else {
+                "unavailable".to_owned()
+            },
+        });
+    }
+    calculations
+}
+
+#[derive(Clone, Debug)]
+struct RuntimeSensorStd {
+    original_value: f64,
+    original_unit: String,
+    value_in_series_unit: f64,
+}
+
+fn sensor_std_for_series(
+    report: &CheckReport,
+    series: &RuntimeTimeSeries,
+) -> Option<RuntimeSensorStd> {
+    let sensor_std = accepted_sensor_std_value(report, &series.name)?;
+    let (value, unit) = number_with_optional_unit(&sensor_std.value)?;
+    let unit = unit?;
+    Some(RuntimeSensorStd {
+        original_value: value,
+        original_unit: unit.clone(),
+        value_in_series_unit: convert_delta_value(value, &unit, &series.display_unit),
+    })
+}
+
+fn statistic_uncertainty_stddev(
+    name: &str,
+    series: &RuntimeTimeSeries,
+    sensor_std: f64,
+) -> (Option<f64>, String, String) {
+    if name == "mean" {
+        let count = series.points.len();
+        let stddev = (count > 0).then(|| sensor_std / (count as f64).sqrt());
+        return (
+            stddev,
+            "independent_pointwise_sensor_std_mean".to_owned(),
+            if stddev.is_some() {
+                "propagated_sensor_std".to_owned()
+            } else {
+                "unavailable".to_owned()
+            },
+        );
+    }
+    if name == "time_weighted_mean" {
+        let stddev = time_weighted_mean_uncertainty_stddev(series, sensor_std);
+        return (
+            stddev,
+            "independent_pointwise_sensor_std_time_weighted_mean".to_owned(),
+            if stddev.is_some() {
+                "propagated_sensor_std".to_owned()
+            } else {
+                "unavailable".to_owned()
+            },
+        );
+    }
+    (
+        None,
+        "pointwise_sensor_std_metadata_only".to_owned(),
+        if name.starts_with('p') || name.starts_with("duration_above(") {
+            "metadata_only".to_owned()
+        } else {
+            "unsupported_statistic".to_owned()
+        },
+    )
+}
+
+fn time_weighted_mean_uncertainty_stddev(
+    series: &RuntimeTimeSeries,
+    sensor_std: f64,
+) -> Option<f64> {
+    let total_duration = series.points.last()?.x - series.points.first()?.x;
+    if total_duration <= 0.0 {
+        return None;
+    }
+    trapezoidal_weight_square_sum(series)
+        .map(|weight_square_sum| sensor_std * weight_square_sum.sqrt() / total_duration)
+}
+
+fn trapezoidal_integral_uncertainty_stddev(
+    series: &RuntimeTimeSeries,
+    sensor_std: f64,
+) -> Option<f64> {
+    let stddev = sensor_std * trapezoidal_weight_square_sum(series)?.sqrt();
+    Some(match normalize_unit(&series.display_unit).as_str() {
+        "kw" => stddev * 1000.0,
+        _ => stddev,
+    })
+}
+
+fn trapezoidal_weight_square_sum(series: &RuntimeTimeSeries) -> Option<f64> {
+    if series.x_unit != "s" || series.points.len() < 2 {
+        return None;
+    }
+    let mut weights = vec![0.0; series.points.len()];
+    for (index, window) in series.points.windows(2).enumerate() {
+        let dt = window[1].x - window[0].x;
+        if dt <= 0.0 {
+            return None;
+        }
+        weights[index] += dt * 0.5;
+        weights[index + 1] += dt * 0.5;
+    }
+    Some(weights.iter().map(|weight| weight * weight).sum())
 }
 
 fn materialize_validations(

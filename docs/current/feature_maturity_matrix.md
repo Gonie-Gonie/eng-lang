@@ -186,12 +186,12 @@ separate.
   diagnostics, explicit uncertainty statistic/probability validation
   type-checking, runtime pass/fail materialization for explicit statistic,
   probability, and `between` validations, `review.json` summary/propagation
-  sections, pointwise
-  TimeSeries `sensor_std` review metadata with metadata-only
-  statistics/integration/duration linkage, `sensor_std` confidence-band
+  sections, pointwise TimeSeries `sensor_std` review metadata, runtime
+  mean/integration `sensor_std` propagation artifacts with metadata-only
+  percentile/duration linkage, `sensor_std` confidence-band
   PlotSpec rendering, internal IDE variable/inspector metadata, histogram
   artifacts, and the current uncertainty guide.
-- Not included: stable Monte Carlo/Jacobian propagation contract,
+- Not included: stable Monte Carlo/Jacobian propagation contract, full
   probabilistic TimeSeries uncertainty propagation/statistics, broad
   deterministic scalar-binding value propagation, or public IDE support claim.
 - Next cleanup action: route probabilistic TimeSeries uncertainty semantics
