@@ -239,7 +239,7 @@ separate.
   sample-table artifacts, promoted case manifest seeds enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
   summaries in `typed_payload.model_cards[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, and time-axis coverage artifacts;
-  hybrid fixtures now emit weather, case, model-card, and prediction artifacts
+  hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
   through explicit process/write boundaries; `Planned` for native network,
   cache, sampling generators, native case runner, SQLite writes, and model-card
   public syntax.
@@ -254,8 +254,9 @@ separate.
   data-quality diagnostics for invalid sample rows, and
   `docs/current/workflow_modules.md`.
   The external simulation hybrid now records three enriched native case manifests, collected
-  result rows, surrogate metrics, predictions, and a DB write manifest summary
-  as reviewable fixture artifacts.
+  result rows, surrogate model cards, prediction manifests with output quantity/unit
+  and hashes, and DB write manifests with schema diagnostics, table records, and
+  transaction status as reviewable fixture artifacts.
 - Not included: stable HTTP/cache API, general table filter/join/fill transforms,
   native grid/random/LHS sample generation, native case runner, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad

@@ -137,7 +137,9 @@ and next cleanup action.
   process outputs, time-axis coverage summaries, explicit generic TimeSeries coverage artifacts, process-generated case
   manifests, generic output-manifest artifact registry records, typed
   model-card summaries with target contracts and hashes,
-  predictions, and DB side-effect manifest summaries.
+  prediction manifests with output quantity/unit and model/sample hashes, and DB
+  side-effect manifests with schema diagnostics, transaction status, and table
+  write records.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

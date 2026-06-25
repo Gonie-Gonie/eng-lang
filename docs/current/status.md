@@ -158,10 +158,14 @@ public package claim prematurely.
     enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, internal model-card summaries in
     `typed_payload.model_cards[]`, and hybrid artifact fixtures
-    for weather/case/model/prediction contracts; `Planned` native
+    for weather/case/model/prediction/DB manifest contracts; `Planned` native
     net/cache/sample generators/case runner/sqlite/model public syntax.
+  - Current hybrid DB evidence includes schema diagnostics, transaction status,
+    table names, modes, keys, row counts, source hashes, and report-visible
+    DB table summaries.
   - Keep domain adapters layered above generic module contracts and avoid
     treating hybrid fixtures as native module support.
+
 ## Planned Tracks
 
 - General table formulas and arbitrary TimeSeries expression execution.
