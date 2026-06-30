@@ -63,6 +63,8 @@ Current coverage:
 - IDE smoke checks native inspector payloads for runtime table transform rows
   when the `tests/runtime/table_datetime_comparison.eng` fixture is available
   in the repo workspace.
+- IDE bootstrap exposes `stdlib/eng/modules.toml` entries to the Modules panel
+  with status, backing, purpose, and artifact metadata.
 
 Remaining gap: the separate planned spelling `eng review diff <old> <new>`
 and a native IDE semantic diff panel are still planned.

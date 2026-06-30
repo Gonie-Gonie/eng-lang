@@ -8,6 +8,7 @@ const state = {
   completions: [],
   completionItems: [],
   completionIndex: 0,
+  modules: [],
   openDirs: new Set(["examples", "examples/official", "stdlib"]),
   currentPath: "",
   runDir: "",
@@ -72,6 +73,7 @@ async function boot() {
     state.root = data.root;
     state.fileTree = data.fileTree;
     state.completions = data.completions ?? [];
+    state.modules = data.modules ?? [];
     state.currentPath = data.current.path;
     state.runDir = data.currentDir || directoryOf(data.current.path);
     state.source = data.current.source;
@@ -662,6 +664,7 @@ function renderSidePanel() {
         ${sideTabButton("checks", "Checks")}
         ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("objects", "Obj")}
+        ${sideTabButton("modules", "Modules")}
         ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("review", "Review")}
         ${sideTabButton("artifacts", "Artifacts")}
@@ -685,6 +688,7 @@ function renderSideBody() {
   if (state.sideTab === "checks") return renderChecksPanel();
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
+  if (state.sideTab === "modules") return renderModulesPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "review") return renderReviewPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
@@ -893,6 +897,20 @@ function renderObjectsPanel() {
   `;
 }
 
+function renderModulesPanel() {
+  const supported = state.modules.filter((module) => String(module.status || "").startsWith("supported")).length;
+  const planned = state.modules.filter((module) => String(module.status || "").includes("planned")).length;
+  return `
+    <div class="panel-title compact">Modules</div>
+    <div class="badges">
+      <span class="badge">Total ${state.modules.length}</span>
+      <span class="badge">Supported ${supported}</span>
+      <span class="badge">Planned ${planned}</span>
+    </div>
+    <div class="scroll">${renderModules()}</div>
+  `;
+}
+
 function renderReviewPanel() {
   const doc = inspectorObject("reviewDocument");
   const contract = doc.root_contract || doc.rootContract || {};
@@ -1034,6 +1052,23 @@ function renderReviewSchemas(schemas) {
     <table class="var-table">
       <thead><tr><th>Line</th><th>Name</th><th>Columns</th><th>Missing</th><th>Constraints</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="5" class="muted">No schemas.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderModules() {
+  const rows = state.modules.map((module) => `
+    <tr>
+      <td><strong>${escapeHtml(module.name || "-")}</strong></td>
+      <td>${escapeHtml(module.status || "-")}<div class="muted">${escapeHtml(module.backing || "-")}</div></td>
+      <td>${escapeHtml(compactText(module.purpose || "-", 120))}</td>
+      <td>${escapeHtml(Array.isArray(module.artifacts) && module.artifacts.length ? module.artifacts.join("; ") : "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Module</th><th>Status</th><th>Purpose</th><th>Artifacts</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No module registry entries.</td></tr>`}</tbody>
     </table>
   `;
 }

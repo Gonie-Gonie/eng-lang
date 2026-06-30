@@ -30,6 +30,7 @@ struct WorkspaceView {
     current_dir: String,
     check: CheckView,
     completions: Vec<CompletionView>,
+    modules: Vec<ModuleView>,
 }
 
 #[derive(Clone, Serialize)]
@@ -85,6 +86,16 @@ struct CompletionView {
     insert: String,
     detail: String,
     kind: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct ModuleView {
+    name: String,
+    status: String,
+    backing: String,
+    purpose: String,
+    artifacts: Vec<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -292,6 +303,7 @@ fn ide_bootstrap() -> Result<WorkspaceView, String> {
         current_dir: relative_to(&root, source_dir(&current_path)),
         check,
         completions: base_completion_items(),
+        modules: module_browser_items(),
     })
 }
 
@@ -925,6 +937,24 @@ fn base_completion_items() -> Vec<CompletionView> {
         });
     }
     items
+}
+
+fn module_browser_items() -> Vec<ModuleView> {
+    bundled_module_registry()
+        .map(|registry| {
+            registry
+                .modules
+                .into_iter()
+                .map(|module| ModuleView {
+                    name: module.name,
+                    status: module.status,
+                    backing: module.backing,
+                    purpose: module.purpose,
+                    artifacts: module.artifacts,
+                })
+                .collect()
+        })
+        .unwrap_or_default()
 }
 
 fn runtime_variables(output: &CachedRunOutput) -> Vec<RuntimeVariableView> {
