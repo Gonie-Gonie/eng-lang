@@ -7,7 +7,8 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, check_source, CheckOptions, CheckReport, Severity,
+    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source, CheckOptions,
+    CheckReport, Severity,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::Serialize;
@@ -809,8 +810,20 @@ fn base_completion_items() -> Vec<CompletionView> {
             kind: "snippet".to_owned(),
         });
     }
+    for module in bundled_module_registry()
+        .map(|registry| registry.modules)
+        .unwrap_or_default()
+    {
+        let detail = module.completion_detail();
+        items.push(CompletionView {
+            label: module.name.clone(),
+            insert: module.name,
+            detail,
+            kind: "stdlib".to_owned(),
+        });
+    }
+
     for stdlib in [
-        ("eng.path", "eng.path", "stdlib module: typed path helpers"),
         (
             "file(...)",
             "file(\"data/input.csv\")",
@@ -842,7 +855,6 @@ fn base_completion_items() -> Vec<CompletionView> {
             "exists args.input",
             "eng.path review-visible exists",
         ),
-        ("eng.io", "eng.io", "stdlib module: explicit IO"),
         ("read text", "read text args.input", "eng.io raw text read"),
         ("read json", "read json args.config", "eng.io raw JSON read"),
         ("read toml", "read toml args.config", "eng.io raw TOML read"),
@@ -855,11 +867,6 @@ fn base_completion_items() -> Vec<CompletionView> {
             "write json",
             "write json \"outputs/summary.json\", summary",
             "eng.io JSON output",
-        ),
-        (
-            "eng.fs",
-            "eng.fs",
-            "stdlib module: explicit filesystem effects",
         ),
         (
             "copy file",
@@ -877,64 +884,9 @@ fn base_completion_items() -> Vec<CompletionView> {
             "eng.fs delete output",
         ),
         (
-            "eng.config",
-            "eng.config",
-            "stdlib module: planned typed config",
-        ),
-        (
-            "eng.net",
-            "eng.net",
-            "planned module: HTTP/download boundary",
-        ),
-        (
-            "eng.cache",
-            "eng.cache",
-            "planned module: reproducible cache boundary",
-        ),
-        (
-            "eng.table",
-            "eng.table",
-            "planned module: schema-aware table transforms",
-        ),
-        (
-            "eng.timeseries",
-            "eng.timeseries",
-            "stdlib module: TimeSeries helpers",
-        ),
-        (
-            "eng.sampling",
-            "eng.sampling",
-            "stdlib module: promoted sample table artifacts",
-        ),
-        (
-            "eng.case",
-            "eng.case",
-            "stdlib module: promoted case manifest seeds",
-        ),
-        (
-            "eng.process",
-            "eng.process",
-            "stdlib module: explicit process boundaries",
-        ),
-        (
             "run command",
             "run command \"tool\"",
             "eng.process command boundary",
-        ),
-        (
-            "eng.db",
-            "eng.db",
-            "DB manifest seed; native SQLite planned",
-        ),
-        (
-            "eng.model",
-            "eng.model",
-            "model-card artifact seed; public syntax planned",
-        ),
-        (
-            "eng.artifact",
-            "eng.artifact",
-            "stdlib module: artifact manifest vocabulary",
         ),
         (
             "promote json config",

@@ -27,6 +27,9 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 
 ## Module Map
 
+The canonical machine-readable registry is `stdlib/eng/modules.toml`. The table
+below is a reader-facing summary and must stay consistent with that registry.
+
 | Module | Current status | Purpose |
 |---|---|---|
 | `eng.path` | Supported through built-ins | typed paths, joins, names, existence checks |
@@ -42,9 +45,13 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 | `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
 | `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
+| `eng.quality` | Planned | data expectations, quality summaries, and reportable validation results |
+| `eng.template` | Planned | generated input rendering and template provenance |
 | `eng.artifact` | Supported seed | output manifests, artifact_registry records, hashes, report/review links |
 | `eng.db` | Supported DB-manifest artifact seed; planned native sqlite | DB side-effect manifest summaries; SQLite/open database writes with transaction artifacts planned |
 | `eng.model` | Supported model-card artifact seed; planned public syntax | model cards, target quantity/unit, metrics, residual plots, training/model hashes |
+| `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and node status |
+| `eng.report` | Planned | report-facing helper vocabulary layered over report/review artifacts |
 
 These names describe module boundaries. The current implementation may expose
 some behavior as built-ins before it is factored into `.eng` stdlib modules.

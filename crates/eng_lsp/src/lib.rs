@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, check_file, check_source, CheckOptions, CheckReport,
-    ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, Severity,
+    all_quantity_completions, all_unit_infos, bundled_module_registry, check_file, check_source,
+    CheckOptions, CheckReport, ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, Severity,
 };
 use serde_json::{json, Value};
 
@@ -486,8 +486,20 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         push_completion(&mut items, &mut seen, keyword, "keyword", "EngLang keyword");
     }
 
+    for module in bundled_module_registry()
+        .map(|registry| registry.modules)
+        .unwrap_or_default()
+    {
+        push_completion(
+            &mut items,
+            &mut seen,
+            &module.name,
+            "stdlib",
+            &module.completion_detail(),
+        );
+    }
+
     for (label, detail) in [
-        ("eng.path", "stdlib module: typed path helpers"),
         ("file(\"...\")", "eng.path file literal"),
         ("dir(\"...\")", "eng.path directory literal"),
         ("join(path, name)", "eng.path join"),
@@ -495,37 +507,15 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("stem(path)", "eng.path file stem"),
         ("extension(path)", "eng.path file extension"),
         ("exists path", "eng.path review-visible exists"),
-        ("eng.io", "stdlib module: explicit IO"),
         ("read text", "eng.io raw text read"),
         ("read json", "eng.io raw JSON read"),
         ("read toml", "eng.io raw TOML read"),
         ("write text", "eng.io text output"),
         ("write json", "eng.io JSON output"),
-        ("eng.fs", "stdlib module: explicit filesystem effects"),
         ("copy file", "eng.fs copy generated output"),
         ("move file", "eng.fs move generated output"),
         ("delete file", "eng.fs delete generated output"),
-        ("eng.config", "stdlib module: planned typed config"),
-        ("eng.net", "planned module: HTTP/download boundary"),
-        ("eng.cache", "planned module: reproducible cache boundary"),
-        ("eng.table", "planned module: schema-aware table transforms"),
-        ("eng.timeseries", "stdlib module: TimeSeries helpers"),
-        (
-            "eng.sampling",
-            "stdlib module: promoted sample table artifacts",
-        ),
-        ("eng.case", "stdlib module: promoted case manifest seeds"),
-        ("eng.process", "stdlib module: explicit process boundaries"),
         ("run command", "eng.process command boundary"),
-        ("eng.db", "DB manifest seed; native SQLite planned"),
-        (
-            "eng.model",
-            "model-card artifact seed; public syntax planned",
-        ),
-        (
-            "eng.artifact",
-            "stdlib module: artifact manifest vocabulary",
-        ),
         ("promote json config", "eng.config planned JSON promotion"),
         ("promote toml config", "eng.config planned TOML promotion"),
     ] {
@@ -1202,6 +1192,9 @@ mod tests {
             .completions
             .iter()
             .any(|completion| completion.label == "eng.process"));
+        assert!(snapshot.completions.iter().any(|completion| {
+            completion.label == "eng.net" && completion.detail.contains("planned")
+        }));
 
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);

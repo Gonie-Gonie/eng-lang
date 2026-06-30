@@ -418,6 +418,55 @@ function Test-MarkdownLinks {
 
     Write-Host "Docs link check passed. Checked $($Files.Count) Markdown file(s)."
 }
+
+function Test-ModuleRegistryDocs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $RegistryPath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $ReadmePath
+    )
+
+    if (-not (Test-Path -LiteralPath $RegistryPath -PathType Leaf)) {
+        throw "missing module registry at $RegistryPath"
+    }
+    if (-not (Test-Path -LiteralPath $ReadmePath -PathType Leaf)) {
+        throw "missing stdlib README at $ReadmePath"
+    }
+
+    $RegistryText = Get-Content -LiteralPath $RegistryPath -Raw -Encoding UTF8
+    $ReadmeText = Get-Content -LiteralPath $ReadmePath -Raw -Encoding UTF8
+    $RegistryModules = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($match in [regex]::Matches($RegistryText, '(?m)^\[module\."([^"]+)"\]')) {
+        [void]$RegistryModules.Add($match.Groups[1].Value)
+    }
+    if ($RegistryModules.Count -eq 0) {
+        throw "module registry has no [module.`"eng.name`"] entries"
+    }
+
+    $ReadmeModules = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($match in [regex]::Matches($ReadmeText, '`(eng\.[a-z0-9_]+)`')) {
+        [void]$ReadmeModules.Add($match.Groups[1].Value)
+    }
+
+    $MissingFromReadme = $RegistryModules | Where-Object { -not $ReadmeModules.Contains($_) } | Sort-Object
+    $MissingFromRegistry = $ReadmeModules | Where-Object { -not $RegistryModules.Contains($_) } | Sort-Object
+    if ($MissingFromReadme.Count -gt 0 -or $MissingFromRegistry.Count -gt 0) {
+        if ($MissingFromReadme.Count -gt 0) {
+            Write-Host "Registry modules missing from stdlib README:"
+            $MissingFromReadme | ForEach-Object { Write-Host "  $_" }
+        }
+        if ($MissingFromRegistry.Count -gt 0) {
+            Write-Host "Stdlib README modules missing from registry:"
+            $MissingFromRegistry | ForEach-Object { Write-Host "  $_" }
+        }
+        throw "Module registry docs check failed."
+    }
+
+    Write-Host "Module registry docs check passed. Checked $($RegistryModules.Count) module(s)."
+}
+
 function Invoke-DocsCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -466,6 +515,9 @@ function Invoke-DocsCheck {
         }
     }
     Test-MarkdownLinks -Files $linkFiles.ToArray()
+    Test-ModuleRegistryDocs `
+        -RegistryPath (Join-Path $RepoRoot "stdlib\eng\modules.toml") `
+        -ReadmePath (Join-Path $RepoRoot "stdlib\README.md")
 
     $checked = 0
     $skipped = 0

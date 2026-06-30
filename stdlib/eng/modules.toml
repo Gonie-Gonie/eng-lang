@@ -1,0 +1,166 @@
+# EngLang native workflow module registry.
+#
+# This file is the machine-readable source for stdlib module status. The
+# matching prose lives in stdlib/README.md and docs/current/workflow_modules.md.
+
+[module."eng.path"]
+status = "supported"
+backing = "compiler_runtime_builtin"
+purpose = "Typed path helpers, joins, names, and review-visible existence checks."
+artifacts = ["review.inputs", "review.environment_dependencies"]
+
+[module."eng.io"]
+status = "supported"
+backing = "compiler_runtime_builtin"
+purpose = "Read text/json/toml, write text/json, exports, source hashes, and output hashes."
+artifacts = ["review.inputs", "review.side_effects", "output_manifest"]
+
+[module."eng.fs"]
+status = "supported_narrow"
+backing = "compiler_runtime_builtin"
+purpose = "Explicit generated-output copy, move, and delete operations."
+artifacts = ["review.side_effects", "output_manifest", "run_log"]
+
+[module."eng.log"]
+status = "supported"
+backing = "compiler_runtime_builtin"
+purpose = "Structured runtime messages and run-log records."
+artifacts = ["run_log"]
+
+[module."eng.process"]
+status = "supported_narrow"
+backing = "compiler_runtime_builtin"
+purpose = "Explicit external process boundaries with args, cwd, tool version, expected outputs, and captured output hashes."
+artifacts = ["review.external_boundaries", "process_results", "output_manifest", "run_log"]
+
+[module."eng.test"]
+status = "supported_narrow"
+backing = "compiler_runtime_builtin"
+purpose = "Local assertions, golden checks, and test-result artifacts."
+artifacts = ["test_results", "review.tests", "output_manifest"]
+
+[module."eng.table"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Promoted table diagnostics and deterministic row-selection artifacts; broader table transforms are planned."
+artifacts = ["review.inputs", "typed_payload.table_diagnostics", "typed_payload.table_selections"]
+
+[module."eng.timeseries"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "TimeSeries statistics, coverage checks, coverage metadata, and integration."
+artifacts = ["typed_payload.timeseries_coverage", "review.fallbacks"]
+
+[module."eng.sampling"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews; generators are planned."
+artifacts = ["typed_payload.sample_tables", "case_manifest"]
+
+[module."eng.case"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Case manifest artifacts with case IDs, row hashes, row diagnostics, and process-output enrichment; native runner is planned."
+artifacts = ["typed_payload.case_manifests", "case_manifest", "output_manifest"]
+
+[module."eng.artifact"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Generated artifact kinds, hashes, manifests, validation records, and report/review links."
+artifacts = ["output_manifest", "review.side_effects", "artifact_registry"]
+
+[module."eng.review"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records."
+artifacts = ["review"]
+
+[module."eng.model"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Model-card, metric, residual, prediction, and hash review artifacts; public model syntax is planned."
+artifacts = ["typed_payload.model_cards", "model_card", "model_metrics", "output_manifest"]
+
+[module."eng.db"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "DB side-effect manifest summaries; native SQLite write/upsert helpers are planned."
+artifacts = ["typed_payload.db_manifests", "db_write_manifest", "review.external_boundaries"]
+
+[module."eng.config"]
+status = "planned"
+backing = "none"
+purpose = "Typed JSON/TOML configuration promotion and validation."
+artifacts = ["review.inputs", "config_summary"]
+
+[module."eng.net"]
+status = "planned"
+backing = "none"
+purpose = "HTTP/download boundary with cache, hash, secret, retry, timeout, and repro policy."
+artifacts = ["review.external_boundaries", "output_manifest", "run_log", "cache_manifest"]
+
+[module."eng.cache"]
+status = "planned"
+backing = "none"
+purpose = "Reproducible cache keys, cache hit/miss records, pinned hashes, and invalidation policy."
+artifacts = ["cache_manifest", "review.cache", "run_log"]
+
+[module."eng.quality"]
+status = "planned"
+backing = "none"
+purpose = "Data quality expectations, validation summaries, and reportable quality results."
+artifacts = ["review.validations", "quality_report", "output_manifest"]
+
+[module."eng.template"]
+status = "planned"
+backing = "none"
+purpose = "Template rendering for explicit generated inputs and adapter boundaries."
+artifacts = ["review.side_effects", "output_manifest"]
+
+[module."eng.workflow"]
+status = "planned"
+backing = "none"
+purpose = "RunPlan, run lock, dependency graph, rerun decisions, and workflow node status."
+artifacts = ["run_plan", "run_lock", "output_manifest", "run_log"]
+
+[module."eng.report"]
+status = "planned"
+backing = "none"
+purpose = "Report-facing helper vocabulary layered over existing report/review artifacts."
+artifacts = ["report", "review", "output_manifest"]
+
+[module."eng.stats"]
+status = "planned"
+backing = "none"
+purpose = "Semantic statistics helpers for TimeSeries and tables."
+artifacts = ["review.statistics"]
+
+[module."eng.plot"]
+status = "planned"
+backing = "none"
+purpose = "PlotSpec-oriented helper vocabulary above current plot built-ins."
+artifacts = ["plotspec", "plot_manifest", "output_manifest"]
+
+[module."eng.building"]
+status = "planned"
+backing = "none"
+purpose = "Building, zone, and construction object vocabulary before domain simulation adapters."
+artifacts = ["review.objects"]
+
+[module."eng.system"]
+status = "internal_planned"
+backing = "internal"
+purpose = "Solver-facing adapters and metadata, not the public identity of stdlib."
+artifacts = ["review.systems", "system_ir"]
+
+[module."eng.ml"]
+status = "internal"
+backing = "compiler_runtime_builtin"
+purpose = "Internal data-driven modeling vocabulary, target contracts, and model-card artifacts."
+artifacts = ["typed_payload.ml", "typed_payload.model_cards"]
+
+[module."eng.uncertainty"]
+status = "internal"
+backing = "compiler_runtime_builtin"
+purpose = "Constructor, propagation, and uncertainty review vocabulary."
+artifacts = ["typed_payload.uncertainties", "review.uncertainty"]

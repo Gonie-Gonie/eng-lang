@@ -5,6 +5,7 @@ mod formatter;
 mod hover;
 mod lexer;
 mod ml;
+mod module_registry;
 mod parser;
 mod quantities;
 mod schema;
@@ -41,6 +42,10 @@ pub use formatter::{format_source, format_source_with_options, FormatOptions, Fo
 pub use hover::HoverHint;
 pub use lexer::{Keyword, Symbol, Token, TokenKind};
 pub use ml::MlInfo;
+pub use module_registry::{
+    bundled_module_registry, load_module_registry, parse_module_registry, ModuleRegistry,
+    ModuleRegistryEntry, ModuleRegistryError,
+};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};

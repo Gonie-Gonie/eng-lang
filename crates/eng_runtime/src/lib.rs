@@ -315,6 +315,7 @@ pub fn doctor(repo_root: &Path) -> DoctorReport {
         "Unit registry",
         &repo_root.join("stdlib").join("units.eng"),
     ));
+    checks.push(module_registry_check(repo_root));
     checks.push(DoctorCheck {
         name: "Plot renderer",
         ok: !eng_report::render_svg("doctor").is_empty(),
@@ -797,6 +798,22 @@ fn file_check(name: &'static str, path: &Path) -> DoctorCheck {
         name,
         ok: path.exists(),
         detail: path.display().to_string(),
+    }
+}
+
+fn module_registry_check(repo_root: &Path) -> DoctorCheck {
+    let path = repo_root.join("stdlib").join("eng").join("modules.toml");
+    match eng_compiler::load_module_registry(&path) {
+        Ok(registry) => DoctorCheck {
+            name: "Module registry",
+            ok: true,
+            detail: format!("{} module(s) in {}", registry.modules.len(), path.display()),
+        },
+        Err(error) => DoctorCheck {
+            name: "Module registry",
+            ok: false,
+            detail: error.to_string(),
+        },
     }
 }
 

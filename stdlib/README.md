@@ -10,6 +10,8 @@ check, review, and report.
 Current `stdlib/eng/*.eng` files are declarative module boundary notes unless a
 status document says otherwise. Compiler-recognized built-ins remain in the
 compiler/runtime crates until importable stdlib execution is implemented.
+The machine-readable status registry is `stdlib/eng/modules.toml`; this README
+must describe the same module names.
 
 ## Supported Built-In Declarations
 
@@ -24,7 +26,9 @@ is still future work.
 | `eng.path` | Typed paths, joins, names, and review-visible `exists`. |
 | `eng.io` | Read text/json/toml, write text/json, exports, and hashes. |
 | `eng.fs` | Explicit generated-output copy/move/delete mutations. |
+| `eng.log` | Structured runtime messages and run-log records. |
 | `eng.process` | External process boundaries with args, cwd, expected outputs, tool version, stdout/stderr hashes, and status. |
+| `eng.test` | Local assertions, golden checks, and test-result artifacts. |
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics for schema rows, columns, and parse/conversion evidence. |
 | `eng.sampling` | Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews. |
@@ -45,6 +49,9 @@ APIs unless a status document says so.
 | `eng.config` | Planned | Typed JSON/TOML configuration promotion and validation. |
 | `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
 | `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
+| `eng.quality` | Planned | Data quality expectations, validation summaries, and reportable quality results. |
+| `eng.template` | Planned | Template rendering for generated inputs and adapter boundaries. |
+| `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |
 | `eng.table` | Planned APIs | Table filters, joins, derived columns, and schema-aware transforms. |
 | `eng.sampling` | Planned generators | Grid/random/LHS sample generation and seed policy. |
 | `eng.case` | Planned runner | Native apply/run/collect, case directories, resume/cache status, and generated-output linkage. |
