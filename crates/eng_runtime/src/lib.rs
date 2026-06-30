@@ -380,6 +380,7 @@ pub fn run_source(
         .and_then(|value| value.to_str())
         .unwrap_or("main");
     let result_dir = build_root.join("result");
+    let working_dir = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
     let plots_dir = result_dir.join("plots");
     let bytecode_path = build_root.join(format!("{stem}.engbc"));
     let result_path = result_dir.join("result.engres");
@@ -416,6 +417,8 @@ pub fn run_source(
         &profile_diagnostics,
         &external_boundary_records,
         &cache_manifest_records,
+        &working_dir,
+        &result_dir,
     );
     let process_results_json =
         process_results_json(&check_report, &process_results, &options.profile);
@@ -589,6 +592,8 @@ pub fn run_source(
     }
     let output_manifest_json = output_manifest_json(
         path,
+        &working_dir,
+        &result_dir,
         &output_artifacts,
         &options.profile,
         &profile_diagnostics,
@@ -1052,6 +1057,8 @@ fn run_log_json(
     profile_diagnostics: &[ProfileDiagnostic],
     external_boundaries: &[ExternalBoundaryRecord],
     cache_records: &[CacheManifestRecord],
+    working_dir: &Path,
+    output_dir: &Path,
 ) -> String {
     let entries = runtime_log_entries(report, runtime_data);
     let mut json = String::new();
@@ -1063,7 +1070,15 @@ fn run_log_json(
     ));
     json.push_str(&format!(
         "  \"source_path\": \"{}\",\n",
-        json_escape(&report.source_path.display().to_string())
+        json_escape(&path_for_manifest(&report.source_path))
+    ));
+    json.push_str(&format!(
+        "  \"working_dir\": \"{}\",\n",
+        json_escape(&path_for_manifest(working_dir))
+    ));
+    json.push_str(&format!(
+        "  \"output_dir\": \"{}\",\n",
+        json_escape(&path_for_manifest(output_dir))
     ));
     json.push_str(&format!(
         "  \"execution_profile\": \"{}\",\n",
@@ -2844,6 +2859,8 @@ fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
 
 fn output_manifest_json(
     source_path: &Path,
+    working_dir: &Path,
+    output_dir: &Path,
     artifacts: &[OutputArtifact],
     profile: &ExecutionProfile,
     profile_diagnostics: &[ProfileDiagnostic],
@@ -2857,6 +2874,8 @@ fn output_manifest_json(
     OutputManifest {
         runtime_version: RUNTIME_VERSION,
         source_path,
+        working_dir,
+        output_dir,
         execution_profile: profile.as_str(),
         artifacts: &artifact_records,
         artifact_registry_json,
@@ -10743,6 +10762,12 @@ mod tests {
         assert!(output
             .report_spec_json
             .contains("\"environment_dependencies\""));
+        assert!(output.run_log_json.contains("\"source_path\""));
+        assert!(output.run_log_json.contains("\"working_dir\""));
+        assert!(output.run_log_json.contains("\"output_dir\""));
+        assert!(output.output_manifest_json.contains("\"source_path\""));
+        assert!(output.output_manifest_json.contains("\"working_dir\""));
+        assert!(output.output_manifest_json.contains("\"output_dir\""));
     }
 
     #[test]

@@ -1,5 +1,7 @@
 use std::path::{Path, PathBuf};
 
+use eng_compiler::canonical_path_text;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ArtifactRecord {
     pub kind: String,
@@ -88,6 +90,8 @@ impl OutputArtifact {
 pub(crate) struct OutputManifest<'a> {
     pub runtime_version: &'a str,
     pub source_path: &'a Path,
+    pub working_dir: &'a Path,
+    pub output_dir: &'a Path,
     pub execution_profile: &'a str,
     pub artifacts: &'a [ArtifactRecord],
     pub artifact_registry_json: String,
@@ -105,7 +109,15 @@ impl OutputManifest<'_> {
         ));
         json.push_str(&format!(
             "  \"source_path\": \"{}\",\n",
-            json_escape(&self.source_path.display().to_string())
+            json_escape(&path_for_manifest(self.source_path))
+        ));
+        json.push_str(&format!(
+            "  \"working_dir\": \"{}\",\n",
+            json_escape(&path_for_manifest(self.working_dir))
+        ));
+        json.push_str(&format!(
+            "  \"output_dir\": \"{}\",\n",
+            json_escape(&path_for_manifest(self.output_dir))
         ));
         json.push_str(&format!(
             "  \"execution_profile\": \"{}\",\n",
@@ -127,6 +139,10 @@ impl OutputManifest<'_> {
         json.push_str("}\n");
         json
     }
+}
+
+fn path_for_manifest(path: &Path) -> String {
+    canonical_path_text(&path.display().to_string())
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -265,6 +281,8 @@ mod tests {
         let manifest = OutputManifest {
             runtime_version: "0.1.0",
             source_path: Path::new("main.eng"),
+            working_dir: Path::new("."),
+            output_dir: Path::new("build/result"),
             execution_profile: "normal",
             artifacts: &artifacts,
             artifact_registry_json: "    \"format\": \"eng-artifact-registry-v1\"".to_owned(),
@@ -273,6 +291,9 @@ mod tests {
         .to_json();
 
         assert!(manifest.contains("\"format\": \"eng-output-manifest-v1\""));
+        assert!(manifest.contains("\"source_path\": \"main.eng\""));
+        assert!(manifest.contains("\"working_dir\": \".\""));
+        assert!(manifest.contains("\"output_dir\": \"build/result\""));
         assert!(manifest.contains("\"artifact_count\": 1"));
         assert!(manifest.contains("\"kind\": \"result\""));
         assert!(manifest.contains("\"validation\""));

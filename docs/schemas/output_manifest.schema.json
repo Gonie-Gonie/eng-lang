@@ -7,6 +7,8 @@
     "format",
     "runtime_version",
     "source_path",
+    "working_dir",
+    "output_dir",
     "execution_profile",
     "artifact_count",
     "artifact_registry",
@@ -21,6 +23,12 @@
       "type": "string"
     },
     "source_path": {
+      "type": "string"
+    },
+    "working_dir": {
+      "type": "string"
+    },
+    "output_dir": {
       "type": "string"
     },
     "execution_profile": {
