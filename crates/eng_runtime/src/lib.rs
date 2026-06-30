@@ -527,6 +527,7 @@ pub fn run_source(
     let external_boundary_records =
         external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
     let cache_manifest_records = cache_manifest_records(&check_report, build_root);
+    ensure_cache_hashes_valid(&cache_manifest_records)?;
     let cache_manifest_json =
         cache_manifest_json(&check_report, &cache_manifest_records, &options.profile);
     let run_log_json = run_log_json(
@@ -1653,13 +1654,7 @@ fn cache_manifest_record(
     } else {
         "miss"
     };
-    let status = if lookup_status == "hit" {
-        "hit".to_owned()
-    } else if record.status == "fixture_available" {
-        "miss_fixture_available".to_owned()
-    } else {
-        "miss_declared".to_owned()
-    };
+    let status = cache_manifest_status(record, lookup_status);
     CacheManifestRecord {
         owner_kind: record.owner_kind.clone(),
         owner_name: record.owner_name.clone(),
@@ -1676,6 +1671,56 @@ fn cache_manifest_record(
         status,
         line: record.line,
     }
+}
+
+fn cache_manifest_status(record: &eng_compiler::CacheRecordInfo, lookup_status: &str) -> String {
+    if cache_hash_mismatch(
+        record.expected_hash.as_deref(),
+        record.observed_hash.as_deref(),
+    ) {
+        "hash_mismatch".to_owned()
+    } else if lookup_status == "hit" {
+        "hit".to_owned()
+    } else if record.status == "fixture_available" {
+        "miss_fixture_available".to_owned()
+    } else {
+        "miss_declared".to_owned()
+    }
+}
+
+fn ensure_cache_hashes_valid(records: &[CacheManifestRecord]) -> Result<(), RuntimeError> {
+    if let Some(record) = records
+        .iter()
+        .find(|record| record.status.as_str() == "hash_mismatch")
+    {
+        return Err(invalid_input(&format!(
+            "cache hash mismatch at line {} (E-CACHE-HASH-MISMATCH): {} `{}` expected `{}` but observed `{}`",
+            record.line,
+            record.owner_kind,
+            record.owner_name,
+            record.expected_hash.as_deref().unwrap_or("-"),
+            record.observed_hash.as_deref().unwrap_or("-")
+        )));
+    }
+    Ok(())
+}
+
+fn cache_hash_mismatch(expected_hash: Option<&str>, observed_hash: Option<&str>) -> bool {
+    match (expected_hash, observed_hash) {
+        (Some(expected), Some(observed)) => {
+            normalize_cache_hash(expected) != normalize_cache_hash(observed)
+        }
+        _ => false,
+    }
+}
+
+fn normalize_cache_hash(value: &str) -> String {
+    let trimmed = value.trim();
+    let normalized = trimmed.to_ascii_lowercase();
+    normalized
+        .strip_prefix("sha256:")
+        .unwrap_or(&normalized)
+        .to_owned()
 }
 
 fn resolve_cache_path(build_root: &Path, path: &str) -> PathBuf {
@@ -12863,6 +12908,32 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"cache_manifest\""));
         assert!(output.output_manifest_json.contains("\"class\": \"cache\""));
+    }
+
+    #[test]
+    fn cache_hash_mismatch_fails_with_cache_diagnostic() {
+        let compiler_record = eng_compiler::CacheRecordInfo {
+            owner_kind: "network_request".to_owned(),
+            owner_name: "weather".to_owned(),
+            cache_key: "weather|2026".to_owned(),
+            cache_key_parts: vec!["weather".to_owned(), "2026".to_owned()],
+            cache_key_hash: "cache-key-hash".to_owned(),
+            cache_path: "cache/cache-key-hash".to_owned(),
+            cache_dir: "cache".to_owned(),
+            source_hash: "source-hash".to_owned(),
+            expected_hash: Some("sha256:expected".to_owned()),
+            observed_hash: Some("observed".to_owned()),
+            status: "fixture_available".to_owned(),
+            line: 12,
+        };
+        let record = cache_manifest_record(&compiler_record, Path::new("build"));
+
+        assert_eq!(record.status, "hash_mismatch");
+        let error =
+            ensure_cache_hashes_valid(&[record]).expect_err("hash mismatch should fail run");
+        assert!(error.to_string().contains("E-CACHE-HASH-MISMATCH"));
+        assert!(error.to_string().contains("network_request"));
+        assert!(error.to_string().contains("weather"));
     }
 
     #[test]
