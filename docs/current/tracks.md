@@ -117,10 +117,11 @@ and next cleanup action.
 - Public scope: typed path helpers, read text/json/toml, explicit write
   text/json, constrained copy/move/delete, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
-- Main internal: broader filesystem/process policy plus `eng.net`, `eng.cache`,
-  native `eng.db` SQLite writes, and `eng.model` public syntax are planned;
-  DB manifest summaries, output-manifest `artifact_registry` summaries,
-  and internal model-card summaries are supported as artifact seeds.
+- Main internal: broader filesystem/process policy plus live `eng.net`
+  execution, `eng.cache` replay/invalidation, native `eng.db` SQLite writes,
+  and `eng.model` public syntax are planned; network/cache record summaries,
+  DB manifest summaries, output-manifest `artifact_registry` summaries, and
+  internal model-card summaries are supported as artifact seeds.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 

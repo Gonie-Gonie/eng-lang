@@ -1,5 +1,6 @@
 mod ast;
 mod bytecode;
+mod cache;
 mod expected;
 mod formatter;
 mod hover;
@@ -38,6 +39,7 @@ pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
     BytecodeParseError, BytecodeProgram, BYTECODE_FORMAT, BYTECODE_VERSION,
 };
+pub use cache::CacheRecordInfo;
 pub use expected::{ExpectedType, ExpectedTypeSource};
 pub use formatter::{format_source, format_source_with_options, FormatOptions, FormatResult};
 pub use hover::HoverHint;
@@ -187,6 +189,7 @@ pub fn check_file(path: impl AsRef<Path>, options: &CheckOptions) -> std::io::Re
 
 pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions) -> CheckReport {
     let source_path = path.as_ref();
+    let source_hash = hash_text(source);
     let mut parsed = parser::parse_source(source);
     let mut import_diagnostics = Vec::new();
     if let Some(base_dir) = source_path.parent() {
@@ -218,6 +221,12 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     semantic_output.diagnostics.extend(net_analysis.diagnostics);
     semantic_output.semantic_program.net_requests = net_analysis.requests;
     semantic_output.semantic_program.net_downloads = net_analysis.downloads;
+    let cache_analysis =
+        cache::analyze_cache_records(&semantic_output.semantic_program, &source_hash);
+    semantic_output
+        .diagnostics
+        .extend(cache_analysis.diagnostics);
+    semantic_output.semantic_program.cache_records = cache_analysis.records;
     semantic_output.semantic_program.environment_dependencies = collect_environment_dependencies(
         &parsed,
         source_path.parent(),
@@ -242,7 +251,7 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
 
     CheckReport {
         source_path: source_path.to_path_buf(),
-        source_hash: hash_text(source),
+        source_hash,
         diagnostics: semantic_output.diagnostics,
         inferred_declarations: semantic_output.inferred_declarations,
         syntax_summary: parsed.summary(),
@@ -1803,6 +1812,7 @@ pub fn review_json(report: &CheckReport) -> String {
 
     push_net_requests_json(&mut json, report, 2);
     push_net_downloads_json(&mut json, report, 2);
+    push_cache_records_json(&mut json, report, 2);
 
     json.push_str("  \"inferred_declarations\": [\n");
     for (index, declaration) in report.inferred_declarations.iter().enumerate() {
@@ -4462,6 +4472,63 @@ fn push_net_query_json(json: &mut String, query: &[net::NetQueryParam], indent: 
     json.push_str(&format!("\n{spaces}],\n"));
 }
 
+fn push_cache_records_json(json: &mut String, report: &CheckReport, indent: usize) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"cache_records\": [\n"));
+    for (index, record) in report.semantic_program.cache_records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{spaces}  {{\n"));
+        json.push_str(&format!(
+            "{spaces}    \"owner_kind\": \"{}\",\n",
+            json_escape(&record.owner_kind)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"owner_name\": \"{}\",\n",
+            json_escape(&record.owner_name)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"cache_key\": \"{}\",\n",
+            json_escape(&record.cache_key)
+        ));
+        json.push_str(&format!("{spaces}    \"cache_key_parts\": ["));
+        push_json_string_array(json, &record.cache_key_parts);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "{spaces}    \"cache_key_hash\": \"{}\",\n",
+            json_escape(&record.cache_key_hash)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"cache_path\": \"{}\",\n",
+            json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"source_hash\": \"{}\",\n",
+            json_escape(&record.source_hash)
+        ));
+        push_optional_json_string(
+            json,
+            "expected_hash",
+            record.expected_hash.as_deref(),
+            indent + 4,
+        );
+        push_optional_json_string(
+            json,
+            "observed_hash",
+            record.observed_hash.as_deref(),
+            indent + 4,
+        );
+        json.push_str(&format!(
+            "{spaces}    \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("{spaces}    \"line\": {}\n", record.line));
+        json.push_str(&format!("{spaces}  }}"));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
+}
+
 fn review_option_values(report: &CheckReport, owner_line: usize, key: &str) -> Vec<String> {
     let Some(raw) = report
         .semantic_program
@@ -4562,6 +4629,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         + program.environment_dependencies.len()
         + program.net_requests.len()
         + program.net_downloads.len();
+    let cache_count = program.cache_records.len();
     let fallback_count = review_fallback_count(report);
     let risk_count = review_risk_count(report);
 
@@ -4626,6 +4694,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         "      \"external_boundary_count\": {},\n",
         external_boundary_count
     ));
+    json.push_str(&format!("      \"cache_count\": {},\n", cache_count));
     json.push_str(&format!("      \"fallback_count\": {},\n", fallback_count));
     json.push_str(&format!("      \"risk_count\": {}\n", risk_count));
     json.push_str("    },\n");
@@ -4641,6 +4710,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     push_review_validations_json(json, report);
     push_review_side_effects_json(json, report);
     push_review_external_boundaries_json(json, report);
+    push_review_caches_json(json, report);
     push_review_fallbacks_json(json, report);
     push_review_risks_json(json, report);
     json.push_str("  },\n");
@@ -5091,6 +5161,8 @@ fn review_semantic_hash(report: &CheckReport) -> String {
     digest.push('|');
     digest.push_str(&review_section_digest(report, "external_boundaries"));
     digest.push('|');
+    digest.push_str(&review_section_digest(report, "caches"));
+    digest.push('|');
     digest.push_str(&review_section_digest(report, "fallbacks"));
     digest.push('|');
     digest.push_str(&review_section_digest(report, "risks"));
@@ -5146,12 +5218,13 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             program.net_requests,
             program.net_downloads
         ),
+        "caches" => format!("{:?}", program.cache_records),
         "fallbacks" => format!(
             "{:?}|{:?}",
             program.with_blocks, program.component_assemblies
         ),
         "risks" => format!(
-            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
             report.diagnostics,
             program.schemas,
             program.process_runs,
@@ -5159,6 +5232,7 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             program.environment_dependencies,
             program.net_requests,
             program.net_downloads,
+            program.cache_records,
             program.uncertainty_infos,
             program.systems,
             program.component_assemblies
@@ -5180,6 +5254,7 @@ fn push_review_section_hashes_json(json: &mut String, report: &CheckReport) {
         "validations",
         "side_effects",
         "external_boundaries",
+        "caches",
         "fallbacks",
         "risks",
     ];
@@ -6182,6 +6257,52 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", download.line));
         json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_caches_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"caches\": [\n");
+    for (index, record) in report.semantic_program.cache_records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"owner_kind\": \"{}\",\n",
+            json_escape(&record.owner_kind)
+        ));
+        json.push_str(&format!(
+            "        \"owner_name\": \"{}\",\n",
+            json_escape(&record.owner_name)
+        ));
+        json.push_str(&format!(
+            "        \"cache_key\": \"{}\",\n",
+            json_escape(&record.cache_key)
+        ));
+        json.push_str(&format!(
+            "        \"cache_key_hash\": \"{}\",\n",
+            json_escape(&record.cache_key_hash)
+        ));
+        json.push_str(&format!(
+            "        \"cache_path\": \"{}\",\n",
+            json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "        \"source_hash\": \"{}\",\n",
+            json_escape(&record.source_hash)
+        ));
+        push_optional_json_string(json, "expected_hash", record.expected_hash.as_deref(), 8);
+        push_optional_json_string(json, "observed_hash", record.observed_hash.as_deref(), 8);
+        json.push_str(
+            "        \"policy\": \"explicit_cache_key_or_declared_boundary_fingerprint\",\n",
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -10860,7 +10981,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    cache = true\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"fixture-hash\"\n}\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"fixture-hash\"\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -10869,6 +10990,7 @@ system Envelope {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         assert_eq!(report.semantic_program.net_requests.len(), 1);
         assert_eq!(report.semantic_program.net_downloads.len(), 1);
+        assert_eq!(report.semantic_program.cache_records.len(), 2);
         let request = &report.semantic_program.net_requests[0];
         assert_eq!(request.method, "GET");
         assert_eq!(request.status, "fixture");
@@ -10878,6 +11000,19 @@ system Envelope {
         assert!(request.query.iter().any(|param| param.key == "serviceKey"
             && param.value == "<redacted>"
             && param.redacted));
+        let cache_record = &report.semantic_program.cache_records[0];
+        assert_eq!(cache_record.owner_kind, "network_request");
+        assert!(cache_record.cache_key_parts.starts_with(&[
+            "weather".to_owned(),
+            "108".to_owned(),
+            "2026".to_owned()
+        ]));
+        assert!(cache_record
+            .cache_key_parts
+            .iter()
+            .any(|part| part.starts_with("source_hash=")));
+        assert_eq!(cache_record.status, "fixture_available");
+        assert!(cache_record.observed_hash.is_some());
         let binding = report
             .semantic_program
             .typed_bindings
@@ -10888,8 +11023,26 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"net_requests\""));
         assert!(review.contains("\"net_downloads\""));
+        assert!(review.contains("\"cache_records\""));
+        assert!(review.contains("\"caches\""));
+        assert!(review.contains("\"cache_count\": 2"));
         assert!(review.contains("\"kind\": \"network_request\""));
         assert!(review.contains("\"kind\": \"network_download\""));
+    }
+
+    #[test]
+    fn rejects_nondeterministic_cache_key() {
+        let report = check_source(
+            "bad.eng",
+            "response = http get url(\"https://example.org/data.json\")\nwith {\n    cache = true\n    cache_key = [now(), \"demo\"]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CACHE-KEY-NONDETERMINISTIC"));
     }
 
     #[test]

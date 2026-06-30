@@ -1,0 +1,116 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/cache_manifest.schema.json",
+  "title": "EngLang Cache Manifest Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "execution_profile",
+    "cache_record_count",
+    "cache_records"
+  ],
+  "properties": {
+    "format": {
+      "const": "eng-cache-manifest-v1"
+    },
+    "runtime_version": {
+      "type": "string"
+    },
+    "source_path": {
+      "type": "string"
+    },
+    "execution_profile": {
+      "enum": [
+        "safe",
+        "normal",
+        "repro"
+      ]
+    },
+    "cache_record_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cache_records": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cacheRecord"
+      }
+    }
+  },
+  "$defs": {
+    "cacheRecord": {
+      "type": "object",
+      "required": [
+        "owner_kind",
+        "owner_name",
+        "cache_key",
+        "cache_key_parts",
+        "cache_key_hash",
+        "cache_path",
+        "resolved_path",
+        "source_hash",
+        "expected_hash",
+        "observed_hash",
+        "lookup_status",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "owner_kind": {
+          "type": "string"
+        },
+        "owner_name": {
+          "type": "string"
+        },
+        "cache_key": {
+          "type": "string"
+        },
+        "cache_key_parts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "cache_key_hash": {
+          "type": "string"
+        },
+        "cache_path": {
+          "type": "string"
+        },
+        "resolved_path": {
+          "type": "string"
+        },
+        "source_hash": {
+          "type": "string"
+        },
+        "expected_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "observed_hash": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "lookup_status": {
+          "enum": [
+            "hit",
+            "miss"
+          ]
+        },
+        "status": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,333 @@
+use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
+use crate::Diagnostic;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct CacheRecordInfo {
+    pub owner_kind: String,
+    pub owner_name: String,
+    pub cache_key: String,
+    pub cache_key_parts: Vec<String>,
+    pub cache_key_hash: String,
+    pub cache_path: String,
+    pub cache_dir: String,
+    pub source_hash: String,
+    pub expected_hash: Option<String>,
+    pub observed_hash: Option<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct CacheAnalysis {
+    pub records: Vec<CacheRecordInfo>,
+    pub diagnostics: Vec<Diagnostic>,
+}
+
+pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> CacheAnalysis {
+    let mut analysis = CacheAnalysis::default();
+
+    for process in &program.process_runs {
+        let options = options_for_owner(program, process.line);
+        if let Some(record) = build_cache_record(
+            "process",
+            &process.binding,
+            process.line,
+            &options,
+            process_cache_parts(program, process.line, &process.command),
+            source_hash,
+            None,
+            None,
+            "declared",
+            &program.arg_values,
+            &mut analysis.diagnostics,
+        ) {
+            analysis.records.push(record);
+        }
+    }
+
+    for request in &program.net_requests {
+        let options = options_for_owner(program, request.line);
+        if let Some(record) = build_cache_record(
+            "network_request",
+            &request.binding,
+            request.line,
+            &options,
+            network_request_cache_parts(request),
+            source_hash,
+            request.expected_sha256.clone(),
+            request.response_hash.clone(),
+            if request.response_hash.is_some() {
+                "fixture_available"
+            } else {
+                "declared"
+            },
+            &program.arg_values,
+            &mut analysis.diagnostics,
+        ) {
+            analysis.records.push(record);
+        }
+    }
+
+    for download in &program.net_downloads {
+        let options = options_for_owner(program, download.line);
+        if let Some(record) = build_cache_record(
+            "network_download",
+            &download.target_value,
+            download.line,
+            &options,
+            network_download_cache_parts(download),
+            source_hash,
+            download.expected_sha256.clone(),
+            download.response_hash.clone(),
+            if download.response_hash.is_some() {
+                "fixture_available"
+            } else {
+                "declared"
+            },
+            &program.arg_values,
+            &mut analysis.diagnostics,
+        ) {
+            analysis.records.push(record);
+        }
+    }
+
+    analysis
+}
+
+fn build_cache_record(
+    owner_kind: &str,
+    owner_name: &str,
+    line: usize,
+    options: &[WithOptionInfo],
+    default_parts: Vec<String>,
+    source_hash: &str,
+    expected_hash: Option<String>,
+    observed_hash: Option<String>,
+    status: &str,
+    arg_values: &[ArgValueInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<CacheRecordInfo> {
+    let cache_enabled = option_value(options, "cache").is_some_and(parse_bool);
+    let raw_cache_key = option_value(options, "cache_key");
+    if !cache_enabled && raw_cache_key.is_none() {
+        return None;
+    }
+
+    let key_line = options
+        .iter()
+        .find(|option| option.key == "cache_key")
+        .map(|option| option.line)
+        .unwrap_or(line);
+    let mut cache_key_parts = if let Some(raw_cache_key) = raw_cache_key {
+        let parts = parse_cache_key_parts(raw_cache_key, arg_values);
+        validate_cache_key_parts(raw_cache_key, &parts, key_line, diagnostics);
+        parts
+    } else {
+        default_parts
+    };
+    cache_key_parts.push(format!("source_hash={source_hash}"));
+    let cache_key = serialize_cache_key(&cache_key_parts);
+    let cache_key_hash = hash_text(&cache_key);
+    let cache_dir = option_value(options, "cache_dir")
+        .map(strip_string_literal)
+        .unwrap_or_else(|| "cache".to_owned());
+    let cache_path = format!("{}/{}", cache_dir.trim_end_matches('/'), cache_key_hash);
+
+    Some(CacheRecordInfo {
+        owner_kind: owner_kind.to_owned(),
+        owner_name: owner_name.to_owned(),
+        cache_key,
+        cache_key_parts,
+        cache_key_hash,
+        cache_path,
+        cache_dir,
+        source_hash: source_hash.to_owned(),
+        expected_hash,
+        observed_hash,
+        status: status.to_owned(),
+        line,
+    })
+}
+
+fn options_for_owner(program: &SemanticProgram, owner_line: usize) -> Vec<WithOptionInfo> {
+    program
+        .with_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(owner_line))
+        .flat_map(|block| block.options.iter().cloned())
+        .filter(|option| option.status == "accepted")
+        .collect()
+}
+
+fn process_cache_parts(program: &SemanticProgram, owner_line: usize, command: &str) -> Vec<String> {
+    let options = options_for_owner(program, owner_line);
+    let mut parts = vec!["process".to_owned(), command.to_owned()];
+    for key in ["args", "cwd", "tool_version", "expected_outputs"] {
+        if let Some(value) = option_value(&options, key) {
+            parts.push(format!("{key}={value}"));
+        }
+    }
+    parts
+}
+
+fn network_request_cache_parts(request: &crate::net::NetRequestInfo) -> Vec<String> {
+    let mut parts = vec![
+        "network_request".to_owned(),
+        request.method.clone(),
+        request.url_value.clone(),
+    ];
+    for query in &request.query {
+        parts.push(format!("{}={}", query.key, query.value));
+    }
+    if let Some(expected_hash) = &request.expected_sha256 {
+        parts.push(format!("expected_sha256={expected_hash}"));
+    }
+    parts
+}
+
+fn network_download_cache_parts(download: &crate::net::NetDownloadInfo) -> Vec<String> {
+    let mut parts = vec![
+        "network_download".to_owned(),
+        download.url_value.clone(),
+        download.target_value.clone(),
+    ];
+    for query in &download.query {
+        parts.push(format!("{}={}", query.key, query.value));
+    }
+    if let Some(expected_hash) = &download.expected_sha256 {
+        parts.push(format!("expected_sha256={expected_hash}"));
+    }
+    parts
+}
+
+fn parse_cache_key_parts(raw: &str, arg_values: &[ArgValueInfo]) -> Vec<String> {
+    let trimmed = raw.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix('[')
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return split_top_level_commas(inner)
+            .into_iter()
+            .map(|part| resolve_cache_part(part, arg_values))
+            .filter(|part| !part.is_empty())
+            .collect();
+    }
+    vec![resolve_cache_part(trimmed, arg_values)]
+}
+
+fn resolve_cache_part(raw: &str, arg_values: &[ArgValueInfo]) -> String {
+    let trimmed = raw.trim();
+    if let Some(arg_name) = trimmed.strip_prefix("args.") {
+        if let Some(arg) = arg_values.iter().find(|arg| arg.name == arg_name) {
+            return arg.value.clone();
+        }
+    }
+    strip_string_literal(trimmed)
+}
+
+fn split_top_level_commas(value: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut bracket_depth = 0usize;
+    let mut paren_depth = 0usize;
+    let mut in_string = false;
+    let mut previous_escape = false;
+    for (index, character) in value.char_indices() {
+        if in_string {
+            if character == '"' && !previous_escape {
+                in_string = false;
+            }
+            previous_escape = character == '\\' && !previous_escape;
+            if character != '\\' {
+                previous_escape = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth = bracket_depth.saturating_sub(1),
+            '(' => paren_depth += 1,
+            ')' => paren_depth = paren_depth.saturating_sub(1),
+            ',' if bracket_depth == 0 && paren_depth == 0 => {
+                parts.push(value[start..index].trim());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(value[start..].trim());
+    parts
+}
+
+fn validate_cache_key_parts(
+    raw_cache_key: &str,
+    parts: &[String],
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let normalized = raw_cache_key.to_ascii_lowercase();
+    let nondeterministic = ["now(", "random(", "rand(", "uuid(", "env(", "secret "]
+        .iter()
+        .any(|pattern| normalized.contains(pattern));
+    if nondeterministic {
+        diagnostics.push(Diagnostic::error(
+            "E-CACHE-KEY-NONDETERMINISTIC",
+            line,
+            "`cache_key` contains a nondeterministic or secret-dependent expression.",
+            Some("Use stable literals, args values, source hashes, case IDs, or explicit version strings in cache keys."),
+        ));
+    }
+    if parts.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-CACHE-KEY-NONDETERMINISTIC",
+            line,
+            "`cache_key` must serialize to at least one deterministic part.",
+            Some("Use a form such as `cache_key = [args.region, args.year]`."),
+        ));
+    }
+}
+
+fn serialize_cache_key(parts: &[String]) -> String {
+    parts
+        .iter()
+        .map(|part| part.trim())
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("|")
+}
+
+fn option_value<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a str> {
+    options
+        .iter()
+        .find(|option| option.key == key && option.status == "accepted")
+        .map(|option| option.value.as_str())
+}
+
+fn parse_bool(value: &str) -> bool {
+    matches!(
+        value.trim().to_ascii_lowercase().as_str(),
+        "true" | "1" | "yes" | "on"
+    )
+}
+
+fn strip_string_literal(value: &str) -> String {
+    let trimmed = value.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+    {
+        inner.to_owned()
+    } else {
+        trimmed.to_owned()
+    }
+}
+
+fn hash_text(source: &str) -> String {
+    let mut hash = 0xcbf29ce484222325u64;
+    for byte in source.as_bytes() {
+        hash ^= u64::from(*byte);
+        hash = hash.wrapping_mul(0x100000001b3);
+    }
+    format!("{hash:016x}")
+}

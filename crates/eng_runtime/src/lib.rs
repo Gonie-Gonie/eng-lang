@@ -81,6 +81,7 @@ pub struct RunOutput {
     pub output_manifest_path: PathBuf,
     pub run_log_path: PathBuf,
     pub process_results_path: PathBuf,
+    pub cache_manifest_path: PathBuf,
     pub test_results_path: PathBuf,
     pub csv_export_paths: Vec<PathBuf>,
     pub write_output_paths: Vec<PathBuf>,
@@ -98,6 +99,7 @@ pub struct RunOutput {
     pub output_manifest_json: String,
     pub run_log_json: String,
     pub process_results_json: String,
+    pub cache_manifest_json: String,
     pub test_results_json: String,
 }
 
@@ -385,6 +387,7 @@ pub fn run_source(
     let output_manifest_path = result_dir.join("output_manifest.json");
     let run_log_path = result_dir.join("run_log.json");
     let process_results_path = result_dir.join("process_results.json");
+    let cache_manifest_path = result_dir.join("cache_manifest.json");
     let test_results_path = result_dir.join("test_results.json");
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
@@ -398,12 +401,16 @@ pub fn run_source(
     let stdout = render_stdout(&check_report, &runtime_data);
     let process_results = execute_process_runs(&check_report)?;
     let external_boundary_records = external_boundary_records_for_processes(&process_results);
+    let cache_manifest_records = cache_manifest_records(&check_report, build_root);
+    let cache_manifest_json =
+        cache_manifest_json(&check_report, &cache_manifest_records, &options.profile);
     let run_log_json = run_log_json(
         &check_report,
         &runtime_data,
         &options.profile,
         &profile_diagnostics,
         &external_boundary_records,
+        &cache_manifest_records,
     );
     let process_results_json =
         process_results_json(&check_report, &process_results, &options.profile);
@@ -466,6 +473,7 @@ pub fn run_source(
         &runtime_data,
         &process_results,
         &output_artifacts,
+        &cache_manifest_records,
     );
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
@@ -516,6 +524,13 @@ pub fn run_source(
             "process_results.json".to_owned(),
             &process_results_json,
             process_results_path.clone(),
+        ));
+        fs::write(&cache_manifest_path, &cache_manifest_json)?;
+        output_artifacts.push(output_artifact(
+            "cache_manifest",
+            "cache_manifest.json".to_owned(),
+            &cache_manifest_json,
+            cache_manifest_path.clone(),
         ));
         fs::write(&test_results_path, &test_results_json)?;
         output_artifacts.push(output_artifact(
@@ -576,6 +591,7 @@ pub fn run_source(
             report: &check_report,
             runtime_data: &runtime_data,
             process_results: &process_results,
+            cache_manifest_records: &cache_manifest_records,
             db_manifest_records: &db_manifest_records,
             test_results: &test_results,
         },
@@ -614,6 +630,7 @@ pub fn run_source(
         output_manifest_path,
         run_log_path,
         process_results_path,
+        cache_manifest_path,
         test_results_path,
         csv_export_paths,
         write_output_paths,
@@ -631,6 +648,7 @@ pub fn run_source(
         output_manifest_json,
         run_log_json,
         process_results_json,
+        cache_manifest_json,
         test_results_json,
     })
 }
@@ -1028,6 +1046,7 @@ fn run_log_json(
     profile: &ExecutionProfile,
     profile_diagnostics: &[ProfileDiagnostic],
     external_boundaries: &[ExternalBoundaryRecord],
+    cache_records: &[CacheManifestRecord],
 ) -> String {
     let entries = runtime_log_entries(report, runtime_data);
     let mut json = String::new();
@@ -1112,11 +1131,54 @@ fn run_log_json(
     json.push_str("  \"network_events\": [\n");
     push_network_events_json(&mut json, report, "    ");
     json.push_str("\n  ],\n");
+    json.push_str(&format!(
+        "  \"cache_event_count\": {},\n",
+        cache_records.len()
+    ));
+    json.push_str("  \"cache_events\": [\n");
+    push_cache_events_json(&mut json, cache_records, "    ");
+    json.push_str("\n  ],\n");
     json.push_str("  \"profile_diagnostics\": [\n");
     push_profile_diagnostics_json(&mut json, profile_diagnostics, "    ");
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
+}
+
+fn push_cache_events_json(json: &mut String, records: &[CacheManifestRecord], indent: &str) {
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!("{indent}  \"kind\": \"cache\",\n"));
+        json.push_str(&format!(
+            "{indent}  \"owner_kind\": \"{}\",\n",
+            json_escape(&record.owner_kind)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"owner_name\": \"{}\",\n",
+            json_escape(&record.owner_name)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_key_hash\": \"{}\",\n",
+            json_escape(&record.cache_key_hash)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_path\": \"{}\",\n",
+            json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"lookup_status\": \"{}\",\n",
+            json_escape(&record.lookup_status)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", record.line));
+        json.push_str(&format!("{indent}}}"));
+    }
 }
 
 fn push_network_events_json(json: &mut String, report: &CheckReport, indent: &str) {
@@ -1208,6 +1270,23 @@ struct ProcessExpectedOutputRecord {
     hash: Option<String>,
     status: String,
     validation: ArtifactValidation,
+}
+
+#[derive(Clone, Debug)]
+struct CacheManifestRecord {
+    owner_kind: String,
+    owner_name: String,
+    cache_key: String,
+    cache_key_parts: Vec<String>,
+    cache_key_hash: String,
+    cache_path: String,
+    resolved_path: String,
+    source_hash: String,
+    expected_hash: Option<String>,
+    observed_hash: Option<String>,
+    lookup_status: String,
+    status: String,
+    line: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1306,6 +1385,152 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
         });
     }
     Ok(records)
+}
+
+fn cache_manifest_records(report: &CheckReport, build_root: &Path) -> Vec<CacheManifestRecord> {
+    report
+        .semantic_program
+        .cache_records
+        .iter()
+        .map(|record| cache_manifest_record(record, build_root))
+        .collect()
+}
+
+fn cache_manifest_record(
+    record: &eng_compiler::CacheRecordInfo,
+    build_root: &Path,
+) -> CacheManifestRecord {
+    let resolved_path = resolve_cache_path(build_root, &record.cache_path);
+    let lookup_status = if resolved_path.exists() {
+        "hit"
+    } else {
+        "miss"
+    };
+    let status = if lookup_status == "hit" {
+        "hit".to_owned()
+    } else if record.status == "fixture_available" {
+        "miss_fixture_available".to_owned()
+    } else {
+        "miss_declared".to_owned()
+    };
+    CacheManifestRecord {
+        owner_kind: record.owner_kind.clone(),
+        owner_name: record.owner_name.clone(),
+        cache_key: record.cache_key.clone(),
+        cache_key_parts: record.cache_key_parts.clone(),
+        cache_key_hash: record.cache_key_hash.clone(),
+        cache_path: record.cache_path.clone(),
+        resolved_path: resolved_path.display().to_string(),
+        source_hash: record.source_hash.clone(),
+        expected_hash: record.expected_hash.clone(),
+        observed_hash: record.observed_hash.clone(),
+        lookup_status: lookup_status.to_owned(),
+        status,
+        line: record.line,
+    }
+}
+
+fn resolve_cache_path(build_root: &Path, path: &str) -> PathBuf {
+    let path = Path::new(path);
+    if path.is_absolute() {
+        path.to_path_buf()
+    } else {
+        build_root.join(path)
+    }
+}
+
+fn cache_manifest_json(
+    report: &CheckReport,
+    records: &[CacheManifestRecord],
+    profile: &ExecutionProfile,
+) -> String {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"eng-cache-manifest-v1\",\n");
+    json.push_str(&format!(
+        "  \"runtime_version\": \"{}\",\n",
+        json_escape(RUNTIME_VERSION)
+    ));
+    json.push_str(&format!(
+        "  \"source_path\": \"{}\",\n",
+        json_escape(&report.source_path.display().to_string())
+    ));
+    json.push_str(&format!(
+        "  \"execution_profile\": \"{}\",\n",
+        profile.as_str()
+    ));
+    json.push_str(&format!("  \"cache_record_count\": {},\n", records.len()));
+    json.push_str("  \"cache_records\": [\n");
+    push_cache_manifest_records_json(&mut json, records, "    ");
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
+}
+
+fn push_cache_manifest_records_json(
+    json: &mut String,
+    records: &[CacheManifestRecord],
+    indent: &str,
+) {
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!(
+            "{indent}  \"owner_kind\": \"{}\",\n",
+            json_escape(&record.owner_kind)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"owner_name\": \"{}\",\n",
+            json_escape(&record.owner_name)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_key\": \"{}\",\n",
+            json_escape(&record.cache_key)
+        ));
+        json.push_str(&format!("{indent}  \"cache_key_parts\": "));
+        push_json_string_array_runtime(json, &record.cache_key_parts);
+        json.push_str(",\n");
+        json.push_str(&format!(
+            "{indent}  \"cache_key_hash\": \"{}\",\n",
+            json_escape(&record.cache_key_hash)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_path\": \"{}\",\n",
+            json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"resolved_path\": \"{}\",\n",
+            json_escape(&record.resolved_path)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"source_hash\": \"{}\",\n",
+            json_escape(&record.source_hash)
+        ));
+        push_optional_json_string_runtime(
+            json,
+            "expected_hash",
+            record.expected_hash.as_deref(),
+            indent.len() + 2,
+        );
+        push_optional_json_string_runtime(
+            json,
+            "observed_hash",
+            record.observed_hash.as_deref(),
+            indent.len() + 2,
+        );
+        json.push_str(&format!(
+            "{indent}  \"lookup_status\": \"{}\",\n",
+            json_escape(&record.lookup_status)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", record.line));
+        json.push_str(&format!("{indent}}}"));
+    }
 }
 
 fn db_manifest_records(records: &[ProcessExecutionRecord]) -> Vec<DbManifestRecord> {
@@ -2200,6 +2425,7 @@ struct ArtifactRegistryContext<'a> {
     report: &'a CheckReport,
     runtime_data: &'a RuntimeData,
     process_results: &'a [ProcessExecutionRecord],
+    cache_manifest_records: &'a [CacheManifestRecord],
     db_manifest_records: &'a [DbManifestRecord],
     test_results: &'a [TestExecutionRecord],
 }
@@ -2857,6 +3083,46 @@ fn push_output_manifest_downloads_json(json: &mut String, registry: &ArtifactReg
     }
 }
 
+fn push_output_manifest_caches_json(json: &mut String, records: &[CacheManifestRecord]) {
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&record.owner_kind)
+        ));
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&record.owner_name)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "        \"cache_key_hash\": \"{}\",\n",
+            json_escape(&record.cache_key_hash)
+        ));
+        json.push_str(&format!(
+            "        \"source_hash\": \"{}\",\n",
+            json_escape(&record.source_hash)
+        ));
+        json.push_str(&format!(
+            "        \"lookup_status\": \"{}\",\n",
+            json_escape(&record.lookup_status)
+        ));
+        push_optional_json_string_runtime(json, "hash", record.observed_hash.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
+        json.push_str("      }");
+    }
+}
+
 fn push_artifact_registry_json(
     json: &mut String,
     artifacts: &[OutputArtifact],
@@ -3078,7 +3344,9 @@ fn push_artifact_registry_json(
     }
     json.push_str("\n    ],\n");
 
-    json.push_str("    \"caches\": [],\n");
+    json.push_str("    \"caches\": [\n");
+    push_output_manifest_caches_json(json, registry.cache_manifest_records);
+    json.push_str("\n    ],\n");
 
     json.push_str("    \"tests\": [\n");
     for (index, test) in registry.test_results.iter().enumerate() {
@@ -3135,6 +3403,7 @@ fn artifact_record_class(kind: &str) -> &'static str {
         "review" | "report_spec" | "report_html" | "result" | "plot_spec" | "plot_svg"
         | "plot_manifest" | "bytecode" | "run_log" => "review_artifact",
         "process_results" | "process_expected_output" => "external_boundary",
+        "cache_manifest" => "cache",
         "db_write_manifest" => "db_write",
         "test_results" => "test",
         _ => "generated_file",
@@ -5475,10 +5744,14 @@ fn runtime_review_json(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
     artifacts: &[OutputArtifact],
+    cache_records: &[CacheManifestRecord],
 ) -> String {
-    let enriched_review = enrich_runtime_review_side_effects(
-        &enrich_runtime_review_boundaries(base_review, process_results),
-        artifacts,
+    let enriched_review = enrich_runtime_review_caches(
+        &enrich_runtime_review_side_effects(
+            &enrich_runtime_review_boundaries(base_review, process_results),
+            artifacts,
+        ),
+        cache_records,
     );
     let trimmed = enriched_review.trim_end();
     let Some(prefix) = trimmed.strip_suffix('}') else {
@@ -5820,6 +6093,60 @@ fn enrich_runtime_review_side_effects(base_review: &str, artifacts: &[OutputArti
                 "rule": record.validation.rule.clone(),
                 "message": record.validation.message.clone()
             }),
+        );
+    }
+
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn enrich_runtime_review_caches(base_review: &str, records: &[CacheManifestRecord]) -> String {
+    if records.is_empty() {
+        return base_review.to_owned();
+    }
+
+    let Ok(mut review) = serde_json::from_str::<Value>(base_review) else {
+        return base_review.to_owned();
+    };
+    let Some(caches) = review
+        .pointer_mut("/review_document/caches")
+        .and_then(Value::as_array_mut)
+    else {
+        return base_review.to_owned();
+    };
+
+    for cache in caches {
+        let Some(owner_kind) = cache.get("owner_kind").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(owner_name) = cache.get("owner_name").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(record) = records
+            .iter()
+            .find(|record| record.owner_kind == owner_kind && record.owner_name == owner_name)
+        else {
+            continue;
+        };
+        let Some(object) = cache.as_object_mut() else {
+            continue;
+        };
+        object.insert(
+            "provenance".to_owned(),
+            Value::String("runtime_cache_manifest".to_owned()),
+        );
+        object.insert(
+            "lookup_status".to_owned(),
+            Value::String(record.lookup_status.clone()),
+        );
+        object.insert("status".to_owned(), Value::String(record.status.clone()));
+        object.insert(
+            "resolved_path".to_owned(),
+            Value::String(record.resolved_path.clone()),
         );
     }
 
@@ -8990,6 +9317,57 @@ mod tests {
     }
 
     #[test]
+    fn run_file_records_process_cache_manifest() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-process-cache");
+        let build_root = repo_root.join("build").join("runtime-process-cache-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-cache\"]\n    tool_version = \"cmd-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"echo process-cache\"]\n    tool_version = \"sh-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("process run");
+
+        assert!(output.cache_manifest_path.exists());
+        assert!(output
+            .cache_manifest_json
+            .contains("\"format\": \"eng-cache-manifest-v1\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"owner_kind\": \"process\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"lookup_status\": \"miss\""));
+        assert!(output.run_log_json.contains("\"cache_events\""));
+        assert!(output.run_log_json.contains("\"cache_event_count\": 1"));
+        assert!(output.review_json.contains("\"caches\""));
+        assert!(output
+            .review_json
+            .contains("\"provenance\": \"runtime_cache_manifest\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"cache_manifest\""));
+        assert!(output.output_manifest_json.contains("\"class\": \"cache\""));
+    }
+
+    #[test]
     fn run_file_records_process_expected_outputs() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
@@ -9490,7 +9868,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    cache = true\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"fixture-hash\"\n}\n\nx = 1\nprint \"x={x}\"\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"fixture-hash\"\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\n",
         )
         .expect("write source");
 
@@ -9511,10 +9889,27 @@ mod tests {
         assert!(output.result_json.contains("\"network_boundary_count\": 2"));
         assert!(output.run_log_json.contains("\"network_events\""));
         assert!(output.run_log_json.contains("\"network_event_count\": 2"));
+        assert!(output.run_log_json.contains("\"cache_events\""));
+        assert!(output.run_log_json.contains("\"cache_event_count\": 2"));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"cache_record_count\": 2"));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"lookup_status\": \"miss\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"status\": \"miss_fixture_available\""));
         assert!(output.output_manifest_json.contains("\"network_requests\""));
         assert!(output.output_manifest_json.contains("\"downloads\""));
+        assert!(output.output_manifest_json.contains("\"caches\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"network_request\""));
         assert!(output.output_manifest_json.contains("build/raw/file.csv"));
         assert!(output.review_json.contains("\"external_boundaries\""));
+        assert!(output.review_json.contains("\"caches\""));
+        assert!(output.review_json.contains("\"lookup_status\": \"miss\""));
         assert!(output.review_json.contains("\"kind\": \"network_request\""));
         assert!(output
             .review_json

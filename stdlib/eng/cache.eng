@@ -1,21 +1,29 @@
 # module: eng.cache
-# status: planned
+# status: supported_seed
 # purpose: reproducible cache keys, pinned downloads, fixture mode, and hit/miss artifacts.
 #
 # Current implementation:
-#   no native cache module yet. Cache behavior must be expressed by explicit
-#   files, hashes, and reviewable process or read boundaries.
+#   net and process boundaries may declare:
+#     cache = true
+#     cache_key = [...]
+#     cache_dir = "cache"
+#   The compiler serializes deterministic CacheKey records and rejects
+#   nondeterministic/secret-dependent cache keys. The runtime records cache
+#   store hit/miss lookup status in cache_manifest.json, run_log.cache_events[],
+#   review_document.caches[], and output_manifest.artifact_registry.caches[].
 #
 # Planned helper vocabulary:
 #   cache key from ...
 #   cache get
 #   cache put
 #   require hash
+#   cache invalidate
 #
 # Review contract:
-#   cache key, source, expected hash, observed hash, hit/miss status, profile
-#   policy, and source span.
+#   owner boundary, cache key parts, cache key hash, cache path, expected hash,
+#   observed hash, hit/miss lookup status, runtime status, and source span.
 #
 # Non-goal:
-#   implicit caching is not acceptable for engineering review. Cache use must
-#   be visible in review/runtime artifacts.
+#   this seed does not skip execution or replay cached values yet. Implicit
+#   caching is not acceptable for engineering review; cache use must be visible
+#   in review/runtime artifacts.

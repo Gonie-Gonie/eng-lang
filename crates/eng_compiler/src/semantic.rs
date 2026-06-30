@@ -7,6 +7,7 @@ use crate::ast::{
     StateSpaceTypeMemberDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
     WithOptionDecl, WriteDecl,
 };
+use crate::cache::CacheRecordInfo;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
 use crate::ml::MlInfo;
@@ -750,6 +751,7 @@ pub struct SemanticProgram {
     pub config_promotions: Vec<ConfigPromotion>,
     pub net_requests: Vec<NetRequestInfo>,
     pub net_downloads: Vec<NetDownloadInfo>,
+    pub cache_records: Vec<CacheRecordInfo>,
     pub workflow: Workflow,
     pub axis_infos: Vec<AxisInfo>,
     pub stats_infos: Vec<StatsInfo>,
@@ -1438,6 +1440,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             config_promotions: Vec::new(),
             net_requests: Vec::new(),
             net_downloads: Vec::new(),
+            cache_records: Vec::new(),
             workflow: Workflow::top_level(top_level_workflow_line(program)),
             stats_infos,
             integrations,
@@ -2239,6 +2242,9 @@ fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) ->
             "status_code",
             "body_size_limit",
             "response_body_limit",
+            "cache_key",
+            "cache_dir",
+            "cache_ttl",
         ]
         .into_iter()
         .map(str::to_owned),
@@ -2524,6 +2530,11 @@ fn known_with_option(key: &str) -> bool {
             | "expected_outputs"
             | "artifact_kind"
             | "allow_failure"
+            | "cache"
+            | "cache_key"
+            | "cache_dir"
+            | "cache_ttl"
+            | "expected_sha256"
     )
 }
 

@@ -11,8 +11,10 @@ DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
 case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
 `typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
-database side-effect artifacts. Native network, cache, case runner, DB, and
-model modules remain planned or internal until concrete language/runtime/artifact
+database side-effect artifacts. Native network and cache record seeds have
+landed for offline/fixture boundaries and cache manifests; live network
+execution, cache replay/invalidation, case runner, DB writer, and public model
+syntax remain planned or internal until concrete language/runtime/artifact
 slices land.
 
 ## Purpose
@@ -44,7 +46,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
 | `eng.net` | Supported seed | offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries |
-| `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
+| `eng.cache` | Supported seed; planned reuse/invalidation | explicit cache keys, cache manifests, hit/miss lookup artifacts, pinned hash metadata |
 | `eng.quality` | Planned | data expectations, quality summaries, and reportable validation results |
 | `eng.template` | Planned | generated input rendering and template provenance |
 | `eng.artifact` | Supported seed | output manifests, artifact_registry records, hashes, report/review links |
@@ -99,7 +101,7 @@ source span
 
 For generated files, `output_manifest.json` is the minimum public record. Its
 `artifact_registry` section gives source files, generated files, external
-commands, network/cache placeholders, DB writes, model artifacts, and tests a
+commands, network/cache seed records, DB writes, model artifacts, and tests a
 shared review shape, including generated artifact validation records and
 `standard_file` classifications for generic fixed-record/text outputs. For
 external processes, `process_results.json` records command, args, cwd, tool
@@ -112,9 +114,11 @@ selected row, selected value, filters, match count, and selection reason,
 records deterministic sample/case table metadata when a promoted table is
 sample-like, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`
-files, and `typed_payload.db_manifests[]` records generated DB write
-manifests. Future network, cache, native case runner, native DB writer, and
-model modules should follow the same artifact pattern.
+files, `typed_payload.db_manifests[]` records generated DB write manifests,
+and current network/cache seeds record fixture boundaries and cache hit/miss
+lookup manifests. Future live network execution, cache replay/invalidation,
+native case runner, native DB writer, and model modules should follow the same
+artifact pattern.
 
 ## Hybrid Artifact Evidence
 

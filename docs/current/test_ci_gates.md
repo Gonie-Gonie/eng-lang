@@ -86,10 +86,10 @@ syntax:
   status, source hashes, and table records; native SQLite writes are not yet
   public syntax.
 
-Remaining gap: live `eng.net` execution/cache policy plus native
-`eng.cache`, `eng.sampling`, `eng.case`, `eng.db`, and `eng.model`
-module syntax remains planned. Fixture evidence must stay labeled as
-composite workflow foundations, not full native module support.
+Remaining gap: live `eng.net` execution plus `eng.cache` replay/invalidation
+policy and native `eng.sampling`, `eng.case`, `eng.db`, and `eng.model`
+module syntax remains planned. Fixture/cache-record evidence must stay labeled
+as composite workflow foundations, not full native module support.
 
 ## Checklist 9.4: Workflow Example Tests
 

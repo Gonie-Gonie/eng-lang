@@ -31,10 +31,10 @@ Composite workflows repeat the same generic contracts:
 - review/report output
 - deterministic fixture mode for smoke tests
 
-Future modules such as eng.net, eng.cache, eng.case, eng.db, and eng.model
-should grow from these repeated contracts. Weather APIs, standard-file writers,
-simulators, and surrogate trainers remain adapters above the generic workflow
-layer.
+Current `eng.net`/`eng.cache` seeds and future modules such as eng.case, eng.db,
+and eng.model should grow from these repeated contracts. Weather APIs,
+standard-file writers, simulators, and surrogate trainers remain adapters above
+the generic workflow layer.
 
 ## Common Mistakes
 

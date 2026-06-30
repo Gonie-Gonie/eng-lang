@@ -173,8 +173,9 @@ is not mistaken for public module support.
 - General table formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Native composite workflow modules for network, cache, sampling generators,
-  case manifests, database writes, and model-card workflows.
+- Native composite workflow modules beyond the current network/cache record
+  seeds: live network execution, cache replay/invalidation, sampling
+  generators, case manifests, database writes, and model-card workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

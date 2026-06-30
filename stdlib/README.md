@@ -48,7 +48,7 @@ APIs unless a status document says so.
 | `eng.report` | Planned | Report/review helper vocabulary. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, source hashes, and config summaries. |
 | `eng.net` | Supported seed | Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries. |
-| `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
+| `eng.cache` | Supported seed | Explicit cache keys, cache manifests, and hit/miss lookup artifacts; reuse/invalidation remains planned. |
 | `eng.quality` | Planned | Data quality expectations, validation summaries, and reportable quality results. |
 | `eng.template` | Planned | Template rendering for generated inputs and adapter boundaries. |
 | `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |

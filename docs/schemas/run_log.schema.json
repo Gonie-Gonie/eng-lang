@@ -14,6 +14,8 @@
     "external_boundary_events",
     "network_event_count",
     "network_events",
+    "cache_event_count",
+    "cache_events",
     "profile_diagnostics"
   ],
   "properties": {
@@ -33,6 +35,11 @@
     },
     "network_event_count": { "type": "integer", "minimum": 0 },
     "network_events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/boundaryEvent" }
+    },
+    "cache_event_count": { "type": "integer", "minimum": 0 },
+    "cache_events": {
       "type": "array",
       "items": { "$ref": "#/$defs/boundaryEvent" }
     },
@@ -58,9 +65,14 @@
       "properties": {
         "kind": { "type": "string" },
         "binding": { "type": "string" },
+        "owner_kind": { "type": "string" },
+        "owner_name": { "type": "string" },
         "command": { "type": "string" },
         "url": { "type": "string" },
         "target": { "type": "string" },
+        "cache_key_hash": { "type": "string" },
+        "cache_path": { "type": "string" },
+        "lookup_status": { "type": "string" },
         "response_hash": { "type": ["string", "null"] },
         "status": { "type": "string" },
         "success": { "type": "boolean" },

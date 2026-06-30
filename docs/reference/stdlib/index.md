@@ -19,8 +19,8 @@ Planned modules:
 - eng.plot
 - eng.report
 - eng.timeseries
-- supported seed: eng.net
-- planned: eng.cache, eng.db, eng.model
+- supported seed: eng.net, eng.cache
+- planned: eng.db, eng.model
 
 Generated stdlib reference should come from static metadata extraction, not from
 executing EngLang workflows.

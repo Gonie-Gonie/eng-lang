@@ -224,6 +224,10 @@ mod tests {
         assert!(registry
             .modules
             .iter()
+            .any(|module| module.name == "eng.cache" && module.status == "supported_seed"));
+        assert!(registry
+            .modules
+            .iter()
             .any(|module| module.name == "eng.case" && !module.artifacts.is_empty()));
     }
 

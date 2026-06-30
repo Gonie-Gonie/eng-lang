@@ -324,6 +324,7 @@ eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
 eng.test     test/assert/golden support
 eng.net      offline/fixture network boundary records now; live download/cache/hash later
+eng.cache    explicit cache-key records and hit/miss manifests now; replay/invalidation later
 ```
 
 ## Implementation Phases

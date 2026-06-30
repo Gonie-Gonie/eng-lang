@@ -186,6 +186,7 @@
             "generated_file",
             "review_artifact",
             "external_boundary",
+            "cache",
             "db_write",
             "test"
           ]
@@ -218,6 +219,15 @@
           "type": "string"
         },
         "target": {
+          "type": "string"
+        },
+        "cache_key_hash": {
+          "type": "string"
+        },
+        "source_hash": {
+          "type": "string"
+        },
+        "lookup_status": {
           "type": "string"
         },
         "hash": {

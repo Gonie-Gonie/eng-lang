@@ -100,10 +100,10 @@ purpose = "Offline/fixture HTTP GET and download boundary records with redacted 
 artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
 
 [module."eng.cache"]
-status = "planned"
-backing = "none"
-purpose = "Reproducible cache keys, cache hit/miss records, pinned hashes, and invalidation policy."
-artifacts = ["cache_manifest", "review.cache", "run_log"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Explicit cache keys, cache hit/miss lookup records, cache manifests, and review/run-log cache summaries; reuse/invalidation remains planned."
+artifacts = ["cache_manifest", "review.caches", "run_log.cache_events", "output_manifest"]
 
 [module."eng.quality"]
 status = "planned"

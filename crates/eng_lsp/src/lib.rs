@@ -1195,6 +1195,9 @@ mod tests {
         assert!(snapshot.completions.iter().any(|completion| {
             completion.label == "eng.net" && completion.detail.contains("supported_seed")
         }));
+        assert!(snapshot.completions.iter().any(|completion| {
+            completion.label == "eng.cache" && completion.detail.contains("supported_seed")
+        }));
 
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);

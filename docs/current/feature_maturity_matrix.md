@@ -257,13 +257,13 @@ separate.
   result rows, surrogate model cards, prediction manifests with output quantity/unit
   and hashes, and DB write manifests with schema diagnostics, table records, and
   transaction status as reviewable fixture artifacts.
-- Not included: stable HTTP/cache API, general table filter/join/fill transforms,
+- Not included: live HTTP execution/cache replay API, general table filter/join/fill transforms,
   native grid/random/LHS sample generation, native case runner, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad
   DB support, or ML framework support.
-- Next cleanup action: use the workflow skeletons to drive `eng.net`,
-  `eng.cache`, `eng.sampling` generators, `eng.case`, `eng.db`, and
-  `eng.model` slices with artifacts and diagnostics.
+- Next cleanup action: extend `eng.net` and `eng.cache` beyond fixture/manifest
+  seeds, then use the workflow skeletons to drive `eng.sampling` generators,
+  `eng.case`, `eng.db`, and `eng.model` slices with artifacts and diagnostics.
 
 ## Solver Vocabulary
 
