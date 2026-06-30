@@ -691,6 +691,7 @@ result.engres               typed_payload.timeseries_coverage
 result.engres               typed_payload.timeseries_fill
 result.engres               typed_payload.timeseries_quality
 result.engres               typed_payload.timeseries_fallbacks
+result.engres               typed_payload.time_alignments
 ```
 
 Each coverage entry records binding/name, source start/end, numeric start/end,
@@ -704,9 +705,12 @@ method, expected step, max gap, missing/fillable/filled/skipped counts, status,
 and source line. For `method = interpolate`, the runtime also materializes the
 filled TimeSeries under the fill binding. Quality records summarize coverage and
 fill together, including remaining missing count, status, reason, and a 0..1
-quality score when an expected count is available. Fallback records are emitted when
-coverage is gapped or irregular, so review tooling can surface the need for an
-explicit fill/imputation policy. The same fallback is also projected into
+quality score when an expected count is available. Fallback records are emitted
+when coverage is gapped or irregular, so review tooling can surface the need for
+an explicit fill/imputation policy. Time alignment records include automatic
+pairwise metadata plus explicit `align`/`resample` hooks with strategy, method,
+optional resample step, tolerance, and source line. The same fallback is also
+projected into
 `review_document.fallbacks` using the shared ReviewFallback record contract.
 
 ## Native Workflow Graph Metadata

@@ -9821,6 +9821,55 @@ system Envelope {
     }
 
     #[test]
+    fn lowers_timeseries_alignment_and_resampling_commands() {
+        let report = check_source(
+            "ok.eng",
+            "aligned = align measured.T_zone with simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nwith {\n    method = linear\n    target_step = 1 h\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let align = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.verb == "align")
+            .expect("align command");
+        assert_eq!(align.target, "measured.T_zone");
+        assert_eq!(
+            align.canonical,
+            "align(measured.T_zone, with=simulated.T_zone)"
+        );
+        let resample = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.verb == "resample")
+            .expect("resample command");
+        assert_eq!(resample.target, "measured.T_zone");
+        assert_eq!(
+            resample.canonical,
+            "resample(measured.T_zone, to=simulated.T_zone)"
+        );
+        assert_eq!(
+            report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == "aligned")
+                .unwrap()
+                .quantity_kind,
+            "TimeSeriesAlignmentResult"
+        );
+        let options = &report.semantic_program.with_blocks[0].options;
+        assert!(options
+            .iter()
+            .any(|option| option.key == "method" && option.status == "accepted"));
+        assert!(options
+            .iter()
+            .any(|option| option.key == "target_step" && option.status == "accepted"));
+    }
+
+    #[test]
     fn reports_command_where_and_with_policy_diagnostics() {
         let command_report = check_source(
             "bad.eng",

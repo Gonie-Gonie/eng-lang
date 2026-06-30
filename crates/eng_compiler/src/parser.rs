@@ -2240,6 +2240,8 @@ fn is_command_style_verb(verb: &str) -> bool {
             | "validate"
             | "check"
             | "fill"
+            | "align"
+            | "resample"
     )
 }
 
@@ -2401,6 +2403,9 @@ fn command_target_is_ambiguous(verb: &str, target: &str) -> bool {
             .strip_prefix("missing ")
             .is_some_and(|source| is_simple_dotted_identifier(source.trim()))
     {
+        return false;
+    }
+    if matches!(verb, "align" | "resample") && is_simple_dotted_identifier(target) {
         return false;
     }
     if verb == "plot" && target.split(" and ").all(is_simple_dotted_identifier) {

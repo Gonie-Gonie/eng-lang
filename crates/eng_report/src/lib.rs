@@ -272,9 +272,14 @@ pub struct ReportTimeAxis {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct ReportTimeAlignment {
+    pub binding: String,
     pub left: String,
     pub right: String,
     pub axis: String,
+    pub strategy: String,
+    pub method: String,
+    pub resample_step: Option<f64>,
+    pub tolerance: Option<f64>,
     pub left_count: usize,
     pub right_count: usize,
     pub matched_count: usize,
@@ -286,6 +291,7 @@ pub struct ReportTimeAlignment {
     pub overlap_start: Option<f64>,
     pub overlap_end: Option<f64>,
     pub status: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -3176,6 +3182,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         }
         json.push_str("    {\n");
         json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&alignment.binding)
+        ));
+        json.push_str(&format!(
             "      \"left\": \"{}\",\n",
             json_escape(&alignment.left)
         ));
@@ -3187,6 +3197,16 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "      \"axis\": \"{}\",\n",
             json_escape(&alignment.axis)
         ));
+        json.push_str(&format!(
+            "      \"strategy\": \"{}\",\n",
+            json_escape(&alignment.strategy)
+        ));
+        json.push_str(&format!(
+            "      \"method\": \"{}\",\n",
+            json_escape(&alignment.method)
+        ));
+        push_optional_json_f64(&mut json, "resample_step", alignment.resample_step, 6);
+        push_optional_json_f64(&mut json, "tolerance", alignment.tolerance, 6);
         json.push_str(&format!(
             "      \"left_count\": {},\n",
             alignment.left_count
@@ -3226,9 +3246,10 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         push_optional_json_f64(&mut json, "overlap_start", alignment.overlap_start, 6);
         push_optional_json_f64(&mut json, "overlap_end", alignment.overlap_end, 6);
         json.push_str(&format!(
-            "      \"status\": \"{}\"\n",
+            "      \"status\": \"{}\",\n",
             json_escape(&alignment.status)
         ));
+        json.push_str(&format!("      \"line\": {}\n", alignment.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -7005,10 +7026,12 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
             let right_step =
                 format_alignment_step(alignment.right_nominal_step, alignment.right_irregular);
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{} / {}</td><td>{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}</td><td>{} / {}</td><td>{}</td><td>{}</td></tr>",
+                html_escape(&alignment.binding),
                 html_escape(&alignment.left),
                 html_escape(&alignment.right),
                 html_escape(&alignment.axis),
+                html_escape(&format!("{} / {}", alignment.strategy, alignment.method)),
                 alignment.matched_count,
                 alignment.left_count.min(alignment.right_count),
                 html_escape(&left_step),
@@ -7022,7 +7045,7 @@ fn render_time_alignments_section(spec: &ReportSpec) -> String {
     format!(
         r#"<h2>Time Alignments</h2>
     <table>
-      <thead><tr><th>Left</th><th>Right</th><th>Axis</th><th>Matched</th><th>Nominal Step</th><th>Step</th><th>Status</th></tr></thead>
+      <thead><tr><th>Binding</th><th>Left</th><th>Right</th><th>Axis</th><th>Strategy</th><th>Matched</th><th>Nominal Step</th><th>Step</th><th>Status</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
     )

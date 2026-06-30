@@ -7438,6 +7438,10 @@ fn result_json(
         }
         time_alignments.push_str("      {\n");
         time_alignments.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&alignment.binding)
+        ));
+        time_alignments.push_str(&format!(
             "        \"left\": \"{}\",\n",
             json_escape(&alignment.left)
         ));
@@ -7449,6 +7453,21 @@ fn result_json(
             "        \"axis\": \"{}\",\n",
             json_escape(&alignment.axis)
         ));
+        time_alignments.push_str(&format!(
+            "        \"strategy\": \"{}\",\n",
+            json_escape(&alignment.strategy)
+        ));
+        time_alignments.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&alignment.method)
+        ));
+        push_optional_json_number(
+            &mut time_alignments,
+            "resample_step",
+            alignment.resample_step,
+            8,
+        );
+        push_optional_json_number(&mut time_alignments, "tolerance", alignment.tolerance, 8);
         time_alignments.push_str(&format!(
             "        \"left_count\": {},\n",
             alignment.left_count
@@ -7498,9 +7517,10 @@ fn result_json(
             8,
         );
         time_alignments.push_str(&format!(
-            "        \"status\": \"{}\"\n",
+            "        \"status\": \"{}\",\n",
             json_escape(&alignment.status)
         ));
+        time_alignments.push_str(&format!("        \"line\": {}\n", alignment.line));
         time_alignments.push_str("      }");
     }
 
@@ -12233,6 +12253,112 @@ mod tests {
             "timeseries_coverage:weather.Time.coverage",
             "depends_on"
         ));
+    }
+
+    #[test]
+    fn run_file_records_timeseries_alignment_and_resampling_hooks() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-review-timeseries-align");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-review-timeseries-align-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("measured.csv"),
+            concat!(
+                "time,T_zone\n",
+                "2024-01-01T00:00:00Z,21.0\n",
+                "2024-01-01T01:00:00Z,21.5\n",
+                "2024-01-01T02:00:00Z,22.0\n",
+            ),
+        )
+        .expect("write measured csv");
+        fs::write(
+            source_dir.join("data").join("simulated.csv"),
+            concat!(
+                "time,T_zone\n",
+                "2024-01-01T00:00:00Z,20.9\n",
+                "2024-01-01T01:00:00Z,21.4\n",
+                "2024-01-01T02:00:00Z,21.9\n",
+            ),
+        )
+        .expect("write simulated csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema ZoneTemperature {\n",
+                "    time: DateTime index\n",
+                "    T_zone: AbsoluteTemperature [degC]\n",
+                "}\n\n",
+                "args {\n",
+                "    measured_file: CsvFile = file(\"data/measured.csv\")\n",
+                "    simulated_file: CsvFile = file(\"data/simulated.csv\")\n",
+                "}\n\n",
+                "measured = promote csv args.measured_file as ZoneTemperature\n",
+                "simulated = promote csv args.simulated_file as ZoneTemperature\n",
+                "aligned = align measured.T_zone with simulated.T_zone\n",
+                "resampled = resample measured.T_zone to simulated.T_zone\n",
+                "with {\n",
+                "    method = linear\n",
+                "    target_step = 1 h\n",
+                "    tolerance = 5 min\n",
+                "}\n",
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("run file");
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let aligned =
+            json_array_item_by_binding(&result, "/typed_payload/time_alignments", "aligned")
+                .expect("align hook");
+        assert_eq!(
+            aligned.get("strategy").and_then(Value::as_str),
+            Some("align")
+        );
+        assert_eq!(
+            aligned.get("method").and_then(Value::as_str),
+            Some("metadata_only")
+        );
+        assert_eq!(
+            aligned.get("status").and_then(Value::as_str),
+            Some("matched")
+        );
+        let resampled =
+            json_array_item_by_binding(&result, "/typed_payload/time_alignments", "resampled")
+                .expect("resample hook");
+        assert_eq!(
+            resampled.get("strategy").and_then(Value::as_str),
+            Some("resample")
+        );
+        assert_eq!(
+            resampled.get("method").and_then(Value::as_str),
+            Some("linear")
+        );
+        assert_eq!(
+            resampled.get("resample_step").and_then(Value::as_f64),
+            Some(3600.0)
+        );
+        assert_eq!(
+            resampled.get("tolerance").and_then(Value::as_f64),
+            Some(300.0)
+        );
     }
 
     #[test]

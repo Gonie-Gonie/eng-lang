@@ -329,9 +329,14 @@
     "timeAlignment": {
       "type": "object",
       "required": [
+        "binding",
         "left",
         "right",
         "axis",
+        "strategy",
+        "method",
+        "resample_step",
+        "tolerance",
         "left_count",
         "right_count",
         "matched_count",
@@ -342,12 +347,18 @@
         "step_status",
         "overlap_start",
         "overlap_end",
-        "status"
+        "status",
+        "line"
       ],
       "properties": {
+        "binding": { "type": "string" },
         "left": { "type": "string" },
         "right": { "type": "string" },
         "axis": { "type": "string" },
+        "strategy": { "enum": ["auto_pairwise", "align", "resample"] },
+        "method": { "type": "string" },
+        "resample_step": { "type": ["number", "null"] },
+        "tolerance": { "type": ["number", "null"] },
         "left_count": { "type": "integer", "minimum": 0 },
         "right_count": { "type": "integer", "minimum": 0 },
         "matched_count": { "type": "integer", "minimum": 0 },
@@ -358,7 +369,8 @@
         "step_status": { "enum": ["matched", "mismatch", "unavailable"] },
         "overlap_start": { "type": ["number", "null"] },
         "overlap_end": { "type": ["number", "null"] },
-        "status": { "enum": ["matched", "overlap", "mismatch"] }
+        "status": { "enum": ["matched", "overlap", "mismatch"] },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "timeAxis": {

@@ -136,6 +136,7 @@ typed_payload.statistics
 typed_payload.integrations
 typed_payload.timeseries_fill
 typed_payload.timeseries_quality
+typed_payload.time_alignments
 ```
 
 The VM object store records TimeSeries objects as:
@@ -175,6 +176,25 @@ fillable count, filled count, skipped count, status, and source line. The
 interpolated output is also available in the VM object store under the fill
 binding name. `typed_payload.timeseries_quality[]` summarizes the related
 coverage/fill outcome with remaining missing count and a 0..1 quality score.
+
+## Alignment And Resampling Hooks
+
+`align <series> with <series>` and `resample <series> to <series>` record
+reviewable TimeSeries alignment intent without silently mutating source data:
+
+```eng partial
+aligned = align measured.T_zone with simulated.T_zone
+resampled = resample measured.T_zone to simulated.T_zone
+with {
+    method = linear
+    target_step = 1 h
+    tolerance = 5 min
+}
+```
+
+Runtime artifacts include `typed_payload.time_alignments[]` records with binding,
+left/right series, strategy (`align`, `resample`, or `auto_pairwise`), method,
+optional resample step/tolerance, overlap, step status, and matched counts.
 
 ## Deferred
 
