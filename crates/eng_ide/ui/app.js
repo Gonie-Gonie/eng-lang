@@ -45,6 +45,7 @@ function emptyInspectors() {
     metrics: [],
     validations: [],
     timeAlignments: [],
+    tableTransforms: [],
     systems: [],
     systemIr: [],
     kernelPlan: null,
@@ -656,6 +657,7 @@ function renderSidePanel() {
         ${sideTabButton("variables", "Vars")}
         ${sideTabButton("schema", "Schema")}
         ${sideTabButton("time", "Time")}
+        ${sideTabButton("tables", "Tables")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
         ${sideTabButton("kernels", "Kernel")}
@@ -679,6 +681,7 @@ function renderSideBody() {
   if (state.sideTab === "plot") return renderPlotPanel();
   if (state.sideTab === "schema") return renderSchemaPanel();
   if (state.sideTab === "time") return renderTimePanel();
+  if (state.sideTab === "tables") return renderTablesPanel();
   if (state.sideTab === "checks") return renderChecksPanel();
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
@@ -768,6 +771,21 @@ function renderTimePanel() {
       <div class="panel-title compact">Solver Results</div>
       ${renderSolverTrajectories()}
     </div>
+  `;
+}
+
+function renderTablesPanel() {
+  const transforms = inspectorRows("tableTransforms");
+  const rowDiagnostics = transforms.reduce((sum, transform) => {
+    return sum + Number(transform.row_diagnostic_count ?? transform.rowDiagnosticCount ?? 0);
+  }, 0);
+  return `
+    <div class="panel-title compact">Tables</div>
+    <div class="badges">
+      <span class="badge">Transforms ${transforms.length}</span>
+      <span class="badge">Rows ${rowDiagnostics}</span>
+    </div>
+    <div class="scroll">${renderTableTransforms(transforms)}</div>
   `;
 }
 
@@ -1234,6 +1252,96 @@ function renderUnitConversions() {
       <tbody>${rows || `<tr><td colspan="5" class="muted">No conversion records.</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function renderTableTransforms(transforms = inspectorRows("tableTransforms")) {
+  const rows = transforms.map((transform) => {
+    const line = sourceLineButton(transform);
+    const operation = transform.operation || "-";
+    const source = transform.secondary_table || transform.secondaryTable
+      ? `${transform.source_table || transform.sourceTable || "-"} + ${transform.secondary_table || transform.secondaryTable}`
+      : (transform.source_table || transform.sourceTable || "-");
+    return `
+      <tr>
+        <td><strong>${escapeHtml(transform.binding || "-")}</strong><div class="muted">${line}</div></td>
+        <td>${escapeHtml(operation)}<div class="muted">${escapeHtml(source)}</div><div class="muted">${escapeHtml(transform.schema_name || transform.schemaName || "-")}</div></td>
+        <td>${escapeHtml(tableTransformRowSummary(transform))}</td>
+        <td>${escapeHtml(tablePredicateSummary(transform.predicates))}</td>
+        <td>${escapeHtml(tableTransformShapeSummary(transform))}</td>
+        <td>${escapeHtml(tableRowDiagnosticsSummary(transform))}</td>
+        <td><strong>${escapeHtml(transform.status || "-")}</strong><div class="muted">${escapeHtml(transform.contract_status || transform.contractStatus || "-")}</div><div class="muted">${escapeHtml(compactText(transform.reason || "-", 80))}</div></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Binding</th><th>Operation</th><th>Rows</th><th>Predicates</th><th>Shape</th><th>Row Diagnostics</th><th>Status</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">Run a table workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function tableTransformRowSummary(transform) {
+  const input = transform.input_row_count ?? transform.inputRowCount ?? "-";
+  const output = transform.output_row_count ?? transform.outputRowCount ?? "-";
+  const pairCount = transform.matched_pair_count ?? transform.matchedPairCount;
+  const secondary = transform.secondary_input_row_count ?? transform.secondaryInputRowCount;
+  const matched = Array.isArray(transform.matched_row_indices)
+    ? transform.matched_row_indices
+    : (Array.isArray(transform.matchedRowIndices) ? transform.matchedRowIndices : []);
+  const parts = [`${input} -> ${output}`];
+  if (secondary !== null && secondary !== undefined) parts.push(`secondary ${secondary}`);
+  if (pairCount !== null && pairCount !== undefined) parts.push(`pairs ${pairCount}`);
+  if (matched.length) parts.push(`matched ${matched.slice(0, 6).join(", ")}${matched.length > 6 ? " ..." : ""}`);
+  return parts.join("; ");
+}
+
+function tablePredicateSummary(predicates) {
+  if (!Array.isArray(predicates) || !predicates.length) return "-";
+  return compactText(predicates.map((predicate) => {
+    const expression = predicate.expression || "-";
+    const resolved = predicate.resolved_value ?? predicate.resolvedValue ?? predicate.value;
+    const suffix = resolved === null || resolved === undefined ? "" : ` => ${resolved}`;
+    return `${expression}${suffix}`;
+  }).join("; "), 130);
+}
+
+function tableTransformShapeSummary(transform) {
+  const parts = [];
+  const selected = transform.selected_columns || transform.selectedColumns || [];
+  const derived = transform.derived_columns || transform.derivedColumns || [];
+  const sortKeys = transform.sort_keys || transform.sortKeys || [];
+  const joinKeys = transform.join_keys || transform.joinKeys || [];
+  if (Array.isArray(selected) && selected.length) {
+    parts.push(`select ${selected.map((column) => column.name || column).join(", ")}`);
+  }
+  if (Array.isArray(derived) && derived.length) {
+    parts.push(`derive ${derived.map((column) => column.name || "-").join(", ")}`);
+  }
+  if (Array.isArray(sortKeys) && sortKeys.length) {
+    parts.push(`sort ${sortKeys.map((key) => `${key.column || "-"} ${key.direction || ""}`.trim()).join(", ")}`);
+  }
+  if (Array.isArray(joinKeys) && joinKeys.length) {
+    parts.push(`join ${joinKeys.map((key) => key.expression || `${key.left_table || key.leftTable || "left"}.${key.left_column || key.leftColumn || "key"} == ${key.right_table || key.rightTable || "right"}.${key.right_column || key.rightColumn || "key"}`).join(", ")}`);
+  }
+  return compactText(parts.join("; ") || "-", 130);
+}
+
+function tableRowDiagnosticsSummary(transform) {
+  const summary = transform.row_diagnostic_summary || transform.rowDiagnosticSummary;
+  if (Array.isArray(summary) && summary.length) {
+    return summary.map((item) => `${item.status || "-"} ${item.count ?? 0}`).join("; ");
+  }
+  const preview = transform.row_diagnostics_preview || transform.rowDiagnosticsPreview;
+  if (Array.isArray(preview) && preview.length) {
+    const counts = new Map();
+    preview.forEach((row) => {
+      const status = row.status || "unknown";
+      counts.set(status, (counts.get(status) || 0) + 1);
+    });
+    return [...counts.entries()].map(([status, count]) => `${status} ${count}`).join("; ");
+  }
+  return "-";
 }
 
 function renderTimeAxes() {

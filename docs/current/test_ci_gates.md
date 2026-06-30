@@ -60,6 +60,9 @@ Current coverage:
 - The example smoke now also runs `eng review --output` and
   `eng review --against` through the built CLI binary and asserts that
   `static_review.json` and `semantic_diff.json` are written.
+- IDE smoke checks native inspector payloads for runtime table transform rows
+  when the `tests/runtime/table_datetime_comparison.eng` fixture is available
+  in the repo workspace.
 
 Remaining gap: the separate planned spelling `eng review diff <old> <new>`
 and a native IDE semantic diff panel are still planned.

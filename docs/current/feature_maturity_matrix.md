@@ -256,7 +256,8 @@ separate.
   `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
-  data-quality diagnostics for invalid sample rows, and
+  data-quality diagnostics for invalid sample rows, IDE table transform
+  inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
   The external simulation hybrid now records three enriched native case manifests, collected
   result rows, surrogate model cards, prediction manifests with output quantity/unit

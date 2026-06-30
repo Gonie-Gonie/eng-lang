@@ -99,7 +99,8 @@ review material. It is not a broad solver claim.
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
 - Native Tauri/WebView tester IDE smoke path for open/check/save/run,
   diagnostics, variable summaries, schema/TimeSeries/metric/validation
-  inspectors, PlotSpec viewing, report opening, and side-effect artifact panels.
+  inspectors, table transform inspector rows, PlotSpec viewing, report opening,
+  and side-effect artifact panels.
 - Packaged LSP smoke/snapshot binary for internal editor tooling. It is not a
   stable persistent editor-service contract.
 

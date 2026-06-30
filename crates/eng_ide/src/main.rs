@@ -121,6 +121,7 @@ struct InspectorView {
     validations: Value,
     uncertainty: Value,
     time_alignments: Value,
+    table_transforms: Value,
     systems: Value,
     system_ir: Value,
     linear_operators: Value,
@@ -147,6 +148,7 @@ impl Default for InspectorView {
             validations: Value::Array(Vec::new()),
             uncertainty: Value::Null,
             time_alignments: Value::Array(Vec::new()),
+            table_transforms: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             system_ir: Value::Array(Vec::new()),
             linear_operators: Value::Array(Vec::new()),
@@ -1038,6 +1040,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         validations: json_array_clone(&report, "validations"),
         uncertainty: uncertainty_inspector(&report, &review),
         time_alignments: json_array_clone(&report, "time_alignments"),
+        table_transforms: table_transform_inspector(&result, &review),
         systems: system_inspector(&report, &result),
         system_ir: json_array_clone(&report, "system_ir"),
         linear_operators: json_array_clone(&report, "linear_operators"),
@@ -1081,6 +1084,170 @@ fn uncertainty_inspector(report: &Value, review: &Value) -> Value {
         "timeseries": json_array_clone(review, "timeseries_uncertainty"),
         "timeseries_calculations": json_array_clone(review, "timeseries_uncertainty_calculations")
     })
+}
+
+fn table_transform_inspector(result: &Value, review: &Value) -> Value {
+    let runtime_items = result
+        .get("typed_payload")
+        .and_then(|payload| payload.get("table_transforms"))
+        .and_then(Value::as_array)
+        .cloned()
+        .or_else(|| {
+            result
+                .get("table_transforms")
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default();
+    let contracts = review
+        .get("review_document")
+        .and_then(|document| document.get("table_transforms"))
+        .and_then(Value::as_array)
+        .cloned()
+        .or_else(|| {
+            review
+                .get("table_transforms")
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default();
+
+    let mut rows = Vec::new();
+    let mut seen_bindings = Vec::new();
+    for item in runtime_items {
+        let binding = json_field_string(&item, "binding").unwrap_or_default();
+        let contract = contracts.iter().find(|contract| {
+            !binding.is_empty()
+                && json_field_string(contract, "binding").as_deref() == Some(binding.as_str())
+        });
+        if !binding.is_empty() {
+            seen_bindings.push(binding);
+        }
+        rows.push(table_transform_inspector_row(&item, contract));
+    }
+    for contract in contracts {
+        let binding = json_field_string(&contract, "binding").unwrap_or_default();
+        if binding.is_empty() || seen_bindings.iter().any(|seen| seen == &binding) {
+            continue;
+        }
+        rows.push(table_transform_static_inspector_row(&contract));
+    }
+    Value::Array(rows)
+}
+
+fn table_transform_inspector_row(item: &Value, contract: Option<&Value>) -> Value {
+    let row_diagnostics = json_array_field(item, "row_diagnostics").unwrap_or_default();
+    let predicates = json_array_field(item, "predicates")
+        .or_else(|| contract.and_then(|value| json_array_field(value, "predicates")))
+        .unwrap_or_default();
+    let selected_columns = json_array_field(item, "selected_columns")
+        .or_else(|| contract.and_then(|value| json_array_field(value, "selected_columns")))
+        .unwrap_or_default();
+    let derived_columns = json_array_field(item, "derived_columns")
+        .or_else(|| contract.and_then(|value| json_array_field(value, "derived_columns")))
+        .unwrap_or_default();
+    let sort_keys = json_array_field(item, "sort_keys")
+        .or_else(|| contract.and_then(|value| json_array_field(value, "sort_keys")))
+        .unwrap_or_default();
+    let join_keys = json_array_field(item, "join_keys")
+        .or_else(|| contract.and_then(|value| json_array_field(value, "join_keys")))
+        .unwrap_or_default();
+    json!({
+        "binding": json_field_string(item, "binding").unwrap_or_default(),
+        "operation": json_field_string(item, "operation").unwrap_or_default(),
+        "source_table": json_field_string(item, "source_table").unwrap_or_default(),
+        "secondary_table": json_field_string(item, "secondary_table"),
+        "schema_name": json_field_string(item, "schema_name")
+            .or_else(|| contract.and_then(|value| json_field_string(value, "schema_name"))),
+        "line": json_field_usize(item, "line")
+            .or_else(|| contract.and_then(|value| json_field_usize(value, "line")))
+            .unwrap_or(0),
+        "status": json_field_string(item, "status").unwrap_or_else(|| "runtime".to_owned()),
+        "reason": json_field_string(item, "reason").unwrap_or_default(),
+        "contract_status": contract
+            .and_then(|value| json_field_string(value, "status"))
+            .unwrap_or_default(),
+        "input_row_count": json_field_usize(item, "input_row_count").unwrap_or(0),
+        "secondary_input_row_count": json_field_usize(item, "secondary_input_row_count"),
+        "output_row_count": json_field_usize(item, "output_row_count").unwrap_or(0),
+        "matched_pair_count": json_field_usize(item, "matched_pair_count"),
+        "matched_row_indices": json_array_field(item, "matched_row_indices").unwrap_or_default(),
+        "predicate_count": predicates.len(),
+        "selected_column_count": selected_columns.len(),
+        "derived_column_count": derived_columns.len(),
+        "sort_key_count": sort_keys.len(),
+        "join_key_count": join_keys.len(),
+        "row_diagnostic_count": row_diagnostics.len(),
+        "row_diagnostic_summary": table_row_diagnostic_summary(&row_diagnostics),
+        "row_diagnostics_preview": row_diagnostics.into_iter().take(20).collect::<Vec<_>>(),
+        "predicates": predicates,
+        "selected_columns": selected_columns,
+        "derived_columns": derived_columns,
+        "sort_keys": sort_keys,
+        "join_keys": join_keys
+    })
+}
+
+fn table_transform_static_inspector_row(contract: &Value) -> Value {
+    let predicates = json_array_field(contract, "predicates").unwrap_or_default();
+    let selected_columns = json_array_field(contract, "selected_columns").unwrap_or_default();
+    let derived_columns = json_array_field(contract, "derived_columns").unwrap_or_default();
+    let sort_keys = json_array_field(contract, "sort_keys").unwrap_or_default();
+    let join_keys = json_array_field(contract, "join_keys").unwrap_or_default();
+    json!({
+        "binding": json_field_string(contract, "binding").unwrap_or_default(),
+        "operation": json_field_string(contract, "operation").unwrap_or_default(),
+        "source_table": json_field_string(contract, "source_table").unwrap_or_default(),
+        "secondary_table": json_field_string(contract, "secondary_table"),
+        "schema_name": json_field_string(contract, "schema_name"),
+        "line": json_field_usize(contract, "line").unwrap_or(0),
+        "status": "static",
+        "reason": "",
+        "contract_status": json_field_string(contract, "status").unwrap_or_default(),
+        "input_row_count": 0,
+        "secondary_input_row_count": Value::Null,
+        "output_row_count": 0,
+        "matched_pair_count": Value::Null,
+        "matched_row_indices": [],
+        "predicate_count": predicates.len(),
+        "selected_column_count": selected_columns.len(),
+        "derived_column_count": derived_columns.len(),
+        "sort_key_count": sort_keys.len(),
+        "join_key_count": join_keys.len(),
+        "row_diagnostic_count": 0,
+        "row_diagnostic_summary": [],
+        "row_diagnostics_preview": [],
+        "predicates": predicates,
+        "selected_columns": selected_columns,
+        "derived_columns": derived_columns,
+        "sort_keys": sort_keys,
+        "join_keys": join_keys
+    })
+}
+
+fn json_array_field(value: &Value, key: &str) -> Option<Vec<Value>> {
+    value.get(key).and_then(Value::as_array).cloned()
+}
+
+fn table_row_diagnostic_summary(row_diagnostics: &[Value]) -> Value {
+    let mut counts: Vec<(String, usize)> = Vec::new();
+    for row in row_diagnostics {
+        let status = json_field_string(row, "status").unwrap_or_else(|| "unknown".to_owned());
+        if let Some((_, count)) = counts
+            .iter_mut()
+            .find(|(existing_status, _)| existing_status == &status)
+        {
+            *count += 1;
+        } else {
+            counts.push((status, 1));
+        }
+    }
+    Value::Array(
+        counts
+            .into_iter()
+            .map(|(status, count)| json!({ "status": status, "count": count }))
+            .collect(),
+    )
 }
 
 fn output_manifest_inspector(root: &Path, output: &CachedRunOutput) -> Value {
@@ -3312,8 +3479,37 @@ fn smoke() -> Result<(), String> {
             data_quality_example.display()
         ));
     }
+
+    let table_example = root.join("tests/runtime/table_datetime_comparison.eng");
+    if table_example.exists() {
+        let table_output = run_file(
+            &table_example,
+            &root.join("build").join("ide-smoke-table-transforms"),
+            &RunOptions::default(),
+        )
+        .map_err(|error| error.to_string())?;
+        let table_cached = CachedRunOutput::from_output(table_output);
+        let table_inspectors = runtime_inspectors(&root, &table_cached);
+        let has_table_transform =
+            table_inspectors
+                .table_transforms
+                .as_array()
+                .is_some_and(|items| {
+                    items.iter().any(|item| {
+                        json_field_string(item, "binding").as_deref() == Some("exact")
+                            && json_field_usize(item, "predicate_count").unwrap_or(0) > 0
+                            && json_field_usize(item, "row_diagnostic_count").unwrap_or(0) > 0
+                    })
+                });
+        if !has_table_transform {
+            return Err(format!(
+                "{} did not produce IDE table transform inspector metadata",
+                table_example.display()
+            ));
+        }
+    }
     println!(
-        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, normalized review cockpit, side-effect inspectors, schema failure inspector",
+        "EngLang IDE smoke OK: {} example(s), {} quantity completion(s), {} unit completion(s), {} domain(s), {} component(s), {} connection(s), {} assembly graph(s), residual dependency inspector, behavior graph inspector, measured workflow inspectors, solved thermal assembly inspector, multi-domain boundary solve inspector, advanced Thermal/Fluid solver inspector, state-space trajectory/operator/source-equation inspector, kernel plan inspector, class object inspector, normalized review cockpit, side-effect inspectors, schema failure inspector, table transform inspector",
         examples.len(),
         all_quantity_completions().len(),
         all_unit_infos().len(),
@@ -3639,6 +3835,94 @@ mod tests {
     }
 
     #[test]
+    fn ide_surfaces_table_transform_inspector() {
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "table_transforms": [
+                  {
+                    "binding": "exact",
+                    "operation": "filter",
+                    "source_table": "events",
+                    "schema_name": "EventLog",
+                    "status": "filtered",
+                    "reason": "filter applied predicates",
+                    "input_row_count": 2,
+                    "output_row_count": 1,
+                    "matched_row_indices": [1],
+                    "predicates": [
+                      {
+                        "expression": "timestamp == \"2024-01-01T00:00:00Z\"",
+                        "status": "accepted",
+                        "resolved_value": "2024-01-01T00:00:00Z"
+                      }
+                    ],
+                    "row_diagnostics": [
+                      { "row_index": 1, "status": "matched" },
+                      { "row_index": 2, "status": "excluded" }
+                    ]
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+            r#"{
+              "review_document": {
+                "table_transforms": [
+                  {
+                    "binding": "exact",
+                    "operation": "filter",
+                    "source_table": "events",
+                    "schema_name": "EventLog",
+                    "status": "declared",
+                    "line": 10,
+                    "predicates": [
+                      {
+                        "expression": "timestamp == \"2024-01-01T00:00:00Z\"",
+                        "status": "accepted"
+                      }
+                    ]
+                  }
+                ]
+              }
+            }"#,
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let transforms = inspectors
+            .table_transforms
+            .as_array()
+            .expect("table transforms");
+        let transform = transforms
+            .iter()
+            .find(|transform| json_field_string(transform, "binding").as_deref() == Some("exact"))
+            .expect("exact transform");
+
+        assert_eq!(
+            json_field_string(transform, "operation").as_deref(),
+            Some("filter")
+        );
+        assert_eq!(json_field_usize(transform, "predicate_count"), Some(1));
+        assert_eq!(json_field_usize(transform, "row_diagnostic_count"), Some(2));
+        assert_eq!(
+            json_field_string(transform, "contract_status").as_deref(),
+            Some("declared")
+        );
+        let summary = transform
+            .get("row_diagnostic_summary")
+            .and_then(Value::as_array)
+            .expect("row summary");
+        assert!(summary.iter().any(|item| {
+            json_field_string(item, "status").as_deref() == Some("matched")
+                && json_field_usize(item, "count") == Some(1)
+        }));
+        assert!(summary.iter().any(|item| {
+            json_field_string(item, "status").as_deref() == Some("excluded")
+                && json_field_usize(item, "count") == Some(1)
+        }));
+    }
+
+    #[test]
     fn ide_surfaces_normalized_review_cockpit_sections() {
         let cached = cached_output_with_report_and_review(
             "{}",
@@ -3683,6 +3967,14 @@ mod tests {
         report_spec_json: &str,
         review_json: &str,
     ) -> CachedRunOutput {
+        cached_output_with_result_report_and_review("{}", report_spec_json, review_json)
+    }
+
+    fn cached_output_with_result_report_and_review(
+        result_json: &str,
+        report_spec_json: &str,
+        review_json: &str,
+    ) -> CachedRunOutput {
         CachedRunOutput {
             bytecode_path: PathBuf::new(),
             result_path: PathBuf::new(),
@@ -3698,7 +3990,7 @@ mod tests {
             output_manifest_path: PathBuf::new(),
             artifacts_saved: false,
             bytecode: String::new(),
-            result_json: "{}".to_owned(),
+            result_json: result_json.to_owned(),
             review_json: review_json.to_owned(),
             run_log_json: "{}".to_owned(),
             process_results_json: "{}".to_owned(),
