@@ -524,6 +524,17 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "status_code": { "type": ["integer", "null"], "minimum": 100 },
+        "status_class": {
+          "enum": [
+            "informational",
+            "success",
+            "redirect",
+            "client_error",
+            "server_error",
+            "unknown"
+          ]
+        },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

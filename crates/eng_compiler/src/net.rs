@@ -26,6 +26,7 @@ pub struct NetRequestInfo {
     pub timeout: Option<String>,
     pub fixture: Option<String>,
     pub status_code: Option<u16>,
+    pub status_class: String,
     pub response_hash: Option<String>,
     pub status: String,
     pub line: usize,
@@ -44,6 +45,7 @@ pub struct NetDownloadInfo {
     pub timeout: Option<String>,
     pub fixture: Option<String>,
     pub status_code: Option<u16>,
+    pub status_class: String,
     pub response_hash: Option<String>,
     pub status: String,
     pub line: usize,
@@ -131,6 +133,9 @@ fn build_request(
     let fixture_read = fixture
         .as_ref()
         .and_then(|fixture| read_fixture(source_base, fixture));
+    let status_code = option_value(options, "status_code")
+        .and_then(parse_u16)
+        .or_else(|| fixture_read.as_ref().map(|_| 200));
     NetRequestInfo {
         binding: binding.to_owned(),
         method: "GET".to_owned(),
@@ -142,9 +147,8 @@ fn build_request(
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
         timeout: option_value(options, "timeout").map(str::to_owned),
         fixture,
-        status_code: option_value(options, "status_code")
-            .and_then(parse_u16)
-            .or_else(|| fixture_read.as_ref().map(|_| 200)),
+        status_code,
+        status_class: http_status_class(status_code).to_owned(),
         response_hash: fixture_read.as_ref().map(|read| read.hash.clone()),
         status: fixture_read
             .as_ref()
@@ -173,6 +177,9 @@ fn build_download(
     let fixture_read = fixture
         .as_ref()
         .and_then(|fixture| read_fixture(source_base, fixture));
+    let status_code = option_value(options, "status_code")
+        .and_then(parse_u16)
+        .or_else(|| fixture_read.as_ref().map(|_| 200));
     NetDownloadInfo {
         url_literal: url_literal.to_owned(),
         url_value,
@@ -184,9 +191,8 @@ fn build_download(
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
         timeout: option_value(options, "timeout").map(str::to_owned),
         fixture,
-        status_code: option_value(options, "status_code")
-            .and_then(parse_u16)
-            .or_else(|| fixture_read.as_ref().map(|_| 200)),
+        status_code,
+        status_class: http_status_class(status_code).to_owned(),
         response_hash: fixture_read.as_ref().map(|read| read.hash.clone()),
         status: fixture_read
             .as_ref()
@@ -344,6 +350,17 @@ fn parse_usize(value: &str) -> Option<usize> {
 
 fn parse_u16(value: &str) -> Option<u16> {
     value.trim().parse::<u16>().ok()
+}
+
+pub fn http_status_class(status_code: Option<u16>) -> &'static str {
+    match status_code {
+        Some(100..=199) => "informational",
+        Some(200..=299) => "success",
+        Some(300..=399) => "redirect",
+        Some(400..=499) => "client_error",
+        Some(500..=599) => "server_error",
+        Some(_) | None => "unknown",
+    }
 }
 
 fn hash_bytes(source: &[u8]) -> String {

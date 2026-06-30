@@ -4454,6 +4454,10 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
             None => json.push_str(&format!("{spaces}    \"status_code\": null,\n")),
         }
         json.push_str(&format!(
+            "{spaces}    \"status_class\": \"{}\",\n",
+            json_escape(&request.status_class)
+        ));
+        json.push_str(&format!(
             "{spaces}    \"status\": \"{}\",\n",
             json_escape(&request.status)
         ));
@@ -4501,6 +4505,10 @@ fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usiz
             }
             None => json.push_str(&format!("{spaces}    \"status_code\": null,\n")),
         }
+        json.push_str(&format!(
+            "{spaces}    \"status_class\": \"{}\",\n",
+            json_escape(&download.status_class)
+        ));
         json.push_str(&format!(
             "{spaces}    \"status\": \"{}\",\n",
             json_escape(&download.status)
@@ -6479,6 +6487,16 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         json.push_str("        \"success\": null,\n");
         json.push_str("        \"risk_level\": \"medium\",\n");
         json.push_str("        \"expected_outputs\": [],\n");
+        match request.status_code {
+            Some(status_code) => {
+                json.push_str(&format!("        \"status_code\": {},\n", status_code))
+            }
+            None => json.push_str("        \"status_code\": null,\n"),
+        }
+        json.push_str(&format!(
+            "        \"status_class\": \"{}\",\n",
+            json_escape(&request.status_class)
+        ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&request.status)
@@ -6507,6 +6525,16 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         json.push_str("        \"expected_outputs\": [");
         push_json_string_array(json, std::slice::from_ref(&download.target_value));
         json.push_str("],\n");
+        match download.status_code {
+            Some(status_code) => {
+                json.push_str(&format!("        \"status_code\": {},\n", status_code))
+            }
+            None => json.push_str("        \"status_code\": null,\n"),
+        }
+        json.push_str(&format!(
+            "        \"status_class\": \"{}\",\n",
+            json_escape(&download.status_class)
+        ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&download.status)
@@ -11936,6 +11964,8 @@ system Envelope {
         assert_eq!(request.status, "fixture");
         assert_eq!(request.retry, Some(2));
         assert!(request.cache);
+        assert_eq!(request.status_code, Some(200));
+        assert_eq!(request.status_class, "success");
         assert!(request.response_hash.is_some());
         assert!(request.query.iter().any(|param| param.key == "serviceKey"
             && param.value == "<redacted>"
@@ -11963,6 +11993,8 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"net_requests\""));
         assert!(review.contains("\"net_downloads\""));
+        assert!(review.contains("\"status_code\": 200"));
+        assert!(review.contains("\"status_class\": \"success\""));
         assert!(review.contains("\"cache_records\""));
         assert!(review.contains("\"caches\""));
         assert!(review.contains("\"cache_count\": 2"));

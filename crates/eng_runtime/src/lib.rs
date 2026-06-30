@@ -8507,6 +8507,16 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             request.expected_sha256.as_deref(),
             8,
         );
+        match request.status_code {
+            Some(status_code) => {
+                json.push_str(&format!("        \"status_code\": {},\n", status_code))
+            }
+            None => json.push_str("        \"status_code\": null,\n"),
+        }
+        json.push_str(&format!(
+            "        \"status_class\": \"{}\",\n",
+            json_escape(&request.status_class)
+        ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&request.status)
@@ -8542,6 +8552,16 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             download.expected_sha256.as_deref(),
             8,
         );
+        match download.status_code {
+            Some(status_code) => {
+                json.push_str(&format!("        \"status_code\": {},\n", status_code))
+            }
+            None => json.push_str("        \"status_code\": null,\n"),
+        }
+        json.push_str(&format!(
+            "        \"status_class\": \"{}\",\n",
+            json_escape(&download.status_class)
+        ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&download.status)
@@ -11014,6 +11034,18 @@ mod tests {
                 .pointer("/typed_payload/network_boundaries/0/status")
                 .and_then(Value::as_str),
             Some("fixture")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/status_code")
+                .and_then(Value::as_u64),
+            Some(200)
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/status_class")
+                .and_then(Value::as_str),
+            Some("success")
         );
         assert!(output.result_json.contains("\"network_boundaries\""));
         assert!(output.result_json.contains("\"kind\": \"http_get\""));
