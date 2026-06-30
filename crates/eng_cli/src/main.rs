@@ -29,6 +29,7 @@ fn main() -> ExitCode {
         "jit-plan" => command_jit_plan(args),
         "jit-bench" => command_jit_bench(args),
         "run" => command_run(args),
+        "cache" => command_cache(args),
         "build" => command_build(args),
         "view" => command_view(args),
         "new" => command_new(args),
@@ -570,6 +571,243 @@ fn command_run(args: Vec<String>) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+#[derive(Clone, Debug, Default)]
+struct CacheInvalidateOptions {
+    manifest_path: PathBuf,
+    dry_run: bool,
+    all: bool,
+    owner_kind: Option<String>,
+    owner_name: Option<String>,
+    cache_key_hash: Option<String>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct CacheInvalidateSummary {
+    matched: usize,
+    deleted: usize,
+    missing: usize,
+}
+
+fn command_cache(mut args: Vec<String>) -> ExitCode {
+    let Some(action) = args.first().cloned() else {
+        eprintln!("usage: eng cache invalidate [--manifest <cache_manifest.json>] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]");
+        return ExitCode::from(2);
+    };
+    args.remove(0);
+    match action.as_str() {
+        "invalidate" => command_cache_invalidate(args),
+        other => {
+            eprintln!("unknown cache command: {other}");
+            eprintln!("usage: eng cache invalidate [--manifest <cache_manifest.json>] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]");
+            ExitCode::from(2)
+        }
+    }
+}
+
+fn command_cache_invalidate(args: Vec<String>) -> ExitCode {
+    let options = match parse_cache_invalidate_options(&args) {
+        Ok(options) => options,
+        Err(message) => {
+            eprintln!("{message}");
+            return ExitCode::from(2);
+        }
+    };
+    match invalidate_cache_manifest(&options) {
+        Ok(summary) => {
+            println!(
+                "cache invalidate: matched {}, deleted {}, missing {}{}",
+                summary.matched,
+                summary.deleted,
+                summary.missing,
+                if options.dry_run { " (dry-run)" } else { "" }
+            );
+            ExitCode::SUCCESS
+        }
+        Err(message) => {
+            eprintln!("{message}");
+            ExitCode::from(1)
+        }
+    }
+}
+
+fn parse_cache_invalidate_options(args: &[String]) -> Result<CacheInvalidateOptions, String> {
+    let known_value_flags = [
+        "--manifest",
+        "--owner-kind",
+        "--owner-name",
+        "--cache-key-hash",
+    ];
+    let known_bool_flags = ["--all", "--dry-run"];
+    validate_known_flags(args, &known_value_flags, &known_bool_flags)?;
+
+    let options = CacheInvalidateOptions {
+        manifest_path: option_value(args, "--manifest")
+            .map(PathBuf::from)
+            .unwrap_or_else(|| PathBuf::from("build/result/cache_manifest.json")),
+        dry_run: args.iter().any(|arg| arg == "--dry-run"),
+        all: args.iter().any(|arg| arg == "--all"),
+        owner_kind: option_value(args, "--owner-kind"),
+        owner_name: option_value(args, "--owner-name"),
+        cache_key_hash: option_value(args, "--cache-key-hash"),
+    };
+    let has_filter = options.owner_kind.is_some()
+        || options.owner_name.is_some()
+        || options.cache_key_hash.is_some();
+    if options.all && has_filter {
+        return Err("--all cannot be combined with cache invalidation filters".to_owned());
+    }
+    if !options.all && !has_filter {
+        return Err(
+            "cache invalidate requires --all or a filter such as --owner-name or --cache-key-hash"
+                .to_owned(),
+        );
+    }
+    Ok(options)
+}
+
+fn validate_known_flags(
+    args: &[String],
+    known_value_flags: &[&str],
+    known_bool_flags: &[&str],
+) -> Result<(), String> {
+    let mut index = 0usize;
+    while index < args.len() {
+        let arg = &args[index];
+        if !arg.starts_with("--") {
+            return Err(format!("unexpected positional cache argument `{arg}`"));
+        }
+        if known_bool_flags.contains(&arg.as_str()) {
+            index += 1;
+            continue;
+        }
+        if let Some(flag) = known_value_flags
+            .iter()
+            .find(|flag| arg.as_str() == **flag || arg.starts_with(&format!("{}=", flag)))
+        {
+            if arg.as_str() == *flag {
+                let Some(value) = args.get(index + 1) else {
+                    return Err(format!("missing value for `{arg}`"));
+                };
+                if value.starts_with("--") {
+                    return Err(format!("missing value for `{arg}`"));
+                }
+                index += 2;
+            } else {
+                index += 1;
+            }
+            continue;
+        }
+        return Err(format!("unknown cache invalidate flag `{arg}`"));
+    }
+    Ok(())
+}
+
+fn invalidate_cache_manifest(
+    options: &CacheInvalidateOptions,
+) -> Result<CacheInvalidateSummary, String> {
+    let text = std::fs::read_to_string(&options.manifest_path).map_err(|error| {
+        format!(
+            "failed to read cache manifest `{}`: {error}",
+            options.manifest_path.display()
+        )
+    })?;
+    let manifest = serde_json::from_str::<serde_json::Value>(&text).map_err(|error| {
+        format!(
+            "failed to parse cache manifest `{}`: {error}",
+            options.manifest_path.display()
+        )
+    })?;
+    let records = manifest
+        .get("cache_records")
+        .and_then(serde_json::Value::as_array)
+        .ok_or_else(|| "cache manifest is missing `cache_records` array".to_owned())?;
+    let mut summary = CacheInvalidateSummary::default();
+    for record in records {
+        if !cache_record_matches_filter(record, options) {
+            continue;
+        }
+        summary.matched += 1;
+        let Some(path) = cache_record_invalidation_path(record) else {
+            summary.missing += 1;
+            continue;
+        };
+        if options.dry_run {
+            println!("would invalidate: {}", path.display());
+            continue;
+        }
+        if !path.exists() {
+            summary.missing += 1;
+            continue;
+        }
+        let safe_path = safe_cache_invalidation_path(&path)?;
+        if safe_path.is_dir() {
+            std::fs::remove_dir_all(&safe_path)
+        } else {
+            std::fs::remove_file(&safe_path)
+        }
+        .map_err(|error| format!("failed to invalidate `{}`: {error}", safe_path.display()))?;
+        println!("invalidated: {}", safe_path.display());
+        summary.deleted += 1;
+    }
+    Ok(summary)
+}
+
+fn cache_record_matches_filter(
+    record: &serde_json::Value,
+    options: &CacheInvalidateOptions,
+) -> bool {
+    if options.all {
+        return true;
+    }
+    if let Some(owner_kind) = &options.owner_kind {
+        if json_string(record, "owner_kind") != Some(owner_kind.as_str()) {
+            return false;
+        }
+    }
+    if let Some(owner_name) = &options.owner_name {
+        if json_string(record, "owner_name") != Some(owner_name.as_str()) {
+            return false;
+        }
+    }
+    if let Some(cache_key_hash) = &options.cache_key_hash {
+        if json_string(record, "cache_key_hash") != Some(cache_key_hash.as_str()) {
+            return false;
+        }
+    }
+    true
+}
+
+fn cache_record_invalidation_path(record: &serde_json::Value) -> Option<PathBuf> {
+    json_string(record, "resolved_path")
+        .or_else(|| json_string(record, "cache_path"))
+        .filter(|value| !value.trim().is_empty())
+        .map(PathBuf::from)
+}
+
+fn safe_cache_invalidation_path(path: &Path) -> Result<PathBuf, String> {
+    let current_dir =
+        env::current_dir().map_err(|error| format!("failed to read current directory: {error}"))?;
+    let workspace = current_dir
+        .canonicalize()
+        .map_err(|error| format!("failed to resolve current directory: {error}"))?;
+    let target = path
+        .canonicalize()
+        .map_err(|error| format!("failed to resolve cache path `{}`: {error}", path.display()))?;
+    if target == workspace {
+        return Err(format!(
+            "refusing to invalidate current directory `{}`",
+            target.display()
+        ));
+    }
+    if !target.starts_with(&workspace) {
+        return Err(format!(
+            "refusing to invalidate cache path outside current directory `{}`",
+            target.display()
+        ));
+    }
+    Ok(target)
 }
 
 fn command_build(args: Vec<String>) -> ExitCode {
@@ -1288,6 +1526,87 @@ mod tests {
             Some("examples/official/01_csv_plot/main.eng".to_string())
         );
     }
+
+    #[test]
+    fn cache_invalidate_removes_matching_manifest_path() {
+        let root = env::current_dir()
+            .expect("current dir")
+            .join("build")
+            .join(format!("cli-cache-invalidate-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let target = root.join("cache").join("entry");
+        std::fs::create_dir_all(&target).expect("target dir");
+        std::fs::write(target.join("payload.txt"), "cached").expect("payload");
+        let manifest_path = root.join("cache_manifest.json");
+        std::fs::write(
+            &manifest_path,
+            format!(
+                "{{\n  \"cache_records\": [{{\n    \"owner_kind\": \"model\",\n    \"owner_name\": \"reg_model\",\n    \"cache_key_hash\": \"abc123\",\n    \"resolved_path\": \"{}\"\n  }}]\n}}\n",
+                target.display().to_string().replace('\\', "\\\\")
+            ),
+        )
+        .expect("manifest");
+
+        let summary = invalidate_cache_manifest(&CacheInvalidateOptions {
+            manifest_path,
+            owner_name: Some("reg_model".to_owned()),
+            ..CacheInvalidateOptions::default()
+        })
+        .expect("invalidate");
+
+        assert_eq!(
+            summary,
+            CacheInvalidateSummary {
+                matched: 1,
+                deleted: 1,
+                missing: 0
+            }
+        );
+        assert!(!target.exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn cache_invalidate_dry_run_keeps_matching_path() {
+        let root = env::current_dir()
+            .expect("current dir")
+            .join("build")
+            .join(format!(
+                "cli-cache-invalidate-dry-run-{}",
+                std::process::id()
+            ));
+        let _ = std::fs::remove_dir_all(&root);
+        let target = root.join("cache").join("entry");
+        std::fs::create_dir_all(&target).expect("target dir");
+        let manifest_path = root.join("cache_manifest.json");
+        std::fs::write(
+            &manifest_path,
+            format!(
+                "{{\n  \"cache_records\": [{{\n    \"owner_kind\": \"case\",\n    \"owner_name\": \"case_001\",\n    \"cache_key_hash\": \"def456\",\n    \"resolved_path\": \"{}\"\n  }}]\n}}\n",
+                target.display().to_string().replace('\\', "\\\\")
+            ),
+        )
+        .expect("manifest");
+
+        let summary = invalidate_cache_manifest(&CacheInvalidateOptions {
+            manifest_path,
+            dry_run: true,
+            all: true,
+            ..CacheInvalidateOptions::default()
+        })
+        .expect("dry run");
+
+        assert_eq!(
+            summary,
+            CacheInvalidateSummary {
+                matched: 1,
+                deleted: 0,
+                missing: 0
+            }
+        );
+        assert!(target.exists());
+        let _ = std::fs::remove_dir_all(&root);
+    }
 }
 
 fn file_stem(path: &str) -> String {
@@ -1312,6 +1631,7 @@ Usage:
   eng jit-plan <file.eng>
   eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]
   eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
+  eng cache invalidate [--manifest build/result/cache_manifest.json] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]
   eng build <file.eng> [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>

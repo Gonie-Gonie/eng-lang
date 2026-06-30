@@ -15,6 +15,7 @@ eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng> [--backend <name>]
 eng.exe jit-bench <file.eng> [--iterations N] [--backend <name>] [--<arg> <value>...]
 eng.exe run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
+eng.exe cache invalidate [--manifest build/result/cache_manifest.json] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]
 eng.exe build <file.eng> [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
@@ -453,6 +454,15 @@ Duration             s, min, h -> normalized seconds such as `600 s`
 ```bat
 eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts --input data/sensor.csv
 ```
+
+## `eng cache invalidate`
+
+Invalidates cache paths listed in a cache manifest. By default, the command
+reads `build/result/cache_manifest.json`.
+
+It requires `--all` or a selector such as `--owner-kind`, `--owner-name`, or
+`--cache-key-hash`. Use `--dry-run` to list matching paths without deleting
+them. Paths outside the current working directory are refused.
 
 ## `eng build <file.eng> --standalone --profile repro`
 
