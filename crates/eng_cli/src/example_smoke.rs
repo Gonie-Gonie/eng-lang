@@ -6520,9 +6520,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"name\": \"annual_electricity_kwh\"")
-                || !output
-                    .result_json
-                    .contains("\"status\": \"case_materialized\"")
+                || !output.result_json.contains("\"status\": \"succeeded\"")
+                || !output.result_json.contains("\"case_tables\"")
                 || !output.result_json.contains("\"parameter_columns\"")
                 || !output.result_json.contains("\"policy_results\"")
                 || !output

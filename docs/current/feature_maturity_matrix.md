@@ -238,13 +238,16 @@ separate.
 - Main status: `Supported` for those primitives plus promoted table
   diagnostics, deterministic promoted-table row-selection artifacts, promoted
   sample-table artifacts, typed config promotion optional field policy,
-  promoted case manifest seeds enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
+  promoted case table summaries with collection status and scheduler hooks,
+  pending/succeeded/failed/skipped case manifests enriched from process
+  outputs, case diagnostics, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
   summaries in `typed_payload.model_cards[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite records, `typed_payload.quality_results[]` common quality records for TimeSeries, validation, schema-constraint, and expectation-suite results with row/field failure details, report-facing `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]` alignment/resampling hooks, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
   through explicit process/write boundaries; deterministic grid/random/LHS
   sampling generator seeds now materialize `typed_payload.sample_tables[]`;
-  `Planned` for native network/cache execution, native case runner, SQLite
+  `Planned` for native network/cache execution, native case apply/collect syntax,
+  SQLite
   writes, and model-card public syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
@@ -256,7 +259,8 @@ separate.
   `review_document.table_transforms[]`,
   `typed_payload.config_promotions[]`,
   `typed_payload.timeseries_coverage[]`, `typed_payload.timeseries_quality[]`, `typed_payload.expectation_suites[]`, `typed_payload.quality_results[]`, `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]`, `typed_payload.sample_tables[]`,
-  `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
+  `typed_payload.case_tables[]`, `typed_payload.case_manifests[]`,
+  `typed_payload.case_diagnostics[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
   data-quality diagnostics for invalid sample rows, IDE table transform
   inspector smoke coverage, and
@@ -266,12 +270,12 @@ separate.
   and hashes, and DB write manifests with schema diagnostics, table records, and
   transaction status as reviewable fixture artifacts.
 - Not included: live HTTP execution/cache replay API, general table derived-value execution/fill transforms,
-  native case runner, domain weather adapters, EPW writer, EnergyPlus IDF
+  native case apply/collect syntax and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
   parser, native SQLite write/upsert, broad DB support, or ML framework
   support.
 - Next cleanup action: extend `eng.net` and `eng.cache` beyond fixture/manifest
-  seeds, then use the workflow skeletons to drive `eng.case`, `eng.db`, and
-  `eng.model` slices with artifacts and diagnostics.
+  seeds, then use the workflow skeletons to drive remaining `eng.case`,
+  `eng.db`, and `eng.model` slices with artifacts and diagnostics.
 
 ## Solver Vocabulary
 

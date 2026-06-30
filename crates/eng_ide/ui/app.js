@@ -2533,18 +2533,62 @@ function renderModelPanel() {
 function renderCasePanel() {
   const caseData = inspectorObject("caseManifests");
   const manifests = Array.isArray(caseData.manifests) ? caseData.manifests : [];
+  const caseTables = Array.isArray(caseData.caseTables) ? caseData.caseTables : [];
+  const diagnostics = Array.isArray(caseData.diagnostics) ? caseData.diagnostics : [];
   const failed = Array.isArray(caseData.failedCases) ? caseData.failedCases : [];
   return `
     <div class="panel-title compact">Cases</div>
     <div class="badges">
+      <span class="badge">Tables ${caseTables.length}</span>
       <span class="badge">Cases ${manifests.length}</span>
+      <span class="badge">Diagnostics ${diagnostics.length}</span>
       <span class="badge">Failed ${failed.length}</span>
     </div>
     <div class="scroll">
+      ${renderCaseTables(caseTables)}
       ${renderCaseManifests(manifests)}
+      <div class="panel-title compact">Case Diagnostics</div>
+      ${renderCaseDiagnostics(diagnostics)}
       <div class="panel-title compact">Failed Cases</div>
       ${renderFailedCases(failed)}
     </div>
+  `;
+}
+
+function renderCaseTables(tables) {
+  const rows = tables.map((table) => `
+    <tr>
+      <td><strong>${escapeHtml(table.sample_table || table.sampleTable || "-")}</strong><div class="muted">${escapeHtml(table.status || "-")}</div></td>
+      <td>${escapeHtml(table.case_count ?? table.caseCount ?? "-")}</td>
+      <td>${escapeHtml(table.pending_count ?? table.pendingCount ?? 0)} / ${escapeHtml(table.succeeded_count ?? table.succeededCount ?? 0)} / ${escapeHtml(table.failed_count ?? table.failedCount ?? 0)} / ${escapeHtml(table.skipped_count ?? table.skippedCount ?? 0)}</td>
+      <td>${escapeHtml(table.runner || "-")}<div class="muted">${escapeHtml(table.scheduler || "-")}</div></td>
+      <td>${escapeHtml(table.cache_hit_count ?? table.cacheHitCount ?? 0)} / ${escapeHtml(table.cache_miss_count ?? table.cacheMissCount ?? 0)}</td>
+      <td>${escapeHtml((table.duplicate_case_ids || table.duplicateCaseIds || []).join(", ") || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Case Table</th><th>Count</th><th>Pending / Succeeded / Failed / Skipped</th><th>Runner</th><th>Cache H/M</th><th>Duplicates</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No case tables.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderCaseDiagnostics(diagnostics) {
+  const rows = diagnostics.map((diagnostic) => `
+    <tr>
+      <td><strong>${escapeHtml(diagnostic.code || "-")}</strong><div class="muted">${escapeHtml(diagnostic.severity || "-")}</div></td>
+      <td>${escapeHtml(diagnostic.case_id || diagnostic.caseId || "-")}</td>
+      <td>${escapeHtml(diagnostic.sample_table || diagnostic.sampleTable || "-")}</td>
+      <td>${escapeHtml(compactText(diagnostic.message || "-", 120))}</td>
+      <td>${sourceLineButton(diagnostic)}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Code</th><th>Case</th><th>Table</th><th>Message</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No case diagnostics.</td></tr>`}</tbody>
+    </table>
   `;
 }
 
@@ -2591,7 +2635,7 @@ function caseProcessSummary(manifest) {
   const statuses = manifest.process_statuses || manifest.processStatuses || [];
   const bindingText = Array.isArray(bindings) && bindings.length ? bindings.join(", ") : "-";
   const statusText = Array.isArray(statuses) && statuses.length
-    ? statuses.map((status) => `${status.binding || "-"}:${status.status || "-"}`).join(", ")
+    ? statuses.map((status) => `${status.name || status.binding || "-"}:${status.status || "-"}`).join(", ")
     : "-";
   return compactText(`${bindingText}; ${statusText}`, 100);
 }

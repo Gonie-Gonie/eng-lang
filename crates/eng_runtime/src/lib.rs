@@ -25,10 +25,10 @@ use artifact::{
     OutputArtifact, OutputManifest, SourceRecord,
 };
 use runtime_data::{
-    materialize_runtime_data, RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus,
-    RuntimeComponentResidualEvaluation, RuntimeData, RuntimeMlArtifact,
-    RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeStatisticValue,
-    RuntimeTimeSeries, RuntimeValues,
+    materialize_runtime_data, RuntimeCaseDiagnostic, RuntimeCaseManifest, RuntimeCaseMetric,
+    RuntimeCaseProcessStatus, RuntimeCaseTable, RuntimeComponentResidualEvaluation, RuntimeData,
+    RuntimeMlArtifact, RuntimeNumericUncertaintyPayload, RuntimeNumericValue,
+    RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -640,6 +640,7 @@ pub fn run_source(
         &execution,
         &runtime_data,
         &process_results,
+        &cache_manifest_records,
         &template_render_output.records,
         &ResultArtifactHashes {
             bytecode: &bytecode_hash,
@@ -1649,6 +1650,16 @@ struct DbManifestRecord {
 }
 
 #[derive(Clone, Debug)]
+struct CaseCollectionRecord {
+    manifest_path: String,
+    status: String,
+    expected_case_ids: Vec<String>,
+    result_case_ids: Vec<String>,
+    missing_case_ids: Vec<String>,
+    failed_case_count: usize,
+}
+
+#[derive(Clone, Debug)]
 struct DbManifestTableRecord {
     name: String,
     mode: String,
@@ -2285,6 +2296,66 @@ fn db_manifest_records(records: &[ProcessExecutionRecord]) -> Vec<DbManifestReco
                 .collect::<Vec<_>>()
         })
         .collect()
+}
+
+fn case_collection_records(records: &[ProcessExecutionRecord]) -> Vec<CaseCollectionRecord> {
+    records
+        .iter()
+        .flat_map(|record| {
+            record
+                .expected_outputs
+                .iter()
+                .filter(|output| is_case_collection_output(output))
+                .map(|output| case_collection_record(record, output))
+                .collect::<Vec<_>>()
+        })
+        .collect()
+}
+
+fn is_case_collection_output(output: &ProcessExpectedOutputRecord) -> bool {
+    let path = output.path.to_ascii_lowercase();
+    output.artifact_kind == "result_collection"
+        || path.contains("result_collection_manifest")
+        || path.contains("case_collection_manifest")
+}
+
+fn case_collection_record(
+    _process: &ProcessExecutionRecord,
+    output: &ProcessExpectedOutputRecord,
+) -> CaseCollectionRecord {
+    let mut record = CaseCollectionRecord {
+        manifest_path: output.path.clone(),
+        status: if output.exists {
+            "manifest_unread".to_owned()
+        } else {
+            "missing".to_owned()
+        },
+        expected_case_ids: Vec::new(),
+        result_case_ids: Vec::new(),
+        missing_case_ids: Vec::new(),
+        failed_case_count: 0,
+    };
+    if !output.exists {
+        return record;
+    }
+    let Ok(source) = fs::read_to_string(&output.resolved_path) else {
+        return record;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&source) else {
+        record.status = "manifest_parse_failed".to_owned();
+        return record;
+    };
+    record.expected_case_ids = json_field_string_array(&value, "expected_case_ids");
+    record.result_case_ids = json_field_string_array(&value, "result_case_ids");
+    record.missing_case_ids = json_field_string_array(&value, "missing_case_ids");
+    record.failed_case_count = value
+        .get("failed_case_count")
+        .and_then(Value::as_u64)
+        .map(|count| count as usize)
+        .unwrap_or(record.missing_case_ids.len());
+    record.status =
+        json_field_string(&value, "status").unwrap_or_else(|| "manifest_loaded".to_owned());
+    record
 }
 
 fn is_db_manifest_output(output: &ProcessExpectedOutputRecord) -> bool {
@@ -7600,6 +7671,7 @@ fn result_json(
     execution: &VmExecution,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
     template_render_records: &[TemplateRenderRecord],
     hashes: &ResultArtifactHashes<'_>,
     profile_context: &ProfileContext<'_>,
@@ -8019,7 +8091,9 @@ fn result_json(
     let timeseries_quality = timeseries_quality_json(runtime_data, "      ");
     let timeseries_fallbacks = timeseries_fallbacks_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
-    let case_manifests = case_manifests_json(runtime_data, process_results);
+    let case_manifests = case_manifests_json(runtime_data, process_results, cache_records);
+    let case_tables = case_tables_json(runtime_data, process_results, cache_records);
+    let case_diagnostics = case_diagnostics_json(runtime_data, process_results, cache_records);
     let db_manifest_records = db_manifest_records(process_results);
     let db_manifests = db_manifests_json(&db_manifest_records);
     let render_manifests = template_render_records_json(template_render_records, "      ");
@@ -8768,6 +8842,12 @@ fn result_json(
         table_transforms
     );
     result_json = result_json.replacen(table_transform_marker, &table_transform_block, 1);
+    let case_tables_marker = "    ],\n    \"db_manifests\": [\n";
+    let case_tables_block = format!(
+        "    ],\n    \"case_tables\": [\n{}\n    ],\n    \"case_diagnostics\": [\n{}\n    ],\n    \"db_manifests\": [\n",
+        case_tables, case_diagnostics
+    );
+    result_json = result_json.replacen(case_tables_marker, &case_tables_block, 1);
     result_json
 }
 
@@ -9354,7 +9434,23 @@ fn runtime_review_json(
     json.push_str("\n  ],\n  \"timeseries_fallbacks\": [\n");
     json.push_str(&timeseries_fallbacks_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"case_manifests\": [\n");
-    json.push_str(&case_manifests_json(runtime_data, process_results));
+    json.push_str(&case_manifests_json(
+        runtime_data,
+        process_results,
+        cache_records,
+    ));
+    json.push_str("\n  ],\n  \"case_tables\": [\n");
+    json.push_str(&case_tables_json(
+        runtime_data,
+        process_results,
+        cache_records,
+    ));
+    json.push_str("\n  ],\n  \"case_diagnostics\": [\n");
+    json.push_str(&case_diagnostics_json(
+        runtime_data,
+        process_results,
+        cache_records,
+    ));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
     json.push_str(&db_manifests_json(&db_manifest_records));
     json.push_str("\n  ],\n  \"model_cards\": [\n");
@@ -10511,8 +10607,9 @@ fn sample_tables_json(runtime_data: &RuntimeData) -> String {
 fn case_manifests_json(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
 ) -> String {
-    let case_manifests = materialized_case_manifests(runtime_data, process_results);
+    let case_manifests = materialized_case_manifests(runtime_data, process_results, cache_records);
     let mut json = String::new();
     for (index, manifest) in case_manifests.iter().enumerate() {
         if index > 0 {
@@ -10586,32 +10683,541 @@ fn case_manifests_json(
     json
 }
 
+fn case_tables_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
+) -> String {
+    let case_tables = materialized_case_tables(runtime_data, process_results, cache_records);
+    let mut json = String::new();
+    for (index, table) in case_tables.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"sample_table\": \"{}\",\n",
+            json_escape(&table.sample_table)
+        ));
+        json.push_str(&format!(
+            "        \"schema_name\": \"{}\",\n",
+            json_escape(&table.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&table.source)
+        ));
+        push_optional_json_string(&mut json, "source_hash", table.source_hash.as_deref(), 8);
+        json.push_str(&format!("        \"case_count\": {},\n", table.case_count));
+        json.push_str(&format!(
+            "        \"pending_count\": {},\n",
+            table.pending_count
+        ));
+        json.push_str(&format!(
+            "        \"running_count\": {},\n",
+            table.running_count
+        ));
+        json.push_str(&format!(
+            "        \"succeeded_count\": {},\n",
+            table.succeeded_count
+        ));
+        json.push_str(&format!(
+            "        \"failed_count\": {},\n",
+            table.failed_count
+        ));
+        json.push_str(&format!(
+            "        \"skipped_count\": {},\n",
+            table.skipped_count
+        ));
+        json.push_str("        \"duplicate_case_ids\": [");
+        push_json_string_array(&mut json, &table.duplicate_case_ids);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"case_dir_count\": {},\n",
+            table.case_dir_count
+        ));
+        json.push_str(&format!(
+            "        \"generated_input_count\": {},\n",
+            table.generated_input_count
+        ));
+        json.push_str(&format!(
+            "        \"output_artifact_count\": {},\n",
+            table.output_artifact_count
+        ));
+        json.push_str(&format!(
+            "        \"result_file_count\": {},\n",
+            table.result_file_count
+        ));
+        json.push_str(&format!(
+            "        \"metric_count\": {},\n",
+            table.metric_count
+        ));
+        push_optional_json_string(
+            &mut json,
+            "collection_manifest",
+            table.collection_manifest.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "collection_status",
+            table.collection_status.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"collected_case_count\": {},\n",
+            table.collected_case_count
+        ));
+        json.push_str(&format!(
+            "        \"missing_case_count\": {},\n",
+            table.missing_case_count
+        ));
+        json.push_str(&format!(
+            "        \"failed_case_count\": {},\n",
+            table.failed_case_count
+        ));
+        json.push_str(&format!(
+            "        \"runner\": \"{}\",\n",
+            json_escape(&table.runner)
+        ));
+        json.push_str(&format!(
+            "        \"scheduler\": \"{}\",\n",
+            json_escape(&table.scheduler)
+        ));
+        json.push_str("        \"scheduler_hooks\": [");
+        push_json_string_array(&mut json, &table.scheduler_hooks);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"parallel_policy\": \"{}\",\n",
+            json_escape(&table.parallel_policy)
+        ));
+        json.push_str(&format!(
+            "        \"resume_policy\": \"{}\",\n",
+            json_escape(&table.resume_policy)
+        ));
+        json.push_str(&format!(
+            "        \"cache_hit_count\": {},\n",
+            table.cache_hit_count
+        ));
+        json.push_str(&format!(
+            "        \"cache_miss_count\": {},\n",
+            table.cache_miss_count
+        ));
+        json.push_str(&format!("        \"line\": {},\n", table.line));
+        json.push_str(&format!(
+            "        \"status\": \"{}\"\n",
+            json_escape(&table.status)
+        ));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn case_diagnostics_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
+) -> String {
+    let diagnostics = materialized_case_diagnostics(runtime_data, process_results, cache_records);
+    let mut json = String::new();
+    for (index, diagnostic) in diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"severity\": \"{}\",\n",
+            json_escape(&diagnostic.severity)
+        ));
+        json.push_str(&format!(
+            "        \"code\": \"{}\",\n",
+            json_escape(&diagnostic.code)
+        ));
+        json.push_str(&format!(
+            "        \"message\": \"{}\",\n",
+            json_escape(&diagnostic.message)
+        ));
+        push_optional_json_string(&mut json, "case_id", diagnostic.case_id.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"sample_table\": \"{}\",\n",
+            json_escape(&diagnostic.sample_table)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", diagnostic.line));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn materialized_case_tables(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
+) -> Vec<RuntimeCaseTable> {
+    let manifests = materialized_case_manifests(runtime_data, process_results, cache_records);
+    let collections = case_collection_records(process_results);
+    let mut groups: Vec<(&RuntimeCaseManifest, Vec<&RuntimeCaseManifest>)> = Vec::new();
+    for manifest in &manifests {
+        if let Some((_, group)) = groups
+            .iter_mut()
+            .find(|(first, _)| first.sample_table == manifest.sample_table)
+        {
+            group.push(manifest);
+        } else {
+            groups.push((manifest, vec![manifest]));
+        }
+    }
+
+    groups
+        .into_iter()
+        .map(|(first, group)| {
+            let case_ids = group
+                .iter()
+                .filter(|manifest| !manifest.case_id.trim().is_empty())
+                .map(|manifest| manifest.case_id.clone())
+                .collect::<HashSet<_>>();
+            let (cache_hit_count, cache_miss_count) =
+                case_cache_counts_for_cases(&case_ids, cache_records);
+            let collection = matching_case_collection(&case_ids, &collections);
+            let duplicate_case_ids = duplicate_case_ids_for_manifests(&group);
+            let pending_count = group
+                .iter()
+                .filter(|manifest| manifest.status == "pending")
+                .count();
+            let running_count = group
+                .iter()
+                .filter(|manifest| manifest.status == "running")
+                .count();
+            let succeeded_count = group
+                .iter()
+                .filter(|manifest| manifest.status == "succeeded")
+                .count();
+            let failed_count = group
+                .iter()
+                .filter(|manifest| manifest.status == "failed")
+                .count();
+            let skipped_count = group
+                .iter()
+                .filter(|manifest| manifest.status == "skipped")
+                .count();
+            let case_dir_count = group
+                .iter()
+                .filter_map(|manifest| manifest.case_dir.clone())
+                .collect::<HashSet<_>>()
+                .len();
+            let generated_input_count = group
+                .iter()
+                .filter(|manifest| manifest.generated_input_file.is_some())
+                .count();
+            let output_artifact_count = group
+                .iter()
+                .map(|manifest| manifest.output_artifacts.len())
+                .sum::<usize>();
+            let result_file_count = group
+                .iter()
+                .map(|manifest| manifest.result_files.len())
+                .sum::<usize>();
+            let metric_count = group
+                .iter()
+                .map(|manifest| manifest.metrics.len())
+                .sum::<usize>();
+            let collection_failed_count = collection
+                .map(|collection| collection.failed_case_count)
+                .unwrap_or(0);
+            let has_process = group
+                .iter()
+                .any(|manifest| !manifest.process_bindings.is_empty());
+            let status = if failed_count > 0 || collection_failed_count > 0 {
+                "failed"
+            } else if running_count > 0 {
+                "running"
+            } else if pending_count > 0 {
+                "pending"
+            } else if skipped_count == group.len() && !group.is_empty() {
+                "skipped"
+            } else {
+                "succeeded"
+            };
+            RuntimeCaseTable {
+                sample_table: first.sample_table.clone(),
+                schema_name: first.schema_name.clone(),
+                source: first.source.clone(),
+                source_hash: first.source_hash.clone(),
+                case_count: group.len(),
+                pending_count,
+                running_count,
+                succeeded_count,
+                failed_count,
+                skipped_count,
+                duplicate_case_ids,
+                case_dir_count,
+                generated_input_count,
+                output_artifact_count,
+                result_file_count,
+                metric_count,
+                collection_manifest: collection.map(|collection| collection.manifest_path.clone()),
+                collection_status: collection.map(|collection| collection.status.clone()),
+                collected_case_count: collection
+                    .map(|collection| collection.result_case_ids.len())
+                    .unwrap_or(0),
+                missing_case_count: collection
+                    .map(|collection| collection.missing_case_ids.len())
+                    .unwrap_or(0),
+                failed_case_count: collection_failed_count,
+                runner: if has_process {
+                    "sequential_process_runner".to_owned()
+                } else {
+                    "manifest_seed_runner".to_owned()
+                },
+                scheduler: "sequential".to_owned(),
+                scheduler_hooks: vec![
+                    "case_id".to_owned(),
+                    "case_dir".to_owned(),
+                    "sample_row_hash".to_owned(),
+                    "case_cache_key".to_owned(),
+                ],
+                parallel_policy: "not_configured".to_owned(),
+                resume_policy: if cache_hit_count + cache_miss_count > 0 {
+                    "case_cache_key".to_owned()
+                } else {
+                    "sample_row_hash".to_owned()
+                },
+                cache_hit_count,
+                cache_miss_count,
+                status: status.to_owned(),
+                line: first.line,
+            }
+        })
+        .collect()
+}
+
+fn materialized_case_diagnostics(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
+) -> Vec<RuntimeCaseDiagnostic> {
+    let manifests = materialized_case_manifests(runtime_data, process_results, cache_records);
+    let mut diagnostics = Vec::new();
+    push_duplicate_case_diagnostics(&mut diagnostics, &manifests);
+    push_case_dir_collision_diagnostics(&mut diagnostics, &manifests);
+    for manifest in &manifests {
+        for process in &manifest.process_statuses {
+            if !case_process_status_is_success(&process.status) {
+                diagnostics.push(RuntimeCaseDiagnostic {
+                    severity: "error".to_owned(),
+                    code: "E-CASE-STEP-FAILED".to_owned(),
+                    message: format!(
+                        "case `{}` step `{}` reported status `{}`",
+                        manifest.case_id, process.name, process.status
+                    ),
+                    case_id: Some(manifest.case_id.clone()),
+                    sample_table: manifest.sample_table.clone(),
+                    line: manifest.line,
+                });
+            }
+        }
+        if manifest
+            .failure_reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("did not create expected output"))
+        {
+            diagnostics.push(RuntimeCaseDiagnostic {
+                severity: "error".to_owned(),
+                code: "E-CASE-OUTPUT-MISSING".to_owned(),
+                message: manifest.failure_reason.clone().unwrap_or_default(),
+                case_id: Some(manifest.case_id.clone()),
+                sample_table: manifest.sample_table.clone(),
+                line: manifest.line,
+            });
+        }
+        if manifest.status == "skipped" {
+            diagnostics.push(RuntimeCaseDiagnostic {
+                severity: "warning".to_owned(),
+                code: "W-CASE-SKIPPED-CACHE".to_owned(),
+                message: format!("case `{}` was skipped from case cache", manifest.case_id),
+                case_id: Some(manifest.case_id.clone()),
+                sample_table: manifest.sample_table.clone(),
+                line: manifest.line,
+            });
+        }
+    }
+    diagnostics
+}
+
 fn materialized_case_manifests(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
 ) -> Vec<RuntimeCaseManifest> {
     let mut manifests = runtime_data.case_manifests.clone();
-    if manifests.is_empty() || process_results.is_empty() {
+    if manifests.is_empty() {
         return manifests;
     }
 
-    for process in process_results {
-        let linked_case_ids = linked_case_ids_for_process(&manifests, process);
-        for case_id in linked_case_ids {
-            for manifest in manifests
-                .iter_mut()
-                .filter(|manifest| manifest.case_id == case_id)
-            {
-                apply_process_outputs_to_case_manifest(manifest, process);
+    if !process_results.is_empty() {
+        for process in process_results {
+            let linked_case_ids = linked_case_ids_for_process(&manifests, process);
+            for case_id in linked_case_ids {
+                for manifest in manifests
+                    .iter_mut()
+                    .filter(|manifest| manifest.case_id == case_id)
+                {
+                    apply_process_outputs_to_case_manifest(manifest, process);
+                }
             }
         }
     }
 
+    apply_case_cache_statuses(&mut manifests, cache_records);
     for manifest in &mut manifests {
         finalize_case_manifest_status(manifest);
     }
 
     manifests
+}
+
+fn apply_case_cache_statuses(
+    manifests: &mut [RuntimeCaseManifest],
+    cache_records: &[CacheManifestRecord],
+) {
+    for record in cache_records
+        .iter()
+        .filter(|record| record.owner_kind == "case" && record.lookup_status == "hit")
+    {
+        for manifest in manifests
+            .iter_mut()
+            .filter(|manifest| manifest.case_id == record.owner_name)
+        {
+            if manifest.failure_reason.is_none() {
+                manifest.status = "skipped".to_owned();
+            }
+        }
+    }
+}
+
+fn case_cache_counts_for_cases(
+    case_ids: &HashSet<String>,
+    cache_records: &[CacheManifestRecord],
+) -> (usize, usize) {
+    let mut hit_count = 0usize;
+    let mut miss_count = 0usize;
+    for record in cache_records
+        .iter()
+        .filter(|record| record.owner_kind == "case" && case_ids.contains(&record.owner_name))
+    {
+        if record.lookup_status == "hit" {
+            hit_count += 1;
+        } else {
+            miss_count += 1;
+        }
+    }
+    (hit_count, miss_count)
+}
+
+fn matching_case_collection<'a>(
+    case_ids: &HashSet<String>,
+    collections: &'a [CaseCollectionRecord],
+) -> Option<&'a CaseCollectionRecord> {
+    collections.iter().find(|collection| {
+        collection
+            .expected_case_ids
+            .iter()
+            .chain(collection.result_case_ids.iter())
+            .any(|case_id| case_ids.contains(case_id))
+    })
+}
+
+fn duplicate_case_ids_for_manifests(manifests: &[&RuntimeCaseManifest]) -> Vec<String> {
+    let mut counts = HashMap::new();
+    for manifest in manifests {
+        if manifest.case_id.trim().is_empty() {
+            continue;
+        }
+        *counts.entry(manifest.case_id.clone()).or_insert(0usize) += 1;
+    }
+    let mut duplicates = counts
+        .into_iter()
+        .filter_map(|(case_id, count)| (count > 1).then_some(case_id))
+        .collect::<Vec<_>>();
+    duplicates.sort();
+    duplicates
+}
+
+fn push_duplicate_case_diagnostics(
+    diagnostics: &mut Vec<RuntimeCaseDiagnostic>,
+    manifests: &[RuntimeCaseManifest],
+) {
+    let mut groups: Vec<(&RuntimeCaseManifest, Vec<&RuntimeCaseManifest>)> = Vec::new();
+    for manifest in manifests {
+        if let Some((_, group)) = groups
+            .iter_mut()
+            .find(|(first, _)| first.sample_table == manifest.sample_table)
+        {
+            group.push(manifest);
+        } else {
+            groups.push((manifest, vec![manifest]));
+        }
+    }
+    for (first, group) in groups {
+        for case_id in duplicate_case_ids_for_manifests(&group) {
+            diagnostics.push(RuntimeCaseDiagnostic {
+                severity: "error".to_owned(),
+                code: "E-CASE-ID-DUPLICATE".to_owned(),
+                message: format!(
+                    "sample table `{}` contains duplicate case_id `{case_id}`",
+                    first.sample_table
+                ),
+                case_id: Some(case_id),
+                sample_table: first.sample_table.clone(),
+                line: first.line,
+            });
+        }
+    }
+}
+
+fn push_case_dir_collision_diagnostics(
+    diagnostics: &mut Vec<RuntimeCaseDiagnostic>,
+    manifests: &[RuntimeCaseManifest],
+) {
+    let mut by_dir: HashMap<(String, String), HashSet<String>> = HashMap::new();
+    for manifest in manifests {
+        let Some(case_dir) = &manifest.case_dir else {
+            continue;
+        };
+        if manifest.case_id.trim().is_empty() {
+            continue;
+        }
+        by_dir
+            .entry((manifest.sample_table.clone(), case_dir.clone()))
+            .or_default()
+            .insert(manifest.case_id.clone());
+    }
+    let mut collisions = by_dir
+        .into_iter()
+        .filter_map(|((sample_table, case_dir), case_ids)| {
+            (case_ids.len() > 1).then_some((sample_table, case_dir, case_ids))
+        })
+        .collect::<Vec<_>>();
+    collisions.sort_by(|left, right| left.0.cmp(&right.0).then(left.1.cmp(&right.1)));
+    for (sample_table, case_dir, case_ids) in collisions {
+        let mut case_ids = case_ids.into_iter().collect::<Vec<_>>();
+        case_ids.sort();
+        let line = manifests
+            .iter()
+            .find(|manifest| manifest.sample_table == sample_table)
+            .map(|manifest| manifest.line)
+            .unwrap_or(0);
+        diagnostics.push(RuntimeCaseDiagnostic {
+            severity: "error".to_owned(),
+            code: "E-CASE-DIR-COLLISION".to_owned(),
+            message: format!(
+                "case directory `{case_dir}` is shared by case IDs {}",
+                case_ids.join(", ")
+            ),
+            case_id: None,
+            sample_table,
+            line,
+        });
+    }
 }
 
 fn linked_case_ids_for_process(
@@ -10674,8 +11280,8 @@ fn apply_expected_output_to_case_manifest(
     process: &ProcessExecutionRecord,
     output: &ProcessExpectedOutputRecord,
 ) {
-    if manifest.case_dir.is_none() {
-        manifest.case_dir = infer_case_dir_from_output_path(&output.path, &manifest.case_id);
+    if let Some(case_dir) = infer_case_dir_from_output_path(&output.path, &manifest.case_id) {
+        manifest.case_dir = Some(case_dir);
     }
     push_unique_string(&mut manifest.output_artifacts, output.path.clone());
     if is_case_generated_input_output(&output.path) && manifest.generated_input_file.is_none() {
@@ -10796,17 +11402,19 @@ fn apply_external_case_manifest_payload(
 
 fn finalize_case_manifest_status(manifest: &mut RuntimeCaseManifest) {
     if manifest.failure_reason.is_some() {
-        manifest.status = "case_failed".to_owned();
-    } else if manifest.status == "sample_row_manifest_seed"
-        && (manifest.case_dir.is_some()
-            || manifest.generated_input_file.is_some()
-            || !manifest.process_bindings.is_empty()
-            || !manifest.process_statuses.is_empty()
-            || !manifest.output_artifacts.is_empty()
-            || !manifest.result_files.is_empty()
-            || !manifest.metrics.is_empty())
+        manifest.status = "failed".to_owned();
+    } else if manifest.status == "skipped" {
+        return;
+    } else if manifest.generated_input_file.is_some()
+        || !manifest.process_bindings.is_empty()
+        || !manifest.process_statuses.is_empty()
+        || !manifest.output_artifacts.is_empty()
+        || !manifest.result_files.is_empty()
+        || !manifest.metrics.is_empty()
     {
-        manifest.status = "case_materialized".to_owned();
+        manifest.status = "succeeded".to_owned();
+    } else {
+        manifest.status = "pending".to_owned();
     }
 }
 
@@ -15107,7 +15715,9 @@ mod tests {
         assert!(output.result_json.contains("\"sample_row_number\": 1"));
         assert!(output.result_json.contains("\"source_row\": 2"));
         assert!(output.result_json.contains("\"sample_row_hash\""));
-        assert!(output.result_json.contains("\"case_dir\": null"));
+        assert!(output
+            .result_json
+            .contains("\"case_dir\": \"outputs/case_001\""));
         assert!(output
             .result_json
             .contains("\"generated_input_file\": null"));
@@ -15115,14 +15725,15 @@ mod tests {
         assert!(output.result_json.contains("\"result_files\": []"));
         assert!(output.result_json.contains("\"metrics\": []"));
         assert!(output.result_json.contains("\"failure_reason\": null"));
-        assert!(output
-            .result_json
-            .contains("\"status\": \"sample_row_manifest_seed\""));
+        assert!(output.result_json.contains("\"status\": \"pending\""));
+        assert!(output.result_json.contains("\"case_tables\""));
+        assert!(output.result_json.contains("\"case_count\": 2"));
+        assert!(output.result_json.contains("\"pending_count\": 2"));
+        assert!(output.result_json.contains("\"case_diagnostics\""));
         assert!(output.review_json.contains("\"case_manifests\""));
         assert!(output.review_json.contains("\"case_id\": \"case_001\""));
-        assert!(output
-            .review_json
-            .contains("\"status\": \"sample_row_manifest_seed\""));
+        assert!(output.review_json.contains("\"status\": \"pending\""));
+        assert!(output.review_json.contains("\"case_tables\""));
         assert!(output
             .cache_manifest_json
             .contains("\"owner_kind\": \"case\""));
@@ -15133,6 +15744,54 @@ mod tests {
             .cache_manifest_json
             .contains("\"status\": \"miss_observed\""));
         assert!(output.run_log_json.contains("\"owner_kind\": \"case\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_records_case_table_duplicate_diagnostics() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-case-duplicates");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-case-duplicates-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("samples")).expect("sample data dir");
+        fs::write(
+            source_dir.join("samples").join("design_samples.csv"),
+            "case_id,cooling_cop\ncase_001,3.2\ncase_001,3.4\n",
+        )
+        .expect("sample csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema DesignSample {\n",
+                "    case_id: String\n",
+                "    cooling_cop: Ratio [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    samples: CsvFile = file(\"samples/design_samples.csv\")\n",
+                "}\n\n",
+                "designs = promote csv args.samples as DesignSample\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("duplicate case run");
+
+        assert!(output.result_json.contains("\"case_tables\""));
+        assert!(output.result_json.contains("\"failed_count\": 2"));
+        assert!(output
+            .result_json
+            .contains("\"duplicate_case_ids\": [\"case_001\"]"));
+        assert!(output.result_json.contains("\"case_diagnostics\""));
+        assert!(output.result_json.contains("\"E-CASE-ID-DUPLICATE\""));
+        assert!(output.result_json.contains("duplicate case_id `case_001`"));
         assert!(!virtual_path.exists());
     }
 
@@ -15195,11 +15854,26 @@ mod tests {
             ),
         )
         .expect("case manifest");
+        fs::write(
+            source_dir
+                .join("outputs")
+                .join("result_collection_manifest.json"),
+            concat!(
+                "{\n",
+                "  \"expected_case_ids\": [\"case_001\"],\n",
+                "  \"result_case_ids\": [\"case_001\"],\n",
+                "  \"missing_case_ids\": [],\n",
+                "  \"failed_case_count\": 0,\n",
+                "  \"status\": \"complete\"\n",
+                "}\n",
+            ),
+        )
+        .expect("case collection manifest");
         let source_path = source_dir.join("main.eng");
         let process_source = if cfg!(windows) {
-            "case_manifest_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n    artifact_kind = \"case_manifest\"\n}\n"
+            "case_manifest_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n    artifact_kind = \"case_manifest\"\n}\n\ncollection_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"collect\"]\n    expected_outputs = [\"outputs/result_collection_manifest.json\"]\n    artifact_kind = \"result_collection\"\n}\n"
         } else {
-            "case_manifest_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n    artifact_kind = \"case_manifest\"\n}\n"
+            "case_manifest_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n    artifact_kind = \"case_manifest\"\n}\n\ncollection_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf collect\"]\n    expected_outputs = [\"outputs/result_collection_manifest.json\"]\n    artifact_kind = \"result_collection\"\n}\n"
         };
         fs::write(
             &source_path,
@@ -15258,9 +15932,24 @@ mod tests {
             .contains("\"name\": \"annual_electricity_kwh\""));
         assert!(output.result_json.contains("\"value\": 42.5"));
         assert!(output.result_json.contains("\"failure_reason\": null"));
+        assert!(output.result_json.contains("\"status\": \"succeeded\""));
+        assert!(output.result_json.contains("\"case_tables\""));
+        assert!(output.result_json.contains("\"succeeded_count\": 1"));
         assert!(output
             .result_json
-            .contains("\"status\": \"case_materialized\""));
+            .contains("\"collection_manifest\": \"outputs/result_collection_manifest.json\""));
+        assert!(output
+            .result_json
+            .contains("\"collection_status\": \"complete\""));
+        assert!(output.result_json.contains("\"collected_case_count\": 1"));
+        assert!(output.result_json.contains("\"failed_case_count\": 0"));
+        assert!(output.result_json.contains("\"scheduler_hooks\""));
+        assert!(output
+            .result_json
+            .contains("\"parallel_policy\": \"not_configured\""));
+        assert!(output
+            .result_json
+            .contains("\"runner\": \"sequential_process_runner\""));
         let review: Value = serde_json::from_str(&output.review_json).expect("review json");
         let review_case = review
             .get("case_manifests")
@@ -15281,8 +15970,12 @@ mod tests {
         );
         assert_eq!(
             review_case.get("status").and_then(Value::as_str),
-            Some("case_materialized")
+            Some("succeeded")
         );
+        assert!(review
+            .get("case_tables")
+            .and_then(Value::as_array)
+            .is_some_and(|items| !items.is_empty()));
         assert!(review_case.get("line").and_then(Value::as_u64).is_some());
         let output_manifest: Value =
             serde_json::from_str(&output.output_manifest_json).expect("output manifest json");

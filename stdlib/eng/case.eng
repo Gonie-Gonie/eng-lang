@@ -1,20 +1,26 @@
 # module: eng.case
-# status: supported-case-manifest-artifact-seed; planned native runner
+# status: supported-case-table-and-manifest-seed; planned native apply syntax
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
 #   Promoted sample tables with case_id columns produce
-#   typed_payload.case_manifests[] entries with case_id, sample row number,
-#   source row, deterministic sample row hash, and duplicate/missing case_id
-#   status. Runtime result materialization also links process expected outputs
-#   whose path contains a case_id segment. When an expected output is a
-#   case_manifest.json file, EngLang reads it and enriches the native case
-#   manifest with case_dir, generated_input_file, process_statuses,
-#   output_artifacts, result_files, metrics, and failure_reason.
+#   typed_payload.case_manifests[] entries with case_id, default case_dir,
+#   sample row number, source row, deterministic sample row hash, and
+#   pending/failed status. Runtime result materialization links process
+#   expected outputs whose path contains a case_id segment. When an expected
+#   output is a case_manifest.json file, EngLang reads it and enriches the
+#   native case manifest with case_dir, generated_input_file,
+#   process_statuses, output_artifacts, result_files, metrics, and
+#   failure_reason. typed_payload.case_tables[] summarizes per-table pending,
+#   succeeded, failed, skipped, runner, scheduler, cache hit/miss, and
+#   duplicate case metadata, plus result_collection_manifest.json collection
+#   status when a process declares artifact_kind = "result_collection".
+#   typed_payload.case_diagnostics[] records duplicate IDs, directory
+#   collisions, missing outputs, failed steps, and cache skips.
 #
-# Native apply/run/collect syntax, cache/resume status, and automatic case
-# directory execution remain planned. Workflow examples still expand fixture
-# cases explicitly while exposing the same reviewable CaseManifest contract.
+# Native apply/run/collect syntax and automatic case directory execution remain
+# planned. Workflow examples still expand fixture cases explicitly while
+# exposing the same reviewable CaseTable and CaseManifest contract.
 #
 # Current CaseManifest fields:
 #   case_id
@@ -28,9 +34,17 @@
 #   metrics
 #   failure reason
 #
+# Current CaseTable fields:
+#   case count by status
+#   duplicate case IDs
+#   case directory/input/output/result/metric counts
+#   collection manifest/status/counts
+#   sequential runner and scheduler contract
+#   cache hit/miss counts and resume policy
+#
 # Planned extensions:
-#   native case runner
-#   cache/resume status
+#   native apply/run/collect syntax
+#   parallel scheduler implementation
 #
 # Non-goal:
 #   loops that mutate files without a case manifest should not become the

@@ -124,6 +124,11 @@ E-PROCESS-ALLOW-FAILURE process allow_failure option must be true or false
 E-SAMPLING-COUNT-INVALID sample count must be a positive integer
 E-SAMPLING-RANGE-UNIT generated sample ranges must use compatible units
 E-SAMPLING-SEED-MISSING repro profile requires seeded random or LHS sampling
+E-CASE-ID-DUPLICATE sample/case table contains a duplicate case_id
+E-CASE-DIR-COLLISION multiple case IDs resolve to the same case directory
+E-CASE-OUTPUT-MISSING case step did not create an expected case output
+E-CASE-STEP-FAILED case step reported a failed status
+W-CASE-SKIPPED-CACHE case was skipped from case cache
 E-PATH-INVALID         generated output path is empty
 E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
 E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted

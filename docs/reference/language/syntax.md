@@ -453,6 +453,13 @@ Supported methods are `grid`, `random`, and `lhs`. Generated tables include a
 metadata in `typed_payload.sample_tables[]`. `random` and `lhs` use deterministic
 seeded generation; repro profile rejects them without `seed`.
 
+Sample-like tables with a `case_id` column also materialize case artifacts.
+Runtime output includes `typed_payload.case_tables[]` summary rows,
+`typed_payload.case_manifests[]` per-case rows, and
+`typed_payload.case_diagnostics[]` for duplicate IDs, case-directory collisions,
+missing outputs, failed steps, and cache skips. Case statuses use
+`pending`, `succeeded`, `failed`, and `skipped`.
+
 ## Declarations
 
 ### Fast Bindings

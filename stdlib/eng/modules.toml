@@ -88,9 +88,9 @@ tests = ["cargo test -p eng_compiler sample_generation", "cargo test -p eng_runt
 [module."eng.case"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "Case manifest artifacts with case IDs, row hashes, row diagnostics, and process-output enrichment; native runner is planned."
-artifacts = ["typed_payload.case_manifests", "case_manifest", "output_manifest"]
-diagnostics = ["E-CASE-ID-DUPLICATE", "E-PROCESS-OUTPUT-MISSING"]
+purpose = "CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata."
+artifacts = ["typed_payload.case_tables", "typed_payload.case_manifests", "typed_payload.case_diagnostics", "case_manifest", "output_manifest"]
+diagnostics = ["E-CASE-ID-DUPLICATE", "E-CASE-DIR-COLLISION", "E-CASE-OUTPUT-MISSING", "E-CASE-STEP-FAILED", "W-CASE-SKIPPED-CACHE"]
 examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
 tests = ["cargo test -p eng_runtime case_manifest"]
 

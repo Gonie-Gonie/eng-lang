@@ -62,9 +62,12 @@ workflow, and covered by the breaking-change policy.
   Quality Report tables, and IDE Quality inspector payloads,
   `typed_payload.time_alignments[]` alignment/resampling hook records,
   `typed_payload.sample_tables[]` summaries for generated and promoted
-  sample/case tables,
-  and `typed_payload.case_manifests[]` case row manifests with sample row hashes
-  and process-output enrichment.
+  sample/case tables, `typed_payload.case_tables[]` case summary rows with
+  pending/succeeded/failed/skipped counts, collection status, scheduler hooks,
+  and cache hit/miss counts,
+  `typed_payload.case_manifests[]` case row manifests with sample row hashes and
+  process-output enrichment, and `typed_payload.case_diagnostics[]` duplicate,
+  output, step, directory, and cache-skip diagnostics.
 
 ### TimeSeries, Plot, Report, And Review
 

@@ -1280,6 +1280,50 @@ pub struct RuntimeCaseManifest {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeCaseTable {
+    pub sample_table: String,
+    pub schema_name: String,
+    pub source: String,
+    pub source_hash: Option<String>,
+    pub case_count: usize,
+    pub pending_count: usize,
+    pub running_count: usize,
+    pub succeeded_count: usize,
+    pub failed_count: usize,
+    pub skipped_count: usize,
+    pub duplicate_case_ids: Vec<String>,
+    pub case_dir_count: usize,
+    pub generated_input_count: usize,
+    pub output_artifact_count: usize,
+    pub result_file_count: usize,
+    pub metric_count: usize,
+    pub collection_manifest: Option<String>,
+    pub collection_status: Option<String>,
+    pub collected_case_count: usize,
+    pub missing_case_count: usize,
+    pub failed_case_count: usize,
+    pub runner: String,
+    pub scheduler: String,
+    pub scheduler_hooks: Vec<String>,
+    pub parallel_policy: String,
+    pub resume_policy: String,
+    pub cache_hit_count: usize,
+    pub cache_miss_count: usize,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeCaseDiagnostic {
+    pub severity: String,
+    pub code: String,
+    pub message: String,
+    pub case_id: Option<String>,
+    pub sample_table: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeCaseProcessStatus {
     pub name: String,
     pub command: String,
@@ -6717,12 +6761,23 @@ fn materialize_case_manifests(tables: &[RuntimeTable]) -> Vec<RuntimeCaseManifes
                 .get(row_index)
                 .map(|value| value.trim().to_owned())
                 .unwrap_or_default();
-            let status = if case_id.is_empty() {
-                "missing_case_id"
+            let (status, failure_reason, case_dir) = if case_id.is_empty() {
+                (
+                    "failed",
+                    Some("case_id is missing for sample row".to_owned()),
+                    None,
+                )
             } else if duplicate_ids.contains(&case_id) {
-                "duplicate_case_id"
+                (
+                    "failed",
+                    Some(format!(
+                        "duplicate case_id `{case_id}` in sample table `{}`",
+                        table.binding
+                    )),
+                    Some(default_case_dir(&case_id)),
+                )
             } else {
-                "sample_row_manifest_seed"
+                ("pending", None, Some(default_case_dir(&case_id)))
             };
             manifests.push(RuntimeCaseManifest {
                 case_id,
@@ -6733,20 +6788,24 @@ fn materialize_case_manifests(tables: &[RuntimeTable]) -> Vec<RuntimeCaseManifes
                 sample_row_number: row_index + 1,
                 source_row: row_index + 2,
                 sample_row_hash: sample_row_hash(table, row_index),
-                case_dir: None,
+                case_dir,
                 generated_input_file: None,
                 process_bindings: Vec::new(),
                 process_statuses: Vec::new(),
                 output_artifacts: Vec::new(),
                 result_files: Vec::new(),
                 metrics: Vec::new(),
-                failure_reason: None,
+                failure_reason,
                 status: status.to_owned(),
                 line: table.line,
             });
         }
     }
     manifests
+}
+
+fn default_case_dir(case_id: &str) -> String {
+    format!("outputs/{case_id}")
 }
 
 fn stable_hash_text(source: &str) -> String {
@@ -24028,7 +24087,7 @@ with {{
         assert_eq!(manifests[0].source_row, 2);
         assert_eq!(manifests[0].line, 9);
         assert_eq!(manifests[0].sample_row_hash.len(), 16);
-        assert_eq!(manifests[0].case_dir, None);
+        assert_eq!(manifests[0].case_dir.as_deref(), Some("outputs/case_001"));
         assert_eq!(manifests[0].generated_input_file, None);
         assert!(manifests[0].process_bindings.is_empty());
         assert!(manifests[0].process_statuses.is_empty());
@@ -24036,9 +24095,14 @@ with {{
         assert!(manifests[0].result_files.is_empty());
         assert!(manifests[0].metrics.is_empty());
         assert_eq!(manifests[0].failure_reason, None);
-        assert_eq!(manifests[0].status, "sample_row_manifest_seed");
-        assert_eq!(manifests[1].status, "duplicate_case_id");
-        assert_eq!(manifests[2].status, "duplicate_case_id");
+        assert_eq!(manifests[0].status, "pending");
+        assert_eq!(manifests[1].case_dir.as_deref(), Some("outputs/case_002"));
+        assert_eq!(manifests[1].status, "failed");
+        assert!(manifests[1]
+            .failure_reason
+            .as_deref()
+            .is_some_and(|reason| reason.contains("duplicate case_id")));
+        assert_eq!(manifests[2].status, "failed");
     }
 
     #[test]

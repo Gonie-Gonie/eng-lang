@@ -1272,6 +1272,8 @@ fn model_cards_inspector(result: &Value) -> Value {
 
 fn case_manifests_inspector(result: &Value) -> Value {
     let manifests = typed_payload_array_clone(result, "case_manifests");
+    let case_tables = typed_payload_array_clone(result, "case_tables");
+    let diagnostics = typed_payload_array_clone(result, "case_diagnostics");
     let failed_cases = manifests
         .as_array()
         .map(|items| {
@@ -1280,10 +1282,7 @@ fn case_manifests_inspector(result: &Value) -> Value {
                 .filter(|item| {
                     let status = json_field_string(item, "status").unwrap_or_default();
                     let failure_reason = json_field_string(item, "failure_reason");
-                    !matches!(
-                        status.as_str(),
-                        "" | "ready" | "succeeded" | "success" | "completed" | "materialized"
-                    ) || failure_reason.is_some()
+                    status == "failed" || failure_reason.is_some()
                 })
                 .cloned()
                 .collect::<Vec<_>>()
@@ -1292,6 +1291,8 @@ fn case_manifests_inspector(result: &Value) -> Value {
     json!({
         "format": "eng-ide-case-manifests-v1",
         "manifests": manifests,
+        "caseTables": case_tables,
+        "diagnostics": diagnostics,
         "failedCases": failed_cases,
     })
 }
@@ -4676,7 +4677,7 @@ mod tests {
                     "generated_input_file": "outputs/case_001/input.txt",
                     "process_bindings": ["run_case_001"],
                     "process_statuses": [
-                      { "binding": "run_case_001", "status": "succeeded", "exit_code": 0 }
+                      { "name": "run_case_001", "command": "python run.py", "status": "succeeded" }
                     ],
                     "output_artifacts": ["outputs/case_001/result.csv"],
                     "result_files": ["outputs/case_001/result.csv"],
@@ -4700,13 +4701,50 @@ mod tests {
                     "generated_input_file": "outputs/case_002/input.txt",
                     "process_bindings": ["run_case_002"],
                     "process_statuses": [
-                      { "binding": "run_case_002", "status": "failed", "exit_code": 7 }
+                      { "name": "run_case_002", "command": "python run.py", "status": "failed" }
                     ],
                     "output_artifacts": [],
                     "result_files": [],
                     "metrics": [],
                     "failure_reason": "process run_case_002 failed",
                     "status": "failed"
+                  }
+                ],
+                "case_tables": [
+                  {
+                    "sample_table": "designs",
+                    "schema_name": "DesignSample",
+                    "source": "samples/design_samples.csv",
+                    "source_hash": "sample-hash",
+                    "case_count": 2,
+                    "pending_count": 0,
+                    "running_count": 0,
+                    "succeeded_count": 1,
+                    "failed_count": 1,
+                    "skipped_count": 0,
+                    "duplicate_case_ids": [],
+                    "case_dir_count": 2,
+                    "generated_input_count": 2,
+                    "output_artifact_count": 1,
+                    "result_file_count": 1,
+                    "metric_count": 1,
+                    "runner": "sequential_process_runner",
+                    "scheduler": "sequential",
+                    "resume_policy": "case_cache_key",
+                    "cache_hit_count": 0,
+                    "cache_miss_count": 2,
+                    "line": 14,
+                    "status": "failed"
+                  }
+                ],
+                "case_diagnostics": [
+                  {
+                    "severity": "error",
+                    "code": "E-CASE-STEP-FAILED",
+                    "message": "case `case_002` step `run_case_002` reported status `failed`",
+                    "case_id": "case_002",
+                    "sample_table": "designs",
+                    "line": 14
                   }
                 ]
               }
@@ -4733,6 +4771,20 @@ mod tests {
                 .and_then(Value::as_array)
                 .map(Vec::len),
             Some(2)
+        );
+        assert_eq!(
+            cases
+                .get("caseTables")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            cases
+                .get("diagnostics")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(1)
         );
         let failed = cases
             .get("failedCases")

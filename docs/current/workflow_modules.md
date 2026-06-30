@@ -23,7 +23,10 @@ keys, matched pair counts, row counts, Date/DateTime predicate comparison, and
 `sample grid`, `sample random`, `sample lhs`, and DesignSample-style CSV tables
 now emit `typed_payload.sample_tables[]` with case ID, parameter range,
 duplicate-case, seed, generation, and row-hash preview metadata, plus
-`typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
+`typed_payload.case_tables[]` summaries and `typed_payload.case_manifests[]`
+case row manifests with pending/succeeded/failed/skipped status, sample row
+hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
+contracts, and process-output enrichment. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network and cache record seeds have
 landed for offline/fixture boundaries and cache manifests; cache manifests now
@@ -60,7 +63,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.table` | supported_seed | compiler_runtime_builtin | `review.inputs`<br>`review_document.table_transforms`<br>`typed_payload.table_diagnostics`<br>`typed_payload.table_selections`<br>`typed_payload.table_transforms` | `E-TABLE-UNKNOWN-COLUMN`<br>`E-TABLE-PREDICATE-TYPE`<br>`E-TABLE-JOIN-KEY-MISMATCH`<br>`E-TABLE-SCHEMA-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime table_`<br>`cargo test -p eng_compiler table_` |
 | `eng.timeseries` | supported_seed | compiler_runtime_builtin | `typed_payload.timeseries_coverage`<br>`typed_payload.timeseries_fill`<br>`typed_payload.timeseries_quality`<br>`typed_payload.quality_results`<br>`typed_payload.time_alignments`<br>`review.fallbacks` | `E-TIMESERIES-COVERAGE-GAP`<br>`W-FALLBACK-USED` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review`<br>`cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts`<br>`cargo test -p eng_runtime run_file_records_timeseries_alignment_and_resampling_hooks` |
 | `eng.sampling` | supported_seed | compiler_runtime_builtin | `typed_payload.sample_tables`<br>`case_manifest` | `E-SAMPLING-COUNT-INVALID`<br>`E-SAMPLING-RANGE-UNIT`<br>`E-SAMPLING-SEED-MISSING`<br>`E-CASE-ID-DUPLICATE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler sample_generation`<br>`cargo test -p eng_runtime sample` |
-| `eng.case` | supported_seed | compiler_runtime_builtin | `typed_payload.case_manifests`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-PROCESS-OUTPUT-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime case_manifest` |
+| `eng.case` | supported_seed | compiler_runtime_builtin | `typed_payload.case_tables`<br>`typed_payload.case_manifests`<br>`typed_payload.case_diagnostics`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-CASE-DIR-COLLISION`<br>`E-CASE-OUTPUT-MISSING`<br>`E-CASE-STEP-FAILED`<br>`W-CASE-SKIPPED-CACHE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime case_manifest` |
 | `eng.artifact` | supported_seed | compiler_runtime_builtin | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | `artifact_validation_failed` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime output_manifest` |
 | `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
 | `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_cards`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-CARD-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model_card` |
@@ -239,9 +242,11 @@ should also fit CFD, FEM, Modelica, laboratory equipment, and legacy solvers.
 ## Case Manifest Target
 
 The current case artifact seed records `case_id`, source row, sample row
-number, sample row hash, duplicate/missing case status, and process-enriched
-case materialization fields when matching expected outputs exist. The planned
-native `eng.case` runner should make this explicit syntax:
+number, sample row hash, default case directory, pending/succeeded/failed/skipped
+status, result collection status, cache hit/miss counts, scheduler hooks,
+duplicate diagnostics, and
+process-enriched case materialization fields when matching expected outputs
+exist. The planned native `eng.case` apply/run syntax should make this explicit:
 
 ```text
 case_id
@@ -252,6 +257,8 @@ process command and status
 result files
 metrics
 failure reason
+case summary table
+case diagnostics
 ```
 
 This keeps large parameter sweeps reviewable even when individual tools remain
@@ -270,7 +277,10 @@ E-TABLE-SCHEMA-MISMATCH
 E-TIMESERIES-COVERAGE-GAP
 E-SAMPLING-SEED-MISSING
 E-CASE-ID-DUPLICATE
-E-PROCESS-OUTPUT-MISSING
+E-CASE-DIR-COLLISION
+E-CASE-OUTPUT-MISSING
+E-CASE-STEP-FAILED
+W-CASE-SKIPPED-CACHE
 E-DB-SCHEMA-MISMATCH
 E-MODEL-CARD-MISSING
 W-PROFILE-NONREPRO

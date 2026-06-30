@@ -77,6 +77,14 @@
           "type": "array",
           "items": { "$ref": "#/$defs/caseManifest" }
         },
+        "case_tables": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseTable" }
+        },
+        "case_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseDiagnostic" }
+        },
         "db_manifests": {
           "type": "array",
           "items": { "$ref": "#/$defs/dbManifest" }
@@ -392,6 +400,91 @@
         "name": { "type": "string" },
         "command": { "type": "string" },
         "status": { "type": "string" }
+      }
+    },
+    "caseTable": {
+      "type": "object",
+      "required": [
+        "sample_table",
+        "schema_name",
+        "source",
+        "source_hash",
+        "case_count",
+        "pending_count",
+        "running_count",
+        "succeeded_count",
+        "failed_count",
+        "skipped_count",
+        "duplicate_case_ids",
+        "case_dir_count",
+        "generated_input_count",
+        "output_artifact_count",
+        "result_file_count",
+        "metric_count",
+        "collection_manifest",
+        "collection_status",
+        "collected_case_count",
+        "missing_case_count",
+        "failed_case_count",
+        "runner",
+        "scheduler",
+        "scheduler_hooks",
+        "parallel_policy",
+        "resume_policy",
+        "cache_hit_count",
+        "cache_miss_count",
+        "line",
+        "status"
+      ],
+      "properties": {
+        "sample_table": { "type": "string" },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "case_count": { "type": "integer", "minimum": 0 },
+        "pending_count": { "type": "integer", "minimum": 0 },
+        "running_count": { "type": "integer", "minimum": 0 },
+        "succeeded_count": { "type": "integer", "minimum": 0 },
+        "failed_count": { "type": "integer", "minimum": 0 },
+        "skipped_count": { "type": "integer", "minimum": 0 },
+        "duplicate_case_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "case_dir_count": { "type": "integer", "minimum": 0 },
+        "generated_input_count": { "type": "integer", "minimum": 0 },
+        "output_artifact_count": { "type": "integer", "minimum": 0 },
+        "result_file_count": { "type": "integer", "minimum": 0 },
+        "metric_count": { "type": "integer", "minimum": 0 },
+        "collection_manifest": { "type": ["string", "null"] },
+        "collection_status": { "type": ["string", "null"] },
+        "collected_case_count": { "type": "integer", "minimum": 0 },
+        "missing_case_count": { "type": "integer", "minimum": 0 },
+        "failed_case_count": { "type": "integer", "minimum": 0 },
+        "runner": { "type": "string" },
+        "scheduler": { "type": "string" },
+        "scheduler_hooks": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "parallel_policy": { "type": "string" },
+        "resume_policy": { "type": "string" },
+        "cache_hit_count": { "type": "integer", "minimum": 0 },
+        "cache_miss_count": { "type": "integer", "minimum": 0 },
+        "line": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" }
+      }
+    },
+    "caseDiagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message", "case_id", "sample_table", "line"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "case_id": { "type": ["string", "null"] },
+        "sample_table": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "caseMetric": {
