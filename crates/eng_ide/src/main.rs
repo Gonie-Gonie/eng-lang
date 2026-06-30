@@ -148,6 +148,7 @@ struct InspectorView {
     artifact_outlines: Value,
     effect_records: Value,
     network_cache: Value,
+    db_writes: Value,
     output_manifest: Value,
     run_log: Value,
     process_results: Value,
@@ -180,6 +181,7 @@ impl Default for InspectorView {
             artifact_outlines: Value::Array(Vec::new()),
             effect_records: Value::Null,
             network_cache: Value::Null,
+            db_writes: Value::Null,
             output_manifest: Value::Null,
             run_log: Value::Null,
             process_results: Value::Null,
@@ -1090,6 +1092,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let run_log = parse_json_value(&output.run_log_json);
     let effect_records = effect_records_inspector(&output_manifest, &run_log);
     let network_cache = network_cache_inspector(&output_manifest, &run_log);
+    let db_writes = db_writes_inspector(&result, &review, &output_manifest);
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
@@ -1120,6 +1123,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         artifact_outlines: artifact_outlines(root, output),
         effect_records,
         network_cache,
+        db_writes,
         output_manifest,
         run_log,
         process_results: parse_json_value(&output.process_results_json),
@@ -1188,6 +1192,33 @@ fn network_cache_inspector(output_manifest: &Value, run_log: &Value) -> Value {
         "networkEvents": network_events,
         "manifestCaches": manifest_caches,
         "cacheEvents": cache_events,
+    })
+}
+
+fn db_writes_inspector(result: &Value, review: &Value, output_manifest: &Value) -> Value {
+    let runtime_manifests = typed_payload_array_clone(result, "db_manifests");
+    let manifests = if runtime_manifests
+        .as_array()
+        .is_some_and(|items| !items.is_empty())
+    {
+        runtime_manifests
+    } else {
+        review
+            .get("db_manifests")
+            .and_then(Value::as_array)
+            .map(|items| Value::Array(items.clone()))
+            .unwrap_or_else(|| Value::Array(Vec::new()))
+    };
+    let registry_writes = output_manifest
+        .get("artifact_registry")
+        .and_then(|registry| registry.get("db_writes"))
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    json!({
+        "format": "eng-ide-db-writes-v1",
+        "manifests": manifests,
+        "registryWrites": registry_writes,
     })
 }
 
@@ -4200,6 +4231,92 @@ mod tests {
             .get("missing_intervals")
             .and_then(Value::as_array)
             .is_some_and(|intervals| intervals.len() == 1));
+    }
+
+    #[test]
+    fn ide_surfaces_db_write_inspector() {
+        let mut cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "db_manifests": [
+                  {
+                    "binding": "db_result",
+                    "manifest_path": "outputs/db_write_manifest.json",
+                    "resolved_path": "C:/workspace/outputs/db_write_manifest.json",
+                    "hash": "db-hash",
+                    "database": "outputs/results.sqlite",
+                    "transaction_status": "committed",
+                    "schema_status": "matched",
+                    "tables": [
+                      {
+                        "name": "simulation_results",
+                        "mode": "upsert",
+                        "key": ["case_id"],
+                        "schema": ["case_id", "annual_electricity"],
+                        "row_count": 3
+                      }
+                    ],
+                    "status": "manifest_loaded"
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+            "{}",
+        );
+        cached.output_manifest_json = r#"{
+          "artifact_registry": {
+            "db_writes": [
+              {
+                "binding": "db_result",
+                "manifest_path": "outputs/db_write_manifest.json",
+                "hash": "db-hash",
+                "database": "outputs/results.sqlite",
+                "transaction_status": "committed",
+                "table_count": 1,
+                "status": "manifest_loaded"
+              }
+            ]
+          }
+        }"#
+        .to_owned();
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let db_writes = inspectors
+            .db_writes
+            .as_object()
+            .expect("db write inspector");
+        assert_eq!(
+            db_writes
+                .get("format")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "eng-ide-db-writes-v1"
+        );
+        let manifest = db_writes
+            .get("manifests")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("db manifest");
+        assert_eq!(
+            json_field_string(manifest, "transaction_status").as_deref(),
+            Some("committed")
+        );
+        assert_eq!(
+            manifest
+                .get("tables")
+                .and_then(Value::as_array)
+                .and_then(|tables| tables.first())
+                .and_then(|table| json_field_usize(table, "row_count")),
+            Some(3)
+        );
+        assert_eq!(
+            db_writes
+                .get("registryWrites")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(1)
+        );
     }
 
     #[test]

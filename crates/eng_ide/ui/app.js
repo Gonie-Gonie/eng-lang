@@ -60,6 +60,7 @@ function emptyInspectors() {
     artifactOutlines: [],
     effectRecords: null,
     networkCache: null,
+    dbWrites: null,
     outputManifest: null,
     runLog: null,
     processResults: null,
@@ -676,6 +677,7 @@ function renderSidePanel() {
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("effects", "Effects")}
         ${sideTabButton("network", "Net")}
+        ${sideTabButton("db", "DB")}
         ${sideTabButton("run", "Run")}
       </div>
       <div class="side-body">${renderSideBody()}</div>
@@ -702,6 +704,7 @@ function renderSideBody() {
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "effects") return renderEffectsPanel();
   if (state.sideTab === "network") return renderNetworkPanel();
+  if (state.sideTab === "db") return renderDbPanel();
   if (state.sideTab === "run") return renderRunPanel();
   return `
     <div class="panel-title compact">Variables</div>
@@ -2260,6 +2263,87 @@ function renderNetworkPanel() {
       <div class="panel-title compact">Cache Events</div>
       ${renderCacheEvents(cacheEvents, caches)}
     </div>
+  `;
+}
+
+function renderDbPanel() {
+  const db = inspectorObject("dbWrites");
+  const manifests = Array.isArray(db.manifests) ? db.manifests : [];
+  const registry = Array.isArray(db.registryWrites) ? db.registryWrites : [];
+  const tableCount = manifests.reduce((sum, manifest) => {
+    const tables = Array.isArray(manifest.tables) ? manifest.tables : [];
+    return sum + tables.length;
+  }, 0);
+  return `
+    <div class="panel-title compact">DB Writes</div>
+    <div class="badges">
+      <span class="badge">Manifests ${manifests.length}</span>
+      <span class="badge">Tables ${tableCount}</span>
+      <span class="badge">Registry ${registry.length}</span>
+    </div>
+    <div class="scroll">
+      ${renderDbManifests(manifests)}
+      <div class="panel-title compact">Registry</div>
+      ${renderDbRegistry(registry)}
+    </div>
+  `;
+}
+
+function renderDbManifests(manifests) {
+  const rows = manifests.flatMap((manifest) => {
+    const tables = Array.isArray(manifest.tables) ? manifest.tables : [];
+    if (!tables.length) {
+      return [`
+        <tr>
+          <td><strong>${escapeHtml(manifest.binding || "-")}</strong><div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
+          <td><code>${escapeHtml(compactText(manifest.database || manifest.manifest_path || manifest.manifestPath || "-", 80))}</code></td>
+          <td>${escapeHtml(manifest.transaction_status || manifest.transactionStatus || "-")}<div class="muted">${escapeHtml(manifest.schema_status || manifest.schemaStatus || "-")}</div></td>
+          <td>-</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      `];
+    }
+    return tables.map((table) => `
+      <tr>
+        <td><strong>${escapeHtml(manifest.binding || "-")}</strong><div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
+        <td><code>${escapeHtml(compactText(manifest.database || manifest.manifest_path || manifest.manifestPath || "-", 80))}</code></td>
+        <td>${escapeHtml(manifest.transaction_status || manifest.transactionStatus || "-")}<div class="muted">${escapeHtml(manifest.schema_status || manifest.schemaStatus || "-")}</div></td>
+        <td><strong>${escapeHtml(table.name || "-")}</strong><div class="muted">${escapeHtml(table.mode || "-")}</div></td>
+        <td>${escapeHtml(table.row_count ?? table.rowCount ?? "-")}</td>
+        <td>${escapeHtml(dbTableShape(table))}</td>
+      </tr>
+    `);
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Database</th><th>Transaction</th><th>Table</th><th>Rows</th><th>Shape</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No DB write manifests.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function dbTableShape(table) {
+  const key = Array.isArray(table.key) && table.key.length ? `key ${table.key.join(", ")}` : "key -";
+  const schema = Array.isArray(table.schema) && table.schema.length ? `schema ${table.schema.join(", ")}` : "schema -";
+  return compactText(`${key}; ${schema}`, 100);
+}
+
+function renderDbRegistry(records) {
+  const rows = records.map((record) => `
+    <tr>
+      <td><strong>${escapeHtml(record.binding || "-")}</strong><div class="muted">${escapeHtml(record.status || "-")}</div></td>
+      <td><code>${escapeHtml(compactText(record.database || record.manifest_path || record.manifestPath || "-", 90))}</code></td>
+      <td>${escapeHtml(record.transaction_status || record.transactionStatus || "-")}</td>
+      <td>${escapeHtml(record.table_count ?? record.tableCount ?? "-")}</td>
+      <td><code>${escapeHtml(compactText(record.hash || "-", 70))}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Target</th><th>Transaction</th><th>Tables</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No DB registry records.</td></tr>`}</tbody>
+    </table>
   `;
 }
 
