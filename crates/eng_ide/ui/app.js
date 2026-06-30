@@ -64,6 +64,7 @@ function emptyInspectors() {
     modelCards: null,
     caseManifests: null,
     outputManifest: null,
+    runPlan: null,
     runLog: null,
     processResults: null,
     testResults: null
@@ -674,6 +675,7 @@ function renderSidePanel() {
         ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("objects", "Obj")}
         ${sideTabButton("modules", "Modules")}
+        ${sideTabButton("workflow", "Flow")}
         ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("review", "Review")}
         ${sideTabButton("artifacts", "Artifacts")}
@@ -703,6 +705,7 @@ function renderSideBody() {
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "modules") return renderModulesPanel();
+  if (state.sideTab === "workflow") return renderWorkflowPanel();
   if (state.sideTab === "assembly") return renderAssemblyPanel();
   if (state.sideTab === "review") return renderReviewPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
@@ -948,6 +951,44 @@ function renderModulesPanel() {
       <span class="badge">Planned ${planned}</span>
     </div>
     <div class="scroll">${renderModules()}</div>
+  `;
+}
+
+function renderWorkflowPanel() {
+  const plan = inspectorObject("runPlan");
+  const graph = plan.graph && typeof plan.graph === "object" ? plan.graph : {};
+  const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
+  const edges = Array.isArray(graph.edges) ? graph.edges : [];
+  const decision = plan.rerun_decision || plan.rerunDecision || {};
+  return `
+    <div class="panel-title compact">Workflow</div>
+    <div class="badges">
+      <span class="badge">Nodes ${nodes.length}</span>
+      <span class="badge">Edges ${edges.length}</span>
+      <span class="badge">Status ${escapeHtml(plan.status || "-")}</span>
+      <span class="badge">Profile ${escapeHtml(plan.execution_profile || plan.executionProfile || "-")}</span>
+    </div>
+    <div class="run-actions">
+      <button data-open-artifact-kind="run_plan">Open run_plan.json</button>
+    </div>
+    <div class="scroll">
+      <div class="panel-title compact">DAG</div>
+      ${renderWorkflowDag(nodes, edges)}
+      <div class="panel-title compact">Nodes</div>
+      ${renderWorkflowNodes(nodes)}
+      <div class="panel-title compact">Edges</div>
+      ${renderWorkflowEdges(edges)}
+      <div class="panel-title compact">Rerun</div>
+      <table class="var-table">
+        <thead><tr><th>Decision</th><th>Reason</th><th>Result Hash</th><th>Review Hash</th></tr></thead>
+        <tbody><tr>
+          <td>${escapeHtml(decision.decision || "-")}</td>
+          <td>${escapeHtml(decision.reason || "-")}</td>
+          <td><code>${escapeHtml(plan.artifact_hashes?.result || plan.artifactHashes?.result || "-")}</code></td>
+          <td><code>${escapeHtml(plan.artifact_hashes?.review || plan.artifactHashes?.review || "-")}</code></td>
+        </tr></tbody>
+      </table>
+    </div>
   `;
 }
 
@@ -2149,6 +2190,85 @@ function renderComponentGraph() {
       <tbody>${behaviorRows || `<tr><td colspan="5" class="muted">No component behavior nodes.</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function renderWorkflowDag(nodes, edges) {
+  if (!nodes.length) {
+    return `<div class="empty-state">Run a workflow to populate run_plan.json.</div>`;
+  }
+  const incoming = new Map();
+  const outgoing = new Map();
+  edges.forEach((edge) => {
+    incoming.set(edge.to, (incoming.get(edge.to) || 0) + 1);
+    outgoing.set(edge.from, (outgoing.get(edge.from) || 0) + 1);
+  });
+  const nodeHtml = nodes.map((node) => {
+    const risk = String(node.risk || "low").toLowerCase();
+    return `
+      <div class="workflow-node risk-${escapeAttr(risk)}">
+        <div class="workflow-node-head">
+          <strong>${escapeHtml(node.label || node.id || "-")}</strong>
+          <span>${escapeHtml(node.status || "-")}</span>
+        </div>
+        <div class="muted">${escapeHtml(node.kind || "-")} / ${escapeHtml(node.phase || "-")} / ${escapeHtml(node.risk || "-")}</div>
+        <div class="workflow-node-meta">
+          <span>in ${incoming.get(node.id) || 0}</span>
+          <span>out ${outgoing.get(node.id) || 0}</span>
+          <span>${sourceLineButton(node)}</span>
+        </div>
+      </div>
+    `;
+  }).join("");
+  return `<div class="workflow-graph">${nodeHtml}</div>`;
+}
+
+function renderWorkflowNodes(nodes) {
+  const rows = nodes.map((node) => {
+    const decision = node.rerun_decision || node.rerunDecision || {};
+    return `
+      <tr>
+        <td><strong>${escapeHtml(node.label || "-")}</strong><div class="muted"><code>${escapeHtml(node.id || "-")}</code></div></td>
+        <td>${escapeHtml(node.kind || "-")}</td>
+        <td>${escapeHtml(node.phase || "-")}<div class="muted">${escapeHtml(node.risk || "-")}</div></td>
+        <td>${escapeHtml(node.status || "-")}</td>
+        <td>${escapeHtml(decision.decision || "-")}<div class="muted">${escapeHtml(decision.reason || "-")}</div></td>
+        <td>${escapeHtml(workflowOutputSummary(node.outputs))}</td>
+        <td>${sourceLineButton(node)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Node</th><th>Kind</th><th>Phase</th><th>Status</th><th>Rerun</th><th>Outputs</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No workflow nodes.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderWorkflowEdges(edges) {
+  const rows = edges.map((edge) => `
+    <tr>
+      <td><code>${escapeHtml(edge.from || "-")}</code></td>
+      <td><code>${escapeHtml(edge.to || "-")}</code></td>
+      <td>${escapeHtml(edge.kind || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>From</th><th>To</th><th>Kind</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3" class="muted">No workflow edges.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function workflowOutputSummary(outputs) {
+  if (!Array.isArray(outputs) || !outputs.length) return "-";
+  const labels = outputs.slice(0, 3).map((output) => {
+    if (!output || typeof output !== "object") return String(output ?? "-");
+    return output.kind || output.path || output.hash || output.status || "output";
+  });
+  const suffix = outputs.length > labels.length ? ` +${outputs.length - labels.length}` : "";
+  return `${labels.join(", ")}${suffix}`;
 }
 
 function behaviorNodeDetails(node) {

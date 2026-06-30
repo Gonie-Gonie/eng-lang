@@ -715,6 +715,61 @@ button:hover {
   padding: 0 10px 10px;
 }
 
+.workflow-graph {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 8px;
+  padding: 0 0 8px;
+}
+
+.workflow-node {
+  border: 1px solid var(--border);
+  border-left: 4px solid #6b7280;
+  border-radius: 6px;
+  background: #fff;
+  padding: 8px;
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+}
+
+.workflow-node.risk-low {
+  border-left-color: #2f8f62;
+}
+
+.workflow-node.risk-medium {
+  border-left-color: #b7791f;
+}
+
+.workflow-node.risk-high {
+  border-left-color: #c2410c;
+}
+
+.workflow-node-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.workflow-node-head strong,
+.workflow-node .muted {
+  overflow-wrap: anywhere;
+}
+
+.workflow-node-head span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.workflow-node-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
 .link-button {
   height: auto;
   min-height: 0;
