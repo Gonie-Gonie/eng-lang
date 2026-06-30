@@ -5447,6 +5447,13 @@ fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
             "        \"type\": \"{}\",\n",
             json_escape(&dependency.kind)
         ));
+        if dependency.kind.starts_with("filesystem_read_") {
+            json.push_str(&format!(
+                "        \"path\": \"{}\",\n",
+                json_escape(&dependency.resolved_value)
+            ));
+            push_optional_json_string(json, "source_hash", dependency.source_hash.as_deref(), 8);
+        }
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&dependency.status)
@@ -7607,6 +7614,9 @@ mod tests {
         assert!(review.contains("\"filesystem_read_text\""));
         assert!(review.contains("\"filesystem_read_json\""));
         assert!(review.contains("\"filesystem_read_toml\""));
+        assert!(review.contains("\"path\": \""));
+        assert!(review.contains("case.json"));
+        assert!(review.contains("case.toml"));
         assert!(review.contains("\"source_hash\""));
     }
 

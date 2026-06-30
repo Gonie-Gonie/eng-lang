@@ -285,6 +285,8 @@
         "kind": { "type": "string" },
         "name": { "type": "string" },
         "type": { "type": "string" },
+        "path": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
         "default": { "type": ["string", "null"] },
         "required": { "type": "boolean" },
         "column_count": { "type": "integer", "minimum": 0 },
