@@ -24,13 +24,18 @@ pub(crate) struct SourceRecord {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ExternalBoundaryRecord {
+    pub kind: String,
     pub binding: String,
     pub command: String,
+    pub target: String,
     pub tool_version: Option<String>,
     pub args: Vec<String>,
     pub cwd: String,
+    pub output_paths: Vec<String>,
     pub expected_output_count: usize,
     pub expected_output_status: String,
+    pub response_hash: Option<String>,
+    pub expected_hash: Option<String>,
     pub stdout_hash: String,
     pub stderr_hash: String,
     pub success: bool,
@@ -201,13 +206,18 @@ mod tests {
     #[test]
     fn external_boundary_record_keeps_process_review_fields() {
         let record = ExternalBoundaryRecord {
+            kind: "process".to_owned(),
             binding: "run_case".to_owned(),
             command: "sim".to_owned(),
+            target: "sim".to_owned(),
             tool_version: Some("sim 1.0".to_owned()),
             args: vec!["--input".to_owned(), "case.in".to_owned()],
             cwd: "outputs/case_001".to_owned(),
+            output_paths: vec!["case.out".to_owned(), "case.log".to_owned()],
             expected_output_count: 2,
             expected_output_status: "satisfied".to_owned(),
+            response_hash: None,
+            expected_hash: None,
             stdout_hash: "out".to_owned(),
             stderr_hash: "err".to_owned(),
             success: true,

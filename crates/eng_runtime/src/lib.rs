@@ -403,7 +403,8 @@ pub fn run_source(
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let process_results = execute_process_runs(&check_report)?;
-    let external_boundary_records = external_boundary_records_for_processes(&process_results);
+    let external_boundary_records =
+        external_boundary_records_for_run(&check_report, &process_results);
     let cache_manifest_records = cache_manifest_records(&check_report, build_root);
     let cache_manifest_json =
         cache_manifest_json(&check_report, &cache_manifest_records, &options.profile);
@@ -475,6 +476,7 @@ pub fn run_source(
         &review_json(&check_report),
         &runtime_data,
         &process_results,
+        &external_boundary_records,
         &output_artifacts,
         &cache_manifest_records,
     );
@@ -593,7 +595,7 @@ pub fn run_source(
         &ArtifactRegistryContext {
             report: &check_report,
             runtime_data: &runtime_data,
-            process_results: &process_results,
+            external_boundary_records: &external_boundary_records,
             cache_manifest_records: &cache_manifest_records,
             db_manifest_records: &db_manifest_records,
             test_results: &test_results,
@@ -1092,47 +1094,18 @@ fn run_log_json(
         external_boundaries.len()
     ));
     json.push_str("  \"external_boundary_events\": [\n");
-    for (record_index, record) in external_boundaries.iter().enumerate() {
-        if record_index > 0 {
-            json.push_str(",\n");
-        }
-        json.push_str("    {\n");
-        json.push_str("      \"kind\": \"process\",\n");
-        json.push_str(&format!(
-            "      \"binding\": \"{}\",\n",
-            json_escape(&record.binding)
-        ));
-        json.push_str(&format!(
-            "      \"command\": \"{}\",\n",
-            json_escape(&record.command)
-        ));
-        json.push_str(&format!(
-            "      \"status\": \"{}\",\n",
-            json_escape(&record.status)
-        ));
-        json.push_str(&format!("      \"success\": {},\n", record.success));
-        json.push_str(&format!(
-            "      \"expected_output_status\": \"{}\",\n",
-            json_escape(&record.expected_output_status)
-        ));
-        json.push_str(&format!(
-            "      \"stdout_hash\": \"{}\",\n",
-            json_escape(&record.stdout_hash)
-        ));
-        json.push_str(&format!(
-            "      \"stderr_hash\": \"{}\",\n",
-            json_escape(&record.stderr_hash)
-        ));
-        json.push_str(&format!("      \"line\": {}\n", record.line));
-        json.push_str("    }");
-    }
+    push_external_boundary_events_json(&mut json, external_boundaries, "    ");
     json.push_str("\n  ],\n");
+    let network_event_count = external_boundaries
+        .iter()
+        .filter(|record| is_network_boundary_record(record))
+        .count();
     json.push_str(&format!(
         "  \"network_event_count\": {},\n",
-        report.semantic_program.net_requests.len() + report.semantic_program.net_downloads.len()
+        network_event_count
     ));
     json.push_str("  \"network_events\": [\n");
-    push_network_events_json(&mut json, report, "    ");
+    push_network_events_json(&mut json, external_boundaries, "    ");
     json.push_str("\n  ],\n");
     json.push_str(&format!(
         "  \"cache_event_count\": {},\n",
@@ -1184,63 +1157,121 @@ fn push_cache_events_json(json: &mut String, records: &[CacheManifestRecord], in
     }
 }
 
-fn push_network_events_json(json: &mut String, report: &CheckReport, indent: &str) {
-    let mut first = true;
-    for request in &report.semantic_program.net_requests {
-        if !first {
+fn push_external_boundary_events_json(
+    json: &mut String,
+    records: &[ExternalBoundaryRecord],
+    indent: &str,
+) {
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
             json.push_str(",\n");
         }
-        first = false;
         json.push_str(&format!("{indent}{{\n"));
-        json.push_str(&format!("{indent}  \"kind\": \"http_get\",\n"));
+        json.push_str(&format!(
+            "{indent}  \"kind\": \"{}\",\n",
+            json_escape(&record.kind)
+        ));
         json.push_str(&format!(
             "{indent}  \"binding\": \"{}\",\n",
-            json_escape(&request.binding)
+            json_escape(&record.binding)
         ));
         json.push_str(&format!(
-            "{indent}  \"url\": \"{}\",\n",
-            json_escape(&request.url_value)
-        ));
-        push_optional_json_string(
-            json,
-            "response_hash",
-            request.response_hash.as_deref(),
-            indent.len() + 2,
-        );
-        json.push_str(&format!(
-            "{indent}  \"status\": \"{}\",\n",
-            json_escape(&request.status)
-        ));
-        json.push_str(&format!("{indent}  \"line\": {}\n", request.line));
-        json.push_str(&format!("{indent}}}"));
-    }
-    for download in &report.semantic_program.net_downloads {
-        if !first {
-            json.push_str(",\n");
-        }
-        first = false;
-        json.push_str(&format!("{indent}{{\n"));
-        json.push_str(&format!("{indent}  \"kind\": \"download\",\n"));
-        json.push_str(&format!(
-            "{indent}  \"url\": \"{}\",\n",
-            json_escape(&download.url_value)
+            "{indent}  \"command\": \"{}\",\n",
+            json_escape(&record.command)
         ));
         json.push_str(&format!(
             "{indent}  \"target\": \"{}\",\n",
-            json_escape(&download.target_value)
+            json_escape(&record.target)
         ));
         push_optional_json_string(
             json,
             "response_hash",
-            download.response_hash.as_deref(),
+            record.response_hash.as_deref(),
+            indent.len() + 2,
+        );
+        push_optional_json_string(
+            json,
+            "expected_sha256",
+            record.expected_hash.as_deref(),
             indent.len() + 2,
         );
         json.push_str(&format!(
             "{indent}  \"status\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&record.status)
         ));
-        json.push_str(&format!("{indent}  \"line\": {}\n", download.line));
+        json.push_str(&format!("{indent}  \"success\": {},\n", record.success));
+        json.push_str(&format!(
+            "{indent}  \"expected_output_status\": \"{}\",\n",
+            json_escape(&record.expected_output_status)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"stdout_hash\": \"{}\",\n",
+            json_escape(&record.stdout_hash)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"stderr_hash\": \"{}\",\n",
+            json_escape(&record.stderr_hash)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", record.line));
         json.push_str(&format!("{indent}}}"));
+    }
+}
+
+fn push_network_events_json(json: &mut String, records: &[ExternalBoundaryRecord], indent: &str) {
+    let mut first = true;
+    for record in records
+        .iter()
+        .filter(|record| is_network_boundary_record(record))
+    {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!(
+            "{indent}  \"kind\": \"{}\",\n",
+            json_escape(run_log_network_event_kind(record))
+        ));
+        if !record.binding.is_empty() {
+            json.push_str(&format!(
+                "{indent}  \"binding\": \"{}\",\n",
+                json_escape(&record.binding)
+            ));
+        }
+        json.push_str(&format!(
+            "{indent}  \"url\": \"{}\",\n",
+            json_escape(&record.target)
+        ));
+        if let Some(target) = record.output_paths.first() {
+            json.push_str(&format!(
+                "{indent}  \"target\": \"{}\",\n",
+                json_escape(target)
+            ));
+        }
+        push_optional_json_string(
+            json,
+            "response_hash",
+            record.response_hash.as_deref(),
+            indent.len() + 2,
+        );
+        json.push_str(&format!(
+            "{indent}  \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", record.line));
+        json.push_str(&format!("{indent}}}"));
+    }
+}
+
+fn is_network_boundary_record(record: &ExternalBoundaryRecord) -> bool {
+    matches!(record.kind.as_str(), "network_request" | "network_download")
+}
+
+fn run_log_network_event_kind(record: &ExternalBoundaryRecord) -> &str {
+    match record.kind.as_str() {
+        "network_request" => "http_get",
+        "network_download" => "download",
+        _ => record.kind.as_str(),
     }
 }
 
@@ -2418,7 +2449,7 @@ fn render_print_template(
 struct ArtifactRegistryContext<'a> {
     report: &'a CheckReport,
     runtime_data: &'a RuntimeData,
-    process_results: &'a [ProcessExecutionRecord],
+    external_boundary_records: &'a [ExternalBoundaryRecord],
     cache_manifest_records: &'a [CacheManifestRecord],
     db_manifest_records: &'a [DbManifestRecord],
     test_results: &'a [TestExecutionRecord],
@@ -2911,19 +2942,37 @@ fn artifact_records_for_outputs(artifacts: &[OutputArtifact]) -> Vec<ArtifactRec
         .collect()
 }
 
+fn external_boundary_records_for_run(
+    report: &CheckReport,
+    processes: &[ProcessExecutionRecord],
+) -> Vec<ExternalBoundaryRecord> {
+    let mut records = external_boundary_records_for_processes(processes);
+    records.extend(external_boundary_records_for_network(report));
+    records
+}
+
 fn external_boundary_records_for_processes(
     processes: &[ProcessExecutionRecord],
 ) -> Vec<ExternalBoundaryRecord> {
     processes
         .iter()
         .map(|process| ExternalBoundaryRecord {
+            kind: "process".to_owned(),
             binding: process.binding.clone(),
             command: process.command.clone(),
+            target: process.command.clone(),
             tool_version: process.tool_version.clone(),
             args: process.args.clone(),
             cwd: process.cwd.clone(),
+            output_paths: process
+                .expected_outputs
+                .iter()
+                .map(|output| output.path.clone())
+                .collect(),
             expected_output_count: process.expected_outputs.len(),
             expected_output_status: process.expected_output_status.clone(),
+            response_hash: None,
+            expected_hash: None,
             stdout_hash: process.stdout_hash.clone(),
             stderr_hash: process.stderr_hash.clone(),
             success: process.success,
@@ -2933,113 +2982,145 @@ fn external_boundary_records_for_processes(
         .collect()
 }
 
+fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBoundaryRecord> {
+    let mut records = Vec::new();
+    for request in &report.semantic_program.net_requests {
+        records.push(ExternalBoundaryRecord {
+            kind: "network_request".to_owned(),
+            binding: request.binding.clone(),
+            command: request.method.clone(),
+            target: request.url_value.clone(),
+            tool_version: None,
+            args: network_query_args(&request.query),
+            cwd: String::new(),
+            output_paths: Vec::new(),
+            expected_output_count: 0,
+            expected_output_status: "not_applicable".to_owned(),
+            response_hash: request.response_hash.clone(),
+            expected_hash: request.expected_sha256.clone(),
+            stdout_hash: request.response_hash.clone().unwrap_or_default(),
+            stderr_hash: String::new(),
+            success: external_boundary_status_success(&request.status),
+            status: request.status.clone(),
+            line: request.line,
+        });
+    }
+    for download in &report.semantic_program.net_downloads {
+        records.push(ExternalBoundaryRecord {
+            kind: "network_download".to_owned(),
+            binding: "download".to_owned(),
+            command: "download".to_owned(),
+            target: download.url_value.clone(),
+            tool_version: None,
+            args: network_query_args(&download.query),
+            cwd: String::new(),
+            output_paths: vec![download.target_value.clone()],
+            expected_output_count: 1,
+            expected_output_status: download.status.clone(),
+            response_hash: download.response_hash.clone(),
+            expected_hash: download.expected_sha256.clone(),
+            stdout_hash: download.response_hash.clone().unwrap_or_default(),
+            stderr_hash: String::new(),
+            success: external_boundary_status_success(&download.status),
+            status: download.status.clone(),
+            line: download.line,
+        });
+    }
+    records
+}
+
+fn network_query_args(query: &[eng_compiler::NetQueryParam]) -> Vec<String> {
+    query
+        .iter()
+        .map(|param| {
+            if param.redacted {
+                format!("{}=<redacted>", param.key)
+            } else {
+                format!("{}={}", param.key, param.value)
+            }
+        })
+        .collect()
+}
+
+fn external_boundary_status_success(status: &str) -> bool {
+    !matches!(status, "error" | "failed" | "invalid" | "missing")
+}
+
 fn push_output_manifest_network_requests_json(
     json: &mut String,
     registry: &ArtifactRegistryContext<'_>,
 ) {
-    let mut first = true;
-    for request in &registry.report.semantic_program.net_requests {
-        if !first {
-            json.push_str(",\n");
-        }
-        first = false;
-        json.push_str("      {\n");
-        json.push_str("        \"kind\": \"http_get\",\n");
-        json.push_str(&format!(
-            "        \"binding\": \"{}\",\n",
-            json_escape(&request.binding)
-        ));
-        json.push_str(&format!(
-            "        \"url\": \"{}\",\n",
-            json_escape(&request.url_value)
-        ));
-        push_optional_json_string_runtime(
-            json,
-            "response_hash",
-            request.response_hash.as_deref(),
-            8,
-        );
-        push_optional_json_string_runtime(
-            json,
-            "expected_sha256",
-            request.expected_sha256.as_deref(),
-            8,
-        );
-        json.push_str(&format!(
-            "        \"status\": \"{}\",\n",
-            json_escape(&request.status)
-        ));
-        json.push_str(&format!("        \"line\": {}\n", request.line));
-        json.push_str("      }");
-    }
-    for download in &registry.report.semantic_program.net_downloads {
-        if !first {
-            json.push_str(",\n");
-        }
-        first = false;
-        json.push_str("      {\n");
-        json.push_str("        \"kind\": \"download\",\n");
-        json.push_str(&format!(
-            "        \"url\": \"{}\",\n",
-            json_escape(&download.url_value)
-        ));
-        json.push_str(&format!(
-            "        \"target\": \"{}\",\n",
-            json_escape(&download.target_value)
-        ));
-        push_optional_json_string_runtime(
-            json,
-            "response_hash",
-            download.response_hash.as_deref(),
-            8,
-        );
-        push_optional_json_string_runtime(
-            json,
-            "expected_sha256",
-            download.expected_sha256.as_deref(),
-            8,
-        );
-        json.push_str(&format!(
-            "        \"status\": \"{}\",\n",
-            json_escape(&download.status)
-        ));
-        json.push_str(&format!("        \"line\": {}\n", download.line));
-        json.push_str("      }");
-    }
-}
-
-fn push_output_manifest_downloads_json(json: &mut String, registry: &ArtifactRegistryContext<'_>) {
-    for (index, download) in registry
-        .report
-        .semantic_program
-        .net_downloads
+    for (index, record) in registry
+        .external_boundary_records
         .iter()
+        .filter(|record| record.kind == "network_request")
         .enumerate()
     {
         if index > 0 {
             json.push_str(",\n");
         }
         json.push_str("      {\n");
+        json.push_str("        \"kind\": \"http_get\",\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
         json.push_str(&format!(
             "        \"url\": \"{}\",\n",
-            json_escape(&download.url_value)
+            json_escape(&record.target)
         ));
-        json.push_str(&format!(
-            "        \"path\": \"{}\",\n",
-            json_escape(&download.target_value)
-        ));
-        push_optional_json_string_runtime(json, "hash", download.response_hash.as_deref(), 8);
+        push_optional_json_string_runtime(
+            json,
+            "response_hash",
+            record.response_hash.as_deref(),
+            8,
+        );
         push_optional_json_string_runtime(
             json,
             "expected_sha256",
-            download.expected_sha256.as_deref(),
+            record.expected_hash.as_deref(),
             8,
         );
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&record.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
+        json.push_str("      }");
+    }
+}
+
+fn push_output_manifest_downloads_json(json: &mut String, registry: &ArtifactRegistryContext<'_>) {
+    for (index, record) in registry
+        .external_boundary_records
+        .iter()
+        .filter(|record| record.kind == "network_download")
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"download\",\n");
+        json.push_str(&format!(
+            "        \"url\": \"{}\",\n",
+            json_escape(&record.target)
+        ));
+        if let Some(target) = record.output_paths.first() {
+            json.push_str(&format!("        \"path\": \"{}\",\n", json_escape(target)));
+        }
+        push_optional_json_string_runtime(json, "hash", record.response_hash.as_deref(), 8);
+        push_optional_json_string_runtime(
+            json,
+            "expected_sha256",
+            record.expected_hash.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
         json.push_str("      }");
     }
 }
@@ -3159,14 +3240,20 @@ fn push_artifact_registry_json(
     json.push_str("\n    ],\n");
 
     json.push_str("    \"external_commands\": [\n");
-    for (index, record) in external_boundary_records_for_processes(registry.process_results)
+    for (index, record) in registry
+        .external_boundary_records
         .iter()
+        .filter(|record| record.kind == "process")
         .enumerate()
     {
         if index > 0 {
             json.push_str(",\n");
         }
         json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&record.kind)
+        ));
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
             json_escape(&record.binding)
@@ -3175,9 +3262,16 @@ fn push_artifact_registry_json(
             "        \"command\": \"{}\",\n",
             json_escape(&record.command)
         ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&record.target)
+        ));
         push_optional_json_string_runtime(json, "tool_version", record.tool_version.as_deref(), 8);
         json.push_str("        \"args\": ");
         push_json_string_array_runtime(json, &record.args);
+        json.push_str(",\n");
+        json.push_str("        \"outputs\": ");
+        push_json_string_array_runtime(json, &record.output_paths);
         json.push_str(",\n");
         json.push_str(&format!(
             "        \"cwd\": \"{}\",\n",
@@ -5725,12 +5819,17 @@ fn runtime_review_json(
     base_review: &str,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    external_boundary_records: &[ExternalBoundaryRecord],
     artifacts: &[OutputArtifact],
     cache_records: &[CacheManifestRecord],
 ) -> String {
     let enriched_review = enrich_runtime_review_caches(
         &enrich_runtime_review_side_effects(
-            &enrich_runtime_review_boundaries(base_review, process_results),
+            &enrich_runtime_review_boundaries(
+                base_review,
+                process_results,
+                external_boundary_records,
+            ),
             artifacts,
         ),
         cache_records,
@@ -5938,8 +6037,9 @@ fn runtime_review_json(
 fn enrich_runtime_review_boundaries(
     base_review: &str,
     process_results: &[ProcessExecutionRecord],
+    external_boundary_records: &[ExternalBoundaryRecord],
 ) -> String {
-    if process_results.is_empty() {
+    if external_boundary_records.is_empty() {
         return base_review.to_owned();
     }
 
@@ -5953,61 +6053,75 @@ fn enrich_runtime_review_boundaries(
         return base_review.to_owned();
     };
 
-    for process in process_results {
-        let Some(boundary) = boundaries.iter_mut().find(|boundary| {
-            boundary.get("kind").and_then(Value::as_str) == Some("process")
-                && boundary.get("name").and_then(Value::as_str) == Some(process.binding.as_str())
-        }) else {
+    for record in external_boundary_records {
+        let Some(boundary) = boundaries
+            .iter_mut()
+            .find(|boundary| review_boundary_matches_record(boundary, record))
+        else {
             continue;
         };
         let Some(object) = boundary.as_object_mut() else {
             continue;
         };
-        let outputs = process
-            .expected_outputs
+        let process = process_results
             .iter()
-            .map(|output| output.path.clone())
-            .collect::<Vec<_>>();
-        let output_artifacts = process
-            .expected_outputs
-            .iter()
-            .map(|output| {
-                json!({
-                    "kind": output.artifact_kind.clone(),
-                    "path": output.path.clone(),
-                    "hash": output.hash.clone(),
-                    "status": output.status.clone(),
-                    "validation": {
-                        "status": output.validation.status.clone(),
-                        "rule": output.validation.rule.clone(),
-                        "message": output.validation.message.clone()
-                    }
-                })
-            })
-            .collect::<Vec<_>>();
+            .find(|process| record.kind == "process" && process.line == record.line);
 
         object.insert(
             "provenance".to_owned(),
-            Value::String("runtime_process_result".to_owned()),
+            Value::String(
+                if record.kind == "process" {
+                    "runtime_process_result"
+                } else {
+                    "runtime_external_boundary_record"
+                }
+                .to_owned(),
+            ),
         );
-        object.insert("success".to_owned(), Value::Bool(process.success));
-        object.insert("status".to_owned(), Value::String(process.status.clone()));
+        object.insert("success".to_owned(), Value::Bool(record.success));
+        object.insert("status".to_owned(), Value::String(record.status.clone()));
+        object.insert("target".to_owned(), Value::String(record.target.clone()));
+        object.insert("outputs".to_owned(), json!(record.output_paths));
         object.insert(
             "expected_output_status".to_owned(),
-            Value::String(process.expected_output_status.clone()),
+            Value::String(record.expected_output_status.clone()),
         );
         object.insert(
             "stdout_hash".to_owned(),
-            Value::String(process.stdout_hash.clone()),
+            Value::String(record.stdout_hash.clone()),
         );
         object.insert(
             "stderr_hash".to_owned(),
-            Value::String(process.stderr_hash.clone()),
+            Value::String(record.stderr_hash.clone()),
         );
-        object.insert("exit_code".to_owned(), json!(process.exit_code));
-        object.insert("duration_ms".to_owned(), json!(process.duration_ms));
-        object.insert("outputs".to_owned(), json!(outputs));
-        object.insert("output_artifacts".to_owned(), json!(output_artifacts));
+        if let Some(hash) = &record.response_hash {
+            object.insert("response_hash".to_owned(), Value::String(hash.clone()));
+        }
+        if let Some(hash) = &record.expected_hash {
+            object.insert("expected_sha256".to_owned(), Value::String(hash.clone()));
+        }
+        if let Some(process) = process {
+            let output_artifacts = process
+                .expected_outputs
+                .iter()
+                .map(|output| {
+                    json!({
+                        "kind": output.artifact_kind.clone(),
+                        "path": output.path.clone(),
+                        "hash": output.hash.clone(),
+                        "status": output.status.clone(),
+                        "validation": {
+                            "status": output.validation.status.clone(),
+                            "rule": output.validation.rule.clone(),
+                            "message": output.validation.message.clone()
+                        }
+                    })
+                })
+                .collect::<Vec<_>>();
+            object.insert("exit_code".to_owned(), json!(process.exit_code));
+            object.insert("duration_ms".to_owned(), json!(process.duration_ms));
+            object.insert("output_artifacts".to_owned(), json!(output_artifacts));
+        }
     }
 
     serde_json::to_string_pretty(&review)
@@ -6016,6 +6130,20 @@ fn enrich_runtime_review_boundaries(
             json
         })
         .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn review_boundary_matches_record(boundary: &Value, record: &ExternalBoundaryRecord) -> bool {
+    let name_matches = match boundary.get("name").and_then(Value::as_str) {
+        Some(name) => name == record.binding,
+        None => true,
+    };
+    boundary.get("kind").and_then(Value::as_str) == Some(record.kind.as_str())
+        && boundary
+            .get("line")
+            .or_else(|| boundary.get("source_line"))
+            .and_then(Value::as_u64)
+            == Some(record.line as u64)
+        && name_matches
 }
 
 fn enrich_runtime_review_side_effects(base_review: &str, artifacts: &[OutputArtifact]) -> String {
@@ -10030,6 +10158,7 @@ mod tests {
         assert!(output.process_results_json.contains("\"stdout_hash\""));
         assert!(output.process_results_json.contains("\"stderr_hash\""));
         assert!(output.run_log_json.contains("\"external_boundary_events\""));
+        assert!(output.run_log_json.contains("\"kind\": \"process\""));
         assert!(output
             .run_log_json
             .contains("\"binding\": \"process_result\""));
@@ -10663,6 +10792,15 @@ mod tests {
         assert!(output.result_json.contains("\"value\": \"<redacted>\""));
         assert!(output.result_json.contains("\"network_boundary_count\": 2"));
         assert!(output.run_log_json.contains("\"network_events\""));
+        assert!(output
+            .run_log_json
+            .contains("\"external_boundary_event_count\": 2"));
+        assert!(output
+            .run_log_json
+            .contains("\"kind\": \"network_request\""));
+        assert!(output
+            .run_log_json
+            .contains("\"kind\": \"network_download\""));
         assert!(output.run_log_json.contains("\"network_event_count\": 2"));
         assert!(output.run_log_json.contains("\"cache_events\""));
         assert!(output.run_log_json.contains("\"cache_event_count\": 2"));
@@ -10684,6 +10822,9 @@ mod tests {
         assert!(output.output_manifest_json.contains("build/raw/file.csv"));
         assert!(output.review_json.contains("\"external_boundaries\""));
         assert!(output.review_json.contains("\"caches\""));
+        assert!(output
+            .review_json
+            .contains("\"provenance\": \"runtime_external_boundary_record\""));
         assert!(output.review_json.contains("\"lookup_status\": \"miss\""));
         assert!(output.review_json.contains("\"kind\": \"network_request\""));
         assert!(output
