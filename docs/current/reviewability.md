@@ -27,6 +27,7 @@ build/result/result.engres
 build/result/review.json
 build/result/report.html
 build/result/report_spec.json
+build/result/run_plan.json
 build/result/run_log.json
 build/result/process_results.json
 build/result/test_results.json

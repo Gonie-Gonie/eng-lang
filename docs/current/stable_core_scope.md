@@ -22,12 +22,12 @@ workflow. It is not a complete engineering simulation solver.
 - Unit-aware `print`, structured `log <level>`, one-row summary CSV export,
   explicit write outputs, process results, file-operation metadata, and local
   test/assert/golden checks within their documented boundaries.
-- Explicit side-effect artifacts: `output_manifest.json`, `run_log.json`,
+- Explicit side-effect artifacts: `output_manifest.json`, `run_plan.json`, `run_log.json`,
   `process_results.json`, and `test_results.json`.
 - `eng run --profile safe|normal|repro` basics.
 - PlotSpec v1 line and multi-series line plots, SVG output, report HTML,
-  review JSON, report spec, run log, process results, test results, and output
-  manifest artifacts.
+  review JSON, report spec, run plan, run log, process results, test results,
+  and output manifest artifacts.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
 - Tauri/WebView tester IDE smoke path and packaged LSP smoke/snapshot tooling.
@@ -45,6 +45,7 @@ report_spec.json
 plot_spec.json
 plot_manifest.json
 timeseries.svg
+run_plan.json
 run_log.json
 process_results.json
 test_results.json

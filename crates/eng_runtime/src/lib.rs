@@ -82,6 +82,7 @@ pub struct RunOutput {
     pub plot_spec_path: PathBuf,
     pub plot_manifest_path: PathBuf,
     pub output_manifest_path: PathBuf,
+    pub run_plan_path: PathBuf,
     pub run_log_path: PathBuf,
     pub process_results_path: PathBuf,
     pub cache_manifest_path: PathBuf,
@@ -100,6 +101,7 @@ pub struct RunOutput {
     pub plot_spec_json: String,
     pub plot_manifest_json: String,
     pub output_manifest_json: String,
+    pub run_plan_json: String,
     pub run_log_json: String,
     pub process_results_json: String,
     pub cache_manifest_json: String,
@@ -389,6 +391,7 @@ pub fn run_source(
     let plot_spec_path = plots_dir.join("plot_spec.json");
     let plot_manifest_path = plots_dir.join("plot_manifest.json");
     let output_manifest_path = result_dir.join("output_manifest.json");
+    let run_plan_path = result_dir.join("run_plan.json");
     let run_log_path = result_dir.join("run_log.json");
     let process_results_path = result_dir.join("process_results.json");
     let cache_manifest_path = result_dir.join("cache_manifest.json");
@@ -501,6 +504,19 @@ pub fn run_source(
             diagnostics: &profile_diagnostics,
         },
     );
+    let run_plan_json = run_plan_json(
+        path,
+        &check_report,
+        &runtime_data,
+        &process_results,
+        &external_boundary_records,
+        &cache_manifest_records,
+        &db_manifest_records,
+        &output_artifacts,
+        &result_json,
+        &review_json,
+        &options.profile,
+    );
 
     let artifacts_saved = options.save_artifacts || options.open_report;
     if artifacts_saved {
@@ -525,6 +541,13 @@ pub fn run_source(
             "run_log.json".to_owned(),
             &run_log_json,
             run_log_path.clone(),
+        ));
+        fs::write(&run_plan_path, &run_plan_json)?;
+        output_artifacts.push(output_artifact(
+            "run_plan",
+            "run_plan.json".to_owned(),
+            &run_plan_json,
+            run_plan_path.clone(),
         ));
         fs::write(&process_results_path, &process_results_json)?;
         output_artifacts.push(output_artifact(
@@ -638,6 +661,7 @@ pub fn run_source(
         plot_spec_path,
         plot_manifest_path,
         output_manifest_path,
+        run_plan_path,
         run_log_path,
         process_results_path,
         cache_manifest_path,
@@ -656,6 +680,7 @@ pub fn run_source(
         plot_spec_json,
         plot_manifest_json,
         output_manifest_json,
+        run_plan_json,
         run_log_json,
         process_results_json,
         cache_manifest_json,
@@ -2922,6 +2947,354 @@ fn output_manifest_json(
     .to_json()
 }
 
+fn run_plan_json(
+    source_path: &Path,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    external_boundary_records: &[ExternalBoundaryRecord],
+    cache_records: &[CacheManifestRecord],
+    db_records: &[DbManifestRecord],
+    output_artifacts: &[OutputArtifact],
+    result_json: &str,
+    review_json: &str,
+    profile: &ExecutionProfile,
+) -> String {
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    nodes.push(run_plan_node(
+        "source:program",
+        "source_file",
+        "program",
+        "loaded",
+        "static",
+        "low",
+        1,
+        vec![json!({"kind": "source_hash", "hash": &report.source_hash})],
+    ));
+
+    for promotion in &report.semantic_program.csv_promotions {
+        let id = format!("source:csv:{}", promotion.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "csv_promotion",
+            &promotion.binding,
+            "promoted",
+            "static",
+            "medium",
+            promotion.line,
+            vec![json!({
+                "kind": "source_file",
+                "path": &promotion.resolved_path,
+                "hash": &promotion.source_hash,
+                "row_count": promotion.row_count
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for promotion in &report.semantic_program.config_promotions {
+        let id = format!("source:config:{}", promotion.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "config_promotion",
+            &promotion.binding,
+            &promotion.status,
+            "static",
+            "medium",
+            promotion.line,
+            vec![json!({
+                "kind": format!("config_{}", promotion.format),
+                "path": &promotion.resolved_path,
+                "hash": &promotion.source_hash,
+                "field_count": promotion.field_count
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for selection in &runtime_data.table_selections {
+        let id = format!("table_selection:{}", selection.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "table_selection",
+            &selection.binding,
+            &selection.status,
+            "runtime",
+            "low",
+            selection.line,
+            vec![json!({
+                "source_table": &selection.source_table,
+                "matched_row_count": selection.matched_count
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for transform in &runtime_data.table_transforms {
+        let id = format!("table_transform:{}", transform.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "table_transform",
+            &transform.binding,
+            &transform.status,
+            "runtime",
+            "low",
+            transform.line,
+            vec![json!({
+                "operation": &transform.operation,
+                "source_table": &transform.source_table,
+                "output_row_count": transform.output_row_count
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for coverage in &runtime_data.timeseries_coverage {
+        let id = format!("timeseries_coverage:{}", coverage.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "timeseries_coverage",
+            &coverage.binding,
+            &coverage.status,
+            "runtime",
+            if coverage.status == "complete" {
+                "low"
+            } else {
+                "medium"
+            },
+            coverage.line,
+            vec![json!({
+                "source_table": &coverage.source_table,
+                "source_column": &coverage.source_column,
+                "expected_count": coverage.expected_count,
+                "actual_count": coverage.actual_count,
+                "missing_count": coverage.missing_count
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for boundary in external_boundary_records {
+        let id = format!("boundary:{}:{}", boundary.kind, boundary.binding);
+        nodes.push(run_plan_node(
+            &id,
+            &boundary.kind,
+            &boundary.binding,
+            &boundary.status,
+            "runtime",
+            "high",
+            boundary.line,
+            vec![json!({
+                "target": &boundary.target,
+                "response_hash": &boundary.response_hash,
+                "stdout_hash": &boundary.stdout_hash,
+                "stderr_hash": &boundary.stderr_hash,
+                "output_paths": &boundary.output_paths
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for process in process_results {
+        let id = format!("process:{}", process.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "process",
+            &process.binding,
+            &process.status,
+            "runtime",
+            "high",
+            process.line,
+            vec![json!({
+                "command": &process.command,
+                "exit_code": process.exit_code,
+                "stdout_hash": &process.stdout_hash,
+                "stderr_hash": &process.stderr_hash,
+                "expected_output_status": &process.expected_output_status
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for cache in cache_records {
+        let id = format!("cache:{}:{}", cache.owner_kind, cache.owner_name);
+        nodes.push(run_plan_node(
+            &id,
+            "cache",
+            &cache.owner_name,
+            &cache.lookup_status,
+            "runtime",
+            "medium",
+            cache.line,
+            vec![json!({
+                "owner_kind": &cache.owner_kind,
+                "cache_key_hash": &cache.cache_key_hash,
+                "cache_path": &cache.cache_path,
+                "cache_dir": &cache.cache_dir,
+                "source_hash": &cache.source_hash,
+                "observed_hash": &cache.observed_hash
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for case_manifest in &runtime_data.case_manifests {
+        let id = format!("case:{}", case_manifest.case_id);
+        nodes.push(run_plan_node(
+            &id,
+            "case",
+            &case_manifest.case_id,
+            &case_manifest.status,
+            "runtime",
+            "medium",
+            0,
+            vec![json!({
+                "sample_table": &case_manifest.sample_table,
+                "case_dir": &case_manifest.case_dir,
+                "sample_row_hash": &case_manifest.sample_row_hash,
+                "process_count": case_manifest.process_statuses.len()
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for db in db_records {
+        let id = format!("db:{}", db.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "db_write",
+            &db.binding,
+            &db.status,
+            "runtime",
+            "high",
+            db.line,
+            vec![json!({
+                "manifest_path": &db.manifest_path,
+                "hash": &db.hash,
+                "transaction_status": &db.transaction_status,
+                "table_count": db.tables.len()
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for artifact in &runtime_data.ml_artifacts {
+        if artifact.model_artifact_hash.is_none() && artifact.model_card.is_none() {
+            continue;
+        }
+        let id = format!("model:{}", artifact.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "model",
+            &artifact.binding,
+            &artifact.status,
+            "runtime",
+            "medium",
+            artifact.line,
+            vec![json!({
+                "kind": &artifact.kind,
+                "model_artifact_hash": &artifact.model_artifact_hash,
+                "training_data_hash": &artifact.training_data_hash,
+                "model_card_hash": artifact.model_card.as_ref().map(|card| hash_text(card))
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for test in &report.semantic_program.tests {
+        let id = format!("test:{}", test.name);
+        nodes.push(run_plan_node(
+            &id,
+            "test",
+            &test.name,
+            "declared",
+            "static",
+            "low",
+            test.line,
+            vec![json!({
+                "assertion_count": test.assertions.len(),
+                "golden_count": test.goldens.len()
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for artifact in output_artifacts {
+        let id = format!("artifact:{}", artifact.path);
+        nodes.push(run_plan_node(
+            &id,
+            "artifact",
+            &artifact.path,
+            "generated",
+            "runtime",
+            "low",
+            0,
+            vec![json!({
+                "kind": &artifact.kind,
+                "path": &artifact.path,
+                "hash": &artifact.hash,
+                "validation_status": &artifact.validation.status
+            })],
+        ));
+        edges.push(run_plan_edge("source:program", &id, "emits"));
+    }
+
+    let node_count = nodes.len();
+    let edge_count = edges.len();
+    let document = json!({
+        "format": "eng-run-plan-v1",
+        "runtime_version": RUNTIME_VERSION,
+        "source_path": path_for_manifest(source_path),
+        "source_hash": &report.source_hash,
+        "execution_profile": profile.as_str(),
+        "status": "completed",
+        "rerun_decision": {
+            "decision": "run",
+            "reason": "no_prior_run_lock"
+        },
+        "artifact_hashes": {
+            "result": hash_text(result_json),
+            "review": hash_text(review_json)
+        },
+        "graph": {
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "nodes": nodes,
+            "edges": edges
+        }
+    });
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(&document).expect("serialize run plan")
+    )
+}
+
+fn run_plan_node(
+    id: &str,
+    kind: &str,
+    label: &str,
+    status: &str,
+    phase: &str,
+    risk: &str,
+    line: usize,
+    outputs: Vec<Value>,
+) -> Value {
+    json!({
+        "id": id,
+        "kind": kind,
+        "label": label,
+        "status": status,
+        "phase": phase,
+        "risk": risk,
+        "line": line,
+        "source_span": {
+            "line": line
+        },
+        "rerun_decision": {
+            "decision": "run",
+            "reason": "no_prior_run_lock"
+        },
+        "outputs": outputs
+    })
+}
+
+fn run_plan_edge(from: &str, to: &str, kind: &str) -> Value {
+    json!({
+        "from": from,
+        "to": to,
+        "kind": kind
+    })
+}
+
 fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
     let structured_reads = &registry.runtime_data.structured_reads;
     let mut records = vec![SourceRecord {
@@ -3648,7 +4021,7 @@ fn push_artifact_validation_json(
 fn artifact_record_class(kind: &str) -> &'static str {
     match kind {
         "review" | "report_spec" | "report_html" | "result" | "plot_spec" | "plot_svg"
-        | "plot_manifest" | "bytecode" | "run_log" => "review_artifact",
+        | "plot_manifest" | "bytecode" | "run_log" | "run_plan" => "review_artifact",
         "process_results" | "process_expected_output" => "external_boundary",
         "cache_manifest" => "cache",
         "db_write_manifest" => "db_write",
@@ -9096,6 +9469,85 @@ mod tests {
         assert!(output.review_json.contains("\"rule\": \"content_hash\""));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
+    }
+
+    #[test]
+    fn run_file_records_timeseries_coverage_in_review() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-review-timeseries-coverage");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-review-timeseries-coverage-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("weather.csv"),
+            concat!(
+                "time,dry_bulb\n",
+                "2024-01-01T00:00:00+09:00,-2.1\n",
+                "2024-01-01T01:00:00+09:00,-2.4\n",
+            ),
+        )
+        .expect("write weather csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema WeatherHourly {\n",
+                "    time: DateTime index\n",
+                "    dry_bulb: AbsoluteTemperature [degC]\n",
+                "}\n\n",
+                "args {\n",
+                "    year: Int = 2024\n",
+                "    weather_file: CsvFile = file(\"data/weather.csv\")\n",
+                "}\n\n",
+                "weather = promote csv args.weather_file as WeatherHourly\n",
+                "coverage = check coverage weather.time\n",
+                "with {\n",
+                "    expected_step = 1 h\n",
+                "    year = args.year\n",
+                "}\n",
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("run file");
+
+        assert!(output.result_json.contains("\"timeseries_coverage\""));
+        assert!(output.review_json.contains("\"timeseries_coverage\""));
+        assert!(output.review_json.contains("\"binding\": \"coverage\""));
+        assert!(output.review_json.contains("\"source_table\": \"weather\""));
+        assert!(output.review_json.contains("\"expected_count\": 8784"));
+        assert!(output.review_json.contains("\"missing_count\": 8782"));
+        assert!(output
+            .review_json
+            .contains("\"leap_year_policy\": \"gregorian_year\""));
+        assert!(output.review_json.contains("\"status\": \"gapped\""));
+        assert!(output.run_plan_path.exists());
+        assert!(output
+            .run_plan_json
+            .contains("\"format\": \"eng-run-plan-v1\""));
+        assert!(output
+            .run_plan_json
+            .contains("\"id\": \"timeseries_coverage:coverage\""));
+        assert!(output.run_plan_json.contains("\"artifact_hashes\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"run_plan\""));
     }
 
     #[test]

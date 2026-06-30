@@ -152,6 +152,7 @@ struct InspectorView {
     model_cards: Value,
     case_manifests: Value,
     output_manifest: Value,
+    run_plan: Value,
     run_log: Value,
     process_results: Value,
     test_results: Value,
@@ -187,6 +188,7 @@ impl Default for InspectorView {
             model_cards: Value::Null,
             case_manifests: Value::Null,
             output_manifest: Value::Null,
+            run_plan: Value::Null,
             run_log: Value::Null,
             process_results: Value::Null,
             test_results: Value::Null,
@@ -223,6 +225,7 @@ struct CachedRunOutput {
     bytecode_path: PathBuf,
     result_path: PathBuf,
     review_path: PathBuf,
+    run_plan_path: PathBuf,
     run_log_path: PathBuf,
     process_results_path: PathBuf,
     test_results_path: PathBuf,
@@ -236,6 +239,7 @@ struct CachedRunOutput {
     bytecode: String,
     result_json: String,
     review_json: String,
+    run_plan_json: String,
     run_log_json: String,
     process_results_json: String,
     test_results_json: String,
@@ -253,6 +257,7 @@ impl CachedRunOutput {
             bytecode_path: output.bytecode_path,
             result_path: output.result_path,
             review_path: output.review_path,
+            run_plan_path: output.run_plan_path,
             run_log_path: output.run_log_path,
             process_results_path: output.process_results_path,
             test_results_path: output.test_results_path,
@@ -266,6 +271,7 @@ impl CachedRunOutput {
             bytecode: output.bytecode,
             result_json: output.result_json,
             review_json: output.review_json,
+            run_plan_json: output.run_plan_json,
             run_log_json: output.run_log_json,
             process_results_json: output.process_results_json,
             test_results_json: output.test_results_json,
@@ -285,6 +291,7 @@ impl CachedRunOutput {
         fs::write(&self.bytecode_path, &self.bytecode).map_err(|error| error.to_string())?;
         fs::write(&self.result_path, &self.result_json).map_err(|error| error.to_string())?;
         fs::write(&self.review_path, &self.review_json).map_err(|error| error.to_string())?;
+        fs::write(&self.run_plan_path, &self.run_plan_json).map_err(|error| error.to_string())?;
         fs::write(&self.run_log_path, &self.run_log_json).map_err(|error| error.to_string())?;
         fs::write(&self.process_results_path, &self.process_results_json)
             .map_err(|error| error.to_string())?;
@@ -542,6 +549,7 @@ fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String,
     let path = match kind.as_str() {
         "result" => output.result_path.clone(),
         "review" => output.review_path.clone(),
+        "run_plan" => output.run_plan_path.clone(),
         "run_log" => output.run_log_path.clone(),
         "process_results" => output.process_results_path.clone(),
         "test_results" => output.test_results_path.clone(),
@@ -1062,6 +1070,7 @@ fn runtime_artifacts(root: &Path, output: &CachedRunOutput) -> Vec<ArtifactView>
     [
         ("result", &output.result_path),
         ("review", &output.review_path),
+        ("run_plan", &output.run_plan_path),
         ("run_log", &output.run_log_path),
         ("process_results", &output.process_results_path),
         ("test_results", &output.test_results_path),
@@ -1133,6 +1142,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         model_cards,
         case_manifests,
         output_manifest,
+        run_plan: parse_json_value(&output.run_plan_json),
         run_log,
         process_results: parse_json_value(&output.process_results_json),
         test_results: parse_json_value(&output.test_results_json),
@@ -1997,6 +2007,7 @@ fn artifact_outlines(root: &Path, output: &CachedRunOutput) -> Value {
     let artifacts = [
         ("result", &output.result_path, &output.result_json),
         ("review", &output.review_path, &output.review_json),
+        ("run_plan", &output.run_plan_path, &output.run_plan_json),
         ("run_log", &output.run_log_path, &output.run_log_json),
         (
             "process_results",
@@ -4672,6 +4683,37 @@ mod tests {
         assert!(review_document_has_side_effect(&inspectors.review_document));
     }
 
+    #[test]
+    fn ide_reads_run_plan_inspector_payload() {
+        let mut cached = cached_output_with_report_and_review("{}", "{}");
+        cached.run_plan_json = r#"{
+          "format": "eng-run-plan-v1",
+          "graph": {
+            "node_count": 1,
+            "edge_count": 0,
+            "nodes": [
+              { "id": "source:program", "status": "loaded" }
+            ],
+            "edges": []
+          }
+        }"#
+        .to_owned();
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+
+        assert_eq!(
+            inspectors.run_plan.get("format").and_then(Value::as_str),
+            Some("eng-run-plan-v1")
+        );
+        assert_eq!(
+            inspectors
+                .run_plan
+                .pointer("/graph/nodes/0/id")
+                .and_then(Value::as_str),
+            Some("source:program")
+        );
+    }
+
     fn cached_output_with_report_and_review(
         report_spec_json: &str,
         review_json: &str,
@@ -4688,6 +4730,7 @@ mod tests {
             bytecode_path: PathBuf::new(),
             result_path: PathBuf::new(),
             review_path: PathBuf::new(),
+            run_plan_path: PathBuf::new(),
             run_log_path: PathBuf::new(),
             process_results_path: PathBuf::new(),
             test_results_path: PathBuf::new(),
@@ -4701,6 +4744,7 @@ mod tests {
             bytecode: String::new(),
             result_json: result_json.to_owned(),
             review_json: review_json.to_owned(),
+            run_plan_json: "{}".to_owned(),
             run_log_json: "{}".to_owned(),
             process_results_json: "{}".to_owned(),
             test_results_json: "{}".to_owned(),

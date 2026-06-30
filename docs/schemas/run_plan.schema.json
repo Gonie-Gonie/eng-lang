@@ -1,0 +1,105 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/run_plan.schema.json",
+  "title": "EngLang Run Plan Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "source_hash",
+    "execution_profile",
+    "status",
+    "rerun_decision",
+    "artifact_hashes",
+    "graph"
+  ],
+  "properties": {
+    "format": { "const": "eng-run-plan-v1" },
+    "runtime_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "execution_profile": { "enum": ["safe", "normal", "repro"] },
+    "status": { "enum": ["completed", "failed"] },
+    "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
+    "artifact_hashes": {
+      "type": "object",
+      "required": ["result", "review"],
+      "properties": {
+        "result": { "type": "string" },
+        "review": { "type": "string" }
+      }
+    },
+    "graph": {
+      "type": "object",
+      "required": ["node_count", "edge_count", "nodes", "edges"],
+      "properties": {
+        "node_count": { "type": "integer", "minimum": 1 },
+        "edge_count": { "type": "integer", "minimum": 0 },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/runPlanNode" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/runPlanEdge" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "rerunDecision": {
+      "type": "object",
+      "required": ["decision", "reason"],
+      "properties": {
+        "decision": { "enum": ["run", "skip"] },
+        "reason": { "type": "string" }
+      }
+    },
+    "runPlanNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "status",
+        "phase",
+        "risk",
+        "line",
+        "source_span",
+        "rerun_decision",
+        "outputs"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "label": { "type": "string" },
+        "status": { "type": "string" },
+        "phase": { "enum": ["static", "runtime"] },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "line": { "type": "integer", "minimum": 0 },
+        "source_span": {
+          "type": "object",
+          "required": ["line"],
+          "properties": {
+            "line": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
+        "outputs": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "runPlanEdge": {
+      "type": "object",
+      "required": ["from", "to", "kind"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string" }
+      }
+    }
+  }
+}

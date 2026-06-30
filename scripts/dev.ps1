@@ -686,6 +686,7 @@ function Assert-SchemaFilesPresent {
         "docs\schemas\result.schema.json",
         "docs\schemas\plotspec.schema.json",
         "docs\schemas\output_manifest.schema.json",
+        "docs\schemas\run_plan.schema.json",
         "docs\schemas\run_log.schema.json",
         "docs\schemas\process_results.schema.json",
         "docs\schemas\test_results.schema.json",
@@ -881,6 +882,17 @@ function Assert-CsvPlotGolden {
         $resultPolicyViolationCount += [int]$policy.violation_count
     }
     Assert-ArtifactNumber $resultPolicyViolationCount $Golden.result.policy_violation_count "result.typed_payload.policy_results violation count"
+
+    $runPlan = Read-ArtifactJson (Join-Path $RepoRoot "build\result\run_plan.json")
+    Assert-ArtifactValue $runPlan.format "eng-run-plan-v1" "run_plan.format"
+    Assert-ArtifactValue $runPlan.source_hash $review.source_hash "run_plan.source_hash"
+    $runPlanNodeCount = @($runPlan.graph.nodes).Count
+    $runPlanEdgeCount = @($runPlan.graph.edges).Count
+    Assert-ArtifactNumber $runPlan.graph.node_count $runPlanNodeCount "run_plan.graph.node_count"
+    Assert-ArtifactNumber $runPlan.graph.edge_count $runPlanEdgeCount "run_plan.graph.edge_count"
+    $sourceNode = @($runPlan.graph.nodes) | Where-Object { $_.id -eq "source:program" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $sourceNode) "run_plan.graph.nodes missing source:program"
+    Assert-ArtifactValue $sourceNode.status "loaded" "run_plan source node status"
 
     $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
     Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "plot_spec.format"

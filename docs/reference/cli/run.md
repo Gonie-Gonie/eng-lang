@@ -73,6 +73,7 @@ build/
     review.json
     report.html
     report_spec.json
+    run_plan.json
     run_log.json
     process_results.json
     test_results.json

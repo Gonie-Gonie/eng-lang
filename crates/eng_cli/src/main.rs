@@ -503,6 +503,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("bytecode: {}", output.bytecode_path.display());
                 println!("result:   {}", output.result_path.display());
                 println!("review:   {}", output.review_path.display());
+                println!("runplan:  {}", output.run_plan_path.display());
                 println!("runlog:   {}", output.run_log_path.display());
                 println!("process:  {}", output.process_results_path.display());
                 println!("cache:    {}", output.cache_manifest_path.display());
@@ -518,6 +519,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("artifacts: in memory");
                 println!("result:   {} bytes", output.result_json.len());
                 println!("review:   {} bytes", output.review_json.len());
+                println!("runplan:  {} bytes", output.run_plan_json.len());
                 println!("runlog:   {} bytes", output.run_log_json.len());
                 println!("process:  {} bytes", output.process_results_json.len());
                 println!("cache:    {} bytes", output.cache_manifest_json.len());

@@ -178,6 +178,7 @@ A successful run can create:
 - `build/result/review.json`: review and policy metadata.
 - `build/result/report_spec.json`: report input model.
 - `build/result/report.html`: human-readable report.
+- `build/result/run_plan.json`: workflow graph and node status artifact.
 - `build/result/plots/plot_spec.json`: PlotSpec data.
 - `build/result/plots/plot_manifest.json`: plot file manifest and hashes.
 - `build/result/plots/timeseries.svg`: rendered SVG plot.
