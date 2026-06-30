@@ -134,6 +134,7 @@ object_store.timeseries_count
 object_store.objects[].points
 typed_payload.statistics
 typed_payload.integrations
+typed_payload.timeseries_fill
 ```
 
 The VM object store records TimeSeries objects as:
@@ -151,6 +152,26 @@ The VM object store records TimeSeries objects as:
 For the official CSV path, the object also carries stable point values and the
 typed payload records computed statistic values plus trapezoidal integration
 metadata.
+
+## Fill Missing Metadata
+
+`fill missing <table>.<column>` records an explicit TimeSeries fill policy
+without silently mutating promoted table values:
+
+```eng partial
+filled = fill missing weather.wind_speed
+with {
+    method = interpolate
+    expected_step = 1 h
+    max_gap = 3 h
+}
+```
+
+Runtime artifacts include a `typed_payload.timeseries_fill[]` record with the
+source table/column, time column, method, expected step, max gap, missing count,
+fillable count, filled count, skipped count, status, and source line. The
+current fill command slice records the policy and selected gaps; value
+interpolation remains separately surfaced rather than being applied silently.
 
 ## Deferred
 

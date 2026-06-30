@@ -256,6 +256,7 @@ fn workflow_node_review_risk_category(kind: &str) -> &'static str {
         | "config_promotion"
         | "timeseries_kernel"
         | "timeseries_coverage"
+        | "timeseries_fill"
         | "case"
         | "model" => "data_quality",
         "system" | "component_solution" | "solver_boundary" => "solver_or_numeric",
@@ -9775,6 +9776,41 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"where_blocks\""));
         assert!(review.contains("\"with_blocks\""));
+    }
+
+    #[test]
+    fn lowers_timeseries_fill_missing_command() {
+        let report = check_source(
+            "ok.eng",
+            "filled = fill missing weather.wind_speed\nwith {\n    method = interpolate\n    max_gap = 3 h\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let command = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.verb == "fill")
+            .expect("fill command");
+        assert_eq!(command.target, "missing weather.wind_speed");
+        assert_eq!(command.canonical, "fill(missing weather.wind_speed)");
+        assert_eq!(
+            report
+                .inferred_declarations
+                .iter()
+                .find(|declaration| declaration.name == "filled")
+                .unwrap()
+                .quantity_kind,
+            "TimeSeriesFillResult"
+        );
+        let options = &report.semantic_program.with_blocks[0].options;
+        assert!(options.iter().any(|option| {
+            option.key == "method" && option.value == "interpolate" && option.status == "accepted"
+        }));
+        assert!(options.iter().any(|option| {
+            option.key == "max_gap" && option.value == "3 h" && option.status == "accepted"
+        }));
     }
 
     #[test]

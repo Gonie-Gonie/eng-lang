@@ -66,6 +66,7 @@ pub struct RuntimeData {
     pub case_manifests: Vec<RuntimeCaseManifest>,
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub timeseries_coverage: Vec<RuntimeTimeSeriesCoverage>,
+    pub timeseries_fill: Vec<RuntimeTimeSeriesFill>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub structured_reads: Vec<RuntimeStructuredRead>,
     pub numeric_values: Vec<RuntimeNumericValue>,
@@ -1305,6 +1306,26 @@ pub struct RuntimeTimeSeriesCoverage {
     pub coverage_year: Option<i32>,
     pub leap_year_policy: String,
     pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeSeriesFill {
+    pub binding: String,
+    pub source_table: String,
+    pub source_column: String,
+    pub time_column: String,
+    pub strategy: String,
+    pub method: String,
+    pub expected_step: Option<f64>,
+    pub max_gap: Option<f64>,
+    pub missing_count: usize,
+    pub fillable_count: usize,
+    pub filled_count: usize,
+    pub skipped_count: usize,
+    pub fallback_required: bool,
+    pub status: String,
+    pub reason: String,
     pub line: usize,
 }
 
@@ -2807,6 +2828,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.time_axes = materialize_time_axes(&data.tables);
     data.timeseries_coverage =
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
+    data.timeseries_fill =
+        materialize_timeseries_fill(report, &data.tables, &data.timeseries_coverage);
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.table_selections = materialize_table_selections(report, &data.tables);
     data.table_transforms = materialize_table_transforms(report, &data.tables);
@@ -3357,6 +3380,168 @@ fn materialize_explicit_timeseries_coverage_command(
         status: status.to_owned(),
         line: command.line,
     })
+}
+
+fn materialize_timeseries_fill(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+    coverage: &[RuntimeTimeSeriesCoverage],
+) -> Vec<RuntimeTimeSeriesFill> {
+    report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| command.verb == "fill" && command.status == "lowered")
+        .filter_map(|command| {
+            materialize_timeseries_fill_command(report, tables, coverage, command)
+        })
+        .collect()
+}
+
+fn materialize_timeseries_fill_command(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+    coverage: &[RuntimeTimeSeriesCoverage],
+    command: &eng_compiler::CommandStyleInfo,
+) -> Option<RuntimeTimeSeriesFill> {
+    let source = command.target.trim().strip_prefix("missing ")?.trim();
+    let (table_name, column_name) = source.rsplit_once('.')?;
+    let table = tables
+        .iter()
+        .find(|table| table.binding == table_name.trim())?;
+    let source_column = table.column(column_name.trim())?;
+    let time_column = table.time_index_column()?;
+    let values = table.normalized_time_axis_values()?;
+    let options = report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .find(|block| block.owner_line == Some(command.line))
+        .map(|block| block.options.as_slice())
+        .unwrap_or(&[]);
+    let expected_step = option_value(options, "expected_step")
+        .or_else(|| option_value(options, "step"))
+        .and_then(parse_duration_seconds)
+        .or_else(|| {
+            coverage
+                .iter()
+                .find(|coverage| {
+                    coverage.source_table == table.binding
+                        && coverage.source_column == time_column.name
+                })
+                .and_then(|coverage| coverage.expected_step)
+        })
+        .or_else(|| nominal_step_from_values(&values));
+    let max_gap = option_value(options, "max_gap").and_then(parse_duration_seconds);
+    let method = option_value(options, "method")
+        .map(normalize_fill_method)
+        .unwrap_or_else(|| "record_only".to_owned());
+    let missing_intervals = coverage_missing_intervals(&values, expected_step);
+    let gap_missing_count = missing_intervals
+        .iter()
+        .map(|interval| interval.missing_count)
+        .sum::<usize>();
+    let gap_fillable_count = missing_intervals
+        .iter()
+        .filter(|interval| fill_interval_within_max_gap(interval, expected_step, max_gap))
+        .map(|interval| interval.missing_count)
+        .sum::<usize>();
+    let source_parse_failures = table
+        .parse_failures
+        .iter()
+        .filter(|failure| failure.column == source_column.name)
+        .count();
+    let value_missing_count = source_column.missing_count
+        + source_column.conversion_failures.len()
+        + source_parse_failures;
+    let missing_count = gap_missing_count + value_missing_count;
+    let value_fillable_count = if method == "record_only" {
+        0
+    } else {
+        value_missing_count
+    };
+    let fillable_count = gap_fillable_count + value_fillable_count;
+    let skipped_count = missing_count.saturating_sub(fillable_count);
+    let (status, reason, fallback_required) =
+        timeseries_fill_command_status(missing_count, fillable_count, skipped_count, &method);
+
+    Some(RuntimeTimeSeriesFill {
+        binding: command
+            .owner
+            .clone()
+            .unwrap_or_else(|| format!("{source}.fill")),
+        source_table: table.binding.clone(),
+        source_column: source_column.name.clone(),
+        time_column: time_column.name.clone(),
+        strategy: "fill_missing".to_owned(),
+        method,
+        expected_step,
+        max_gap,
+        missing_count,
+        fillable_count,
+        filled_count: 0,
+        skipped_count,
+        fallback_required,
+        status: status.to_owned(),
+        reason: reason.to_owned(),
+        line: command.line,
+    })
+}
+
+fn normalize_fill_method(value: &str) -> String {
+    value.trim().to_ascii_lowercase().replace([' ', '-'], "_")
+}
+
+fn fill_interval_within_max_gap(
+    interval: &RuntimeMissingInterval,
+    expected_step: Option<f64>,
+    max_gap: Option<f64>,
+) -> bool {
+    let Some(max_gap) = max_gap else {
+        return true;
+    };
+    if !max_gap.is_finite() || max_gap <= 0.0 {
+        return false;
+    }
+    let gap = expected_step
+        .filter(|step| step.is_finite() && *step > 0.0)
+        .map(|step| (interval.missing_count + 1) as f64 * step)
+        .unwrap_or_else(|| interval.end - interval.start);
+    gap.is_finite() && gap <= max_gap + time_step_tolerance(max_gap)
+}
+
+fn timeseries_fill_command_status(
+    missing_count: usize,
+    fillable_count: usize,
+    skipped_count: usize,
+    method: &str,
+) -> (&'static str, &'static str, bool) {
+    if missing_count == 0 {
+        return (
+            "not_required",
+            "source TimeSeries has no missing samples for the selected fill policy",
+            false,
+        );
+    }
+    if method == "record_only" {
+        return (
+            "deferred",
+            "fill missing command recorded without a value-filling method",
+            true,
+        );
+    }
+    if fillable_count == 0 {
+        return (
+            "deferred",
+            "missing samples are outside the selected fill policy",
+            true,
+        );
+    }
+    (
+        "recorded",
+        "explicit fill missing policy recorded; values are not mutated in this runtime slice",
+        skipped_count > 0,
+    )
 }
 
 fn coverage_status(
@@ -21968,6 +22153,66 @@ with {{
         assert_eq!(coverage.coverage_year, Some(2024));
         assert_eq!(coverage.leap_year_policy, "gregorian_year");
         assert_eq!(coverage.status, "gapped");
+    }
+
+    #[test]
+    fn materializes_timeseries_fill_missing_command() {
+        let repo_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-data-timeseries-fill");
+        let _ = std::fs::remove_dir_all(&source_dir);
+        std::fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        std::fs::write(
+            source_dir.join("data").join("weather.csv"),
+            concat!(
+                "time,wind_speed\n",
+                "2024-01-01T00:00:00Z,1.0\n",
+                "2024-01-01T01:00:00Z,2.0\n",
+                "2024-01-01T03:00:00Z,4.0\n",
+            ),
+        )
+        .expect("weather csv");
+        let source_path = source_dir.join("main.eng");
+        let source = concat!(
+            "schema WeatherHourly {\n",
+            "    time: DateTime index\n",
+            "    wind_speed: DimensionlessNumber [1]\n",
+            "}\n\n",
+            "args {\n",
+            "    weather_file: CsvFile = file(\"data/weather.csv\")\n",
+            "}\n\n",
+            "weather = promote csv args.weather_file as WeatherHourly\n",
+            "filled = fill missing weather.wind_speed\n",
+            "with {\n",
+            "    method = interpolate\n",
+            "    expected_step = 1 h\n",
+            "    max_gap = 3 h\n",
+            "}\n",
+        );
+        let report = check_source(&source_path, source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let fill = runtime
+            .timeseries_fill
+            .iter()
+            .find(|fill| fill.binding == "filled")
+            .expect("timeseries fill");
+
+        assert_eq!(fill.source_table, "weather");
+        assert_eq!(fill.source_column, "wind_speed");
+        assert_eq!(fill.time_column, "time");
+        assert_eq!(fill.method, "interpolate");
+        assert_eq!(fill.expected_step, Some(3600.0));
+        assert_eq!(fill.max_gap, Some(10800.0));
+        assert_eq!(fill.missing_count, 1);
+        assert_eq!(fill.fillable_count, 1);
+        assert_eq!(fill.filled_count, 0);
+        assert_eq!(fill.skipped_count, 0);
+        assert!(!fill.fallback_required);
+        assert_eq!(fill.status, "recorded");
     }
 
     #[test]

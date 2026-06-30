@@ -4358,6 +4358,33 @@ fn run_plan_json(
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
+    for fill in &runtime_data.timeseries_fill {
+        let id = format!("timeseries_fill:{}", fill.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "timeseries_fill",
+            &fill.binding,
+            &fill.status,
+            "runtime",
+            if fill.fallback_required {
+                "medium"
+            } else {
+                "low"
+            },
+            fill.line,
+            vec![json!({
+                "source_table": &fill.source_table,
+                "source_column": &fill.source_column,
+                "time_column": &fill.time_column,
+                "method": &fill.method,
+                "missing_count": fill.missing_count,
+                "fillable_count": fill.fillable_count,
+                "filled_count": fill.filled_count
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
     for boundary in external_boundary_records {
         let id = format!("boundary:{}:{}", boundary.kind, boundary.binding);
         nodes.push(run_plan_node(
@@ -4646,6 +4673,7 @@ fn source_binding_node_id(binding: &str, node_ids: &HashSet<String>) -> Option<S
         format!("source:config:{binding}"),
         format!("table_selection:{binding}"),
         format!("timeseries_coverage:{binding}"),
+        format!("timeseries_fill:{binding}"),
         format!("model:{binding}"),
     ]
     .into_iter()
@@ -4754,6 +4782,12 @@ fn add_runtime_dependency_edges(
     for coverage in &runtime_data.timeseries_coverage {
         let id = format!("timeseries_coverage:{}", coverage.binding);
         if let Some(source_id) = source_binding_node_id(&coverage.source_table, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+    }
+    for fill in &runtime_data.timeseries_fill {
+        let id = format!("timeseries_fill:{}", fill.binding);
+        if let Some(source_id) = source_binding_node_id(&fill.source_table, node_ids) {
             push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
         }
     }
@@ -10430,16 +10464,95 @@ fn push_timeseries_coverage_json(
 
 fn timeseries_fill_json(runtime_data: &RuntimeData, indent: &str) -> String {
     let mut json = String::new();
-    for (index, coverage) in runtime_data.timeseries_coverage.iter().enumerate() {
-        if index > 0 {
+    let mut first = true;
+    for fill in &runtime_data.timeseries_fill {
+        if !first {
             json.push_str(",\n");
         }
-        push_timeseries_fill_json(&mut json, coverage, indent);
+        first = false;
+        push_explicit_timeseries_fill_json(&mut json, fill, indent);
+    }
+    for coverage in &runtime_data.timeseries_coverage {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        push_timeseries_coverage_fill_json(&mut json, coverage, indent);
     }
     json
 }
 
-fn push_timeseries_fill_json(
+fn push_explicit_timeseries_fill_json(
+    json: &mut String,
+    fill: &runtime_data::RuntimeTimeSeriesFill,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&fill.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_table\": \"{}\",\n",
+        json_escape(&fill.source_table)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_column\": \"{}\",\n",
+        json_escape(&fill.source_column)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"time_column\": \"{}\",\n",
+        json_escape(&fill.time_column)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"strategy\": \"{}\",\n",
+        json_escape(&fill.strategy)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"method\": \"{}\",\n",
+        json_escape(&fill.method)
+    ));
+    push_optional_json_number(
+        json,
+        "expected_step",
+        fill.expected_step,
+        field_indent.len(),
+    );
+    push_optional_json_number(json, "max_gap", fill.max_gap, field_indent.len());
+    json.push_str(&format!(
+        "{field_indent}\"fillable_count\": {},\n",
+        fill.fillable_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"filled_count\": {},\n",
+        fill.filled_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"missing_count\": {},\n",
+        fill.missing_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"skipped_count\": {},\n",
+        fill.skipped_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"fallback_required\": {},\n",
+        fill.fallback_required
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(&fill.status)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"reason\": \"{}\",\n",
+        json_escape(&fill.reason)
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", fill.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn push_timeseries_coverage_fill_json(
     json: &mut String,
     coverage: &runtime_data::RuntimeTimeSeriesCoverage,
     indent: &str,
@@ -10460,15 +10573,35 @@ fn push_timeseries_fill_json(
         json_escape(&coverage.source_column)
     ));
     json.push_str(&format!(
+        "{field_indent}\"time_column\": \"{}\",\n",
+        json_escape(&coverage.source_column)
+    ));
+    json.push_str(&format!(
         "{field_indent}\"strategy\": \"{}\",\n",
         json_escape(strategy)
     ));
+    json.push_str(&format!(
+        "{field_indent}\"method\": \"{}\",\n",
+        json_escape(strategy)
+    ));
+    push_optional_json_number(
+        json,
+        "expected_step",
+        coverage.expected_step,
+        field_indent.len(),
+    );
+    push_optional_json_number(json, "max_gap", coverage.max_gap, field_indent.len());
+    json.push_str(&format!("{field_indent}\"fillable_count\": 0,\n"));
     json.push_str(&format!(
         "{field_indent}\"filled_count\": {},\n",
         timeseries_filled_count(coverage)
     ));
     json.push_str(&format!(
         "{field_indent}\"missing_count\": {},\n",
+        coverage.missing_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"skipped_count\": {},\n",
         coverage.missing_count
     ));
     json.push_str(&format!(
@@ -11793,6 +11926,97 @@ mod tests {
                 .and_then(Value::as_str),
             Some("executed")
         );
+    }
+
+    #[test]
+    fn run_file_records_timeseries_fill_missing_in_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-review-timeseries-fill");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-review-timeseries-fill-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("weather.csv"),
+            concat!(
+                "time,wind_speed\n",
+                "2024-01-01T00:00:00Z,1.0\n",
+                "2024-01-01T01:00:00Z,2.0\n",
+                "2024-01-01T03:00:00Z,4.0\n",
+            ),
+        )
+        .expect("write weather csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema WeatherHourly {\n",
+                "    time: DateTime index\n",
+                "    wind_speed: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    weather_file: CsvFile = file(\"data/weather.csv\")\n",
+                "}\n\n",
+                "weather = promote csv args.weather_file as WeatherHourly\n",
+                "filled = fill missing weather.wind_speed\n",
+                "with {\n",
+                "    method = interpolate\n",
+                "    expected_step = 1 h\n",
+                "    max_gap = 3 h\n",
+                "}\n",
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("run file");
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let fill = json_array_item_by_binding(&result, "/typed_payload/timeseries_fill", "filled")
+            .expect("result timeseries fill");
+        assert_eq!(
+            fill.get("method").and_then(Value::as_str),
+            Some("interpolate")
+        );
+        assert_eq!(fill.get("missing_count").and_then(Value::as_u64), Some(1));
+        assert_eq!(fill.get("fillable_count").and_then(Value::as_u64), Some(1));
+        assert_eq!(fill.get("filled_count").and_then(Value::as_u64), Some(0));
+        assert_eq!(fill.get("status").and_then(Value::as_str), Some("recorded"));
+
+        let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        let review_fill = json_array_item_by_binding(&review, "/timeseries_fill", "filled")
+            .expect("review timeseries fill");
+        assert_eq!(
+            review_fill.get("source_column").and_then(Value::as_str),
+            Some("wind_speed")
+        );
+        let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        let fill_node =
+            json_array_item_by_field(&run_plan, "/graph/nodes", "id", "timeseries_fill:filled")
+                .expect("run plan timeseries fill node");
+        assert_eq!(
+            fill_node.get("risk_category").and_then(Value::as_str),
+            Some("data_quality")
+        );
+        assert!(run_plan_has_edge(
+            &run_plan,
+            "timeseries_fill:filled",
+            "source:csv:weather",
+            "depends_on"
+        ));
     }
 
     #[test]

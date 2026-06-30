@@ -1,20 +1,21 @@
 # module: eng.timeseries
-# status: supported-narrow-builtins-and-coverage-artifact-seed
-# purpose: TimeSeries statistics, generic coverage artifacts, and planned gap/fill/resampling helpers.
+# status: supported-narrow-builtins-coverage-and-fill-artifact-seed
+# purpose: TimeSeries statistics, generic coverage artifacts, explicit fill policy artifacts, and planned resampling helpers.
 #
 # Current implementation:
 #   TimeSeries statistics, integration, axis metadata, promoted-table coverage
 #   diagnostics, typed_payload.timeseries_coverage[] records for DateTime-indexed
 #   promoted tables, explicit `check coverage <table>.<time>` with
-#   `expected_step` and optional `year`, and selected alignment metadata are
+#   `expected_step` and optional `year`, explicit `fill missing <table>.<column>`
+#   records in typed_payload.timeseries_fill[], and selected alignment metadata are
 #   supported for documented
 #   public workflows. Uncertainty confidence-band metadata is internal/preview.
 #
 # Supported helper vocabulary:
 #   check coverage
+#   fill missing
 #
 # Planned helper vocabulary:
-#   fill missing
 #   resample
 #   confidence_band
 #

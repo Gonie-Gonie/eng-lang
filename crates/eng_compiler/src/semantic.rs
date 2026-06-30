@@ -2137,6 +2137,10 @@ fn analyze_with_blocks(
                 command_styles,
                 block.owner_line,
             ));
+            extra_known_options.extend(with_owner_timeseries_fill_options(
+                command_styles,
+                block.owner_line,
+            ));
             extra_known_options.extend(with_owner_net_options(program, block.owner_line));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
@@ -2208,6 +2212,28 @@ fn with_owner_coverage_options(
         return HashSet::new();
     }
     ["expected_step", "step", "year"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+fn with_owner_timeseries_fill_options(
+    command_styles: &[CommandStyleInfo],
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let Some(command) = command_styles
+        .iter()
+        .find(|command| command.line == owner_line)
+    else {
+        return HashSet::new();
+    };
+    if command.verb != "fill" || !command.target.trim().starts_with("missing ") {
+        return HashSet::new();
+    }
+    ["method", "max_gap", "expected_step", "step"]
         .into_iter()
         .map(str::to_owned)
         .collect()
@@ -5077,6 +5103,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "select_first_row"
             | "date"
             | "check"
+            | "fill"
             | "file"
             | "dir"
             | "join"
@@ -10864,6 +10891,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.starts_with("check(") && lowered_expression.contains("coverage ") {
         return semantic_type("CoverageResult", "");
+    }
+
+    if lowered_expression.starts_with("fill(") && lowered_expression.contains("missing ") {
+        return semantic_type("TimeSeriesFillResult", "");
     }
 
     if lowered_expression.starts_with("simulate ") {

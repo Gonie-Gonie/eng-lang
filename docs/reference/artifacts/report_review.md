@@ -696,10 +696,13 @@ Each coverage entry records binding/name, source start/end, numeric start/end,
 expected step/count, actual count, missing intervals, max gap, optional coverage
 year, leap-year policy, status, and source line. Automatic axis-span entries use
 `axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a
-Gregorian year grid, including leap-year expected counts. Fill records state
-whether a fill strategy was applied or deferred. Fallback records are emitted
-when coverage is gapped or irregular, so review tooling can surface the need for
-an explicit fill/imputation policy. The same fallback is also projected into
+Gregorian year grid, including leap-year expected counts. Fill records include
+both coverage-derived fallback policy records and explicit
+`fill missing <table>.<column>` command records with source/time columns,
+method, expected step, max gap, missing/fillable/filled/skipped counts, status,
+and source line. Fallback records are emitted when coverage is gapped or
+irregular, so review tooling can surface the need for an explicit
+fill/imputation policy. The same fallback is also projected into
 `review_document.fallbacks` using the shared ReviewFallback record contract.
 
 ## Native Workflow Graph Metadata
