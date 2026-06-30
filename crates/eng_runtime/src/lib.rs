@@ -13650,7 +13650,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"fixture-hash\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\n",
         )
         .expect("write source");
 
@@ -13711,6 +13711,30 @@ mod tests {
                 .pointer("/typed_payload/network_boundaries/1/body_size_limit_bytes")
                 .and_then(Value::as_u64),
             Some(524_288)
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/response_hash")
+                .and_then(Value::as_str),
+            Some("e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/1/response_hash")
+                .and_then(Value::as_str),
+            Some("1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/expected_sha256")
+                .and_then(Value::as_str),
+            Some("e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/1/expected_sha256")
+                .and_then(Value::as_str),
+            Some("1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7")
         );
         assert!(output
             .static_run_plan_json

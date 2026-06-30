@@ -323,7 +323,7 @@ eng.config   promote toml/json as schema
 eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
 eng.test     test/assert/golden support
-eng.net      offline/fixture network boundary records now; live download/cache/hash later
+eng.net      offline/fixture network boundary records and SHA-256 checks now; live download later
 eng.cache    explicit cache-key records and hit/miss manifests now; replay/invalidation later
 ```
 
@@ -339,7 +339,7 @@ eng.cache    explicit cache-key records and hit/miss manifests now; replay/inval
 | GP-6 | external process and `ProcessResult` | implemented in v0.8 |
 | GP-7 | test block/assert/golden support | implemented in v0.9 |
 | GP-8 | safe/normal/repro profile basics | implemented in v1.0 |
-| GP-9 | network/download/cache/hash | optional, after test policy |
+| GP-9 | network/download/cache policies | optional, after test policy |
 | GP-10 | IDE side-effect panels and output file navigation | grows across phases |
 
 The current implementation deliberately stops at path helpers, `exists`,

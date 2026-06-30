@@ -76,6 +76,7 @@ E-NET-INVALID-URL     network boundary URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5
 E-NET-TIMEOUT         network timeout value is not a positive finite duration
 E-NET-BODY-SIZE-LIMIT network response body size limit is not a positive whole-byte size
+E-NET-HASH-MISMATCH   network response SHA-256 does not match expected_sha256
 E-CACHE-KEY-NONDETERMINISTIC cache_key contains nondeterministic or secret-dependent input
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run

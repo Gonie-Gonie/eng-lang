@@ -12618,7 +12618,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"fixture-hash\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -12634,6 +12634,14 @@ system Envelope {
         assert_eq!(request.retry, Some(2));
         assert_eq!(request.timeout.as_deref(), Some("30 s"));
         assert_eq!(request.body_size_limit_bytes, Some(2_000_000));
+        assert_eq!(
+            request.expected_sha256.as_deref(),
+            Some("e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726")
+        );
+        assert_eq!(
+            request.response_hash.as_deref(),
+            Some("e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726")
+        );
         assert!(request.cache);
         assert_eq!(request.status_code, Some(200));
         assert_eq!(request.status_class, "success");
@@ -12666,6 +12674,14 @@ system Envelope {
         assert_eq!(download.retry, Some(1));
         assert_eq!(download.timeout.as_deref(), Some("60 s"));
         assert_eq!(download.body_size_limit_bytes, Some(524_288));
+        assert_eq!(
+            download.expected_sha256.as_deref(),
+            Some("1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7")
+        );
+        assert_eq!(
+            download.response_hash.as_deref(),
+            Some("1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7")
+        );
         let review = review_json(&report);
         assert!(review.contains("\"net_requests\""));
         assert!(review.contains("\"net_downloads\""));
@@ -12792,6 +12808,47 @@ system Envelope {
         assert!(limit_diagnostics
             .iter()
             .any(|diagnostic| diagnostic.message.contains("0 B")));
+    }
+
+    #[test]
+    fn rejects_net_expected_sha256_mismatch() {
+        let root = env::temp_dir().join(format!("englang-net-hash-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n")
+            .expect("response fixture");
+        fs::write(root.join("data").join("file.csv"), "id,value\n1,42\n")
+            .expect("download fixture");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"0000000000000000000000000000000000000000000000000000000000000000\"\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"sha256:1111111111111111111111111111111111111111111111111111111111111111\"\n}\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        let hash_diagnostics = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-NET-HASH-MISMATCH")
+            .collect::<Vec<_>>();
+        assert_eq!(hash_diagnostics.len(), 2, "{:?}", report.diagnostics);
+        assert!(hash_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("000000")));
+        assert!(hash_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("111111")));
+        assert_eq!(
+            report.semantic_program.net_requests[0].status,
+            "hash_mismatch"
+        );
+        assert_eq!(
+            report.semantic_program.net_downloads[0].status,
+            "hash_mismatch"
+        );
     }
 
     #[test]

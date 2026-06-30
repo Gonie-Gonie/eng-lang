@@ -15,11 +15,12 @@
 #   accepts integer retry counts from 0 to 5, `timeout` accepts positive
 #   finite durations with ms/s/min/h units, and `body_size_limit` /
 #   `response_body_limit` accept positive byte sizes with B/KB/MB/GB or
-#   KiB/MiB/GiB units. The runtime does not perform live HTTP requests yet.
+#   KiB/MiB/GiB units. Offline fixture response hashes are SHA-256 values and
+#   `expected_sha256` is checked when provided. The runtime does not perform
+#   live HTTP requests yet.
 #
 # Planned helper vocabulary:
 #   live HTTP execution
-#   true SHA-256 validation
 #   cache integration
 #   repro profile pinning
 #

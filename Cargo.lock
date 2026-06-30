@@ -717,6 +717,7 @@ name = "eng_compiler"
 version = "0.1.0"
 dependencies = [
  "serde_json",
+ "sha2",
  "toml 0.8.2",
 ]
 

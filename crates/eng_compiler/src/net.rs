@@ -1,6 +1,8 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use sha2::{Digest, Sha256};
+
 use crate::ast::AstItem;
 use crate::parser::ParsedProgram;
 use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
@@ -137,6 +139,18 @@ fn build_request(
     let fixture_read = fixture
         .as_ref()
         .and_then(|fixture| read_fixture(source_base, fixture));
+    let expected_sha256 = expected_sha256_option(options);
+    let hash_valid = validate_expected_sha256(
+        expected_sha256
+            .as_ref()
+            .map(|(value, _line)| value.as_str()),
+        fixture_read.as_ref(),
+        expected_sha256
+            .as_ref()
+            .map(|(_value, line)| *line)
+            .unwrap_or(line),
+        diagnostics,
+    );
     let status_code = option_value(options, "status_code")
         .and_then(parse_u16)
         .or_else(|| fixture_read.as_ref().map(|_| 200));
@@ -148,17 +162,14 @@ fn build_request(
         query: query_params(options, arg_values),
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
-        expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
+        expected_sha256: expected_sha256.map(|(value, _line)| value),
         timeout: timeout_policy(options, diagnostics),
         body_size_limit_bytes: body_size_limit_policy(options, diagnostics),
         fixture,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
         response_hash: fixture_read.as_ref().map(|read| read.hash.clone()),
-        status: fixture_read
-            .as_ref()
-            .map(|read| read.status.clone())
-            .unwrap_or_else(|| "declared".to_owned()),
+        status: fixture_status(fixture_read.as_ref(), hash_valid),
         line,
     }
 }
@@ -182,6 +193,18 @@ fn build_download(
     let fixture_read = fixture
         .as_ref()
         .and_then(|fixture| read_fixture(source_base, fixture));
+    let expected_sha256 = expected_sha256_option(options);
+    let hash_valid = validate_expected_sha256(
+        expected_sha256
+            .as_ref()
+            .map(|(value, _line)| value.as_str()),
+        fixture_read.as_ref(),
+        expected_sha256
+            .as_ref()
+            .map(|(_value, line)| *line)
+            .unwrap_or(line),
+        diagnostics,
+    );
     let status_code = option_value(options, "status_code")
         .and_then(parse_u16)
         .or_else(|| fixture_read.as_ref().map(|_| 200));
@@ -193,17 +216,14 @@ fn build_download(
         query: query_params(options, arg_values),
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
-        expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
+        expected_sha256: expected_sha256.map(|(value, _line)| value),
         timeout: timeout_policy(options, diagnostics),
         body_size_limit_bytes: body_size_limit_policy(options, diagnostics),
         fixture,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
         response_hash: fixture_read.as_ref().map(|read| read.hash.clone()),
-        status: fixture_read
-            .as_ref()
-            .map(|read| read.status.clone())
-            .unwrap_or_else(|| "declared".to_owned()),
+        status: fixture_status(fixture_read.as_ref(), hash_valid),
         line,
     }
 }
@@ -266,6 +286,11 @@ fn option_for_any_key<'a>(
     options
         .iter()
         .find(|option| option.status == "accepted" && keys.iter().any(|key| option.key == *key))
+}
+
+fn expected_sha256_option(options: &[WithOptionInfo]) -> Option<(String, usize)> {
+    let option = option_for_key(options, "expected_sha256")?;
+    Some((normalize_sha256(&option.value), option.line))
 }
 
 fn retry_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) -> Option<usize> {
@@ -464,9 +489,65 @@ fn validate_url(value: &str, line: usize, diagnostics: &mut Vec<Diagnostic>) {
     ));
 }
 
+fn validate_expected_sha256(
+    expected_sha256: Option<&str>,
+    fixture_read: Option<&FixtureRead>,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> bool {
+    let Some(expected_sha256) = expected_sha256 else {
+        return true;
+    };
+    if !is_sha256_hex(expected_sha256) {
+        diagnostics.push(Diagnostic::error(
+            "E-NET-HASH-MISMATCH",
+            line,
+            &format!("Expected response SHA256 `{expected_sha256}` is invalid."),
+            Some("Use a 64-character hexadecimal SHA-256 digest."),
+        ));
+        return false;
+    }
+    let Some(fixture_read) = fixture_read else {
+        return true;
+    };
+    if expected_sha256 != fixture_read.hash {
+        diagnostics.push(Diagnostic::error(
+            "E-NET-HASH-MISMATCH",
+            line,
+            &format!(
+                "Expected response SHA256 `{expected_sha256}` but fixture SHA256 was `{}`.",
+                fixture_read.hash
+            ),
+            Some("Update `expected_sha256` or the offline fixture so the digest matches."),
+        ));
+        return false;
+    }
+    true
+}
+
+fn normalize_sha256(value: &str) -> String {
+    let stripped = strip_string_literal(value).trim().to_ascii_lowercase();
+    stripped
+        .strip_prefix("sha256:")
+        .unwrap_or(&stripped)
+        .to_owned()
+}
+
+fn is_sha256_hex(value: &str) -> bool {
+    value.len() == 64 && value.chars().all(|character| character.is_ascii_hexdigit())
+}
+
 struct FixtureRead {
     hash: String,
     status: String,
+}
+
+fn fixture_status(fixture_read: Option<&FixtureRead>, hash_valid: bool) -> String {
+    match fixture_read {
+        Some(read) if hash_valid => read.status.clone(),
+        Some(_) => "hash_mismatch".to_owned(),
+        None => "declared".to_owned(),
+    }
 }
 
 fn read_fixture(source_base: Option<&Path>, fixture: &str) -> Option<FixtureRead> {
@@ -549,10 +630,5 @@ pub fn http_status_class(status_code: Option<u16>) -> &'static str {
 }
 
 fn hash_bytes(source: &[u8]) -> String {
-    let mut hash = 0xcbf29ce484222325u64;
-    for byte in source {
-        hash ^= u64::from(*byte);
-        hash = hash.wrapping_mul(0x100000001b3);
-    }
-    format!("{hash:016x}")
+    format!("{:x}", Sha256::digest(source))
 }
