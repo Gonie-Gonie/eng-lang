@@ -4197,6 +4197,7 @@ fn result_json(
     }
 
     let table_diagnostics = table_diagnostics_json(runtime_data);
+    let structured_reads = structured_reads_json(runtime_data);
     let table_selections = table_selections_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
@@ -4837,7 +4838,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4862,6 +4863,7 @@ fn result_json(
         statistics,
         integrations,
         table_diagnostics,
+        structured_reads,
         table_selections,
         sample_tables,
         case_manifests,
@@ -7223,6 +7225,49 @@ fn push_timeseries_coverage_json(
     json.push_str(&format!("{indent}}}"));
 }
 
+fn structured_reads_json(runtime_data: &RuntimeData) -> String {
+    let mut json = String::new();
+    for (index, read) in runtime_data.structured_reads.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&read.binding)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&read.kind)
+        ));
+        json.push_str(&format!(
+            "        \"path\": \"{}\",\n",
+            json_escape(&read.path)
+        ));
+        push_optional_json_string(&mut json, "source_hash", read.source_hash.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"parse_status\": \"{}\",\n",
+            json_escape(&read.parse_status)
+        ));
+        json.push_str(&format!(
+            "        \"root_type\": \"{}\",\n",
+            json_escape(&read.root_type)
+        ));
+        match read.field_count {
+            Some(count) => json.push_str(&format!("        \"field_count\": {},\n", count)),
+            None => json.push_str("        \"field_count\": null,\n"),
+        }
+        match read.item_count {
+            Some(count) => json.push_str(&format!("        \"item_count\": {},\n", count)),
+            None => json.push_str("        \"item_count\": null,\n"),
+        }
+        push_optional_json_string(&mut json, "error", read.error.as_deref(), 8);
+        json.push_str(&format!("        \"line\": {}\n", read.line));
+        json.push_str("      }");
+    }
+    json
+}
+
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
@@ -8995,6 +9040,12 @@ mod tests {
         assert!(output.result_json.contains("\"filesystem_read_json\""));
         assert!(output.result_json.contains("\"filesystem_read_toml\""));
         assert!(output.result_json.contains("\"source_hash\": \""));
+        assert!(output.result_json.contains("\"structured_reads\""));
+        assert!(output.result_json.contains("\"binding\": \"json_text\""));
+        assert!(output.result_json.contains("\"binding\": \"toml_text\""));
+        assert!(output.result_json.contains("\"parse_status\": \"parsed\""));
+        assert!(output.result_json.contains("\"root_type\": \"object\""));
+        assert!(output.result_json.contains("\"root_type\": \"table\""));
         assert!(output.report_spec_json.contains("\"filesystem_read_text\""));
         assert!(output
             .output_manifest_json

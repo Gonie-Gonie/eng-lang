@@ -33,7 +33,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | Module | Current status | Purpose |
 |---|---|---|
 | `eng.path` | Supported through built-ins | typed paths, joins, names, existence checks, and generated-output root policy diagnostics |
-| `eng.io` | Supported through built-ins | read/write text, JSON, TOML, source hashes |
+| `eng.io` | Supported through built-ins | read/write text, JSON, TOML, source hashes, structured read parse summaries |
 | `eng.fs` | Supported narrow scope | copy, move, delete under generated-output boundaries |
 | `eng.config` | Planned | typed JSON/TOML promotion and config validation |
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |

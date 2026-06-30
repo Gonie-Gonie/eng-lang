@@ -17,6 +17,8 @@ use eng_report::{
     ReportSystemSolverStepDiagnostic, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
     ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
+use serde_json::Value as JsonValue;
+use toml::Value as TomlValue;
 
 use crate::solver::evaluator::{
     parse_source_rhs_expression, source_rhs_parse_symbols, source_rhs_symbol_metadata,
@@ -63,6 +65,7 @@ pub struct RuntimeData {
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub timeseries_coverage: Vec<RuntimeTimeSeriesCoverage>,
     pub time_series: Vec<RuntimeTimeSeries>,
+    pub structured_reads: Vec<RuntimeStructuredRead>,
     pub numeric_values: Vec<RuntimeNumericValue>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
@@ -76,6 +79,68 @@ pub struct RuntimeData {
     pub validations: Vec<RuntimeValidation>,
     pub time_alignments: Vec<RuntimeTimeAlignment>,
     pub plot_options: PlotOptions,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RuntimeJsonValue {
+    Null,
+    Bool,
+    Number,
+    String,
+    Array,
+    Object,
+}
+
+impl RuntimeJsonValue {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Null => "null",
+            Self::Bool => "bool",
+            Self::Number => "number",
+            Self::String => "string",
+            Self::Array => "array",
+            Self::Object => "object",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum RuntimeTomlValue {
+    String,
+    Integer,
+    Float,
+    Boolean,
+    Datetime,
+    Array,
+    Table,
+}
+
+impl RuntimeTomlValue {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::String => "string",
+            Self::Integer => "integer",
+            Self::Float => "float",
+            Self::Boolean => "boolean",
+            Self::Datetime => "datetime",
+            Self::Array => "array",
+            Self::Table => "table",
+        }
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct RuntimeStructuredRead {
+    pub binding: String,
+    pub kind: String,
+    pub path: String,
+    pub source_hash: Option<String>,
+    pub parse_status: String,
+    pub root_type: String,
+    pub field_count: Option<usize>,
+    pub item_count: Option<usize>,
+    pub error: Option<String>,
+    pub line: usize,
 }
 
 impl RuntimeData {
@@ -2662,6 +2727,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         .extend(materialize_component_solution_series(
             &data.component_solutions,
         ));
+    data.structured_reads = materialize_structured_reads(report);
     data.time_alignments = materialize_time_alignments(&data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
@@ -2683,6 +2749,111 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         &data.timeseries_coverage,
     );
     data
+}
+
+fn materialize_structured_reads(report: &CheckReport) -> Vec<RuntimeStructuredRead> {
+    report
+        .semantic_program
+        .environment_dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let kind = dependency.kind.strip_prefix("filesystem_read_")?;
+            if !matches!(kind, "json" | "toml") {
+                return None;
+            }
+            Some(materialize_structured_read(
+                dependency.name.clone(),
+                kind,
+                dependency.resolved_value.clone(),
+                dependency.source_hash.clone(),
+                dependency.status.as_str(),
+                dependency.line,
+            ))
+        })
+        .collect()
+}
+
+fn materialize_structured_read(
+    binding: String,
+    kind: &str,
+    path: String,
+    source_hash: Option<String>,
+    source_status: &str,
+    line: usize,
+) -> RuntimeStructuredRead {
+    let mut record = RuntimeStructuredRead {
+        binding,
+        kind: kind.to_owned(),
+        path: path.clone(),
+        source_hash,
+        parse_status: source_status.to_owned(),
+        root_type: "unknown".to_owned(),
+        field_count: None,
+        item_count: None,
+        error: None,
+        line,
+    };
+    if source_status != "read" {
+        return record;
+    }
+    let Ok(source) = fs::read_to_string(&path) else {
+        record.parse_status = "missing".to_owned();
+        return record;
+    };
+
+    match kind {
+        "json" => match serde_json::from_str::<JsonValue>(&source) {
+            Ok(value) => {
+                let (root_type, field_count, item_count) = runtime_json_shape(&value);
+                record.parse_status = "parsed".to_owned();
+                record.root_type = root_type.as_str().to_owned();
+                record.field_count = field_count;
+                record.item_count = item_count;
+            }
+            Err(error) => {
+                record.parse_status = "parse_error".to_owned();
+                record.error = Some(error.to_string());
+            }
+        },
+        "toml" => match source.parse::<TomlValue>() {
+            Ok(value) => {
+                let (root_type, field_count, item_count) = runtime_toml_shape(&value);
+                record.parse_status = "parsed".to_owned();
+                record.root_type = root_type.as_str().to_owned();
+                record.field_count = field_count;
+                record.item_count = item_count;
+            }
+            Err(error) => {
+                record.parse_status = "parse_error".to_owned();
+                record.error = Some(error.to_string());
+            }
+        },
+        _ => {}
+    }
+    record
+}
+
+fn runtime_json_shape(value: &JsonValue) -> (RuntimeJsonValue, Option<usize>, Option<usize>) {
+    match value {
+        JsonValue::Null => (RuntimeJsonValue::Null, None, None),
+        JsonValue::Bool(_) => (RuntimeJsonValue::Bool, None, None),
+        JsonValue::Number(_) => (RuntimeJsonValue::Number, None, None),
+        JsonValue::String(_) => (RuntimeJsonValue::String, None, None),
+        JsonValue::Array(items) => (RuntimeJsonValue::Array, None, Some(items.len())),
+        JsonValue::Object(fields) => (RuntimeJsonValue::Object, Some(fields.len()), None),
+    }
+}
+
+fn runtime_toml_shape(value: &TomlValue) -> (RuntimeTomlValue, Option<usize>, Option<usize>) {
+    match value {
+        TomlValue::String(_) => (RuntimeTomlValue::String, None, None),
+        TomlValue::Integer(_) => (RuntimeTomlValue::Integer, None, None),
+        TomlValue::Float(_) => (RuntimeTomlValue::Float, None, None),
+        TomlValue::Boolean(_) => (RuntimeTomlValue::Boolean, None, None),
+        TomlValue::Datetime(_) => (RuntimeTomlValue::Datetime, None, None),
+        TomlValue::Array(items) => (RuntimeTomlValue::Array, None, Some(items.len())),
+        TomlValue::Table(fields) => (RuntimeTomlValue::Table, Some(fields.len()), None),
+    }
 }
 
 fn materialize_table(

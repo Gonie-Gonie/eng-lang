@@ -12,6 +12,8 @@
 #
 # Current contract:
 #   read text/json/toml return raw UTF-8 text and record source-file hashes.
+#   read json/toml also preserve structured parse status in
+#   typed_payload.structured_reads[].
 #   write/export operations are generated outputs and must appear in
 #   output_manifest.json.
 #   structured json/toml promotion remains a future eng.config boundary.
