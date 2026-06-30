@@ -106,9 +106,17 @@
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesCoverage" }
     },
+    "case_manifests": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/caseManifest" }
+    },
     "db_manifests": {
       "type": "array",
       "items": { "$ref": "#/$defs/dbManifest" }
+    },
+    "model_cards": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/modelCardSummary" }
     },
     "tests": {
       "type": "array",
@@ -1003,6 +1011,79 @@
         "missing_count": { "type": "integer", "minimum": 1 }
       }
     },
+    "caseManifest": {
+      "type": "object",
+      "required": [
+        "case_id",
+        "sample_table",
+        "schema_name",
+        "source",
+        "source_hash",
+        "sample_row_number",
+        "source_row",
+        "sample_row_hash",
+        "case_dir",
+        "generated_input_file",
+        "process_bindings",
+        "process_statuses",
+        "output_artifacts",
+        "result_files",
+        "metrics",
+        "failure_reason",
+        "status"
+      ],
+      "properties": {
+        "case_id": { "type": "string" },
+        "sample_table": { "type": "string" },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "sample_row_number": { "type": "integer", "minimum": 1 },
+        "source_row": { "type": "integer", "minimum": 1 },
+        "sample_row_hash": { "type": "string" },
+        "case_dir": { "type": ["string", "null"] },
+        "generated_input_file": { "type": ["string", "null"] },
+        "process_bindings": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "process_statuses": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseProcessStatus" }
+        },
+        "output_artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "result_files": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "metrics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/caseMetric" }
+        },
+        "failure_reason": { "type": ["string", "null"] },
+        "status": { "type": "string" }
+      }
+    },
+    "caseProcessStatus": {
+      "type": "object",
+      "required": ["name", "command", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "command": { "type": "string" },
+        "status": { "type": "string" }
+      }
+    },
+    "caseMetric": {
+      "type": "object",
+      "required": ["name", "value"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": "number" }
+      }
+    },
     "dbManifest": {
       "type": "object",
       "required": [
@@ -1046,6 +1127,59 @@
           "items": { "type": "string" }
         },
         "row_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "modelCardSummary": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source",
+        "model_kind",
+        "features",
+        "target",
+        "target_quantity",
+        "target_unit",
+        "test_fraction",
+        "train_count",
+        "test_count",
+        "metrics",
+        "residual_plot",
+        "residual_point_count",
+        "training_data_hash",
+        "model_artifact_hash",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "model_kind": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "target": { "type": ["string", "null"] },
+        "target_quantity": { "type": ["string", "null"] },
+        "target_unit": { "type": "string" },
+        "test_fraction": { "type": ["string", "null"] },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "metrics": { "$ref": "#/$defs/modelMetrics" },
+        "residual_plot": { "type": ["string", "null"] },
+        "residual_point_count": { "type": "integer", "minimum": 0 },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "modelMetrics": {
+      "type": "object",
+      "required": ["rmse", "mae", "r2"],
+      "properties": {
+        "rmse": { "type": ["number", "null"] },
+        "mae": { "type": ["number", "null"] },
+        "r2": { "type": ["number", "null"] }
       }
     },
     "testBlock": {

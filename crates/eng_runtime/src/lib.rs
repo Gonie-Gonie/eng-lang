@@ -6220,8 +6220,12 @@ fn runtime_review_json(
     json.push_str(&table_transforms_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
     json.push_str(&timeseries_coverage_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"case_manifests\": [\n");
+    json.push_str(&case_manifests_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
     json.push_str(&db_manifests_json(&db_manifest_records));
+    json.push_str("\n  ],\n  \"model_cards\": [\n");
+    json.push_str(&model_cards_json(runtime_data));
     json.push_str("\n  ]\n}\n");
     json
 }
@@ -9981,6 +9985,11 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"status\": \"sample_row_manifest_seed\""));
+        assert!(output.review_json.contains("\"case_manifests\""));
+        assert!(output.review_json.contains("\"case_id\": \"case_001\""));
+        assert!(output
+            .review_json
+            .contains("\"status\": \"sample_row_manifest_seed\""));
         assert!(!virtual_path.exists());
     }
 
@@ -10108,6 +10117,14 @@ mod tests {
         assert!(output.result_json.contains("\"failure_reason\": null"));
         assert!(output
             .result_json
+            .contains("\"status\": \"case_materialized\""));
+        assert!(output.review_json.contains("\"case_manifests\""));
+        assert!(output.review_json.contains("\"case_id\": \"case_001\""));
+        assert!(output
+            .review_json
+            .contains("\"process_bindings\": [\"case_manifest_result\"]"));
+        assert!(output
+            .review_json
             .contains("\"status\": \"case_materialized\""));
     }
 
@@ -10598,6 +10615,10 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"model_artifact_hash\""));
+        assert!(output.review_json.contains("\"model_cards\""));
+        assert!(output.review_json.contains("\"model_kind\": \"linear\""));
+        assert!(output.review_json.contains("\"residual_point_count\""));
+        assert!(output.review_json.contains("\"model_artifact_hash\""));
     }
 
     #[test]
