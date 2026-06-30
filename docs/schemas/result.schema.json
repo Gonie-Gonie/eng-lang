@@ -1121,6 +1121,7 @@
         "failed_count",
         "status",
         "reason",
+        "failures",
         "line"
       ],
       "properties": {
@@ -1138,7 +1139,21 @@
         "failed_count": { "type": "integer", "minimum": 0 },
         "status": { "enum": ["passed", "warning", "failed", "unavailable"] },
         "reason": { "type": "string" },
+        "failures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualityFailure" }
+        },
         "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "qualityFailure": {
+      "type": "object",
+      "required": ["row", "field", "value", "message"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 0 },
+        "field": { "type": "string" },
+        "value": { "type": "string" },
+        "message": { "type": "string" }
       }
     },
     "timeSeriesCoverage": {

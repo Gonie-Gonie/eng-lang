@@ -12,12 +12,12 @@ use eng_report::{
     ReportComponentSolverStepDiagnostic, ReportComponentSolverTrajectory,
     ReportComponentSolverVariable, ReportComputedIntegration, ReportComputedMetric,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
-    ReportPolicyResult, ReportPolicyViolation, ReportQualityReport, ReportQualityResult,
-    ReportResidualDependency, ReportResidualGraph, ReportResidualGraphResidual,
-    ReportSolverFailureArtifact, ReportSpec, ReportSystemEquationMetadata, ReportSystemSolution,
-    ReportSystemSolutionPoint, ReportSystemSolverStepDiagnostic, ReportTimeAlignment,
-    ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
-    ReportValidationResult,
+    ReportPolicyResult, ReportPolicyViolation, ReportQualityFailure, ReportQualityReport,
+    ReportQualityResult, ReportResidualDependency, ReportResidualGraph,
+    ReportResidualGraphResidual, ReportSolverFailureArtifact, ReportSpec,
+    ReportSystemEquationMetadata, ReportSystemSolution, ReportSystemSolutionPoint,
+    ReportSystemSolverStepDiagnostic, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
+    ReportUncertaintyPropagationTerm, ReportValidationResult,
 };
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
@@ -588,6 +588,16 @@ impl RuntimeData {
                     failed_count: result.failed_count,
                     status: result.status.clone(),
                     reason: result.reason.clone(),
+                    failures: result
+                        .failures
+                        .iter()
+                        .map(|failure| ReportQualityFailure {
+                            row: failure.row,
+                            field: failure.field.clone(),
+                            value: failure.value.clone(),
+                            message: failure.message.clone(),
+                        })
+                        .collect(),
                     line: result.line,
                 })
                 .collect(),
@@ -1436,6 +1446,32 @@ pub struct RuntimeQualityResult {
     pub failed_count: usize,
     pub status: String,
     pub reason: String,
+    pub failures: Vec<RuntimeQualityFailure>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeQualityFailure {
+    pub row: usize,
+    pub field: String,
+    pub value: String,
+    pub message: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeConstraintResult {
+    pub binding: String,
+    pub source_table: String,
+    pub schema: String,
+    pub target: String,
+    pub policy: String,
+    pub status: String,
+    pub checked_rows: usize,
+    pub passed_count: usize,
+    pub warning_count: usize,
+    pub failed_count: usize,
+    pub score: Option<f64>,
+    pub failures: Vec<RuntimeQualityFailure>,
     pub line: usize,
 }
 
@@ -2923,6 +2959,17 @@ pub struct RuntimePolicyViolation {
     pub message: String,
 }
 
+impl RuntimeQualityFailure {
+    fn from_policy_violation(violation: &RuntimePolicyViolation) -> Self {
+        Self {
+            row: violation.row,
+            field: violation.column.clone(),
+            value: violation.value.clone(),
+            message: violation.message.clone(),
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct PlotOptions {
     pub series: Option<String>,
@@ -4347,6 +4394,7 @@ fn materialize_quality_results(
                 failed_count: usize::from(!passed && !warning),
                 status: quality.status.clone(),
                 reason: quality.reason.clone(),
+                failures: Vec::new(),
                 line: quality.line,
             }
         })
@@ -4370,44 +4418,31 @@ fn materialize_quality_results(
             failed_count: usize::from(failed),
             status: status.to_owned(),
             reason: validation_quality_reason(validation).to_owned(),
+            failures: Vec::new(),
             line: validation.line,
         }
     }));
+    let constraint_results = materialize_constraint_results(policy_results);
     results.extend(
-        policy_results
+        constraint_results
             .iter()
-            .filter(|policy| policy.kind == "constraint")
-            .enumerate()
-            .map(|(index, policy)| {
-                let status = policy_quality_status(policy);
-                let failed_count = policy.violations.len();
-                let passed_count = if failed_count == 0 && status == "passed" {
-                    1
-                } else {
-                    0
-                };
-                RuntimeQualityResult {
-                    binding: format!(
-                        "{}.{}_{}.quality_result",
-                        policy.binding,
-                        policy.kind,
-                        index + 1
-                    ),
-                    kind: "schema_constraint_result".to_owned(),
-                    category: "schema_constraint".to_owned(),
-                    target: policy.binding.clone(),
-                    subject: format!("{}.{}", policy.schema, policy.target),
-                    source_table: Some(policy.binding.clone()),
-                    source_column: None,
-                    time_column: None,
-                    score: policy_quality_score(policy),
-                    passed_count,
-                    warning_count: usize::from(status == "warning"),
-                    failed_count,
-                    status: status.to_owned(),
-                    reason: policy_quality_reason(policy).to_owned(),
-                    line: policy.line,
-                }
+            .map(|constraint| RuntimeQualityResult {
+                binding: format!("{}.quality_result", constraint.binding),
+                kind: "schema_constraint_result".to_owned(),
+                category: "schema_constraint".to_owned(),
+                target: constraint.binding.clone(),
+                subject: format!("{}.{}", constraint.schema, constraint.target),
+                source_table: Some(constraint.source_table.clone()),
+                source_column: Some(constraint.target.clone()),
+                time_column: None,
+                score: constraint.score,
+                passed_count: constraint.passed_count,
+                warning_count: constraint.warning_count,
+                failed_count: constraint.failed_count,
+                status: constraint.status.clone(),
+                reason: constraint_quality_reason(constraint).to_owned(),
+                failures: constraint.failures.clone(),
+                line: constraint.line,
             }),
     );
     results.extend(expectation_suites.iter().map(|suite| {
@@ -4431,10 +4466,53 @@ fn materialize_quality_results(
             failed_count: suite.failed_count,
             status: suite.status.clone(),
             reason: expectation_suite_quality_reason(suite).to_owned(),
+            failures: Vec::new(),
             line: suite.line,
         }
     }));
     results
+}
+
+fn materialize_constraint_results(
+    policy_results: &[RuntimePolicyResult],
+) -> Vec<RuntimeConstraintResult> {
+    policy_results
+        .iter()
+        .filter(|policy| policy.kind == "constraint")
+        .enumerate()
+        .map(|(index, policy)| {
+            let status = policy_quality_status(policy);
+            let failed_count = policy.violations.len();
+            let warning_count = usize::from(status == "warning");
+            let passed_count =
+                if policy.checked_rows > 0 && matches!(status, "passed" | "failed" | "warning") {
+                    policy.checked_rows.saturating_sub(failed_count)
+                } else if failed_count == 0 && status == "passed" {
+                    1
+                } else {
+                    0
+                };
+            RuntimeConstraintResult {
+                binding: format!("{}.constraint_{}", policy.binding, index + 1),
+                source_table: policy.binding.clone(),
+                schema: policy.schema.clone(),
+                target: policy.target.clone(),
+                policy: policy.policy.clone(),
+                status: status.to_owned(),
+                checked_rows: policy.checked_rows,
+                passed_count,
+                warning_count,
+                failed_count,
+                score: policy_quality_score(policy),
+                failures: policy
+                    .violations
+                    .iter()
+                    .map(RuntimeQualityFailure::from_policy_violation)
+                    .collect(),
+                line: policy.line,
+            }
+        })
+        .collect()
 }
 
 fn quality_result_status(status: &str) -> &'static str {
@@ -4490,6 +4568,16 @@ fn policy_quality_reason(policy: &RuntimePolicyResult) -> &'static str {
         "schema constraint policy passed"
     } else {
         "schema constraint policy was recorded but not executed"
+    }
+}
+
+fn constraint_quality_reason(constraint: &RuntimeConstraintResult) -> &'static str {
+    if !constraint.failures.is_empty() {
+        "schema constraint reported row-level field failures"
+    } else if constraint.status == "passed" {
+        "schema constraint passed"
+    } else {
+        "schema constraint was recorded but not executed"
     }
 }
 

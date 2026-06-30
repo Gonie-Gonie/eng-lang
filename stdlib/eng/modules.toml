@@ -160,8 +160,8 @@ tests = ["cargo test -p eng_compiler cache_", "cargo test -p eng_runtime cache"]
 [module."eng.quality"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, and report-facing quality tables."
-artifacts = ["typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.quality_report", "report_html.quality_report", "output_manifest"]
+purpose = "Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection."
+artifacts = ["typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
 diagnostics = ["E-TABLE-SCHEMA-MISMATCH", "W-FALLBACK-USED"]
 examples = ["examples/diagnostics/data_quality"]
 tests = ["cargo test -p eng_compiler lowers_expectation_suite_seed", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]

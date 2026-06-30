@@ -10698,6 +10698,33 @@ fn push_quality_result_json(
         "{field_indent}\"reason\": \"{}\",\n",
         json_escape(&quality.reason)
     ));
+    json.push_str(&format!("{field_indent}\"failures\": [\n"));
+    let failure_indent = format!("{indent}    ");
+    let failure_field_indent = format!("{indent}      ");
+    for (index, failure) in quality.failures.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{failure_indent}{{\n"));
+        json.push_str(&format!(
+            "{failure_field_indent}\"row\": {},\n",
+            failure.row
+        ));
+        json.push_str(&format!(
+            "{failure_field_indent}\"field\": \"{}\",\n",
+            json_escape(&failure.field)
+        ));
+        json.push_str(&format!(
+            "{failure_field_indent}\"value\": \"{}\",\n",
+            json_escape(&failure.value)
+        ));
+        json.push_str(&format!(
+            "{failure_field_indent}\"message\": \"{}\"\n",
+            json_escape(&failure.message)
+        ));
+        json.push_str(&format!("{failure_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
     json.push_str(&format!("{field_indent}\"line\": {}\n", quality.line));
     json.push_str(&format!("{indent}}}"));
 }
@@ -12686,6 +12713,18 @@ mod tests {
             Some(1)
         );
         assert_eq!(
+            schema_quality
+                .pointer("/failures/0/row")
+                .and_then(Value::as_u64),
+            Some(3)
+        );
+        assert_eq!(
+            schema_quality
+                .pointer("/failures/0/field")
+                .and_then(Value::as_str),
+            Some("m_dot")
+        );
+        assert_eq!(
             schema_quality.get("score").and_then(Value::as_f64),
             Some(0.5)
         );
@@ -12771,6 +12810,7 @@ mod tests {
         assert!(output
             .report_html
             .contains("sensor.expectations.quality_result"));
+        assert!(output.report_html.contains("row 3 field m_dot"));
 
         let review: Value = serde_json::from_str(&output.review_json).expect("review json");
         let review_suite =
@@ -12792,6 +12832,7 @@ mod tests {
             quality.get("kind").and_then(Value::as_str) == Some("schema_constraint_result")
                 && quality.get("subject").and_then(Value::as_str) == Some("SensorData.m_dot")
                 && quality.get("status").and_then(Value::as_str) == Some("failed")
+                && quality.pointer("/failures/0/field").and_then(Value::as_str) == Some("m_dot")
         }));
 
         let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");

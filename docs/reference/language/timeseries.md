@@ -182,8 +182,9 @@ The same TimeSeries quality summary is also projected into
 record with target, subject, pass/warning/failure counts, score, status, reason,
 and source line. That common array also carries non-TimeSeries validation,
 schema-constraint, and expectation-suite quality results when a workflow emits
-them. `report_spec.quality_report` and the HTML Quality Report table summarize
-those common quality results for report consumers.
+them, including row/field failure details for schema constraints.
+`report_spec.quality_report`, the HTML Quality Report table, and the IDE Quality
+inspector summarize those common quality results for report consumers.
 
 ## Alignment And Resampling Hooks
 

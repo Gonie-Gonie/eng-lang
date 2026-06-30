@@ -346,7 +346,7 @@
     },
     "qualityReportResult": {
       "type": "object",
-      "required": ["binding", "kind", "category", "target", "subject", "score", "passed_count", "warning_count", "failed_count", "status", "reason", "line"],
+      "required": ["binding", "kind", "category", "target", "subject", "score", "passed_count", "warning_count", "failed_count", "status", "reason", "failures", "line"],
       "properties": {
         "binding": { "type": "string" },
         "kind": { "type": "string" },
@@ -359,7 +359,21 @@
         "failed_count": { "type": "integer", "minimum": 0 },
         "status": { "enum": ["passed", "warning", "failed", "unavailable"] },
         "reason": { "type": "string" },
+        "failures": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualityFailure" }
+        },
         "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "qualityFailure": {
+      "type": "object",
+      "required": ["row", "field", "value", "message"],
+      "properties": {
+        "row": { "type": "integer", "minimum": 0 },
+        "field": { "type": "string" },
+        "value": { "type": "string" },
+        "message": { "type": "string" }
       }
     },
     "timeAlignment": {

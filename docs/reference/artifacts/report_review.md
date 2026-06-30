@@ -713,9 +713,11 @@ fill together, including remaining missing count, status, reason, and a 0..1
 quality score when an expected count is available. Generic quality result
 records expose TimeSeries quality summaries, `validate` statement outcomes,
 schema constraint policy results, and lightweight expectation-suite summaries
-under `typed_payload.quality_results[]` for quality-report consumers.
-`report_spec.json` summarizes the same common results in `quality_report`, and
-`report.html` renders them in the Quality Report table.
+under `typed_payload.quality_results[]` for quality-report consumers. Schema
+constraint quality results carry row/field failure details under `failures[]`.
+`report_spec.json` summarizes the same common results in `quality_report`,
+`report.html` renders them in the Quality Report table, and the native IDE
+surfaces the same records in the Quality inspector.
 Expectation suite records from `expect <table> { ... }` include expectation
 counts, pass/warning/failure counts, per-expectation status/reason, and source
 line. Fallback records are emitted when coverage is gapped or irregular, so

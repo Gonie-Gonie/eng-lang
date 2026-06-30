@@ -132,6 +132,7 @@ struct InspectorView {
     time_series_coverage: Value,
     metrics: Value,
     validations: Value,
+    quality: Value,
     uncertainty: Value,
     time_alignments: Value,
     table_transforms: Value,
@@ -168,6 +169,7 @@ impl Default for InspectorView {
             time_series_coverage: Value::Array(Vec::new()),
             metrics: Value::Array(Vec::new()),
             validations: Value::Array(Vec::new()),
+            quality: Value::Null,
             uncertainty: Value::Null,
             time_alignments: Value::Array(Vec::new()),
             table_transforms: Value::Array(Vec::new()),
@@ -1133,6 +1135,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         time_series_coverage: time_series_coverage_inspector(&result, &review),
         metrics: json_array_clone(&report, "computed_metrics"),
         validations: json_array_clone(&report, "validations"),
+        quality: quality_inspector(&report, &result, &review),
         uncertainty: uncertainty_inspector(&report, &review),
         time_alignments: json_array_clone(&report, "time_alignments"),
         table_transforms: table_transform_inspector(&result, &review),
@@ -1308,6 +1311,39 @@ fn typed_payload_array_clone(value: &Value, key: &str) -> Value {
         .and_then(Value::as_array)
         .map(|items| Value::Array(items.clone()))
         .unwrap_or_else(|| Value::Array(Vec::new()))
+}
+
+fn quality_inspector(report: &Value, result: &Value, review: &Value) -> Value {
+    let report_quality = report.get("quality_report").cloned().unwrap_or(Value::Null);
+    let report_results = report_quality
+        .get("results")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let result_results = typed_payload_array_clone(result, "quality_results");
+    let review_results = json_array_clone(review, "quality_results");
+    let result_rows = result_results.as_array().cloned().unwrap_or_default();
+    let rows = if report_results.is_empty() {
+        result_rows
+    } else {
+        report_results
+    };
+    let failure_count = rows
+        .iter()
+        .map(|row| {
+            row.get("failures")
+                .and_then(Value::as_array)
+                .map(Vec::len)
+                .unwrap_or(0)
+        })
+        .sum::<usize>();
+    json!({
+        "format": "eng-ide-quality-inspector-v1",
+        "summary": report_quality,
+        "results": rows,
+        "reviewResults": review_results,
+        "failureCount": failure_count
+    })
 }
 
 fn time_series_coverage_inspector(result: &Value, review: &Value) -> Value {
@@ -4080,6 +4116,91 @@ mod tests {
             .get("propagation")
             .and_then(Value::as_array)
             .is_some_and(|items| items.len() == 1));
+    }
+
+    #[test]
+    fn ide_surfaces_quality_inspector_failures() {
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "quality_results": [
+                  {
+                    "binding": "weather.constraint_1.quality_result",
+                    "kind": "schema_constraint_result",
+                    "category": "schema_constraint",
+                    "target": "weather.constraint_1",
+                    "subject": "Weather.dry_bulb",
+                    "source_table": "weather",
+                    "source_column": "dry_bulb",
+                    "time_column": null,
+                    "score": 0.5,
+                    "passed_count": 1,
+                    "warning_count": 0,
+                    "failed_count": 1,
+                    "status": "failed",
+                    "reason": "schema constraint reported row-level field failures",
+                    "failures": [
+                      { "row": 3, "field": "dry_bulb", "value": "99", "message": "value is outside [-50, 60]" }
+                    ],
+                    "line": 7
+                  }
+                ]
+              }
+            }"#,
+            r#"{
+              "quality_report": {
+                "status": "failed",
+                "total_count": 1,
+                "passed_count": 0,
+                "warning_count": 0,
+                "failed_count": 1,
+                "unavailable_count": 0,
+                "results": [
+                  {
+                    "binding": "weather.constraint_1.quality_result",
+                    "kind": "schema_constraint_result",
+                    "category": "schema_constraint",
+                    "target": "weather.constraint_1",
+                    "subject": "Weather.dry_bulb",
+                    "score": 0.5,
+                    "passed_count": 1,
+                    "warning_count": 0,
+                    "failed_count": 1,
+                    "status": "failed",
+                    "reason": "schema constraint reported row-level field failures",
+                    "failures": [
+                      { "row": 3, "field": "dry_bulb", "value": "99", "message": "value is outside [-50, 60]" }
+                    ],
+                    "line": 7
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        assert_eq!(
+            inspectors
+                .quality
+                .pointer("/summary/status")
+                .and_then(Value::as_str),
+            Some("failed")
+        );
+        assert_eq!(
+            inspectors
+                .quality
+                .get("failureCount")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            inspectors
+                .quality
+                .pointer("/results/0/failures/0/field")
+                .and_then(Value::as_str),
+            Some("dry_bulb")
+        );
     }
 
     #[test]

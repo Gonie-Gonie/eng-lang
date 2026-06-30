@@ -46,6 +46,7 @@ function emptyInspectors() {
     timeSeriesCoverage: [],
     metrics: [],
     validations: [],
+    quality: null,
     timeAlignments: [],
     tableTransforms: [],
     structuredReads: [],
@@ -672,6 +673,7 @@ function renderSidePanel() {
         ${sideTabButton("reads", "Reads")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
+        ${sideTabButton("quality", "Quality")}
         ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("objects", "Obj")}
         ${sideTabButton("modules", "Modules")}
@@ -702,6 +704,7 @@ function renderSideBody() {
   if (state.sideTab === "tables") return renderTablesPanel();
   if (state.sideTab === "reads") return renderReadsPanel();
   if (state.sideTab === "checks") return renderChecksPanel();
+  if (state.sideTab === "quality") return renderQualityPanel();
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
   if (state.sideTab === "modules") return renderModulesPanel();
@@ -852,6 +855,22 @@ function renderChecksPanel() {
       <div class="panel-title compact">System Dependency Graph</div>
       ${renderSystemDependencyGraph()}
     </div>
+  `;
+}
+
+function renderQualityPanel() {
+  const quality = inspectorObject("quality");
+  const summary = quality.summary || {};
+  const results = Array.isArray(quality.results) ? quality.results : [];
+  const failureCount = Number(quality.failureCount ?? quality.failure_count ?? 0);
+  return `
+    <div class="panel-title compact">Quality</div>
+    <div class="badges">
+      <span class="badge">Status ${escapeHtml(summary.status || "-")}</span>
+      <span class="badge">Results ${results.length}</span>
+      <span class="badge">Failures ${failureCount}</span>
+    </div>
+    <div class="scroll">${renderQualityResults(results)}</div>
   `;
 }
 
@@ -1809,6 +1828,41 @@ function renderValidations() {
       <tbody>${rows || `<tr><td colspan="4" class="muted">No validations.</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function renderQualityResults(results = []) {
+  const rows = results.map((item) => {
+    const score = item.score === null || item.score === undefined ? "-" : metricCell(item.score);
+    const counts = [
+      item.passed_count ?? item.passedCount ?? 0,
+      item.warning_count ?? item.warningCount ?? 0,
+      item.failed_count ?? item.failedCount ?? 0
+    ].join("/");
+    return `
+    <tr>
+      <td><strong>${escapeHtml(item.status || "-")}</strong><div class="muted">${sourceLineButton(item)}</div></td>
+      <td>${escapeHtml(item.binding || "-")}<div class="muted">${escapeHtml(item.category || "-")}</div></td>
+      <td>${escapeHtml(item.subject || item.target || "-")}</td>
+      <td>${escapeHtml(score)}<div class="muted">${escapeHtml(counts)}</div></td>
+      <td>${escapeHtml(item.reason || "-")}</td>
+      <td>${renderQualityFailures(item.failures)}</td>
+    </tr>
+  `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Status</th><th>Result</th><th>Subject</th><th>Score P/W/F</th><th>Reason</th><th>Failures</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No quality results.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderQualityFailures(failures = []) {
+  if (!Array.isArray(failures) || !failures.length) return `<span class="muted">-</span>`;
+  return failures.slice(0, 5).map((failure) => `
+    <div><strong>row ${escapeHtml(failure.row ?? "-")}</strong> ${escapeHtml(failure.field || "-")}: ${escapeHtml(failure.value || "-")}</div>
+    <div class="muted">${escapeHtml(failure.message || "-")}</div>
+  `).join("") + (failures.length > 5 ? `<div class="muted">+${failures.length - 5} more</div>` : "");
 }
 
 function renderAlignments() {

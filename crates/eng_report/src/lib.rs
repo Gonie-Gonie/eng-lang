@@ -131,7 +131,16 @@ pub struct ReportQualityResult {
     pub failed_count: usize,
     pub status: String,
     pub reason: String,
+    pub failures: Vec<ReportQualityFailure>,
     pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportQualityFailure {
+    pub row: usize,
+    pub field: String,
+    pub value: String,
+    pub message: String,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -3251,6 +3260,28 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
             "        \"reason\": \"{}\",\n",
             json_escape(&result.reason)
         ));
+        json.push_str("        \"failures\": [\n");
+        for (failure_index, failure) in result.failures.iter().enumerate() {
+            if failure_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!("            \"row\": {},\n", failure.row));
+            json.push_str(&format!(
+                "            \"field\": \"{}\",\n",
+                json_escape(&failure.field)
+            ));
+            json.push_str(&format!(
+                "            \"value\": \"{}\",\n",
+                json_escape(&failure.value)
+            ));
+            json.push_str(&format!(
+                "            \"message\": \"{}\"\n",
+                json_escape(&failure.message)
+            ));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str(&format!("        \"line\": {}\n", result.line));
         json.push_str("      }");
     }
@@ -7159,8 +7190,9 @@ fn render_quality_report_section(spec: &ReportSpec) -> String {
                 .score
                 .map(|value| format!("{value:.3}"))
                 .unwrap_or_else(|| "-".to_owned());
+            let failures = format_quality_failures_html(result);
             format!(
-                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}/{}</td><td>{}</td></tr>",
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}/{}</td><td>{}</td><td>{}</td></tr>",
                 result.line,
                 html_escape(&result.binding),
                 html_escape(&result.category),
@@ -7170,7 +7202,8 @@ fn render_quality_report_section(spec: &ReportSpec) -> String {
                 result.passed_count,
                 result.warning_count,
                 result.failed_count,
-                html_escape(&result.reason)
+                html_escape(&result.reason),
+                failures
             )
         })
         .collect::<Vec<_>>()
@@ -7179,11 +7212,34 @@ fn render_quality_report_section(spec: &ReportSpec) -> String {
         r#"<h2>Quality Report</h2>
     <p><code>{}</code></p>
     <table>
-      <thead><tr><th>Line</th><th>Binding</th><th>Category</th><th>Subject</th><th>Score</th><th>Status</th><th>Pass/Warn/Fail</th><th>Reason</th></tr></thead>
+      <thead><tr><th>Line</th><th>Binding</th><th>Category</th><th>Subject</th><th>Score</th><th>Status</th><th>Pass/Warn/Fail</th><th>Reason</th><th>Failures</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#,
         html_escape(&summary)
     )
+}
+
+fn format_quality_failures_html(result: &ReportQualityResult) -> String {
+    if result.failures.is_empty() {
+        return "-".to_owned();
+    }
+    result
+        .failures
+        .iter()
+        .take(5)
+        .map(|failure| {
+            format!(
+                "row {} field {} value {}: {}",
+                failure.row, failure.field, failure.value, failure.message
+            )
+        })
+        .chain(
+            (result.failures.len() > 5)
+                .then(|| format!("+{} more", result.failures.len().saturating_sub(5))),
+        )
+        .map(|text| html_escape(&text))
+        .collect::<Vec<_>>()
+        .join("<br>")
 }
 
 fn render_time_alignments_section(spec: &ReportSpec) -> String {
