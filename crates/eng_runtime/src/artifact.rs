@@ -1,3 +1,5 @@
+use std::path::{Path, PathBuf};
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ArtifactRecord {
     pub kind: String,
@@ -37,6 +39,77 @@ pub(crate) struct ExternalBoundaryRecord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct OutputArtifact {
+    pub kind: String,
+    pub path: String,
+    pub hash: String,
+    pub absolute_path: PathBuf,
+    pub validation: ArtifactValidation,
+}
+
+impl OutputArtifact {
+    pub(crate) fn new(
+        kind: String,
+        path: String,
+        hash: String,
+        absolute_path: PathBuf,
+        validation: ArtifactValidation,
+    ) -> Self {
+        Self {
+            kind,
+            path,
+            hash,
+            absolute_path,
+            validation,
+        }
+    }
+}
+
+pub(crate) struct OutputManifest<'a> {
+    pub runtime_version: &'a str,
+    pub source_path: &'a Path,
+    pub execution_profile: &'a str,
+    pub artifacts: &'a [OutputArtifact],
+    pub artifact_registry_json: String,
+    pub profile_diagnostics_json: String,
+}
+
+impl OutputManifest<'_> {
+    pub(crate) fn to_json(&self) -> String {
+        let mut json = String::new();
+        json.push_str("{\n");
+        json.push_str("  \"format\": \"eng-output-manifest-v1\",\n");
+        json.push_str(&format!(
+            "  \"runtime_version\": \"{}\",\n",
+            json_escape(self.runtime_version)
+        ));
+        json.push_str(&format!(
+            "  \"source_path\": \"{}\",\n",
+            json_escape(&self.source_path.display().to_string())
+        ));
+        json.push_str(&format!(
+            "  \"execution_profile\": \"{}\",\n",
+            json_escape(self.execution_profile)
+        ));
+        json.push_str(&format!(
+            "  \"artifact_count\": {},\n",
+            self.artifacts.len()
+        ));
+        json.push_str("  \"artifacts\": [\n");
+        push_output_artifacts_json(&mut json, self.artifacts);
+        json.push_str("\n  ],\n");
+        json.push_str("  \"artifact_registry\": {\n");
+        json.push_str(&self.artifact_registry_json);
+        json.push_str("\n  },\n");
+        json.push_str("  \"profile_diagnostics\": [\n");
+        json.push_str(&self.profile_diagnostics_json);
+        json.push_str("\n  ]\n");
+        json.push_str("}\n");
+        json
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct ArtifactValidation {
     pub status: String,
     pub rule: String,
@@ -51,6 +124,59 @@ impl ArtifactValidation {
             message: message.to_owned(),
         }
     }
+}
+
+fn push_output_artifacts_json(json: &mut String, artifacts: &[OutputArtifact]) {
+    for (index, artifact) in artifacts.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"kind\": \"{}\",\n",
+            json_escape(&artifact.kind)
+        ));
+        json.push_str(&format!(
+            "      \"path\": \"{}\",\n",
+            json_escape(&artifact.path)
+        ));
+        json.push_str(&format!(
+            "      \"hash\": \"{}\",\n",
+            json_escape(&artifact.hash)
+        ));
+        push_artifact_validation_json(json, &artifact.validation, 6);
+        json.push_str("    }");
+    }
+}
+
+fn push_artifact_validation_json(
+    json: &mut String,
+    validation: &ArtifactValidation,
+    indent: usize,
+) {
+    let padding = " ".repeat(indent);
+    json.push_str(&format!("{padding}\"validation\": {{\n"));
+    json.push_str(&format!(
+        "{padding}  \"status\": \"{}\",\n",
+        json_escape(&validation.status)
+    ));
+    json.push_str(&format!(
+        "{padding}  \"rule\": \"{}\",\n",
+        json_escape(&validation.rule)
+    ));
+    json.push_str(&format!(
+        "{padding}  \"message\": \"{}\"\n",
+        json_escape(&validation.message)
+    ));
+    json.push_str(&format!("{padding}}}\n"));
+}
+
+fn json_escape(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('"', "\\\"")
+        .replace('\n', "\\n")
+        .replace('\r', "\\r")
 }
 
 #[cfg(test)]
@@ -91,5 +217,31 @@ mod tests {
 
         assert!(record.success);
         assert_eq!(record.expected_output_count, 2);
+    }
+
+    #[test]
+    fn output_manifest_writer_preserves_artifact_contract() {
+        let artifacts = vec![OutputArtifact::new(
+            "result".to_owned(),
+            "result.engres".to_owned(),
+            "hash123".to_owned(),
+            PathBuf::from("build/result/result.engres"),
+            ArtifactValidation::new("passed", "content_hash", "hashed"),
+        )];
+        let manifest = OutputManifest {
+            runtime_version: "0.1.0",
+            source_path: Path::new("main.eng"),
+            execution_profile: "normal",
+            artifacts: &artifacts,
+            artifact_registry_json: "    \"format\": \"eng-artifact-registry-v1\"".to_owned(),
+            profile_diagnostics_json: String::new(),
+        }
+        .to_json();
+
+        assert!(manifest.contains("\"format\": \"eng-output-manifest-v1\""));
+        assert!(manifest.contains("\"artifact_count\": 1"));
+        assert!(manifest.contains("\"kind\": \"result\""));
+        assert!(manifest.contains("\"validation\""));
+        assert!(manifest.contains("\"artifact_registry\""));
     }
 }

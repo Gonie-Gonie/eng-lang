@@ -18,7 +18,10 @@ mod runtime_data;
 pub mod solver;
 mod vm;
 
-use artifact::{ArtifactRecord, ArtifactValidation, ExternalBoundaryRecord, SourceRecord};
+use artifact::{
+    ArtifactRecord, ArtifactValidation, ExternalBoundaryRecord, OutputArtifact, OutputManifest,
+    SourceRecord,
+};
 use runtime_data::{
     materialize_runtime_data, RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus,
     RuntimeComponentResidualEvaluation, RuntimeData, RuntimeNumericUncertaintyPayload,
@@ -2412,15 +2415,6 @@ fn render_print_template(
     rendered
 }
 
-#[derive(Clone, Debug)]
-struct OutputArtifact {
-    kind: String,
-    path: String,
-    hash: String,
-    absolute_path: PathBuf,
-    validation: ArtifactValidation,
-}
-
 struct ArtifactRegistryContext<'a> {
     report: &'a CheckReport,
     runtime_data: &'a RuntimeData,
@@ -2441,13 +2435,13 @@ fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<
             } else {
                 expected.artifact_kind.as_str()
             };
-            Some(OutputArtifact {
-                kind: kind.to_owned(),
-                path: path_for_manifest(&expected.resolved_path),
-                hash: hash.clone(),
-                absolute_path: expected.resolved_path.clone(),
-                validation: expected.validation.clone(),
-            })
+            Some(OutputArtifact::new(
+                kind.to_owned(),
+                path_for_manifest(&expected.resolved_path),
+                hash.clone(),
+                expected.resolved_path.clone(),
+                expected.validation.clone(),
+            ))
         })
         .collect()
 }
@@ -2458,17 +2452,17 @@ fn output_artifact(
     contents: &str,
     absolute_path: PathBuf,
 ) -> OutputArtifact {
-    OutputArtifact {
-        kind: kind.to_owned(),
+    OutputArtifact::new(
+        kind.to_owned(),
         path,
-        hash: hash_text(contents),
+        hash_text(contents),
         absolute_path,
-        validation: artifact_validation(
+        artifact_validation(
             "passed",
             "content_hash",
             "generated artifact was written and hashed",
         ),
-    }
+    )
 }
 
 fn write_csv_exports(
@@ -2822,52 +2816,19 @@ fn output_manifest_json(
     profile_diagnostics: &[ProfileDiagnostic],
     registry: &ArtifactRegistryContext<'_>,
 ) -> String {
-    let mut json = String::new();
-    json.push_str("{\n");
-    json.push_str("  \"format\": \"eng-output-manifest-v1\",\n");
-    json.push_str(&format!(
-        "  \"runtime_version\": \"{}\",\n",
-        json_escape(RUNTIME_VERSION)
-    ));
-    json.push_str(&format!(
-        "  \"source_path\": \"{}\",\n",
-        json_escape(&source_path.display().to_string())
-    ));
-    json.push_str(&format!(
-        "  \"execution_profile\": \"{}\",\n",
-        profile.as_str()
-    ));
-    json.push_str(&format!("  \"artifact_count\": {},\n", artifacts.len()));
-    json.push_str("  \"artifacts\": [\n");
-    for (index, artifact) in artifacts.iter().enumerate() {
-        if index > 0 {
-            json.push_str(",\n");
-        }
-        json.push_str("    {\n");
-        json.push_str(&format!(
-            "      \"kind\": \"{}\",\n",
-            json_escape(&artifact.kind)
-        ));
-        json.push_str(&format!(
-            "      \"path\": \"{}\",\n",
-            json_escape(&artifact.path)
-        ));
-        json.push_str(&format!(
-            "      \"hash\": \"{}\",\n",
-            json_escape(&artifact.hash)
-        ));
-        push_artifact_validation_json(&mut json, &artifact.validation, 6);
-        json.push_str("    }");
+    let mut artifact_registry_json = String::new();
+    push_artifact_registry_json(&mut artifact_registry_json, artifacts, registry);
+    let mut profile_diagnostics_json = String::new();
+    push_profile_diagnostics_json(&mut profile_diagnostics_json, profile_diagnostics, "    ");
+    OutputManifest {
+        runtime_version: RUNTIME_VERSION,
+        source_path,
+        execution_profile: profile.as_str(),
+        artifacts,
+        artifact_registry_json,
+        profile_diagnostics_json,
     }
-    json.push_str("\n  ],\n");
-    json.push_str("  \"artifact_registry\": {\n");
-    push_artifact_registry_json(&mut json, artifacts, registry);
-    json.push_str("\n  },\n");
-    json.push_str("  \"profile_diagnostics\": [\n");
-    push_profile_diagnostics_json(&mut json, profile_diagnostics, "    ");
-    json.push_str("\n  ]\n");
-    json.push_str("}\n");
-    json
+    .to_json()
 }
 
 fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
