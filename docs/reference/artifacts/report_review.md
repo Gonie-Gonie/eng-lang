@@ -706,11 +706,12 @@ method, expected step, max gap, missing/fillable/filled/skipped counts, status,
 and source line. For `method = interpolate`, the runtime also materializes the
 filled TimeSeries under the fill binding. Quality records summarize coverage and
 fill together, including remaining missing count, status, reason, and a 0..1
-quality score when an expected count is available. Generic quality result bridge
-records expose the same TimeSeries quality outcome under
-`typed_payload.quality_results[]` for quality-report consumers. Fallback records are emitted
-when coverage is gapped or irregular, so review tooling can surface the need for
-an explicit fill/imputation policy. Time alignment records include automatic
+quality score when an expected count is available. Generic quality result
+records expose TimeSeries quality summaries, `validate` statement outcomes, and
+schema constraint policy results under `typed_payload.quality_results[]` for
+quality-report consumers. Fallback records are emitted when coverage is gapped
+or irregular, so review tooling can surface the need for an explicit
+fill/imputation policy. Time alignment records include automatic
 pairwise metadata plus explicit `align`/`resample` hooks with strategy, method,
 optional resample step, tolerance, and source line. The same fallback is also
 projected into

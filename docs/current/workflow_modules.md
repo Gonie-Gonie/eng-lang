@@ -8,7 +8,8 @@ missing-cell, parse/conversion, time-axis coverage summaries, and
 intervals, max gaps, and leap-year policy, explicit
 `typed_payload.timeseries_fill[]` records for `fill missing` interpolation
 policies, `typed_payload.timeseries_quality[]` summaries that combine coverage
-and fill outcomes, `typed_payload.quality_results[]` bridge records for review,
+and fill outcomes, `typed_payload.quality_results[]` common quality records for
+TimeSeries, validation, and schema-constraint results,
 explicit alignment/resampling hooks in
 `typed_payload.time_alignments[]`, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
@@ -63,7 +64,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg` |
 | `eng.cache` | supported_seed | compiler_runtime_builtin | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH`<br>`E-CACHE-UNHASHED-REPRO`<br>`W-CACHE-STALE` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
-| `eng.quality` | planned | none | `review.validations`<br>`quality_report`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `planned_quality_tests` |
+| `eng.quality` | supported_seed | compiler_runtime_builtin | `typed_payload.quality_results`<br>`typed_payload.validations`<br>`typed_payload.policy_results`<br>`review.quality_results`<br>`review.validations`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints` |
 | `eng.template` | planned | none | `review.side_effects`<br>`output_manifest` | `E-TEMPLATE-MISSING-PLACEHOLDER` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `planned_template_tests` |
 | `eng.workflow` | planned | none | `run_plan`<br>`run_lock`<br>`output_manifest`<br>`run_log` | `run_lock_changed`<br>`artifact_hash_mismatch` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime run_plan` |
 | `eng.report` | planned | none | `report`<br>`review`<br>`output_manifest` | `none_current` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_report` |

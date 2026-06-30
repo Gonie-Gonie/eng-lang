@@ -2931,7 +2931,11 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         &data.uncertainties,
         &data.timeseries_coverage,
     );
-    data.quality_results = materialize_quality_results(&data.timeseries_quality);
+    data.quality_results = materialize_quality_results(
+        &data.timeseries_quality,
+        &data.validations,
+        &data.policy_results,
+    );
     data
 }
 
@@ -3979,8 +3983,10 @@ fn timeseries_quality_status_reason(
 
 fn materialize_quality_results(
     timeseries_quality: &[RuntimeTimeSeriesQuality],
+    validations: &[RuntimeValidation],
+    policy_results: &[RuntimePolicyResult],
 ) -> Vec<RuntimeQualityResult> {
-    timeseries_quality
+    let mut results = timeseries_quality
         .iter()
         .map(|quality| {
             let passed = quality.status == "passed";
@@ -4003,7 +4009,123 @@ fn materialize_quality_results(
                 line: quality.line,
             }
         })
-        .collect()
+        .collect::<Vec<_>>();
+    results.extend(validations.iter().enumerate().map(|(index, validation)| {
+        let status = quality_result_status(&validation.status);
+        let passed = status == "passed";
+        let failed = status == "failed";
+        RuntimeQualityResult {
+            binding: format!("validation_{}.quality_result", index + 1),
+            kind: "validation_result".to_owned(),
+            category: "validation".to_owned(),
+            target: validation.expression.clone(),
+            subject: validation.left.clone(),
+            source_table: None,
+            source_column: None,
+            time_column: None,
+            score: validation_score(status),
+            passed_count: usize::from(passed),
+            warning_count: usize::from(status == "warning"),
+            failed_count: usize::from(failed),
+            status: status.to_owned(),
+            reason: validation_quality_reason(validation).to_owned(),
+            line: validation.line,
+        }
+    }));
+    results.extend(
+        policy_results
+            .iter()
+            .filter(|policy| policy.kind == "constraint")
+            .enumerate()
+            .map(|(index, policy)| {
+                let status = policy_quality_status(policy);
+                let failed_count = policy.violations.len();
+                let passed_count = if failed_count == 0 && status == "passed" {
+                    1
+                } else {
+                    0
+                };
+                RuntimeQualityResult {
+                    binding: format!(
+                        "{}.{}_{}.quality_result",
+                        policy.binding,
+                        policy.kind,
+                        index + 1
+                    ),
+                    kind: "schema_constraint_result".to_owned(),
+                    category: "schema_constraint".to_owned(),
+                    target: policy.binding.clone(),
+                    subject: format!("{}.{}", policy.schema, policy.target),
+                    source_table: Some(policy.binding.clone()),
+                    source_column: None,
+                    time_column: None,
+                    score: policy_quality_score(policy),
+                    passed_count,
+                    warning_count: usize::from(status == "warning"),
+                    failed_count,
+                    status: status.to_owned(),
+                    reason: policy_quality_reason(policy).to_owned(),
+                    line: policy.line,
+                }
+            }),
+    );
+    results
+}
+
+fn quality_result_status(status: &str) -> &'static str {
+    match status {
+        "passed" | "ok" | "complete" | "computed" => "passed",
+        "failed" | "violation" | "violated" | "invalid" => "failed",
+        "unavailable" | "unknown" => "unavailable",
+        "warning" | "gapped" | "irregular" => "warning",
+        _ if status.contains("fail") || status.contains("violation") => "failed",
+        _ if status.contains("warn") || status.contains("gap") => "warning",
+        _ => "warning",
+    }
+}
+
+fn validation_score(status: &str) -> Option<f64> {
+    match status {
+        "passed" => Some(1.0),
+        "failed" => Some(0.0),
+        _ => None,
+    }
+}
+
+fn validation_quality_reason(validation: &RuntimeValidation) -> &'static str {
+    match validation.status.as_str() {
+        "passed" => "validation statement passed",
+        "failed" => "validation statement failed",
+        _ => "validation statement could not be evaluated",
+    }
+}
+
+fn policy_quality_score(policy: &RuntimePolicyResult) -> Option<f64> {
+    if policy.checked_rows == 0 {
+        return None;
+    }
+    let failed = policy.violations.len().min(policy.checked_rows);
+    Some((policy.checked_rows - failed) as f64 / policy.checked_rows as f64)
+}
+
+fn policy_quality_status(policy: &RuntimePolicyResult) -> &'static str {
+    if !policy.violations.is_empty() {
+        return "failed";
+    }
+    match policy.status.as_str() {
+        "executed" | "validated" => "passed",
+        other => quality_result_status(other),
+    }
+}
+
+fn policy_quality_reason(policy: &RuntimePolicyResult) -> &'static str {
+    if !policy.violations.is_empty() {
+        "schema constraint policy reported row-level violations"
+    } else if matches!(policy.status.as_str(), "executed" | "validated") {
+        "schema constraint policy passed"
+    } else {
+        "schema constraint policy was recorded but not executed"
+    }
 }
 
 fn coverage_status(

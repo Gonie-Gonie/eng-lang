@@ -1092,8 +1092,8 @@
       ],
       "properties": {
         "binding": { "type": "string" },
-        "kind": { "enum": ["timeseries_quality_result"] },
-        "category": { "enum": ["timeseries"] },
+        "kind": { "enum": ["timeseries_quality_result", "validation_result", "schema_constraint_result"] },
+        "category": { "enum": ["timeseries", "validation", "schema_constraint"] },
         "target": { "type": "string" },
         "subject": { "type": "string" },
         "source_table": { "type": ["string", "null"] },

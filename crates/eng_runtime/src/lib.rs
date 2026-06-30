@@ -12436,6 +12436,156 @@ mod tests {
     }
 
     #[test]
+    fn run_file_records_common_quality_results_for_validation_and_schema_constraints() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-review-common-quality");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-review-common-quality-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("sensor.csv"),
+            concat!(
+                "time,m_dot\n",
+                "2024-01-01T00:00:00Z,0.10\n",
+                "2024-01-01T01:00:00Z,0.30\n",
+            ),
+        )
+        .expect("write sensor csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SensorData {\n",
+                "    time: DateTime index\n",
+                "    m_dot: MassFlowRate [kg/s]\n",
+                "\n",
+                "    constraints {\n",
+                "        time is monotonic\n",
+                "        m_dot <= 0.25 kg/s\n",
+                "    }\n",
+                "}\n\n",
+                "args {\n",
+                "    input: CsvFile = file(\"data/sensor.csv\")\n",
+                "}\n\n",
+                "sensor = promote csv args.input as SensorData\n",
+                "Q_dist = normal(mean=5 kW, std=0.2 kW, samples=31)\n",
+                "validate mean(Q_dist) between 4 kW and 6 kW\n",
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("run file");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let quality_results = result
+            .pointer("/typed_payload/quality_results")
+            .and_then(Value::as_array)
+            .expect("result quality results");
+        let validation_quality = quality_results
+            .iter()
+            .find(|quality| {
+                quality.get("kind").and_then(Value::as_str) == Some("validation_result")
+            })
+            .expect("validation quality result");
+        assert_eq!(
+            validation_quality.get("category").and_then(Value::as_str),
+            Some("validation")
+        );
+        assert_eq!(
+            validation_quality.get("target").and_then(Value::as_str),
+            Some("mean(Q_dist) between 4 kW and 6 kW")
+        );
+        assert_eq!(
+            validation_quality.get("status").and_then(Value::as_str),
+            Some("passed")
+        );
+        assert_eq!(
+            validation_quality.get("score").and_then(Value::as_f64),
+            Some(1.0)
+        );
+        let schema_quality = quality_results
+            .iter()
+            .find(|quality| {
+                quality.get("kind").and_then(Value::as_str) == Some("schema_constraint_result")
+                    && quality.get("subject").and_then(Value::as_str) == Some("SensorData.m_dot")
+            })
+            .expect("schema constraint quality result");
+        assert_eq!(
+            schema_quality.get("category").and_then(Value::as_str),
+            Some("schema_constraint")
+        );
+        assert_eq!(
+            schema_quality.get("source_table").and_then(Value::as_str),
+            Some("sensor")
+        );
+        assert_eq!(
+            schema_quality.get("status").and_then(Value::as_str),
+            Some("failed")
+        );
+        assert_eq!(
+            schema_quality.get("failed_count").and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            schema_quality.get("score").and_then(Value::as_f64),
+            Some(0.5)
+        );
+
+        let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        let review_quality_results = review
+            .pointer("/quality_results")
+            .and_then(Value::as_array)
+            .expect("review quality results");
+        assert!(review_quality_results.iter().any(|quality| {
+            quality.get("kind").and_then(Value::as_str) == Some("validation_result")
+                && quality.get("status").and_then(Value::as_str) == Some("passed")
+        }));
+        assert!(review_quality_results.iter().any(|quality| {
+            quality.get("kind").and_then(Value::as_str) == Some("schema_constraint_result")
+                && quality.get("subject").and_then(Value::as_str) == Some("SensorData.m_dot")
+                && quality.get("status").and_then(Value::as_str) == Some("failed")
+        }));
+
+        let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        let schema_quality_binding = schema_quality
+            .get("binding")
+            .and_then(Value::as_str)
+            .expect("schema quality binding");
+        let schema_quality_node_id = format!("quality_result:{schema_quality_binding}");
+        let schema_quality_node =
+            json_array_item_by_field(&run_plan, "/graph/nodes", "id", &schema_quality_node_id)
+                .expect("schema quality run plan node");
+        assert_eq!(
+            schema_quality_node
+                .get("risk_category")
+                .and_then(Value::as_str),
+            Some("data_quality")
+        );
+        assert!(run_plan_has_edge(
+            &run_plan,
+            &schema_quality_node_id,
+            "source:csv:sensor",
+            "depends_on"
+        ));
+    }
+
+    #[test]
     fn run_file_records_timeseries_alignment_and_resampling_hooks() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")

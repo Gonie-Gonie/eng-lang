@@ -55,8 +55,9 @@ workflow, and covered by the breaking-change policy.
   columns, sort keys, predicate evidence, join key pair counts, and row-level diagnostics,
   `typed_payload.timeseries_coverage[]` records for DateTime-indexed
   promoted-table coverage, `typed_payload.timeseries_quality[]` coverage/fill
-  summaries, `typed_payload.quality_results[]` TimeSeries quality-result bridge
-  records, `typed_payload.time_alignments[]` alignment/resampling hook records,
+  summaries, `typed_payload.quality_results[]` common quality records for
+  TimeSeries, validation, and schema-constraint results,
+  `typed_payload.time_alignments[]` alignment/resampling hook records,
   `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
   and `typed_payload.case_manifests[]` case row manifests with sample row hashes
   and process-output enrichment.
