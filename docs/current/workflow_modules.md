@@ -53,7 +53,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
 | `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_cards`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-CARD-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model_card` |
 | `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`review.external_boundaries` | `E-DB-SCHEMA-MISMATCH` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime db_manifest` |
-| `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_optional_fields` |
+| `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-UNPINNED` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network` |
 | `eng.cache` | supported_seed | compiler_runtime_builtin | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
 | `eng.quality` | planned | none | `review.validations`<br>`quality_report`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `planned_quality_tests` |
@@ -90,11 +90,10 @@ stdlib/eng/fs.eng
 ```
 
 `stdlib/eng/config.eng` is supported in narrow scope: `promote json file(...)`
-and `promote toml file(...)` validate top-level and nested object config fields
-against schema columns, allow optional missing/null fields declared as
-`Optional[T]` or `T?`, and emit source hashes plus config promotion summaries.
-Payload promotion, list fields, defaults, and unit mismatch policy remain
-planned.
+and `promote toml file(...)` validate top-level, nested object, and array/list
+config fields against schema columns, allow optional missing/null fields
+declared as `Optional[T]` or `T?`, and emit source hashes plus config promotion
+summaries. Payload promotion, defaults, and unit mismatch policy remain planned.
 
 IDE and LSP completions expose the module boundary names so users can discover
 the current surface without implying that every planned helper is executable.

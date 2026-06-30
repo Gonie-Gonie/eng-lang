@@ -82,6 +82,7 @@ pub struct ConfigPromotion {
     pub optional_missing_fields: Vec<String>,
     pub optional_null_fields: Vec<String>,
     pub nested_object_fields: Vec<String>,
+    pub array_fields: Vec<String>,
     pub type_mismatches: Vec<ConfigTypeMismatch>,
     pub status: String,
     pub line: usize,
@@ -354,6 +355,7 @@ pub fn analyze_schema(
                         optional_missing_fields: Vec::new(),
                         optional_null_fields: Vec::new(),
                         nested_object_fields: Vec::new(),
+                        array_fields: Vec::new(),
                         type_mismatches: Vec::new(),
                         status: "missing_arg".to_owned(),
                         line: binding.line,
@@ -399,6 +401,7 @@ pub fn analyze_schema(
             optional_missing_fields,
             optional_null_fields,
             nested_object_fields,
+            array_fields,
             type_mismatches,
         } = validation;
 
@@ -467,6 +470,7 @@ pub fn analyze_schema(
             optional_missing_fields,
             optional_null_fields,
             nested_object_fields,
+            array_fields,
             type_mismatches,
             status,
             line: binding.line,
@@ -674,6 +678,14 @@ struct ConfigFieldValue {
     name: String,
     kind: ConfigValueKind,
     fields: Vec<ConfigFieldValue>,
+    items: Vec<ConfigItemValue>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ConfigItemValue {
+    kind: ConfigValueKind,
+    fields: Vec<ConfigFieldValue>,
+    items: Vec<ConfigItemValue>,
 }
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
@@ -685,6 +697,7 @@ struct ConfigValidation {
     optional_missing_fields: Vec<String>,
     optional_null_fields: Vec<String>,
     nested_object_fields: Vec<String>,
+    array_fields: Vec<String>,
     type_mismatches: Vec<ConfigTypeMismatch>,
 }
 
@@ -721,6 +734,7 @@ fn json_config_fields(source: &str) -> Result<Vec<ConfigFieldValue>, String> {
             name: name.clone(),
             kind: json_value_kind(value),
             fields: json_config_child_fields(value),
+            items: json_config_child_items(value),
         })
         .collect())
 }
@@ -738,6 +752,7 @@ fn toml_config_fields(source: &str) -> Result<Vec<ConfigFieldValue>, String> {
             name: name.clone(),
             kind: toml_value_kind(value),
             fields: toml_config_child_fields(value),
+            items: toml_config_child_items(value),
         })
         .collect())
 }
@@ -752,6 +767,7 @@ fn json_config_child_fields(value: &JsonValue) -> Vec<ConfigFieldValue> {
             name: name.clone(),
             kind: json_value_kind(value),
             fields: json_config_child_fields(value),
+            items: json_config_child_items(value),
         })
         .collect()
 }
@@ -766,6 +782,35 @@ fn toml_config_child_fields(value: &TomlValue) -> Vec<ConfigFieldValue> {
             name: name.clone(),
             kind: toml_value_kind(value),
             fields: toml_config_child_fields(value),
+            items: toml_config_child_items(value),
+        })
+        .collect()
+}
+
+fn json_config_child_items(value: &JsonValue) -> Vec<ConfigItemValue> {
+    let Some(items) = value.as_array() else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .map(|value| ConfigItemValue {
+            kind: json_value_kind(value),
+            fields: json_config_child_fields(value),
+            items: json_config_child_items(value),
+        })
+        .collect()
+}
+
+fn toml_config_child_items(value: &TomlValue) -> Vec<ConfigItemValue> {
+    let Some(items) = value.as_array() else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .map(|value| ConfigItemValue {
+            kind: toml_value_kind(value),
+            fields: toml_config_child_fields(value),
+            items: toml_config_child_items(value),
         })
         .collect()
 }
@@ -835,6 +880,24 @@ fn config_schema_validation(
             }
             continue;
         }
+        if let Some(element_type) = config_array_element_type(&column.type_name) {
+            if field.kind == ConfigValueKind::Array {
+                validation.array_fields.push(field_path.clone());
+                validation.extend(config_array_validation(
+                    schemas,
+                    &field.items,
+                    &element_type,
+                    &field_path,
+                ));
+            } else {
+                validation.type_mismatches.push(ConfigTypeMismatch {
+                    field: field_path,
+                    expected: column.type_name.clone(),
+                    actual: field.kind.as_str().to_owned(),
+                });
+            }
+            continue;
+        }
         if let Some(nested_schema) = schemas
             .iter()
             .find(|candidate| candidate.name == column.type_name)
@@ -879,6 +942,7 @@ impl ConfigValidation {
             .extend(other.optional_missing_fields);
         self.optional_null_fields.extend(other.optional_null_fields);
         self.nested_object_fields.extend(other.nested_object_fields);
+        self.array_fields.extend(other.array_fields);
         self.type_mismatches.extend(other.type_mismatches);
     }
 }
@@ -891,7 +955,102 @@ fn config_field_path(prefix: &str, field: &str) -> String {
     }
 }
 
+fn config_array_element_type(type_name: &str) -> Option<String> {
+    let trimmed = type_name.trim();
+    for prefix in ["Array[", "List["] {
+        if let Some(inner) = trimmed
+            .strip_prefix(prefix)
+            .and_then(|value| value.strip_suffix(']'))
+        {
+            return Some(inner.trim().to_owned());
+        }
+    }
+    trimmed
+        .strip_suffix("[]")
+        .map(|inner| inner.trim().to_owned())
+        .filter(|inner| !inner.is_empty())
+}
+
+fn config_array_validation(
+    schemas: &[SchemaInfo],
+    items: &[ConfigItemValue],
+    element_type: &str,
+    prefix: &str,
+) -> ConfigValidation {
+    let mut validation = ConfigValidation::default();
+    let (element_type, element_optional) =
+        optional_schema_type(element_type).unwrap_or((element_type.trim().to_owned(), false));
+
+    for (index, item) in items.iter().enumerate() {
+        let item_path = format!("{prefix}[{index}]");
+        if item.kind == ConfigValueKind::Null {
+            if element_optional {
+                validation.optional_null_fields.push(item_path);
+            } else {
+                validation.type_mismatches.push(ConfigTypeMismatch {
+                    field: item_path,
+                    expected: element_type.clone(),
+                    actual: item.kind.as_str().to_owned(),
+                });
+            }
+            continue;
+        }
+        if let Some(nested_element_type) = config_array_element_type(&element_type) {
+            if item.kind == ConfigValueKind::Array {
+                validation.array_fields.push(item_path.clone());
+                validation.extend(config_array_validation(
+                    schemas,
+                    &item.items,
+                    &nested_element_type,
+                    &item_path,
+                ));
+            } else {
+                validation.type_mismatches.push(ConfigTypeMismatch {
+                    field: item_path,
+                    expected: element_type.clone(),
+                    actual: item.kind.as_str().to_owned(),
+                });
+            }
+            continue;
+        }
+        if let Some(nested_schema) = schemas
+            .iter()
+            .find(|candidate| candidate.name == element_type)
+        {
+            if item.kind == ConfigValueKind::Object {
+                validation.nested_object_fields.push(item_path.clone());
+                validation.extend(config_schema_validation(
+                    nested_schema,
+                    schemas,
+                    &item.fields,
+                    &item_path,
+                ));
+            } else {
+                validation.type_mismatches.push(ConfigTypeMismatch {
+                    field: item_path,
+                    expected: element_type.clone(),
+                    actual: item.kind.as_str().to_owned(),
+                });
+            }
+            continue;
+        }
+        if config_value_matches_schema_type(&element_type, &item.kind) {
+            continue;
+        }
+        validation.type_mismatches.push(ConfigTypeMismatch {
+            field: item_path,
+            expected: element_type.clone(),
+            actual: item.kind.as_str().to_owned(),
+        });
+    }
+
+    validation
+}
+
 fn config_value_matches_schema_type(type_name: &str, kind: &ConfigValueKind) -> bool {
+    if config_array_element_type(type_name).is_some() {
+        return *kind == ConfigValueKind::Array;
+    }
     match type_name.to_ascii_lowercase().as_str() {
         "string" | "path" | "filepath" | "csvfile" | "jsonfile" | "tomlfile" | "textfile"
         | "reportfile" | "plotfile" | "directorypath" => *kind == ConfigValueKind::String,

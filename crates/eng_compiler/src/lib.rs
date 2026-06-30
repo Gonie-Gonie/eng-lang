@@ -4215,6 +4215,9 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("      \"nested_object_fields\": [");
         push_json_string_array(&mut json, &promotion.nested_object_fields);
         json.push_str("],\n");
+        json.push_str("      \"array_fields\": [");
+        push_json_string_array(&mut json, &promotion.array_fields);
+        json.push_str("],\n");
         json.push_str("      \"type_mismatches\": [\n");
         for (mismatch_index, mismatch) in promotion.type_mismatches.iter().enumerate() {
             if mismatch_index > 0 {
@@ -5850,6 +5853,9 @@ fn push_review_config_promotions_json(json: &mut String, report: &CheckReport) {
         json.push_str("],\n");
         json.push_str("        \"nested_object_fields\": [");
         push_json_string_array(json, &promotion.nested_object_fields);
+        json.push_str("],\n");
+        json.push_str("        \"array_fields\": [");
+        push_json_string_array(json, &promotion.array_fields);
         json.push_str("],\n");
         json.push_str(&format!(
             "        \"type_mismatch_count\": {},\n",
@@ -12179,6 +12185,106 @@ system Envelope {
         );
         assert_eq!(promotion.unknown_fields, vec!["database.extra".to_owned()]);
         assert_eq!(promotion.type_mismatches[0].field, "database.retry");
+    }
+
+    #[test]
+    fn records_array_config_promotions() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-array-ok-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"tags\": [\"alpha\", \"beta\"], \"retries\": [1, 2, 3], \"flags\": [true, false] }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    tags: Array[String]\n    retries: List[Int]\n    flags: Bool[]\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "validated");
+        assert_eq!(
+            promotion.array_fields,
+            vec!["tags".to_owned(), "retries".to_owned(), "flags".to_owned()]
+        );
+        assert!(promotion.type_mismatches.is_empty());
+
+        let review = review_json(&report);
+        assert!(review.contains("\"array_fields\": [\"tags\", \"retries\", \"flags\"]"));
+    }
+
+    #[test]
+    fn diagnoses_invalid_array_config_promotions() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-array-bad-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"tags\": [\"alpha\", 3], \"retries\": \"many\", \"servers\": [{ \"host\": \"db\", \"retry\": 3 }, { \"retry\": 4, \"extra\": true }] }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema ServerConfig {\n    host: String\n    retry: Int\n}\n\nschema WorkflowConfig {\n    tags: Array[String]\n    retries: List[Int]\n    servers: Array[ServerConfig]\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        for (code, field) in [
+            ("E-CONFIG-MISSING-FIELD", "servers[1].host"),
+            ("E-CONFIG-UNKNOWN-FIELD", "servers[1].extra"),
+            ("E-CONFIG-TYPE-MISMATCH", "tags[1]"),
+            ("E-CONFIG-TYPE-MISMATCH", "retries"),
+        ] {
+            assert!(
+                report.diagnostics.iter().any(|diagnostic| diagnostic.code == code
+                    && diagnostic.message.contains(field)),
+                "{code}/{field}: {:?}",
+                report.diagnostics
+            );
+        }
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "invalid");
+        assert_eq!(
+            promotion.array_fields,
+            vec!["tags".to_owned(), "servers".to_owned()]
+        );
+        assert_eq!(promotion.missing_fields, vec!["servers[1].host".to_owned()]);
+        assert_eq!(
+            promotion.unknown_fields,
+            vec!["servers[1].extra".to_owned()]
+        );
+        assert!(promotion
+            .type_mismatches
+            .iter()
+            .any(|mismatch| mismatch.field == "tags[1]"));
+        assert!(promotion
+            .type_mismatches
+            .iter()
+            .any(|mismatch| mismatch.field == "retries"));
     }
 
     #[test]

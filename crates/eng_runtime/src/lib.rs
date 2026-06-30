@@ -10348,6 +10348,9 @@ fn config_promotions_json(report: &CheckReport) -> String {
         json.push_str("        \"nested_object_fields\": [");
         push_json_string_array(&mut json, &promotion.nested_object_fields);
         json.push_str("],\n");
+        json.push_str("        \"array_fields\": [");
+        push_json_string_array(&mut json, &promotion.array_fields);
+        json.push_str("],\n");
         json.push_str(&format!(
             "        \"type_mismatch_count\": {},\n",
             promotion.type_mismatches.len()
@@ -13483,6 +13486,56 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"schema\": \"WorkflowConfig\""));
+    }
+
+    #[test]
+    fn run_file_records_array_config_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-config-array");
+        let build_root = repo_root.join("build").join("runtime-config-array-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("workflow.json"),
+            "{ \"tags\": [\"alpha\", \"beta\"], \"retries\": [1, 2, 3] }\n",
+        )
+        .expect("config");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    tags: Array[String]\n    retries: List[Int]\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\nx = 1\nprint \"x={x}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(output.stdout.contains("x=1"));
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/status")
+                .and_then(Value::as_str),
+            Some("validated")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/array_fields/0")
+                .and_then(Value::as_str),
+            Some("tags")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/array_fields/1")
+                .and_then(Value::as_str),
+            Some("retries")
+        );
+        assert!(output
+            .result_json
+            .contains("\"array_fields\": [\"tags\", \"retries\"]"));
     }
 
     #[test]

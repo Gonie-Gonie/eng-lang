@@ -322,9 +322,10 @@ examples/official/11_read_only_io/main.eng
 
 ## Typed Config Promotion
 
-JSON/TOML config files can be promoted against a schema. Top-level fields and
-nested object fields are validated for required/unknown/type/null policy, and
-`Optional[T]` or `T?` allows a config field to be missing or set to JSON null:
+JSON/TOML config files can be promoted against a schema. Top-level, nested
+object, and array/list fields are validated for required/unknown/type/null
+policy, and `Optional[T]` or `T?` allows a config field to be missing or set to
+JSON null:
 
 ```eng partial
 schema WorkflowConfig {
@@ -337,8 +338,8 @@ config = promote json file("data/workflow.json") as WorkflowConfig
 ```
 
 The result/review artifacts record `optional_fields`,
-`optional_missing_fields`, `optional_null_fields`, and `nested_object_fields`
-in the config promotion entry. List promotion and defaults remain planned.
+`optional_missing_fields`, `optional_null_fields`, `nested_object_fields`, and
+`array_fields` in the config promotion entry. Defaults remain planned.
 
 ## Schemas And CSV Promotion
 

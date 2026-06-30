@@ -13,11 +13,11 @@
 # Current review/runtime contract:
 #   source path, source hash, schema name, field count, missing fields,
 #   unknown fields, null fields, optional fields, optional missing/null fields,
-#   type mismatches, source spans, and raw structured-read promotion source.
+#   nested object fields, array/list fields, type mismatches, source spans,
+#   and raw structured-read promotion source.
 #
 # Planned helper vocabulary:
 #   default config fields
-#   nested object and array/list promotion
 #   unit mismatch validation
 #
 # Non-goal:
