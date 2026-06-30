@@ -699,7 +699,8 @@ outputs, and artifact hashes including the static plan hash. `run_lock.json`
 records the input hash used for rerun comparison: source hash, execution
 profile, CLI args hash, dependency hash, and run-plan artifact hashes. When
 `eng run --skip-unchanged --save-artifacts` sees the same prior lock, rerun
-metadata is recorded as `decision = skip` and `rerun_status = skipped`.
+metadata is recorded as `decision = skip` and `rerun_status = skipped`, after
+the saved artifact hashes still match the prior lock.
 `review.json.workflow_graph` keeps the graph shape plus `risk_by_node`, a
 compact reviewer-facing list of node id, kind, label, status, source line/span,
 and low/medium/high risk.

@@ -438,6 +438,23 @@ pub fn run_source(
             prior_input_hash: rerun_decision.prior_input_hash.clone(),
         };
     }
+    if rerun_decision.decision == "skip" && saved_artifacts_ready {
+        if let Some(kind) = saved_run_artifact_hash_mismatch(
+            &run_lock_path,
+            &[
+                ("result", &result_path),
+                ("review", &review_path),
+                ("static_run_plan", &static_run_plan_path),
+                ("run_plan", &run_plan_path),
+            ],
+        ) {
+            rerun_decision = RerunDecision {
+                decision: "run".to_owned(),
+                reason: format!("artifact_hash_mismatch:{kind}"),
+                prior_input_hash: rerun_decision.prior_input_hash.clone(),
+            };
+        }
+    }
     let static_run_plan_json =
         static_run_plan_json(path, &check_report, &options.profile, &rerun_decision);
     if rerun_decision.decision == "skip" && saved_artifacts_ready {
@@ -3245,6 +3262,33 @@ fn run_lock_json(
 
 fn saved_run_artifacts_available(paths: &[&Path]) -> bool {
     paths.iter().all(|path| path.is_file())
+}
+
+fn saved_run_artifact_hash_mismatch(
+    run_lock_path: &Path,
+    artifacts: &[(&str, &Path)],
+) -> Option<String> {
+    let Some(prior_lock) = fs::read_to_string(run_lock_path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok())
+    else {
+        return Some("run_lock".to_owned());
+    };
+    let Some(prior_hashes) = prior_lock.get("artifact_hashes") else {
+        return Some("artifact_hashes".to_owned());
+    };
+    for (kind, path) in artifacts {
+        let Some(prior_hash) = prior_hashes.get(*kind).and_then(Value::as_str) else {
+            return Some((*kind).to_owned());
+        };
+        let Ok(contents) = fs::read_to_string(path) else {
+            return Some((*kind).to_owned());
+        };
+        if hash_text(&contents) != prior_hash {
+            return Some((*kind).to_owned());
+        }
+    }
+    None
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -10663,7 +10707,8 @@ mod tests {
             Some(first_input_hash.as_str())
         );
 
-        fs::remove_file(&second_output.report_path).expect("remove saved report");
+        fs::write(&second_output.result_path, "{\"tampered\":true}\n")
+            .expect("tamper saved result");
         let third_output = run_file(
             &source_path,
             &build_root,
@@ -10673,7 +10718,7 @@ mod tests {
                 ..RunOptions::default()
             },
         )
-        .expect("rerun file after missing artifact");
+        .expect("rerun file after artifact hash mismatch");
         assert!(!third_output
             .stdout
             .contains("run skipped: unchanged run_lock"));
@@ -10689,10 +10734,48 @@ mod tests {
             third_run_plan
                 .pointer("/rerun_decision/reason")
                 .and_then(Value::as_str),
-            Some("missing_saved_artifact")
+            Some("artifact_hash_mismatch:result")
         );
         assert_eq!(
             third_run_plan
+                .pointer("/rerun_status")
+                .and_then(Value::as_str),
+            Some("executed")
+        );
+        assert!(third_output
+            .result_json
+            .contains("\"format\": \"engres-v1\""));
+
+        fs::remove_file(&third_output.report_path).expect("remove saved report");
+        let fourth_output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                skip_unchanged: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("rerun file after missing artifact");
+        assert!(!fourth_output
+            .stdout
+            .contains("run skipped: unchanged run_lock"));
+        let fourth_run_plan: Value =
+            serde_json::from_str(&fourth_output.run_plan_json).expect("fourth run plan json");
+        assert_eq!(
+            fourth_run_plan
+                .pointer("/rerun_decision/decision")
+                .and_then(Value::as_str),
+            Some("run")
+        );
+        assert_eq!(
+            fourth_run_plan
+                .pointer("/rerun_decision/reason")
+                .and_then(Value::as_str),
+            Some("missing_saved_artifact")
+        );
+        assert_eq!(
+            fourth_run_plan
                 .pointer("/rerun_status")
                 .and_then(Value::as_str),
             Some("executed")
