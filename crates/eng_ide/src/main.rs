@@ -149,6 +149,7 @@ struct InspectorView {
     effect_records: Value,
     network_cache: Value,
     db_writes: Value,
+    model_cards: Value,
     output_manifest: Value,
     run_log: Value,
     process_results: Value,
@@ -182,6 +183,7 @@ impl Default for InspectorView {
             effect_records: Value::Null,
             network_cache: Value::Null,
             db_writes: Value::Null,
+            model_cards: Value::Null,
             output_manifest: Value::Null,
             run_log: Value::Null,
             process_results: Value::Null,
@@ -1093,6 +1095,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let effect_records = effect_records_inspector(&output_manifest, &run_log);
     let network_cache = network_cache_inspector(&output_manifest, &run_log);
     let db_writes = db_writes_inspector(&result, &review, &output_manifest);
+    let model_cards = model_cards_inspector(&result);
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
@@ -1124,6 +1127,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         effect_records,
         network_cache,
         db_writes,
+        model_cards,
         output_manifest,
         run_log,
         process_results: parse_json_value(&output.process_results_json),
@@ -1219,6 +1223,14 @@ fn db_writes_inspector(result: &Value, review: &Value, output_manifest: &Value) 
         "format": "eng-ide-db-writes-v1",
         "manifests": manifests,
         "registryWrites": registry_writes,
+    })
+}
+
+fn model_cards_inspector(result: &Value) -> Value {
+    json!({
+        "format": "eng-ide-model-cards-v1",
+        "cards": typed_payload_array_clone(result, "model_cards"),
+        "artifacts": typed_payload_array_clone(result, "ml"),
     })
 }
 
@@ -4317,6 +4329,107 @@ mod tests {
                 .map(Vec::len),
             Some(1)
         );
+    }
+
+    #[test]
+    fn ide_surfaces_model_card_inspector() {
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "model_cards": [
+                  {
+                    "binding": "reg_card",
+                    "source": "reg_model",
+                    "model_kind": "linear",
+                    "features": ["T_supply", "m_dot"],
+                    "target": "Q_coil",
+                    "target_quantity": "HeatRate",
+                    "target_unit": "kW",
+                    "test_fraction": "0.25",
+                    "train_count": 12,
+                    "test_count": 4,
+                    "metrics": { "rmse": 1.2, "mae": 0.8, "r2": 0.94 },
+                    "residual_plot": "residual_points",
+                    "residual_point_count": 4,
+                    "training_data_hash": "training-hash",
+                    "model_artifact_hash": "model-hash",
+                    "status": "model_card_ready",
+                    "line": 17
+                  }
+                ],
+                "ml": [
+                  {
+                    "binding": "reg_model",
+                    "kind": "RegressionModel",
+                    "source": "split",
+                    "target": "Q_coil",
+                    "target_quantity": "HeatRate",
+                    "target_unit": "kW",
+                    "features": ["T_supply", "m_dot"],
+                    "algorithm": "linear",
+                    "test_fraction": "0.25",
+                    "seed": "7",
+                    "hidden_layers": [],
+                    "epochs": null,
+                    "status": "trained",
+                    "train_count": 12,
+                    "test_count": 4,
+                    "rmse": 1.2,
+                    "mae": 0.8,
+                    "r2": 0.94,
+                    "leakage_status": "passed",
+                    "leakage_findings": [],
+                    "coefficients": [{ "feature": "T_supply", "value": 0.5 }],
+                    "intercept": 1.0,
+                    "loss_history": [],
+                    "training_data_hash": "training-hash",
+                    "model_artifact_hash": "model-hash",
+                    "model_card": "Linear model card",
+                    "parity_points": [{ "x": 1.0, "y": 1.1 }],
+                    "residual_points": [{ "x": 1.0, "y": 0.1 }],
+                    "expression": "regression(split, algorithm=linear)",
+                    "line": 16
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+            "{}",
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let model_cards = inspectors
+            .model_cards
+            .as_object()
+            .expect("model card inspector");
+        assert_eq!(
+            model_cards
+                .get("format")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "eng-ide-model-cards-v1"
+        );
+        let card = model_cards
+            .get("cards")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("model card");
+        assert_eq!(
+            card.get("metrics")
+                .and_then(|metrics| json_field_string(metrics, "r2"))
+                .as_deref(),
+            Some("0.94")
+        );
+        assert_eq!(json_field_usize(card, "residual_point_count"), Some(4));
+        let artifact = model_cards
+            .get("artifacts")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("model artifact");
+        assert!(artifact
+            .get("residual_points")
+            .and_then(Value::as_array)
+            .is_some_and(|points| points.len() == 1));
     }
 
     #[test]

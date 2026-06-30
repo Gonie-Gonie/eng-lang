@@ -61,6 +61,7 @@ function emptyInspectors() {
     effectRecords: null,
     networkCache: null,
     dbWrites: null,
+    modelCards: null,
     outputManifest: null,
     runLog: null,
     processResults: null,
@@ -677,6 +678,7 @@ function renderSidePanel() {
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("effects", "Effects")}
         ${sideTabButton("network", "Net")}
+        ${sideTabButton("model", "Model")}
         ${sideTabButton("db", "DB")}
         ${sideTabButton("run", "Run")}
       </div>
@@ -704,6 +706,7 @@ function renderSideBody() {
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "effects") return renderEffectsPanel();
   if (state.sideTab === "network") return renderNetworkPanel();
+  if (state.sideTab === "model") return renderModelPanel();
   if (state.sideTab === "db") return renderDbPanel();
   if (state.sideTab === "run") return renderRunPanel();
   return `
@@ -2286,6 +2289,74 @@ function renderDbPanel() {
       <div class="panel-title compact">Registry</div>
       ${renderDbRegistry(registry)}
     </div>
+  `;
+}
+
+function renderModelPanel() {
+  const model = inspectorObject("modelCards");
+  const cards = Array.isArray(model.cards) ? model.cards : [];
+  const artifacts = Array.isArray(model.artifacts) ? model.artifacts : [];
+  const residualPoints = artifacts.reduce((sum, artifact) => {
+    const points = Array.isArray(artifact.residual_points) ? artifact.residual_points : (Array.isArray(artifact.residualPoints) ? artifact.residualPoints : []);
+    return sum + points.length;
+  }, 0);
+  return `
+    <div class="panel-title compact">Model Cards</div>
+    <div class="badges">
+      <span class="badge">Cards ${cards.length}</span>
+      <span class="badge">Artifacts ${artifacts.length}</span>
+      <span class="badge">Residuals ${residualPoints}</span>
+    </div>
+    <div class="scroll">
+      ${renderModelCards(cards)}
+      <div class="panel-title compact">Training Artifacts</div>
+      ${renderModelArtifacts(artifacts)}
+    </div>
+  `;
+}
+
+function renderModelCards(cards) {
+  const rows = cards.map((card) => {
+    const metrics = card.metrics || {};
+    return `
+      <tr>
+        <td><strong>${escapeHtml(card.binding || "-")}</strong><div class="muted">L${escapeHtml(card.line ?? "-")}</div></td>
+        <td>${escapeHtml(card.model_kind || card.modelKind || "-")}<div class="muted">${escapeHtml(card.status || "-")}</div></td>
+        <td>${escapeHtml(card.target || "-")}<div class="muted">${escapeHtml(card.target_quantity || card.targetQuantity || "-")} ${escapeHtml(card.target_unit || card.targetUnit || "")}</div></td>
+        <td>${metricCell(metrics.rmse)} / ${metricCell(metrics.mae)} / ${metricCell(metrics.r2)}</td>
+        <td>${escapeHtml(card.residual_plot || card.residualPlot || "-")}<div class="muted">points ${escapeHtml(card.residual_point_count ?? card.residualPointCount ?? 0)}</div></td>
+        <td><code>${escapeHtml(compactText(card.model_artifact_hash || card.modelArtifactHash || "-", 70))}</code></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Model</th><th>Target</th><th>RMSE/MAE/R2</th><th>Residual Plot</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No model cards.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderModelArtifacts(artifacts) {
+  const rows = artifacts.map((artifact) => {
+    const residuals = artifact.residual_points || artifact.residualPoints || [];
+    const parity = artifact.parity_points || artifact.parityPoints || [];
+    return `
+      <tr>
+        <td><strong>${escapeHtml(artifact.binding || "-")}</strong><div class="muted">${escapeHtml(artifact.kind || "-")}</div></td>
+        <td>${escapeHtml(artifact.algorithm || "-")}<div class="muted">${escapeHtml(artifact.status || "-")}</div></td>
+        <td>${escapeHtml(Array.isArray(artifact.features) ? artifact.features.join(", ") : "-")}</td>
+        <td>${metricCell(artifact.rmse)} / ${metricCell(artifact.mae)} / ${metricCell(artifact.r2)}</td>
+        <td>${escapeHtml(Array.isArray(residuals) ? residuals.length : 0)}<div class="muted">parity ${escapeHtml(Array.isArray(parity) ? parity.length : 0)}</div></td>
+        <td><code>${escapeHtml(compactText(artifact.training_data_hash || artifact.trainingDataHash || "-", 70))}</code></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Artifact</th><th>Algorithm</th><th>Features</th><th>RMSE/MAE/R2</th><th>Points</th><th>Training Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No model artifacts.</td></tr>`}</tbody>
+    </table>
   `;
 }
 
