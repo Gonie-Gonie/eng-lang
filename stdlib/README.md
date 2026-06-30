@@ -51,11 +51,11 @@ APIs unless a status document says so.
 | `eng.cache` | Supported seed | Explicit cache keys, cache manifests, and hit/miss lookup artifacts; reuse/invalidation remains planned. |
 | `eng.quality` | Supported seed | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported seed | Native text template rendering for generated inputs and adapter boundaries. |
+| `eng.db` | Supported SQLite write seed | Native SQLite append/upsert writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |
-| `eng.db` | Planned native DB; supported manifest seed | DB side-effect manifest summaries; SQLite write/upsert helpers remain planned. |
 | `eng.model` | Supported model-spec artifact seed; planned public predict syntax | ModelSpec, FeatureSpec, TargetSpec, model-card, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |

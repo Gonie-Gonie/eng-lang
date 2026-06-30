@@ -2800,6 +2800,20 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     }
     let raw = line_text.trim();
     let rest = raw.strip_prefix("write ")?.trim();
+    if let Some((expression, target)) = rest.split_once(" to ") {
+        let expression = expression.trim();
+        let target = target.trim();
+        if !expression.is_empty() && db_table_target_expression(target).is_some() {
+            return Some(WriteDecl {
+                format: "db".to_owned(),
+                path: target.to_owned(),
+                expression: expression.to_owned(),
+                line: first.span.line,
+                span: first.span,
+                context,
+            });
+        }
+    }
     let (format, rest) = rest.split_once(char::is_whitespace)?;
     let format = format.trim();
     if !matches!(format, "text" | "json") {
@@ -2819,6 +2833,15 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
         span: first.span,
         context,
     })
+}
+
+fn db_table_target_expression(expression: &str) -> Option<(&str, &str)> {
+    let (connection, table_call) = expression.trim().split_once(".table(")?;
+    let table = table_call.trim().strip_suffix(')')?.trim();
+    if connection.trim().is_empty() || !table.starts_with('"') {
+        return None;
+    }
+    Some((connection.trim(), table))
 }
 
 fn parse_file_operation_decl(

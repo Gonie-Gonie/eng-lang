@@ -1643,9 +1643,12 @@
         "resolved_path",
         "hash",
         "database",
+        "database_hash_before",
+        "database_hash_after",
         "transaction_status",
         "schema_status",
         "tables",
+        "diagnostics",
         "status"
       ],
       "properties": {
@@ -1654,11 +1657,17 @@
         "resolved_path": { "type": "string" },
         "hash": { "type": ["string", "null"] },
         "database": { "type": ["string", "null"] },
+        "database_hash_before": { "type": ["string", "null"] },
+        "database_hash_after": { "type": ["string", "null"] },
         "transaction_status": { "type": ["string", "null"] },
         "schema_status": { "type": ["string", "null"] },
         "tables": {
           "type": "array",
           "items": { "$ref": "#/$defs/dbManifestTable" }
+        },
+        "diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/dbManifestDiagnostic" }
         },
         "status": { "type": "string" }
       }
@@ -1678,6 +1687,16 @@
           "items": { "type": "string" }
         },
         "row_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "dbManifestDiagnostic": {
+      "type": "object",
+      "required": ["code", "message", "table", "status"],
+      "properties": {
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "table": { "type": ["string", "null"] },
+        "status": { "type": "string" }
       }
     },
     "modelCardSummary": {

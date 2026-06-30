@@ -101,15 +101,15 @@ syntax:
   also covers prediction-manifest adaptation into
   `typed_payload.prediction_manifests[]`, including output quantity/unit,
   case IDs, row counts, hashes, and confidence-column metadata.
-- `runtime/db_sqlite_write.eng` maps to the DB write manifest fixture.
-  Current evidence is the typed DB manifest, schema diagnostics, transaction
-  status, source hashes, and table records; native SQLite writes are not yet
-  public syntax.
+- Native DB tests cover `open sqlite`, `write <table> to db.table("...")`,
+  append, upsert with key, transaction rollback, schema mismatch diagnostics,
+  safe-profile rejection, DB write manifests, SQLite database artifacts, DB
+  file hashes before/after, and table records.
 
 Remaining gap: live `eng.net` execution plus `eng.cache` replay/invalidation
-policy and native `eng.sampling`, `eng.case`, `eng.db`, and `eng.model`
-module syntax remains planned. Fixture/cache-record evidence must stay labeled
-as composite workflow foundations, not full native module support.
+policy and broader native `eng.sampling`, `eng.case`, `eng.db`, and
+`eng.model` module syntax remains planned. Fixture/cache-record evidence must
+stay labeled as composite workflow foundations, not full native module support.
 
 ## Checklist 9.4: Workflow Example Tests
 

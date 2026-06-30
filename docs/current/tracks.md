@@ -118,9 +118,10 @@ and next cleanup action.
   text/json, constrained copy/move/delete, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
 - Main internal: broader filesystem/process policy plus live `eng.net`
-  execution, `eng.cache` replay/invalidation, native `eng.db` SQLite writes,
+  execution, `eng.cache` replay/invalidation, broad `eng.db` database support,
   and `eng.model` public syntax are planned; network/cache record summaries,
-  DB manifest summaries, output-manifest `artifact_registry` summaries, and
+  native SQLite append/upsert DB write manifests, output-manifest
+  `artifact_registry` summaries, and
   model specs/cards/prediction-manifest summaries are supported as artifact
   seeds.
 - Next cleanup: maintain artifact-first side-effect documentation and add
@@ -141,8 +142,8 @@ and next cleanup action.
   manifests, generic output-manifest artifact registry records, typed
   model specs/cards with target contracts and hashes, prediction manifests with
   output quantity/unit, confidence-column metadata, and model/sample hashes, and
-  DB side-effect manifests with schema diagnostics, transaction status, and
-  table write records.
+  native SQLite DB side-effect manifests with schema diagnostics, transaction
+  status, DB file hashes before/after, and table write records.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

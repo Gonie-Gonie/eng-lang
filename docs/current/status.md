@@ -175,13 +175,14 @@ is not mistaken for public module support.
   - Main status: `Supported` path/io/process/test/profile, promoted table
     diagnostics, promoted sample-table artifacts, promoted case manifests
     enriched from process outputs, optional JSON/TOML config field policy,
-    DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
+    native SQLite append/upsert write seed records in
+    `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, model specs/cards in
     `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
     prediction manifests in `typed_payload.prediction_manifests[]`, model
     diagnostics in `typed_payload.model_diagnostics[]`, and hybrid artifact fixtures
     for weather/case/model/prediction/DB manifest contracts; `Planned` native
-    net/cache/sample generators/case runner/sqlite/model public syntax.
+    net/cache/sample generators/case runner, broad DB support, and model public syntax.
   - Current hybrid DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
     DB table summaries. Current hybrid model evidence includes external
@@ -196,8 +197,9 @@ is not mistaken for public module support.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
 - Native composite workflow modules beyond the current network/cache/sampling
-  seeds: live network execution, cache replay/invalidation, native case runner,
-  database writes, and public model train/predict workflows.
+  and SQLite write seeds: live network execution, cache replay/invalidation,
+  native case runner, broad database support, and public model train/predict
+  workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

@@ -214,7 +214,8 @@
         "overwrite_policy": {
           "enum": [
             "allowed",
-            "not_allowed"
+            "not_allowed",
+            "append_or_upsert"
           ]
         },
         "validation": {

@@ -124,11 +124,11 @@ tests = ["cargo test -p eng_runtime model"]
 [module."eng.db"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "DB side-effect manifest summaries; native SQLite write/upsert helpers are planned."
-artifacts = ["typed_payload.db_manifests", "db_write_manifest", "review.external_boundaries"]
-diagnostics = ["E-DB-SCHEMA-MISMATCH"]
+purpose = "Native SQLite append/upsert write seed with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records."
+artifacts = ["typed_payload.db_manifests", "db_write_manifest", "sqlite_database", "review.external_boundaries"]
+diagnostics = ["E-DB-CONNECT", "E-DB-SCHEMA-MISMATCH", "E-DB-KEY-MISSING", "E-DB-TRANSACTION-FAILED", "E-DB-SAFE-PROFILE", "W-PROFILE-REPRO-DB"]
 examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
-tests = ["cargo test -p eng_runtime db_manifest"]
+tests = ["cargo test -p eng_compiler lowers_native_db_write_seed", "cargo test -p eng_runtime sqlite", "cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write", "cargo test -p eng_runtime run_file_repro_profile_records_native_db_write"]
 
 [module."eng.config"]
 status = "supported_narrow"

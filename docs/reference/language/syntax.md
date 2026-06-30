@@ -1030,6 +1030,52 @@ The runnable example is:
 examples/official/12_write_output_manifest/main.eng
 ```
 
+## SQLite DB Writes
+
+Use `open sqlite` plus `write <table> to db.table("...")` when a typed table
+must be materialized as a reviewable SQLite side effect under `build/result`.
+
+```eng partial
+schema SimulationResult {
+    case_id: String
+    annual_electricity: Energy [kWh]
+}
+
+results = promote csv file("data/results.csv") as SimulationResult
+db = open sqlite file("outputs/results.sqlite")
+
+write results to db.table("simulation_results")
+with {
+    mode = upsert
+    key = case_id
+    transaction = commit
+}
+```
+
+Current DB write options:
+
+| Option | Meaning |
+|---|---|
+| `mode` | `append`/`insert` or `upsert`; default is `append` |
+| `key` | Upsert key column name or list of column names |
+| `transaction` | `commit` or `rollback`; default is `commit` |
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Top-level only | Imported files cannot hide DB writes |
+| SQLite output boundary | Database files live under `build/result` |
+| Typed source table | Source must be a promoted or generated typed table |
+| Schema preflight | Existing SQLite table columns must match the source schema |
+| Reviewable records | `result.engres` and `review.json` include `db_manifests[]` |
+| Manifest records | `output_manifest.json` records `sqlite_database` and `db_write_manifest` entries |
+
+The DB write manifest records database path, hash before/after, transaction
+status, schema status, diagnostics, table name, mode, key columns, schema
+columns, and row count. The runtime also writes `_eng_schema_metadata` with
+type/unit metadata for each exported source column.
+
 ## Template Rendering
 
 Use `render template` when an external simulator or adapter needs a generated
@@ -1177,9 +1223,9 @@ Current profile behavior:
 
 | Profile | Behavior |
 |---|---|
-| `safe` | Rejects explicit workflow `export`, `write`, file operations, and `run command` before they execute |
+| `safe` | Rejects explicit workflow `export`, `write`, DB writes, file operations, and `run command` before they execute |
 | `normal` | Default profile; allows supported effects and records their artifacts/provenance |
-| `repro` | Allows supported effects but records profile diagnostics for environment dependencies, process runs, and file mutations |
+| `repro` | Allows supported effects but records profile diagnostics for environment dependencies, process runs, DB writes, and file mutations |
 
 Profile metadata is written to:
 

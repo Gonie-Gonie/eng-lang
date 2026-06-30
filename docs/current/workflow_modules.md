@@ -32,8 +32,10 @@ database side-effect artifacts. Native network and cache record seeds have
 landed for offline/fixture boundaries and cache manifests; cache manifests now
 share owner records across network, process, model, and case workflow surfaces,
 enforce observed cache hashes under the repro profile, and warn about stale
-cache entries. Live network execution, cache replay, case runner, DB writer, and
-public model syntax remain planned or internal until concrete
+cache entries. Native SQLite append/upsert write seeds now produce DB files,
+DB manifests, schema diagnostics, hash before/after records, and transaction
+status. Live network execution, cache replay, case runner, broad DB support,
+and public model syntax remain planned or internal until concrete
 language/runtime/artifact slices land.
 
 ## Purpose
@@ -67,7 +69,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.artifact` | supported_seed | compiler_runtime_builtin | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | `artifact_validation_failed` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime output_manifest` |
 | `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
 | `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_specs`<br>`typed_payload.model_cards`<br>`typed_payload.prediction_manifests`<br>`typed_payload.model_diagnostics`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING`<br>`W-MODEL-EXTRAPOLATION` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model` |
-| `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`review.external_boundaries` | `E-DB-SCHEMA-MISMATCH` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime db_manifest` |
+| `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`sqlite_database`<br>`review.external_boundaries` | `E-DB-CONNECT`<br>`E-DB-SCHEMA-MISMATCH`<br>`E-DB-KEY-MISSING`<br>`E-DB-TRANSACTION-FAILED`<br>`E-DB-SAFE-PROFILE`<br>`W-PROFILE-REPRO-DB` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler lowers_native_db_write_seed`<br>`cargo test -p eng_runtime sqlite`<br>`cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write`<br>`cargo test -p eng_runtime run_file_repro_profile_records_native_db_write` |
 | `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg` |
 | `eng.cache` | supported_seed | compiler_runtime_builtin | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH`<br>`E-CACHE-UNHASHED-REPRO`<br>`W-CACHE-STALE` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
@@ -150,11 +152,11 @@ diagnostics, status, and reason,
 `typed_payload.sample_tables[]` records deterministic generated and promoted
 sample/case table metadata, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`
-files, `typed_payload.db_manifests[]` records generated DB write manifests,
-and current network/cache seeds record fixture boundaries and cache hit/miss
-lookup manifests. Future live network execution, cache replay/invalidation,
-native case runner, native DB writer, and model modules should follow the same
-artifact pattern.
+files, `typed_payload.db_manifests[]` records generated and native SQLite DB
+write manifests, and current network/cache seeds record fixture boundaries and
+cache hit/miss lookup manifests. Future live network execution,
+cache replay/invalidation, native case runner, broad DB engines, and model
+modules should follow the same artifact pattern.
 
 ## Hybrid Artifact Evidence
 
@@ -192,7 +194,9 @@ process_results.json and output_manifest.json entries for every opaque boundary
 ```
 
 These fixtures show the review contract that `eng.case`, `eng.db`, and
-`eng.model` should make native. The current `eng.model` seed makes external
+`eng.model` should preserve as native slices grow. The current `eng.db` seed
+adds native SQLite append/upsert writes for typed tables, while broad DB engines
+and query APIs remain planned. The current `eng.model` seed makes external
 model cards, model specs, prediction manifests, and model diagnostics
 reviewable when they cross explicit process expected-output boundaries. Public
 train/predict syntax remains planned, and the internal `eng.ml` seed exposes
@@ -284,7 +288,12 @@ E-CASE-DIR-COLLISION
 E-CASE-OUTPUT-MISSING
 E-CASE-STEP-FAILED
 W-CASE-SKIPPED-CACHE
+E-DB-CONNECT
 E-DB-SCHEMA-MISMATCH
+E-DB-KEY-MISSING
+E-DB-TRANSACTION-FAILED
+E-DB-SAFE-PROFILE
+W-PROFILE-REPRO-DB
 E-MODEL-FEATURE-MISSING
 E-MODEL-TARGET-MISSING
 E-MODEL-CARD-MISSING

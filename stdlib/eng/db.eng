@@ -1,25 +1,29 @@
 # module: eng.db
-# status: supported-manifest-artifact-seed; planned native sqlite
+# status: supported-native-sqlite-write-seed
 # purpose: typed database side effects, starting with SQLite-style write/upsert workflows and transaction artifacts.
 #
 # Current implementation:
-#   no native DB module yet. Process expected outputs named like DB manifests
-#   are summarized in typed_payload.db_manifests[] with database target, table
-#   names, modes, key fields, schemas, schema mismatch diagnostics, row
-#   counts, transaction status, and manifest hash.
+#   top-level SQLite connections use `db = open sqlite file("outputs/name.sqlite")`.
+#   Typed tables can be written with `write results to db.table("table_name")`
+#   using append or upsert-by-key modes. Runtime writes produce a SQLite
+#   database artifact plus a db_write_manifest sidecar, and summarize database
+#   target, table names, modes, key fields, schemas, schema mismatch
+#   diagnostics, row counts, DB file hashes before/after, transaction status,
+#   and manifest hash in typed_payload.db_manifests[].
 #
-# Planned helper vocabulary:
+# Supported helper vocabulary:
 #   open sqlite
-#   write rows to table
+#   write <table_binding> to db.table("table")
 #   append/upsert by key
-#   transaction report
-#   safe/repro profile DB policy
+#   transaction commit/rollback policy
+#   safe profile DB-write rejection
 #
 # Review contract:
 #   database target, table, schema, mode, key fields, row count, transaction
-#   status, schema diagnostics, and generated artifact or side-effect
-#   manifest entry.
+#   status, schema diagnostics, DB file hash before/after, generated SQLite
+#   artifact, and side-effect manifest entry.
 #
 # Non-goal:
 #   DB writes must not bypass side-effect policy, output manifests, or schema
-#   review.
+#   review. Broad database engines, migrations, query execution, and connection
+#   pools remain planned.

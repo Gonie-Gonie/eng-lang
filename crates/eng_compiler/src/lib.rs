@@ -12318,6 +12318,74 @@ system Envelope {
     }
 
     #[test]
+    fn lowers_native_db_write_seed() {
+        let root = env::temp_dir().join(format!("englang-db-write-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\n",
+        )
+        .expect("results csv");
+        let source_path = root.join("db.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = upsert\n",
+                "    key = case_id\n",
+                "    transaction = commit\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let db_binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "db")
+            .expect("db binding");
+        assert_eq!(db_binding.semantic_type.quantity_kind, "DbConnection");
+        assert_eq!(db_binding.semantic_type.display_unit, "sqlite");
+        let write = report
+            .semantic_program
+            .writes
+            .iter()
+            .find(|write| write.format == "db")
+            .expect("db write");
+        assert_eq!(write.expression, "results");
+        assert_eq!(write.path, "db.table(\"simulation_results\")");
+        assert_eq!(write.quantity_kind, "DbWrite");
+        assert_eq!(write.display_unit, "sqlite");
+        let options = &report
+            .semantic_program
+            .with_blocks
+            .iter()
+            .find(|block| block.owner_line == Some(write.line))
+            .expect("db write options")
+            .options;
+        assert!(options
+            .iter()
+            .any(|option| option.key == "mode" && option.value == "upsert"));
+        assert!(options
+            .iter()
+            .any(|option| option.key == "key" && option.value == "case_id"));
+        assert!(options
+            .iter()
+            .any(|option| option.key == "transaction" && option.value == "commit"));
+    }
+
+    #[test]
     fn rejects_invalid_sample_generation_specs() {
         let report = check_source(
             "bad_samples.eng",

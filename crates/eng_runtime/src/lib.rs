@@ -3,6 +3,7 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
+use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -223,6 +224,15 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                 });
             }
             for write in &report.semantic_program.writes {
+                if write.format == "db" {
+                    diagnostics.push(ProfileDiagnostic {
+                        severity: "error",
+                        code: "E-DB-SAFE-PROFILE",
+                        message: "safe profile rejects native DB write side effects".to_owned(),
+                        line: write.line,
+                    });
+                    continue;
+                }
                 diagnostics.push(ProfileDiagnostic {
                     severity: "error",
                     code: "E-PROFILE-SAFE-WRITE",
@@ -277,6 +287,22 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                         process.command
                     ),
                     line: process.line,
+                });
+            }
+            for write in report
+                .semantic_program
+                .writes
+                .iter()
+                .filter(|write| write.format == "db")
+            {
+                diagnostics.push(ProfileDiagnostic {
+                    severity: "warning",
+                    code: "W-PROFILE-REPRO-DB",
+                    message: format!(
+                        "repro profile records DB write `{}` with manifest and database hash before/after",
+                        write.expression
+                    ),
+                    line: write.line,
                 });
             }
             for generation in &report.semantic_program.sample_generations {
@@ -542,7 +568,10 @@ pub fn run_source(
     let template_render_output =
         render_template_outputs(&check_report, &runtime_data, &result_dir)?;
     let process_results = execute_process_runs(&check_report)?;
-    let db_manifest_records = db_manifest_records(&process_results);
+    let native_db_write_output =
+        execute_native_db_writes(&check_report, &runtime_data, &result_dir)?;
+    let mut db_manifest_records = db_manifest_records(&process_results);
+    db_manifest_records.extend(native_db_write_output.records.clone());
     let external_boundary_records =
         external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
     let cache_manifest_records =
@@ -619,6 +648,7 @@ pub fn run_source(
     let report_spec_hash = hash_text(&report_spec_json);
     let mut output_artifacts = Vec::new();
     output_artifacts.extend(template_render_output.artifacts.clone());
+    output_artifacts.extend(native_db_write_output.artifacts.clone());
     output_artifacts.extend(process_expected_output_artifacts(&process_results));
     output_artifacts.extend(csv_export_artifacts);
     output_artifacts.extend(write_artifacts);
@@ -631,6 +661,7 @@ pub fn run_source(
         &output_artifacts,
         &cache_manifest_records,
         &template_render_output.records,
+        &db_manifest_records,
     );
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
@@ -640,6 +671,7 @@ pub fn run_source(
         &execution,
         &runtime_data,
         &process_results,
+        &db_manifest_records,
         &cache_manifest_records,
         &template_render_output.records,
         &ResultArtifactHashes {
@@ -1642,11 +1674,21 @@ struct DbManifestRecord {
     resolved_path: String,
     hash: Option<String>,
     database: Option<String>,
+    database_hash_before: Option<String>,
+    database_hash_after: Option<String>,
     transaction_status: Option<String>,
     schema_status: Option<String>,
     tables: Vec<DbManifestTableRecord>,
+    diagnostics: Vec<DbManifestDiagnosticRecord>,
     status: String,
     line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct DbManifestDiagnosticRecord {
+    code: String,
+    message: String,
+    table: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -2388,9 +2430,12 @@ fn db_manifest_record(
         resolved_path: output.resolved_path.display().to_string(),
         hash: output.hash.clone(),
         database: None,
+        database_hash_before: None,
+        database_hash_after: None,
         transaction_status: None,
         schema_status: None,
         tables: Vec::new(),
+        diagnostics: Vec::new(),
         status: if output.exists {
             "manifest_unread".to_owned()
         } else {
@@ -2409,8 +2454,11 @@ fn db_manifest_record(
         return record;
     };
     record.database = json_field_string(&value, "database");
+    record.database_hash_before = json_field_string(&value, "database_hash_before");
+    record.database_hash_after = json_field_string(&value, "database_hash_after");
     record.transaction_status = json_field_string(&value, "transaction_status");
     record.schema_status = json_field_string(&value, "schema_status");
+    record.diagnostics = db_manifest_diagnostics_from_json(&value);
     if let Some(tables) = value.get("tables").and_then(Value::as_array) {
         record.tables = tables
             .iter()
@@ -2425,6 +2473,33 @@ fn db_manifest_record(
     }
     record.status = "manifest_loaded".to_owned();
     record
+}
+
+fn db_manifest_diagnostics_from_json(value: &Value) -> Vec<DbManifestDiagnosticRecord> {
+    let mut diagnostics = Vec::new();
+    if let Some(items) = value.get("diagnostics").and_then(Value::as_array) {
+        diagnostics.extend(
+            items.iter().map(|item| DbManifestDiagnosticRecord {
+                code: json_field_string(item, "code")
+                    .unwrap_or_else(|| "E-DB-SCHEMA-MISMATCH".to_owned()),
+                message: json_field_string(item, "message").unwrap_or_default(),
+                table: json_field_string(item, "table"),
+            }),
+        );
+    }
+    if let Some(items) = value
+        .get("schema_mismatch_diagnostics")
+        .and_then(Value::as_array)
+    {
+        diagnostics.extend(items.iter().filter_map(Value::as_str).map(|message| {
+            DbManifestDiagnosticRecord {
+                code: "E-DB-SCHEMA-MISMATCH".to_owned(),
+                message: message.to_owned(),
+                table: None,
+            }
+        }));
+    }
+    diagnostics
 }
 
 fn json_field_string(value: &Value, key: &str) -> Option<String> {
@@ -4026,7 +4101,12 @@ fn write_outputs(
     result_dir: &Path,
 ) -> Result<Vec<OutputArtifact>, RuntimeError> {
     let mut artifacts = Vec::new();
-    for write in &report.semantic_program.writes {
+    for write in report
+        .semantic_program
+        .writes
+        .iter()
+        .filter(|write| write.format != "db")
+    {
         let path_text = evaluate_runtime_path_expression(&write.path, report).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
@@ -4058,6 +4138,616 @@ fn write_outputs(
         ));
     }
     Ok(artifacts)
+}
+
+#[derive(Clone, Debug)]
+struct NativeDbWriteOutput {
+    artifacts: Vec<OutputArtifact>,
+    records: Vec<DbManifestRecord>,
+}
+
+fn execute_native_db_writes(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+) -> Result<NativeDbWriteOutput, RuntimeError> {
+    let mut output = NativeDbWriteOutput {
+        artifacts: Vec::new(),
+        records: Vec::new(),
+    };
+    for write in report
+        .semantic_program
+        .writes
+        .iter()
+        .filter(|write| write.format == "db")
+    {
+        let (artifacts, record) = execute_native_db_write(report, runtime_data, result_dir, write)?;
+        output.artifacts.extend(artifacts);
+        output.records.push(record);
+    }
+    Ok(output)
+}
+
+fn execute_native_db_write(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+    write: &eng_compiler::WriteInfo,
+) -> Result<(Vec<OutputArtifact>, DbManifestRecord), RuntimeError> {
+    let (connection_binding, table_name) = db_table_target_parts(&write.path).ok_or_else(|| {
+        invalid_input(&format!(
+            "E-DB-CONNECT: invalid DB table target `{}`",
+            write.path
+        ))
+    })?;
+    let db_path_text = db_connection_path_text(report, &connection_binding).ok_or_else(|| {
+        invalid_input(&format!(
+            "E-DB-CONNECT: cannot resolve SQLite connection `{connection_binding}`"
+        ))
+    })?;
+    let db_path = export_output_path(result_dir, &db_path_text).ok_or_else(|| {
+        invalid_input(&format!(
+            "E-DB-CONNECT: SQLite path `{db_path_text}` is outside the output root"
+        ))
+    })?;
+    if let Some(parent) = db_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    let db_relative_path = relative_output_path(result_dir, &db_path);
+    let manifest_relative_path = format!("{db_relative_path}.db_write_manifest.json");
+    let manifest_path =
+        export_output_path(result_dir, &manifest_relative_path).ok_or_else(|| {
+            invalid_input(&format!(
+            "E-DB-CONNECT: DB manifest path `{manifest_relative_path}` is outside the output root"
+        ))
+        })?;
+    let table = runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == write.expression.trim())
+        .ok_or_else(|| {
+            invalid_input(&format!(
+                "E-DB-SCHEMA-MISMATCH: DB write source `{}` was not materialized",
+                write.expression
+            ))
+        })?;
+    let mode = db_write_mode(report, write.line)?;
+    let key = db_write_key(report, write.line);
+    let transaction_policy = db_transaction_policy(report, write.line)?;
+    let database_hash_before = hash_file_if_exists(&db_path);
+    let mut diagnostics =
+        db_write_preflight_diagnostics(&db_path, &table_name, table, &mode, &key)?;
+    let mut transaction_status = "committed".to_owned();
+    let mut rows_written = table.row_count as u64;
+
+    if diagnostics.is_empty() {
+        execute_sqlite_write_payload(
+            &db_path,
+            &table_name,
+            table,
+            &mode,
+            &key,
+            &transaction_policy,
+        )?;
+        if transaction_policy == "rollback" {
+            transaction_status = "rolled_back".to_owned();
+        }
+    } else {
+        transaction_status = "rolled_back".to_owned();
+        rows_written = 0;
+    }
+
+    let database_hash_after = hash_file_if_exists(&db_path);
+    let schema_status = if diagnostics.is_empty() {
+        "ok"
+    } else {
+        "mismatch"
+    }
+    .to_owned();
+    let mut record = DbManifestRecord {
+        binding: write.expression.clone(),
+        manifest_path: manifest_relative_path.clone(),
+        resolved_path: manifest_path.display().to_string(),
+        hash: None,
+        database: Some(db_relative_path.clone()),
+        database_hash_before,
+        database_hash_after: database_hash_after.clone(),
+        transaction_status: Some(transaction_status),
+        schema_status: Some(schema_status),
+        tables: vec![DbManifestTableRecord {
+            name: table_name.clone(),
+            mode: mode.clone(),
+            key: key.clone(),
+            schema: table
+                .columns
+                .iter()
+                .map(|column| column.name.clone())
+                .collect(),
+            row_count: Some(rows_written),
+        }],
+        diagnostics: std::mem::take(&mut diagnostics),
+        status: "manifest_loaded".to_owned(),
+        line: write.line,
+    };
+    let manifest_json = native_db_write_manifest_json(&record);
+    write_output_file(&manifest_path, &manifest_json, true)?;
+    let manifest_hash = hash_text(&manifest_json);
+    record.hash = Some(manifest_hash.clone());
+
+    let mut artifacts = Vec::new();
+    if let Some(hash) = database_hash_after {
+        artifacts.push(
+            OutputArtifact::new(
+                "sqlite_database".to_owned(),
+                db_relative_path,
+                hash,
+                db_path,
+                artifact_validation("passed", "sqlite_write", "SQLite database was written"),
+            )
+            .with_overwrite_policy("append_or_upsert".to_owned()),
+        );
+    }
+    artifacts.push(output_artifact_with_overwrite_policy(
+        "db_write_manifest",
+        manifest_relative_path,
+        &manifest_json,
+        manifest_path,
+        "allowed",
+    ));
+    Ok((artifacts, record))
+}
+
+fn db_table_target_parts(expression: &str) -> Option<(String, String)> {
+    let (connection, table_call) = expression.trim().split_once(".table(")?;
+    let table = table_call.trim().strip_suffix(')')?.trim();
+    Some((
+        connection.trim().to_owned(),
+        strip_runtime_string_value(table),
+    ))
+    .filter(|(connection, table)| !connection.is_empty() && !table.is_empty())
+}
+
+fn db_connection_path_text(report: &CheckReport, binding: &str) -> Option<String> {
+    let declaration = report
+        .inferred_declarations
+        .iter()
+        .find(|declaration| declaration.name == binding)?;
+    let path_expression = declaration
+        .expression
+        .trim()
+        .strip_prefix("open sqlite ")?
+        .trim();
+    evaluate_runtime_output_path_expression(path_expression, report)
+}
+
+fn db_write_mode(report: &CheckReport, owner_line: usize) -> Result<String, RuntimeError> {
+    let raw = process_option(report, owner_line, "mode").unwrap_or_else(|| "append".to_owned());
+    match strip_runtime_string_value(&raw)
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "" | "append" | "insert" => Ok("append".to_owned()),
+        "upsert" => Ok("upsert".to_owned()),
+        other => Err(invalid_input(&format!(
+            "E-DB-SCHEMA-MISMATCH: unsupported DB write mode `{other}`; use append or upsert"
+        ))),
+    }
+}
+
+fn db_transaction_policy(report: &CheckReport, owner_line: usize) -> Result<String, RuntimeError> {
+    let raw =
+        process_option(report, owner_line, "transaction").unwrap_or_else(|| "commit".to_owned());
+    match strip_runtime_string_value(&raw)
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "" | "commit" => Ok("commit".to_owned()),
+        "rollback" => Ok("rollback".to_owned()),
+        other => Err(invalid_input(&format!(
+            "E-DB-TRANSACTION-FAILED: unsupported transaction policy `{other}`; use commit or rollback"
+        ))),
+    }
+}
+
+fn db_write_key(report: &CheckReport, owner_line: usize) -> Vec<String> {
+    let Some(raw) = process_option(report, owner_line, "key") else {
+        return Vec::new();
+    };
+    let trimmed = raw.trim().trim_start_matches('[').trim_end_matches(']');
+    trimmed
+        .split(',')
+        .map(str::trim)
+        .map(strip_runtime_string_value)
+        .filter(|value| !value.is_empty())
+        .collect()
+}
+
+fn db_write_preflight_diagnostics(
+    db_path: &Path,
+    table_name: &str,
+    table: &runtime_data::RuntimeTable,
+    mode: &str,
+    key: &[String],
+) -> Result<Vec<DbManifestDiagnosticRecord>, RuntimeError> {
+    let mut diagnostics = Vec::new();
+    let desired_columns = table
+        .columns
+        .iter()
+        .map(|column| column.name.clone())
+        .collect::<Vec<_>>();
+    if mode == "upsert" && key.is_empty() {
+        diagnostics.push(DbManifestDiagnosticRecord {
+            code: "E-DB-KEY-MISSING".to_owned(),
+            message: format!("upsert table `{table_name}` requires at least one key column"),
+            table: Some(table_name.to_owned()),
+        });
+    }
+    for key_column in key {
+        if !desired_columns.iter().any(|column| column == key_column) {
+            diagnostics.push(DbManifestDiagnosticRecord {
+                code: "E-DB-KEY-MISSING".to_owned(),
+                message: format!(
+                    "upsert key `{key_column}` is not present in source table `{}`",
+                    table.binding
+                ),
+                table: Some(table_name.to_owned()),
+            });
+        }
+    }
+    if db_path.exists() {
+        let existing_columns = sqlite_table_columns(db_path, table_name)?;
+        if !existing_columns.is_empty() && existing_columns != desired_columns {
+            diagnostics.push(DbManifestDiagnosticRecord {
+                code: "E-DB-SCHEMA-MISMATCH".to_owned(),
+                message: format!(
+                    "existing table `{table_name}` columns [{}] do not match source schema [{}]",
+                    existing_columns.join(", "),
+                    desired_columns.join(", ")
+                ),
+                table: Some(table_name.to_owned()),
+            });
+        }
+    }
+    Ok(diagnostics)
+}
+
+fn execute_sqlite_write_payload(
+    db_path: &Path,
+    table_name: &str,
+    table: &runtime_data::RuntimeTable,
+    mode: &str,
+    key: &[String],
+    transaction_policy: &str,
+) -> Result<(), RuntimeError> {
+    let payload =
+        sqlite_write_payload_json(db_path, table_name, table, mode, key, transaction_policy);
+    run_python_sqlite_script(SQLITE_WRITE_SCRIPT, &payload).map(|_| ())
+}
+
+fn sqlite_write_payload_json(
+    db_path: &Path,
+    table_name: &str,
+    table: &runtime_data::RuntimeTable,
+    mode: &str,
+    key: &[String],
+    transaction_policy: &str,
+) -> String {
+    let columns = table
+        .columns
+        .iter()
+        .map(|column| {
+            json!({
+                "name": column.name,
+                "sqlite_type": sqlite_column_type(column),
+                "type_name": column.type_name,
+                "quantity_kind": column.type_name,
+                "unit": column.unit,
+                "canonical_unit": column.canonical_unit,
+                "is_index": column.is_index,
+            })
+        })
+        .collect::<Vec<_>>();
+    let rows = (0..table.row_count)
+        .map(|row_index| Value::Array(sqlite_row_json_values(table, row_index)))
+        .collect::<Vec<_>>();
+    serde_json::to_string(&json!({
+        "database": db_path.display().to_string(),
+        "table": table_name,
+        "mode": mode,
+        "key": key,
+        "transaction": transaction_policy,
+        "columns": columns,
+        "rows": rows,
+    }))
+    .expect("serialize SQLite write payload")
+}
+
+fn sqlite_table_columns(db_path: &Path, table_name: &str) -> Result<Vec<String>, RuntimeError> {
+    let payload = serde_json::to_string(&json!({
+        "database": db_path.display().to_string(),
+        "table": table_name,
+    }))
+    .expect("serialize SQLite table inspection payload");
+    let output = run_python_sqlite_script(SQLITE_TABLE_COLUMNS_SCRIPT, &payload)?;
+    serde_json::from_str(output.trim()).map_err(|error| {
+        invalid_input(&format!(
+            "E-DB-SCHEMA-MISMATCH: failed to parse SQLite table inspection result for `{table_name}`: {error}"
+        ))
+    })
+}
+
+fn sqlite_column_type(column: &runtime_data::RuntimeColumn) -> &'static str {
+    match &column.values {
+        RuntimeValues::Number(_) => "REAL",
+        RuntimeValues::Text(_) => "TEXT",
+    }
+}
+
+fn sqlite_row_json_values(table: &runtime_data::RuntimeTable, row_index: usize) -> Vec<Value> {
+    table
+        .columns
+        .iter()
+        .map(|column| match &column.values {
+            RuntimeValues::Text(values) => values
+                .get(row_index)
+                .cloned()
+                .map(Value::String)
+                .unwrap_or(Value::Null),
+            RuntimeValues::Number(values) => values
+                .get(row_index)
+                .and_then(|value| *value)
+                .map(Value::from)
+                .unwrap_or(Value::Null),
+        })
+        .collect()
+}
+
+fn run_python_sqlite_script(script: &str, input: &str) -> Result<String, RuntimeError> {
+    let candidates: &[(&str, &[&str])] = &[("python", &[]), ("python3", &[]), ("py", &["-3"])];
+    let mut spawn_errors = Vec::new();
+    let mut execution_errors = Vec::new();
+    for (program, prefix_args) in candidates {
+        let mut command = Command::new(program);
+        command
+            .args(*prefix_args)
+            .arg("-c")
+            .arg(script)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped());
+        let mut child = match command.spawn() {
+            Ok(child) => child,
+            Err(error) => {
+                spawn_errors.push(format!("{program}: {error}"));
+                continue;
+            }
+        };
+        if let Some(stdin) = child.stdin.as_mut() {
+            stdin.write_all(input.as_bytes()).map_err(|error| {
+                invalid_input(&format!(
+                    "E-DB-TRANSACTION-FAILED: failed to send SQLite payload to Python: {error}"
+                ))
+            })?;
+        }
+        let output = child.wait_with_output().map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-TRANSACTION-FAILED: failed to wait for Python SQLite helper: {error}"
+            ))
+        })?;
+        if output.status.success() {
+            return Ok(String::from_utf8_lossy(&output.stdout).to_string());
+        }
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        execution_errors.push(format!(
+            "{}{}: {}{}",
+            program,
+            if prefix_args.is_empty() { "" } else { " -3" },
+            stderr.trim(),
+            if stdout.trim().is_empty() {
+                String::new()
+            } else {
+                format!(" ({})", stdout.trim())
+            }
+        ));
+    }
+    if !execution_errors.is_empty() {
+        return Err(invalid_input(&format!(
+            "E-DB-TRANSACTION-FAILED: Python SQLite helper failed: {}",
+            execution_errors.join("; ")
+        )));
+    }
+    Err(invalid_input(&format!(
+        "E-DB-CONNECT: Python 3 with sqlite3 is required for SQLite DB writes ({})",
+        spawn_errors.join("; ")
+    )))
+}
+
+const SQLITE_TABLE_COLUMNS_SCRIPT: &str = r#"
+import json
+import sqlite3
+import sys
+
+payload = json.load(sys.stdin)
+
+def quote_identifier(value):
+    return '"' + str(value).replace('"', '""') + '"'
+
+connection = sqlite3.connect(payload["database"])
+try:
+    rows = connection.execute(
+        "PRAGMA table_info(" + quote_identifier(payload["table"]) + ")"
+    ).fetchall()
+    print(json.dumps([row[1] for row in rows]))
+finally:
+    connection.close()
+"#;
+
+const SQLITE_WRITE_SCRIPT: &str = r#"
+import json
+import sqlite3
+import sys
+
+payload = json.load(sys.stdin)
+
+def quote_identifier(value):
+    return '"' + str(value).replace('"', '""') + '"'
+
+def column_definition(column):
+    return quote_identifier(column["name"]) + " " + column["sqlite_type"]
+
+connection = sqlite3.connect(payload["database"])
+try:
+    connection.execute("BEGIN")
+    definitions = [column_definition(column) for column in payload["columns"]]
+    key = payload["key"]
+    if key:
+        definitions.append(
+            "PRIMARY KEY (" + ", ".join(quote_identifier(column) for column in key) + ")"
+        )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS "
+        + quote_identifier(payload["table"])
+        + " ("
+        + ", ".join(definitions)
+        + ")"
+    )
+    connection.execute(
+        "CREATE TABLE IF NOT EXISTS \"_eng_schema_metadata\" ("
+        "db_table TEXT NOT NULL, "
+        "column_name TEXT NOT NULL, "
+        "type_name TEXT NOT NULL, "
+        "quantity_kind TEXT, "
+        "unit TEXT, "
+        "canonical_unit TEXT, "
+        "is_index INTEGER NOT NULL, "
+        "PRIMARY KEY (db_table, column_name))"
+    )
+    connection.execute(
+        "DELETE FROM \"_eng_schema_metadata\" WHERE db_table = ?",
+        [payload["table"]],
+    )
+    for column in payload["columns"]:
+        connection.execute(
+            "INSERT INTO \"_eng_schema_metadata\" "
+            "(db_table, column_name, type_name, quantity_kind, unit, canonical_unit, is_index) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?)",
+            [
+                payload["table"],
+                column["name"],
+                column["type_name"],
+                column["quantity_kind"],
+                column.get("unit"),
+                column.get("canonical_unit"),
+                1 if column.get("is_index") else 0,
+            ],
+        )
+    column_names = [column["name"] for column in payload["columns"]]
+    quoted_columns = ", ".join(quote_identifier(column) for column in column_names)
+    placeholders = ", ".join("?" for _ in column_names)
+    sql = (
+        "INSERT INTO "
+        + quote_identifier(payload["table"])
+        + " ("
+        + quoted_columns
+        + ") VALUES ("
+        + placeholders
+        + ")"
+    )
+    if payload["mode"] == "upsert" and key:
+        assignments = [
+            quote_identifier(column)
+            + " = excluded."
+            + quote_identifier(column)
+            for column in column_names
+            if column not in key
+        ]
+        sql += " ON CONFLICT (" + ", ".join(quote_identifier(column) for column in key) + ") DO "
+        sql += "NOTHING" if not assignments else "UPDATE SET " + ", ".join(assignments)
+    for row in payload["rows"]:
+        connection.execute(sql, row)
+    if payload["transaction"] == "rollback":
+        connection.rollback()
+    else:
+        connection.commit()
+    print(json.dumps({"status": "ok"}))
+except Exception:
+    connection.rollback()
+    raise
+finally:
+    connection.close()
+"#;
+
+fn hash_file_if_exists(path: &Path) -> Option<String> {
+    fs::read(path).ok().map(|bytes| hash_bytes(&bytes))
+}
+
+fn native_db_write_manifest_json(record: &DbManifestRecord) -> String {
+    let mut json = String::new();
+    json.push_str("{\n");
+    json.push_str("  \"format\": \"db-write-manifest-v1\",\n");
+    json.push_str(&format!(
+        "  \"database\": \"{}\",\n",
+        json_escape(record.database.as_deref().unwrap_or_default())
+    ));
+    push_optional_json_string(
+        &mut json,
+        "database_hash_before",
+        record.database_hash_before.as_deref(),
+        2,
+    );
+    push_optional_json_string(
+        &mut json,
+        "database_hash_after",
+        record.database_hash_after.as_deref(),
+        2,
+    );
+    push_optional_json_string(
+        &mut json,
+        "transaction_status",
+        record.transaction_status.as_deref(),
+        2,
+    );
+    push_optional_json_string(
+        &mut json,
+        "schema_status",
+        record.schema_status.as_deref(),
+        2,
+    );
+    json.push_str("  \"diagnostics\": [\n");
+    push_db_manifest_diagnostics_json(&mut json, &record.diagnostics, "    ");
+    json.push_str("\n  ],\n");
+    json.push_str("  \"tables\": [\n");
+    for (index, table) in record.tables.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"name\": \"{}\",\n",
+            json_escape(&table.name)
+        ));
+        json.push_str(&format!(
+            "      \"mode\": \"{}\",\n",
+            json_escape(&table.mode)
+        ));
+        json.push_str("      \"key\": [");
+        push_json_string_array(&mut json, &table.key);
+        json.push_str("],\n");
+        json.push_str("      \"schema\": [");
+        push_json_string_array(&mut json, &table.schema);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "      \"row_count\": {}\n",
+            table.row_count.unwrap_or(0)
+        ));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ]\n");
+    json.push_str("}\n");
+    json
 }
 
 fn apply_file_operations(
@@ -6796,7 +7486,7 @@ fn artifact_record_class(kind: &str) -> &'static str {
         "process_results" | "process_expected_output" => "external_boundary",
         "cache_manifest" => "cache",
         "case_input" | "case_result" | "case_manifest" | "result_collection" => "case",
-        "db_write_manifest" => "db_write",
+        "db_write_manifest" | "sqlite_database" => "db_write",
         "template_render" | "template_render_manifest" => "template",
         "model_artifact"
         | "model_card"
@@ -7679,6 +8369,7 @@ fn result_json(
     execution: &VmExecution,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    db_manifest_records: &[DbManifestRecord],
     cache_records: &[CacheManifestRecord],
     template_render_records: &[TemplateRenderRecord],
     hashes: &ResultArtifactHashes<'_>,
@@ -8102,8 +8793,7 @@ fn result_json(
     let case_manifests = case_manifests_json(runtime_data, process_results, cache_records);
     let case_tables = case_tables_json(runtime_data, process_results, cache_records);
     let case_diagnostics = case_diagnostics_json(runtime_data, process_results, cache_records);
-    let db_manifest_records = db_manifest_records(process_results);
-    let db_manifests = db_manifests_json(&db_manifest_records);
+    let db_manifests = db_manifests_json(db_manifest_records);
     let render_manifests = template_render_records_json(template_render_records, "      ");
     let model_cards = model_cards_json(runtime_data, process_results);
     let model_specs = model_specs_json(runtime_data, process_results);
@@ -9233,6 +9923,7 @@ fn runtime_review_json(
     artifacts: &[OutputArtifact],
     cache_records: &[CacheManifestRecord],
     template_render_records: &[TemplateRenderRecord],
+    db_manifest_records: &[DbManifestRecord],
 ) -> String {
     let enriched_boundaries =
         enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
@@ -9428,7 +10119,6 @@ fn runtime_review_json(
         json.push_str("\n      ]\n");
         json.push_str("    }");
     }
-    let db_manifest_records = db_manifest_records(process_results);
     json.push_str("\n  ],\n  \"table_selections\": [\n");
     json.push_str(&table_selections_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"table_transforms\": [\n");
@@ -9469,7 +10159,7 @@ fn runtime_review_json(
         cache_records,
     ));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
-    json.push_str(&db_manifests_json(&db_manifest_records));
+    json.push_str(&db_manifests_json(db_manifest_records));
     json.push_str("\n  ],\n  \"model_cards\": [\n");
     json.push_str(&model_cards_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"model_specs\": [\n");
@@ -12250,6 +12940,18 @@ fn db_manifests_json(records: &[DbManifestRecord]) -> String {
         push_optional_json_string(&mut json, "database", record.database.as_deref(), 8);
         push_optional_json_string(
             &mut json,
+            "database_hash_before",
+            record.database_hash_before.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "database_hash_after",
+            record.database_hash_after.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
             "transaction_status",
             record.transaction_status.as_deref(),
             8,
@@ -12289,6 +12991,9 @@ fn db_manifests_json(records: &[DbManifestRecord]) -> String {
             json.push_str("          }");
         }
         json.push_str("\n        ],\n");
+        json.push_str("        \"diagnostics\": [\n");
+        push_db_manifest_diagnostics_json(&mut json, &record.diagnostics, "          ");
+        json.push_str("\n        ],\n");
         json.push_str(&format!(
             "        \"status\": \"{}\"\n",
             json_escape(&record.status)
@@ -12296,6 +13001,30 @@ fn db_manifests_json(records: &[DbManifestRecord]) -> String {
         json.push_str("      }");
     }
     json
+}
+
+fn push_db_manifest_diagnostics_json(
+    json: &mut String,
+    diagnostics: &[DbManifestDiagnosticRecord],
+    indent: &str,
+) {
+    for (index, diagnostic) in diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!(
+            "{indent}  \"code\": \"{}\",\n",
+            json_escape(&diagnostic.code)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"message\": \"{}\",\n",
+            json_escape(&diagnostic.message)
+        ));
+        push_optional_json_string(json, "table", diagnostic.table.as_deref(), indent.len() + 2);
+        json.push_str(&format!("{indent}  \"status\": \"recorded\"\n"));
+        json.push_str(&format!("{indent}}}"));
+    }
 }
 
 fn table_selections_json(runtime_data: &RuntimeData, indent: &str) -> String {
@@ -14102,6 +14831,55 @@ mod tests {
             .iter()
             .find(|item| item.get(field).and_then(Value::as_str) == Some(expected))
     }
+
+    fn sqlite_execute(db_path: &Path, statements: &[&str]) {
+        let payload = serde_json::to_string(&json!({
+            "database": db_path.display().to_string(),
+            "statements": statements,
+        }))
+        .expect("sqlite execute payload");
+        run_python_sqlite_script(SQLITE_TEST_EXECUTE_SCRIPT, &payload).expect("sqlite execute");
+    }
+
+    fn sqlite_query_scalar(db_path: &Path, sql: &str) -> Value {
+        let payload = serde_json::to_string(&json!({
+            "database": db_path.display().to_string(),
+            "sql": sql,
+        }))
+        .expect("sqlite query payload");
+        let output =
+            run_python_sqlite_script(SQLITE_TEST_QUERY_SCRIPT, &payload).expect("sqlite query");
+        serde_json::from_str(output.trim()).expect("sqlite query json")
+    }
+
+    const SQLITE_TEST_EXECUTE_SCRIPT: &str = r#"
+import json
+import sqlite3
+import sys
+
+payload = json.load(sys.stdin)
+connection = sqlite3.connect(payload["database"])
+try:
+    for statement in payload["statements"]:
+        connection.execute(statement)
+    connection.commit()
+finally:
+    connection.close()
+"#;
+
+    const SQLITE_TEST_QUERY_SCRIPT: &str = r#"
+import json
+import sqlite3
+import sys
+
+payload = json.load(sys.stdin)
+connection = sqlite3.connect(payload["database"])
+try:
+    row = connection.execute(payload["sql"]).fetchone()
+    print(json.dumps(None if row is None else row[0]))
+finally:
+    connection.close()
+"#;
 
     #[test]
     fn run_file_prints_and_writes_explicit_summary_csv_export() {
@@ -17257,6 +18035,460 @@ mod tests {
         assert!(output
             .run_log_json
             .contains("\"target\": \"outputs/results.sqlite\""));
+    }
+
+    #[test]
+    fn run_file_writes_sqlite_append_manifest() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-append");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-append-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\ncase_002,1350\n",
+        )
+        .expect("results csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = append\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("sqlite append run");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let manifest = result
+            .pointer("/typed_payload/db_manifests/0")
+            .expect("db manifest");
+        assert_eq!(
+            manifest.get("binding").and_then(Value::as_str),
+            Some("results")
+        );
+        assert_eq!(
+            manifest.get("database").and_then(Value::as_str),
+            Some("outputs/results.sqlite")
+        );
+        assert!(manifest.get("database_hash_before").is_some());
+        assert!(manifest
+            .get("database_hash_after")
+            .and_then(Value::as_str)
+            .is_some());
+        assert_eq!(
+            manifest.get("transaction_status").and_then(Value::as_str),
+            Some("committed")
+        );
+        assert_eq!(
+            manifest.get("schema_status").and_then(Value::as_str),
+            Some("ok")
+        );
+        assert_eq!(
+            manifest.pointer("/tables/0/mode").and_then(Value::as_str),
+            Some("append")
+        );
+        assert_eq!(
+            manifest
+                .pointer("/tables/0/row_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+
+        let output_manifest: Value =
+            serde_json::from_str(&output.output_manifest_json).expect("output manifest json");
+        let db_artifact = json_array_item_by_field(
+            &output_manifest,
+            "/artifact_registry/generated_files",
+            "kind",
+            "sqlite_database",
+        )
+        .expect("sqlite artifact");
+        assert_eq!(
+            db_artifact.get("class").and_then(Value::as_str),
+            Some("db_write")
+        );
+        assert!(output.output_manifest_json.contains("\"db_writes\""));
+
+        let db_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("results.sqlite");
+        let row_count = sqlite_query_scalar(&db_path, "SELECT COUNT(*) FROM simulation_results")
+            .as_i64()
+            .expect("row count");
+        let metadata_count = sqlite_query_scalar(
+            &db_path,
+            "SELECT COUNT(*) FROM \"_eng_schema_metadata\" WHERE db_table = 'simulation_results'",
+        )
+        .as_i64()
+        .expect("metadata count");
+        assert_eq!(row_count, 2);
+        assert_eq!(metadata_count, 2);
+    }
+
+    #[test]
+    fn run_file_writes_sqlite_upsert_with_key() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-upsert");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-upsert-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\ncase_002,1350\n",
+        )
+        .expect("results csv");
+        let db_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("results.sqlite");
+        fs::create_dir_all(db_path.parent().expect("db parent")).expect("db dir");
+        sqlite_execute(
+            &db_path,
+            &[
+                "CREATE TABLE simulation_results (case_id TEXT PRIMARY KEY, annual_electricity REAL)",
+                "INSERT INTO simulation_results (case_id, annual_electricity) VALUES ('case_001', 99.0)",
+            ],
+        );
+
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = upsert\n",
+                "    key = case_id\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("sqlite upsert run");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let manifest = result
+            .pointer("/typed_payload/db_manifests/0")
+            .expect("db manifest");
+        assert_eq!(
+            manifest.pointer("/tables/0/mode").and_then(Value::as_str),
+            Some("upsert")
+        );
+        assert_eq!(
+            manifest.pointer("/tables/0/key/0").and_then(Value::as_str),
+            Some("case_id")
+        );
+        assert!(manifest
+            .get("database_hash_before")
+            .and_then(Value::as_str)
+            .is_some());
+        assert!(manifest
+            .get("database_hash_after")
+            .and_then(Value::as_str)
+            .is_some());
+
+        let row_count = sqlite_query_scalar(&db_path, "SELECT COUNT(*) FROM simulation_results")
+            .as_i64()
+            .expect("row count");
+        let updated = sqlite_query_scalar(
+            &db_path,
+            "SELECT annual_electricity FROM simulation_results WHERE case_id = 'case_001'",
+        )
+        .as_f64()
+        .expect("updated row");
+        assert_eq!(row_count, 2);
+        assert_eq!(updated, 1200.0);
+    }
+
+    #[test]
+    fn run_file_rolls_back_sqlite_transaction_policy() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-rollback");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-rollback-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\n",
+        )
+        .expect("results csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = append\n",
+                "    transaction = rollback\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("sqlite rollback run");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let manifest = result
+            .pointer("/typed_payload/db_manifests/0")
+            .expect("db manifest");
+        assert_eq!(
+            manifest.get("transaction_status").and_then(Value::as_str),
+            Some("rolled_back")
+        );
+        let db_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("results.sqlite");
+        let table_count = sqlite_query_scalar(
+            &db_path,
+            "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'simulation_results'",
+        )
+        .as_i64()
+        .expect("table count");
+        assert_eq!(table_count, 0);
+    }
+
+    #[test]
+    fn run_file_records_sqlite_schema_mismatch_diagnostic() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-mismatch");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-mismatch-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\n",
+        )
+        .expect("results csv");
+        let db_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("results.sqlite");
+        fs::create_dir_all(db_path.parent().expect("db parent")).expect("db dir");
+        sqlite_execute(
+            &db_path,
+            &["CREATE TABLE simulation_results (case_id TEXT, unexpected_column REAL)"],
+        );
+
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = append\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("sqlite mismatch run");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let manifest = result
+            .pointer("/typed_payload/db_manifests/0")
+            .expect("db manifest");
+        assert_eq!(
+            manifest.get("schema_status").and_then(Value::as_str),
+            Some("mismatch")
+        );
+        assert_eq!(
+            manifest.get("transaction_status").and_then(Value::as_str),
+            Some("rolled_back")
+        );
+        assert_eq!(
+            manifest
+                .pointer("/tables/0/row_count")
+                .and_then(Value::as_u64),
+            Some(0)
+        );
+        assert_eq!(
+            manifest
+                .pointer("/diagnostics/0/code")
+                .and_then(Value::as_str),
+            Some("E-DB-SCHEMA-MISMATCH")
+        );
+    }
+
+    #[test]
+    fn run_file_safe_profile_rejects_native_db_write() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-safe");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-safe-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\n",
+        )
+        .expect("results csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+            ),
+        )
+        .expect("source");
+
+        let error = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Safe,
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("safe profile should reject native db write");
+
+        assert!(error.to_string().contains("profile `safe` rejected"));
+        assert!(error.to_string().contains("E-DB-SAFE-PROFILE"));
+    }
+
+    #[test]
+    fn run_file_repro_profile_records_native_db_write() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-repro");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-repro-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\n",
+        )
+        .expect("results csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Repro,
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("repro DB write run");
+
+        assert!(output.result_json.contains("W-PROFILE-REPRO-DB"));
+        assert!(output.result_json.contains("\"database_hash_after\""));
+        assert!(output.run_log_json.contains("W-PROFILE-REPRO-DB"));
     }
 
     #[test]

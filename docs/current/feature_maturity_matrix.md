@@ -240,7 +240,7 @@ separate.
   sample-table artifacts, typed config promotion optional field policy,
   promoted case table summaries with collection status and scheduler hooks,
   pending/succeeded/failed/skipped case manifests enriched from process
-  outputs, case diagnostics, DB manifest summaries in `typed_payload.db_manifests[]`, model
+  outputs, case diagnostics, native SQLite DB write summaries in `typed_payload.db_manifests[]`, model
   specs/cards in `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
   prediction manifests in `typed_payload.prediction_manifests[]`, model diagnostics
   in `typed_payload.model_diagnostics[]`, DateTime-indexed
@@ -248,9 +248,10 @@ separate.
   hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
   through explicit process/write boundaries; deterministic grid/random/LHS
   sampling generator seeds now materialize `typed_payload.sample_tables[]`;
-  `Planned` for native network/cache execution, native case apply/collect syntax,
-  SQLite
-  writes, and model public train/predict syntax.
+  `Supported seed` for native SQLite append/upsert writes with manifests,
+  schema diagnostics, transaction status, and DB file hashes; `Planned` for
+  native network/cache execution, native case apply/collect syntax, broad DB
+  support, and model public train/predict syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -276,7 +277,7 @@ separate.
   fixture artifacts.
 - Not included: live HTTP execution/cache replay API, general table derived-value execution/fill transforms,
   native case apply/collect syntax and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
-  parser, native SQLite write/upsert, broad DB support, or ML framework
+  parser, broad DB engines/query APIs/migrations, or ML framework
   support.
 - Next cleanup action: extend `eng.net` and `eng.cache` beyond fixture/manifest
   seeds, then use the workflow skeletons to drive remaining `eng.case`,

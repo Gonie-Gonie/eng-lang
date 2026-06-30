@@ -2295,6 +2295,7 @@ fn analyze_with_blocks(
             ));
             extra_known_options.extend(with_owner_process_options(program, block.owner_line));
             extra_known_options.extend(with_owner_sample_options(program, block.owner_line));
+            extra_known_options.extend(with_owner_db_write_options(program, block.owner_line));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -2468,6 +2469,26 @@ fn with_owner_process_options(
     .into_iter()
     .map(str::to_owned)
     .collect()
+}
+
+fn with_owner_db_write_options(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let is_db_write_owner = program.items.iter().any(|item| match item {
+        AstItem::Write(write) => write.line == owner_line && write.format == "db",
+        _ => false,
+    });
+    if !is_db_write_owner {
+        return HashSet::new();
+    }
+    ["mode", "key", "transaction", "overwrite"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
 }
 
 fn with_owner_sample_options(
@@ -3357,6 +3378,9 @@ fn analyze_write_decl(
         ));
         return None;
     }
+    if write.format == "db" {
+        return analyze_db_write_decl(write, typed_bindings, diagnostics);
+    }
     if !matches!(write.format.as_str(), "text" | "json") {
         diagnostics.push(Diagnostic::error(
             "E-WRITE-002",
@@ -3381,6 +3405,57 @@ fn analyze_write_decl(
         expression: write.expression.clone(),
         quantity_kind: semantic_type.quantity_kind,
         display_unit: semantic_type.display_unit,
+        line: write.line,
+    })
+}
+
+fn analyze_db_write_decl(
+    write: &WriteDecl,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<WriteInfo> {
+    let source = write.expression.trim();
+    let source_type = typed_bindings
+        .iter()
+        .find(|binding| binding.name == source)
+        .map(|binding| binding.semantic_type.quantity_kind.as_str());
+    if !source_type.is_some_and(|kind| kind.starts_with("Table[")) {
+        diagnostics.push(Diagnostic::error(
+            "E-DB-SCHEMA-MISMATCH",
+            write.line,
+            &format!("DB write source `{source}` is not a typed table."),
+            Some("Write a promoted or generated table to `db.table(\"name\")`."),
+        ));
+        return None;
+    }
+    let Some((connection, _table)) = db_table_target_expression(&write.path) else {
+        diagnostics.push(Diagnostic::error(
+            "E-DB-CONNECT",
+            write.line,
+            &format!("DB write target `{}` is not a SQLite table reference.", write.path),
+            Some("Use `write <table_binding> to db.table(\"table_name\")` after `db = open sqlite file(\"...\")`."),
+        ));
+        return None;
+    };
+    let connection_type = typed_bindings
+        .iter()
+        .find(|binding| binding.name == connection)
+        .map(|binding| binding.semantic_type.quantity_kind.as_str());
+    if connection_type != Some("DbConnection") {
+        diagnostics.push(Diagnostic::error(
+            "E-DB-CONNECT",
+            write.line,
+            &format!("DB connection `{connection}` is not a SQLite connection binding."),
+            Some("Declare it with `db = open sqlite file(\"outputs/results.sqlite\")`."),
+        ));
+        return None;
+    }
+    Some(WriteInfo {
+        format: "db".to_owned(),
+        path: write.path.clone(),
+        expression: write.expression.clone(),
+        quantity_kind: "DbWrite".to_owned(),
+        display_unit: "sqlite".to_owned(),
         line: write.line,
     })
 }
@@ -11283,6 +11358,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             )
         })
         .or(method_call_type)
+        .or_else(|| db_connection_semantic_type(&binding.expression))
         .or_else(|| path_helper_semantic_type(&binding.expression))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
@@ -11665,6 +11741,23 @@ fn path_helper_semantic_type(expression: &str) -> Option<SemanticType> {
         return semantic_type("String", "");
     }
     None
+}
+
+fn db_connection_semantic_type(expression: &str) -> Option<SemanticType> {
+    expression
+        .trim()
+        .strip_prefix("open sqlite ")
+        .filter(|path| !path.trim().is_empty())
+        .and_then(|_| semantic_type("DbConnection", "sqlite"))
+}
+
+fn db_table_target_expression(expression: &str) -> Option<(&str, &str)> {
+    let (connection, table_call) = expression.trim().split_once(".table(")?;
+    let table = table_call.trim().strip_suffix(')')?.trim();
+    if connection.trim().is_empty() || !table.starts_with('"') {
+        return None;
+    }
+    Some((connection.trim(), table))
 }
 
 pub fn read_only_io_expression(expression: &str) -> Option<(&'static str, &str)> {

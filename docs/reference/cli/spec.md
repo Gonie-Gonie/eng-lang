@@ -129,6 +129,12 @@ E-CASE-DIR-COLLISION multiple case IDs resolve to the same case directory
 E-CASE-OUTPUT-MISSING case step did not create an expected case output
 E-CASE-STEP-FAILED case step reported a failed status
 W-CASE-SKIPPED-CACHE case was skipped from case cache
+E-DB-CONNECT          SQLite connection or table target cannot be resolved
+E-DB-SCHEMA-MISMATCH DB write source/table schema does not match
+E-DB-KEY-MISSING     DB upsert key is missing or outside the source table schema
+E-DB-TRANSACTION-FAILED SQLite write transaction failed
+E-DB-SAFE-PROFILE    safe profile rejects native DB write side effects
+W-PROFILE-REPRO-DB   repro profile records DB write hashes and manifest metadata
 E-MODEL-FEATURE-MISSING model spec/card has no feature contract
 E-MODEL-TARGET-MISSING model spec/card has no target contract
 E-MODEL-CARD-MISSING model artifact process has no model card output
