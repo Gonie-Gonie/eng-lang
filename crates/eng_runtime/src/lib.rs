@@ -2847,15 +2847,16 @@ fn output_manifest_json(
     profile_diagnostics: &[ProfileDiagnostic],
     registry: &ArtifactRegistryContext<'_>,
 ) -> String {
+    let artifact_records = artifact_records_for_outputs(artifacts);
     let mut artifact_registry_json = String::new();
-    push_artifact_registry_json(&mut artifact_registry_json, artifacts, registry);
+    push_artifact_registry_json(&mut artifact_registry_json, &artifact_records, registry);
     let mut profile_diagnostics_json = String::new();
     push_profile_diagnostics_json(&mut profile_diagnostics_json, profile_diagnostics, "    ");
     OutputManifest {
         runtime_version: RUNTIME_VERSION,
         source_path,
         execution_profile: profile.as_str(),
-        artifacts,
+        artifacts: &artifact_records,
         artifact_registry_json,
         profile_diagnostics_json,
     }
@@ -2925,6 +2926,43 @@ fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<So
                 line: dependency.line,
             }),
     );
+    records.extend(network_fixture_source_records(registry));
+    records
+}
+
+fn network_fixture_source_records(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
+    let source_base = registry.report.source_path.parent();
+    let mut records = Vec::new();
+    for request in &registry.report.semantic_program.net_requests {
+        let Some(fixture) = &request.fixture else {
+            continue;
+        };
+        records.push(SourceRecord {
+            kind: "source_file".to_owned(),
+            binding: request.binding.clone(),
+            path: path_for_manifest(&runtime_resolve_source_relative_path(fixture, source_base)),
+            hash: request.response_hash.clone(),
+            schema: None,
+            row_count: None,
+            status: request.status.clone(),
+            line: request.line,
+        });
+    }
+    for download in &registry.report.semantic_program.net_downloads {
+        let Some(fixture) = &download.fixture else {
+            continue;
+        };
+        records.push(SourceRecord {
+            kind: "source_file".to_owned(),
+            binding: format!("download:{}", download.target_value),
+            path: path_for_manifest(&runtime_resolve_source_relative_path(fixture, source_base)),
+            hash: download.response_hash.clone(),
+            schema: None,
+            row_count: None,
+            status: download.status.clone(),
+            line: download.line,
+        });
+    }
     records
 }
 
@@ -3167,7 +3205,7 @@ fn push_output_manifest_caches_json(json: &mut String, records: &[CacheManifestR
 
 fn push_artifact_registry_json(
     json: &mut String,
-    artifacts: &[OutputArtifact],
+    artifact_records: &[ArtifactRecord],
     registry: &ArtifactRegistryContext<'_>,
 ) {
     json.push_str("    \"format\": \"eng-artifact-registry-v1\",\n");
@@ -3209,7 +3247,7 @@ fn push_artifact_registry_json(
     json.push_str("\n    ],\n");
 
     json.push_str("    \"generated_files\": [\n");
-    for (index, record) in artifact_records_for_outputs(artifacts).iter().enumerate() {
+    for (index, record) in artifact_records.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
@@ -10816,6 +10854,8 @@ mod tests {
         assert!(output.output_manifest_json.contains("\"network_requests\""));
         assert!(output.output_manifest_json.contains("\"downloads\""));
         assert!(output.output_manifest_json.contains("\"caches\""));
+        assert!(output.output_manifest_json.contains("data/response.json"));
+        assert!(output.output_manifest_json.contains("data/download.csv"));
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"network_request\""));

@@ -74,7 +74,7 @@ pub(crate) struct OutputManifest<'a> {
     pub runtime_version: &'a str,
     pub source_path: &'a Path,
     pub execution_profile: &'a str,
-    pub artifacts: &'a [OutputArtifact],
+    pub artifacts: &'a [ArtifactRecord],
     pub artifact_registry_json: String,
     pub profile_diagnostics_json: String,
 }
@@ -131,7 +131,7 @@ impl ArtifactValidation {
     }
 }
 
-fn push_output_artifacts_json(json: &mut String, artifacts: &[OutputArtifact]) {
+fn push_output_artifacts_json(json: &mut String, artifacts: &[ArtifactRecord]) {
     for (index, artifact) in artifacts.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
@@ -142,12 +142,20 @@ fn push_output_artifacts_json(json: &mut String, artifacts: &[OutputArtifact]) {
             json_escape(&artifact.kind)
         ));
         json.push_str(&format!(
+            "      \"class\": \"{}\",\n",
+            json_escape(&artifact.class)
+        ));
+        json.push_str(&format!(
             "      \"path\": \"{}\",\n",
             json_escape(&artifact.path)
         ));
         json.push_str(&format!(
             "      \"hash\": \"{}\",\n",
             json_escape(&artifact.hash)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&artifact.status)
         ));
         push_artifact_validation_json(json, &artifact.validation, 6);
         json.push_str("    }");
@@ -231,13 +239,14 @@ mod tests {
 
     #[test]
     fn output_manifest_writer_preserves_artifact_contract() {
-        let artifacts = vec![OutputArtifact::new(
-            "result".to_owned(),
-            "result.engres".to_owned(),
-            "hash123".to_owned(),
-            PathBuf::from("build/result/result.engres"),
-            ArtifactValidation::new("passed", "content_hash", "hashed"),
-        )];
+        let artifacts = vec![ArtifactRecord {
+            kind: "result".to_owned(),
+            class: "review_artifact".to_owned(),
+            path: "result.engres".to_owned(),
+            hash: "hash123".to_owned(),
+            status: "generated".to_owned(),
+            validation: ArtifactValidation::new("passed", "content_hash", "hashed"),
+        }];
         let manifest = OutputManifest {
             runtime_version: "0.1.0",
             source_path: Path::new("main.eng"),
