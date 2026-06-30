@@ -810,6 +810,7 @@
         "optional_fields",
         "optional_missing_fields",
         "optional_null_fields",
+        "nested_object_fields",
         "type_mismatch_count",
         "status",
         "line"
@@ -844,6 +845,10 @@
           "items": { "type": "string" }
         },
         "optional_null_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "nested_object_fields": {
           "type": "array",
           "items": { "type": "string" }
         },

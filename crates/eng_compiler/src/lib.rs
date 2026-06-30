@@ -4212,6 +4212,9 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("      \"optional_null_fields\": [");
         push_json_string_array(&mut json, &promotion.optional_null_fields);
         json.push_str("],\n");
+        json.push_str("      \"nested_object_fields\": [");
+        push_json_string_array(&mut json, &promotion.nested_object_fields);
+        json.push_str("],\n");
         json.push_str("      \"type_mismatches\": [\n");
         for (mismatch_index, mismatch) in promotion.type_mismatches.iter().enumerate() {
             if mismatch_index > 0 {
@@ -5844,6 +5847,9 @@ fn push_review_config_promotions_json(json: &mut String, report: &CheckReport) {
         json.push_str("],\n");
         json.push_str("        \"optional_null_fields\": [");
         push_json_string_array(json, &promotion.optional_null_fields);
+        json.push_str("],\n");
+        json.push_str("        \"nested_object_fields\": [");
+        push_json_string_array(json, &promotion.nested_object_fields);
         json.push_str("],\n");
         json.push_str(&format!(
             "        \"type_mismatch_count\": {},\n",
@@ -12083,6 +12089,96 @@ system Envelope {
         assert!(review.contains("\"config_promotions\""));
         assert!(review.contains("\"config_promotion_count\": 2"));
         assert!(review.contains("\"source_hash\": \""));
+    }
+
+    #[test]
+    fn records_nested_config_object_promotions() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-nested-ok-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"database\": { \"path\": \"outputs/results.sqlite\", \"transaction\": \"committed\", \"retry\": 3 } }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema DbConfig {\n    path: String\n    transaction: String\n    retry: Int\n}\n\nschema WorkflowConfig {\n    year: Int\n    database: DbConfig\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "validated");
+        assert_eq!(promotion.field_count, 2);
+        assert_eq!(promotion.nested_object_fields, vec!["database".to_owned()]);
+        assert!(promotion.missing_fields.is_empty());
+        assert!(promotion.unknown_fields.is_empty());
+        assert!(promotion.null_fields.is_empty());
+        assert!(promotion.type_mismatches.is_empty());
+
+        let review = review_json(&report);
+        assert!(review.contains("\"nested_object_fields\": [\"database\"]"));
+    }
+
+    #[test]
+    fn diagnoses_invalid_nested_config_object_promotions() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-nested-bad-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"database\": { \"path\": \"outputs/results.sqlite\", \"retry\": \"three\", \"extra\": true } }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema DbConfig {\n    path: String\n    transaction: String\n    retry: Int\n}\n\nschema WorkflowConfig {\n    year: Int\n    database: DbConfig\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        for (code, field) in [
+            ("E-CONFIG-MISSING-FIELD", "database.transaction"),
+            ("E-CONFIG-UNKNOWN-FIELD", "database.extra"),
+            ("E-CONFIG-TYPE-MISMATCH", "database.retry"),
+        ] {
+            assert!(
+                report.diagnostics.iter().any(|diagnostic| diagnostic.code == code
+                    && diagnostic.message.contains(field)),
+                "{code}/{field}: {:?}",
+                report.diagnostics
+            );
+        }
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "invalid");
+        assert_eq!(promotion.nested_object_fields, vec!["database".to_owned()]);
+        assert_eq!(
+            promotion.missing_fields,
+            vec!["database.transaction".to_owned()]
+        );
+        assert_eq!(promotion.unknown_fields, vec!["database.extra".to_owned()]);
+        assert_eq!(promotion.type_mismatches[0].field, "database.retry");
     }
 
     #[test]

@@ -81,6 +81,7 @@ pub struct ConfigPromotion {
     pub optional_fields: Vec<String>,
     pub optional_missing_fields: Vec<String>,
     pub optional_null_fields: Vec<String>,
+    pub nested_object_fields: Vec<String>,
     pub type_mismatches: Vec<ConfigTypeMismatch>,
     pub status: String,
     pub line: usize,
@@ -352,6 +353,7 @@ pub fn analyze_schema(
                         optional_fields: Vec::new(),
                         optional_missing_fields: Vec::new(),
                         optional_null_fields: Vec::new(),
+                        nested_object_fields: Vec::new(),
                         type_mismatches: Vec::new(),
                         status: "missing_arg".to_owned(),
                         line: binding.line,
@@ -386,85 +388,19 @@ pub fn analyze_schema(
             .iter()
             .map(|field| field.name.clone())
             .collect::<Vec<_>>();
-        let missing_fields = schema
-            .map(|schema| {
-                schema
-                    .columns
-                    .iter()
-                    .filter(|column| !column.optional)
-                    .filter(|column| !field_names.iter().any(|field| field == &column.name))
-                    .map(|column| column.name.clone())
-                    .collect::<Vec<_>>()
-            })
+        let validation = schema
+            .map(|schema| config_schema_validation(schema, &schemas, &fields, ""))
             .unwrap_or_default();
-        let optional_fields = schema
-            .map(|schema| {
-                schema
-                    .columns
-                    .iter()
-                    .filter(|column| column.optional)
-                    .map(|column| column.name.clone())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let optional_missing_fields = schema
-            .map(|schema| {
-                schema
-                    .columns
-                    .iter()
-                    .filter(|column| column.optional)
-                    .filter(|column| !field_names.iter().any(|field| field == &column.name))
-                    .map(|column| column.name.clone())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let unknown_fields = schema
-            .map(|schema| {
-                field_names
-                    .iter()
-                    .filter(|field| {
-                        !schema
-                            .columns
-                            .iter()
-                            .any(|column| column.name.as_str() == field.as_str())
-                    })
-                    .cloned()
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let null_fields = schema
-            .map(|schema| {
-                fields
-                    .iter()
-                    .filter(|field| {
-                        field.kind == ConfigValueKind::Null
-                            && schema
-                                .columns
-                                .iter()
-                                .any(|column| column.name == field.name && !column.optional)
-                    })
-                    .map(|field| field.name.clone())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let optional_null_fields = schema
-            .map(|schema| {
-                fields
-                    .iter()
-                    .filter(|field| {
-                        field.kind == ConfigValueKind::Null
-                            && schema
-                                .columns
-                                .iter()
-                                .any(|column| column.name == field.name && column.optional)
-                    })
-                    .map(|field| field.name.clone())
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        let type_mismatches = schema
-            .map(|schema| config_type_mismatches(schema, &fields))
-            .unwrap_or_default();
+        let ConfigValidation {
+            missing_fields,
+            unknown_fields,
+            null_fields,
+            optional_fields,
+            optional_missing_fields,
+            optional_null_fields,
+            nested_object_fields,
+            type_mismatches,
+        } = validation;
 
         if !missing_fields.is_empty() {
             status = "invalid".to_owned();
@@ -530,6 +466,7 @@ pub fn analyze_schema(
             optional_fields,
             optional_missing_fields,
             optional_null_fields,
+            nested_object_fields,
             type_mismatches,
             status,
             line: binding.line,
@@ -736,6 +673,19 @@ impl ConfigValueKind {
 struct ConfigFieldValue {
     name: String,
     kind: ConfigValueKind,
+    fields: Vec<ConfigFieldValue>,
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct ConfigValidation {
+    missing_fields: Vec<String>,
+    unknown_fields: Vec<String>,
+    null_fields: Vec<String>,
+    optional_fields: Vec<String>,
+    optional_missing_fields: Vec<String>,
+    optional_null_fields: Vec<String>,
+    nested_object_fields: Vec<String>,
+    type_mismatches: Vec<ConfigTypeMismatch>,
 }
 
 struct ConfigRead {
@@ -770,6 +720,7 @@ fn json_config_fields(source: &str) -> Result<Vec<ConfigFieldValue>, String> {
         .map(|(name, value)| ConfigFieldValue {
             name: name.clone(),
             kind: json_value_kind(value),
+            fields: json_config_child_fields(value),
         })
         .collect())
 }
@@ -786,8 +737,37 @@ fn toml_config_fields(source: &str) -> Result<Vec<ConfigFieldValue>, String> {
         .map(|(name, value)| ConfigFieldValue {
             name: name.clone(),
             kind: toml_value_kind(value),
+            fields: toml_config_child_fields(value),
         })
         .collect())
+}
+
+fn json_config_child_fields(value: &JsonValue) -> Vec<ConfigFieldValue> {
+    let Some(object) = value.as_object() else {
+        return Vec::new();
+    };
+    object
+        .iter()
+        .map(|(name, value)| ConfigFieldValue {
+            name: name.clone(),
+            kind: json_value_kind(value),
+            fields: json_config_child_fields(value),
+        })
+        .collect()
+}
+
+fn toml_config_child_fields(value: &TomlValue) -> Vec<ConfigFieldValue> {
+    let Some(table) = value.as_table() else {
+        return Vec::new();
+    };
+    table
+        .iter()
+        .map(|(name, value)| ConfigFieldValue {
+            name: name.clone(),
+            kind: toml_value_kind(value),
+            fields: toml_config_child_fields(value),
+        })
+        .collect()
 }
 
 fn json_value_kind(value: &JsonValue) -> ConfigValueKind {
@@ -814,28 +794,101 @@ fn toml_value_kind(value: &TomlValue) -> ConfigValueKind {
     }
 }
 
-fn config_type_mismatches(
+fn config_schema_validation(
     schema: &SchemaInfo,
+    schemas: &[SchemaInfo],
     fields: &[ConfigFieldValue],
-) -> Vec<ConfigTypeMismatch> {
-    let mut mismatches = Vec::new();
+    prefix: &str,
+) -> ConfigValidation {
+    let mut validation = ConfigValidation::default();
+
+    for field in fields {
+        if !schema
+            .columns
+            .iter()
+            .any(|column| column.name == field.name)
+        {
+            validation
+                .unknown_fields
+                .push(config_field_path(prefix, &field.name));
+        }
+    }
+
     for column in &schema.columns {
+        let field_path = config_field_path(prefix, &column.name);
+        if column.optional {
+            validation.optional_fields.push(field_path.clone());
+        }
         let Some(field) = fields.iter().find(|field| field.name == column.name) else {
+            if column.optional {
+                validation.optional_missing_fields.push(field_path);
+            } else {
+                validation.missing_fields.push(field_path);
+            }
             continue;
         };
         if field.kind == ConfigValueKind::Null {
+            if column.optional {
+                validation.optional_null_fields.push(field_path);
+            } else {
+                validation.null_fields.push(field_path);
+            }
+            continue;
+        }
+        if let Some(nested_schema) = schemas
+            .iter()
+            .find(|candidate| candidate.name == column.type_name)
+        {
+            if field.kind == ConfigValueKind::Object {
+                validation.nested_object_fields.push(field_path.clone());
+                validation.extend(config_schema_validation(
+                    nested_schema,
+                    schemas,
+                    &field.fields,
+                    &field_path,
+                ));
+            } else {
+                validation.type_mismatches.push(ConfigTypeMismatch {
+                    field: field_path,
+                    expected: column.type_name.clone(),
+                    actual: field.kind.as_str().to_owned(),
+                });
+            }
             continue;
         }
         if config_value_matches_schema_type(&column.type_name, &field.kind) {
             continue;
         }
-        mismatches.push(ConfigTypeMismatch {
-            field: column.name.clone(),
+        validation.type_mismatches.push(ConfigTypeMismatch {
+            field: field_path,
             expected: column.type_name.clone(),
             actual: field.kind.as_str().to_owned(),
         });
     }
-    mismatches
+
+    validation
+}
+
+impl ConfigValidation {
+    fn extend(&mut self, other: ConfigValidation) {
+        self.missing_fields.extend(other.missing_fields);
+        self.unknown_fields.extend(other.unknown_fields);
+        self.null_fields.extend(other.null_fields);
+        self.optional_fields.extend(other.optional_fields);
+        self.optional_missing_fields
+            .extend(other.optional_missing_fields);
+        self.optional_null_fields.extend(other.optional_null_fields);
+        self.nested_object_fields.extend(other.nested_object_fields);
+        self.type_mismatches.extend(other.type_mismatches);
+    }
+}
+
+fn config_field_path(prefix: &str, field: &str) -> String {
+    if prefix.is_empty() {
+        field.to_owned()
+    } else {
+        format!("{prefix}.{field}")
+    }
 }
 
 fn config_value_matches_schema_type(type_name: &str, kind: &ConfigValueKind) -> bool {

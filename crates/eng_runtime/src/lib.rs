@@ -10345,6 +10345,9 @@ fn config_promotions_json(report: &CheckReport) -> String {
         json.push_str("        \"optional_null_fields\": [");
         push_json_string_array(&mut json, &promotion.optional_null_fields);
         json.push_str("],\n");
+        json.push_str("        \"nested_object_fields\": [");
+        push_json_string_array(&mut json, &promotion.nested_object_fields);
+        json.push_str("],\n");
         json.push_str(&format!(
             "        \"type_mismatch_count\": {},\n",
             promotion.type_mismatches.len()
@@ -13433,6 +13436,53 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"config_json\""));
+    }
+
+    #[test]
+    fn run_file_records_nested_config_object_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-config-nested");
+        let build_root = repo_root.join("build").join("runtime-config-nested-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"database\": { \"path\": \"outputs/results.sqlite\", \"transaction\": \"committed\", \"retry\": 3 } }\n",
+        )
+        .expect("config");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema DbConfig {\n    path: String\n    transaction: String\n    retry: Int\n}\n\nschema WorkflowConfig {\n    year: Int\n    database: DbConfig\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\nx = 1\nprint \"x={x}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(output.stdout.contains("x=1"));
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/status")
+                .and_then(Value::as_str),
+            Some("validated")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/nested_object_fields/0")
+                .and_then(Value::as_str),
+            Some("database")
+        );
+        assert!(output
+            .result_json
+            .contains("\"nested_object_fields\": [\"database\"]"));
+        assert!(output
+            .output_manifest_json
+            .contains("\"schema\": \"WorkflowConfig\""));
     }
 
     #[test]
