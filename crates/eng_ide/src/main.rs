@@ -1267,6 +1267,9 @@ fn model_cards_inspector(result: &Value) -> Value {
         "format": "eng-ide-model-cards-v1",
         "cards": typed_payload_array_clone(result, "model_cards"),
         "artifacts": typed_payload_array_clone(result, "ml"),
+        "specs": typed_payload_array_clone(result, "model_specs"),
+        "predictionManifests": typed_payload_array_clone(result, "prediction_manifests"),
+        "diagnostics": typed_payload_array_clone(result, "model_diagnostics"),
     })
 }
 
@@ -4582,6 +4585,55 @@ mod tests {
                     "line": 17
                   }
                 ],
+                "model_specs": [
+                  {
+                    "binding": "reg_card",
+                    "source": "reg_model",
+                    "model_kind": "linear",
+                    "features": [
+                      { "name": "T_supply", "quantity": null, "unit": null },
+                      { "name": "m_dot", "quantity": null, "unit": null }
+                    ],
+                    "target": { "name": "Q_coil", "quantity": "HeatRate", "unit": "kW" },
+                    "test_fraction": "0.25",
+                    "seed": "7",
+                    "train_count": 12,
+                    "test_count": 4,
+                    "training_data_hash": "training-hash",
+                    "model_artifact_hash": "model-hash",
+                    "status": "model_card_ready",
+                    "line": 17
+                  }
+                ],
+                "prediction_manifests": [
+                  {
+                    "binding": "predictor",
+                    "manifest_path": "outputs/prediction_manifest.json",
+                    "model": "reg_card",
+                    "model_file": { "path": "outputs/model.json", "sha256": "model-hash", "bytes": 12 },
+                    "sample_file": { "path": "samples.csv", "sha256": "sample-hash", "bytes": 10 },
+                    "output_file": { "path": "outputs/predictions.csv", "sha256": "prediction-hash", "bytes": 20 },
+                    "schema": ["case_id", "prediction", "prediction_confidence"],
+                    "outputs": [
+                      { "column": "prediction", "quantity": "HeatRate", "unit": "kW" },
+                      { "column": "prediction_confidence", "quantity": "Ratio", "unit": "1" }
+                    ],
+                    "case_ids": ["case_001"],
+                    "row_count": 1,
+                    "confidence_column": "prediction_confidence",
+                    "status": "complete",
+                    "line": 18
+                  }
+                ],
+                "model_diagnostics": [
+                  {
+                    "severity": "warning",
+                    "code": "W-MODEL-EXTRAPOLATION",
+                    "message": "prediction schema mismatch diagnostic",
+                    "binding": "predictor",
+                    "line": 18
+                  }
+                ],
                 "ml": [
                   {
                     "binding": "reg_model",
@@ -4646,6 +4698,33 @@ mod tests {
             Some("0.94")
         );
         assert_eq!(json_field_usize(card, "residual_point_count"), Some(4));
+        let spec = model_cards
+            .get("specs")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("model spec");
+        assert_eq!(
+            json_field_string(spec, "model_kind").as_deref(),
+            Some("linear")
+        );
+        let prediction = model_cards
+            .get("predictionManifests")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("prediction manifest");
+        assert_eq!(
+            json_field_string(prediction, "confidence_column").as_deref(),
+            Some("prediction_confidence")
+        );
+        let diagnostic = model_cards
+            .get("diagnostics")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("model diagnostic");
+        assert_eq!(
+            json_field_string(diagnostic, "code").as_deref(),
+            Some("W-MODEL-EXTRAPOLATION")
+        );
         let artifact = model_cards
             .get("artifacts")
             .and_then(Value::as_array)

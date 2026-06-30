@@ -129,6 +129,10 @@ E-CASE-DIR-COLLISION multiple case IDs resolve to the same case directory
 E-CASE-OUTPUT-MISSING case step did not create an expected case output
 E-CASE-STEP-FAILED case step reported a failed status
 W-CASE-SKIPPED-CACHE case was skipped from case cache
+E-MODEL-FEATURE-MISSING model spec/card has no feature contract
+E-MODEL-TARGET-MISSING model spec/card has no target contract
+E-MODEL-CARD-MISSING model artifact process has no model card output
+W-MODEL-EXTRAPOLATION prediction manifest reported schema/extrapolation warning
 E-PATH-INVALID         generated output path is empty
 E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
 E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted

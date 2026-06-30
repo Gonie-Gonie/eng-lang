@@ -1660,6 +1660,14 @@ struct CaseCollectionRecord {
 }
 
 #[derive(Clone, Debug)]
+struct ExternalModelJsonRecord {
+    binding: String,
+    path: String,
+    value: Value,
+    line: usize,
+}
+
+#[derive(Clone, Debug)]
 struct DbManifestTableRecord {
     name: String,
     mode: String,
@@ -8097,7 +8105,10 @@ fn result_json(
     let db_manifest_records = db_manifest_records(process_results);
     let db_manifests = db_manifests_json(&db_manifest_records);
     let render_manifests = template_render_records_json(template_render_records, "      ");
-    let model_cards = model_cards_json(runtime_data);
+    let model_cards = model_cards_json(runtime_data, process_results);
+    let model_specs = model_specs_json(runtime_data, process_results);
+    let prediction_manifests = prediction_manifests_json(process_results);
+    let model_diagnostics = model_diagnostics_json(runtime_data, process_results);
 
     let mut timeseries_uncertainty_calculations = String::new();
     for (index, calculation) in runtime_data
@@ -8848,6 +8859,12 @@ fn result_json(
         case_tables, case_diagnostics
     );
     result_json = result_json.replacen(case_tables_marker, &case_tables_block, 1);
+    let model_specs_marker = "    ],\n    \"policy_results\": [\n";
+    let model_specs_block = format!(
+        "    ],\n    \"model_specs\": [\n{}\n    ],\n    \"prediction_manifests\": [\n{}\n    ],\n    \"model_diagnostics\": [\n{}\n    ],\n    \"policy_results\": [\n",
+        model_specs, prediction_manifests, model_diagnostics
+    );
+    result_json = result_json.replacen(model_specs_marker, &model_specs_block, 1);
     result_json
 }
 
@@ -9454,7 +9471,13 @@ fn runtime_review_json(
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
     json.push_str(&db_manifests_json(&db_manifest_records));
     json.push_str("\n  ],\n  \"model_cards\": [\n");
-    json.push_str(&model_cards_json(runtime_data));
+    json.push_str(&model_cards_json(runtime_data, process_results));
+    json.push_str("\n  ],\n  \"model_specs\": [\n");
+    json.push_str(&model_specs_json(runtime_data, process_results));
+    json.push_str("\n  ],\n  \"prediction_manifests\": [\n");
+    json.push_str(&prediction_manifests_json(process_results));
+    json.push_str("\n  ],\n  \"model_diagnostics\": [\n");
+    json.push_str(&model_diagnostics_json(runtime_data, process_results));
     json.push_str("\n  ]\n}\n");
     json
 }
@@ -11545,7 +11568,10 @@ fn case_process_status_is_success(status: &str) -> bool {
     )
 }
 
-fn model_cards_json(runtime_data: &RuntimeData) -> String {
+fn model_cards_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
     let mut json = String::new();
     let mut emitted = 0usize;
     for artifact in runtime_data
@@ -11631,6 +11657,571 @@ fn model_cards_json(runtime_data: &RuntimeData) -> String {
             json_escape(&artifact.status)
         ));
         json.push_str(&format!("        \"line\": {}\n", artifact.line));
+        json.push_str("      }");
+    }
+    for record in external_model_card_records(process_results) {
+        if emitted > 0 {
+            json.push_str(",\n");
+        }
+        emitted += 1;
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
+        push_optional_json_string(&mut json, "source", Some(&record.path), 8);
+        json.push_str(&format!(
+            "        \"model_kind\": \"{}\",\n",
+            json_escape(
+                &json_field_string(&record.value, "model_kind")
+                    .or_else(|| json_field_string(&record.value, "model"))
+                    .unwrap_or_else(|| "external_model_artifact".to_owned())
+            )
+        ));
+        json.push_str("        \"features\": [");
+        push_json_string_array(
+            &mut json,
+            &json_field_string_array(&record.value, "features"),
+        );
+        json.push_str("],\n");
+        push_optional_json_string(
+            &mut json,
+            "target",
+            json_field_string(&record.value, "target").as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "target_quantity",
+            json_field_string(&record.value, "target_quantity").as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"target_unit\": \"{}\",\n",
+            json_escape(
+                &json_field_string(&record.value, "target_unit").unwrap_or_else(|| "1".to_owned())
+            )
+        ));
+        push_optional_json_string(
+            &mut json,
+            "test_fraction",
+            external_model_split_fraction(&record.value).as_deref(),
+            8,
+        );
+        push_optional_json_usize(
+            &mut json,
+            "train_count",
+            external_model_train_count(&record.value),
+            8,
+        );
+        push_optional_json_usize(
+            &mut json,
+            "test_count",
+            external_model_test_count(&record.value),
+            8,
+        );
+        json.push_str("        \"metrics\": {\n");
+        json.push_str(&format!(
+            "          \"rmse\": {},\n",
+            optional_json_number(json_number_path(&record.value, &["metrics", "rmse"]))
+        ));
+        json.push_str(&format!(
+            "          \"mae\": {},\n",
+            optional_json_number(json_number_path(&record.value, &["metrics", "mae"]))
+        ));
+        json.push_str(&format!(
+            "          \"r2\": {}\n",
+            optional_json_number(json_number_path(&record.value, &["metrics", "r2"]))
+        ));
+        json.push_str("        },\n");
+        push_optional_json_string(&mut json, "residual_plot", None, 8);
+        json.push_str("        \"residual_point_count\": 0,\n");
+        push_optional_json_string(
+            &mut json,
+            "training_data_hash",
+            json_field_string(&record.value, "training_data_hash").as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "model_artifact_hash",
+            json_field_string(&record.value, "model_artifact_hash").as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(
+                &json_field_string(&record.value, "status")
+                    .unwrap_or_else(|| "external_model_card".to_owned())
+            )
+        ));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn external_model_card_records(
+    process_results: &[ProcessExecutionRecord],
+) -> Vec<ExternalModelJsonRecord> {
+    external_json_records(process_results, is_model_card_output)
+}
+
+fn external_prediction_manifest_records(
+    process_results: &[ProcessExecutionRecord],
+) -> Vec<ExternalModelJsonRecord> {
+    external_json_records(process_results, is_prediction_manifest_output)
+}
+
+fn external_json_records(
+    process_results: &[ProcessExecutionRecord],
+    predicate: fn(&ProcessExpectedOutputRecord) -> bool,
+) -> Vec<ExternalModelJsonRecord> {
+    let mut records = Vec::new();
+    for process in process_results {
+        for output in process
+            .expected_outputs
+            .iter()
+            .filter(|output| output.exists && predicate(output))
+        {
+            let Ok(source) = fs::read_to_string(&output.resolved_path) else {
+                continue;
+            };
+            let Ok(value) = serde_json::from_str::<Value>(&source) else {
+                continue;
+            };
+            records.push(ExternalModelJsonRecord {
+                binding: process.binding.clone(),
+                path: output.path.clone(),
+                value,
+                line: process.line,
+            });
+        }
+    }
+    records
+}
+
+fn is_model_card_output(output: &ProcessExpectedOutputRecord) -> bool {
+    let path = output.path.to_ascii_lowercase();
+    path.ends_with("model_card.json")
+        || path.contains("model-card")
+        || (output.artifact_kind == "model_artifact" && path.contains("card"))
+}
+
+fn is_prediction_manifest_output(output: &ProcessExpectedOutputRecord) -> bool {
+    let path = output.path.to_ascii_lowercase();
+    path.ends_with("prediction_manifest.json")
+        || path.contains("prediction-manifest")
+        || (output.artifact_kind == "prediction_result" && path.contains("manifest"))
+}
+
+fn json_number_path(value: &Value, path: &[&str]) -> Option<f64> {
+    let mut cursor = value;
+    for segment in path {
+        cursor = cursor.get(*segment)?;
+    }
+    cursor.as_f64()
+}
+
+fn external_model_split_fraction(value: &Value) -> Option<String> {
+    json_number_path(value, &["train_test_split", "test_fraction"]).map(|fraction| {
+        if fraction.fract() == 0.0 {
+            format!("{fraction:.0}")
+        } else {
+            fraction.to_string()
+        }
+    })
+}
+
+fn external_model_train_count(value: &Value) -> Option<usize> {
+    value
+        .pointer("/train_test_split/train_rows")
+        .and_then(Value::as_u64)
+        .or_else(|| value.get("training_rows").and_then(Value::as_u64))
+        .map(|count| count as usize)
+}
+
+fn external_model_test_count(value: &Value) -> Option<usize> {
+    value
+        .pointer("/train_test_split/test_rows")
+        .and_then(Value::as_u64)
+        .map(|count| count as usize)
+}
+
+fn optional_json_string_literal(value: Option<&str>) -> String {
+    value
+        .map(|value| format!("\"{}\"", json_escape(value)))
+        .unwrap_or_else(|| "null".to_owned())
+}
+
+fn push_manifest_file_json(json: &mut String, key: &str, value: Option<&Value>, indent: usize) {
+    let indent_text = " ".repeat(indent);
+    json.push_str(&format!("{indent_text}\"{key}\": "));
+    if let Some(value) = value {
+        json.push_str("{");
+        json.push_str(&format!(
+            "\"path\": {}, ",
+            optional_json_string_literal(json_field_string(value, "path").as_deref())
+        ));
+        json.push_str(&format!(
+            "\"sha256\": {}, ",
+            optional_json_string_literal(json_field_string(value, "sha256").as_deref())
+        ));
+        json.push_str(&format!(
+            "\"bytes\": {}",
+            value.get("bytes").and_then(Value::as_u64).unwrap_or(0)
+        ));
+        json.push_str("},\n");
+    } else {
+        json.push_str("null,\n");
+    }
+}
+
+fn push_prediction_outputs_json(json: &mut String, value: &Value) {
+    let Some(outputs) = value.get("outputs").and_then(Value::as_array) else {
+        return;
+    };
+    for (index, output) in outputs.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str("{");
+        json.push_str(&format!(
+            "\"column\": {}, ",
+            optional_json_string_literal(json_field_string(output, "column").as_deref())
+        ));
+        json.push_str(&format!(
+            "\"quantity\": {}, ",
+            optional_json_string_literal(json_field_string(output, "quantity").as_deref())
+        ));
+        json.push_str(&format!(
+            "\"unit\": {}",
+            optional_json_string_literal(json_field_string(output, "unit").as_deref())
+        ));
+        json.push_str("}");
+    }
+}
+
+fn prediction_confidence_column(value: &Value) -> Option<String> {
+    value
+        .get("outputs")
+        .and_then(Value::as_array)
+        .and_then(|outputs| {
+            outputs.iter().find_map(|output| {
+                let column = json_field_string(output, "column")?;
+                column
+                    .to_ascii_lowercase()
+                    .contains("confidence")
+                    .then_some(column)
+            })
+        })
+        .or_else(|| {
+            json_field_string_array(value, "schema")
+                .into_iter()
+                .find(|column| column.to_ascii_lowercase().contains("confidence"))
+        })
+}
+
+fn model_specs_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
+    let mut json = String::new();
+    let mut emitted = 0usize;
+    for artifact in runtime_data.ml_artifacts.iter().filter(|artifact| {
+        matches!(
+            artifact.kind.as_str(),
+            "RegressionModel" | "MlpModel" | "ModelCard"
+        )
+    }) {
+        if emitted > 0 {
+            json.push_str(",\n");
+        }
+        emitted += 1;
+        push_model_spec_json(
+            &mut json,
+            &artifact.binding,
+            artifact.source.as_deref(),
+            artifact.algorithm.as_deref().unwrap_or(&artifact.kind),
+            &artifact.features,
+            artifact.target.as_deref(),
+            artifact.target_quantity.as_deref(),
+            Some(&artifact.display_unit),
+            artifact.test_fraction.as_deref(),
+            artifact.seed.as_deref(),
+            artifact.train_count,
+            artifact.test_count,
+            artifact.training_data_hash.as_deref(),
+            artifact.model_artifact_hash.as_deref(),
+            &artifact.status,
+            artifact.line,
+        );
+    }
+    for record in external_model_card_records(process_results) {
+        if emitted > 0 {
+            json.push_str(",\n");
+        }
+        emitted += 1;
+        let features = json_field_string_array(&record.value, "features");
+        let model_kind = json_field_string(&record.value, "model_kind")
+            .or_else(|| json_field_string(&record.value, "model"))
+            .unwrap_or_else(|| "external_model_artifact".to_owned());
+        let split_fraction = external_model_split_fraction(&record.value);
+        push_model_spec_json(
+            &mut json,
+            &record.binding,
+            Some(&record.path),
+            &model_kind,
+            &features,
+            json_field_string(&record.value, "target").as_deref(),
+            json_field_string(&record.value, "target_quantity").as_deref(),
+            json_field_string(&record.value, "target_unit").as_deref(),
+            split_fraction.as_deref(),
+            json_number_path(&record.value, &["train_test_split", "seed"])
+                .map(|seed| seed.to_string())
+                .as_deref(),
+            external_model_train_count(&record.value),
+            external_model_test_count(&record.value),
+            json_field_string(&record.value, "training_data_hash").as_deref(),
+            json_field_string(&record.value, "model_artifact_hash").as_deref(),
+            &json_field_string(&record.value, "status")
+                .unwrap_or_else(|| "external_model_card".to_owned()),
+            record.line,
+        );
+    }
+    json
+}
+
+#[allow(clippy::too_many_arguments)]
+fn push_model_spec_json(
+    json: &mut String,
+    binding: &str,
+    source: Option<&str>,
+    model_kind: &str,
+    features: &[String],
+    target: Option<&str>,
+    target_quantity: Option<&str>,
+    target_unit: Option<&str>,
+    test_fraction: Option<&str>,
+    seed: Option<&str>,
+    train_count: Option<usize>,
+    test_count: Option<usize>,
+    training_data_hash: Option<&str>,
+    model_artifact_hash: Option<&str>,
+    status: &str,
+    line: usize,
+) {
+    json.push_str("      {\n");
+    json.push_str(&format!(
+        "        \"binding\": \"{}\",\n",
+        json_escape(binding)
+    ));
+    push_optional_json_string(json, "source", source, 8);
+    json.push_str(&format!(
+        "        \"model_kind\": \"{}\",\n",
+        json_escape(model_kind)
+    ));
+    json.push_str("        \"features\": [");
+    for (index, feature) in features.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&format!(
+            "{{\"name\": \"{}\", \"quantity\": null, \"unit\": null}}",
+            json_escape(feature)
+        ));
+    }
+    json.push_str("],\n");
+    json.push_str("        \"target\": {");
+    json.push_str(&format!(
+        "\"name\": {}, ",
+        optional_json_string_literal(target)
+    ));
+    json.push_str(&format!(
+        "\"quantity\": {}, ",
+        optional_json_string_literal(target_quantity)
+    ));
+    json.push_str(&format!(
+        "\"unit\": {}",
+        optional_json_string_literal(target_unit)
+    ));
+    json.push_str("},\n");
+    push_optional_json_string(json, "test_fraction", test_fraction, 8);
+    push_optional_json_string(json, "seed", seed, 8);
+    push_optional_json_usize(json, "train_count", train_count, 8);
+    push_optional_json_usize(json, "test_count", test_count, 8);
+    push_optional_json_string(json, "training_data_hash", training_data_hash, 8);
+    push_optional_json_string(json, "model_artifact_hash", model_artifact_hash, 8);
+    json.push_str(&format!(
+        "        \"status\": \"{}\",\n",
+        json_escape(status)
+    ));
+    json.push_str(&format!("        \"line\": {}\n", line));
+    json.push_str("      }");
+}
+
+fn prediction_manifests_json(process_results: &[ProcessExecutionRecord]) -> String {
+    let mut json = String::new();
+    for (index, record) in external_prediction_manifest_records(process_results)
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
+        json.push_str(&format!(
+            "        \"manifest_path\": \"{}\",\n",
+            json_escape(&record.path)
+        ));
+        json.push_str(&format!(
+            "        \"model\": \"{}\",\n",
+            json_escape(
+                &json_field_string(&record.value, "model").unwrap_or_else(|| "unknown".to_owned())
+            )
+        ));
+        push_manifest_file_json(&mut json, "model_file", record.value.get("model_file"), 8);
+        push_manifest_file_json(&mut json, "sample_file", record.value.get("sample_file"), 8);
+        push_manifest_file_json(&mut json, "output_file", record.value.get("output_file"), 8);
+        json.push_str("        \"schema\": [");
+        push_json_string_array(&mut json, &json_field_string_array(&record.value, "schema"));
+        json.push_str("],\n");
+        json.push_str("        \"outputs\": [");
+        push_prediction_outputs_json(&mut json, &record.value);
+        json.push_str("],\n");
+        json.push_str("        \"case_ids\": [");
+        push_json_string_array(
+            &mut json,
+            &json_field_string_array(&record.value, "case_ids"),
+        );
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"row_count\": {},\n",
+            record
+                .value
+                .get("row_count")
+                .and_then(Value::as_u64)
+                .unwrap_or(0)
+        ));
+        push_optional_json_string(
+            &mut json,
+            "confidence_column",
+            prediction_confidence_column(&record.value).as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(
+                &json_field_string(&record.value, "status").unwrap_or_else(|| "loaded".to_owned())
+            )
+        ));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn model_diagnostics_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
+    let mut diagnostics = Vec::new();
+    for artifact in &runtime_data.ml_artifacts {
+        if matches!(artifact.kind.as_str(), "RegressionModel" | "MlpModel") {
+            if artifact.features.is_empty() {
+                diagnostics.push((
+                    "error",
+                    "E-MODEL-FEATURE-MISSING",
+                    format!("model `{}` has no feature specification", artifact.binding),
+                    artifact.binding.clone(),
+                    artifact.line,
+                ));
+            }
+            if artifact.target.is_none() {
+                diagnostics.push((
+                    "error",
+                    "E-MODEL-TARGET-MISSING",
+                    format!("model `{}` has no target specification", artifact.binding),
+                    artifact.binding.clone(),
+                    artifact.line,
+                ));
+            }
+        }
+    }
+    for record in external_model_card_records(process_results) {
+        if json_field_string_array(&record.value, "features").is_empty() {
+            diagnostics.push((
+                "error",
+                "E-MODEL-FEATURE-MISSING",
+                format!("model card `{}` has no features", record.path),
+                record.binding.clone(),
+                record.line,
+            ));
+        }
+        if json_field_string(&record.value, "target").is_none() {
+            diagnostics.push((
+                "error",
+                "E-MODEL-TARGET-MISSING",
+                format!("model card `{}` has no target", record.path),
+                record.binding.clone(),
+                record.line,
+            ));
+        }
+    }
+    for record in external_prediction_manifest_records(process_results) {
+        for message in json_field_string_array(&record.value, "schema_mismatch_diagnostics") {
+            diagnostics.push((
+                "warning",
+                "W-MODEL-EXTRAPOLATION",
+                message,
+                record.binding.clone(),
+                record.line,
+            ));
+        }
+    }
+    for process in process_results {
+        let has_model_artifact = process
+            .expected_outputs
+            .iter()
+            .any(|output| output.artifact_kind == "model_artifact");
+        let has_model_card = process
+            .expected_outputs
+            .iter()
+            .any(|output| is_model_card_output(output));
+        if has_model_artifact && !has_model_card {
+            diagnostics.push((
+                "error",
+                "E-MODEL-CARD-MISSING",
+                format!(
+                    "model artifact process `{}` does not declare model_card.json",
+                    process.binding
+                ),
+                process.binding.clone(),
+                process.line,
+            ));
+        }
+    }
+    let mut json = String::new();
+    for (index, (severity, code, message, binding, line)) in diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!("        \"severity\": \"{}\",\n", severity));
+        json.push_str(&format!("        \"code\": \"{}\",\n", code));
+        json.push_str(&format!(
+            "        \"message\": \"{}\",\n",
+            json_escape(message)
+        ));
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(binding)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", line));
         json.push_str("      }");
     }
     json
@@ -16717,6 +17308,93 @@ mod tests {
             model_artifact.get("class").and_then(Value::as_str),
             Some("model")
         );
+        assert!(output.result_json.contains("\"model_diagnostics\""));
+        assert!(output.result_json.contains("\"E-MODEL-CARD-MISSING\""));
+    }
+
+    #[test]
+    fn run_file_adapts_external_model_card_and_prediction_manifest() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-external-model-card");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-external-model-card-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("outputs")).expect("outputs dir");
+        fs::write(
+            source_dir.join("outputs").join("model_card.json"),
+            concat!(
+                "{\n",
+                "  \"model\": \"linear-fixture\",\n",
+                "  \"model_kind\": \"surrogate_regression_fixture\",\n",
+                "  \"features\": [\"cooling_cop\", \"lighting_power_density\"],\n",
+                "  \"target\": \"annual_electricity\",\n",
+                "  \"target_quantity\": \"Energy\",\n",
+                "  \"target_unit\": \"kWh\",\n",
+                "  \"train_test_split\": {\"test_fraction\": 0.2, \"seed\": 42, \"train_rows\": 2, \"test_rows\": 1},\n",
+                "  \"metrics\": {\"rmse\": 0.0, \"mae\": 0.0, \"r2\": 1.0},\n",
+                "  \"training_data_hash\": \"training-hash\",\n",
+                "  \"model_artifact_hash\": \"model-hash\",\n",
+                "  \"status\": \"fixture\"\n",
+                "}\n",
+            ),
+        )
+        .expect("model card");
+        fs::write(
+            source_dir.join("outputs").join("prediction_manifest.json"),
+            concat!(
+                "{\n",
+                "  \"format\": \"prediction-manifest-v1\",\n",
+                "  \"status\": \"complete\",\n",
+                "  \"model\": \"linear-fixture\",\n",
+                "  \"model_file\": {\"path\": \"outputs/surrogate.json\", \"sha256\": \"model-hash\", \"bytes\": 20},\n",
+                "  \"sample_file\": {\"path\": \"samples/design_samples.csv\", \"sha256\": \"sample-hash\", \"bytes\": 30},\n",
+                "  \"output_file\": {\"path\": \"outputs/predictions.csv\", \"sha256\": \"prediction-hash\", \"bytes\": 40},\n",
+                "  \"schema\": [\"case_id\", \"predicted_annual_electricity\", \"prediction_confidence\"],\n",
+                "  \"outputs\": [\n",
+                "    {\"column\": \"predicted_annual_electricity\", \"quantity\": \"Energy\", \"unit\": \"kWh\"},\n",
+                "    {\"column\": \"prediction_confidence\", \"quantity\": \"Ratio\", \"unit\": \"1\"}\n",
+                "  ],\n",
+                "  \"case_ids\": [\"case_001\", \"case_002\"],\n",
+                "  \"row_count\": 2,\n",
+                "  \"schema_mismatch_diagnostics\": []\n",
+                "}\n",
+            ),
+        )
+        .expect("prediction manifest");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "trainer = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"trainer\"]\n    expected_outputs = [\"outputs/model_card.json\"]\n    artifact_kind = \"model_artifact\"\n}\n\npredictor = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"predictor\"]\n    expected_outputs = [\"outputs/prediction_manifest.json\"]\n    artifact_kind = \"prediction_result\"\n}\n"
+        } else {
+            "trainer = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf trainer\"]\n    expected_outputs = [\"outputs/model_card.json\"]\n    artifact_kind = \"model_artifact\"\n}\n\npredictor = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf predictor\"]\n    expected_outputs = [\"outputs/prediction_manifest.json\"]\n    artifact_kind = \"prediction_result\"\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default())
+            .expect("external model artifacts");
+
+        assert!(output.result_json.contains("\"model_cards\""));
+        assert!(output
+            .result_json
+            .contains("\"model_kind\": \"surrogate_regression_fixture\""));
+        assert!(output.result_json.contains("\"model_specs\""));
+        assert!(output.result_json.contains("\"features\""));
+        assert!(output
+            .result_json
+            .contains("\"target_quantity\": \"Energy\""));
+        assert!(output.result_json.contains("\"prediction_manifests\""));
+        assert!(output
+            .result_json
+            .contains("\"confidence_column\": \"prediction_confidence\""));
+        assert!(output
+            .result_json
+            .contains("\"model_artifact_hash\": \"model-hash\""));
+        assert!(output.review_json.contains("\"model_specs\""));
+        assert!(output.review_json.contains("\"prediction_manifests\""));
     }
 
     #[test]
@@ -16753,6 +17431,8 @@ mod tests {
         assert!(output.review_json.contains("\"model_kind\": \"linear\""));
         assert!(output.review_json.contains("\"residual_point_count\""));
         assert!(output.review_json.contains("\"model_artifact_hash\""));
+        assert!(output.result_json.contains("\"model_specs\""));
+        assert!(output.result_json.contains("\"model_diagnostics\""));
         assert!(output
             .cache_manifest_json
             .contains("\"owner_kind\": \"model\""));

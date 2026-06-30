@@ -115,11 +115,11 @@ tests = ["cargo test -p eng_compiler review_json_exposes_normalized_review_docum
 [module."eng.model"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "Model-card, metric, residual, prediction, and hash review artifacts; public model syntax is planned."
-artifacts = ["typed_payload.model_cards", "model_card", "model_metrics", "output_manifest"]
-diagnostics = ["E-MODEL-CARD-MISSING"]
+purpose = "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, prediction-manifest, confidence, and hash review artifacts; public predict syntax is planned."
+artifacts = ["typed_payload.model_specs", "typed_payload.model_cards", "typed_payload.prediction_manifests", "typed_payload.model_diagnostics", "model_card", "model_metrics", "output_manifest"]
+diagnostics = ["E-MODEL-FEATURE-MISSING", "E-MODEL-TARGET-MISSING", "E-MODEL-CARD-MISSING", "W-MODEL-EXTRAPOLATION"]
 examples = ["examples/workflows/02_external_simulation_surrogate_hybrid", "examples/internal/05_data_driven_modeling"]
-tests = ["cargo test -p eng_runtime model_card"]
+tests = ["cargo test -p eng_runtime model"]
 
 [module."eng.db"]
 status = "supported_seed"
@@ -232,11 +232,11 @@ tests = ["cargo test -p eng_runtime system"]
 [module."eng.ml"]
 status = "internal"
 backing = "compiler_runtime_builtin"
-purpose = "Internal data-driven modeling vocabulary, target contracts, and model-card artifacts."
-artifacts = ["typed_payload.ml", "typed_payload.model_cards"]
-diagnostics = ["E-MODEL-CARD-MISSING"]
+purpose = "Internal data-driven modeling vocabulary, target contracts, model specs, and model-card artifacts."
+artifacts = ["typed_payload.ml", "typed_payload.model_specs", "typed_payload.model_cards"]
+diagnostics = ["E-MODEL-FEATURE-MISSING", "E-MODEL-TARGET-MISSING", "E-MODEL-CARD-MISSING"]
 examples = ["examples/internal/05_data_driven_modeling"]
-tests = ["cargo test -p eng_runtime model_card"]
+tests = ["cargo test -p eng_runtime model"]
 
 [module."eng.uncertainty"]
 status = "internal"

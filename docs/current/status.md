@@ -176,13 +176,17 @@ is not mistaken for public module support.
     diagnostics, promoted sample-table artifacts, promoted case manifests
     enriched from process outputs, optional JSON/TOML config field policy,
     DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
-    `artifact_registry` summaries, internal model-card summaries in
-    `typed_payload.model_cards[]`, and hybrid artifact fixtures
+    `artifact_registry` summaries, model specs/cards in
+    `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
+    prediction manifests in `typed_payload.prediction_manifests[]`, model
+    diagnostics in `typed_payload.model_diagnostics[]`, and hybrid artifact fixtures
     for weather/case/model/prediction/DB manifest contracts; `Planned` native
     net/cache/sample generators/case runner/sqlite/model public syntax.
   - Current hybrid DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
-    DB table summaries.
+    DB table summaries. Current hybrid model evidence includes external
+    model-card adaptation, ModelSpec/FeatureSpec/TargetSpec summaries,
+    prediction schema/output metadata, confidence-column metadata, and hashes.
   - Keep domain adapters layered above generic module contracts and avoid
     treating hybrid fixtures as native module support.
 
@@ -193,7 +197,7 @@ is not mistaken for public module support.
 - Multi-return functions, package/module imports, and full formatter policy.
 - Native composite workflow modules beyond the current network/cache/sampling
   seeds: live network execution, cache replay/invalidation, native case runner,
-  database writes, and model-card workflows.
+  database writes, and public model train/predict workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

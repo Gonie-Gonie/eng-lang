@@ -16,7 +16,7 @@ implemented and tested without being part of the published release assets.
 | JIT/AOT | Kernel planning, interpreter kernel IR, `jit-plan`, `jit-bench`, and benchmark catalog coverage exist. | No native speedup claim. |
 | LSP/VS Code | Smoke/snapshot tooling and optional VS Code source exist. | Not a stable persistent editor contract. |
 | Uncertainty | Deterministic samples, diagnostics, propagation metadata, and histogram artifacts exist. | Internal track. |
-| Data-driven modeling | Train/test, metrics, model cards, parity/residual plots, and diagnostics exist. | Internal track. |
+| Data-driven modeling | Train/test, metrics, model specs/cards, prediction manifests, parity/residual plots, and diagnostics exist. | Internal track. |
 | Class/domain objects | Typed fields/defaults, object literals, validation, metadata methods, copy-with, IDE/LSP metadata, and report artifacts exist. | Narrow supported authoring surface, not runtime object dispatch. |
 
 ## Solver-Centered Detail

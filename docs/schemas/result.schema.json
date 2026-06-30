@@ -97,6 +97,18 @@
           "type": "array",
           "items": { "$ref": "#/$defs/modelCardSummary" }
         },
+        "model_specs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelSpec" }
+        },
+        "prediction_manifests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/predictionManifest" }
+        },
+        "model_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelDiagnostic" }
+        },
         "policy_results": {
           "type": "array",
           "items": { "$ref": "#/$defs/policyResult" }
@@ -638,6 +650,131 @@
         "rmse": { "type": ["number", "null"] },
         "mae": { "type": ["number", "null"] },
         "r2": { "type": ["number", "null"] }
+      }
+    },
+    "modelSpec": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source",
+        "model_kind",
+        "features",
+        "target",
+        "test_fraction",
+        "seed",
+        "train_count",
+        "test_count",
+        "training_data_hash",
+        "model_artifact_hash",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "model_kind": { "type": "string" },
+        "features": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/modelFeatureSpec" }
+        },
+        "target": { "$ref": "#/$defs/modelTargetSpec" },
+        "test_fraction": { "type": ["string", "null"] },
+        "seed": { "type": ["string", "null"] },
+        "train_count": { "type": ["integer", "null"], "minimum": 0 },
+        "test_count": { "type": ["integer", "null"], "minimum": 0 },
+        "training_data_hash": { "type": ["string", "null"] },
+        "model_artifact_hash": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "modelFeatureSpec": {
+      "type": "object",
+      "required": ["name", "quantity", "unit"],
+      "properties": {
+        "name": { "type": "string" },
+        "quantity": { "type": ["string", "null"] },
+        "unit": { "type": ["string", "null"] }
+      }
+    },
+    "modelTargetSpec": {
+      "type": "object",
+      "required": ["name", "quantity", "unit"],
+      "properties": {
+        "name": { "type": ["string", "null"] },
+        "quantity": { "type": ["string", "null"] },
+        "unit": { "type": ["string", "null"] }
+      }
+    },
+    "predictionManifest": {
+      "type": "object",
+      "required": [
+        "binding",
+        "manifest_path",
+        "model",
+        "model_file",
+        "sample_file",
+        "output_file",
+        "schema",
+        "outputs",
+        "case_ids",
+        "row_count",
+        "confidence_column",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "manifest_path": { "type": "string" },
+        "model": { "type": "string" },
+        "model_file": { "$ref": "#/$defs/manifestFile" },
+        "sample_file": { "$ref": "#/$defs/manifestFile" },
+        "output_file": { "$ref": "#/$defs/manifestFile" },
+        "schema": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "outputs": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/predictionOutputSpec" }
+        },
+        "case_ids": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "row_count": { "type": "integer", "minimum": 0 },
+        "confidence_column": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "manifestFile": {
+      "type": ["object", "null"],
+      "required": ["path", "sha256", "bytes"],
+      "properties": {
+        "path": { "type": ["string", "null"] },
+        "sha256": { "type": ["string", "null"] },
+        "bytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "predictionOutputSpec": {
+      "type": "object",
+      "required": ["column", "quantity", "unit"],
+      "properties": {
+        "column": { "type": ["string", "null"] },
+        "quantity": { "type": ["string", "null"] },
+        "unit": { "type": ["string", "null"] }
+      }
+    },
+    "modelDiagnostic": {
+      "type": "object",
+      "required": ["severity", "code", "message", "binding", "line"],
+      "properties": {
+        "severity": { "enum": ["warning", "error"] },
+        "code": { "type": "string" },
+        "message": { "type": "string" },
+        "binding": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
       }
     },
     "mlArtifact": {

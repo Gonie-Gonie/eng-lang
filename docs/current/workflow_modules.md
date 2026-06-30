@@ -66,7 +66,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.case` | supported_seed | compiler_runtime_builtin | `typed_payload.case_tables`<br>`typed_payload.case_manifests`<br>`typed_payload.case_diagnostics`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-CASE-DIR-COLLISION`<br>`E-CASE-OUTPUT-MISSING`<br>`E-CASE-STEP-FAILED`<br>`W-CASE-SKIPPED-CACHE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime case_manifest` |
 | `eng.artifact` | supported_seed | compiler_runtime_builtin | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | `artifact_validation_failed` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime output_manifest` |
 | `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
-| `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_cards`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-CARD-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model_card` |
+| `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_specs`<br>`typed_payload.model_cards`<br>`typed_payload.prediction_manifests`<br>`typed_payload.model_diagnostics`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING`<br>`W-MODEL-EXTRAPOLATION` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model` |
 | `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`review.external_boundaries` | `E-DB-SCHEMA-MISMATCH` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime db_manifest` |
 | `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg` |
@@ -79,7 +79,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.plot` | planned | none | `plotspec`<br>`plot_manifest`<br>`output_manifest` | `none_current` | `examples/official/01_csv_plot` | `cargo test -p eng_report plot` |
 | `eng.building` | planned | none | `review.objects` | `planned` | `planned_building_examples` | `planned_building_tests` |
 | `eng.system` | internal_planned | internal | `review.systems`<br>`system_ir` | `solver_or_numeric` | `examples/advanced_solver/31_external_behavior_solver` | `cargo test -p eng_runtime system` |
-| `eng.ml` | internal | compiler_runtime_builtin | `typed_payload.ml`<br>`typed_payload.model_cards` | `E-MODEL-CARD-MISSING` | `examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model_card` |
+| `eng.ml` | internal | compiler_runtime_builtin | `typed_payload.ml`<br>`typed_payload.model_specs`<br>`typed_payload.model_cards` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING` | `examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model` |
 | `eng.uncertainty` | internal | compiler_runtime_builtin | `typed_payload.uncertainties`<br>`review.uncertainty` | `W-UNC-INDEPENDENCE-ASSUMED`<br>`W-WITH-UNCERTAINTY-SEED-001` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_compiler uncertainty`<br>`cargo test -p eng_runtime uncertainty` |
 <!-- module-registry-table:end -->
 
@@ -184,16 +184,19 @@ three explicit fixture cases
 per-case patched input, simulator output, simulator log, and case_manifest.json classified as case artifacts with expected-output hash and tool-version records
 collected summary_results.csv plus result_collection_manifest.json with case IDs, missing/failed case lists, and summary metrics
 surrogate.json, model_metrics.json, and model_card.json with feature, target, split, residual, training-hash, and model-hash metadata
-internal eng.ml artifacts promoted to typed_payload.model_cards[] with model kind, features, target quantity/unit, train/test counts, metrics, residual point counts, training data hashes, and model artifact hashes
-predictions.csv plus prediction_manifest.json with output quantity/unit, model hash, sample hash, case IDs, and row count
+internal eng.ml artifacts and external model_card.json files promoted to typed_payload.model_specs[] and typed_payload.model_cards[] with model kind, features, target quantity/unit, train/test counts, metrics, residual point counts, training data hashes, and model artifact hashes
+predictions.csv plus prediction_manifest.json promoted to typed_payload.prediction_manifests[] with prediction schema, output quantity/unit, model hash, sample hash, case IDs, row count, and confidence-column metadata
+typed_payload.model_diagnostics[] for missing model cards, missing features/targets, and prediction schema warnings
 db_write_manifest.json, promoted to typed_payload.db_manifests[] with table names, modes, keys, schemas, schema diagnostics, row counts, hashes, and transaction status
 process_results.json and output_manifest.json entries for every opaque boundary
 ```
 
 These fixtures show the review contract that `eng.case`, `eng.db`, and
-`eng.model` should eventually make native. The current internal `eng.ml`
-seed already exposes model-card summaries as result artifacts, without claiming
-a broad ML framework surface.
+`eng.model` should make native. The current `eng.model` seed makes external
+model cards, model specs, prediction manifests, and model diagnostics
+reviewable when they cross explicit process expected-output boundaries. Public
+train/predict syntax remains planned, and the internal `eng.ml` seed exposes
+matching model review artifacts without claiming a broad ML framework surface.
 
 ## Weather API To Standard File Pattern
 
@@ -282,7 +285,10 @@ E-CASE-OUTPUT-MISSING
 E-CASE-STEP-FAILED
 W-CASE-SKIPPED-CACHE
 E-DB-SCHEMA-MISMATCH
+E-MODEL-FEATURE-MISSING
+E-MODEL-TARGET-MISSING
 E-MODEL-CARD-MISSING
+W-MODEL-EXTRAPOLATION
 W-PROFILE-NONREPRO
 W-FALLBACK-USED
 ```

@@ -75,9 +75,9 @@ and next cleanup action.
 
 - Purpose: make model training/evaluation metadata reviewable.
 - Public scope: none beyond internal examples unless explicitly documented.
-- Main internal: train/test metadata, deterministic metrics, model cards,
-  target quantity/unit, training/model hashes, parity plots, residual plots,
-  and diagnostics.
+- Main internal: train/test metadata, deterministic metrics, model specs/cards,
+  target quantity/unit, prediction manifests with confidence-column metadata,
+  training/model hashes, parity plots, residual plots, and diagnostics.
 - Next cleanup: describe as model/review artifacts, not physical system
   simulation.
 
@@ -121,7 +121,8 @@ and next cleanup action.
   execution, `eng.cache` replay/invalidation, native `eng.db` SQLite writes,
   and `eng.model` public syntax are planned; network/cache record summaries,
   DB manifest summaries, output-manifest `artifact_registry` summaries, and
-  internal model-card summaries are supported as artifact seeds.
+  model specs/cards/prediction-manifest summaries are supported as artifact
+  seeds.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 
@@ -138,10 +139,10 @@ and next cleanup action.
   promoted sample-table summaries, promoted case manifests enriched from
   process outputs, time-axis coverage summaries, explicit generic TimeSeries coverage artifacts, process-generated case
   manifests, generic output-manifest artifact registry records, typed
-  model-card summaries with target contracts and hashes,
-  prediction manifests with output quantity/unit and model/sample hashes, and DB
-  side-effect manifests with schema diagnostics, transaction status, and table
-  write records.
+  model specs/cards with target contracts and hashes, prediction manifests with
+  output quantity/unit, confidence-column metadata, and model/sample hashes, and
+  DB side-effect manifests with schema diagnostics, transaction status, and
+  table write records.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

@@ -206,9 +206,9 @@ separate.
 
 - Public package: `Internal`
 - Main status: `Internal`
-- Evidence: train/test split metadata, deterministic metrics, model cards,
-  target quantity/unit, training/model hashes, parity/residual plots, and
-  diagnostics.
+- Evidence: train/test split metadata, deterministic metrics, model specs/cards,
+  target quantity/unit, prediction manifests with confidence-column metadata,
+  training/model hashes, parity/residual plots, and diagnostics.
 - Not included: broad ML package semantics.
 - Next cleanup action: describe as model review artifacts, not physical system
   simulation.
@@ -240,15 +240,17 @@ separate.
   sample-table artifacts, typed config promotion optional field policy,
   promoted case table summaries with collection status and scheduler hooks,
   pending/succeeded/failed/skipped case manifests enriched from process
-  outputs, case diagnostics, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
-  summaries in `typed_payload.model_cards[]`, DateTime-indexed
+  outputs, case diagnostics, DB manifest summaries in `typed_payload.db_manifests[]`, model
+  specs/cards in `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
+  prediction manifests in `typed_payload.prediction_manifests[]`, model diagnostics
+  in `typed_payload.model_diagnostics[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite records, `typed_payload.quality_results[]` common quality records for TimeSeries, validation, schema-constraint, and expectation-suite results with row/field failure details, report-facing `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]` alignment/resampling hooks, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
   through explicit process/write boundaries; deterministic grid/random/LHS
   sampling generator seeds now materialize `typed_payload.sample_tables[]`;
   `Planned` for native network/cache execution, native case apply/collect syntax,
   SQLite
-  writes, and model-card public syntax.
+  writes, and model public train/predict syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -261,14 +263,17 @@ separate.
   `typed_payload.timeseries_coverage[]`, `typed_payload.timeseries_quality[]`, `typed_payload.expectation_suites[]`, `typed_payload.quality_results[]`, `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_tables[]`, `typed_payload.case_manifests[]`,
   `typed_payload.case_diagnostics[]`, `typed_payload.db_manifests[]`,
-  `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
+  `typed_payload.model_specs[]`, `typed_payload.model_cards[]`,
+  `typed_payload.prediction_manifests[]`, `typed_payload.model_diagnostics[]`,
+  workflow examples under `examples/workflows`,
   data-quality diagnostics for invalid sample rows, IDE table transform
   inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
   The external simulation hybrid now records three enriched native case manifests, collected
-  result rows, surrogate model cards, prediction manifests with output quantity/unit
-  and hashes, and DB write manifests with schema diagnostics, table records, and
-  transaction status as reviewable fixture artifacts.
+  result rows, surrogate model specs/cards, prediction manifests with output
+  quantity/unit, confidence-column metadata, and hashes, and DB write manifests
+  with schema diagnostics, table records, and transaction status as reviewable
+  fixture artifacts.
 - Not included: live HTTP execution/cache replay API, general table derived-value execution/fill transforms,
   native case apply/collect syntax and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
   parser, native SQLite write/upsert, broad DB support, or ML framework

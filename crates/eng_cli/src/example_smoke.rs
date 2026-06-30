@@ -6663,6 +6663,18 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !model_card.contains("\"residual_distribution\"")
                 || !model_card.contains("\"training_data_hash\"")
                 || !model_card.contains("\"model_artifact_hash\"")
+                || !output.result_json.contains("\"model_cards\"")
+                || !output.result_json.contains("\"model_specs\"")
+                || !output.result_json.contains("\"prediction_manifests\"")
+                || !output.result_json.contains("\"model_diagnostics\"")
+                || !output
+                    .result_json
+                    .contains("\"model_kind\": \"surrogate_regression_fixture\"")
+                || !output
+                    .result_json
+                    .contains("\"confidence_column\": \"prediction_confidence\"")
+                || !output.review_json.contains("\"model_specs\"")
+                || !output.review_json.contains("\"prediction_manifests\"")
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"case_input\"")

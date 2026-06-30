@@ -2511,21 +2511,32 @@ function renderModelPanel() {
   const model = inspectorObject("modelCards");
   const cards = Array.isArray(model.cards) ? model.cards : [];
   const artifacts = Array.isArray(model.artifacts) ? model.artifacts : [];
+  const specs = Array.isArray(model.specs) ? model.specs : [];
+  const predictionManifests = Array.isArray(model.predictionManifests) ? model.predictionManifests : [];
+  const diagnostics = Array.isArray(model.diagnostics) ? model.diagnostics : [];
   const residualPoints = artifacts.reduce((sum, artifact) => {
     const points = Array.isArray(artifact.residual_points) ? artifact.residual_points : (Array.isArray(artifact.residualPoints) ? artifact.residualPoints : []);
     return sum + points.length;
   }, 0);
   return `
-    <div class="panel-title compact">Model Cards</div>
+    <div class="panel-title compact">Model Review</div>
     <div class="badges">
+      <span class="badge">Specs ${specs.length}</span>
       <span class="badge">Cards ${cards.length}</span>
-      <span class="badge">Artifacts ${artifacts.length}</span>
+      <span class="badge">Predictions ${predictionManifests.length}</span>
+      <span class="badge">Diagnostics ${diagnostics.length}</span>
       <span class="badge">Residuals ${residualPoints}</span>
     </div>
     <div class="scroll">
+      ${renderModelSpecs(specs)}
+      <div class="panel-title compact">Model Cards</div>
       ${renderModelCards(cards)}
       <div class="panel-title compact">Training Artifacts</div>
       ${renderModelArtifacts(artifacts)}
+      <div class="panel-title compact">Prediction Manifests</div>
+      ${renderPredictionManifests(predictionManifests)}
+      <div class="panel-title compact">Model Diagnostics</div>
+      ${renderModelDiagnostics(diagnostics)}
     </div>
   `;
 }
@@ -2651,6 +2662,44 @@ function caseOutputSummary(manifest) {
   return parts.length ? parts.join(", ") : "-";
 }
 
+function renderModelSpecs(specs) {
+  const rows = specs.map((spec) => `
+    <tr>
+      <td><strong>${escapeHtml(spec.binding || "-")}</strong><div class="muted">${sourceLineButton(spec)}</div></td>
+      <td>${escapeHtml(spec.model_kind || spec.modelKind || "-")}<div class="muted">${escapeHtml(spec.status || "-")}</div></td>
+      <td>${escapeHtml(modelFeatureSpecSummary(spec.features))}</td>
+      <td>${escapeHtml(modelTargetSpecSummary(spec.target))}</td>
+      <td>${escapeHtml(spec.train_count ?? spec.trainCount ?? "-")} / ${escapeHtml(spec.test_count ?? spec.testCount ?? "-")}<div class="muted">split ${escapeHtml(spec.test_fraction ?? spec.testFraction ?? "-")} seed ${escapeHtml(spec.seed ?? "-")}</div></td>
+      <td><code>${escapeHtml(compactText(spec.model_artifact_hash || spec.modelArtifactHash || "-", 70))}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Model</th><th>Features</th><th>Target</th><th>Train/Test</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No model specs.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function modelFeatureSpecSummary(features) {
+  if (!Array.isArray(features) || !features.length) return "-";
+  return compactText(features.map((feature) => {
+    if (typeof feature === "string") return feature;
+    const name = feature.name || "-";
+    const quantity = feature.quantity || "";
+    const unit = feature.unit || "";
+    const suffix = [quantity, unit].filter(Boolean).join(" ");
+    return suffix ? `${name} (${suffix})` : name;
+  }).join(", "), 120);
+}
+
+function modelTargetSpecSummary(target) {
+  if (!target || typeof target !== "object") return "-";
+  const name = target.name || "-";
+  const suffix = [target.quantity, target.unit].filter(Boolean).join(" ");
+  return suffix ? `${name} (${suffix})` : name;
+}
+
 function renderModelCards(cards) {
   const rows = cards.map((card) => {
     const metrics = card.metrics || {};
@@ -2693,6 +2742,56 @@ function renderModelArtifacts(artifacts) {
     <table class="artifact-table">
       <thead><tr><th>Artifact</th><th>Algorithm</th><th>Features</th><th>RMSE/MAE/R2</th><th>Points</th><th>Training Hash</th><th>Source</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="7" class="muted">No model artifacts.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderPredictionManifests(manifests) {
+  const rows = manifests.map((manifest) => `
+    <tr>
+      <td><strong>${escapeHtml(manifest.binding || "-")}</strong><div class="muted">${sourceLineButton(manifest)}</div></td>
+      <td>${escapeHtml(manifest.model || "-")}<div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
+      <td><code>${escapeHtml(compactText(manifest.manifest_path || manifest.manifestPath || "-", 80))}</code><div class="muted">${escapeHtml(compactText(manifestFilePath(manifest.output_file || manifest.outputFile), 80))}</div></td>
+      <td>${escapeHtml(manifest.row_count ?? manifest.rowCount ?? "-")}<div class="muted">cases ${escapeHtml(Array.isArray(manifest.case_ids || manifest.caseIds) ? (manifest.case_ids || manifest.caseIds).length : 0)}</div></td>
+      <td>${escapeHtml(predictionOutputSummary(manifest.outputs))}</td>
+      <td>${escapeHtml(manifest.confidence_column || manifest.confidenceColumn || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Model</th><th>Files</th><th>Rows</th><th>Outputs</th><th>Confidence</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No prediction manifests.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function manifestFilePath(file) {
+  if (!file || typeof file !== "object") return "-";
+  return file.path || "-";
+}
+
+function predictionOutputSummary(outputs) {
+  if (!Array.isArray(outputs) || !outputs.length) return "-";
+  return compactText(outputs.map((output) => {
+    const column = output.column || "-";
+    const suffix = [output.quantity, output.unit].filter(Boolean).join(" ");
+    return suffix ? `${column} (${suffix})` : column;
+  }).join(", "), 120);
+}
+
+function renderModelDiagnostics(diagnostics) {
+  const rows = diagnostics.map((diagnostic) => `
+    <tr>
+      <td><strong>${escapeHtml(diagnostic.code || "-")}</strong><div class="muted">${escapeHtml(diagnostic.severity || "-")}</div></td>
+      <td>${escapeHtml(diagnostic.binding || "-")}</td>
+      <td>${escapeHtml(compactText(diagnostic.message || "-", 140))}</td>
+      <td>${sourceLineButton(diagnostic)}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Code</th><th>Binding</th><th>Message</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No model diagnostics.</td></tr>`}</tbody>
     </table>
   `;
 }

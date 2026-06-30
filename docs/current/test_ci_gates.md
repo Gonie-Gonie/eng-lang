@@ -94,7 +94,13 @@ syntax:
   enriched case manifests.
 - `runtime/model_card_external.eng` maps to surrogate trainer
   artifacts: `outputs/surrogate.json`, `outputs/model_metrics.json`,
-  and `outputs/model_card.json`.
+  and `outputs/model_card.json`; runtime review payloads adapt model cards into
+  `typed_payload.model_specs[]`, `typed_payload.model_cards[]`, and
+  `typed_payload.model_diagnostics[]`.
+- `examples/workflows/02_external_simulation_surrogate_hybrid/main.eng`
+  also covers prediction-manifest adaptation into
+  `typed_payload.prediction_manifests[]`, including output quantity/unit,
+  case IDs, row counts, hashes, and confidence-column metadata.
 - `runtime/db_sqlite_write.eng` maps to the DB write manifest fixture.
   Current evidence is the typed DB manifest, schema diagnostics, transaction
   status, source hashes, and table records; native SQLite writes are not yet
