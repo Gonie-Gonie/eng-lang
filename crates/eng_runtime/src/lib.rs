@@ -396,13 +396,15 @@ pub fn run_source(
     let runtime_data = materialize_runtime_data(&check_report, source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
+    let process_results = execute_process_runs(&check_report)?;
+    let external_boundary_records = external_boundary_records_for_processes(&process_results);
     let run_log_json = run_log_json(
         &check_report,
         &runtime_data,
         &options.profile,
         &profile_diagnostics,
+        &external_boundary_records,
     );
-    let process_results = execute_process_runs(&check_report)?;
     let process_results_json =
         process_results_json(&check_report, &process_results, &options.profile);
     let csv_export_artifacts = write_csv_exports(&check_report, &runtime_data, &result_dir)?;
@@ -1025,6 +1027,7 @@ fn run_log_json(
     runtime_data: &RuntimeData,
     profile: &ExecutionProfile,
     profile_diagnostics: &[ProfileDiagnostic],
+    external_boundaries: &[ExternalBoundaryRecord],
 ) -> String {
     let entries = runtime_log_entries(report, runtime_data);
     let mut json = String::new();
@@ -1059,6 +1062,46 @@ fn run_log_json(
             json_escape(&entry.message)
         ));
         json.push_str(&format!("      \"line\": {}\n", entry.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str(&format!(
+        "  \"external_boundary_event_count\": {},\n",
+        external_boundaries.len()
+    ));
+    json.push_str("  \"external_boundary_events\": [\n");
+    for (record_index, record) in external_boundaries.iter().enumerate() {
+        if record_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str("      \"kind\": \"process\",\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&record.binding)
+        ));
+        json.push_str(&format!(
+            "      \"command\": \"{}\",\n",
+            json_escape(&record.command)
+        ));
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        json.push_str(&format!("      \"success\": {},\n", record.success));
+        json.push_str(&format!(
+            "      \"expected_output_status\": \"{}\",\n",
+            json_escape(&record.expected_output_status)
+        ));
+        json.push_str(&format!(
+            "      \"stdout_hash\": \"{}\",\n",
+            json_escape(&record.stdout_hash)
+        ));
+        json.push_str(&format!(
+            "      \"stderr_hash\": \"{}\",\n",
+            json_escape(&record.stderr_hash)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", record.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -8525,6 +8568,11 @@ mod tests {
         assert!(output.process_results_json.contains("process-ok"));
         assert!(output.process_results_json.contains("\"stdout_hash\""));
         assert!(output.process_results_json.contains("\"stderr_hash\""));
+        assert!(output.run_log_json.contains("\"external_boundary_events\""));
+        assert!(output
+            .run_log_json
+            .contains("\"binding\": \"process_result\""));
+        assert!(output.run_log_json.contains("\"stdout_hash\""));
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"process_results\""));
