@@ -242,9 +242,10 @@ separate.
   summaries in `typed_payload.model_cards[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite records, `typed_payload.quality_results[]` common quality records for TimeSeries, validation, schema-constraint, and expectation-suite results with row/field failure details, report-facing `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]` alignment/resampling hooks, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
-  through explicit process/write boundaries; `Planned` for native network,
-  cache, sampling generators, native case runner, SQLite writes, and model-card
-  public syntax.
+  through explicit process/write boundaries; deterministic grid/random/LHS
+  sampling generator seeds now materialize `typed_payload.sample_tables[]`;
+  `Planned` for native network/cache execution, native case runner, SQLite
+  writes, and model-card public syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -265,12 +266,12 @@ separate.
   and hashes, and DB write manifests with schema diagnostics, table records, and
   transaction status as reviewable fixture artifacts.
 - Not included: live HTTP execution/cache replay API, general table derived-value execution/fill transforms,
-  native grid/random/LHS sample generation, native case runner, domain weather
-  adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad
-  DB support, or ML framework support.
+  native case runner, domain weather adapters, EPW writer, EnergyPlus IDF
+  parser, native SQLite write/upsert, broad DB support, or ML framework
+  support.
 - Next cleanup action: extend `eng.net` and `eng.cache` beyond fixture/manifest
-  seeds, then use the workflow skeletons to drive `eng.sampling` generators,
-  `eng.case`, `eng.db`, and `eng.model` slices with artifacts and diagnostics.
+  seeds, then use the workflow skeletons to drive `eng.case`, `eng.db`, and
+  `eng.model` slices with artifacts and diagnostics.
 
 ## Solver Vocabulary
 

@@ -279,6 +279,21 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                     line: process.line,
                 });
             }
+            for generation in &report.semantic_program.sample_generations {
+                if matches!(generation.method.as_str(), "random" | "lhs")
+                    && generation.seed.is_none()
+                {
+                    diagnostics.push(ProfileDiagnostic {
+                        severity: "error",
+                        code: "E-SAMPLING-SEED-MISSING",
+                        message: format!(
+                            "repro profile requires sample `{}` to declare `seed`",
+                            generation.binding
+                        ),
+                        line: generation.line,
+                    });
+                }
+            }
             for operation in &report.semantic_program.file_operations {
                 if matches!(operation.operation.as_str(), "move" | "delete") {
                     diagnostics.push(ProfileDiagnostic {
@@ -14932,6 +14947,120 @@ mod tests {
             .result_json
             .contains("\"status\": \"promoted_sample_table\""));
         assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_generated_sample_tables() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-generated-samples");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-generated-samples-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "grid_samples = sample grid\n",
+                "with {\n",
+                "    count = 4\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "    lighting_power_density = uniform(5 W/m2, 15 W/m2)\n",
+                "}\n\n",
+                "random_samples = sample random\n",
+                "with {\n",
+                "    count = 3\n",
+                "    seed = 7\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n\n",
+                "lhs_samples = sample lhs\n",
+                "with {\n",
+                "    count = 3\n",
+                "    seed = 9\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n\n",
+                "print \"samples={grid_samples.rows}\"\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("generated sample run");
+
+        assert!(output.result_json.contains("\"binding\": \"grid_samples\""));
+        assert!(output
+            .result_json
+            .contains("\"binding\": \"random_samples\""));
+        assert!(output.result_json.contains("\"binding\": \"lhs_samples\""));
+        assert!(output
+            .result_json
+            .contains("\"schema_name\": \"GeneratedSample\""));
+        assert!(output
+            .result_json
+            .contains("\"generation\": \"sample_grid\""));
+        assert!(output
+            .result_json
+            .contains("\"generation\": \"sample_random\""));
+        assert!(output
+            .result_json
+            .contains("\"generation\": \"sample_lhs\""));
+        assert!(output.result_json.contains("\"seed\": \"7\""));
+        assert!(output.result_json.contains("\"seed\": \"9\""));
+        assert!(output
+            .result_json
+            .contains("\"case_id_column\": \"case_id\""));
+        assert!(output
+            .result_json
+            .contains("\"quantity_kind\": \"Irradiance\""));
+        assert!(output.result_json.contains("\"display_unit\": \"W/m2\""));
+        assert!(output.result_json.contains("\"row_hash_count\": 4"));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"generated_sample_table\""));
+        assert!(output.result_json.contains("\"case_id\": \"case_001\""));
+        assert!(output
+            .result_json
+            .contains("\"sample_table\": \"grid_samples\""));
+        assert!(output.stdout.contains("samples=4"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_file_repro_profile_requires_generated_random_sample_seed() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-sampling-repro-seed");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-sampling-repro-seed-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "samples = sample random\nwith {\n    count = 2\n    cooling_cop = uniform(2.5, 5.0)\n}\n",
+        )
+        .expect("write source");
+
+        let error = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Repro,
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("repro profile should require seed");
+
+        assert!(error.to_string().contains("E-SAMPLING-SEED-MISSING"));
     }
 
     #[test]

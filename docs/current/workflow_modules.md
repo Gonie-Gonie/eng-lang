@@ -20,8 +20,9 @@ table filter/select/derive/sort/require_one/join seeds now emit static `review_d
 and runtime `typed_payload.table_transforms[]` records with predicates, join
 keys, matched pair counts, row counts, Date/DateTime predicate comparison, and
 `row_diagnostics[]`. Promoted
-DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
-case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
+`sample grid`, `sample random`, `sample lhs`, and DesignSample-style CSV tables
+now emit `typed_payload.sample_tables[]` with case ID, parameter range,
+duplicate-case, seed, generation, and row-hash preview metadata, plus
 `typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network and cache record seeds have
@@ -58,7 +59,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.test` | supported_narrow | compiler_runtime_builtin | `test_results`<br>`review.tests`<br>`output_manifest` | `E-ASSERT-001`<br>`E-ASSERT-002`<br>`E-ASSERT-UNIT-001`<br>`E-GOLDEN-002` | `examples/official/13_file_operations` | `cargo test -p eng_compiler records_test_assert_and_golden_metadata`<br>`cargo test -p eng_runtime run_file_executes_test_assert_and_golden_checks` |
 | `eng.table` | supported_seed | compiler_runtime_builtin | `review.inputs`<br>`review_document.table_transforms`<br>`typed_payload.table_diagnostics`<br>`typed_payload.table_selections`<br>`typed_payload.table_transforms` | `E-TABLE-UNKNOWN-COLUMN`<br>`E-TABLE-PREDICATE-TYPE`<br>`E-TABLE-JOIN-KEY-MISMATCH`<br>`E-TABLE-SCHEMA-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime table_`<br>`cargo test -p eng_compiler table_` |
 | `eng.timeseries` | supported_seed | compiler_runtime_builtin | `typed_payload.timeseries_coverage`<br>`typed_payload.timeseries_fill`<br>`typed_payload.timeseries_quality`<br>`typed_payload.quality_results`<br>`typed_payload.time_alignments`<br>`review.fallbacks` | `E-TIMESERIES-COVERAGE-GAP`<br>`W-FALLBACK-USED` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review`<br>`cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts`<br>`cargo test -p eng_runtime run_file_records_timeseries_alignment_and_resampling_hooks` |
-| `eng.sampling` | supported_seed | compiler_runtime_builtin | `typed_payload.sample_tables`<br>`case_manifest` | `E-SAMPLING-SEED-MISSING`<br>`E-CASE-ID-DUPLICATE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime sample_table` |
+| `eng.sampling` | supported_seed | compiler_runtime_builtin | `typed_payload.sample_tables`<br>`case_manifest` | `E-SAMPLING-COUNT-INVALID`<br>`E-SAMPLING-RANGE-UNIT`<br>`E-SAMPLING-SEED-MISSING`<br>`E-CASE-ID-DUPLICATE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler sample_generation`<br>`cargo test -p eng_runtime sample` |
 | `eng.case` | supported_seed | compiler_runtime_builtin | `typed_payload.case_manifests`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-PROCESS-OUTPUT-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime case_manifest` |
 | `eng.artifact` | supported_seed | compiler_runtime_builtin | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | `artifact_validation_failed` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime output_manifest` |
 | `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
@@ -143,9 +144,8 @@ counts, Date/DateTime predicate comparison evidence, selected columns,
 derived columns, sort keys, predicates, join keys, matched pair counts, row
 diagnostics, status, and reason,
 `review_document.table_transforms[]` records the static transform contract,
-`typed_payload.sample_tables[]` records
-deterministic sample/case table metadata when a promoted table is
-sample-like, and `typed_payload.case_manifests[]` records one case manifest per
+`typed_payload.sample_tables[]` records deterministic generated and promoted
+sample/case table metadata, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`
 files, `typed_payload.db_manifests[]` records generated DB write manifests,
 and current network/cache seeds record fixture boundaries and cache hit/miss

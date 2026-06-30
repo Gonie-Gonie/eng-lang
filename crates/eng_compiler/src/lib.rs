@@ -74,10 +74,10 @@ pub use semantic::{
     EquationInfo, EquationIrInfo, ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo,
     FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo,
     ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo,
-    PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo, SemanticProgram, SemanticType,
-    SolverPlanInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
-    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
-    WithOptionInfo, WriteInfo,
+    PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo, SampleDistributionInfo,
+    SampleGenerationInfo, SemanticProgram, SemanticType, SolverPlanInfo, StateSpaceVectorInfo,
+    SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
+    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -12278,6 +12278,61 @@ system Envelope {
         assert!(review.contains("\"operation\": \"join\""));
         assert!(review.contains("\"secondary_table\": \"results\""));
         assert!(review.contains("\"join_keys\""));
+    }
+
+    #[test]
+    fn records_sample_generation_specs() {
+        let report = check_source(
+            "samples.eng",
+            "samples = sample lhs\nwith {\n    count = 4\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n    lighting_power_density = uniform(5 W/m2, 15 W/m2)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(
+            !report
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code.starts_with("E-SAMPLING")),
+            "{:?}",
+            report.diagnostics
+        );
+        let generation = report
+            .semantic_program
+            .sample_generations
+            .first()
+            .expect("sample generation");
+        assert_eq!(generation.binding, "samples");
+        assert_eq!(generation.method, "lhs");
+        assert_eq!(generation.count, 4);
+        assert_eq!(generation.seed, Some(42));
+        assert_eq!(generation.distributions.len(), 2);
+        assert_eq!(generation.distributions[0].name, "cooling_cop");
+        assert_eq!(generation.distributions[1].quantity_kind, "Irradiance");
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                binding.name == "samples" && binding.semantic_type.quantity_kind == "Table[Sample]"
+            }));
+    }
+
+    #[test]
+    fn rejects_invalid_sample_generation_specs() {
+        let report = check_source(
+            "bad_samples.eng",
+            "samples = sample random\nwith {\n    count = 0\n    load = uniform(1 kW, 2 m)\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SAMPLING-COUNT-INVALID"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-SAMPLING-RANGE-UNIT"));
     }
 
     #[test]

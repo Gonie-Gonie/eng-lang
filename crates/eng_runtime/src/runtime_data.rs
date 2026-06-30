@@ -3010,6 +3010,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
             data.tables.push(table);
         }
     }
+    data.tables
+        .extend(materialize_generated_sample_tables(report));
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     data.time_axes = materialize_time_axes(&data.tables);
@@ -3025,7 +3027,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.table_selections = materialize_table_selections(report, &data.tables);
     data.table_transforms = materialize_table_transforms(report, &data.tables);
-    data.sample_tables = materialize_sample_tables(&data.tables);
+    data.sample_tables =
+        materialize_sample_tables(&report.semantic_program.sample_generations, &data.tables);
     data.case_manifests = materialize_case_manifests(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
     data.time_series.extend(materialize_timeseries_fill_series(
@@ -3225,6 +3228,224 @@ fn materialize_table(
         parse_failures,
         line: promotion.line,
     })
+}
+
+fn materialize_generated_sample_tables(report: &CheckReport) -> Vec<RuntimeTable> {
+    report
+        .semantic_program
+        .sample_generations
+        .iter()
+        .filter(|generation| generation.count > 0 && !generation.distributions.is_empty())
+        .map(materialize_generated_sample_table)
+        .collect()
+}
+
+fn materialize_generated_sample_table(
+    generation: &eng_compiler::SampleGenerationInfo,
+) -> RuntimeTable {
+    let rows = generated_sample_rows(generation);
+    let case_width = generation.count.to_string().len().max(3);
+    let mut columns = Vec::new();
+    columns.push(RuntimeColumn {
+        name: "case_id".to_owned(),
+        type_name: "String".to_owned(),
+        unit: None,
+        canonical_unit: None,
+        is_index: false,
+        values: RuntimeValues::Text(
+            (1..=generation.count)
+                .map(|index| format!("case_{index:0case_width$}"))
+                .collect(),
+        ),
+        canonical_values: Vec::new(),
+        missing_count: 0,
+        conversion_failures: Vec::new(),
+    });
+    for (column_index, distribution) in generation.distributions.iter().enumerate() {
+        let values = rows
+            .iter()
+            .map(|row| row.get(column_index).copied().flatten())
+            .collect::<Vec<_>>();
+        columns.push(RuntimeColumn {
+            name: distribution.name.clone(),
+            type_name: distribution.quantity_kind.clone(),
+            unit: Some(distribution.display_unit.clone()),
+            canonical_unit: Some(distribution.canonical_unit.clone()),
+            is_index: false,
+            values: RuntimeValues::Number(values.clone()),
+            canonical_values: values,
+            missing_count: 0,
+            conversion_failures: Vec::new(),
+        });
+    }
+    let source = format!("sample {}", generation.method);
+    let hash_payload = generated_sample_hash_payload(generation, &rows);
+    RuntimeTable {
+        binding: generation.binding.clone(),
+        schema_name: "GeneratedSample".to_owned(),
+        source,
+        source_hash: Some(stable_hash_text(&hash_payload)),
+        row_count: generation.count,
+        columns,
+        parse_failures: Vec::new(),
+        line: generation.line,
+    }
+}
+
+fn generated_sample_hash_payload(
+    generation: &eng_compiler::SampleGenerationInfo,
+    rows: &[Vec<Option<f64>>],
+) -> String {
+    let mut payload = format!(
+        "{}|{}|{}|{:?}",
+        generation.binding, generation.method, generation.count, generation.seed
+    );
+    for distribution in &generation.distributions {
+        payload.push_str(&format!(
+            "|{}:{}:{}:{}:{}",
+            distribution.name,
+            distribution.lower,
+            distribution.upper,
+            distribution.quantity_kind,
+            distribution.display_unit
+        ));
+    }
+    for row in rows {
+        payload.push('|');
+        payload.push_str(
+            &row.iter()
+                .map(|value| value.map(|value| value.to_string()).unwrap_or_default())
+                .collect::<Vec<_>>()
+                .join(","),
+        );
+    }
+    payload
+}
+
+fn generated_sample_rows(generation: &eng_compiler::SampleGenerationInfo) -> Vec<Vec<Option<f64>>> {
+    match generation.method.as_str() {
+        "grid" => generated_grid_sample_rows(generation),
+        "lhs" => generated_lhs_sample_rows(generation),
+        _ => generated_random_sample_rows(generation),
+    }
+}
+
+fn generated_grid_sample_rows(
+    generation: &eng_compiler::SampleGenerationInfo,
+) -> Vec<Vec<Option<f64>>> {
+    let parameter_count = generation.distributions.len().max(1);
+    let levels = (generation.count as f64)
+        .powf(1.0 / parameter_count as f64)
+        .ceil()
+        .max(1.0) as usize;
+    (0..generation.count)
+        .map(|row_index| {
+            generation
+                .distributions
+                .iter()
+                .enumerate()
+                .map(|(parameter_index, distribution)| {
+                    let divisor = levels.saturating_pow(parameter_index as u32).max(1);
+                    let coordinate = (row_index / divisor) % levels;
+                    let fraction = if levels <= 1 {
+                        0.5
+                    } else {
+                        coordinate as f64 / (levels - 1) as f64
+                    };
+                    Some(interpolate_sample_value(distribution, fraction))
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn generated_random_sample_rows(
+    generation: &eng_compiler::SampleGenerationInfo,
+) -> Vec<Vec<Option<f64>>> {
+    let mut rng = DeterministicRng::new(generation.seed.unwrap_or(0));
+    (0..generation.count)
+        .map(|_| {
+            generation
+                .distributions
+                .iter()
+                .map(|distribution| Some(interpolate_sample_value(distribution, rng.next_f64())))
+                .collect()
+        })
+        .collect()
+}
+
+fn generated_lhs_sample_rows(
+    generation: &eng_compiler::SampleGenerationInfo,
+) -> Vec<Vec<Option<f64>>> {
+    let mut rng = DeterministicRng::new(generation.seed.unwrap_or(0));
+    let mut columns = Vec::new();
+    for distribution in &generation.distributions {
+        let mut strata = (0..generation.count).collect::<Vec<_>>();
+        deterministic_shuffle(&mut strata, &mut rng);
+        let values = strata
+            .iter()
+            .map(|stratum| {
+                let fraction = (*stratum as f64 + rng.next_f64()) / generation.count as f64;
+                interpolate_sample_value(distribution, fraction)
+            })
+            .collect::<Vec<_>>();
+        columns.push(values);
+    }
+    (0..generation.count)
+        .map(|row_index| {
+            columns
+                .iter()
+                .map(|column| column.get(row_index).copied())
+                .collect()
+        })
+        .collect()
+}
+
+fn interpolate_sample_value(
+    distribution: &eng_compiler::SampleDistributionInfo,
+    fraction: f64,
+) -> f64 {
+    distribution.lower + (distribution.upper - distribution.lower) * fraction.clamp(0.0, 1.0)
+}
+
+fn deterministic_shuffle(values: &mut [usize], rng: &mut DeterministicRng) {
+    for index in (1..values.len()).rev() {
+        let swap_index = rng.next_index(index + 1);
+        values.swap(index, swap_index);
+    }
+}
+
+struct DeterministicRng {
+    state: u64,
+}
+
+impl DeterministicRng {
+    fn new(seed: u64) -> Self {
+        Self {
+            state: seed ^ 0x9e3779b97f4a7c15,
+        }
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.state = self
+            .state
+            .wrapping_mul(6364136223846793005)
+            .wrapping_add(1442695040888963407);
+        self.state
+    }
+
+    fn next_f64(&mut self) -> f64 {
+        let value = self.next_u64() >> 11;
+        value as f64 / ((1u64 << 53) as f64)
+    }
+
+    fn next_index(&mut self, upper: usize) -> usize {
+        if upper <= 1 {
+            0
+        } else {
+            (self.next_u64() as usize) % upper
+        }
+    }
 }
 
 fn materialize_column(
@@ -6318,14 +6539,26 @@ fn table_diagnostic_status(
     }
 }
 
-fn materialize_sample_tables(tables: &[RuntimeTable]) -> Vec<RuntimeSampleTable> {
-    tables.iter().filter_map(materialize_sample_table).collect()
+fn materialize_sample_tables(
+    sample_generations: &[eng_compiler::SampleGenerationInfo],
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeSampleTable> {
+    tables
+        .iter()
+        .filter_map(|table| materialize_sample_table(sample_generations, table))
+        .collect()
 }
 
-fn materialize_sample_table(table: &RuntimeTable) -> Option<RuntimeSampleTable> {
+fn materialize_sample_table(
+    sample_generations: &[eng_compiler::SampleGenerationInfo],
+    table: &RuntimeTable,
+) -> Option<RuntimeSampleTable> {
     if !is_sample_table_candidate(table) {
         return None;
     }
+    let generation_info = sample_generations
+        .iter()
+        .find(|generation| generation.binding == table.binding);
 
     let case_id_column = table
         .columns
@@ -6348,9 +6581,15 @@ fn materialize_sample_table(table: &RuntimeTable) -> Option<RuntimeSampleTable> 
         "duplicate_case_ids"
     } else if parameter_columns.is_empty() {
         "no_numeric_parameters"
+    } else if generation_info.is_some() {
+        "generated_sample_table"
     } else {
         "promoted_sample_table"
     };
+    let generation = generation_info
+        .map(|generation| format!("sample_{}", generation.method))
+        .unwrap_or_else(|| "promoted_csv".to_owned());
+    let seed = generation_info.and_then(|generation| generation.seed.map(|seed| seed.to_string()));
 
     Some(RuntimeSampleTable {
         binding: table.binding.clone(),
@@ -6363,8 +6602,8 @@ fn materialize_sample_table(table: &RuntimeTable) -> Option<RuntimeSampleTable> 
         duplicate_case_ids,
         row_hash_count: table.row_count,
         row_hash_preview: sample_row_hash_preview(table),
-        generation: "promoted_csv".to_owned(),
-        seed: None,
+        generation,
+        seed,
         status: status.to_owned(),
     })
 }
@@ -23724,7 +23963,7 @@ with {{
             line: 9,
         };
 
-        let sample_tables = materialize_sample_tables(&[table]);
+        let sample_tables = materialize_sample_tables(&[], &[table]);
 
         assert_eq!(sample_tables.len(), 1);
         assert_eq!(sample_tables[0].binding, "designs");

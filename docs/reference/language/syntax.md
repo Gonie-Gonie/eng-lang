@@ -436,6 +436,23 @@ Runtime artifacts record row counts, selected columns, derived columns, sort
 keys, predicate evidence, join key pair counts, and row diagnostics in
 `typed_payload.table_transforms[]`.
 
+Generate deterministic sample tables:
+
+```eng partial
+samples = sample lhs
+with {
+    count = 100
+    seed = 42
+    cooling_cop = uniform(2.5, 5.0)
+    lighting_power_density = uniform(5 W/m2, 15 W/m2)
+}
+```
+
+Supported methods are `grid`, `random`, and `lhs`. Generated tables include a
+`case_id` column, parameter columns, row hashes, generation metadata, and seed
+metadata in `typed_payload.sample_tables[]`. `random` and `lhs` use deterministic
+seeded generation; repro profile rejects them without `seed`.
+
 ## Declarations
 
 ### Fast Bindings

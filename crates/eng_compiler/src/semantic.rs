@@ -759,6 +759,29 @@ pub struct TimeSeriesKernelInfo {
 }
 
 #[derive(Clone, Debug, PartialEq)]
+pub struct SampleGenerationInfo {
+    pub binding: String,
+    pub method: String,
+    pub count: usize,
+    pub seed: Option<u64>,
+    pub distributions: Vec<SampleDistributionInfo>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct SampleDistributionInfo {
+    pub name: String,
+    pub kind: String,
+    pub lower: f64,
+    pub upper: f64,
+    pub quantity_kind: String,
+    pub display_unit: String,
+    pub canonical_unit: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct SemanticProgram {
     pub imports: Vec<ImportInfo>,
     pub consts: Vec<ConstInfo>,
@@ -771,6 +794,7 @@ pub struct SemanticProgram {
     pub schemas: Vec<SchemaInfo>,
     pub csv_promotions: Vec<CsvPromotion>,
     pub config_promotions: Vec<ConfigPromotion>,
+    pub sample_generations: Vec<SampleGenerationInfo>,
     pub table_transforms: Vec<TableTransformInfo>,
     pub net_requests: Vec<NetRequestInfo>,
     pub net_downloads: Vec<NetDownloadInfo>,
@@ -1435,6 +1459,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     );
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_process_options(&process_runs, &with_blocks, &mut diagnostics);
+    let sample_generations = analyze_sample_generations(program, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_component_behavior_calls(&domains, &components, &mut diagnostics);
@@ -1492,6 +1517,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
             config_promotions: Vec::new(),
+            sample_generations,
             table_transforms: Vec::new(),
             net_requests: Vec::new(),
             net_downloads: Vec::new(),
@@ -2268,6 +2294,7 @@ fn analyze_with_blocks(
                 block.owner_line,
             ));
             extra_known_options.extend(with_owner_process_options(program, block.owner_line));
+            extra_known_options.extend(with_owner_sample_options(program, block.owner_line));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -2441,6 +2468,37 @@ fn with_owner_process_options(
     .into_iter()
     .map(str::to_owned)
     .collect()
+}
+
+fn with_owner_sample_options(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let is_sample_owner = program.items.iter().any(|item| match item {
+        AstItem::FastBinding(binding) if binding.line == owner_line => {
+            sample_generation_method(&binding.expression).is_some()
+        }
+        _ => false,
+    });
+    if !is_sample_owner {
+        return HashSet::new();
+    }
+    let mut options = program
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::WithOption(option) if option.owner_line == Some(owner_line) => {
+                Some(option.key.clone())
+            }
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+    options.insert("count".to_owned());
+    options.insert("seed".to_owned());
+    options
 }
 
 fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) -> HashSet<String> {
@@ -3821,6 +3879,279 @@ fn validate_process_allow_failure_option(
             ),
             Some("Use `allow_failure = true` only when a failed process is expected data."),
         ));
+    }
+}
+
+fn analyze_sample_generations(
+    program: &ParsedProgram,
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<SampleGenerationInfo> {
+    program
+        .items
+        .iter()
+        .filter_map(|item| {
+            let AstItem::FastBinding(binding) = item else {
+                return None;
+            };
+            let method = sample_generation_method(&binding.expression)?;
+            Some(sample_generation_info(
+                binding,
+                &method,
+                with_blocks,
+                diagnostics,
+            ))
+        })
+        .collect()
+}
+
+fn sample_generation_method(expression: &str) -> Option<String> {
+    let method = expression.trim().strip_prefix("sample ")?.trim();
+    let method = match method.to_ascii_lowercase().as_str() {
+        "grid" => "grid",
+        "random" | "uniform" => "random",
+        "lhs" | "latin_hypercube" | "latin-hypercube" => "lhs",
+        _ => return None,
+    };
+    Some(method.to_owned())
+}
+
+fn sample_generation_info(
+    binding: &FastBinding,
+    method: &str,
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> SampleGenerationInfo {
+    let options = with_blocks
+        .iter()
+        .find(|block| block.owner_line == Some(binding.line))
+        .map(|block| block.options.as_slice())
+        .unwrap_or(&[]);
+    let count = sample_count_option(options, binding.line, diagnostics).unwrap_or(0);
+    let seed = sample_seed_option(options, diagnostics);
+    let mut distributions = Vec::new();
+    for option in options
+        .iter()
+        .filter(|option| option.status == "accepted")
+        .filter(|option| !matches!(option.key.as_str(), "count" | "seed"))
+    {
+        if let Some(distribution) = sample_distribution_option(option, diagnostics) {
+            distributions.push(distribution);
+        }
+    }
+    if distributions.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            binding.line,
+            "Sample generation requires at least one `uniform(lower, upper)` parameter.",
+            Some("Add a parameter option such as `cooling_cop = uniform(2.5, 5.0)`."),
+        ));
+    }
+    SampleGenerationInfo {
+        binding: binding.name.clone(),
+        method: method.to_owned(),
+        count,
+        seed,
+        distributions,
+        status: if count == 0 {
+            "invalid_count".to_owned()
+        } else {
+            "declared".to_owned()
+        },
+        line: binding.line,
+    }
+}
+
+fn sample_count_option(
+    options: &[WithOptionInfo],
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let Some(option) = accepted_option(options, "count") else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-COUNT-INVALID",
+            line,
+            "Sample generation requires a positive `count`.",
+            Some("Use `count = 100` or another positive integer."),
+        ));
+        return None;
+    };
+    let raw = option.value.trim();
+    let Ok(count) = raw.parse::<usize>() else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-COUNT-INVALID",
+            option.line,
+            &format!("Sample count `{raw}` is not a positive integer."),
+            Some("Use `count = 100` or another positive integer."),
+        ));
+        return None;
+    };
+    if count == 0 {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-COUNT-INVALID",
+            option.line,
+            "Sample count must be greater than zero.",
+            Some("Use `count = 1` or larger."),
+        ));
+        return None;
+    }
+    Some(count)
+}
+
+fn sample_seed_option(
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<u64> {
+    let option = accepted_option(options, "seed")?;
+    let raw = option.value.trim();
+    let Ok(seed) = raw.parse::<u64>() else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-SEED-MISSING",
+            option.line,
+            &format!("Sample seed `{raw}` is not a non-negative integer."),
+            Some("Use `seed = 42` for reproducible random or LHS sampling."),
+        ));
+        return None;
+    };
+    Some(seed)
+}
+
+fn sample_distribution_option(
+    option: &WithOptionInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<SampleDistributionInfo> {
+    let value = option.value.trim();
+    let inner = value
+        .strip_prefix("uniform(")
+        .and_then(|rest| rest.strip_suffix(')'));
+    let Some(inner) = inner else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            option.line,
+            &format!(
+                "Sample parameter `{}` must use `uniform(lower, upper)`.",
+                option.key
+            ),
+            Some("Use endpoints with compatible units, for example `uniform(2.5, 5.0)`."),
+        ));
+        return None;
+    };
+    let parts = split_top_level(inner, &[',']);
+    let [lower_raw, upper_raw] = parts.as_slice() else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            option.line,
+            &format!(
+                "Sample parameter `{}` requires lower and upper endpoints.",
+                option.key
+            ),
+            Some("Use `uniform(lower, upper)`."),
+        ));
+        return None;
+    };
+    let lower = sample_distribution_endpoint(lower_raw, option.line, diagnostics)?;
+    let upper = sample_distribution_endpoint(upper_raw, option.line, diagnostics)?;
+    if lower.quantity_kind != upper.quantity_kind
+        || normalize_sample_unit(&lower.display_unit) != normalize_sample_unit(&upper.display_unit)
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            option.line,
+            &format!(
+                "Sample parameter `{}` endpoints have incompatible units `{}` and `{}`.",
+                option.key, lower.display_unit, upper.display_unit
+            ),
+            Some("Use endpoints with the same quantity and unit."),
+        ));
+        return None;
+    }
+    if upper.value < lower.value {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            option.line,
+            &format!(
+                "Sample parameter `{}` upper endpoint is below the lower endpoint.",
+                option.key
+            ),
+            Some("Write `uniform(lower, upper)` with lower <= upper."),
+        ));
+        return None;
+    }
+    Some(SampleDistributionInfo {
+        name: option.key.clone(),
+        kind: "uniform".to_owned(),
+        lower: lower.value,
+        upper: upper.value,
+        quantity_kind: lower.quantity_kind,
+        display_unit: lower.display_unit,
+        canonical_unit: lower.canonical_unit,
+        line: option.line,
+    })
+}
+
+struct SampleDistributionEndpoint {
+    value: f64,
+    quantity_kind: String,
+    display_unit: String,
+    canonical_unit: String,
+}
+
+fn sample_distribution_endpoint(
+    expression: &str,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<SampleDistributionEndpoint> {
+    let Some((value, unit)) = numeric_literal_with_optional_unit(expression.trim()) else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            line,
+            &format!(
+                "Sample endpoint `{}` is not a numeric literal.",
+                expression.trim()
+            ),
+            Some("Use numeric endpoints such as `2.5` or `5 W/m2`."),
+        ));
+        return None;
+    };
+    if !value.is_finite() {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            line,
+            &format!("Sample endpoint `{}` is not finite.", expression.trim()),
+            Some("Use finite numeric endpoints."),
+        ));
+        return None;
+    }
+    let Some(unit) = unit else {
+        return Some(SampleDistributionEndpoint {
+            value,
+            quantity_kind: "DimensionlessNumber".to_owned(),
+            display_unit: "1".to_owned(),
+            canonical_unit: "1".to_owned(),
+        });
+    };
+    let Some(quantity) = candidates_for_unit(&unit).first().copied() else {
+        diagnostics.push(Diagnostic::error(
+            "E-SAMPLING-RANGE-UNIT",
+            line,
+            &format!("Sample endpoint unit `{unit}` is unknown."),
+            Some("Use a known EngLang unit or make the range dimensionless."),
+        ));
+        return None;
+    };
+    Some(SampleDistributionEndpoint {
+        value,
+        quantity_kind: quantity.quantity_kind.to_owned(),
+        display_unit: unit,
+        canonical_unit: quantity.canonical_unit.to_owned(),
+    })
+}
+
+fn normalize_sample_unit(unit: &str) -> String {
+    if unit == "1" {
+        "1".to_owned()
+    } else {
+        normalize_unit(unit)
     }
 }
 
@@ -11200,6 +11531,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if let Some((quantity_kind, display_unit)) = crate::ml::ml_semantic_type(expression) {
         return semantic_type(&quantity_kind, &display_unit);
+    }
+
+    if sample_generation_method(expression).is_some() {
+        return semantic_type("Table[Sample]", "schema-defined");
     }
 
     if lowered_expression.contains("promote csv") {

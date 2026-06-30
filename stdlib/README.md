@@ -31,7 +31,7 @@ is still future work.
 | `eng.test` | Local assertions, golden checks, and test-result artifacts. |
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics, deterministic row selection, and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |
-| `eng.sampling` | Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews. |
+| `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, and row-hash previews. |
 | `eng.case` | Promoted case manifests with case IDs, sample row hashes, row-level diagnostics, and process-output enrichment. |
 | `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
@@ -53,7 +53,7 @@ APIs unless a status document says so.
 | `eng.template` | Supported seed | Native text template rendering for generated inputs and adapter boundaries. |
 | `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
-| `eng.sampling` | Planned generators | Grid/random/LHS sample generation and seed policy. |
+| `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned runner | Native apply/run/collect, case directories, resume/cache status, and generated-output linkage. |
 | `eng.db` | Planned native DB; supported manifest seed | DB side-effect manifest summaries; SQLite write/upsert helpers remain planned. |
 | `eng.model` | Supported artifact seed; planned public syntax | Model-card, metric, residual, and hash review vocabulary. |

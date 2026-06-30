@@ -61,7 +61,8 @@ workflow, and covered by the breaking-change policy.
   row/field failure details, report-facing `report_spec.quality_report`, HTML
   Quality Report tables, and IDE Quality inspector payloads,
   `typed_payload.time_alignments[]` alignment/resampling hook records,
-  `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
+  `typed_payload.sample_tables[]` summaries for generated and promoted
+  sample/case tables,
   and `typed_payload.case_manifests[]` case row manifests with sample row hashes
   and process-output enrichment.
 
@@ -187,9 +188,9 @@ is not mistaken for public module support.
 - General table derived-value execution, fill transforms, and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Native composite workflow modules beyond the current network/cache record
-  seeds: live network execution, cache replay/invalidation, sampling
-  generators, case manifests, database writes, and model-card workflows.
+- Native composite workflow modules beyond the current network/cache/sampling
+  seeds: live network execution, cache replay/invalidation, native case runner,
+  database writes, and model-card workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

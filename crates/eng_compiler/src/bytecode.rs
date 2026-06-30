@@ -89,6 +89,15 @@ pub fn build_bytecode_program(report: &CheckReport, source: &str) -> BytecodePro
             line: promotion.line,
         });
     }
+    for generation in &report.semantic_program.sample_generations {
+        objects.push(BytecodeObject::Table {
+            name: generation.binding.clone(),
+            schema_name: "GeneratedSample".to_owned(),
+            row_count: generation.count,
+            source_hash: None,
+            line: generation.line,
+        });
+    }
 
     for binding in &report.semantic_program.typed_bindings {
         if is_public_boundary_binding(report, &binding.name, binding.line) {
@@ -99,6 +108,14 @@ pub fn build_bytecode_program(report: &CheckReport, source: &str) -> BytecodePro
             .csv_promotions
             .iter()
             .any(|promotion| promotion.binding == binding.name)
+        {
+            continue;
+        }
+        if report
+            .semantic_program
+            .sample_generations
+            .iter()
+            .any(|generation| generation.binding == binding.name)
         {
             continue;
         }
