@@ -527,8 +527,10 @@ pub fn run_source(
     let db_manifest_records = db_manifest_records(&process_results);
     let external_boundary_records =
         external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
-    let cache_manifest_records = cache_manifest_records(&check_report, &runtime_data, build_root);
+    let cache_manifest_records =
+        cache_manifest_records(&check_report, &runtime_data, &process_results, build_root);
     ensure_cache_hashes_valid(&cache_manifest_records)?;
+    ensure_cache_reproducible(&cache_manifest_records, &options.profile)?;
     let cache_diagnostics = cache_stale_diagnostics(&cache_manifest_records, build_root);
     let cache_manifest_json = cache_manifest_json(
         &check_report,
@@ -1657,13 +1659,14 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
 fn cache_manifest_records(
     report: &CheckReport,
     runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
     build_root: &Path,
 ) -> Vec<CacheManifestRecord> {
     let mut records = report
         .semantic_program
         .cache_records
         .iter()
-        .map(|record| cache_manifest_record(record, runtime_data, build_root))
+        .map(|record| cache_manifest_record(record, runtime_data, process_results, build_root))
         .collect::<Vec<_>>();
     records.extend(case_cache_manifest_records(runtime_data, build_root));
     records
@@ -1672,6 +1675,7 @@ fn cache_manifest_records(
 fn cache_manifest_record(
     record: &eng_compiler::CacheRecordInfo,
     runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
     build_root: &Path,
 ) -> CacheManifestRecord {
     let resolved_path = resolve_cache_path(build_root, &record.cache_path);
@@ -1680,7 +1684,7 @@ fn cache_manifest_record(
     } else {
         "miss"
     };
-    let observed_hash = cache_observed_hash(record, runtime_data);
+    let observed_hash = cache_observed_hash(record, runtime_data, process_results);
     let status = cache_manifest_status(record, observed_hash.as_deref(), lookup_status);
     CacheManifestRecord {
         owner_kind: record.owner_kind.clone(),
@@ -1703,7 +1707,15 @@ fn cache_manifest_record(
 fn cache_observed_hash(
     record: &eng_compiler::CacheRecordInfo,
     runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
 ) -> Option<String> {
+    if record.owner_kind == "process" {
+        return process_results
+            .iter()
+            .find(|process| process.binding == record.owner_name)
+            .map(|process| process.stdout_hash.clone())
+            .or_else(|| record.observed_hash.clone());
+    }
     if record.owner_kind == "model" {
         return runtime_data
             .ml_artifacts
@@ -1887,6 +1899,25 @@ fn ensure_cache_hashes_valid(records: &[CacheManifestRecord]) -> Result<(), Runt
             record.owner_name,
             record.expected_hash.as_deref().unwrap_or("-"),
             record.observed_hash.as_deref().unwrap_or("-")
+        )));
+    }
+    Ok(())
+}
+
+fn ensure_cache_reproducible(
+    records: &[CacheManifestRecord],
+    profile: &ExecutionProfile,
+) -> Result<(), RuntimeError> {
+    if !matches!(profile, ExecutionProfile::Repro) {
+        return Ok(());
+    }
+    if let Some(record) = records
+        .iter()
+        .find(|record| record.observed_hash.as_deref().is_none())
+    {
+        return Err(invalid_input(&format!(
+            "repro profile rejected cache record at line {} (E-CACHE-UNHASHED-REPRO): {} `{}` has no observed hash",
+            record.line, record.owner_kind, record.owner_name
         )));
     }
     Ok(())
@@ -13147,6 +13178,7 @@ mod tests {
         assert!(output
             .cache_manifest_json
             .contains("\"lookup_status\": \"miss\""));
+        assert!(output.cache_manifest_json.contains("\"observed_hash\""));
         assert!(output.cache_manifest_json.contains("\"W-CACHE-STALE\""));
         assert!(output.cache_manifest_json.contains("stale-entry"));
         assert!(output.run_log_json.contains("\"cache_events\""));
@@ -13159,6 +13191,39 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"cache_manifest\""));
         assert!(output.output_manifest_json.contains("\"class\": \"cache\""));
+    }
+
+    #[test]
+    fn run_file_repro_profile_rejects_unhashed_cache_record() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-cache-repro-policy");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-cache-repro-policy-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nwith {\n    cache = true\n    cache_key = [\"split\", \"v1\"]\n}\n",
+        )
+        .expect("write source");
+
+        let error = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Repro,
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("repro profile should reject unhashed cache record");
+
+        assert!(error.to_string().contains("E-CACHE-UNHASHED-REPRO"));
     }
 
     #[test]
@@ -13180,6 +13245,7 @@ mod tests {
         let record = cache_manifest_record(
             &compiler_record,
             &RuntimeData::default(),
+            &[],
             Path::new("build"),
         );
 
