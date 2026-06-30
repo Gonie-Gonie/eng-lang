@@ -8,6 +8,7 @@ pub(crate) struct ArtifactRecord {
     pub class: String,
     pub path: String,
     pub hash: String,
+    pub overwrite_policy: Option<String>,
     pub status: String,
     pub validation: ArtifactValidation,
 }
@@ -65,6 +66,7 @@ pub(crate) struct OutputArtifact {
     pub kind: String,
     pub path: String,
     pub hash: String,
+    pub overwrite_policy: Option<String>,
     pub absolute_path: PathBuf,
     pub validation: ArtifactValidation,
 }
@@ -81,9 +83,15 @@ impl OutputArtifact {
             kind,
             path,
             hash,
+            overwrite_policy: None,
             absolute_path,
             validation,
         }
+    }
+
+    pub(crate) fn with_overwrite_policy(mut self, policy: impl Into<String>) -> Self {
+        self.overwrite_policy = Some(policy.into());
+        self
     }
 }
 
@@ -184,6 +192,12 @@ fn push_output_artifacts_json(json: &mut String, artifacts: &[ArtifactRecord]) {
             "      \"hash\": \"{}\",\n",
             json_escape(&artifact.hash)
         ));
+        if let Some(policy) = &artifact.overwrite_policy {
+            json.push_str(&format!(
+                "      \"overwrite_policy\": \"{}\",\n",
+                json_escape(policy)
+            ));
+        }
         json.push_str(&format!(
             "      \"status\": \"{}\",\n",
             json_escape(&artifact.status)
@@ -234,11 +248,13 @@ mod tests {
             class: "generated_file".to_owned(),
             path: "outputs/weather.txt".to_owned(),
             hash: "abc123".to_owned(),
+            overwrite_policy: Some("not_allowed".to_owned()),
             status: "generated".to_owned(),
             validation: ArtifactValidation::new("passed", "content_hash", "hashed"),
         };
 
         assert_eq!(record.kind, "standard_file");
+        assert_eq!(record.overwrite_policy.as_deref(), Some("not_allowed"));
         assert_eq!(record.validation.status, "passed");
     }
 
@@ -275,6 +291,7 @@ mod tests {
             class: "review_artifact".to_owned(),
             path: "result.engres".to_owned(),
             hash: "hash123".to_owned(),
+            overwrite_policy: None,
             status: "generated".to_owned(),
             validation: ArtifactValidation::new("passed", "content_hash", "hashed"),
         }];
@@ -297,6 +314,7 @@ mod tests {
         assert!(manifest.contains("\"artifact_count\": 1"));
         assert!(manifest.contains("\"kind\": \"result\""));
         assert!(manifest.contains("\"validation\""));
+        assert!(!manifest.contains("\"overwrite_policy\""));
         assert!(manifest.contains("\"artifact_registry\""));
     }
 }

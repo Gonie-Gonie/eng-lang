@@ -206,6 +206,12 @@
         "hash": {
           "type": "string"
         },
+        "overwrite_policy": {
+          "enum": [
+            "allowed",
+            "not_allowed"
+          ]
+        },
         "validation": {
           "$ref": "#/$defs/artifactValidation"
         },
@@ -476,6 +482,12 @@
         },
         "hash": {
           "type": "string"
+        },
+        "overwrite_policy": {
+          "enum": [
+            "allowed",
+            "not_allowed"
+          ]
         },
         "validation": {
           "$ref": "#/$defs/artifactValidation"

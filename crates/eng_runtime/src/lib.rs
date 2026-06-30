@@ -2513,6 +2513,17 @@ fn output_artifact(
     )
 }
 
+fn output_artifact_with_overwrite_policy(
+    kind: &str,
+    path: String,
+    contents: &str,
+    absolute_path: PathBuf,
+    overwrite_policy: &str,
+) -> OutputArtifact {
+    output_artifact(kind, path, contents, absolute_path)
+        .with_overwrite_policy(overwrite_policy.to_owned())
+}
+
 fn write_csv_exports(
     report: &CheckReport,
     runtime_data: &RuntimeData,
@@ -2570,12 +2581,14 @@ fn write_csv_exports(
                 .join(","),
         );
         csv.push('\n');
-        write_output_file(&path, &csv, overwrite_allowed(report, export.line))?;
-        artifacts.push(output_artifact(
+        let overwrite_policy = overwrite_policy(report, export.line);
+        write_output_file(&path, &csv, overwrite_policy.allowed)?;
+        artifacts.push(output_artifact_with_overwrite_policy(
             "csv_export",
             relative_output_path(result_dir, &path),
             &csv,
             path,
+            overwrite_policy.label,
         ));
     }
     Ok(artifacts)
@@ -2606,14 +2619,16 @@ fn write_outputs(
                 format!("cannot resolve write expression `{}`", write.expression),
             )
         })?;
-        write_output_file(&path, &contents, overwrite_allowed(report, write.line))?;
+        let overwrite_policy = overwrite_policy(report, write.line);
+        write_output_file(&path, &contents, overwrite_policy.allowed)?;
         let artifact_kind =
             artifact_kind_for_owner(report, write.line, &format!("write_{}", write.format));
-        artifacts.push(output_artifact(
+        artifacts.push(output_artifact_with_overwrite_policy(
             &artifact_kind,
             relative_output_path(result_dir, &path),
             &contents,
             path,
+            overwrite_policy.label,
         ));
     }
     Ok(artifacts)
@@ -2641,16 +2656,14 @@ fn apply_file_operations(
                         invalid_input(&format!("invalid copy destination `{destination}`"))
                     })?;
                 let contents = fs::read_to_string(&source)?;
-                write_output_file(
-                    &destination_path,
-                    &contents,
-                    overwrite_allowed(report, operation.line),
-                )?;
-                artifacts.push(output_artifact(
+                let overwrite_policy = overwrite_policy(report, operation.line);
+                write_output_file(&destination_path, &contents, overwrite_policy.allowed)?;
+                artifacts.push(output_artifact_with_overwrite_policy(
                     "copy_file",
                     relative_output_path(result_dir, &destination_path),
                     &contents,
                     destination_path,
+                    overwrite_policy.label,
                 ));
             }
             "move" => {
@@ -2668,19 +2681,17 @@ fn apply_file_operations(
                         || invalid_input(&format!("invalid move destination `{destination}`")),
                     )?;
                 let contents = fs::read_to_string(&source_path)?;
-                write_output_file(
-                    &destination_path,
-                    &contents,
-                    overwrite_allowed(report, operation.line),
-                )?;
+                let overwrite_policy = overwrite_policy(report, operation.line);
+                write_output_file(&destination_path, &contents, overwrite_policy.allowed)?;
                 if source_path != destination_path {
                     fs::remove_file(&source_path)?;
                 }
-                artifacts.push(output_artifact(
+                artifacts.push(output_artifact_with_overwrite_policy(
                     "move_file",
                     relative_output_path(result_dir, &destination_path),
                     &contents,
                     destination_path,
+                    overwrite_policy.label,
                 ));
             }
             "delete" => {
@@ -2696,6 +2707,7 @@ fn apply_file_operations(
                         kind: "delete_dir".to_owned(),
                         path: relative_path,
                         hash: hash_text("deleted_dir"),
+                        overwrite_policy: None,
                         absolute_path: target_path,
                         validation: artifact_validation(
                             "passed",
@@ -2717,6 +2729,7 @@ fn apply_file_operations(
                         kind: "delete_missing".to_owned(),
                         path: relative_path,
                         hash: hash_text("missing"),
+                        overwrite_policy: None,
                         absolute_path: target_path,
                         validation: artifact_validation(
                             "passed",
@@ -2798,6 +2811,25 @@ fn overwrite_allowed(report: &CheckReport, owner_line: usize) -> bool {
                     && option.value.trim().eq_ignore_ascii_case("true")
             })
     })
+}
+
+struct OverwritePolicy {
+    allowed: bool,
+    label: &'static str,
+}
+
+fn overwrite_policy(report: &CheckReport, owner_line: usize) -> OverwritePolicy {
+    if overwrite_allowed(report, owner_line) {
+        OverwritePolicy {
+            allowed: true,
+            label: "allowed",
+        }
+    } else {
+        OverwritePolicy {
+            allowed: false,
+            label: "not_allowed",
+        }
+    }
 }
 
 fn render_write_contents(
@@ -3000,6 +3032,7 @@ fn artifact_records_for_outputs(artifacts: &[OutputArtifact]) -> Vec<ArtifactRec
             class: artifact_record_class(&artifact.kind).to_owned(),
             path: artifact.path.clone(),
             hash: artifact.hash.clone(),
+            overwrite_policy: artifact.overwrite_policy.clone(),
             status: "generated".to_owned(),
             validation: artifact.validation.clone(),
         })
@@ -3026,6 +3059,7 @@ fn model_artifact_records_for_registry(
                     class: "model".to_owned(),
                     path: format!("model://{}", artifact.binding),
                     hash,
+                    overwrite_policy: None,
                     status: artifact.status.clone(),
                     validation: artifact_validation(
                         "passed",
@@ -3566,6 +3600,12 @@ fn push_artifact_record_fields_json(json: &mut String, record: &ArtifactRecord, 
         "{padding}\"hash\": \"{}\",\n",
         json_escape(&record.hash)
     ));
+    if let Some(policy) = &record.overwrite_policy {
+        json.push_str(&format!(
+            "{padding}\"overwrite_policy\": \"{}\",\n",
+            json_escape(policy)
+        ));
+    }
     json.push_str(&format!(
         "{padding}\"status\": \"{}\",\n",
         json_escape(&record.status)
@@ -8997,6 +9037,13 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"write_text\""));
+        assert!(output.output_manifest_json.contains("\"hash\": \""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"overwrite_policy\": \"allowed\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"overwrite_policy\": \"not_allowed\""));
         assert!(output
             .output_manifest_json
             .contains("\"artifact_registry\""));
