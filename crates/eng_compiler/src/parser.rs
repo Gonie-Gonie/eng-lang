@@ -7,8 +7,8 @@ use crate::ast::{
     FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, NetDownloadDecl, PortDecl,
     PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
     StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
-    WriteDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
+    WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -167,6 +167,7 @@ impl ParsedProgram {
                 | AstItem::Assert(_)
                 | AstItem::Golden(_)
                 | AstItem::WhereBinding(_)
+                | AstItem::WherePredicate(_)
                 | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
             }
@@ -660,7 +661,9 @@ fn parse_line_items(
             items.push(AstItem::WithOption(option));
         }
     }
-    if let Some(binding) = parse_where_binding_decl(tokens, line_text, owner_line, context) {
+    if let Some(predicate) = parse_where_predicate_decl(tokens, line_text, owner_line, context) {
+        items.push(AstItem::WherePredicate(predicate));
+    } else if let Some(binding) = parse_where_binding_decl(tokens, line_text, owner_line, context) {
         items.push(AstItem::WhereBinding(binding));
     }
     if let Some(option) = parse_with_option_decl(tokens, line_text, owner_line, context) {
@@ -1873,6 +1876,46 @@ fn parse_where_binding_decl(
         line: first.span.line,
         span: first.span,
     })
+}
+
+fn parse_where_predicate_decl(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+    context: ParseContext,
+) -> Option<WherePredicateDecl> {
+    if context != ParseContext::Where {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+    let expression = line_text.trim().trim_end_matches(',').to_owned();
+    if expression.is_empty() || !looks_like_where_predicate(&expression) {
+        return None;
+    }
+    Some(WherePredicateDecl {
+        owner_line,
+        expression,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn looks_like_where_predicate(expression: &str) -> bool {
+    let lowered = expression.to_ascii_lowercase();
+    lowered.contains("==")
+        || lowered.contains("!=")
+        || lowered.contains("<=")
+        || lowered.contains(">=")
+        || lowered.contains('<')
+        || lowered.contains('>')
+        || lowered.contains(" is none")
+        || lowered.contains(" is not none")
 }
 
 fn parse_with_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<WithBlockDecl> {

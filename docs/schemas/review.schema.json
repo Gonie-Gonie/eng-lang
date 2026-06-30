@@ -94,6 +94,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/tableSelection" }
     },
+    "table_transforms": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/tableTransform" }
+    },
     "timeseries_coverage": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesCoverage" }
@@ -180,6 +184,7 @@
         "inputs",
         "symbols",
         "calculations",
+        "table_transforms",
         "validations",
         "side_effects",
         "external_boundaries",
@@ -205,6 +210,10 @@
         "calculations": {
           "type": "array",
           "items": { "$ref": "#/$defs/reviewCalculation" }
+        },
+        "table_transforms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewTableTransform" }
         },
         "validations": {
           "type": "array",
@@ -251,6 +260,7 @@
         "symbol_count": { "type": "integer", "minimum": 0 },
         "schema_count": { "type": "integer", "minimum": 0 },
         "calculation_count": { "type": "integer", "minimum": 0 },
+        "table_transform_count": { "type": "integer", "minimum": 0 },
         "validation_count": { "type": "integer", "minimum": 0 },
         "side_effect_count": { "type": "integer", "minimum": 0 },
         "external_boundary_count": { "type": "integer", "minimum": 0 },
@@ -295,6 +305,44 @@
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "quantity_kind": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewTableTransform": {
+      "type": "object",
+      "required": [
+        "binding",
+        "operation",
+        "source_table",
+        "schema_name",
+        "predicate_count",
+        "predicates",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "operation": { "enum": ["filter", "require_one"] },
+        "source_table": { "type": "string" },
+        "schema_name": { "type": ["string", "null"] },
+        "predicate_count": { "type": "integer", "minimum": 0 },
+        "predicates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewTableTransformPredicate" }
+        },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewTableTransformPredicate": {
+      "type": "object",
+      "required": ["expression", "column", "operator", "value", "status", "line"],
+      "properties": {
+        "expression": { "type": "string" },
+        "column": { "type": ["string", "null"] },
+        "operator": { "type": "string" },
+        "value": { "type": ["string", "null"] },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },
@@ -562,6 +610,66 @@
       "properties": {
         "column": { "type": "string" },
         "value": { "type": "string" }
+      }
+    },
+    "tableTransform": {
+      "type": "object",
+      "required": [
+        "binding",
+        "operation",
+        "source_table",
+        "schema_name",
+        "input_row_count",
+        "output_row_count",
+        "matched_row_indices",
+        "predicates",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "operation": { "enum": ["filter", "require_one"] },
+        "source_table": { "type": "string" },
+        "schema_name": { "type": ["string", "null"] },
+        "input_row_count": { "type": "integer", "minimum": 0 },
+        "output_row_count": { "type": "integer", "minimum": 0 },
+        "matched_row_indices": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "predicates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableTransformPredicate" }
+        },
+        "status": {
+          "enum": ["filtered", "selected", "no_match", "multiple_matches", "missing_source", "unsupported"]
+        },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableTransformPredicate": {
+      "type": "object",
+      "required": [
+        "expression",
+        "column",
+        "operator",
+        "value",
+        "resolved_value",
+        "matched_count",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "expression": { "type": "string" },
+        "column": { "type": ["string", "null"] },
+        "operator": { "type": "string" },
+        "value": { "type": ["string", "null"] },
+        "resolved_value": { "type": ["string", "null"] },
+        "matched_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
       }
     },
     "timeSeriesCoverage": {

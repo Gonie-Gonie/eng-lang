@@ -50,7 +50,8 @@ workflow, and covered by the breaking-change policy.
 - DateTime-indexed table metadata, row-level CSV runtime pages, source hash
   provenance, `typed_payload.table_diagnostics[]` summaries for promoted data,
   `typed_payload.table_selections[]` records for deterministic promoted-table row
-  selection, `typed_payload.timeseries_coverage[]` records for DateTime-indexed
+  selection, `typed_payload.table_transforms[]` records for filter/require_one
+  row counts and predicate evidence, `typed_payload.timeseries_coverage[]` records for DateTime-indexed
   promoted-table coverage, `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
   and `typed_payload.case_manifests[]` case row manifests with sample row hashes
   and process-output enrichment.
@@ -170,7 +171,7 @@ is not mistaken for public module support.
 
 ## Planned Tracks
 
-- General table formulas and arbitrary TimeSeries expression execution.
+- General table select/derive/sort/join formulas and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
 - Native composite workflow modules beyond the current network/cache record

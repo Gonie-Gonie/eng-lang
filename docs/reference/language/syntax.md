@@ -370,6 +370,29 @@ Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 This produces `TimeSeries[Time] of HeatRate` metadata and runtime values when
 the source table has a DateTime index and the required numeric columns.
 
+Schema-aware table transform seeds are supported for filtering promoted tables
+and requiring exactly one row:
+
+```eng partial
+candidates = filter stations
+where {
+    region == args.region
+    valid_from <= date(args.year, 1, 1)
+    valid_to is none or valid_to >= date(args.year, 12, 31)
+}
+
+station = require_one candidates
+with {
+    on_none = error "No station for region/year"
+    on_many = error "Multiple stations for region/year"
+}
+```
+
+The compiler validates referenced predicate columns against the promoted table
+schema and records the transform contract in `review_document.table_transforms[]`.
+Runtime artifacts record row counts and predicate evidence in
+`typed_payload.table_transforms[]`.
+
 ## Declarations
 
 ### Fast Bindings

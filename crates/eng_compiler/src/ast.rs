@@ -410,6 +410,14 @@ pub struct WhereBindingDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WherePredicateDecl {
+    pub owner_line: Option<usize>,
+    pub expression: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WithBlockDecl {
     pub owner_line: Option<usize>,
     pub line: usize,
@@ -484,6 +492,7 @@ pub enum AstItem {
     CommandStyle(CommandStyleDecl),
     WhereBlock(WhereBlockDecl),
     WhereBinding(WhereBindingDecl),
+    WherePredicate(WherePredicateDecl),
     WithBlock(WithBlockDecl),
     WithOption(WithOptionDecl),
     ReservedKeywordUse { keyword: String, span: SourceSpan },

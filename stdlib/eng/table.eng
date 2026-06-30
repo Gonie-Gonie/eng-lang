@@ -1,25 +1,30 @@
 # module: eng.table
-# status: supported diagnostics and row-selection artifact seed; planned broader transform APIs
-# purpose: domain-neutral promoted-table diagnostics, filters, joins, derived columns, and schema helpers.
+# status: supported diagnostics, row-selection, and filter/require_one transform seeds; planned broader transform APIs
+# purpose: domain-neutral promoted-table diagnostics, filters, row requirements, joins, derived columns, and schema helpers.
 #
 # Current implementation:
 #   typed CSV promotion, source-hash provenance, row/column diagnostics,
 #   parse/conversion counts, and time-axis coverage summaries are supported
 #   through compiler/runtime built-ins for current examples. Deterministic
 #   select_first_row(...) selection over promoted tables is supported as a
-#   narrow artifact seed. These appear in result.engres as
-#   typed_payload.table_diagnostics[] and typed_payload.table_selections[].
+#   narrow artifact seed. Schema-aware `filter <table>` with `where { ... }`
+#   predicates and `require_one <filtered_table>` are supported as transform
+#   record seeds. These appear in result.engres as
+#   typed_payload.table_diagnostics[], typed_payload.table_selections[], and
+#   typed_payload.table_transforms[].
 #
 # Planned helper vocabulary:
-#   filter rows
+#   select columns
+#   derive columns
 #   join tables
-#   select one beyond the current select_first_row(...) seed
+#   sort rows
 #   validate rows
 #
 # Review contract:
 #   source schema, row counts, column counts, missing cells, parse failures,
-#   conversion failures, time-axis coverage, selected row/reason, operation row counts, join keys,
-#   row-level diagnostics, and source spans.
+#   conversion failures, time-axis coverage, selected row/reason, filter
+#   predicate summaries, operation row counts, join keys, row-level diagnostics,
+#   and source spans.
 #
 # Non-goal:
 #   this is not a general SQL replacement. Initial operations must stay

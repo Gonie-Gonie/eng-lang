@@ -14,6 +14,7 @@ mod schema;
 mod semantic;
 mod source;
 mod stats;
+mod table;
 mod type_info;
 mod uncertainty;
 mod units;
@@ -33,7 +34,8 @@ pub use ast::{
     FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
     NetDownloadDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
     StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl,
-    TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl,
+    WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -77,6 +79,7 @@ pub use semantic::{
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
+pub use table::{TablePredicateInfo, TableTransformInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
@@ -213,6 +216,12 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
     semantic_output.semantic_program.config_promotions = schema_analysis.config_promotions;
     semantic_output.semantic_program.arg_values = arg_values;
+    let table_analysis =
+        table::analyze_table_transforms(&parsed, &semantic_output.semantic_program);
+    semantic_output
+        .diagnostics
+        .extend(table_analysis.diagnostics);
+    semantic_output.semantic_program.table_transforms = table_analysis.transforms;
     let net_analysis = net::analyze_net_boundaries(
         &parsed,
         source_path.parent(),
@@ -4630,6 +4639,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         + program.net_requests.len()
         + program.net_downloads.len();
     let cache_count = program.cache_records.len();
+    let table_transform_count = program.table_transforms.len();
     let fallback_count = review_fallback_count(report);
     let risk_count = review_risk_count(report);
 
@@ -4683,6 +4693,10 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         review_report_output_count(report)
     ));
     json.push_str(&format!(
+        "      \"table_transform_count\": {},\n",
+        table_transform_count
+    ));
+    json.push_str(&format!(
         "      \"validation_count\": {},\n",
         validation_count
     ));
@@ -4706,6 +4720,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     push_review_symbols_json(json, report);
     push_review_derived_values_json(json, report);
     push_review_calculations_json(json, report);
+    push_review_table_transforms_json(json, report);
     push_review_report_outputs_json(json, report);
     push_review_validations_json(json, report);
     push_review_side_effects_json(json, report);
@@ -5153,6 +5168,8 @@ fn review_semantic_hash(report: &CheckReport) -> String {
     digest.push('|');
     digest.push_str(&review_section_digest(report, "calculations"));
     digest.push('|');
+    digest.push_str(&review_section_digest(report, "table_transforms"));
+    digest.push('|');
     digest.push_str(&review_section_digest(report, "report_outputs"));
     digest.push('|');
     digest.push_str(&review_section_digest(report, "validations"));
@@ -5199,6 +5216,7 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             program.systems,
             program.component_assemblies
         ),
+        "table_transforms" => format!("{:?}", program.table_transforms),
         "report_outputs" => format!(
             "{:?}|{:?}|{:?}",
             program.stats_infos, program.integrations, program.timeseries_kernels
@@ -5224,9 +5242,10 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             program.with_blocks, program.component_assemblies
         ),
         "risks" => format!(
-            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
             report.diagnostics,
             program.schemas,
+            program.table_transforms,
             program.process_runs,
             program.file_operations,
             program.environment_dependencies,
@@ -5250,6 +5269,7 @@ fn push_review_section_hashes_json(json: &mut String, report: &CheckReport) {
         "time_axes",
         "derived_values",
         "calculations",
+        "table_transforms",
         "report_outputs",
         "validations",
         "side_effects",
@@ -5953,6 +5973,64 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
     json.push_str("\n    ],\n");
 }
 
+fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"table_transforms\": [\n");
+    for (index, transform) in report.semantic_program.table_transforms.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&transform.binding)
+        ));
+        json.push_str(&format!(
+            "        \"operation\": \"{}\",\n",
+            json_escape(&transform.operation)
+        ));
+        json.push_str(&format!(
+            "        \"source_table\": \"{}\",\n",
+            json_escape(&transform.source_table)
+        ));
+        push_optional_json_string(json, "schema_name", transform.schema_name.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"predicate_count\": {},\n",
+            transform.predicates.len()
+        ));
+        json.push_str("        \"predicates\": [\n");
+        for (predicate_index, predicate) in transform.predicates.iter().enumerate() {
+            if predicate_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"expression\": \"{}\",\n",
+                json_escape(&predicate.expression)
+            ));
+            push_optional_json_string(json, "column", predicate.column.as_deref(), 12);
+            json.push_str(&format!(
+                "            \"operator\": \"{}\",\n",
+                json_escape(&predicate.operator)
+            ));
+            push_optional_json_string(json, "value", predicate.value.as_deref(), 12);
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&predicate.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", predicate.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&transform.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", transform.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
 fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
     json.push_str("    \"report_outputs\": [\n");
     let mut first = true;
@@ -6540,7 +6618,11 @@ fn review_diagnostic_risk_category(code: &str) -> &'static str {
         "uncertainty"
     } else if code.contains("SOLVER") || code.contains("NEWTON") || code.contains("DAE") {
         "solver_or_numeric"
-    } else if code.contains("SCHEMA") || code.contains("CSV") || code.contains("DATA") {
+    } else if code.contains("SCHEMA")
+        || code.contains("CSV")
+        || code.contains("DATA")
+        || code.contains("TABLE")
+    {
         "data_quality"
     } else if code.contains("SIDE") || code.contains("PROCESS") || code.contains("FILE") {
         "side_effect"
@@ -10855,6 +10937,123 @@ system Envelope {
                 .count(),
             1
         );
+    }
+
+    #[test]
+    fn records_table_filter_require_one_transforms() {
+        let root =
+            env::temp_dir().join(format!("englang-table-transform-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            concat!(
+                "region,station_id,valid_from,valid_to,latitude,longitude\n",
+                "demo,STN001,2020-01-01T00:00:00+09:00,,37.5665,126.9780\n",
+                "other,STN002,2020-01-01T00:00:00+09:00,,35.1796,129.0756\n",
+            ),
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "    valid_from: DateTime\n",
+                "    valid_to: DateTime\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "    longitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    year: Int = 2024\n",
+                "    region: String = \"demo\"\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "candidates = filter stations\n",
+                "where {\n",
+                "    region == args.region\n",
+                "    valid_from <= date(args.year, 1, 1)\n",
+                "    valid_to is none or valid_to >= date(args.year, 12, 31)\n",
+                "}\n",
+                "station = require_one candidates\n",
+                "with {\n",
+                "    on_none = error \"No station for region/year\"\n",
+                "    on_many = error \"Multiple stations for region/year\"\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.table_transforms.len(), 2);
+        let filter = &report.semantic_program.table_transforms[0];
+        assert_eq!(filter.binding, "candidates");
+        assert_eq!(filter.operation, "filter");
+        assert_eq!(filter.schema_name.as_deref(), Some("StationMap"));
+        assert_eq!(filter.predicates.len(), 3);
+        assert!(filter
+            .predicates
+            .iter()
+            .any(|predicate| predicate.operator == "or"));
+        let require_one = &report.semantic_program.table_transforms[1];
+        assert_eq!(require_one.binding, "station");
+        assert_eq!(require_one.operation, "require_one");
+        assert_eq!(require_one.source_table, "candidates");
+        assert_eq!(require_one.schema_name.as_deref(), Some("StationMap"));
+
+        let review = review_json(&report);
+        assert!(review.contains("\"table_transforms\""));
+        assert!(review.contains("\"table_transform_count\": 2"));
+        assert!(review.contains("\"operation\": \"filter\""));
+        assert!(review.contains("\"operation\": \"require_one\""));
+    }
+
+    #[test]
+    fn diagnoses_unknown_table_filter_column() {
+        let root = env::temp_dir().join(format!(
+            "englang-table-transform-bad-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            "region,station_id\ndemo,STN001\n",
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "}\n\n",
+                "args {\n",
+                "    region: String = \"demo\"\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "candidates = filter stations\n",
+                "where {\n",
+                "    missing_column == args.region\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-TABLE-UNKNOWN-COLUMN"));
     }
 
     #[test]

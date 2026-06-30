@@ -3577,6 +3577,19 @@ fn evaluate_runtime_expression(
                 selection.selected_value.clone().unwrap_or_default(),
             ));
         }
+        if let Some(transform) = runtime_data
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == declaration.name)
+        {
+            return Some(RuntimeFormatValue::Summary(format!(
+                "TableTransform {}: {} -> {} rows ({})",
+                transform.binding,
+                transform.input_row_count,
+                transform.output_row_count,
+                transform.status
+            )));
+        }
         if declaration.expression.trim() != expression {
             if let Some(value) =
                 evaluate_runtime_expression(&declaration.expression, report, runtime_data)
@@ -4671,6 +4684,7 @@ fn result_json(
     let config_promotions = config_promotions_json(report);
     let network_boundaries = network_boundaries_json(report);
     let table_selections = table_selections_json(runtime_data, "      ");
+    let table_transforms = table_transforms_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
     let case_manifests = case_manifests_json(runtime_data, process_results);
@@ -5309,7 +5323,7 @@ fn result_json(
     let solver_boundaries = solver_boundaries_json(report, runtime_data);
     let system_ir = system_ir_json(report, runtime_data);
 
-    format!(
+    let mut result_json = format!(
         "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
@@ -5379,7 +5393,14 @@ fn result_json(
         data_hashes,
         hashes.plot_spec,
         hashes.report_spec
-    )
+    );
+    let table_transform_marker = "    ],\n    \"sample_tables\": [\n";
+    let table_transform_block = format!(
+        "    ],\n    \"table_transforms\": [\n{}\n    ],\n    \"sample_tables\": [\n",
+        table_transforms
+    );
+    result_json = result_json.replacen(table_transform_marker, &table_transform_block, 1);
+    result_json
 }
 
 fn vm_object_kind(object: &VmObject) -> &'static str {
@@ -5943,6 +5964,8 @@ fn runtime_review_json(
     let db_manifest_records = db_manifest_records(process_results);
     json.push_str("\n  ],\n  \"table_selections\": [\n");
     json.push_str(&table_selections_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"table_transforms\": [\n");
+    json.push_str(&table_transforms_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
     json.push_str(&timeseries_coverage_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
@@ -7653,6 +7676,115 @@ fn push_table_selection_json(
     json.push_str(&format!("{indent}}}"));
 }
 
+fn table_transforms_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    for (index, transform) in runtime_data.table_transforms.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_table_transform_json(&mut json, transform, indent);
+    }
+    json
+}
+
+fn push_table_transform_json(
+    json: &mut String,
+    transform: &runtime_data::RuntimeTableTransform,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    let nested_indent = format!("{indent}    ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&transform.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"operation\": \"{}\",\n",
+        json_escape(&transform.operation)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_table\": \"{}\",\n",
+        json_escape(&transform.source_table)
+    ));
+    push_optional_json_string(
+        json,
+        "schema_name",
+        transform.schema_name.as_deref(),
+        field_indent.len(),
+    );
+    json.push_str(&format!(
+        "{field_indent}\"input_row_count\": {},\n",
+        transform.input_row_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"output_row_count\": {},\n",
+        transform.output_row_count
+    ));
+    json.push_str(&format!("{field_indent}\"matched_row_indices\": ["));
+    for (row_index, row) in transform.matched_row_indices.iter().enumerate() {
+        if row_index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str(&row.to_string());
+    }
+    json.push_str("],\n");
+    json.push_str(&format!("{field_indent}\"predicates\": [\n"));
+    for (predicate_index, predicate) in transform.predicates.iter().enumerate() {
+        if predicate_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"expression\": \"{}\",\n",
+            json_escape(&predicate.expression)
+        ));
+        push_optional_json_string(
+            json,
+            "column",
+            predicate.column.as_deref(),
+            nested_indent.len() + 2,
+        );
+        json.push_str(&format!(
+            "{nested_indent}  \"operator\": \"{}\",\n",
+            json_escape(&predicate.operator)
+        ));
+        push_optional_json_string(
+            json,
+            "value",
+            predicate.value.as_deref(),
+            nested_indent.len() + 2,
+        );
+        push_optional_json_string(
+            json,
+            "resolved_value",
+            predicate.resolved_value.as_deref(),
+            nested_indent.len() + 2,
+        );
+        json.push_str(&format!(
+            "{nested_indent}  \"matched_count\": {},\n",
+            predicate.matched_count
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"status\": \"{}\",\n",
+            json_escape(&predicate.status)
+        ));
+        json.push_str(&format!("{nested_indent}  \"line\": {}\n", predicate.line));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(&transform.status)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"reason\": \"{}\",\n",
+        json_escape(&transform.reason)
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", transform.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
 fn timeseries_coverage_json(runtime_data: &RuntimeData, indent: &str) -> String {
     let mut json = String::new();
     for (index, coverage) in runtime_data.timeseries_coverage.iter().enumerate() {
@@ -8790,6 +8922,83 @@ mod tests {
         assert!(output.review_json.contains("\"table_selections\""));
         assert!(output.review_json.contains("\"selected_row\""));
         assert!(output.report_html.contains("selected_station_id"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_transform_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-transform-run");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-transform-run-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("station_map.csv"),
+            concat!(
+                "region,station_id,valid_from,valid_to,latitude,longitude\n",
+                "demo,STN001,2020-01-01T00:00:00+09:00,,37.5665,126.9780\n",
+                "other,STN002,2020-01-01T00:00:00+09:00,,35.1796,129.0756\n",
+            ),
+        )
+        .expect("station map csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "    valid_from: DateTime\n",
+                "    valid_to: DateTime\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "    longitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    year: Int = 2024\n",
+                "    region: String = \"demo\"\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "candidates = filter stations\n",
+                "where {\n",
+                "    region == args.region\n",
+                "    valid_from <= date(args.year, 1, 1)\n",
+                "    valid_to is none or valid_to >= date(args.year, 12, 31)\n",
+                "}\n",
+                "station = require_one candidates\n",
+                "with {\n",
+                "    on_none = error \"No station for region/year\"\n",
+                "    on_many = error \"Multiple stations for region/year\"\n",
+                "}\n",
+                "report {\n",
+                "    show candidates\n",
+                "    show station\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"table_transforms\""));
+        assert!(output.result_json.contains("\"binding\": \"candidates\""));
+        assert!(output.result_json.contains("\"operation\": \"filter\""));
+        assert!(output.result_json.contains("\"input_row_count\": 2"));
+        assert!(output.result_json.contains("\"output_row_count\": 1"));
+        assert!(output.result_json.contains("\"binding\": \"station\""));
+        assert!(output
+            .result_json
+            .contains("\"operation\": \"require_one\""));
+        assert!(output.result_json.contains("\"status\": \"selected\""));
+        assert!(output.review_json.contains("\"table_transforms\""));
+        assert!(output.review_json.contains("\"table_transform_count\": 2"));
         assert!(!virtual_path.exists());
     }
 

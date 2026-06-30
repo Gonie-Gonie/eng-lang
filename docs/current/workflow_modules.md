@@ -7,6 +7,9 @@ missing-cell, parse/conversion, time-axis coverage summaries, and
 `typed_payload.timeseries_coverage[]` records with expected counts, missing
 intervals, max gaps, and leap-year policy, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
+table filter/require_one seeds now emit static `review_document.table_transforms[]`
+and runtime `typed_payload.table_transforms[]` records with predicates and row
+counts. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
 case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
 `typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
@@ -41,7 +44,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |
 | `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
-| `eng.table` | Supported diagnostics and row-selection artifact seed; planned broader APIs | promoted table row/column diagnostics and deterministic row selection; filter/join/derived columns planned |
+| `eng.table` | Supported diagnostics, row-selection, and filter/require_one artifact seeds; planned broader APIs | promoted table row/column diagnostics, deterministic row selection, filter/require_one row counts; select/join/derived/sort planned |
 | `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
@@ -108,10 +111,12 @@ external processes, `process_results.json` records command, args, cwd, tool
 version, stdout/stderr hashes, expected outputs, expected-output kind, output
 hashes, validation status, duration, and status. For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
-reviewable schema/row/coverage summary, `typed_payload.table_selections[]` records
-selected row, selected value, filters, match count, and selection reason,
-`typed_payload.sample_tables[]`
-records deterministic sample/case table metadata when a promoted table is
+reviewable schema/row/coverage summary, `typed_payload.table_selections[]`
+records selected row, selected value, filters, match count, and selection
+reason, `typed_payload.table_transforms[]` records filter/require_one row
+counts, predicates, status, and reason, `review_document.table_transforms[]`
+records the static transform contract, `typed_payload.sample_tables[]` records
+deterministic sample/case table metadata when a promoted table is
 sample-like, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`
 files, `typed_payload.db_manifests[]` records generated DB write manifests,

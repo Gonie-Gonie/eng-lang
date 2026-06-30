@@ -248,6 +248,7 @@ separate.
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
   `typed_payload.table_diagnostics[]`, `typed_payload.table_selections[]`,
+  `typed_payload.table_transforms[]`, `review_document.table_transforms[]`,
   `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
@@ -257,7 +258,7 @@ separate.
   result rows, surrogate model cards, prediction manifests with output quantity/unit
   and hashes, and DB write manifests with schema diagnostics, table records, and
   transaction status as reviewable fixture artifacts.
-- Not included: live HTTP execution/cache replay API, general table filter/join/fill transforms,
+- Not included: live HTTP execution/cache replay API, general table select/derive/sort/join/fill transforms,
   native grid/random/LHS sample generation, native case runner, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad
   DB support, or ML framework support.

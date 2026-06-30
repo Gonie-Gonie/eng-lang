@@ -19,6 +19,7 @@ use crate::quantities::{
 };
 use crate::schema::{ConfigPromotion, CsvPromotion, SchemaInfo};
 use crate::stats::{AxisInfo, IntegrationInfo, StatsInfo};
+use crate::table::TableTransformInfo;
 use crate::type_info::{TypeInfo, TypeInfoSource};
 use crate::uncertainty::UncertaintyInfo;
 use crate::units::{unit_derivation, unit_info_for_symbol, UnitDerivation};
@@ -749,6 +750,7 @@ pub struct SemanticProgram {
     pub schemas: Vec<SchemaInfo>,
     pub csv_promotions: Vec<CsvPromotion>,
     pub config_promotions: Vec<ConfigPromotion>,
+    pub table_transforms: Vec<TableTransformInfo>,
     pub net_requests: Vec<NetRequestInfo>,
     pub net_downloads: Vec<NetDownloadInfo>,
     pub cache_records: Vec<CacheRecordInfo>,
@@ -1438,6 +1440,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
             config_promotions: Vec::new(),
+            table_transforms: Vec::new(),
             net_requests: Vec::new(),
             net_downloads: Vec::new(),
             cache_records: Vec::new(),
@@ -2535,6 +2538,8 @@ fn known_with_option(key: &str) -> bool {
             | "cache_dir"
             | "cache_ttl"
             | "expected_sha256"
+            | "on_none"
+            | "on_many"
     )
 }
 
@@ -10777,6 +10782,14 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.starts_with("select_first_row(") {
         return semantic_type("String", "");
+    }
+
+    if crate::table::is_filter_expression(expression) {
+        return semantic_type("TableTransform[Filter]", "eng.table");
+    }
+
+    if crate::table::is_require_one_expression(expression) {
+        return semantic_type("TableRow", "eng.table");
     }
 
     if lowered_expression.starts_with("check(") && lowered_expression.contains("coverage ") {

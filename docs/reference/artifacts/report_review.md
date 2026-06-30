@@ -675,7 +675,7 @@ year, leap-year policy, status, and source line. Automatic axis-span entries use
 `axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a
 Gregorian year grid, including leap-year expected counts.
 
-## Promoted Table Selection Metadata
+## Promoted Table Selection And Transform Metadata
 
 `select_first_row(...)` is a narrow `eng.table` seed for deterministic row
 selection over promoted CSV tables. Runtime artifacts record it in:
@@ -687,8 +687,21 @@ report.html                 selected binding values when shown in report blocks
 ```
 
 Each selection entry records the source table, return column, filters, matched
-row count, selected row values, status, reason, and source line. General table
-filter/join/fill transforms remain planned.
+row count, selected row values, status, reason, and source line.
+
+`filter <table>` with a `where { ... }` predicate block and `require_one <source>`
+now add schema-aware transform records:
+
+```text
+review.json.review_document table_transforms
+review.json                 table_transforms
+result.engres               typed_payload.table_transforms
+```
+
+Each transform entry records the binding, operation, source table, schema,
+predicate metadata, input/output row counts, matched row indices, status, reason,
+and source line. General table select/derive/sort/join/fill transforms remain
+planned.
 
 ## Manual Checks
 

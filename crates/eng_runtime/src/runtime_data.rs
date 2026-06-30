@@ -60,6 +60,7 @@ pub struct RuntimeData {
     pub tables: Vec<RuntimeTable>,
     pub table_diagnostics: Vec<RuntimeTableDiagnostic>,
     pub table_selections: Vec<RuntimeTableSelection>,
+    pub table_transforms: Vec<RuntimeTableTransform>,
     pub sample_tables: Vec<RuntimeSampleTable>,
     pub case_manifests: Vec<RuntimeCaseManifest>,
     pub time_axes: Vec<RuntimeTimeAxis>,
@@ -1054,6 +1055,33 @@ pub struct RuntimeTableSelectionFilter {
 pub struct RuntimeTableSelectionValue {
     pub column: String,
     pub value: String,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableTransform {
+    pub binding: String,
+    pub operation: String,
+    pub source_table: String,
+    pub schema_name: Option<String>,
+    pub input_row_count: usize,
+    pub output_row_count: usize,
+    pub matched_row_indices: Vec<usize>,
+    pub predicates: Vec<RuntimeTableTransformPredicate>,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableTransformPredicate {
+    pub expression: String,
+    pub column: Option<String>,
+    pub operator: String,
+    pub value: Option<String>,
+    pub resolved_value: Option<String>,
+    pub matched_count: usize,
+    pub status: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2714,6 +2742,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.table_selections = materialize_table_selections(report, &data.tables);
+    data.table_transforms = materialize_table_transforms(report, &data.tables);
     data.sample_tables = materialize_sample_tables(&data.tables);
     data.case_manifests = materialize_case_manifests(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
@@ -3829,6 +3858,381 @@ fn strip_selection_quotes(value: &str) -> String {
 fn selection_value_is_none(value: &str) -> bool {
     let value = value.trim();
     value.is_empty() || value.eq_ignore_ascii_case("none") || value.eq_ignore_ascii_case("null")
+}
+
+#[derive(Clone, Debug)]
+struct TableTransformRows {
+    base_table: String,
+    schema_name: Option<String>,
+    rows: Vec<usize>,
+}
+
+fn materialize_table_transforms(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTableTransform> {
+    let mut records = Vec::new();
+    let mut transform_rows: HashMap<String, TableTransformRows> = HashMap::new();
+
+    for transform in &report.semantic_program.table_transforms {
+        match transform.operation.as_str() {
+            "filter" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                let predicates = runtime_table_transform_predicates(
+                    report,
+                    Some(table),
+                    &source_rows,
+                    &transform.predicates,
+                );
+                let matched_rows = source_rows
+                    .iter()
+                    .copied()
+                    .filter(|row| table_transform_row_matches(report, table, *row, transform))
+                    .collect::<Vec<_>>();
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name: schema_name.clone(),
+                        rows: matched_rows.clone(),
+                    },
+                );
+                records.push(RuntimeTableTransform {
+                    binding: transform.binding.clone(),
+                    operation: transform.operation.clone(),
+                    source_table: transform.source_table.clone(),
+                    schema_name,
+                    input_row_count: source_rows.len(),
+                    output_row_count: matched_rows.len(),
+                    matched_row_indices: one_based_rows(&matched_rows),
+                    predicates,
+                    status: "filtered".to_owned(),
+                    reason: if transform.predicates.is_empty() {
+                        "no predicates; retained all source rows".to_owned()
+                    } else {
+                        "retained rows matching all predicates".to_owned()
+                    },
+                    line: transform.line,
+                });
+            }
+            "require_one" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                let (status, output_row_count, reason) = match source_rows.len() {
+                    0 => (
+                        "no_match",
+                        0,
+                        "source table transform produced no rows".to_owned(),
+                    ),
+                    1 => (
+                        "selected",
+                        1,
+                        "source table transform produced exactly one row".to_owned(),
+                    ),
+                    _ => (
+                        "multiple_matches",
+                        0,
+                        "source table transform produced multiple rows".to_owned(),
+                    ),
+                };
+                records.push(RuntimeTableTransform {
+                    binding: transform.binding.clone(),
+                    operation: transform.operation.clone(),
+                    source_table: transform.source_table.clone(),
+                    schema_name,
+                    input_row_count: source_rows.len(),
+                    output_row_count,
+                    matched_row_indices: one_based_rows(&source_rows),
+                    predicates: runtime_table_transform_predicates(
+                        report,
+                        Some(table),
+                        &source_rows,
+                        &transform.predicates,
+                    ),
+                    status: status.to_owned(),
+                    reason,
+                    line: transform.line,
+                });
+            }
+            _ => records.push(RuntimeTableTransform {
+                binding: transform.binding.clone(),
+                operation: transform.operation.clone(),
+                source_table: transform.source_table.clone(),
+                schema_name: transform.schema_name.clone(),
+                input_row_count: 0,
+                output_row_count: 0,
+                matched_row_indices: Vec::new(),
+                predicates: runtime_table_transform_predicates(
+                    report,
+                    None,
+                    &[],
+                    &transform.predicates,
+                ),
+                status: "unsupported".to_owned(),
+                reason: "unsupported table transform operation".to_owned(),
+                line: transform.line,
+            }),
+        }
+    }
+
+    records
+}
+
+fn resolve_table_transform_source<'a>(
+    tables: &'a [RuntimeTable],
+    transform_rows: &HashMap<String, TableTransformRows>,
+    source: &str,
+) -> Option<(&'a RuntimeTable, Vec<usize>, Option<String>)> {
+    if let Some(rows) = transform_rows.get(source) {
+        let table = tables
+            .iter()
+            .find(|table| table.binding == rows.base_table)?;
+        return Some((
+            table,
+            rows.rows.clone(),
+            rows.schema_name
+                .clone()
+                .or_else(|| Some(table.schema_name.clone())),
+        ));
+    }
+    let table = tables.iter().find(|table| table.binding == source)?;
+    Some((
+        table,
+        (0..table.row_count).collect(),
+        Some(table.schema_name.clone()),
+    ))
+}
+
+fn missing_source_table_transform(
+    report: &CheckReport,
+    transform: &eng_compiler::TableTransformInfo,
+) -> RuntimeTableTransform {
+    RuntimeTableTransform {
+        binding: transform.binding.clone(),
+        operation: transform.operation.clone(),
+        source_table: transform.source_table.clone(),
+        schema_name: transform.schema_name.clone(),
+        input_row_count: 0,
+        output_row_count: 0,
+        matched_row_indices: Vec::new(),
+        predicates: runtime_table_transform_predicates(report, None, &[], &transform.predicates),
+        status: "missing_source".to_owned(),
+        reason: "source table or table transform was not materialized".to_owned(),
+        line: transform.line,
+    }
+}
+
+fn runtime_table_transform_predicates(
+    report: &CheckReport,
+    table: Option<&RuntimeTable>,
+    rows: &[usize],
+    predicates: &[eng_compiler::TablePredicateInfo],
+) -> Vec<RuntimeTableTransformPredicate> {
+    predicates
+        .iter()
+        .map(|predicate| {
+            let matched_count = table
+                .map(|table| {
+                    rows.iter()
+                        .filter(|row| {
+                            table_transform_expression_matches(
+                                report,
+                                table,
+                                **row,
+                                &predicate.expression,
+                            )
+                        })
+                        .count()
+                })
+                .unwrap_or(0);
+            RuntimeTableTransformPredicate {
+                expression: predicate.expression.clone(),
+                column: predicate.column.clone(),
+                operator: predicate.operator.clone(),
+                value: predicate.value.clone(),
+                resolved_value: predicate
+                    .value
+                    .as_deref()
+                    .and_then(|value| resolve_table_selection_value(value, report)),
+                matched_count,
+                status: predicate.status.clone(),
+                line: predicate.line,
+            }
+        })
+        .collect()
+}
+
+fn table_transform_row_matches(
+    report: &CheckReport,
+    table: &RuntimeTable,
+    row: usize,
+    transform: &eng_compiler::TableTransformInfo,
+) -> bool {
+    transform.predicates.iter().all(|predicate| {
+        table_transform_expression_matches(report, table, row, &predicate.expression)
+    })
+}
+
+fn table_transform_expression_matches(
+    report: &CheckReport,
+    table: &RuntimeTable,
+    row: usize,
+    expression: &str,
+) -> bool {
+    let or_parts = split_table_transform_logical(expression, "or");
+    if or_parts.len() > 1 {
+        return or_parts
+            .iter()
+            .any(|part| table_transform_expression_matches(report, table, row, part));
+    }
+    let and_parts = split_table_transform_logical(expression, "and");
+    if and_parts.len() > 1 {
+        return and_parts
+            .iter()
+            .all(|part| table_transform_expression_matches(report, table, row, part));
+    }
+    table_transform_atom_matches(report, table, row, expression.trim())
+}
+
+fn table_transform_atom_matches(
+    report: &CheckReport,
+    table: &RuntimeTable,
+    row: usize,
+    expression: &str,
+) -> bool {
+    let lowered = expression.to_ascii_lowercase();
+    if let Some(index) = lowered.find(" is not none") {
+        let column = expression[..index].trim();
+        if !table_transform_identifier(column) {
+            return false;
+        }
+        return table_column_value(table, column, row)
+            .is_some_and(|value| !selection_value_is_none(&value));
+    }
+    if let Some(index) = lowered.find(" is none") {
+        let column = expression[..index].trim();
+        if !table_transform_identifier(column) {
+            return false;
+        }
+        return table_column_value(table, column, row)
+            .is_some_and(|value| selection_value_is_none(&value));
+    }
+    for operator in ["==", "!=", "<=", ">=", "<", ">"] {
+        if let Some((left, right)) = expression.split_once(operator) {
+            let column = left.trim();
+            if !table_transform_identifier(column) {
+                return false;
+            }
+            let Some(actual) = table_column_value(table, column, row) else {
+                return false;
+            };
+            let expected = resolve_table_selection_value(right, report)
+                .unwrap_or_else(|| strip_selection_quotes(right));
+            return match operator {
+                "==" => actual.trim() == expected.trim(),
+                "!=" => actual.trim() != expected.trim(),
+                "<=" => !table_transform_value_after(&actual, &expected),
+                ">=" => !table_transform_value_before(&actual, &expected),
+                "<" => table_transform_value_before(&actual, &expected),
+                ">" => table_transform_value_after(&actual, &expected),
+                _ => false,
+            };
+        }
+    }
+    false
+}
+
+fn table_transform_value_after(actual: &str, expected: &str) -> bool {
+    match (
+        actual.trim().parse::<f64>().ok(),
+        expected.trim().parse::<f64>().ok(),
+    ) {
+        (Some(actual), Some(expected)) => actual > expected,
+        _ => table_selection_value_after(actual, expected),
+    }
+}
+
+fn table_transform_value_before(actual: &str, expected: &str) -> bool {
+    match (
+        actual.trim().parse::<f64>().ok(),
+        expected.trim().parse::<f64>().ok(),
+    ) {
+        (Some(actual), Some(expected)) => actual < expected,
+        _ => table_selection_value_before(actual, expected),
+    }
+}
+
+fn split_table_transform_logical<'a>(expression: &'a str, keyword: &str) -> Vec<&'a str> {
+    let mut parts = Vec::new();
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut previous = '\0';
+    let mut start = 0usize;
+    for (index, character) in expression.char_indices() {
+        if character == '"' && previous != '\\' {
+            in_string = !in_string;
+        } else if !in_string {
+            match character {
+                '(' | '[' | '{' => depth += 1,
+                ')' | ']' | '}' => depth -= 1,
+                _ if depth == 0
+                    && table_transform_logical_keyword_at(expression, index, keyword) =>
+                {
+                    parts.push(expression[start..index].trim());
+                    start = index + keyword.len();
+                }
+                _ => {}
+            }
+        }
+        previous = character;
+    }
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail);
+    }
+    parts
+}
+
+fn table_transform_logical_keyword_at(expression: &str, index: usize, keyword: &str) -> bool {
+    let Some(slice) = expression.get(index..index + keyword.len()) else {
+        return false;
+    };
+    if !slice.eq_ignore_ascii_case(keyword) {
+        return false;
+    }
+    let before = expression[..index].chars().next_back();
+    let after = expression[index + keyword.len()..].chars().next();
+    before.is_none_or(|character| !table_transform_identifier_part(character))
+        && after.is_none_or(|character| !table_transform_identifier_part(character))
+}
+
+fn table_transform_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_') && chars.all(table_transform_identifier_part)
+}
+
+fn table_transform_identifier_part(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_'
+}
+
+fn one_based_rows(rows: &[usize]) -> Vec<usize> {
+    rows.iter().map(|row| row + 1).collect()
 }
 
 fn materialize_table_diagnostics(
