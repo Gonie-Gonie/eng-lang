@@ -2234,19 +2234,24 @@ function renderArtifactOutlines() {
 
 function renderEffectsPanel() {
   const effects = inspectorObject("effectRecords");
+  const processResults = inspectorObject("processResults");
   const artifacts = Array.isArray(effects.artifactRecords) ? effects.artifactRecords : [];
   const boundaries = Array.isArray(effects.externalBoundaryRecords) ? effects.externalBoundaryRecords : [];
+  const processes = Array.isArray(processResults.processes) ? processResults.processes : [];
   return `
     <div class="panel-title compact">Effects</div>
     <div class="badges">
       <span class="badge">Artifacts ${artifacts.length}</span>
       <span class="badge">Boundaries ${boundaries.length}</span>
+      <span class="badge">Processes ${processes.length}</span>
     </div>
     <div class="scroll">
       <div class="panel-title compact">Artifact Records</div>
       ${renderArtifactRecords(artifacts)}
       <div class="panel-title compact">External Boundary Records</div>
       ${renderExternalBoundaryRecords(boundaries)}
+      <div class="panel-title compact">Process Results</div>
+      ${renderProcessResults(processes)}
     </div>
   `;
 }
@@ -2584,18 +2589,27 @@ function renderRunLog(messages) {
 }
 
 function renderProcessResults(processes) {
-  const rows = processes.map((process) => `
-    <tr>
-      <td><strong>${escapeHtml(process.binding || "-")}</strong><div class="muted">L${escapeHtml(process.line ?? "-")}</div></td>
-      <td><code>${escapeHtml([process.command, ...(process.args || [])].filter(Boolean).join(" "))}</code><div class="muted">${escapeHtml(process.cwd || "-")}</div></td>
-      <td>${escapeHtml(process.status || "-")}<div class="muted">exit ${escapeHtml(process.exit_code ?? process.exitCode ?? "-")}</div></td>
-      <td>${escapeHtml(compactText(process.stdout || process.stderr || "-", 90))}</td>
-    </tr>
-  `).join("");
+  const rows = processes.map((process) => {
+    const outputs = Array.isArray(process.expected_outputs)
+      ? process.expected_outputs
+      : (Array.isArray(process.expectedOutputs) ? process.expectedOutputs : []);
+    const outputText = outputs.length
+      ? outputs.map((output) => `${output.path || "-"}:${output.status || "-"}`).join("; ")
+      : "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(process.binding || "-")}</strong><div class="muted">L${escapeHtml(process.line ?? "-")}</div></td>
+        <td><code>${escapeHtml([process.command, ...(process.args || [])].filter(Boolean).join(" "))}</code><div class="muted">${escapeHtml(process.cwd || "-")}</div></td>
+        <td>${escapeHtml(process.status || "-")}<div class="muted">exit ${escapeHtml(process.exit_code ?? process.exitCode ?? "-")}</div><div class="muted">${escapeHtml(process.expected_output_status || process.expectedOutputStatus || "-")}</div></td>
+        <td><code>${escapeHtml(compactText(process.stdout_hash || process.stdoutHash || "-", 70))}</code><div class="muted"><code>${escapeHtml(compactText(process.stderr_hash || process.stderrHash || "-", 70))}</code></div></td>
+        <td>${escapeHtml(compactText(outputText, 110))}</td>
+      </tr>
+    `;
+  }).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Binding</th><th>Command</th><th>Status</th><th>Output</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No process results.</td></tr>`}</tbody>
+      <thead><tr><th>Binding</th><th>Command</th><th>Status</th><th>Stdout/Stderr Hash</th><th>Expected Outputs</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No process results.</td></tr>`}</tbody>
     </table>
   `;
 }
