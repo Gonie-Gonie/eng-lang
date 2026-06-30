@@ -12867,6 +12867,33 @@ system Envelope {
     }
 
     #[test]
+    fn records_model_cache_record() {
+        let report = check_source(
+            "model_cache.eng",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nwith {\n    cache = true\n    cache_key = [\"model\", \"reg\", \"v1\"]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let cache_record = report
+            .semantic_program
+            .cache_records
+            .iter()
+            .find(|record| record.owner_kind == "model" && record.owner_name == "reg_model")
+            .expect("model cache record");
+        assert_eq!(cache_record.status, "declared");
+        assert!(cache_record.cache_key_parts.starts_with(&[
+            "model".to_owned(),
+            "reg".to_owned(),
+            "v1".to_owned()
+        ]));
+        assert!(cache_record
+            .cache_key_parts
+            .iter()
+            .any(|part| part.starts_with("source_hash=")));
+    }
+
+    #[test]
     fn rejects_invalid_net_url() {
         let report = check_source(
             "bad.eng",

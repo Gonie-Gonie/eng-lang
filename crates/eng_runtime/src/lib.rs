@@ -25,8 +25,9 @@ use artifact::{
 };
 use runtime_data::{
     materialize_runtime_data, RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus,
-    RuntimeComponentResidualEvaluation, RuntimeData, RuntimeNumericUncertaintyPayload,
-    RuntimeNumericValue, RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
+    RuntimeComponentResidualEvaluation, RuntimeData, RuntimeMlArtifact,
+    RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeStatisticValue,
+    RuntimeTimeSeries, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -526,7 +527,7 @@ pub fn run_source(
     let db_manifest_records = db_manifest_records(&process_results);
     let external_boundary_records =
         external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
-    let cache_manifest_records = cache_manifest_records(&check_report, build_root);
+    let cache_manifest_records = cache_manifest_records(&check_report, &runtime_data, build_root);
     ensure_cache_hashes_valid(&cache_manifest_records)?;
     let cache_manifest_json =
         cache_manifest_json(&check_report, &cache_manifest_records, &options.profile);
@@ -1635,17 +1636,24 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
     Ok(records)
 }
 
-fn cache_manifest_records(report: &CheckReport, build_root: &Path) -> Vec<CacheManifestRecord> {
-    report
+fn cache_manifest_records(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    build_root: &Path,
+) -> Vec<CacheManifestRecord> {
+    let mut records = report
         .semantic_program
         .cache_records
         .iter()
-        .map(|record| cache_manifest_record(record, build_root))
-        .collect()
+        .map(|record| cache_manifest_record(record, runtime_data, build_root))
+        .collect::<Vec<_>>();
+    records.extend(case_cache_manifest_records(runtime_data, build_root));
+    records
 }
 
 fn cache_manifest_record(
     record: &eng_compiler::CacheRecordInfo,
+    runtime_data: &RuntimeData,
     build_root: &Path,
 ) -> CacheManifestRecord {
     let resolved_path = resolve_cache_path(build_root, &record.cache_path);
@@ -1654,7 +1662,8 @@ fn cache_manifest_record(
     } else {
         "miss"
     };
-    let status = cache_manifest_status(record, lookup_status);
+    let observed_hash = cache_observed_hash(record, runtime_data);
+    let status = cache_manifest_status(record, observed_hash.as_deref(), lookup_status);
     CacheManifestRecord {
         owner_kind: record.owner_kind.clone(),
         owner_name: record.owner_name.clone(),
@@ -1666,26 +1675,135 @@ fn cache_manifest_record(
         resolved_path: resolved_path.display().to_string(),
         source_hash: record.source_hash.clone(),
         expected_hash: record.expected_hash.clone(),
-        observed_hash: record.observed_hash.clone(),
+        observed_hash,
         lookup_status: lookup_status.to_owned(),
         status,
         line: record.line,
     }
 }
 
-fn cache_manifest_status(record: &eng_compiler::CacheRecordInfo, lookup_status: &str) -> String {
-    if cache_hash_mismatch(
+fn cache_observed_hash(
+    record: &eng_compiler::CacheRecordInfo,
+    runtime_data: &RuntimeData,
+) -> Option<String> {
+    if record.owner_kind == "model" {
+        return runtime_data
+            .ml_artifacts
+            .iter()
+            .find(|artifact| artifact.binding == record.owner_name)
+            .and_then(model_cache_observed_hash)
+            .or_else(|| record.observed_hash.clone());
+    }
+    record.observed_hash.clone()
+}
+
+fn model_cache_observed_hash(artifact: &RuntimeMlArtifact) -> Option<String> {
+    artifact
+        .model_artifact_hash
+        .clone()
+        .or_else(|| artifact.model_card.as_ref().map(|card| hash_text(card)))
+}
+
+fn cache_manifest_status(
+    record: &eng_compiler::CacheRecordInfo,
+    observed_hash: Option<&str>,
+    lookup_status: &str,
+) -> String {
+    cache_status(
         record.expected_hash.as_deref(),
-        record.observed_hash.as_deref(),
-    ) {
+        observed_hash,
+        lookup_status,
+        record.status == "fixture_available",
+    )
+}
+
+fn cache_status(
+    expected_hash: Option<&str>,
+    observed_hash: Option<&str>,
+    lookup_status: &str,
+    fixture_available: bool,
+) -> String {
+    if cache_hash_mismatch(expected_hash, observed_hash) {
         "hash_mismatch".to_owned()
     } else if lookup_status == "hit" {
         "hit".to_owned()
-    } else if record.status == "fixture_available" {
+    } else if fixture_available {
         "miss_fixture_available".to_owned()
+    } else if observed_hash.is_some() {
+        "miss_observed".to_owned()
     } else {
         "miss_declared".to_owned()
     }
+}
+
+fn case_cache_manifest_records(
+    runtime_data: &RuntimeData,
+    build_root: &Path,
+) -> Vec<CacheManifestRecord> {
+    runtime_data
+        .case_manifests
+        .iter()
+        .filter(|manifest| !manifest.case_id.trim().is_empty())
+        .map(|manifest| case_cache_manifest_record(manifest, build_root))
+        .collect()
+}
+
+fn case_cache_manifest_record(
+    manifest: &RuntimeCaseManifest,
+    build_root: &Path,
+) -> CacheManifestRecord {
+    let cache_dir = "cache".to_owned();
+    let source_hash = manifest
+        .source_hash
+        .clone()
+        .unwrap_or_else(|| manifest.sample_row_hash.clone());
+    let cache_key_parts = vec![
+        "case".to_owned(),
+        format!("sample_table={}", manifest.sample_table),
+        format!("case_id={}", manifest.case_id),
+        format!("sample_row_hash={}", manifest.sample_row_hash),
+        format!("source_hash={source_hash}"),
+    ];
+    let cache_key = serialize_runtime_cache_key(&cache_key_parts);
+    let cache_key_hash = hash_text(&cache_key);
+    let cache_path = format!("{}/{}", cache_dir, cache_key_hash);
+    let resolved_path = resolve_cache_path(build_root, &cache_path);
+    let lookup_status = if resolved_path.exists() {
+        "hit"
+    } else {
+        "miss"
+    };
+    let status = cache_status(
+        Some(&manifest.sample_row_hash),
+        Some(&manifest.sample_row_hash),
+        lookup_status,
+        false,
+    );
+    CacheManifestRecord {
+        owner_kind: "case".to_owned(),
+        owner_name: manifest.case_id.clone(),
+        cache_key,
+        cache_key_parts,
+        cache_key_hash,
+        cache_path,
+        cache_dir,
+        resolved_path: resolved_path.display().to_string(),
+        source_hash,
+        expected_hash: Some(manifest.sample_row_hash.clone()),
+        observed_hash: Some(manifest.sample_row_hash.clone()),
+        lookup_status: lookup_status.to_owned(),
+        status,
+        line: manifest.line,
+    }
+}
+
+fn serialize_runtime_cache_key(parts: &[String]) -> String {
+    parts
+        .iter()
+        .map(|part| part.trim())
+        .filter(|part| !part.is_empty())
+        .collect::<Vec<_>>()
+        .join("|")
 }
 
 fn ensure_cache_hashes_valid(records: &[CacheManifestRecord]) -> Result<(), RuntimeError> {
@@ -4394,6 +4512,8 @@ fn cache_owner_node_id(
     let candidates = if runtime {
         vec![
             format!("process:{owner_name}"),
+            format!("model:{owner_name}"),
+            format!("case:{owner_name}"),
             format!("boundary:{owner_kind}:{owner_name}"),
             format!("boundary:{owner_kind}:download"),
         ]
@@ -12418,6 +12538,16 @@ mod tests {
         assert!(output
             .review_json
             .contains("\"status\": \"sample_row_manifest_seed\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"owner_kind\": \"case\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"owner_name\": \"case_001\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"status\": \"miss_observed\""));
+        assert!(output.run_log_json.contains("\"owner_kind\": \"case\""));
         assert!(!virtual_path.exists());
     }
 
@@ -12926,7 +13056,11 @@ mod tests {
             status: "fixture_available".to_owned(),
             line: 12,
         };
-        let record = cache_manifest_record(&compiler_record, Path::new("build"));
+        let record = cache_manifest_record(
+            &compiler_record,
+            &RuntimeData::default(),
+            Path::new("build"),
+        );
 
         assert_eq!(record.status, "hash_mismatch");
         let error =
@@ -13149,8 +13283,15 @@ mod tests {
             .join("build")
             .join("runtime-model-artifact-records");
         let _ = fs::remove_dir_all(&build_root);
+        let source = fs::read_to_string(&source_path)
+            .expect("model source")
+            .replace(
+                "reg_model = regression(split, algorithm=linear)",
+                "reg_model = regression(split, algorithm=linear)\nwith {\n    cache = true\n    cache_key = [\"model\", \"reg\", \"v1\"]\n}",
+            );
 
-        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let output = run_source(&source_path, &source, &build_root, &RunOptions::default())
+            .expect("run file");
 
         assert!(output.output_manifest_json.contains("\"model_artifacts\""));
         assert!(output.output_manifest_json.contains("\"artifact\""));
@@ -13165,6 +13306,16 @@ mod tests {
         assert!(output.review_json.contains("\"model_kind\": \"linear\""));
         assert!(output.review_json.contains("\"residual_point_count\""));
         assert!(output.review_json.contains("\"model_artifact_hash\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"owner_kind\": \"model\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"owner_name\": \"reg_model\""));
+        assert!(output.cache_manifest_json.contains("\"observed_hash\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"status\": \"miss_observed\""));
     }
 
     #[test]

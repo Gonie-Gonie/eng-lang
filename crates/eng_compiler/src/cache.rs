@@ -1,3 +1,4 @@
+use crate::ml::MlInfo;
 use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
 use crate::Diagnostic;
 
@@ -34,6 +35,25 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
             process.line,
             &options,
             process_cache_parts(program, process.line, &process.command),
+            source_hash,
+            None,
+            None,
+            "declared",
+            &program.arg_values,
+            &mut analysis.diagnostics,
+        ) {
+            analysis.records.push(record);
+        }
+    }
+
+    for model in &program.ml_infos {
+        let options = options_for_owner(program, model.line);
+        if let Some(record) = build_cache_record(
+            "model",
+            &model.binding,
+            model.line,
+            &options,
+            model_cache_parts(model),
             source_hash,
             None,
             None,
@@ -166,6 +186,40 @@ fn process_cache_parts(program: &SemanticProgram, owner_line: usize, command: &s
         if let Some(value) = option_value(&options, key) {
             parts.push(format!("{key}={value}"));
         }
+    }
+    parts
+}
+
+fn model_cache_parts(model: &MlInfo) -> Vec<String> {
+    let mut parts = vec![
+        "model".to_owned(),
+        model.kind.clone(),
+        model.binding.clone(),
+        format!("expression={}", model.expression),
+    ];
+    if let Some(source) = &model.source {
+        parts.push(format!("source={source}"));
+    }
+    if let Some(target) = &model.target {
+        parts.push(format!("target={target}"));
+    }
+    if !model.features.is_empty() {
+        parts.push(format!("features={}", model.features.join(",")));
+    }
+    if let Some(algorithm) = &model.algorithm {
+        parts.push(format!("algorithm={algorithm}"));
+    }
+    if let Some(test_fraction) = &model.test_fraction {
+        parts.push(format!("test={test_fraction}"));
+    }
+    if let Some(seed) = &model.seed {
+        parts.push(format!("seed={seed}"));
+    }
+    if !model.hidden_layers.is_empty() {
+        parts.push(format!("hidden={:?}", model.hidden_layers));
+    }
+    if let Some(epochs) = model.epochs {
+        parts.push(format!("epochs={epochs}"));
     }
     parts
 }

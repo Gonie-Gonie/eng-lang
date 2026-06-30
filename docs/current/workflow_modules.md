@@ -16,10 +16,11 @@ case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
 `typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
 examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network and cache record seeds have
-landed for offline/fixture boundaries and cache manifests; live network
-execution, cache replay/invalidation, case runner, DB writer, and public model
-syntax remain planned or internal until concrete language/runtime/artifact
-slices land.
+landed for offline/fixture boundaries and cache manifests; cache manifests now
+share owner records across network, process, model, and case workflow surfaces.
+Live network execution, cache replay/invalidation, case runner, DB writer, and
+public model syntax remain planned or internal until concrete
+language/runtime/artifact slices land.
 
 ## Purpose
 
