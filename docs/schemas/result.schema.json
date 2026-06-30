@@ -639,6 +639,7 @@
         "output_row_count",
         "matched_row_indices",
         "selected_columns",
+        "sort_keys",
         "predicates",
         "join_keys",
         "status",
@@ -647,7 +648,7 @@
       ],
       "properties": {
         "binding": { "type": "string" },
-        "operation": { "enum": ["filter", "select", "require_one", "join"] },
+        "operation": { "enum": ["filter", "select", "sort", "require_one", "join"] },
         "source_table": { "type": "string" },
         "secondary_table": { "type": ["string", "null"] },
         "schema_name": { "type": ["string", "null"] },
@@ -662,6 +663,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/tableColumn" }
         },
+        "sort_keys": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableSortKey" }
+        },
         "predicates": {
           "type": "array",
           "items": { "$ref": "#/$defs/tableTransformPredicate" }
@@ -671,7 +676,7 @@
           "items": { "$ref": "#/$defs/tableJoinKey" }
         },
         "status": {
-          "enum": ["filtered", "selected_columns", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
+          "enum": ["filtered", "selected_columns", "sorted", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
         },
         "reason": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
@@ -682,6 +687,16 @@
       "required": ["name", "status", "line"],
       "properties": {
         "name": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableSortKey": {
+      "type": "object",
+      "required": ["column", "direction", "status", "line"],
+      "properties": {
+        "column": { "type": "string" },
+        "direction": { "enum": ["asc", "desc"] },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

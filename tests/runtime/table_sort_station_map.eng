@@ -1,0 +1,19 @@
+schema StationMap {
+    region: String
+    station_id: String
+    valid_from: DateTime
+    valid_to: DateTime
+    latitude: DimensionlessNumber [1]
+    longitude: DimensionlessNumber [1]
+}
+
+args {
+    station_map: CsvFile = file("data/table_station_map.csv")
+}
+
+stations = promote csv args.station_map as StationMap
+ordered_stations = sort stations by longitude desc
+
+report {
+    show ordered_stations
+}

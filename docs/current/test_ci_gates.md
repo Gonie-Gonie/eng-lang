@@ -70,9 +70,10 @@ Current coverage uses generic artifact contracts rather than native module
 syntax:
 
 - `runtime/table_filter_station_map.eng`, `runtime/table_select_columns_station_map.eng`,
-  `runtime/table_require_one.eng`, `runtime/table_join_samples_results.eng`, and
+  `runtime/table_sort_station_map.eng`, `runtime/table_require_one.eng`,
+  `runtime/table_join_samples_results.eng`, and
   `runtime/timeseries_coverage.eng` map to the weather workflow smoke.
-  They check deterministic station selection, filter/select/require_one/join table
+  They check deterministic station selection, filter/select/sort/require_one/join table
   transform artifacts, and Gregorian-year coverage artifacts without real
   network access.
 - `runtime/case_manifest.eng` and

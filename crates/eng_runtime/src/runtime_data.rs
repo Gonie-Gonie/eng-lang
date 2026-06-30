@@ -1,3 +1,4 @@
+use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
 
@@ -1069,6 +1070,7 @@ pub struct RuntimeTableTransform {
     pub output_row_count: usize,
     pub matched_row_indices: Vec<usize>,
     pub selected_columns: Vec<RuntimeTableColumn>,
+    pub sort_keys: Vec<RuntimeTableSortKey>,
     pub predicates: Vec<RuntimeTableTransformPredicate>,
     pub join_keys: Vec<RuntimeTableJoinKey>,
     pub status: String,
@@ -1079,6 +1081,14 @@ pub struct RuntimeTableTransform {
 #[derive(Clone, Debug, PartialEq)]
 pub struct RuntimeTableColumn {
     pub name: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableSortKey {
+    pub column: String,
+    pub direction: String,
     pub status: String,
     pub line: usize,
 }
@@ -3938,6 +3948,7 @@ fn materialize_table_transforms(
                     output_row_count: matched_rows.len(),
                     matched_row_indices: one_based_rows(&matched_rows),
                     selected_columns: Vec::new(),
+                    sort_keys: Vec::new(),
                     predicates,
                     join_keys: Vec::new(),
                     status: "filtered".to_owned(),
@@ -3977,6 +3988,7 @@ fn materialize_table_transforms(
                     output_row_count: source_rows.len(),
                     matched_row_indices: one_based_rows(&source_rows),
                     selected_columns: runtime_table_columns(&transform.selected_columns),
+                    sort_keys: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: Vec::new(),
                     status: "selected_columns".to_owned(),
@@ -3984,6 +3996,47 @@ fn materialize_table_transforms(
                         "no selected columns recorded".to_owned()
                     } else {
                         "recorded selected table columns".to_owned()
+                    },
+                    line: transform.line,
+                });
+            }
+            "sort" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                let sorted_rows = sorted_table_transform_rows(table, &source_rows, transform);
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name: schema_name.clone(),
+                        rows: sorted_rows.clone(),
+                    },
+                );
+                records.push(RuntimeTableTransform {
+                    binding: transform.binding.clone(),
+                    operation: transform.operation.clone(),
+                    source_table: transform.source_table.clone(),
+                    secondary_table: transform.secondary_table.clone(),
+                    schema_name,
+                    input_row_count: source_rows.len(),
+                    secondary_input_row_count: None,
+                    output_row_count: sorted_rows.len(),
+                    matched_row_indices: one_based_rows(&sorted_rows),
+                    selected_columns: Vec::new(),
+                    sort_keys: runtime_table_sort_keys(&transform.sort_keys),
+                    predicates: Vec::new(),
+                    join_keys: Vec::new(),
+                    status: "sorted".to_owned(),
+                    reason: if transform.sort_keys.is_empty() {
+                        "no sort keys recorded".to_owned()
+                    } else {
+                        "ordered rows by sort keys".to_owned()
                     },
                     line: transform.line,
                 });
@@ -4025,6 +4078,7 @@ fn materialize_table_transforms(
                     output_row_count,
                     matched_row_indices: one_based_rows(&source_rows),
                     selected_columns: Vec::new(),
+                    sort_keys: Vec::new(),
                     predicates: runtime_table_transform_predicates(
                         report,
                         Some(table),
@@ -4088,6 +4142,7 @@ fn materialize_table_transforms(
                     output_row_count: joined_pairs.len(),
                     matched_row_indices: one_based_rows(&matched_left_rows),
                     selected_columns: Vec::new(),
+                    sort_keys: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: runtime_table_join_keys(
                         left_table,
@@ -4116,6 +4171,7 @@ fn materialize_table_transforms(
                 output_row_count: 0,
                 matched_row_indices: Vec::new(),
                 selected_columns: runtime_table_columns(&transform.selected_columns),
+                sort_keys: runtime_table_sort_keys(&transform.sort_keys),
                 predicates: runtime_table_transform_predicates(
                     report,
                     None,
@@ -4173,6 +4229,7 @@ fn missing_source_table_transform(
         output_row_count: 0,
         matched_row_indices: Vec::new(),
         selected_columns: runtime_table_columns(&transform.selected_columns),
+        sort_keys: runtime_table_sort_keys(&transform.sort_keys),
         predicates: runtime_table_transform_predicates(report, None, &[], &transform.predicates),
         join_keys: runtime_table_join_keys_empty(&transform.join_keys),
         status: "missing_source".to_owned(),
@@ -4190,6 +4247,60 @@ fn runtime_table_columns(columns: &[eng_compiler::TableColumnInfo]) -> Vec<Runti
             line: column.line,
         })
         .collect()
+}
+
+fn runtime_table_sort_keys(keys: &[eng_compiler::TableSortKeyInfo]) -> Vec<RuntimeTableSortKey> {
+    keys.iter()
+        .map(|key| RuntimeTableSortKey {
+            column: key.column.clone(),
+            direction: key.direction.clone(),
+            status: key.status.clone(),
+            line: key.line,
+        })
+        .collect()
+}
+
+fn sorted_table_transform_rows(
+    table: &RuntimeTable,
+    source_rows: &[usize],
+    transform: &eng_compiler::TableTransformInfo,
+) -> Vec<usize> {
+    let mut rows = source_rows.to_vec();
+    rows.sort_by(|left_row, right_row| {
+        for key in transform
+            .sort_keys
+            .iter()
+            .filter(|key| key.status == "accepted")
+        {
+            let ordering = table_sort_key_ordering(table, *left_row, *right_row, key);
+            if ordering != Ordering::Equal {
+                return if key.direction == "desc" {
+                    ordering.reverse()
+                } else {
+                    ordering
+                };
+            }
+        }
+        Ordering::Equal
+    });
+    rows
+}
+
+fn table_sort_key_ordering(
+    table: &RuntimeTable,
+    left_row: usize,
+    right_row: usize,
+    key: &eng_compiler::TableSortKeyInfo,
+) -> Ordering {
+    let left_value = table_column_value(table, &key.column, left_row).unwrap_or_default();
+    let right_value = table_column_value(table, &key.column, right_row).unwrap_or_default();
+    match (
+        left_value.trim().parse::<f64>(),
+        right_value.trim().parse::<f64>(),
+    ) {
+        (Ok(left), Ok(right)) => left.total_cmp(&right),
+        _ => left_value.cmp(&right_value),
+    }
 }
 
 fn runtime_table_transform_predicates(

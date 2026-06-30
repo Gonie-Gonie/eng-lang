@@ -32,6 +32,14 @@ pub struct TableColumnInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TableSortKeyInfo {
+    pub column: String,
+    pub direction: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableTransformInfo {
     pub binding: String,
     pub operation: String,
@@ -39,6 +47,7 @@ pub struct TableTransformInfo {
     pub secondary_table: Option<String>,
     pub schema_name: Option<String>,
     pub selected_columns: Vec<TableColumnInfo>,
+    pub sort_keys: Vec<TableSortKeyInfo>,
     pub predicates: Vec<TablePredicateInfo>,
     pub join_keys: Vec<TableJoinKeyInfo>,
     pub status: String,
@@ -76,6 +85,7 @@ pub fn analyze_table_transforms(
                 source_table,
                 secondary_table: None,
                 selected_columns: Vec::new(),
+                sort_keys: Vec::new(),
                 predicates,
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -98,6 +108,30 @@ pub fn analyze_table_transforms(
                 source_table,
                 secondary_table: None,
                 selected_columns,
+                sort_keys: Vec::new(),
+                predicates: Vec::new(),
+                join_keys: Vec::new(),
+                status: "declared".to_owned(),
+                line: binding.line,
+            });
+        } else if let Some((source_table, keys)) = parse_sort_expression(&binding.expression) {
+            let sort_keys = sort_keys_for_transform(
+                program,
+                &analysis.transforms,
+                &source_table,
+                keys,
+                binding.line,
+                &mut analysis.diagnostics,
+            );
+            let schema_name = schema_name_for_source(program, &analysis.transforms, &source_table);
+            analysis.transforms.push(TableTransformInfo {
+                binding: binding.name.clone(),
+                operation: "sort".to_owned(),
+                schema_name,
+                source_table,
+                secondary_table: None,
+                selected_columns: Vec::new(),
+                sort_keys,
                 predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -118,6 +152,7 @@ pub fn analyze_table_transforms(
                 source_table,
                 secondary_table: None,
                 selected_columns: Vec::new(),
+                sort_keys: Vec::new(),
                 predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -147,6 +182,7 @@ pub fn analyze_table_transforms(
                 secondary_table: Some(right_table),
                 schema_name,
                 selected_columns: Vec::new(),
+                sort_keys: Vec::new(),
                 predicates: Vec::new(),
                 join_keys,
                 status: "declared".to_owned(),
@@ -169,6 +205,10 @@ pub fn is_select_expression(expression: &str) -> bool {
     parse_select_expression(expression).is_some()
 }
 
+pub fn is_sort_expression(expression: &str) -> bool {
+    parse_sort_expression(expression).is_some()
+}
+
 pub fn is_join_expression(expression: &str) -> bool {
     parse_join_expression(expression).is_some()
 }
@@ -189,6 +229,12 @@ fn parse_select_expression(expression: &str) -> Option<(String, Vec<String>)> {
     Some((simple_identifier(source_table)?, parse_column_list(columns)))
 }
 
+fn parse_sort_expression(expression: &str) -> Option<(String, Vec<(String, String)>)> {
+    let source = expression.trim().strip_prefix("sort ")?.trim();
+    let (source_table, keys) = source.split_once(" by ")?;
+    Some((simple_identifier(source_table)?, parse_sort_key_list(keys)))
+}
+
 fn parse_join_expression(expression: &str) -> Option<(String, String)> {
     let source = expression.trim().strip_prefix("join ")?.trim();
     let (left, right) = source.split_once(" with ")?;
@@ -207,6 +253,24 @@ fn parse_column_list(columns: &str) -> Vec<String> {
         .map(str::trim)
         .filter(|column| is_identifier(column))
         .map(str::to_owned)
+        .collect()
+}
+
+fn parse_sort_key_list(keys: &str) -> Vec<(String, String)> {
+    keys.split(',')
+        .filter_map(|key| {
+            let mut parts = key.split_whitespace();
+            let column = parts.next()?;
+            if !is_identifier(column) {
+                return None;
+            }
+            let direction = parts
+                .next()
+                .filter(|value| value.eq_ignore_ascii_case("desc"))
+                .map(|_| "desc")
+                .unwrap_or("asc");
+            Some((column.to_owned(), direction.to_owned()))
+        })
         .collect()
 }
 
@@ -279,6 +343,36 @@ fn selected_columns_for_transform(
             }
             TableColumnInfo {
                 name: column,
+                status,
+                line,
+            }
+        })
+        .collect()
+}
+
+fn sort_keys_for_transform(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    source_table: &str,
+    keys: Vec<(String, String)>,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<TableSortKeyInfo> {
+    keys.into_iter()
+        .map(|(column, direction)| {
+            let mut status = "accepted".to_owned();
+            if !source_has_column(program, transforms, source_table, &column) {
+                diagnostics.push(Diagnostic::error(
+                    "E-TABLE-UNKNOWN-COLUMN",
+                    line,
+                    &format!("Table `{source_table}` does not have sort key column `{column}`."),
+                    Some("Use a column declared in the promoted table schema."),
+                ));
+                status = "unknown_column".to_owned();
+            }
+            TableSortKeyInfo {
+                column,
+                direction,
                 status,
                 line,
             }

@@ -382,6 +382,7 @@ where {
 }
 
 station_fields = select stations columns station_id, latitude
+stations_by_latitude = sort stations by latitude desc
 
 station = require_one candidates
 with {
@@ -395,11 +396,11 @@ on {
 }
 ```
 
-The compiler validates referenced predicate and selected columns against the
-promoted table schema and validates join keys against both promoted table
+The compiler validates referenced predicate, selected, and sort-key columns
+against the promoted table schema and validates join keys against both promoted table
 schemas. It records the transform contract in `review_document.table_transforms[]`.
-Runtime artifacts record row counts, selected columns, predicate evidence, and
-join key pair counts in `typed_payload.table_transforms[]`.
+Runtime artifacts record row counts, selected columns, sort keys, predicate
+evidence, and join key pair counts in `typed_payload.table_transforms[]`.
 
 ## Declarations
 

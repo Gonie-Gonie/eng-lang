@@ -79,7 +79,9 @@ pub use semantic::{
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
-pub use table::{TableColumnInfo, TableJoinKeyInfo, TablePredicateInfo, TableTransformInfo};
+pub use table::{
+    TableColumnInfo, TableJoinKeyInfo, TablePredicateInfo, TableSortKeyInfo, TableTransformInfo,
+};
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
@@ -6021,6 +6023,28 @@ fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
             json.push_str("          }");
         }
         json.push_str("\n        ],\n");
+        json.push_str("        \"sort_keys\": [\n");
+        for (key_index, key) in transform.sort_keys.iter().enumerate() {
+            if key_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"column\": \"{}\",\n",
+                json_escape(&key.column)
+            ));
+            json.push_str(&format!(
+                "            \"direction\": \"{}\",\n",
+                json_escape(&key.direction)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&key.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", key.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str(&format!(
             "        \"predicate_count\": {},\n",
             transform.predicates.len()
@@ -11186,6 +11210,89 @@ system Envelope {
                 "}\n\n",
                 "stations = promote csv args.station_map as StationMap\n",
                 "station_fields = select stations columns station_id\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-TABLE-UNKNOWN-COLUMN"));
+    }
+
+    #[test]
+    fn records_table_sort_transform_keys() {
+        let root = env::temp_dir().join(format!("englang-table-sort-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            "station_id,latitude\nSTN002,35.1\nSTN001,37.5\n",
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    station_id: String\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "ordered = sort stations by station_id desc\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let transform = report
+            .semantic_program
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == "ordered")
+            .expect("sort transform");
+        assert_eq!(transform.operation, "sort");
+        assert_eq!(transform.source_table, "stations");
+        assert_eq!(transform.sort_keys.len(), 1);
+        assert_eq!(transform.sort_keys[0].column, "station_id");
+        assert_eq!(transform.sort_keys[0].direction, "desc");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"operation\": \"sort\""));
+        assert!(review.contains("\"sort_keys\""));
+        assert!(review.contains("\"direction\": \"desc\""));
+    }
+
+    #[test]
+    fn diagnoses_unknown_table_sort_column() {
+        let root = env::temp_dir().join(format!("englang-table-sort-bad-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            "station_id\nSTN001\n",
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    station_id: String\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "ordered = sort stations by missing_column\n",
             ),
         )
         .expect("source");
