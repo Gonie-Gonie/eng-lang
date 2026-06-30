@@ -7,14 +7,15 @@
 #   promote toml file(...) as ConfigSchema
 #   promote json args.config_path as ConfigSchema
 #   promote toml args.config_path as ConfigSchema
+#   promote json raw_read_binding as ConfigSchema
+#   promote toml raw_read_binding as ConfigSchema
 #
 # Current review/runtime contract:
 #   source path, source hash, schema name, field count, missing fields,
 #   unknown fields, null fields, optional fields, optional missing/null fields,
-#   type mismatches, and source spans.
+#   type mismatches, source spans, and raw structured-read promotion source.
 #
 # Planned helper vocabulary:
-#   promote json payload as ConfigSchema
 #   default config fields
 #   nested object and array/list promotion
 #   unit mismatch validation

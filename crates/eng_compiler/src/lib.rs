@@ -11727,6 +11727,46 @@ system Envelope {
     }
 
     #[test]
+    fn promotes_raw_structured_read_config_binding() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-raw-read-promotion-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"region\": \"KR\", \"output\": \"build/out\" }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    region: String\n    output: DirectoryPath\n}\n\npayload = read json file(\"data/workflow.json\")\nconfig = promote json payload as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.config_promotions.len(), 1);
+        let promotion = &report.semantic_program.config_promotions[0];
+        assert_eq!(promotion.source_literal, "payload");
+        assert_eq!(promotion.status, "validated");
+        assert!(promotion.resolved_path.contains("workflow.json"));
+        assert!(promotion.source_hash.is_some());
+        assert!(report.semantic_program.environment_dependencies.iter().any(
+            |dependency| dependency.name == "payload"
+                && dependency.kind == "filesystem_read_json"
+                && dependency.source_hash.is_some()
+        ));
+        let review = review_json(&report);
+        assert!(review.contains("\"source\": \"payload\""));
+        assert!(review.contains("\"resolved_path\""));
+        assert!(review.contains("\"source_hash\": \""));
+    }
+
+    #[test]
     fn diagnoses_invalid_typed_config_promotions() {
         let root = env::temp_dir().join(format!(
             "englang-config-promotion-bad-{}",

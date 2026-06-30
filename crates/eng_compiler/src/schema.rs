@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use crate::ast::AstItem;
 use crate::parser::ParseContext;
-use crate::semantic::ArgValueInfo;
+use crate::semantic::{read_only_io_expression, ArgValueInfo};
 use crate::source::SourceSpan;
 use crate::Diagnostic;
 use serde_json::Value as JsonValue;
@@ -93,6 +94,13 @@ pub struct SchemaAnalysis {
     pub diagnostics: Vec<Diagnostic>,
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RawConfigSource {
+    format: String,
+    source_value: String,
+    resolved_path: PathBuf,
+}
+
 pub fn analyze_schema(
     program: &crate::parser::ParsedProgram,
     source_base: Option<&Path>,
@@ -103,6 +111,7 @@ pub fn analyze_schema(
     let mut config_promotions = Vec::new();
     let mut diagnostics = Vec::new();
     let mut current_schema_index: Option<usize> = None;
+    let raw_config_sources = collect_raw_config_sources(program, source_base, arg_values);
 
     for item in &program.items {
         match item {
@@ -311,40 +320,48 @@ pub fn analyze_schema(
             ));
         }
 
-        let source_value = match resolve_source_value(&source_literal, arg_values) {
-            Ok(value) => value,
-            Err(arg_name) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-ARGS-CONFIG-001",
-                    binding.line,
-                    &format!(
-                        "Config promotion path references `args.{arg_name}`, but no value is available."
-                    ),
-                    Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
-                ));
-                config_promotions.push(ConfigPromotion {
-                    binding: binding.name.clone(),
-                    format,
-                    schema_name,
-                    source_literal,
-                    source_value: String::new(),
-                    resolved_path: String::new(),
-                    source_hash: None,
-                    field_count: 0,
-                    missing_fields: Vec::new(),
-                    unknown_fields: Vec::new(),
-                    null_fields: Vec::new(),
-                    optional_fields: Vec::new(),
-                    optional_missing_fields: Vec::new(),
-                    optional_null_fields: Vec::new(),
-                    type_mismatches: Vec::new(),
-                    status: "missing_arg".to_owned(),
-                    line: binding.line,
-                });
-                continue;
-            }
+        let raw_source = raw_config_sources
+            .get(source_literal.as_str())
+            .filter(|source| source.format == format);
+        let (source_value, resolved_path) = if let Some(source) = raw_source {
+            (source.source_value.clone(), source.resolved_path.clone())
+        } else {
+            let source_value = match resolve_source_value(&source_literal, arg_values) {
+                Ok(value) => value,
+                Err(arg_name) => {
+                    diagnostics.push(Diagnostic::error(
+                        "E-ARGS-CONFIG-001",
+                        binding.line,
+                        &format!(
+                            "Config promotion path references `args.{arg_name}`, but no value is available."
+                        ),
+                        Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
+                    ));
+                    config_promotions.push(ConfigPromotion {
+                        binding: binding.name.clone(),
+                        format,
+                        schema_name,
+                        source_literal,
+                        source_value: String::new(),
+                        resolved_path: String::new(),
+                        source_hash: None,
+                        field_count: 0,
+                        missing_fields: Vec::new(),
+                        unknown_fields: Vec::new(),
+                        null_fields: Vec::new(),
+                        optional_fields: Vec::new(),
+                        optional_missing_fields: Vec::new(),
+                        optional_null_fields: Vec::new(),
+                        type_mismatches: Vec::new(),
+                        status: "missing_arg".to_owned(),
+                        line: binding.line,
+                    });
+                    continue;
+                }
+            };
+            let resolved_path = resolve_source_path(source_base, &source_value);
+            (source_value, resolved_path)
         };
-        let resolved_path = resolve_source_path(source_base, &source_value);
         let mut source_hash = None;
         let mut fields = Vec::new();
         let mut status = "validated".to_owned();
@@ -600,6 +617,40 @@ fn parse_promote_config(expression: &str) -> Option<(String, String, String)> {
         source_literal.trim().to_owned(),
         schema_name,
     ))
+}
+
+fn collect_raw_config_sources(
+    program: &crate::parser::ParsedProgram,
+    source_base: Option<&Path>,
+    arg_values: &[ArgValueInfo],
+) -> HashMap<String, RawConfigSource> {
+    let mut sources = HashMap::new();
+    for item in &program.items {
+        let AstItem::FastBinding(binding) = item else {
+            continue;
+        };
+        if binding.context != ParseContext::TopLevel {
+            continue;
+        }
+        let Some((format, path_expression)) = read_only_io_expression(&binding.expression) else {
+            continue;
+        };
+        if !matches!(format, "json" | "toml") {
+            continue;
+        }
+        let Ok(source_value) = resolve_source_value(path_expression, arg_values) else {
+            continue;
+        };
+        sources.insert(
+            binding.name.clone(),
+            RawConfigSource {
+                format: format.to_owned(),
+                resolved_path: resolve_source_path(source_base, &source_value),
+                source_value,
+            },
+        );
+    }
+    sources
 }
 
 fn resolve_source_value(
