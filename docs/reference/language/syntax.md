@@ -215,6 +215,7 @@ Use root `args { ... }` and top-level workflow statements instead.
 args {
     input: CsvFile = file("data/sensor.csv")
     case_name: String = "baseline"
+    api_key: Secret[String] = secret env("API_KEY")
     enabled: Bool = true
     count: Count = 3
     gain: Float = 1.0
@@ -229,13 +230,15 @@ Supported argument types include:
 | `String` | `"baseline"` | `--case_name demo` |
 | `Path` / `FilePath` / `CsvFile` | `file("data/sensor.csv")` | `--input data/other.csv` |
 | `DirectoryPath` | `dir("runs")` | `--output runs/case1` |
+| `Secret[T]` | `secret env("API_KEY")` | `--api_key <value>` |
 | `Bool` | `true` | `--enabled true` |
 | `Int` / `Integer` / `Count` | `3` | `--count 12` |
 | `Float` / `Number` | `1.0` | `--gain 1.25` |
 | `Duration` | `10 min` | `--window 30 s` |
 
 Runtime records the final bound value and whether it came from the default or
-CLI override.
+CLI override. `Secret[T]` values are recorded as `<redacted>` with
+`redacted: true`; the inner `T` controls argument normalization.
 
 ## Path Helpers And Exists
 

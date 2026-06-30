@@ -1122,6 +1122,11 @@ fn args_help_text(report: &CheckReport) -> String {
                     field.name, field.type_name, required
                 ));
                 if let Some(default_value) = &field.default_value {
+                    let default_value = if field.redacted {
+                        "<redacted>"
+                    } else {
+                        default_value
+                    };
                     text.push_str(&format!("; default = {default_value}"));
                 }
                 text.push('\n');
@@ -6181,6 +6186,11 @@ fn result_json(
                 json_escape(&field.type_name)
             ));
             if let Some(default_value) = &field.default_value {
+                let default_value = if field.redacted {
+                    "<redacted>"
+                } else {
+                    default_value
+                };
                 args_schema.push_str(&format!(
                     "          \"default\": \"{}\",\n",
                     json_escape(default_value)
@@ -6188,6 +6198,7 @@ fn result_json(
             } else {
                 args_schema.push_str("          \"default\": null,\n");
             }
+            args_schema.push_str(&format!("          \"redacted\": {},\n", field.redacted));
             args_schema.push_str(&format!("          \"required\": {},\n", field.required));
             args_schema.push_str(&format!("          \"line\": {}\n", field.line));
             args_schema.push_str("        }");
@@ -6213,6 +6224,7 @@ fn result_json(
             "      \"value\": \"{}\",\n",
             json_escape(&arg.value)
         ));
+        arg_values.push_str(&format!("      \"redacted\": {},\n", arg.redacted));
         arg_values.push_str(&format!(
             "      \"source\": \"{}\",\n",
             json_escape(&arg.source)
@@ -13695,5 +13707,68 @@ mod tests {
         assert!(output
             .review_json
             .contains("\"kind\": \"network_download\""));
+    }
+
+    #[test]
+    fn run_file_redacts_secret_arg_values() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-net-secret-arg");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-net-secret-arg-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("response.json"),
+            "{\"ok\":true}\n",
+        )
+        .expect("response");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "args {\n    api_key: Secret[String] = \"super-secret\"\n}\n\nresponse = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    serviceKey = args.api_key\n    }\n    fixture = file(\"data/response.json\")\n}\n\nx = 1\nprint \"x={x}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(output.stdout.contains("x=1"));
+        assert_eq!(
+            result_json
+                .pointer("/arg_values/0/type")
+                .and_then(Value::as_str),
+            Some("Secret[String]")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/arg_values/0/value")
+                .and_then(Value::as_str),
+            Some("<redacted>")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/arg_values/0/redacted")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/query/0/value")
+                .and_then(Value::as_str),
+            Some("<redacted>")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/query/0/redacted")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert!(!output.result_json.contains("super-secret"));
+        assert!(!output.review_json.contains("super-secret"));
     }
 }

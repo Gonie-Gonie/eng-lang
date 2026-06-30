@@ -142,11 +142,11 @@ tests = ["cargo test -p eng_compiler config_", "cargo test -p eng_runtime config
 [module."eng.net"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries."
+purpose = "Offline/fixture HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries."
 artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
 diagnostics = ["E-NET-INVALID-URL", "E-NET-UNPINNED"]
 examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid"]
-tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network"]
+tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network", "cargo test -p eng_runtime secret_arg"]
 
 [module."eng.cache"]
 status = "supported_seed"

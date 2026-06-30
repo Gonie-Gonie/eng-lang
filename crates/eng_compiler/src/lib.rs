@@ -725,7 +725,10 @@ fn resolve_arg_values(
                 }
                 continue;
             };
-            let value = match normalize_arg_value(&field.type_name, &raw_value) {
+            let redacted = semantic::secret_type_inner(&field.type_name).is_some();
+            let value_type =
+                semantic::secret_type_inner(&field.type_name).unwrap_or(&field.type_name);
+            let value = match normalize_arg_value(value_type, &raw_value) {
                 Ok(value) => value,
                 Err(message) => {
                     diagnostics.push(Diagnostic::error(
@@ -743,7 +746,12 @@ fn resolve_arg_values(
             values.push(ArgValueInfo {
                 name: field.name.clone(),
                 type_name: field.type_name.clone(),
-                value,
+                value: if redacted {
+                    "<redacted>".to_owned()
+                } else {
+                    value
+                },
+                redacted,
                 source: source.to_owned(),
                 required: field.required,
                 line: field.line,
@@ -1900,6 +1908,11 @@ pub fn review_json(report: &CheckReport) -> String {
                 json_escape(&field.type_name)
             ));
             if let Some(default_value) = &field.default_value {
+                let default_value = if field.redacted {
+                    "<redacted>"
+                } else {
+                    default_value
+                };
                 json.push_str(&format!(
                     "          \"default\": \"{}\",\n",
                     json_escape(default_value)
@@ -1907,6 +1920,7 @@ pub fn review_json(report: &CheckReport) -> String {
             } else {
                 json.push_str("          \"default\": null,\n");
             }
+            json.push_str(&format!("          \"redacted\": {},\n", field.redacted));
             json.push_str(&format!("          \"required\": {},\n", field.required));
             json.push_str(&format!("          \"line\": {}\n", field.line));
             json.push_str("        }");
@@ -1934,6 +1948,7 @@ pub fn review_json(report: &CheckReport) -> String {
             "      \"value\": \"{}\",\n",
             json_escape(&arg.value)
         ));
+        json.push_str(&format!("      \"redacted\": {},\n", arg.redacted));
         json.push_str(&format!(
             "      \"source\": \"{}\",\n",
             json_escape(&arg.source)
@@ -5683,12 +5698,16 @@ fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
                 json_escape(&field.type_name)
             ));
             match &field.default_value {
-                Some(value) => json.push_str(&format!(
-                    "        \"default\": \"{}\",\n",
-                    json_escape(value)
-                )),
+                Some(value) => {
+                    let value = if field.redacted { "<redacted>" } else { value };
+                    json.push_str(&format!(
+                        "        \"default\": \"{}\",\n",
+                        json_escape(value)
+                    ));
+                }
                 None => json.push_str("        \"default\": null,\n"),
             }
+            json.push_str(&format!("        \"redacted\": {},\n", field.redacted));
             json.push_str(&format!("        \"required\": {},\n", field.required));
             json.push_str(&format!("        \"line\": {}\n", field.line));
             json.push_str("      }");
@@ -12638,6 +12657,51 @@ system Envelope {
         assert!(review.contains("\"cache_count\": 2"));
         assert!(review.contains("\"kind\": \"network_request\""));
         assert!(review.contains("\"kind\": \"network_download\""));
+    }
+
+    #[test]
+    fn supports_secret_generic_type_and_redacts_arg_values() {
+        let report = check_source(
+            "ok.eng",
+            "args {\n    api_key: Secret[String] = \"super-secret\"\n}\n\napi_key = secret env(\"API_KEY\")\n\nfn pass_secret(key: Secret[String]) -> String {\n    return \"ok\"\n}\n\nresponse = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    serviceKey = args.api_key\n    }\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-TYPE-002"));
+        let secret_binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "api_key")
+            .expect("secret binding");
+        assert_eq!(secret_binding.semantic_type.quantity_kind, "Secret[String]");
+        assert_eq!(secret_binding.semantic_type.display_unit, "redacted");
+        let arg_value = report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == "api_key")
+            .expect("secret arg value");
+        assert_eq!(arg_value.type_name, "Secret[String]");
+        assert_eq!(arg_value.value, "<redacted>");
+        assert!(arg_value.redacted);
+        let request = report
+            .semantic_program
+            .net_requests
+            .first()
+            .expect("net request");
+        assert!(request.query.iter().any(|param| param.key == "serviceKey"
+            && param.value == "<redacted>"
+            && param.redacted));
+
+        let review = review_json(&report);
+        assert!(review.contains("\"type\": \"Secret[String]\""));
+        assert!(review.contains("\"value\": \"<redacted>\""));
+        assert!(!review.contains("super-secret"));
     }
 
     #[test]

@@ -254,6 +254,13 @@ fn resolve_query_value(value: &str, arg_values: &[ArgValueInfo]) -> (String, boo
     if is_secret_expression(value) {
         return ("<redacted>".to_owned(), true);
     }
+    if let Some(arg_name) = value.trim().strip_prefix("args.") {
+        if let Some(arg) = arg_values.iter().find(|arg| arg.name == arg_name) {
+            if arg.redacted {
+                return ("<redacted>".to_owned(), true);
+            }
+        }
+    }
     (
         resolve_value(value, arg_values).unwrap_or_else(|| strip_string_literal(value)),
         false,

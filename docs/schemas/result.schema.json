@@ -174,12 +174,13 @@
   "$defs": {
     "argValue": {
       "type": "object",
-      "required": ["name", "type", "value", "source", "required", "line"],
+      "required": ["name", "type", "value", "redacted", "source", "required", "line"],
       "properties": {
         "binding": { "type": "string" },
         "name": { "type": "string" },
         "type": { "type": "string" },
         "value": { "type": "string" },
+        "redacted": { "type": "boolean" },
         "source": { "enum": ["default", "cli"] },
         "required": { "type": "boolean" },
         "line": { "type": "integer", "minimum": 1 }

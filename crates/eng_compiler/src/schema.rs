@@ -1158,6 +1158,9 @@ fn config_value_matches_schema_type(type_name: &str, kind: &ConfigValueKind) -> 
     if config_array_element_type(type_name).is_some() {
         return *kind == ConfigValueKind::Array;
     }
+    if let Some(inner_type) = crate::semantic::secret_type_inner(type_name) {
+        return config_value_matches_schema_type(inner_type, kind);
+    }
     match type_name.to_ascii_lowercase().as_str() {
         "string" | "path" | "filepath" | "csvfile" | "jsonfile" | "tomlfile" | "textfile"
         | "reportfile" | "plotfile" | "directorypath" => *kind == ConfigValueKind::String,

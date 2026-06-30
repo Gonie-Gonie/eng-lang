@@ -555,6 +555,7 @@ pub struct ArgsFieldInfo {
     pub name: String,
     pub type_name: String,
     pub default_value: Option<String>,
+    pub redacted: bool,
     pub required: bool,
     pub line: usize,
 }
@@ -564,6 +565,7 @@ pub struct ArgValueInfo {
     pub name: String,
     pub type_name: String,
     pub value: String,
+    pub redacted: bool,
     pub source: String,
     pub required: bool,
     pub line: usize,
@@ -5205,6 +5207,7 @@ fn analyze_args_field(field: &ArgsFieldDecl, args_block: &mut ArgsBlockInfo) {
         name: field.name.clone(),
         type_name: field.type_name.clone(),
         default_value: field.default_value.clone(),
+        redacted: secret_type_inner(&field.type_name).is_some(),
         required: field.default_value.is_none(),
         line: field.line,
     });
@@ -10982,6 +10985,9 @@ fn default_unit_for_quantity(quantity_kind: &str) -> String {
     if object_type_name_kind(quantity_kind) {
         return "object".to_owned();
     }
+    if secret_type_inner(quantity_kind).is_some() {
+        return "redacted".to_owned();
+    }
 
     crate::quantities::all_quantity_completions()
         .iter()
@@ -11015,6 +11021,9 @@ fn dimension_for_quantity(quantity_kind: &str) -> String {
     if object_type_name_kind(quantity_kind) {
         return "Object".to_owned();
     }
+    if secret_type_inner(quantity_kind).is_some() {
+        return "Secret".to_owned();
+    }
 
     crate::quantities::all_quantity_completions()
         .iter()
@@ -11032,6 +11041,9 @@ fn dimension_for_type(type_name: &str) -> String {
 }
 
 fn known_decl_type(type_name: &str) -> bool {
+    if let Some(inner) = secret_type_inner(type_name) {
+        return known_decl_type(inner);
+    }
     preview_scalar_type(type_name)
         || state_space_vector_type_name(type_name)
         || derivative_type_name(type_name)
@@ -11057,6 +11069,15 @@ fn linear_operator_type_name(type_name: &str) -> bool {
 
 fn object_type_name_kind(type_name: &str) -> bool {
     type_name.trim().starts_with("Object[") && type_name.trim().ends_with(']')
+}
+
+pub(crate) fn secret_type_inner(type_name: &str) -> Option<&str> {
+    let inner = type_name
+        .trim()
+        .strip_prefix("Secret[")?
+        .strip_suffix(']')?
+        .trim();
+    (!inner.is_empty()).then_some(inner)
 }
 
 fn preview_scalar_type(type_name: &str) -> bool {

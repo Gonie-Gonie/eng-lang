@@ -1472,17 +1472,22 @@ fn parse_args_field_decl(
     if context != ParseContext::Args {
         return None;
     }
-    let [first, second, third, ..] = tokens else {
+    let [first, second, ..] = tokens else {
         return None;
     };
     let name = token_field_name(first)?;
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
     }
-    let type_name = token_type_name(third)?;
-    let default_value = line_text
+    let raw_after_colon = line_text.split_once(':')?.1.trim().trim_end_matches(',');
+    let (type_part, default_value) = raw_after_colon
         .split_once('=')
-        .map(|(_, right)| right.trim().to_owned());
+        .map(|(left, right)| (left.trim(), Some(right.trim().to_owned())))
+        .unwrap_or((raw_after_colon, None));
+    let (type_name, _) = split_type_and_unit(type_part);
+    if type_name.is_empty() {
+        return None;
+    }
 
     Some(ArgsFieldDecl {
         name,
