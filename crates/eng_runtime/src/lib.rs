@@ -478,7 +478,7 @@ pub fn run_source(
     output_artifacts.extend(csv_export_artifacts);
     output_artifacts.extend(write_artifacts);
     output_artifacts.extend(file_operation_artifacts);
-    let review_json = runtime_review_json(
+    let mut review_json = runtime_review_json(
         &review_json(&check_report),
         &runtime_data,
         &process_results,
@@ -504,6 +504,20 @@ pub fn run_source(
             diagnostics: &profile_diagnostics,
         },
     );
+    let initial_run_plan_json = run_plan_json(
+        path,
+        &check_report,
+        &runtime_data,
+        &process_results,
+        &external_boundary_records,
+        &cache_manifest_records,
+        &db_manifest_records,
+        &output_artifacts,
+        &result_json,
+        &review_json,
+        &options.profile,
+    );
+    review_json = enrich_runtime_review_workflow_graph(&review_json, &initial_run_plan_json);
     let run_plan_json = run_plan_json(
         path,
         &check_report,
@@ -6839,6 +6853,68 @@ fn enrich_runtime_review_caches(base_review: &str, records: &[CacheManifestRecor
         .unwrap_or_else(|_| base_review.to_owned())
 }
 
+fn enrich_runtime_review_workflow_graph(base_review: &str, run_plan_json: &str) -> String {
+    let Ok(mut review) = serde_json::from_str::<Value>(base_review) else {
+        return base_review.to_owned();
+    };
+    let Ok(run_plan) = serde_json::from_str::<Value>(run_plan_json) else {
+        return base_review.to_owned();
+    };
+    let Some(graph) = run_plan.get("graph").and_then(Value::as_object) else {
+        return base_review.to_owned();
+    };
+    let nodes = graph
+        .get("nodes")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let edges = graph
+        .get("edges")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let risk_by_node = nodes
+        .iter()
+        .map(|node| {
+            json!({
+                "id": node.get("id").cloned().unwrap_or(Value::Null),
+                "kind": node.get("kind").cloned().unwrap_or(Value::Null),
+                "label": node.get("label").cloned().unwrap_or(Value::Null),
+                "risk": node.get("risk").cloned().unwrap_or(Value::Null),
+                "status": node.get("status").cloned().unwrap_or(Value::Null),
+                "line": node.get("line").cloned().unwrap_or(Value::Null),
+                "source_span": node.get("source_span").cloned().unwrap_or(Value::Null)
+            })
+        })
+        .collect::<Vec<_>>();
+    let workflow_graph = json!({
+        "format": "eng-workflow-graph-review-v1",
+        "source": "run_plan",
+        "node_count": graph
+            .get("node_count")
+            .cloned()
+            .unwrap_or_else(|| json!(nodes.len())),
+        "edge_count": graph
+            .get("edge_count")
+            .cloned()
+            .unwrap_or_else(|| json!(edges.len())),
+        "nodes": nodes,
+        "edges": edges,
+        "risk_by_node": risk_by_node
+    });
+    let Some(object) = review.as_object_mut() else {
+        return base_review.to_owned();
+    };
+    object.insert("workflow_graph".to_owned(), workflow_graph);
+
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or_else(|_| base_review.to_owned())
+}
+
 fn side_effect_artifact_kind_matches(effect_kind: &str, artifact_kind: &str) -> bool {
     match effect_kind {
         "csv_export" => artifact_kind == "csv_export",
@@ -9545,6 +9621,20 @@ mod tests {
             .run_plan_json
             .contains("\"id\": \"timeseries_coverage:coverage\""));
         assert!(output.run_plan_json.contains("\"artifact_hashes\""));
+        assert!(output.review_json.contains("\"workflow_graph\""));
+        assert!(output
+            .review_json
+            .contains("\"format\": \"eng-workflow-graph-review-v1\""));
+        assert!(output.review_json.contains("\"risk_by_node\""));
+        assert!(output.review_json.contains("\"risk\": \"medium\""));
+        let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        let review_hash = hash_text(&output.review_json);
+        assert_eq!(
+            run_plan
+                .pointer("/artifact_hashes/review")
+                .and_then(Value::as_str),
+            Some(review_hash.as_str())
+        );
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"run_plan\""));

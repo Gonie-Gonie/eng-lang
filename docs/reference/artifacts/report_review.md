@@ -676,6 +676,23 @@ year, leap-year policy, status, and source line. Automatic axis-span entries use
 `axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a
 Gregorian year grid, including leap-year expected counts.
 
+## Native Workflow Graph Metadata
+
+Runtime runs write `run_plan.json` as the native workflow execution graph. The
+same graph is projected into `review.json.workflow_graph` so review tooling can
+inspect execution order without opening the separate run-plan artifact.
+
+```text
+review.json                 workflow_graph
+review.json.workflow_graph  risk_by_node
+run_plan.json               graph
+```
+
+`run_plan.json.graph` records nodes, edges, node/edge counts, source spans,
+rerun decisions, outputs, and artifact hashes. `review.json.workflow_graph`
+keeps the graph shape plus `risk_by_node`, a compact reviewer-facing list of
+node id, kind, label, status, source line/span, and low/medium/high risk.
+
 ## Promoted Table Selection And Transform Metadata
 
 `select_first_row(...)` is a narrow `eng.table` seed for deterministic row

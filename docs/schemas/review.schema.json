@@ -118,6 +118,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/modelCardSummary" }
     },
+    "workflow_graph": { "$ref": "#/$defs/workflowGraph" },
     "tests": {
       "type": "array",
       "items": { "$ref": "#/$defs/testBlock" }
@@ -1009,6 +1010,103 @@
         "start": { "type": "number" },
         "end": { "type": "number" },
         "missing_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "workflowGraph": {
+      "type": "object",
+      "required": [
+        "format",
+        "source",
+        "node_count",
+        "edge_count",
+        "nodes",
+        "edges",
+        "risk_by_node"
+      ],
+      "properties": {
+        "format": { "const": "eng-workflow-graph-review-v1" },
+        "source": { "const": "run_plan" },
+        "node_count": { "type": "integer", "minimum": 1 },
+        "edge_count": { "type": "integer", "minimum": 0 },
+        "nodes": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflowGraphNode" }
+        },
+        "edges": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflowGraphEdge" }
+        },
+        "risk_by_node": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/workflowNodeRisk" }
+        }
+      }
+    },
+    "workflowGraphNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "status",
+        "phase",
+        "risk",
+        "line",
+        "source_span",
+        "rerun_decision",
+        "outputs"
+      ],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "label": { "type": "string" },
+        "status": { "type": "string" },
+        "phase": { "enum": ["static", "runtime"] },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "line": { "type": "integer", "minimum": 0 },
+        "source_span": { "$ref": "#/$defs/workflowSourceSpan" },
+        "rerun_decision": { "$ref": "#/$defs/workflowRerunDecision" },
+        "outputs": {
+          "type": "array",
+          "items": { "type": "object" }
+        }
+      }
+    },
+    "workflowGraphEdge": {
+      "type": "object",
+      "required": ["from", "to", "kind"],
+      "properties": {
+        "from": { "type": "string" },
+        "to": { "type": "string" },
+        "kind": { "type": "string" }
+      }
+    },
+    "workflowNodeRisk": {
+      "type": "object",
+      "required": ["id", "kind", "label", "risk", "status", "line", "source_span"],
+      "properties": {
+        "id": { "type": "string" },
+        "kind": { "type": "string" },
+        "label": { "type": "string" },
+        "risk": { "enum": ["low", "medium", "high"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 },
+        "source_span": { "$ref": "#/$defs/workflowSourceSpan" }
+      }
+    },
+    "workflowSourceSpan": {
+      "type": "object",
+      "required": ["line"],
+      "properties": {
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "workflowRerunDecision": {
+      "type": "object",
+      "required": ["decision", "reason"],
+      "properties": {
+        "decision": { "enum": ["run", "skip"] },
+        "reason": { "type": "string" }
       }
     },
     "caseManifest": {

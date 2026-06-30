@@ -893,6 +893,11 @@ function Assert-CsvPlotGolden {
     $sourceNode = @($runPlan.graph.nodes) | Where-Object { $_.id -eq "source:program" } | Select-Object -First 1
     Assert-Artifact ($null -ne $sourceNode) "run_plan.graph.nodes missing source:program"
     Assert-ArtifactValue $sourceNode.status "loaded" "run_plan source node status"
+    Assert-ArtifactValue $review.workflow_graph.format "eng-workflow-graph-review-v1" "review.workflow_graph.format"
+    Assert-ArtifactValue $review.workflow_graph.source "run_plan" "review.workflow_graph.source"
+    Assert-ArtifactNumber $review.workflow_graph.node_count $runPlanNodeCount "review.workflow_graph.node_count"
+    Assert-ArtifactNumber $review.workflow_graph.edge_count $runPlanEdgeCount "review.workflow_graph.edge_count"
+    Assert-ArtifactNumber @($review.workflow_graph.risk_by_node).Count $runPlanNodeCount "review.workflow_graph.risk_by_node count"
 
     $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
     Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "plot_spec.format"
