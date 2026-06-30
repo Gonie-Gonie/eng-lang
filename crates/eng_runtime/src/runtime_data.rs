@@ -2836,6 +2836,10 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.sample_tables = materialize_sample_tables(&data.tables);
     data.case_manifests = materialize_case_manifests(&data.tables);
     data.time_series = materialize_time_series(report, &data.tables);
+    data.time_series.extend(materialize_timeseries_fill_series(
+        &data.timeseries_fill,
+        &data.tables,
+    ));
     data.system_solutions = materialize_system_solutions(report, &data.time_series);
     data.component_solutions = materialize_component_solutions(report, &data.time_series);
     data.component_solutions
@@ -3436,34 +3440,53 @@ fn materialize_timeseries_fill_command(
     let method = option_value(options, "method")
         .map(normalize_fill_method)
         .unwrap_or_else(|| "record_only".to_owned());
-    let missing_intervals = coverage_missing_intervals(&values, expected_step);
-    let gap_missing_count = missing_intervals
-        .iter()
-        .map(|interval| interval.missing_count)
-        .sum::<usize>();
-    let gap_fillable_count = missing_intervals
-        .iter()
-        .filter(|interval| fill_interval_within_max_gap(interval, expected_step, max_gap))
-        .map(|interval| interval.missing_count)
-        .sum::<usize>();
-    let source_parse_failures = table
-        .parse_failures
-        .iter()
-        .filter(|failure| failure.column == source_column.name)
-        .count();
-    let value_missing_count = source_column.missing_count
-        + source_column.conversion_failures.len()
-        + source_parse_failures;
-    let missing_count = gap_missing_count + value_missing_count;
-    let value_fillable_count = if method == "record_only" {
-        0
-    } else {
-        value_missing_count
-    };
-    let fillable_count = gap_fillable_count + value_fillable_count;
-    let skipped_count = missing_count.saturating_sub(fillable_count);
-    let (status, reason, fallback_required) =
-        timeseries_fill_command_status(missing_count, fillable_count, skipped_count, &method);
+    let interpolation = (method == "interpolate")
+        .then(|| interpolate_timeseries_fill_points(table, source_column, expected_step, max_gap))
+        .flatten();
+    let (missing_count, fillable_count, filled_count, skipped_count) =
+        if let Some(interpolation) = &interpolation {
+            (
+                interpolation.missing_count,
+                interpolation.filled_count,
+                interpolation.filled_count,
+                interpolation.skipped_count,
+            )
+        } else {
+            let missing_intervals = coverage_missing_intervals(&values, expected_step);
+            let gap_missing_count = missing_intervals
+                .iter()
+                .map(|interval| interval.missing_count)
+                .sum::<usize>();
+            let gap_fillable_count = missing_intervals
+                .iter()
+                .filter(|interval| fill_interval_within_max_gap(interval, expected_step, max_gap))
+                .map(|interval| interval.missing_count)
+                .sum::<usize>();
+            let source_parse_failures = table
+                .parse_failures
+                .iter()
+                .filter(|failure| failure.column == source_column.name)
+                .count();
+            let value_missing_count = source_column.missing_count
+                + source_column.conversion_failures.len()
+                + source_parse_failures;
+            let missing_count = gap_missing_count + value_missing_count;
+            let value_fillable_count = if method == "record_only" {
+                0
+            } else {
+                value_missing_count
+            };
+            let fillable_count = gap_fillable_count + value_fillable_count;
+            let skipped_count = missing_count.saturating_sub(fillable_count);
+            (missing_count, fillable_count, 0, skipped_count)
+        };
+    let (status, reason, fallback_required) = timeseries_fill_command_status(
+        missing_count,
+        fillable_count,
+        filled_count,
+        skipped_count,
+        &method,
+    );
 
     Some(RuntimeTimeSeriesFill {
         binding: command
@@ -3479,13 +3502,154 @@ fn materialize_timeseries_fill_command(
         max_gap,
         missing_count,
         fillable_count,
-        filled_count: 0,
+        filled_count,
         skipped_count,
         fallback_required,
         status: status.to_owned(),
         reason: reason.to_owned(),
         line: command.line,
     })
+}
+
+#[derive(Clone, Debug)]
+struct TimeseriesInterpolationResult {
+    points: Vec<RuntimePoint>,
+    missing_count: usize,
+    filled_count: usize,
+    skipped_count: usize,
+}
+
+fn interpolate_timeseries_fill_points(
+    table: &RuntimeTable,
+    source_column: &RuntimeColumn,
+    expected_step: Option<f64>,
+    max_gap: Option<f64>,
+) -> Option<TimeseriesInterpolationResult> {
+    let values = numeric_values(source_column);
+    let x_values = table.normalized_time_axis_values()?;
+    if values.is_empty() || x_values.len() != values.len() {
+        return None;
+    }
+    let step = expected_step
+        .filter(|step| step.is_finite() && *step > 0.0)
+        .or_else(|| nominal_step_from_values(&x_values))?;
+    let start = *x_values.first()?;
+    let end = *x_values.last()?;
+    let expected_count = coverage_expected_count(Some(start), Some(end), Some(step))?;
+    let tolerance = time_step_tolerance(step);
+    let mut observed = vec![None::<f64>; expected_count];
+    let mut known_points = Vec::<RuntimePoint>::new();
+    for (index, value) in values.iter().enumerate() {
+        let x = x_values.get(index).copied().unwrap_or(index as f64);
+        if let Some(value) = value {
+            known_points.push(RuntimePoint { x, y: *value });
+        }
+        if !x.is_finite() || x < start - tolerance || x > end + tolerance {
+            continue;
+        }
+        let slot = ((x - start) / step).round();
+        if slot < 0.0 {
+            continue;
+        }
+        let slot = slot as usize;
+        if slot >= expected_count {
+            continue;
+        }
+        let expected_x = start + slot as f64 * step;
+        if (x - expected_x).abs() <= tolerance {
+            observed[slot] = *value;
+        }
+    }
+    known_points.sort_by(|left, right| left.x.total_cmp(&right.x));
+    let mut points = Vec::new();
+    let mut missing_count = 0usize;
+    let mut filled_count = 0usize;
+    let mut skipped_count = 0usize;
+    for slot in 0..expected_count {
+        let x = start + slot as f64 * step;
+        if let Some(value) = observed[slot] {
+            points.push(RuntimePoint { x, y: value });
+            continue;
+        }
+        missing_count += 1;
+        if let Some(value) = interpolate_runtime_points(&known_points, x, max_gap) {
+            points.push(RuntimePoint { x, y: value });
+            filled_count += 1;
+        } else {
+            skipped_count += 1;
+        }
+    }
+    Some(TimeseriesInterpolationResult {
+        points,
+        missing_count,
+        filled_count,
+        skipped_count,
+    })
+}
+
+fn interpolate_runtime_points(
+    known_points: &[RuntimePoint],
+    x: f64,
+    max_gap: Option<f64>,
+) -> Option<f64> {
+    let previous = known_points
+        .iter()
+        .rev()
+        .find(|point| point.x < x && point.x.is_finite() && point.y.is_finite())?;
+    let next = known_points
+        .iter()
+        .find(|point| point.x > x && point.x.is_finite() && point.y.is_finite())?;
+    let gap = next.x - previous.x;
+    if !gap.is_finite() || gap <= 0.0 {
+        return None;
+    }
+    if max_gap.is_some_and(|max_gap| {
+        !max_gap.is_finite() || max_gap <= 0.0 || gap > max_gap + time_step_tolerance(max_gap)
+    }) {
+        return None;
+    }
+    let fraction = (x - previous.x) / gap;
+    Some(previous.y + (next.y - previous.y) * fraction)
+}
+
+fn materialize_timeseries_fill_series(
+    fills: &[RuntimeTimeSeriesFill],
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTimeSeries> {
+    fills
+        .iter()
+        .filter(|fill| matches!(fill.status.as_str(), "applied" | "partial"))
+        .filter_map(|fill| {
+            let table = tables
+                .iter()
+                .find(|table| table.binding == fill.source_table)?;
+            let source_column = table.column(&fill.source_column)?;
+            let interpolation = interpolate_timeseries_fill_points(
+                table,
+                source_column,
+                fill.expected_step,
+                fill.max_gap,
+            )?;
+            let display_unit = source_column
+                .unit
+                .clone()
+                .or_else(|| source_column.canonical_unit.clone())
+                .unwrap_or_else(|| "1".to_owned());
+            Some(RuntimeTimeSeries {
+                name: fill.binding.clone(),
+                axis: "Time".to_owned(),
+                x_unit: "s".to_owned(),
+                quantity_kind: source_column.type_name.clone(),
+                display_unit,
+                source_table: table.binding.clone(),
+                source_expression: format!(
+                    "fill missing {}.{}",
+                    fill.source_table, fill.source_column
+                ),
+                points: interpolation.points,
+            })
+        })
+        .collect()
 }
 
 fn normalize_fill_method(value: &str) -> String {
@@ -3513,6 +3677,7 @@ fn fill_interval_within_max_gap(
 fn timeseries_fill_command_status(
     missing_count: usize,
     fillable_count: usize,
+    filled_count: usize,
     skipped_count: usize,
     method: &str,
 ) -> (&'static str, &'static str, bool) {
@@ -3521,6 +3686,27 @@ fn timeseries_fill_command_status(
             "not_required",
             "source TimeSeries has no missing samples for the selected fill policy",
             false,
+        );
+    }
+    if method == "interpolate" {
+        if filled_count > 0 && skipped_count == 0 {
+            return (
+                "applied",
+                "missing samples were linearly interpolated into a filled TimeSeries",
+                false,
+            );
+        }
+        if filled_count > 0 {
+            return (
+                "partial",
+                "some missing samples were linearly interpolated; others remain outside policy",
+                true,
+            );
+        }
+        return (
+            "deferred",
+            "interpolation could not fill any missing samples with the selected policy",
+            true,
         );
     }
     if method == "record_only" {
@@ -22209,10 +22395,19 @@ with {{
         assert_eq!(fill.max_gap, Some(10800.0));
         assert_eq!(fill.missing_count, 1);
         assert_eq!(fill.fillable_count, 1);
-        assert_eq!(fill.filled_count, 0);
+        assert_eq!(fill.filled_count, 1);
         assert_eq!(fill.skipped_count, 0);
         assert!(!fill.fallback_required);
-        assert_eq!(fill.status, "recorded");
+        assert_eq!(fill.status, "applied");
+
+        let filled_series = runtime
+            .time_series
+            .iter()
+            .find(|series| series.name == "filled")
+            .expect("filled series");
+        assert_eq!(filled_series.points.len(), 4);
+        assert_eq!(filled_series.points[2].x, 7200.0);
+        assert_eq!(filled_series.points[2].y, 3.0);
     }
 
     #[test]

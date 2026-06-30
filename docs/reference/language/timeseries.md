@@ -155,8 +155,9 @@ metadata.
 
 ## Fill Missing Metadata
 
-`fill missing <table>.<column>` records an explicit TimeSeries fill policy
-without silently mutating promoted table values:
+`fill missing <table>.<column>` records an explicit TimeSeries fill policy and,
+with `method = interpolate`, materializes a filled TimeSeries without mutating
+the promoted source table:
 
 ```eng partial
 filled = fill missing weather.wind_speed
@@ -170,8 +171,8 @@ with {
 Runtime artifacts include a `typed_payload.timeseries_fill[]` record with the
 source table/column, time column, method, expected step, max gap, missing count,
 fillable count, filled count, skipped count, status, and source line. The
-current fill command slice records the policy and selected gaps; value
-interpolation remains separately surfaced rather than being applied silently.
+interpolated output is also available in the VM object store under the fill
+binding name.
 
 ## Deferred
 

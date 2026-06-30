@@ -700,9 +700,10 @@ Gregorian year grid, including leap-year expected counts. Fill records include
 both coverage-derived fallback policy records and explicit
 `fill missing <table>.<column>` command records with source/time columns,
 method, expected step, max gap, missing/fillable/filled/skipped counts, status,
-and source line. Fallback records are emitted when coverage is gapped or
-irregular, so review tooling can surface the need for an explicit
-fill/imputation policy. The same fallback is also projected into
+and source line. For `method = interpolate`, the runtime also materializes the
+filled TimeSeries under the fill binding. Fallback records are emitted when
+coverage is gapped or irregular, so review tooling can surface the need for an
+explicit fill/imputation policy. The same fallback is also projected into
 `review_document.fallbacks` using the shared ReviewFallback record contract.
 
 ## Native Workflow Graph Metadata

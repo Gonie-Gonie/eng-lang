@@ -1206,14 +1206,15 @@ fn dependency_hashes(dependencies: &[(String, String)]) -> String {
 
 fn apply_runtime_lengths(execution: &mut VmExecution, runtime_data: &RuntimeData) {
     for object in &mut execution.objects {
-        if object.kind != VmObjectKind::TimeSeries {
-            continue;
-        }
         if let Some(series) = runtime_data
             .time_series
             .iter()
             .find(|series| series.name == object.name)
         {
+            object.kind = VmObjectKind::TimeSeries;
+            object.type_name = format!("TimeSeries[{}] of {}", series.axis, series.quantity_kind);
+            object.axis = Some(series.axis.clone());
+            object.display_unit = Some(series.display_unit.clone());
             object.len = Some(series.points.len());
         }
     }
@@ -11993,8 +11994,15 @@ mod tests {
         );
         assert_eq!(fill.get("missing_count").and_then(Value::as_u64), Some(1));
         assert_eq!(fill.get("fillable_count").and_then(Value::as_u64), Some(1));
-        assert_eq!(fill.get("filled_count").and_then(Value::as_u64), Some(0));
-        assert_eq!(fill.get("status").and_then(Value::as_str), Some("recorded"));
+        assert_eq!(fill.get("filled_count").and_then(Value::as_u64), Some(1));
+        assert_eq!(fill.get("status").and_then(Value::as_str), Some("applied"));
+        let filled_object =
+            json_array_item_by_field(&result, "/object_store/objects", "name", "filled")
+                .expect("filled object");
+        assert_eq!(
+            filled_object.get("kind").and_then(Value::as_str),
+            Some("timeseries")
+        );
 
         let review: Value = serde_json::from_str(&output.review_json).expect("review json");
         let review_fill = json_array_item_by_binding(&review, "/timeseries_fill", "filled")

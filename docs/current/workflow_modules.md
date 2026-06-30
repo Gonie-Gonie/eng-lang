@@ -6,7 +6,8 @@ tables now emit `typed_payload.table_diagnostics[]` with schema, row, column,
 missing-cell, parse/conversion, time-axis coverage summaries, and
 `typed_payload.timeseries_coverage[]` records with expected counts, missing
 intervals, max gaps, and leap-year policy, explicit
-`typed_payload.timeseries_fill[]` records for `fill missing` policies, plus
+`typed_payload.timeseries_fill[]` records for `fill missing` interpolation
+policies, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
 table filter/select/derive/sort/require_one/join seeds now emit static `review_document.table_transforms[]`
 and runtime `typed_payload.table_transforms[]` records with predicates, join

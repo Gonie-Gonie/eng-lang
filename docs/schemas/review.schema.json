@@ -1154,7 +1154,7 @@
         "missing_count": { "type": "integer", "minimum": 0 },
         "skipped_count": { "type": "integer", "minimum": 0 },
         "fallback_required": { "type": "boolean" },
-        "status": { "enum": ["not_required", "deferred", "recorded"] },
+        "status": { "enum": ["not_required", "deferred", "recorded", "applied", "partial"] },
         "reason": { "type": "string" },
         "line": { "type": "integer", "minimum": 0 }
       }
