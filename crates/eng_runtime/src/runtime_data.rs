@@ -2852,7 +2852,7 @@ fn materialize_structured_reads(report: &CheckReport) -> Vec<RuntimeStructuredRe
         .iter()
         .filter_map(|dependency| {
             let kind = dependency.kind.strip_prefix("filesystem_read_")?;
-            if !matches!(kind, "json" | "toml") {
+            if !matches!(kind, "text" | "json" | "toml") {
                 return None;
             }
             Some(materialize_structured_read(
@@ -2896,6 +2896,10 @@ fn materialize_structured_read(
     };
 
     match kind {
+        "text" => {
+            record.root_type = "text".to_owned();
+            record.item_count = Some(source.lines().count());
+        }
         "json" => match serde_json::from_str::<JsonValue>(&source) {
             Ok(value) => {
                 let (root_type, field_count, item_count) = runtime_json_shape(&value);

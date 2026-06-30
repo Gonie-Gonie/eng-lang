@@ -2885,6 +2885,7 @@ fn output_manifest_json(
 }
 
 fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
+    let structured_reads = &registry.runtime_data.structured_reads;
     let mut records = vec![SourceRecord {
         kind: "source_file".to_owned(),
         binding: "program".to_owned(),
@@ -2943,7 +2944,11 @@ fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<So
                 hash: dependency.source_hash.clone(),
                 schema: None,
                 row_count: None,
-                status: dependency.status.clone(),
+                status: structured_reads
+                    .iter()
+                    .find(|read| read.binding == dependency.name)
+                    .map(|read| read.parse_status.clone())
+                    .unwrap_or_else(|| dependency.status.clone()),
                 line: dependency.line,
             }),
     );
@@ -10809,15 +10814,20 @@ mod tests {
         assert!(output.result_json.contains("\"filesystem_read_toml\""));
         assert!(output.result_json.contains("\"source_hash\": \""));
         assert!(output.result_json.contains("\"structured_reads\""));
+        assert!(output.result_json.contains("\"binding\": \"notes_text\""));
         assert!(output.result_json.contains("\"binding\": \"json_text\""));
         assert!(output.result_json.contains("\"binding\": \"toml_text\""));
         assert!(output.result_json.contains("\"parse_status\": \"parsed\""));
+        assert!(output.result_json.contains("\"root_type\": \"text\""));
         assert!(output.result_json.contains("\"root_type\": \"object\""));
         assert!(output.result_json.contains("\"root_type\": \"table\""));
         assert!(output.report_spec_json.contains("\"filesystem_read_text\""));
         assert!(output
             .output_manifest_json
             .contains("\"binding\": \"notes_text\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"status\": \"parsed\""));
         assert!(output.output_manifest_json.contains("notes.txt"));
         assert!(output.output_manifest_json.contains("\"hash\": \""));
     }
