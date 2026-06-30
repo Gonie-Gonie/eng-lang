@@ -812,6 +812,8 @@
         "optional_null_fields",
         "nested_object_fields",
         "array_fields",
+        "default_fields",
+        "defaulted_fields",
         "type_mismatch_count",
         "status",
         "line"
@@ -854,6 +856,14 @@
           "items": { "type": "string" }
         },
         "array_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "default_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "defaulted_fields": {
           "type": "array",
           "items": { "type": "string" }
         },

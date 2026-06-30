@@ -15,6 +15,7 @@ pub struct SchemaColumn {
     pub name: String,
     pub type_name: String,
     pub unit: Option<String>,
+    pub default_value: Option<String>,
     pub is_index: bool,
     pub optional: bool,
     pub line: usize,
@@ -83,6 +84,8 @@ pub struct ConfigPromotion {
     pub optional_null_fields: Vec<String>,
     pub nested_object_fields: Vec<String>,
     pub array_fields: Vec<String>,
+    pub default_fields: Vec<String>,
+    pub defaulted_fields: Vec<String>,
     pub type_mismatches: Vec<ConfigTypeMismatch>,
     pub status: String,
     pub line: usize,
@@ -135,6 +138,7 @@ pub fn analyze_schema(
                         name: declaration.name.clone(),
                         type_name,
                         unit: declaration.unit.clone(),
+                        default_value: declaration.expression.clone(),
                         is_index: declaration
                             .type_name
                             .split_whitespace()
@@ -356,6 +360,8 @@ pub fn analyze_schema(
                         optional_null_fields: Vec::new(),
                         nested_object_fields: Vec::new(),
                         array_fields: Vec::new(),
+                        default_fields: Vec::new(),
+                        defaulted_fields: Vec::new(),
                         type_mismatches: Vec::new(),
                         status: "missing_arg".to_owned(),
                         line: binding.line,
@@ -402,6 +408,8 @@ pub fn analyze_schema(
             optional_null_fields,
             nested_object_fields,
             array_fields,
+            default_fields,
+            defaulted_fields,
             type_mismatches,
         } = validation;
 
@@ -471,6 +479,8 @@ pub fn analyze_schema(
             optional_null_fields,
             nested_object_fields,
             array_fields,
+            default_fields,
+            defaulted_fields,
             type_mismatches,
             status,
             line: binding.line,
@@ -698,6 +708,8 @@ struct ConfigValidation {
     optional_null_fields: Vec<String>,
     nested_object_fields: Vec<String>,
     array_fields: Vec<String>,
+    default_fields: Vec<String>,
+    defaulted_fields: Vec<String>,
     type_mismatches: Vec<ConfigTypeMismatch>,
 }
 
@@ -861,10 +873,25 @@ fn config_schema_validation(
 
     for column in &schema.columns {
         let field_path = config_field_path(prefix, &column.name);
+        if column.default_value.is_some() {
+            validation.default_fields.push(field_path.clone());
+        }
         if column.optional {
             validation.optional_fields.push(field_path.clone());
         }
         let Some(field) = fields.iter().find(|field| field.name == column.name) else {
+            if let Some(default_value) = &column.default_value {
+                validation.defaulted_fields.push(field_path.clone());
+                if let Some(default_kind) = config_default_value_kind(default_value) {
+                    validation.extend(config_default_value_validation(
+                        schemas,
+                        &column.type_name,
+                        &field_path,
+                        &default_kind,
+                    ));
+                }
+                continue;
+            }
             if column.optional {
                 validation.optional_missing_fields.push(field_path);
             } else {
@@ -943,6 +970,8 @@ impl ConfigValidation {
         self.optional_null_fields.extend(other.optional_null_fields);
         self.nested_object_fields.extend(other.nested_object_fields);
         self.array_fields.extend(other.array_fields);
+        self.default_fields.extend(other.default_fields);
+        self.defaulted_fields.extend(other.defaulted_fields);
         self.type_mismatches.extend(other.type_mismatches);
     }
 }
@@ -1044,6 +1073,84 @@ fn config_array_validation(
         });
     }
 
+    validation
+}
+
+fn config_default_value_kind(default_value: &str) -> Option<ConfigValueKind> {
+    let trimmed = default_value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    if trimmed == "null" {
+        return Some(ConfigValueKind::Null);
+    }
+    if matches!(trimmed, "true" | "false") {
+        return Some(ConfigValueKind::Bool);
+    }
+    if trimmed.starts_with('"') && trimmed.ends_with('"') {
+        return Some(ConfigValueKind::String);
+    }
+    if trimmed.starts_with('[') && trimmed.ends_with(']') {
+        return Some(ConfigValueKind::Array);
+    }
+    if trimmed.starts_with('{') && trimmed.ends_with('}') {
+        return Some(ConfigValueKind::Object);
+    }
+    if strip_call_string_arg(trimmed, "file")
+        .or_else(|| strip_call_string_arg(trimmed, "dir"))
+        .or_else(|| strip_call_string_arg(trimmed, "url"))
+        .is_some()
+    {
+        return Some(ConfigValueKind::String);
+    }
+    let first_token = trimmed.split_whitespace().next().unwrap_or(trimmed);
+    if first_token.parse::<i64>().is_ok() {
+        return Some(ConfigValueKind::Integer);
+    }
+    if first_token.parse::<f64>().is_ok() {
+        return Some(ConfigValueKind::Float);
+    }
+    None
+}
+
+fn config_default_value_validation(
+    schemas: &[SchemaInfo],
+    type_name: &str,
+    field_path: &str,
+    default_kind: &ConfigValueKind,
+) -> ConfigValidation {
+    let mut validation = ConfigValidation::default();
+    if let Some(_element_type) = config_array_element_type(type_name) {
+        if *default_kind == ConfigValueKind::Array {
+            validation.array_fields.push(field_path.to_owned());
+        } else {
+            validation.type_mismatches.push(ConfigTypeMismatch {
+                field: field_path.to_owned(),
+                expected: type_name.to_owned(),
+                actual: default_kind.as_str().to_owned(),
+            });
+        }
+        return validation;
+    }
+    if schemas.iter().any(|candidate| candidate.name == type_name) {
+        if *default_kind == ConfigValueKind::Object {
+            validation.nested_object_fields.push(field_path.to_owned());
+        } else {
+            validation.type_mismatches.push(ConfigTypeMismatch {
+                field: field_path.to_owned(),
+                expected: type_name.to_owned(),
+                actual: default_kind.as_str().to_owned(),
+            });
+        }
+        return validation;
+    }
+    if !config_value_matches_schema_type(type_name, default_kind) {
+        validation.type_mismatches.push(ConfigTypeMismatch {
+            field: field_path.to_owned(),
+            expected: type_name.to_owned(),
+            actual: default_kind.as_str().to_owned(),
+        });
+    }
     validation
 }
 

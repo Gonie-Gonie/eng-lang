@@ -92,8 +92,9 @@ stdlib/eng/fs.eng
 `stdlib/eng/config.eng` is supported in narrow scope: `promote json file(...)`
 and `promote toml file(...)` validate top-level, nested object, and array/list
 config fields against schema columns, allow optional missing/null fields
-declared as `Optional[T]` or `T?`, and emit source hashes plus config promotion
-summaries. Payload promotion, defaults, and unit mismatch policy remain planned.
+declared as `Optional[T]` or `T?`, apply schema defaults for missing config
+fields, and emit source hashes plus config promotion summaries. Payload
+promotion and unit mismatch policy remain planned.
 
 IDE and LSP completions expose the module boundary names so users can discover
 the current surface without implying that every planned helper is executable.

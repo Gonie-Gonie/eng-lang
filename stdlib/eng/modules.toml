@@ -133,7 +133,7 @@ tests = ["cargo test -p eng_runtime db_manifest"]
 [module."eng.config"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
-purpose = "Typed JSON/TOML file promotion with nested object/list schema validation, optional field policy, source hashes, and config summaries."
+purpose = "Typed JSON/TOML file promotion with nested object/list schema validation, optional/default field policy, source hashes, and config summaries."
 artifacts = ["typed_payload.config_promotions", "review.config_promotions", "output_manifest"]
 diagnostics = ["E-CONFIG-SOURCE-001", "E-CONFIG-MISSING-FIELD", "E-CONFIG-UNKNOWN-FIELD", "E-CONFIG-NULL-NOT-OPTIONAL", "E-CONFIG-TYPE-MISMATCH"]
 examples = ["tests/runtime/config_optional_fields.eng"]

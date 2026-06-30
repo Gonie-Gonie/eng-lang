@@ -4218,6 +4218,12 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("      \"array_fields\": [");
         push_json_string_array(&mut json, &promotion.array_fields);
         json.push_str("],\n");
+        json.push_str("      \"default_fields\": [");
+        push_json_string_array(&mut json, &promotion.default_fields);
+        json.push_str("],\n");
+        json.push_str("      \"defaulted_fields\": [");
+        push_json_string_array(&mut json, &promotion.defaulted_fields);
+        json.push_str("],\n");
         json.push_str("      \"type_mismatches\": [\n");
         for (mismatch_index, mismatch) in promotion.type_mismatches.iter().enumerate() {
             if mismatch_index > 0 {
@@ -5856,6 +5862,12 @@ fn push_review_config_promotions_json(json: &mut String, report: &CheckReport) {
         json.push_str("],\n");
         json.push_str("        \"array_fields\": [");
         push_json_string_array(json, &promotion.array_fields);
+        json.push_str("],\n");
+        json.push_str("        \"default_fields\": [");
+        push_json_string_array(json, &promotion.default_fields);
+        json.push_str("],\n");
+        json.push_str("        \"defaulted_fields\": [");
+        push_json_string_array(json, &promotion.defaulted_fields);
         json.push_str("],\n");
         json.push_str(&format!(
             "        \"type_mismatch_count\": {},\n",
@@ -12432,6 +12444,97 @@ system Envelope {
         assert!(review.contains("\"optional\": true"));
         assert!(review.contains("\"optional_missing_fields\": [\"output\"]"));
         assert!(review.contains("\"optional_null_fields\": [\"region\"]"));
+    }
+
+    #[test]
+    fn applies_typed_config_default_fields() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-default-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"region\": \"US\" }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    region: String = \"KR\"\n    output: DirectoryPath = dir(\"build/out\")\n    cache: Bool = true\n    retry: Int = 3\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "validated");
+        assert!(promotion.missing_fields.is_empty());
+        assert_eq!(
+            promotion.default_fields,
+            vec![
+                "region".to_owned(),
+                "output".to_owned(),
+                "cache".to_owned(),
+                "retry".to_owned()
+            ]
+        );
+        assert_eq!(
+            promotion.defaulted_fields,
+            vec!["output".to_owned(), "cache".to_owned(), "retry".to_owned()]
+        );
+
+        let review = review_json(&report);
+        assert!(
+            review.contains("\"default_fields\": [\"region\", \"output\", \"cache\", \"retry\"]")
+        );
+        assert!(review.contains("\"defaulted_fields\": [\"output\", \"cache\", \"retry\"]"));
+    }
+
+    #[test]
+    fn diagnoses_invalid_typed_config_default_fields() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-default-bad-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026 }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    retry: Int = \"three\"\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CONFIG-TYPE-MISMATCH"
+                && diagnostic.message.contains("retry")));
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "invalid");
+        assert!(promotion.missing_fields.is_empty());
+        assert_eq!(promotion.default_fields, vec!["retry".to_owned()]);
+        assert_eq!(promotion.defaulted_fields, vec!["retry".to_owned()]);
+        assert_eq!(promotion.type_mismatches[0].field, "retry");
     }
 
     #[test]

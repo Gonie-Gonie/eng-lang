@@ -14,10 +14,9 @@
 #   source path, source hash, schema name, field count, missing fields,
 #   unknown fields, null fields, optional fields, optional missing/null fields,
 #   nested object fields, array/list fields, type mismatches, source spans,
-#   and raw structured-read promotion source.
+#   default/defaulted fields, and raw structured-read promotion source.
 #
 # Planned helper vocabulary:
-#   default config fields
 #   unit mismatch validation
 #
 # Non-goal:
