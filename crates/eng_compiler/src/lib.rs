@@ -215,6 +215,11 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
             &semantic_output.semantic_program,
             &semantic_output.inferred_declarations,
         ));
+    semantic_output
+        .diagnostics
+        .extend(validate_generated_output_path_policies(
+            &semantic_output.semantic_program,
+        ));
 
     CheckReport {
         source_path: source_path.to_path_buf(),
@@ -789,6 +794,131 @@ fn evaluate_read_expression(
             status: "missing".to_owned(),
         }),
     }
+}
+
+fn validate_generated_output_path_policies(program: &SemanticProgram) -> Vec<Diagnostic> {
+    let mut diagnostics = Vec::new();
+    for export in &program.csv_exports {
+        push_generated_output_path_diagnostic(
+            &mut diagnostics,
+            "export",
+            &export.path,
+            export.line,
+            program,
+        );
+    }
+    for write in &program.writes {
+        push_generated_output_path_diagnostic(
+            &mut diagnostics,
+            "write output",
+            &write.path,
+            write.line,
+            program,
+        );
+    }
+    for operation in &program.file_operations {
+        match operation.operation.as_str() {
+            "copy" => {
+                if let Some(destination) = &operation.destination {
+                    push_generated_output_path_diagnostic(
+                        &mut diagnostics,
+                        "copy destination",
+                        destination,
+                        operation.line,
+                        program,
+                    );
+                }
+            }
+            "move" => {
+                push_generated_output_path_diagnostic(
+                    &mut diagnostics,
+                    "move source",
+                    &operation.source,
+                    operation.line,
+                    program,
+                );
+                if let Some(destination) = &operation.destination {
+                    push_generated_output_path_diagnostic(
+                        &mut diagnostics,
+                        "move destination",
+                        destination,
+                        operation.line,
+                        program,
+                    );
+                }
+            }
+            "delete" => {
+                push_generated_output_path_diagnostic(
+                    &mut diagnostics,
+                    "delete target",
+                    &operation.source,
+                    operation.line,
+                    program,
+                );
+            }
+            _ => {}
+        }
+    }
+    diagnostics
+}
+
+fn push_generated_output_path_diagnostic(
+    diagnostics: &mut Vec<Diagnostic>,
+    label: &str,
+    expression: &str,
+    line: usize,
+    program: &SemanticProgram,
+) {
+    let Some(path) = generated_output_path_value(expression, program) else {
+        return;
+    };
+    let Some((code, reason)) = generated_output_path_policy_violation(&path) else {
+        return;
+    };
+    diagnostics.push(Diagnostic::error(
+        code,
+        line,
+        &format!("{label} path `{path}` {reason}."),
+        Some("Generated outputs must stay under the run result directory; remove absolute roots and `..` segments."),
+    ));
+}
+
+fn generated_output_path_value(expression: &str, program: &SemanticProgram) -> Option<String> {
+    evaluate_path_expression(expression, &program.arg_values).or_else(|| {
+        let trimmed = expression.trim();
+        if trimmed.is_empty()
+            || trimmed.starts_with("args.")
+            || trimmed.contains('(')
+            || trimmed.contains(',')
+        {
+            None
+        } else {
+            Some(strip_string_literal(trimmed))
+        }
+    })
+}
+
+fn generated_output_path_policy_violation(path: &str) -> Option<(&'static str, &'static str)> {
+    let normalized = path.replace('\\', "/");
+    let trimmed = normalized.trim();
+    if trimmed.is_empty() {
+        return Some(("E-PATH-INVALID", "is empty"));
+    }
+    if trimmed.starts_with('/') || trimmed.starts_with("//") || has_windows_drive_prefix(trimmed) {
+        return Some((
+            "E-PATH-OUTSIDE-OUTPUT-ROOT",
+            "escapes the generated output root",
+        ));
+    }
+    if trimmed.split('/').any(|segment| segment == "..") {
+        return Some(("E-PATH-TRAVERSAL", "contains a parent-directory segment"));
+    }
+    None
+}
+
+fn has_windows_drive_prefix(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    bytes.len() >= 2 && bytes[1] == b':' && bytes[0].is_ascii_alphabetic()
 }
 
 fn evaluate_path_expression(expression: &str, arg_values: &[ArgValueInfo]) -> Option<String> {
@@ -6602,6 +6732,33 @@ mod tests {
         assert!(review.contains("\"environment_dependencies\""));
         assert!(review.contains("\"filesystem_exists\""));
         assert!(review.contains("\"resolved_value\": \"true\""));
+    }
+
+    #[test]
+    fn rejects_generated_output_path_traversal() {
+        let source = "Q = 10 kW\nexport summary to csv \"../summary.csv\" {\n    Q as kW\n}\nwrite text \"../summary.txt\", Q\ncopy file(\"template.txt\") to \"../copied.txt\"\nwith {\n    confirm = true\n}\ndelete \"/tmp/scratch.txt\"\nwith {\n    confirm = true\n}\n";
+
+        let report = check_source(
+            std::path::Path::new("path_policy.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PATH-TRAVERSAL" && diagnostic.line == 2));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PATH-TRAVERSAL" && diagnostic.line == 5));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PATH-TRAVERSAL" && diagnostic.line == 6));
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-PATH-OUTSIDE-OUTPUT-ROOT" && diagnostic.line == 10
+        }));
     }
 
     #[test]

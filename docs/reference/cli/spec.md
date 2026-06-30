@@ -95,6 +95,9 @@ E-PROCESS-001          run command is supported only at top level
 E-PROCESS-BINDING-001  run command must bind a ProcessResult
 E-PROCESS-CMD-001      run command requires a command string
 E-PROCESS-BINDING-002  ProcessResult binding conflicts with an existing binding
+E-PATH-INVALID         generated output path is empty
+E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
+E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted
 E-TEST-001             test block syntax is invalid
 E-TEST-NAME-001        test block name is missing or invalid
 E-ASSERT-001           assert is outside a test block

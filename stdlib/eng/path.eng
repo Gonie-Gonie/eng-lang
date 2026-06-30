@@ -16,6 +16,11 @@
 #   join/parent/stem/extension are pure path helpers.
 #   exists is an environment dependency and must appear in review artifacts.
 #
+# Diagnostics:
+#   E-PATH-INVALID: output path expression resolves to an empty path.
+#   E-PATH-TRAVERSAL: generated output path contains `..`.
+#   E-PATH-OUTSIDE-OUTPUT-ROOT: generated output path is absolute/rooted.
+#
 # Pure .eng helpers:
 #   none yet. Importable stdlib execution is planned; current behavior lives in
 #   compiler/runtime built-ins.
