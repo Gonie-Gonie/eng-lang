@@ -225,6 +225,7 @@ struct CachedRunOutput {
     bytecode_path: PathBuf,
     result_path: PathBuf,
     review_path: PathBuf,
+    static_run_plan_path: PathBuf,
     run_plan_path: PathBuf,
     run_lock_path: PathBuf,
     run_log_path: PathBuf,
@@ -240,6 +241,7 @@ struct CachedRunOutput {
     bytecode: String,
     result_json: String,
     review_json: String,
+    static_run_plan_json: String,
     run_plan_json: String,
     run_lock_json: String,
     run_log_json: String,
@@ -259,6 +261,7 @@ impl CachedRunOutput {
             bytecode_path: output.bytecode_path,
             result_path: output.result_path,
             review_path: output.review_path,
+            static_run_plan_path: output.static_run_plan_path,
             run_plan_path: output.run_plan_path,
             run_lock_path: output.run_lock_path,
             run_log_path: output.run_log_path,
@@ -274,6 +277,7 @@ impl CachedRunOutput {
             bytecode: output.bytecode,
             result_json: output.result_json,
             review_json: output.review_json,
+            static_run_plan_json: output.static_run_plan_json,
             run_plan_json: output.run_plan_json,
             run_lock_json: output.run_lock_json,
             run_log_json: output.run_log_json,
@@ -295,6 +299,8 @@ impl CachedRunOutput {
         fs::write(&self.bytecode_path, &self.bytecode).map_err(|error| error.to_string())?;
         fs::write(&self.result_path, &self.result_json).map_err(|error| error.to_string())?;
         fs::write(&self.review_path, &self.review_json).map_err(|error| error.to_string())?;
+        fs::write(&self.static_run_plan_path, &self.static_run_plan_json)
+            .map_err(|error| error.to_string())?;
         fs::write(&self.run_plan_path, &self.run_plan_json).map_err(|error| error.to_string())?;
         fs::write(&self.run_lock_path, &self.run_lock_json).map_err(|error| error.to_string())?;
         fs::write(&self.run_log_path, &self.run_log_json).map_err(|error| error.to_string())?;
@@ -554,6 +560,7 @@ fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String,
     let path = match kind.as_str() {
         "result" => output.result_path.clone(),
         "review" => output.review_path.clone(),
+        "static_run_plan" => output.static_run_plan_path.clone(),
         "run_plan" => output.run_plan_path.clone(),
         "run_lock" => output.run_lock_path.clone(),
         "run_log" => output.run_log_path.clone(),
@@ -1076,6 +1083,7 @@ fn runtime_artifacts(root: &Path, output: &CachedRunOutput) -> Vec<ArtifactView>
     [
         ("result", &output.result_path),
         ("review", &output.review_path),
+        ("static_run_plan", &output.static_run_plan_path),
         ("run_plan", &output.run_plan_path),
         ("run_lock", &output.run_lock_path),
         ("run_log", &output.run_log_path),
@@ -2014,6 +2022,11 @@ fn artifact_outlines(root: &Path, output: &CachedRunOutput) -> Value {
     let artifacts = [
         ("result", &output.result_path, &output.result_json),
         ("review", &output.review_path, &output.review_json),
+        (
+            "static_run_plan",
+            &output.static_run_plan_path,
+            &output.static_run_plan_json,
+        ),
         ("run_plan", &output.run_plan_path, &output.run_plan_json),
         ("run_lock", &output.run_lock_path, &output.run_lock_json),
         ("run_log", &output.run_log_path, &output.run_log_json),
@@ -4746,6 +4759,7 @@ mod tests {
             bytecode_path: PathBuf::new(),
             result_path: PathBuf::new(),
             review_path: PathBuf::new(),
+            static_run_plan_path: PathBuf::new(),
             run_plan_path: PathBuf::new(),
             run_lock_path: PathBuf::new(),
             run_log_path: PathBuf::new(),
@@ -4761,6 +4775,7 @@ mod tests {
             bytecode: String::new(),
             result_json: result_json.to_owned(),
             review_json: review_json.to_owned(),
+            static_run_plan_json: "{}".to_owned(),
             run_plan_json: "{}".to_owned(),
             run_lock_json: "{}".to_owned(),
             run_log_json: "{}".to_owned(),

@@ -686,6 +686,7 @@ function Assert-SchemaFilesPresent {
         "docs\schemas\result.schema.json",
         "docs\schemas\plotspec.schema.json",
         "docs\schemas\output_manifest.schema.json",
+        "docs\schemas\static_run_plan.schema.json",
         "docs\schemas\run_plan.schema.json",
         "docs\schemas\run_lock.schema.json",
         "docs\schemas\run_log.schema.json",
@@ -895,11 +896,22 @@ function Assert-CsvPlotGolden {
     $sourceNode = @($runPlan.graph.nodes) | Where-Object { $_.id -eq "source:program" } | Select-Object -First 1
     Assert-Artifact ($null -ne $sourceNode) "run_plan.graph.nodes missing source:program"
     Assert-ArtifactValue $sourceNode.status "loaded" "run_plan source node status"
+    Assert-Artifact ([string]$runPlan.artifact_hashes.static_run_plan -ne "") "run_plan.artifact_hashes.static_run_plan is empty"
     Assert-ArtifactValue $review.workflow_graph.format "eng-workflow-graph-review-v1" "review.workflow_graph.format"
     Assert-ArtifactValue $review.workflow_graph.source "run_plan" "review.workflow_graph.source"
     Assert-ArtifactNumber $review.workflow_graph.node_count $runPlanNodeCount "review.workflow_graph.node_count"
     Assert-ArtifactNumber $review.workflow_graph.edge_count $runPlanEdgeCount "review.workflow_graph.edge_count"
     Assert-ArtifactNumber @($review.workflow_graph.risk_by_node).Count $runPlanNodeCount "review.workflow_graph.risk_by_node count"
+
+    $staticRunPlan = Read-ArtifactJson (Join-Path $RepoRoot "build\result\static_run_plan.json")
+    Assert-ArtifactValue $staticRunPlan.format "eng-static-run-plan-v1" "static_run_plan.format"
+    Assert-ArtifactValue $staticRunPlan.execution_stage "pre_execution" "static_run_plan.execution_stage"
+    Assert-ArtifactValue $staticRunPlan.status "planned" "static_run_plan.status"
+    Assert-ArtifactValue $staticRunPlan.source_hash $review.source_hash "static_run_plan.source_hash"
+    Assert-ArtifactNumber $staticRunPlan.graph.node_count @($staticRunPlan.graph.nodes).Count "static_run_plan.graph.node_count"
+    Assert-ArtifactNumber $staticRunPlan.graph.edge_count @($staticRunPlan.graph.edges).Count "static_run_plan.graph.edge_count"
+    $staticSourceNode = @($staticRunPlan.graph.nodes) | Where-Object { $_.id -eq "source:program" } | Select-Object -First 1
+    Assert-Artifact ($null -ne $staticSourceNode) "static_run_plan.graph.nodes missing source:program"
 
     $runLock = Read-ArtifactJson (Join-Path $RepoRoot "build\result\run_lock.json")
     Assert-ArtifactValue $runLock.format "eng-run-lock-v1" "run_lock.format"
@@ -907,6 +919,7 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactValue $runLock.execution_profile "normal" "run_lock.execution_profile"
     Assert-ArtifactValue $runLock.rerun_decision.decision "run" "run_lock.rerun_decision.decision"
     Assert-Artifact ([string]$runLock.input_hash -ne "") "run_lock.input_hash is empty"
+    Assert-Artifact ([string]$runLock.artifact_hashes.static_run_plan -ne "") "run_lock.artifact_hashes.static_run_plan is empty"
     Assert-Artifact ([string]$runLock.artifact_hashes.run_plan -ne "") "run_lock.artifact_hashes.run_plan is empty"
 
     $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")

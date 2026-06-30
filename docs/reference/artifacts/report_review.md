@@ -27,6 +27,7 @@ build/
     review.json
     report.html
     report_spec.json
+    static_run_plan.json
     run_plan.json
     run_lock.json
     run_log.json
@@ -686,18 +687,22 @@ inspect execution order without opening the separate run-plan artifact.
 ```text
 review.json                 workflow_graph
 review.json.workflow_graph  risk_by_node
-run_plan.json               graph
+static_run_plan.json        pre-execution graph
+run_plan.json               executed graph
 run_lock.json               input_hash and rerun decision
 ```
 
-`run_plan.json.graph` records nodes, edges, node/edge counts, source spans,
-rerun decisions, `rerun_status`, outputs, and artifact hashes. `run_lock.json`
+`static_run_plan.json.graph` is generated before bytecode execution from the
+checked semantic program. `run_plan.json.graph` records the executed graph:
+nodes, edges, node/edge counts, source spans, rerun decisions, `rerun_status`,
+outputs, and artifact hashes including the static plan hash. `run_lock.json`
 records the input hash used for rerun comparison: source hash, execution
-profile, CLI args hash, and dependency hash. When `eng run --skip-unchanged
---save-artifacts` sees the same prior lock, rerun metadata is recorded as
-`decision = skip` and `rerun_status = skipped`. `review.json.workflow_graph`
-keeps the graph shape plus `risk_by_node`, a compact reviewer-facing list of
-node id, kind, label, status, source line/span, and low/medium/high risk.
+profile, CLI args hash, dependency hash, and run-plan artifact hashes. When
+`eng run --skip-unchanged --save-artifacts` sees the same prior lock, rerun
+metadata is recorded as `decision = skip` and `rerun_status = skipped`.
+`review.json.workflow_graph` keeps the graph shape plus `risk_by_node`, a
+compact reviewer-facing list of node id, kind, label, status, source line/span,
+and low/medium/high risk.
 
 ## Promoted Table Selection And Transform Metadata
 

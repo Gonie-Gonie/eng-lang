@@ -83,6 +83,7 @@ pub struct RunOutput {
     pub plot_spec_path: PathBuf,
     pub plot_manifest_path: PathBuf,
     pub output_manifest_path: PathBuf,
+    pub static_run_plan_path: PathBuf,
     pub run_plan_path: PathBuf,
     pub run_lock_path: PathBuf,
     pub run_log_path: PathBuf,
@@ -103,6 +104,7 @@ pub struct RunOutput {
     pub plot_spec_json: String,
     pub plot_manifest_json: String,
     pub output_manifest_json: String,
+    pub static_run_plan_json: String,
     pub run_plan_json: String,
     pub run_lock_json: String,
     pub run_log_json: String,
@@ -394,6 +396,7 @@ pub fn run_source(
     let plot_spec_path = plots_dir.join("plot_spec.json");
     let plot_manifest_path = plots_dir.join("plot_manifest.json");
     let output_manifest_path = result_dir.join("output_manifest.json");
+    let static_run_plan_path = result_dir.join("static_run_plan.json");
     let run_plan_path = result_dir.join("run_plan.json");
     let run_lock_path = result_dir.join("run_lock.json");
     let run_log_path = result_dir.join("run_log.json");
@@ -420,6 +423,7 @@ pub fn run_source(
         &plot_spec_path,
         &plot_manifest_path,
         &output_manifest_path,
+        &static_run_plan_path,
         &run_plan_path,
         &run_lock_path,
         &run_log_path,
@@ -434,12 +438,15 @@ pub fn run_source(
             prior_input_hash: rerun_decision.prior_input_hash.clone(),
         };
     }
+    let static_run_plan_json =
+        static_run_plan_json(path, &check_report, &options.profile, &rerun_decision);
     if rerun_decision.decision == "skip" && saved_artifacts_ready {
         return skipped_saved_run_output(
             path,
             &check_report,
             &run_lock_input,
             &rerun_decision,
+            &static_run_plan_json,
             &options.profile,
             bytecode_path,
             result_path,
@@ -450,6 +457,7 @@ pub fn run_source(
             plot_spec_path,
             plot_manifest_path,
             output_manifest_path,
+            static_run_plan_path,
             run_plan_path,
             run_lock_path,
             run_log_path,
@@ -457,6 +465,10 @@ pub fn run_source(
             cache_manifest_path,
             test_results_path,
         );
+    }
+    if artifacts_saved {
+        fs::create_dir_all(&result_dir)?;
+        fs::write(&static_run_plan_path, &static_run_plan_json)?;
     }
 
     let bytecode = build_bytecode(&check_report, source);
@@ -573,6 +585,7 @@ pub fn run_source(
         &cache_manifest_records,
         &db_manifest_records,
         &output_artifacts,
+        &static_run_plan_json,
         &result_json,
         &review_json,
         &options.profile,
@@ -588,6 +601,7 @@ pub fn run_source(
         &cache_manifest_records,
         &db_manifest_records,
         &output_artifacts,
+        &static_run_plan_json,
         &result_json,
         &review_json,
         &options.profile,
@@ -595,6 +609,7 @@ pub fn run_source(
     );
     let result_artifact_hash = hash_text(&result_json);
     let review_artifact_hash = hash_text(&review_json);
+    let static_run_plan_artifact_hash = hash_text(&static_run_plan_json);
     let run_plan_artifact_hash = hash_text(&run_plan_json);
     let run_lock_json = run_lock_json(
         path,
@@ -604,6 +619,7 @@ pub fn run_source(
         &RunLockArtifactHashes {
             result: &result_artifact_hash,
             review: &review_artifact_hash,
+            static_run_plan: &static_run_plan_artifact_hash,
             run_plan: &run_plan_artifact_hash,
         },
         &options.profile,
@@ -630,6 +646,12 @@ pub fn run_source(
             "run_log.json".to_owned(),
             &run_log_json,
             run_log_path.clone(),
+        ));
+        output_artifacts.push(output_artifact(
+            "static_run_plan",
+            "static_run_plan.json".to_owned(),
+            &static_run_plan_json,
+            static_run_plan_path.clone(),
         ));
         fs::write(&run_plan_path, &run_plan_json)?;
         output_artifacts.push(output_artifact(
@@ -757,6 +779,7 @@ pub fn run_source(
         plot_spec_path,
         plot_manifest_path,
         output_manifest_path,
+        static_run_plan_path,
         run_plan_path,
         run_lock_path,
         run_log_path,
@@ -777,6 +800,7 @@ pub fn run_source(
         plot_spec_json,
         plot_manifest_json,
         output_manifest_json,
+        static_run_plan_json,
         run_plan_json,
         run_lock_json,
         run_log_json,
@@ -3063,6 +3087,7 @@ struct RerunDecision {
 struct RunLockArtifactHashes<'a> {
     result: &'a str,
     review: &'a str,
+    static_run_plan: &'a str,
     run_plan: &'a str,
 }
 
@@ -3208,6 +3233,7 @@ fn run_lock_json(
         "artifact_hashes": {
             "result": artifact_hashes.result,
             "review": artifact_hashes.review,
+            "static_run_plan": artifact_hashes.static_run_plan,
             "run_plan": artifact_hashes.run_plan
         }
     });
@@ -3227,6 +3253,7 @@ fn skipped_saved_run_output(
     report: &CheckReport,
     input: &RunLockInput,
     decision: &RerunDecision,
+    static_run_plan_json: &str,
     profile: &ExecutionProfile,
     bytecode_path: PathBuf,
     result_path: PathBuf,
@@ -3237,6 +3264,7 @@ fn skipped_saved_run_output(
     plot_spec_path: PathBuf,
     plot_manifest_path: PathBuf,
     output_manifest_path: PathBuf,
+    static_run_plan_path: PathBuf,
     run_plan_path: PathBuf,
     run_lock_path: PathBuf,
     run_log_path: PathBuf,
@@ -3256,6 +3284,7 @@ fn skipped_saved_run_output(
     let process_results_json = fs::read_to_string(&process_results_path)?;
     let cache_manifest_json = fs::read_to_string(&cache_manifest_path)?;
     let test_results_json = fs::read_to_string(&test_results_path)?;
+    fs::write(&static_run_plan_path, static_run_plan_json)?;
     let previous_run_plan_json = fs::read_to_string(&run_plan_path)?;
     let run_plan_json = mark_run_plan_rerun_decision(&previous_run_plan_json, decision);
     fs::write(&run_plan_path, &run_plan_json)?;
@@ -3264,6 +3293,7 @@ fn skipped_saved_run_output(
 
     let result_artifact_hash = hash_text(&result_json);
     let review_artifact_hash = hash_text(&review_json);
+    let static_run_plan_artifact_hash = hash_text(static_run_plan_json);
     let run_plan_artifact_hash = hash_text(&run_plan_json);
     let run_lock_json = run_lock_json(
         source_path,
@@ -3273,6 +3303,7 @@ fn skipped_saved_run_output(
         &RunLockArtifactHashes {
             result: &result_artifact_hash,
             review: &review_artifact_hash,
+            static_run_plan: &static_run_plan_artifact_hash,
             run_plan: &run_plan_artifact_hash,
         },
         profile,
@@ -3284,6 +3315,11 @@ fn skipped_saved_run_output(
         &previous_output_manifest_json,
         &[
             ("review", "review.json", hash_text(&review_json)),
+            (
+                "static_run_plan",
+                "static_run_plan.json",
+                hash_text(static_run_plan_json),
+            ),
             ("run_plan", "run_plan.json", hash_text(&run_plan_json)),
             ("run_lock", "run_lock.json", hash_text(&run_lock_json)),
         ],
@@ -3300,6 +3336,7 @@ fn skipped_saved_run_output(
         plot_spec_path,
         plot_manifest_path,
         output_manifest_path,
+        static_run_plan_path,
         run_plan_path,
         run_lock_path,
         run_log_path,
@@ -3320,6 +3357,7 @@ fn skipped_saved_run_output(
         plot_spec_json,
         plot_manifest_json,
         output_manifest_json,
+        static_run_plan_json: static_run_plan_json.to_owned(),
         run_plan_json,
         run_lock_json,
         run_log_json,
@@ -3446,6 +3484,356 @@ fn rerun_decision_json(decision: &RerunDecision) -> Value {
     })
 }
 
+fn static_run_plan_json(
+    source_path: &Path,
+    report: &CheckReport,
+    profile: &ExecutionProfile,
+    rerun_decision: &RerunDecision,
+) -> String {
+    let mut nodes = Vec::new();
+    let mut edges = Vec::new();
+    nodes.push(run_plan_node(
+        "source:program",
+        "source_file",
+        "program",
+        "loaded",
+        "static",
+        "low",
+        1,
+        vec![json!({"kind": "source_hash", "hash": &report.source_hash})],
+        rerun_decision,
+    ));
+
+    for schema in &report.semantic_program.schemas {
+        let id = format!("schema:{}", schema.name);
+        nodes.push(run_plan_node(
+            &id,
+            "schema",
+            &schema.name,
+            "planned",
+            "static",
+            "low",
+            schema.line,
+            vec![json!({
+                "column_count": schema.columns.len(),
+                "constraint_count": schema.constraints.len(),
+                "missing_policy_count": schema.missing_policies.len()
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for promotion in &report.semantic_program.csv_promotions {
+        let id = format!("source:csv:{}", promotion.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "csv_promotion",
+            &promotion.binding,
+            "planned",
+            "static",
+            "medium",
+            promotion.line,
+            vec![json!({
+                "schema": &promotion.schema_name,
+                "path": &promotion.resolved_path,
+                "hash": &promotion.source_hash,
+                "row_count": promotion.row_count
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for promotion in &report.semantic_program.config_promotions {
+        let id = format!("source:config:{}", promotion.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "config_promotion",
+            &promotion.binding,
+            "planned",
+            "static",
+            "medium",
+            promotion.line,
+            vec![json!({
+                "format": &promotion.format,
+                "path": &promotion.resolved_path,
+                "hash": &promotion.source_hash,
+                "field_count": promotion.field_count
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for transform in &report.semantic_program.table_transforms {
+        let id = format!("table_transform:{}", transform.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "table_transform",
+            &transform.binding,
+            "planned",
+            "static",
+            "low",
+            transform.line,
+            vec![json!({
+                "operation": &transform.operation,
+                "source_table": &transform.source_table,
+                "secondary_table": &transform.secondary_table,
+                "predicate_count": transform.predicates.len(),
+                "selected_column_count": transform.selected_columns.len()
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for kernel in &report.semantic_program.timeseries_kernels {
+        let id = format!("timeseries_kernel:{}", kernel.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "timeseries_kernel",
+            &kernel.binding,
+            "planned",
+            "static",
+            "medium",
+            kernel.line,
+            vec![json!({
+                "kind": &kernel.kind,
+                "source_table": &kernel.source_table,
+                "axis": &kernel.axis,
+                "quantity_kind": &kernel.quantity_kind,
+                "operations": &kernel.operations
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for request in &report.semantic_program.net_requests {
+        let id = format!("network_request:{}", request.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "network_request",
+            &request.binding,
+            "planned",
+            "static",
+            "high",
+            request.line,
+            vec![json!({
+                "method": &request.method,
+                "url": &request.url_value,
+                "query_count": request.query.len(),
+                "retry": request.retry,
+                "cache": request.cache,
+                "timeout": &request.timeout,
+                "fixture": &request.fixture
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for download in &report.semantic_program.net_downloads {
+        let id = format!("network_download:{}", download.line);
+        nodes.push(run_plan_node(
+            &id,
+            "network_download",
+            &download.target_value,
+            "planned",
+            "static",
+            "high",
+            download.line,
+            vec![json!({
+                "url": &download.url_value,
+                "target": &download.target_value,
+                "query_count": download.query.len(),
+                "retry": download.retry,
+                "cache": download.cache,
+                "timeout": &download.timeout,
+                "fixture": &download.fixture
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for cache in &report.semantic_program.cache_records {
+        let id = format!("cache:{}:{}", cache.owner_kind, cache.owner_name);
+        nodes.push(run_plan_node(
+            &id,
+            "cache",
+            &cache.owner_name,
+            "planned",
+            "static",
+            "medium",
+            cache.line,
+            vec![json!({
+                "owner_kind": &cache.owner_kind,
+                "cache_key_hash": &cache.cache_key_hash,
+                "cache_path": &cache.cache_path,
+                "cache_dir": &cache.cache_dir,
+                "source_hash": &cache.source_hash
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for dependency in &report.semantic_program.environment_dependencies {
+        let id = format!("dependency:{}:{}", dependency.kind, dependency.name);
+        nodes.push(run_plan_node(
+            &id,
+            "environment_dependency",
+            &dependency.name,
+            "planned",
+            "static",
+            "medium",
+            dependency.line,
+            vec![json!({
+                "kind": &dependency.kind,
+                "expression": &dependency.expression,
+                "resolved_value": &dependency.resolved_value,
+                "source_hash": &dependency.source_hash
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "depends_on"));
+    }
+    for export in &report.semantic_program.csv_exports {
+        let id = format!("csv_export:{}:{}", export.source, export.line);
+        nodes.push(run_plan_node(
+            &id,
+            "csv_export",
+            &export.path,
+            "planned",
+            "static",
+            "low",
+            export.line,
+            vec![json!({
+                "source": &export.source,
+                "format": &export.format,
+                "path": &export.path,
+                "field_count": export.fields.len()
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "emits"));
+    }
+    for write in &report.semantic_program.writes {
+        let id = format!("write:{}:{}", write.format, write.line);
+        nodes.push(run_plan_node(
+            &id,
+            "write_output",
+            &write.path,
+            "planned",
+            "static",
+            "low",
+            write.line,
+            vec![json!({
+                "format": &write.format,
+                "path": &write.path,
+                "quantity_kind": &write.quantity_kind,
+                "display_unit": &write.display_unit
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "emits"));
+    }
+    for operation in &report.semantic_program.file_operations {
+        let id = format!("file_operation:{}:{}", operation.operation, operation.line);
+        nodes.push(run_plan_node(
+            &id,
+            "file_operation",
+            &operation.operation,
+            "planned",
+            "static",
+            "medium",
+            operation.line,
+            vec![json!({
+                "operation": &operation.operation,
+                "source": &operation.source,
+                "destination": &operation.destination
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "emits"));
+    }
+    for process in &report.semantic_program.process_runs {
+        let id = format!("process:{}", process.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "process",
+            &process.binding,
+            "planned",
+            "static",
+            "high",
+            process.line,
+            vec![json!({
+                "command": &process.command
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for ml in &report.semantic_program.ml_infos {
+        let id = format!("model:{}", ml.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "model",
+            &ml.binding,
+            "planned",
+            "static",
+            "medium",
+            ml.line,
+            vec![json!({
+                "kind": &ml.kind,
+                "source": &ml.source,
+                "target": &ml.target,
+                "features": &ml.features,
+                "algorithm": &ml.algorithm,
+                "seed": &ml.seed
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+    for test in &report.semantic_program.tests {
+        let id = format!("test:{}", test.name);
+        nodes.push(run_plan_node(
+            &id,
+            "test",
+            &test.name,
+            "planned",
+            "static",
+            "low",
+            test.line,
+            vec![json!({
+                "assertion_count": test.assertions.len(),
+                "golden_count": test.goldens.len()
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
+
+    let node_count = nodes.len();
+    let edge_count = edges.len();
+    let document = json!({
+        "format": "eng-static-run-plan-v1",
+        "runtime_version": RUNTIME_VERSION,
+        "source_path": path_for_manifest(source_path),
+        "source_hash": &report.source_hash,
+        "execution_profile": profile.as_str(),
+        "execution_stage": "pre_execution",
+        "status": "planned",
+        "rerun_status": rerun_status(rerun_decision),
+        "rerun_decision": rerun_decision_json(rerun_decision),
+        "graph": {
+            "node_count": node_count,
+            "edge_count": edge_count,
+            "nodes": nodes,
+            "edges": edges
+        }
+    });
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(&document).expect("serialize static run plan")
+    )
+}
+
 fn run_plan_json(
     source_path: &Path,
     report: &CheckReport,
@@ -3455,6 +3843,7 @@ fn run_plan_json(
     cache_records: &[CacheManifestRecord],
     db_records: &[DbManifestRecord],
     output_artifacts: &[OutputArtifact],
+    static_run_plan_json: &str,
     result_json: &str,
     review_json: &str,
     profile: &ExecutionProfile,
@@ -3754,6 +4143,7 @@ fn run_plan_json(
         "rerun_status": rerun_status(rerun_decision),
         "rerun_decision": rerun_decision_json(rerun_decision),
         "artifact_hashes": {
+            "static_run_plan": hash_text(static_run_plan_json),
             "result": hash_text(result_json),
             "review": hash_text(review_json)
         },
@@ -4540,7 +4930,8 @@ fn push_artifact_validation_json(
 fn artifact_record_class(kind: &str) -> &'static str {
     match kind {
         "review" | "report_spec" | "report_html" | "result" | "plot_spec" | "plot_svg"
-        | "plot_manifest" | "bytecode" | "run_log" | "run_plan" | "run_lock" => "review_artifact",
+        | "plot_manifest" | "bytecode" | "run_log" | "static_run_plan" | "run_plan"
+        | "run_lock" => "review_artifact",
         "process_results" | "process_expected_output" => "external_boundary",
         "cache_manifest" => "cache",
         "db_write_manifest" => "db_write",
@@ -10151,6 +10542,33 @@ mod tests {
                 .and_then(Value::as_str),
             Some(review_hash.as_str())
         );
+        assert!(output.static_run_plan_path.exists());
+        let static_run_plan: Value =
+            serde_json::from_str(&output.static_run_plan_json).expect("static run plan json");
+        assert_eq!(
+            static_run_plan.get("format").and_then(Value::as_str),
+            Some("eng-static-run-plan-v1")
+        );
+        assert_eq!(
+            static_run_plan
+                .pointer("/execution_stage")
+                .and_then(Value::as_str),
+            Some("pre_execution")
+        );
+        assert_eq!(
+            static_run_plan.pointer("/status").and_then(Value::as_str),
+            Some("planned")
+        );
+        let static_run_plan_hash = hash_text(&output.static_run_plan_json);
+        assert_eq!(
+            run_plan
+                .pointer("/artifact_hashes/static_run_plan")
+                .and_then(Value::as_str),
+            Some(static_run_plan_hash.as_str())
+        );
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"static_run_plan\""));
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"run_plan\""));
@@ -10162,6 +10580,12 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"run_lock\""));
         let run_lock: Value = serde_json::from_str(&output.run_lock_json).expect("run lock json");
+        assert_eq!(
+            run_lock
+                .pointer("/artifact_hashes/static_run_plan")
+                .and_then(Value::as_str),
+            Some(static_run_plan_hash.as_str())
+        );
         let first_input_hash = run_lock
             .get("input_hash")
             .and_then(Value::as_str)
@@ -10197,6 +10621,21 @@ mod tests {
         );
         assert_eq!(
             second_run_plan
+                .pointer("/graph/nodes/0/rerun_status")
+                .and_then(Value::as_str),
+            Some("skipped")
+        );
+        let second_static_run_plan: Value =
+            serde_json::from_str(&second_output.static_run_plan_json)
+                .expect("second static run plan json");
+        assert_eq!(
+            second_static_run_plan
+                .pointer("/rerun_decision/decision")
+                .and_then(Value::as_str),
+            Some("skip")
+        );
+        assert_eq!(
+            second_static_run_plan
                 .pointer("/graph/nodes/0/rerun_status")
                 .and_then(Value::as_str),
             Some("skipped")

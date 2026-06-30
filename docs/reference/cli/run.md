@@ -73,6 +73,7 @@ build/
     review.json
     report.html
     report_spec.json
+    static_run_plan.json
     run_plan.json
     run_lock.json
     run_log.json

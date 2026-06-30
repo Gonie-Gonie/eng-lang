@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://eng-lang.local/schemas/run_plan.schema.json",
-  "title": "EngLang Run Plan Artifact",
+  "$id": "https://eng-lang.local/schemas/static_run_plan.schema.json",
+  "title": "EngLang Static Run Plan Artifact",
   "type": "object",
   "required": [
     "format",
@@ -9,30 +9,22 @@
     "source_path",
     "source_hash",
     "execution_profile",
+    "execution_stage",
     "status",
     "rerun_status",
     "rerun_decision",
-    "artifact_hashes",
     "graph"
   ],
   "properties": {
-    "format": { "const": "eng-run-plan-v1" },
+    "format": { "const": "eng-static-run-plan-v1" },
     "runtime_version": { "type": "string" },
     "source_path": { "type": "string" },
     "source_hash": { "type": "string" },
     "execution_profile": { "enum": ["safe", "normal", "repro"] },
-    "status": { "enum": ["completed", "failed"] },
+    "execution_stage": { "const": "pre_execution" },
+    "status": { "const": "planned" },
     "rerun_status": { "enum": ["executed", "skipped"] },
     "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
-    "artifact_hashes": {
-      "type": "object",
-      "required": ["static_run_plan", "result", "review"],
-      "properties": {
-        "static_run_plan": { "type": "string" },
-        "result": { "type": "string" },
-        "review": { "type": "string" }
-      }
-    },
     "graph": {
       "type": "object",
       "required": ["node_count", "edge_count", "nodes", "edges"],
@@ -56,7 +48,8 @@
       "required": ["decision", "reason"],
       "properties": {
         "decision": { "enum": ["run", "skip"] },
-        "reason": { "type": "string" }
+        "reason": { "type": "string" },
+        "prior_input_hash": { "type": ["string", "null"] }
       }
     },
     "runPlanNode": {
@@ -79,7 +72,7 @@
         "kind": { "type": "string" },
         "label": { "type": "string" },
         "status": { "type": "string" },
-        "phase": { "enum": ["static", "runtime"] },
+        "phase": { "const": "static" },
         "risk": { "enum": ["low", "medium", "high"] },
         "rerun_status": { "enum": ["executed", "skipped"] },
         "line": { "type": "integer", "minimum": 0 },

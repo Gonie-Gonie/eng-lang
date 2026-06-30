@@ -32,10 +32,11 @@
     "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
     "artifact_hashes": {
       "type": "object",
-      "required": ["result", "review", "run_plan"],
+      "required": ["result", "review", "static_run_plan", "run_plan"],
       "properties": {
         "result": { "type": "string" },
         "review": { "type": "string" },
+        "static_run_plan": { "type": "string" },
         "run_plan": { "type": "string" }
       }
     }

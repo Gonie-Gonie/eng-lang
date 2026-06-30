@@ -10,6 +10,7 @@ report_spec.schema.json  build/result/report_spec.json
 result.schema.json       build/result/result.engres
 plotspec.schema.json     build/result/plots/plot_spec.json
 output_manifest.schema.json build/result/output_manifest.json
+static_run_plan.schema.json build/result/static_run_plan.json
 run_plan.schema.json     build/result/run_plan.json
 run_lock.schema.json     build/result/run_lock.json
 run_log.schema.json      build/result/run_log.json

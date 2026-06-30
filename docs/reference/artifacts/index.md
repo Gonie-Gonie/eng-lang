@@ -14,6 +14,7 @@ Planned pages:
 - review.json
 - report.html
 - report_spec.json
+- static_run_plan.json
 - run_plan.json
 - run_lock.json
 - plot_spec.json

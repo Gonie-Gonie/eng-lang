@@ -370,8 +370,9 @@ By default, result/review/report/run-log/process-results/test-results/plot/
 output-manifest payloads remain runtime objects in memory. `--save-artifacts`
 writes those objects to disk.
 `--skip-unchanged` compares the current run input lock against
-`build/result/run_lock.json`. When source, profile, CLI args, and dependency
-hashes match the prior lock, `run_plan.json` records
+`build/result/run_lock.json`. `static_run_plan.json` is generated before
+bytecode execution from the checked semantic program. When source, profile, CLI
+args, and dependency hashes match the prior lock, `run_plan.json` records
 `rerun_decision.decision = skip` and `rerun_status = skipped`; otherwise it
 records a normal executed rerun status.
 Explicit `export`, `write`, and constrained `copy/move/delete` statements
@@ -399,6 +400,7 @@ build/
     review.json
     report.html
     report_spec.json
+    static_run_plan.json
     run_plan.json
     run_lock.json
     run_log.json
