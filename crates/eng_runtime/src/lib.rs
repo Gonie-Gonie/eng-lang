@@ -1329,6 +1329,7 @@ struct CacheManifestRecord {
     cache_key_parts: Vec<String>,
     cache_key_hash: String,
     cache_path: String,
+    cache_dir: String,
     resolved_path: String,
     source_hash: String,
     expected_hash: Option<String>,
@@ -1470,6 +1471,7 @@ fn cache_manifest_record(
         cache_key_parts: record.cache_key_parts.clone(),
         cache_key_hash: record.cache_key_hash.clone(),
         cache_path: record.cache_path.clone(),
+        cache_dir: record.cache_dir.clone(),
         resolved_path: resolved_path.display().to_string(),
         source_hash: record.source_hash.clone(),
         expected_hash: record.expected_hash.clone(),
@@ -1549,6 +1551,10 @@ fn push_cache_manifest_records_json(
         json.push_str(&format!(
             "{indent}  \"cache_path\": \"{}\",\n",
             json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_dir\": \"{}\",\n",
+            json_escape(&record.cache_dir)
         ));
         json.push_str(&format!(
             "{indent}  \"resolved_path\": \"{}\",\n",
@@ -3314,6 +3320,10 @@ fn push_output_manifest_caches_json(json: &mut String, records: &[CacheManifestR
         json.push_str(&format!(
             "        \"target\": \"{}\",\n",
             json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "        \"cache_dir\": \"{}\",\n",
+            json_escape(&record.cache_dir)
         ));
         json.push_str(&format!(
             "        \"cache_key_hash\": \"{}\",\n",
@@ -11068,6 +11078,9 @@ mod tests {
         assert!(output
             .cache_manifest_json
             .contains("\"cache_record_count\": 2"));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"cache_dir\": \"cache\""));
         assert!(output
             .cache_manifest_json
             .contains("\"lookup_status\": \"miss\""));

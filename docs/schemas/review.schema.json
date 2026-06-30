@@ -568,6 +568,7 @@
         "cache_key": { "type": "string" },
         "cache_key_hash": { "type": "string" },
         "cache_path": { "type": "string" },
+        "cache_dir": { "type": "string" },
         "source_hash": { "type": "string" },
         "expected_hash": { "type": ["string", "null"] },
         "observed_hash": { "type": ["string", "null"] },

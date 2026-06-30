@@ -4568,6 +4568,10 @@ fn push_cache_records_json(json: &mut String, report: &CheckReport, indent: usiz
             json_escape(&record.cache_path)
         ));
         json.push_str(&format!(
+            "{spaces}    \"cache_dir\": \"{}\",\n",
+            json_escape(&record.cache_dir)
+        ));
+        json.push_str(&format!(
             "{spaces}    \"source_hash\": \"{}\",\n",
             json_escape(&record.source_hash)
         ));
@@ -6572,6 +6576,10 @@ fn push_review_caches_json(json: &mut String, report: &CheckReport) {
         json.push_str(&format!(
             "        \"cache_path\": \"{}\",\n",
             json_escape(&record.cache_path)
+        ));
+        json.push_str(&format!(
+            "        \"cache_dir\": \"{}\",\n",
+            json_escape(&record.cache_dir)
         ));
         json.push_str(&format!(
             "        \"source_hash\": \"{}\",\n",
@@ -11972,6 +11980,7 @@ system Envelope {
             && param.redacted));
         let cache_record = &report.semantic_program.cache_records[0];
         assert_eq!(cache_record.owner_kind, "network_request");
+        assert_eq!(cache_record.cache_dir, "cache");
         assert!(cache_record.cache_key_parts.starts_with(&[
             "weather".to_owned(),
             "108".to_owned(),
@@ -11996,6 +12005,7 @@ system Envelope {
         assert!(review.contains("\"status_code\": 200"));
         assert!(review.contains("\"status_class\": \"success\""));
         assert!(review.contains("\"cache_records\""));
+        assert!(review.contains("\"cache_dir\": \"cache\""));
         assert!(review.contains("\"caches\""));
         assert!(review.contains("\"cache_count\": 2"));
         assert!(review.contains("\"kind\": \"network_request\""));
