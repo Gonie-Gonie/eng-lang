@@ -319,6 +319,26 @@ The runnable example is:
 examples/official/11_read_only_io/main.eng
 ```
 
+## Typed Config Promotion
+
+JSON/TOML config files can be promoted against a schema. Top-level fields are
+validated for required/unknown/type/null policy, and `Optional[T]` or `T?`
+allows a config field to be missing or set to JSON null:
+
+```eng partial
+schema WorkflowConfig {
+    year: Int
+    region: Optional[String]
+    output: DirectoryPath?
+}
+
+config = promote json file("data/workflow.json") as WorkflowConfig
+```
+
+The result/review artifacts record `optional_fields`,
+`optional_missing_fields`, and `optional_null_fields` in the config promotion
+entry. Nested object/list promotion and defaults remain planned.
+
 ## Schemas And CSV Promotion
 
 Schemas are the data boundary. They describe columns, quantity kinds, display

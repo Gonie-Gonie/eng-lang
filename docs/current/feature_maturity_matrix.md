@@ -236,7 +236,8 @@ separate.
   effects.
 - Main status: `Supported` for those primitives plus promoted table
   diagnostics, deterministic promoted-table row-selection artifacts, promoted
-  sample-table artifacts, promoted case manifest seeds enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
+  sample-table artifacts, typed config promotion optional field policy,
+  promoted case manifest seeds enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
   summaries in `typed_payload.model_cards[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
@@ -250,6 +251,7 @@ separate.
   `typed_payload.table_diagnostics[]`, `typed_payload.table_selections[]`,
   `typed_payload.table_transforms[]` with row diagnostics,
   `review_document.table_transforms[]`,
+  `typed_payload.config_promotions[]`,
   `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,

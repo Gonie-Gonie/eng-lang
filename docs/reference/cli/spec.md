@@ -67,7 +67,7 @@ E-CONFIG-SOURCE-001    JSON/TOML config source cannot be read or parsed
 E-CONFIG-MISSING-FIELD config source is missing a required schema field
 E-CONFIG-UNKNOWN-FIELD config source contains a field outside the schema
 E-CONFIG-TYPE-MISMATCH config field type does not match the schema
-E-CONFIG-NULL-NOT-OPTIONAL config field is null before optional support
+E-CONFIG-NULL-NOT-OPTIONAL config field is null but schema field is not Optional[T] or T?
 E-TABLE-UNKNOWN-COLUMN table filter predicate references a column outside the promoted schema
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types

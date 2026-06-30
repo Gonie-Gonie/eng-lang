@@ -932,13 +932,58 @@ fn schema_column_for_source<'a>(
         }
     }
     let schema_name = schema_name_for_source(program, transforms, table)?;
-    program
+    let column = program
         .schemas
         .iter()
         .find(|schema| schema.name == schema_name)?
         .columns
         .iter()
-        .find(|candidate| candidate.name == column)
+        .find(|candidate| candidate.name == column)?;
+    if optional_column_missing_from_source(program, transforms, table, column) {
+        return None;
+    }
+    Some(column)
+}
+
+fn optional_column_missing_from_source(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    table: &str,
+    column: &SchemaColumn,
+) -> bool {
+    if !column.optional {
+        return false;
+    }
+    let base_table = base_table_for_source(transforms, table);
+    program
+        .csv_promotions
+        .iter()
+        .find(|promotion| promotion.binding == base_table)
+        .is_some_and(|promotion| {
+            promotion.source_hash.is_some()
+                && promotion
+                    .optional_missing_columns
+                    .iter()
+                    .any(|missing| missing == &column.name)
+        })
+}
+
+fn base_table_for_source<'a>(transforms: &'a [TableTransformInfo], table: &'a str) -> &'a str {
+    let mut current = table;
+    let mut seen = Vec::new();
+    loop {
+        if seen.iter().any(|item| item == &current) {
+            return current;
+        }
+        seen.push(current);
+        let Some(transform) = transforms
+            .iter()
+            .find(|candidate| candidate.binding == current)
+        else {
+            return current;
+        };
+        current = &transform.source_table;
+    }
 }
 
 fn is_identifier(value: &str) -> bool {

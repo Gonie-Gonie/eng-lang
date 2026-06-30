@@ -1,6 +1,6 @@
 # module: eng.config
 # status: supported_narrow
-# purpose: typed JSON/TOML configuration promotion with schema validation.
+# purpose: typed JSON/TOML configuration promotion with schema validation and optional field policy.
 #
 # Supported built-in vocabulary:
 #   promote json file(...) as ConfigSchema
@@ -10,11 +10,12 @@
 #
 # Current review/runtime contract:
 #   source path, source hash, schema name, field count, missing fields,
-#   unknown fields, null fields, type mismatches, and source spans.
+#   unknown fields, null fields, optional fields, optional missing/null fields,
+#   type mismatches, and source spans.
 #
 # Planned helper vocabulary:
 #   promote json payload as ConfigSchema
-#   optional/default config fields
+#   default config fields
 #   nested object and array/list promotion
 #   unit mismatch validation
 #

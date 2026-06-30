@@ -1,0 +1,10 @@
+schema WorkflowConfig {
+    year: Int
+    region: Optional[String]
+    output: DirectoryPath?
+}
+
+config = promote json file("data/workflow_optional_config.json") as WorkflowConfig
+
+x = 1
+print "config optional fields checked {x}"

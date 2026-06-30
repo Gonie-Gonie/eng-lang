@@ -159,7 +159,8 @@ is not mistaken for public module support.
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
     diagnostics, promoted sample-table artifacts, promoted case manifests
-    enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
+    enriched from process outputs, optional JSON/TOML config field policy,
+    DB manifest summaries in `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, internal model-card summaries in
     `typed_payload.model_cards[]`, and hybrid artifact fixtures
     for weather/case/model/prediction/DB manifest contracts; `Planned` native

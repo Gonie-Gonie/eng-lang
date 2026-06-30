@@ -15,6 +15,7 @@ pub struct SchemaColumn {
     pub type_name: String,
     pub unit: Option<String>,
     pub is_index: bool,
+    pub optional: bool,
     pub line: usize,
     pub span: SourceSpan,
 }
@@ -52,6 +53,7 @@ pub struct CsvPromotion {
     pub headers: Vec<String>,
     pub row_count: usize,
     pub missing_columns: Vec<String>,
+    pub optional_missing_columns: Vec<String>,
     pub line: usize,
 }
 
@@ -75,6 +77,9 @@ pub struct ConfigPromotion {
     pub missing_fields: Vec<String>,
     pub unknown_fields: Vec<String>,
     pub null_fields: Vec<String>,
+    pub optional_fields: Vec<String>,
+    pub optional_missing_fields: Vec<String>,
+    pub optional_null_fields: Vec<String>,
     pub type_mismatches: Vec<ConfigTypeMismatch>,
     pub status: String,
     pub line: usize,
@@ -114,14 +119,16 @@ pub fn analyze_schema(
             AstItem::Script(_) => current_schema_index = None,
             AstItem::ExplicitDecl(declaration) if declaration.context == ParseContext::Schema => {
                 if let Some(schema_index) = current_schema_index {
+                    let (type_name, optional) = schema_column_type(&declaration.type_name);
                     schemas[schema_index].columns.push(SchemaColumn {
                         name: declaration.name.clone(),
-                        type_name: clean_schema_type(&declaration.type_name),
+                        type_name,
                         unit: declaration.unit.clone(),
                         is_index: declaration
                             .type_name
                             .split_whitespace()
                             .any(|part| part == "index"),
+                        optional,
                         line: declaration.line,
                         span: declaration.span,
                     });
@@ -211,6 +218,7 @@ pub fn analyze_schema(
                     headers,
                     row_count,
                     missing_columns: Vec::new(),
+                    optional_missing_columns: Vec::new(),
                     line: binding.line,
                 });
                 continue;
@@ -238,6 +246,18 @@ pub fn analyze_schema(
                 schema
                     .columns
                     .iter()
+                    .filter(|column| !column.optional)
+                    .filter(|column| !headers.iter().any(|header| header == &column.name))
+                    .map(|column| column.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let optional_missing_columns = schema
+            .map(|schema| {
+                schema
+                    .columns
+                    .iter()
+                    .filter(|column| column.optional)
                     .filter(|column| !headers.iter().any(|header| header == &column.name))
                     .map(|column| column.name.clone())
                     .collect::<Vec<_>>()
@@ -266,6 +286,7 @@ pub fn analyze_schema(
             headers,
             row_count,
             missing_columns,
+            optional_missing_columns,
             line: binding.line,
         });
     }
@@ -313,6 +334,9 @@ pub fn analyze_schema(
                     missing_fields: Vec::new(),
                     unknown_fields: Vec::new(),
                     null_fields: Vec::new(),
+                    optional_fields: Vec::new(),
+                    optional_missing_fields: Vec::new(),
+                    optional_null_fields: Vec::new(),
                     type_mismatches: Vec::new(),
                     status: "missing_arg".to_owned(),
                     line: binding.line,
@@ -350,6 +374,28 @@ pub fn analyze_schema(
                 schema
                     .columns
                     .iter()
+                    .filter(|column| !column.optional)
+                    .filter(|column| !field_names.iter().any(|field| field == &column.name))
+                    .map(|column| column.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let optional_fields = schema
+            .map(|schema| {
+                schema
+                    .columns
+                    .iter()
+                    .filter(|column| column.optional)
+                    .map(|column| column.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let optional_missing_fields = schema
+            .map(|schema| {
+                schema
+                    .columns
+                    .iter()
+                    .filter(|column| column.optional)
                     .filter(|column| !field_names.iter().any(|field| field == &column.name))
                     .map(|column| column.name.clone())
                     .collect::<Vec<_>>()
@@ -378,7 +424,22 @@ pub fn analyze_schema(
                             && schema
                                 .columns
                                 .iter()
-                                .any(|column| column.name == field.name)
+                                .any(|column| column.name == field.name && !column.optional)
+                    })
+                    .map(|field| field.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        let optional_null_fields = schema
+            .map(|schema| {
+                fields
+                    .iter()
+                    .filter(|field| {
+                        field.kind == ConfigValueKind::Null
+                            && schema
+                                .columns
+                                .iter()
+                                .any(|column| column.name == field.name && column.optional)
                     })
                     .map(|field| field.name.clone())
                     .collect::<Vec<_>>()
@@ -449,6 +510,9 @@ pub fn analyze_schema(
             missing_fields,
             unknown_fields,
             null_fields,
+            optional_fields,
+            optional_missing_fields,
+            optional_null_fields,
             type_mismatches,
             status,
             line: binding.line,
@@ -461,6 +525,25 @@ pub fn analyze_schema(
         config_promotions,
         diagnostics,
     }
+}
+
+fn schema_column_type(type_name: &str) -> (String, bool) {
+    let cleaned = clean_schema_type(type_name);
+    optional_schema_type(&cleaned).unwrap_or((cleaned, false))
+}
+
+fn optional_schema_type(type_name: &str) -> Option<(String, bool)> {
+    let trimmed = type_name.trim();
+    if let Some(inner) = trimmed
+        .strip_prefix("Optional[")
+        .and_then(|value| value.strip_suffix(']'))
+    {
+        return Some((inner.trim().to_owned(), true));
+    }
+    if let Some(inner) = trimmed.strip_suffix('?') {
+        return Some((inner.trim().to_owned(), true));
+    }
+    None
 }
 
 fn clean_schema_type(type_name: &str) -> String {

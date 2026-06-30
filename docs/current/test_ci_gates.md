@@ -78,6 +78,8 @@ syntax:
   They check deterministic station selection, filter/select/derive/sort/require_one/join table
   transform artifacts, row-level diagnostics, and Gregorian-year coverage artifacts without real
   network access.
+- `runtime/config_optional_fields.eng` covers typed JSON config promotion with
+  optional missing/null fields recorded in result and review artifacts.
 - `runtime/case_manifest.eng` and
   `runtime/process_expected_outputs.eng` map to the external
   simulation workflow smoke. It checks case input/result/manifest outputs,

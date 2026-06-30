@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "timeseries_coverage", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "timeseries_coverage", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -64,6 +64,10 @@
         "table_transforms": {
           "type": "array",
           "items": { "$ref": "#/$defs/tableTransform" }
+        },
+        "config_promotions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/configPromotion" }
         },
         "sample_tables": {
           "type": "array",
@@ -775,6 +779,65 @@
         "value": { "type": ["string", "null"] },
         "resolved_value": { "type": ["string", "null"] },
         "matched_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "configPromotion": {
+      "type": "object",
+      "required": [
+        "binding",
+        "format",
+        "schema_name",
+        "source",
+        "source_value",
+        "resolved_path",
+        "source_hash",
+        "field_count",
+        "missing_fields",
+        "unknown_fields",
+        "null_fields",
+        "optional_fields",
+        "optional_missing_fields",
+        "optional_null_fields",
+        "type_mismatch_count",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "format": { "enum": ["json", "toml"] },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "source_value": { "type": "string" },
+        "resolved_path": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "field_count": { "type": "integer", "minimum": 0 },
+        "missing_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "unknown_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "null_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_missing_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_null_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "type_mismatch_count": { "type": "integer", "minimum": 0 },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

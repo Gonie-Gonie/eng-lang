@@ -90,7 +90,7 @@ artifacts = ["typed_payload.db_manifests", "db_write_manifest", "review.external
 [module."eng.config"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
-purpose = "Typed JSON/TOML file promotion with schema validation, source hashes, and config summaries."
+purpose = "Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries."
 artifacts = ["typed_payload.config_promotions", "review.config_promotions", "output_manifest"]
 
 [module."eng.net"]

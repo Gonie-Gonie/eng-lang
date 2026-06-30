@@ -3884,6 +3884,7 @@ pub fn review_json(report: &CheckReport) -> String {
                 json.push_str("          \"unit\": null,\n");
             }
             json.push_str(&format!("          \"is_index\": {},\n", column.is_index));
+            json.push_str(&format!("          \"optional\": {},\n", column.optional));
             json.push_str(&format!("          \"line\": {}\n", column.line));
             json.push_str("        }");
         }
@@ -3974,6 +3975,14 @@ pub fn review_json(report: &CheckReport) -> String {
             json.push_str(&format!("\"{}\"", json_escape(column)));
         }
         json.push_str("],\n");
+        json.push_str("      \"optional_missing_columns\": [");
+        for (missing_index, column) in promotion.optional_missing_columns.iter().enumerate() {
+            if missing_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(column)));
+        }
+        json.push_str("],\n");
         json.push_str(&format!("      \"line\": {}\n", promotion.line));
         json.push_str("    }");
     }
@@ -4028,6 +4037,15 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("],\n");
         json.push_str("      \"null_fields\": [");
         push_json_string_array(&mut json, &promotion.null_fields);
+        json.push_str("],\n");
+        json.push_str("      \"optional_fields\": [");
+        push_json_string_array(&mut json, &promotion.optional_fields);
+        json.push_str("],\n");
+        json.push_str("      \"optional_missing_fields\": [");
+        push_json_string_array(&mut json, &promotion.optional_missing_fields);
+        json.push_str("],\n");
+        json.push_str("      \"optional_null_fields\": [");
+        push_json_string_array(&mut json, &promotion.optional_null_fields);
         json.push_str("],\n");
         json.push_str("      \"type_mismatches\": [\n");
         for (mismatch_index, mismatch) in promotion.type_mismatches.iter().enumerate() {
@@ -5430,7 +5448,7 @@ fn push_review_schemas_json(json: &mut String, report: &CheckReport) {
                 json.push_str(", ");
             }
             json.push_str(&format!(
-                "{{ \"name\": \"{}\", \"type\": \"{}\", \"unit\": {}, \"is_index\": {}, \"line\": {} }}",
+                "{{ \"name\": \"{}\", \"type\": \"{}\", \"unit\": {}, \"is_index\": {}, \"optional\": {}, \"line\": {} }}",
                 json_escape(&column.name),
                 json_escape(&column.type_name),
                 match &column.unit {
@@ -5438,6 +5456,7 @@ fn push_review_schemas_json(json: &mut String, report: &CheckReport) {
                     None => "null".to_owned(),
                 },
                 column.is_index,
+                column.optional,
                 column.line
             ));
         }
@@ -5513,6 +5532,15 @@ fn push_review_config_promotions_json(json: &mut String, report: &CheckReport) {
         json.push_str("],\n");
         json.push_str("        \"null_fields\": [");
         push_json_string_array(json, &promotion.null_fields);
+        json.push_str("],\n");
+        json.push_str("        \"optional_fields\": [");
+        push_json_string_array(json, &promotion.optional_fields);
+        json.push_str("],\n");
+        json.push_str("        \"optional_missing_fields\": [");
+        push_json_string_array(json, &promotion.optional_missing_fields);
+        json.push_str("],\n");
+        json.push_str("        \"optional_null_fields\": [");
+        push_json_string_array(json, &promotion.optional_null_fields);
         json.push_str("],\n");
         json.push_str(&format!(
             "        \"type_mismatch_count\": {},\n",
@@ -11638,6 +11666,99 @@ system Envelope {
         assert_eq!(promotion.unknown_fields, vec!["extra".to_owned()]);
         assert_eq!(promotion.null_fields, vec!["region".to_owned()]);
         assert_eq!(promotion.type_mismatches[0].field, "year");
+    }
+
+    #[test]
+    fn accepts_optional_typed_config_fields() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-optional-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"region\": null }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    region: Optional[String]\n    output: DirectoryPath?\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let schema = report
+            .semantic_program
+            .schemas
+            .iter()
+            .find(|schema| schema.name == "WorkflowConfig")
+            .expect("schema");
+        let region = schema
+            .columns
+            .iter()
+            .find(|column| column.name == "region")
+            .expect("region column");
+        assert_eq!(region.type_name, "String");
+        assert!(region.optional);
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "validated");
+        assert!(promotion.missing_fields.is_empty());
+        assert!(promotion.null_fields.is_empty());
+        assert_eq!(
+            promotion.optional_fields,
+            vec!["region".to_owned(), "output".to_owned()]
+        );
+        assert_eq!(promotion.optional_missing_fields, vec!["output".to_owned()]);
+        assert_eq!(promotion.optional_null_fields, vec!["region".to_owned()]);
+
+        let review = review_json(&report);
+        assert!(review.contains("\"optional\": true"));
+        assert!(review.contains("\"optional_missing_fields\": [\"output\"]"));
+        assert!(review.contains("\"optional_null_fields\": [\"region\"]"));
+    }
+
+    #[test]
+    fn permits_optional_csv_column_missing_but_not_transform_reference() {
+        let root = env::temp_dir().join(format!(
+            "englang-csv-optional-column-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("stations.csv"), "id\nSTN001\n").expect("csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema Station {\n    id: String\n    note: Optional[String]\n}\n\nstations = promote csv file(\"data/stations.csv\") as Station\nfiltered = filter stations\nwhere {\n    note is none\n}\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-TABLE-UNKNOWN-COLUMN"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-SCHEMA-CSV-002"));
+        let promotion = report
+            .semantic_program
+            .csv_promotions
+            .first()
+            .expect("csv promotion");
+        assert!(promotion.missing_columns.is_empty());
+        assert_eq!(promotion.optional_missing_columns, vec!["note".to_owned()]);
     }
 
     #[test]

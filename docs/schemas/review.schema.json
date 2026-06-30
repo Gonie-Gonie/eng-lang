@@ -98,6 +98,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/tableTransform" }
     },
+    "config_promotions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/reviewConfigPromotion" }
+    },
     "timeseries_coverage": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesCoverage" }
@@ -184,6 +188,7 @@
         "inputs",
         "symbols",
         "calculations",
+        "config_promotions",
         "table_transforms",
         "validations",
         "side_effects",
@@ -210,6 +215,10 @@
         "calculations": {
           "type": "array",
           "items": { "$ref": "#/$defs/reviewCalculation" }
+        },
+        "config_promotions": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewConfigPromotion" }
         },
         "table_transforms": {
           "type": "array",
@@ -305,6 +314,63 @@
         "name": { "type": "string" },
         "expression": { "type": "string" },
         "quantity_kind": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewConfigPromotion": {
+      "type": "object",
+      "required": [
+        "binding",
+        "format",
+        "schema_name",
+        "source",
+        "resolved_path",
+        "source_hash",
+        "field_count",
+        "missing_fields",
+        "unknown_fields",
+        "null_fields",
+        "optional_fields",
+        "optional_missing_fields",
+        "optional_null_fields",
+        "type_mismatch_count",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "format": { "enum": ["json", "toml"] },
+        "schema_name": { "type": "string" },
+        "source": { "type": "string" },
+        "resolved_path": { "type": "string" },
+        "source_hash": { "type": ["string", "null"] },
+        "field_count": { "type": "integer", "minimum": 0 },
+        "missing_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "unknown_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "null_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_missing_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "optional_null_fields": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "type_mismatch_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },
