@@ -2269,6 +2269,7 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "run"
             | "schema"
             | "script"
+            | "select"
             | "struct"
             | "summarize"
             | "system"

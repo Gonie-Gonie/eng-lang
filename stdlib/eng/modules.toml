@@ -42,7 +42,7 @@ artifacts = ["test_results", "review.tests", "output_manifest"]
 [module."eng.table"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "Promoted table diagnostics, deterministic row-selection artifacts, and filter/require_one/join transform records; broader table transforms are planned."
+purpose = "Promoted table diagnostics, deterministic row-selection artifacts, and filter/select/require_one/join transform records; broader table transforms are planned."
 artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
 
 [module."eng.timeseries"]

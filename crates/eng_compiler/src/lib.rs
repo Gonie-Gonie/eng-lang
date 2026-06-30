@@ -79,7 +79,7 @@ pub use semantic::{
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
-pub use table::{TableJoinKeyInfo, TablePredicateInfo, TableTransformInfo};
+pub use table::{TableColumnInfo, TableJoinKeyInfo, TablePredicateInfo, TableTransformInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
@@ -6000,6 +6000,28 @@ fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
         );
         push_optional_json_string(json, "schema_name", transform.schema_name.as_deref(), 8);
         json.push_str(&format!(
+            "        \"selected_column_count\": {},\n",
+            transform.selected_columns.len()
+        ));
+        json.push_str("        \"selected_columns\": [\n");
+        for (column_index, column) in transform.selected_columns.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&column.name)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&column.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", column.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str(&format!(
             "        \"predicate_count\": {},\n",
             transform.predicates.len()
         ));
@@ -11083,6 +11105,87 @@ system Envelope {
                 "where {\n",
                 "    missing_column == args.region\n",
                 "}\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-TABLE-UNKNOWN-COLUMN"));
+    }
+
+    #[test]
+    fn records_table_select_columns_transform() {
+        let root = env::temp_dir().join(format!("englang-table-select-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            "region,station_id,latitude\ndemo,STN001,37.5\n",
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "station_fields = select stations columns station_id, latitude\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let transform = report
+            .semantic_program
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == "station_fields")
+            .expect("select transform");
+        assert_eq!(transform.operation, "select");
+        assert_eq!(transform.source_table, "stations");
+        assert_eq!(transform.selected_columns.len(), 2);
+        assert_eq!(transform.selected_columns[0].name, "station_id");
+        assert_eq!(transform.selected_columns[1].name, "latitude");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"operation\": \"select\""));
+        assert!(review.contains("\"selected_column_count\": 2"));
+        assert!(review.contains("\"name\": \"station_id\""));
+    }
+
+    #[test]
+    fn diagnoses_unknown_table_select_column() {
+        let root = env::temp_dir().join(format!("englang-table-select-bad-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("station_map.csv"), "region\ndemo\n")
+            .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "station_fields = select stations columns station_id\n",
             ),
         )
         .expect("source");

@@ -1,7 +1,7 @@
 use crate::ast::AstItem;
 use crate::parser::ParsedProgram;
 use crate::semantic::SemanticProgram;
-use crate::{Diagnostic, SchemaColumn, SchemaInfo};
+use crate::{Diagnostic, SchemaColumn};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TablePredicateInfo {
@@ -25,12 +25,20 @@ pub struct TableJoinKeyInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TableColumnInfo {
+    pub name: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableTransformInfo {
     pub binding: String,
     pub operation: String,
     pub source_table: String,
     pub secondary_table: Option<String>,
     pub schema_name: Option<String>,
+    pub selected_columns: Vec<TableColumnInfo>,
     pub predicates: Vec<TablePredicateInfo>,
     pub join_keys: Vec<TableJoinKeyInfo>,
     pub status: String,
@@ -56,6 +64,7 @@ pub fn analyze_table_transforms(
             let predicates = predicates_for_owner(
                 parsed,
                 program,
+                &analysis.transforms,
                 binding.line,
                 &source_table,
                 &mut analysis.diagnostics,
@@ -66,7 +75,30 @@ pub fn analyze_table_transforms(
                 schema_name: schema_name_for_table(program, &source_table),
                 source_table,
                 secondary_table: None,
+                selected_columns: Vec::new(),
                 predicates,
+                join_keys: Vec::new(),
+                status: "declared".to_owned(),
+                line: binding.line,
+            });
+        } else if let Some((source_table, columns)) = parse_select_expression(&binding.expression) {
+            let selected_columns = selected_columns_for_transform(
+                program,
+                &analysis.transforms,
+                &source_table,
+                columns,
+                binding.line,
+                &mut analysis.diagnostics,
+            );
+            let schema_name = schema_name_for_source(program, &analysis.transforms, &source_table);
+            analysis.transforms.push(TableTransformInfo {
+                binding: binding.name.clone(),
+                operation: "select".to_owned(),
+                schema_name,
+                source_table,
+                secondary_table: None,
+                selected_columns,
+                predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
                 line: binding.line,
@@ -85,6 +117,7 @@ pub fn analyze_table_transforms(
                 schema_name,
                 source_table,
                 secondary_table: None,
+                selected_columns: Vec::new(),
                 predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -113,6 +146,7 @@ pub fn analyze_table_transforms(
                 source_table: left_table,
                 secondary_table: Some(right_table),
                 schema_name,
+                selected_columns: Vec::new(),
                 predicates: Vec::new(),
                 join_keys,
                 status: "declared".to_owned(),
@@ -131,6 +165,10 @@ pub fn is_require_one_expression(expression: &str) -> bool {
     parse_require_one_expression(expression).is_some()
 }
 
+pub fn is_select_expression(expression: &str) -> bool {
+    parse_select_expression(expression).is_some()
+}
+
 pub fn is_join_expression(expression: &str) -> bool {
     parse_join_expression(expression).is_some()
 }
@@ -145,10 +183,31 @@ fn parse_require_one_expression(expression: &str) -> Option<String> {
     simple_identifier(source)
 }
 
+fn parse_select_expression(expression: &str) -> Option<(String, Vec<String>)> {
+    let source = expression.trim().strip_prefix("select ")?.trim();
+    let (source_table, columns) = source.split_once(" columns ")?;
+    Some((simple_identifier(source_table)?, parse_column_list(columns)))
+}
+
 fn parse_join_expression(expression: &str) -> Option<(String, String)> {
     let source = expression.trim().strip_prefix("join ")?.trim();
     let (left, right) = source.split_once(" with ")?;
     Some((simple_identifier(left)?, simple_identifier(right)?))
+}
+
+fn parse_column_list(columns: &str) -> Vec<String> {
+    let trimmed = columns
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .trim_start_matches('{')
+        .trim_end_matches('}');
+    trimmed
+        .split(',')
+        .map(str::trim)
+        .filter(|column| is_identifier(column))
+        .map(str::to_owned)
+        .collect()
 }
 
 fn simple_identifier(source: &str) -> Option<String> {
@@ -163,6 +222,7 @@ fn simple_identifier(source: &str) -> Option<String> {
 fn predicates_for_owner(
     parsed: &ParsedProgram,
     program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
     owner_line: usize,
     source_table: &str,
     diagnostics: &mut Vec<Diagnostic>,
@@ -179,7 +239,7 @@ fn predicates_for_owner(
         .map(|predicate| {
             let mut info = parse_predicate(&predicate.expression, predicate.line);
             for column in predicate_columns(&predicate.expression) {
-                if !table_has_column(program, source_table, &column) {
+                if !source_has_column(program, transforms, source_table, &column) {
                     diagnostics.push(Diagnostic::error(
                         "E-TABLE-UNKNOWN-COLUMN",
                         predicate.line,
@@ -192,6 +252,36 @@ fn predicates_for_owner(
                 }
             }
             info
+        })
+        .collect()
+}
+
+fn selected_columns_for_transform(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    source_table: &str,
+    columns: Vec<String>,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<TableColumnInfo> {
+    columns
+        .into_iter()
+        .map(|column| {
+            let mut status = "accepted".to_owned();
+            if !source_has_column(program, transforms, source_table, &column) {
+                diagnostics.push(Diagnostic::error(
+                    "E-TABLE-UNKNOWN-COLUMN",
+                    line,
+                    &format!("Table `{source_table}` does not have selected column `{column}`."),
+                    Some("Use a column declared in the promoted table schema."),
+                ));
+                status = "unknown_column".to_owned();
+            }
+            TableColumnInfo {
+                name: column,
+                status,
+                line,
+            }
         })
         .collect()
 }
@@ -536,15 +626,14 @@ fn simple_column(value: &str) -> Option<String> {
     is_identifier(trimmed).then(|| trimmed.to_owned())
 }
 
-fn table_has_column(program: &SemanticProgram, table: &str, column: &str) -> bool {
-    let Some(schema_name) = schema_name_for_table(program, table) else {
-        return true;
-    };
-    program
-        .schemas
-        .iter()
-        .find(|schema| schema.name == schema_name)
-        .is_none_or(|schema| schema_has_column(schema, column))
+fn source_has_column(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    table: &str,
+    column: &str,
+) -> bool {
+    schema_column_for_source(program, transforms, table, column).is_some()
+        || schema_name_for_source(program, transforms, table).is_none()
 }
 
 fn schema_name_for_table(program: &SemanticProgram, table: &str) -> Option<String> {
@@ -574,6 +663,20 @@ fn schema_column_for_source<'a>(
     table: &str,
     column: &str,
 ) -> Option<&'a SchemaColumn> {
+    if let Some(transform) = transforms
+        .iter()
+        .find(|transform| transform.binding == table)
+    {
+        if transform.operation == "select"
+            && !transform.selected_columns.is_empty()
+            && !transform
+                .selected_columns
+                .iter()
+                .any(|selected| selected.status == "accepted" && selected.name == column)
+        {
+            return None;
+        }
+    }
     let schema_name = schema_name_for_source(program, transforms, table)?;
     program
         .schemas
@@ -582,13 +685,6 @@ fn schema_column_for_source<'a>(
         .columns
         .iter()
         .find(|candidate| candidate.name == column)
-}
-
-fn schema_has_column(schema: &SchemaInfo, column: &str) -> bool {
-    schema
-        .columns
-        .iter()
-        .any(|candidate| candidate.name == column)
 }
 
 fn is_identifier(value: &str) -> bool {

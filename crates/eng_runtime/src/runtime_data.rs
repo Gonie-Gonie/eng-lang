@@ -1068,10 +1068,18 @@ pub struct RuntimeTableTransform {
     pub secondary_input_row_count: Option<usize>,
     pub output_row_count: usize,
     pub matched_row_indices: Vec<usize>,
+    pub selected_columns: Vec<RuntimeTableColumn>,
     pub predicates: Vec<RuntimeTableTransformPredicate>,
     pub join_keys: Vec<RuntimeTableJoinKey>,
     pub status: String,
     pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableColumn {
+    pub name: String,
+    pub status: String,
     pub line: usize,
 }
 
@@ -3929,6 +3937,7 @@ fn materialize_table_transforms(
                     secondary_input_row_count: None,
                     output_row_count: matched_rows.len(),
                     matched_row_indices: one_based_rows(&matched_rows),
+                    selected_columns: Vec::new(),
                     predicates,
                     join_keys: Vec::new(),
                     status: "filtered".to_owned(),
@@ -3936,6 +3945,45 @@ fn materialize_table_transforms(
                         "no predicates; retained all source rows".to_owned()
                     } else {
                         "retained rows matching all predicates".to_owned()
+                    },
+                    line: transform.line,
+                });
+            }
+            "select" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name: schema_name.clone(),
+                        rows: source_rows.clone(),
+                    },
+                );
+                records.push(RuntimeTableTransform {
+                    binding: transform.binding.clone(),
+                    operation: transform.operation.clone(),
+                    source_table: transform.source_table.clone(),
+                    secondary_table: transform.secondary_table.clone(),
+                    schema_name,
+                    input_row_count: source_rows.len(),
+                    secondary_input_row_count: None,
+                    output_row_count: source_rows.len(),
+                    matched_row_indices: one_based_rows(&source_rows),
+                    selected_columns: runtime_table_columns(&transform.selected_columns),
+                    predicates: Vec::new(),
+                    join_keys: Vec::new(),
+                    status: "selected_columns".to_owned(),
+                    reason: if transform.selected_columns.is_empty() {
+                        "no selected columns recorded".to_owned()
+                    } else {
+                        "recorded selected table columns".to_owned()
                     },
                     line: transform.line,
                 });
@@ -3976,6 +4024,7 @@ fn materialize_table_transforms(
                     secondary_input_row_count: None,
                     output_row_count,
                     matched_row_indices: one_based_rows(&source_rows),
+                    selected_columns: Vec::new(),
                     predicates: runtime_table_transform_predicates(
                         report,
                         Some(table),
@@ -4038,6 +4087,7 @@ fn materialize_table_transforms(
                     secondary_input_row_count: Some(right_rows.len()),
                     output_row_count: joined_pairs.len(),
                     matched_row_indices: one_based_rows(&matched_left_rows),
+                    selected_columns: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: runtime_table_join_keys(
                         left_table,
@@ -4065,6 +4115,7 @@ fn materialize_table_transforms(
                 secondary_input_row_count: None,
                 output_row_count: 0,
                 matched_row_indices: Vec::new(),
+                selected_columns: runtime_table_columns(&transform.selected_columns),
                 predicates: runtime_table_transform_predicates(
                     report,
                     None,
@@ -4121,12 +4172,24 @@ fn missing_source_table_transform(
         secondary_input_row_count: None,
         output_row_count: 0,
         matched_row_indices: Vec::new(),
+        selected_columns: runtime_table_columns(&transform.selected_columns),
         predicates: runtime_table_transform_predicates(report, None, &[], &transform.predicates),
         join_keys: runtime_table_join_keys_empty(&transform.join_keys),
         status: "missing_source".to_owned(),
         reason: "source table or table transform was not materialized".to_owned(),
         line: transform.line,
     }
+}
+
+fn runtime_table_columns(columns: &[eng_compiler::TableColumnInfo]) -> Vec<RuntimeTableColumn> {
+    columns
+        .iter()
+        .map(|column| RuntimeTableColumn {
+            name: column.name.clone(),
+            status: column.status.clone(),
+            line: column.line,
+        })
+        .collect()
 }
 
 fn runtime_table_transform_predicates(

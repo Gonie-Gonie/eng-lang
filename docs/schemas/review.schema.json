@@ -316,6 +316,8 @@
         "source_table",
         "secondary_table",
         "schema_name",
+        "selected_column_count",
+        "selected_columns",
         "predicate_count",
         "predicates",
         "join_keys",
@@ -324,10 +326,15 @@
       ],
       "properties": {
         "binding": { "type": "string" },
-        "operation": { "enum": ["filter", "require_one", "join"] },
+        "operation": { "enum": ["filter", "select", "require_one", "join"] },
         "source_table": { "type": "string" },
         "secondary_table": { "type": ["string", "null"] },
         "schema_name": { "type": ["string", "null"] },
+        "selected_column_count": { "type": "integer", "minimum": 0 },
+        "selected_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewTableColumn" }
+        },
         "predicate_count": { "type": "integer", "minimum": 0 },
         "predicates": {
           "type": "array",
@@ -337,6 +344,15 @@
           "type": "array",
           "items": { "$ref": "#/$defs/reviewTableJoinKey" }
         },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "reviewTableColumn": {
+      "type": "object",
+      "required": ["name", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
@@ -652,6 +668,7 @@
         "secondary_input_row_count",
         "output_row_count",
         "matched_row_indices",
+        "selected_columns",
         "predicates",
         "join_keys",
         "status",
@@ -660,7 +677,7 @@
       ],
       "properties": {
         "binding": { "type": "string" },
-        "operation": { "enum": ["filter", "require_one", "join"] },
+        "operation": { "enum": ["filter", "select", "require_one", "join"] },
         "source_table": { "type": "string" },
         "secondary_table": { "type": ["string", "null"] },
         "schema_name": { "type": ["string", "null"] },
@@ -671,6 +688,10 @@
           "type": "array",
           "items": { "type": "integer", "minimum": 1 }
         },
+        "selected_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableColumn" }
+        },
         "predicates": {
           "type": "array",
           "items": { "$ref": "#/$defs/tableTransformPredicate" }
@@ -680,9 +701,18 @@
           "items": { "$ref": "#/$defs/tableJoinKey" }
         },
         "status": {
-          "enum": ["filtered", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
+          "enum": ["filtered", "selected_columns", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
         },
         "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableColumn": {
+      "type": "object",
+      "required": ["name", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

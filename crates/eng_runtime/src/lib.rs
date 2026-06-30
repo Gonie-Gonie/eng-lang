@@ -7744,6 +7744,24 @@ fn push_table_transform_json(
         json.push_str(&row.to_string());
     }
     json.push_str("],\n");
+    json.push_str(&format!("{field_indent}\"selected_columns\": [\n"));
+    for (column_index, column) in transform.selected_columns.iter().enumerate() {
+        if column_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"name\": \"{}\",\n",
+            json_escape(&column.name)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"status\": \"{}\",\n",
+            json_escape(&column.status)
+        ));
+        json.push_str(&format!("{nested_indent}  \"line\": {}\n", column.line));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
     json.push_str(&format!("{field_indent}\"predicates\": [\n"));
     for (predicate_index, predicate) in transform.predicates.iter().enumerate() {
         if predicate_index > 0 {
@@ -9052,6 +9070,65 @@ mod tests {
         assert!(output.result_json.contains("\"status\": \"selected\""));
         assert!(output.review_json.contains("\"table_transforms\""));
         assert!(output.review_json.contains("\"table_transform_count\": 2"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_select_transform_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-select-run");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-select-run-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("station_map.csv"),
+            concat!(
+                "region,station_id,latitude\n",
+                "demo,STN001,37.5665\n",
+                "other,STN002,35.1796\n",
+            ),
+        )
+        .expect("station map csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema StationMap {\n",
+                "    region: String\n",
+                "    station_id: String\n",
+                "    latitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "station_fields = select stations columns station_id, latitude\n",
+                "report {\n",
+                "    show station_fields\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"operation\": \"select\""));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"selected_columns\""));
+        assert!(output.result_json.contains("\"input_row_count\": 2"));
+        assert!(output.result_json.contains("\"output_row_count\": 2"));
+        assert!(output.result_json.contains("\"selected_columns\""));
+        assert!(output.result_json.contains("\"name\": \"station_id\""));
+        assert!(output.review_json.contains("\"operation\": \"select\""));
+        assert!(output.review_json.contains("\"selected_column_count\": 2"));
         assert!(!virtual_path.exists());
     }
 

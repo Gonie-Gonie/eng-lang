@@ -689,8 +689,9 @@ report.html                 selected binding values when shown in report blocks
 Each selection entry records the source table, return column, filters, matched
 row count, selected row values, status, reason, and source line.
 
-`filter <table>` with a `where { ... }` predicate block, `require_one <source>`,
-and `join <left> with <right>` with an `on { left.key == right.key }` block now
+`filter <table>` with a `where { ... }` predicate block,
+`select <table> columns a, b`, `require_one <source>`, and
+`join <left> with <right>` with an `on { left.key == right.key }` block now
 add schema-aware transform records:
 
 ```text
@@ -700,9 +701,9 @@ result.engres               typed_payload.table_transforms
 ```
 
 Each transform entry records the binding, operation, source table, optional
-secondary table, schema, predicate metadata, join keys, input/output row counts,
-matched row indices or pair counts, status, reason, and source line. General
-table select/derive/sort/fill transforms remain planned.
+secondary table, schema, selected columns, predicate metadata, join keys,
+input/output row counts, matched row indices or pair counts, status, reason,
+and source line. General table derive/sort/fill transforms remain planned.
 
 ## Manual Checks
 

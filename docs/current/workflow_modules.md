@@ -7,7 +7,7 @@ missing-cell, parse/conversion, time-axis coverage summaries, and
 `typed_payload.timeseries_coverage[]` records with expected counts, missing
 intervals, max gaps, and leap-year policy, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
-table filter/require_one/join seeds now emit static `review_document.table_transforms[]`
+table filter/select/require_one/join seeds now emit static `review_document.table_transforms[]`
 and runtime `typed_payload.table_transforms[]` records with predicates, join
 keys, matched pair counts, and row counts. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
@@ -44,7 +44,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |
 | `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
-| `eng.table` | Supported diagnostics, row-selection, and filter/require_one/join artifact seeds; planned broader APIs | promoted table row/column diagnostics, deterministic row selection, filter/require_one row counts, join key pair counts; select/derived/sort planned |
+| `eng.table` | Supported diagnostics, row-selection, and filter/select/require_one/join artifact seeds; planned broader APIs | promoted table row/column diagnostics, deterministic row selection, filter/select/require_one row counts, selected columns, join key pair counts; derived/sort planned |
 | `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
@@ -113,8 +113,8 @@ hashes, validation status, duration, and status. For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
 reviewable schema/row/coverage summary, `typed_payload.table_selections[]`
 records selected row, selected value, filters, match count, and selection
-reason, `typed_payload.table_transforms[]` records filter/require_one/join row
-counts, predicates, join keys, matched pair counts, status, and reason,
+reason, `typed_payload.table_transforms[]` records filter/select/require_one/join row
+counts, selected columns, predicates, join keys, matched pair counts, status, and reason,
 `review_document.table_transforms[]` records the static transform contract,
 `typed_payload.sample_tables[]` records
 deterministic sample/case table metadata when a promoted table is
