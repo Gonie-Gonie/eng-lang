@@ -2,7 +2,16 @@
 # status: supported-builtins
 # purpose: typed path values and review-visible filesystem existence checks.
 #
-# Compiler-known built-ins:
+# Supported API declarations:
+#   file(path: String) -> FilePath
+#   dir(path: String) -> DirectoryPath
+#   join(base: DirectoryPath, child: String) -> FilePath | DirectoryPath
+#   parent(path: FilePath) -> DirectoryPath
+#   stem(path: FilePath) -> String
+#   extension(path: FilePath) -> String
+#   exists(path: FilePath | DirectoryPath) -> Bool
+#
+# Compiler-known concrete forms:
 #   file("relative/or/absolute/path")
 #   dir("relative/or/absolute/path")
 #   join(path, "child")
@@ -19,7 +28,14 @@
 # Diagnostics:
 #   E-PATH-INVALID: output path expression resolves to an empty path.
 #   E-PATH-TRAVERSAL: generated output path contains `..`.
+#   E-PATH-WRONG-KIND: path helper is used with the wrong path kind.
 #   E-PATH-OUTSIDE-OUTPUT-ROOT: generated output path is absolute/rooted.
+#   W-PATH-ENVIRONMENT-DEPENDENT: exists depends on the local filesystem.
+#
+# Current limitation:
+#   The compiler currently narrows concrete join(...) expressions to FilePath.
+#   Directory-preserving join inference belongs with the module-symbol/runtime
+#   connection work.
 #
 # Pure .eng helpers:
 #   none yet. Importable stdlib execution is planned; current behavior lives in
