@@ -135,6 +135,7 @@ struct InspectorView {
     time_alignments: Value,
     table_transforms: Value,
     structured_reads: Value,
+    config_promotions: Value,
     systems: Value,
     system_ir: Value,
     linear_operators: Value,
@@ -164,6 +165,7 @@ impl Default for InspectorView {
             time_alignments: Value::Array(Vec::new()),
             table_transforms: Value::Array(Vec::new()),
             structured_reads: Value::Array(Vec::new()),
+            config_promotions: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             system_ir: Value::Array(Vec::new()),
             linear_operators: Value::Array(Vec::new()),
@@ -1094,6 +1096,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         time_alignments: json_array_clone(&report, "time_alignments"),
         table_transforms: table_transform_inspector(&result, &review),
         structured_reads: typed_payload_array_clone(&result, "structured_reads"),
+        config_promotions: typed_payload_array_clone(&result, "config_promotions"),
         systems: system_inspector(&report, &result),
         system_ir: json_array_clone(&report, "system_ir"),
         linear_operators: json_array_clone(&report, "linear_operators"),
@@ -4020,6 +4023,26 @@ mod tests {
                     "error": null,
                     "line": 4
                   }
+                ],
+                "config_promotions": [
+                  {
+                    "binding": "config",
+                    "format": "json",
+                    "schema_name": "WorkflowConfig",
+                    "source": "payload",
+                    "resolved_path": "data/case.json",
+                    "source_hash": "abc123",
+                    "field_count": 2,
+                    "missing_fields": [],
+                    "unknown_fields": [],
+                    "null_fields": [],
+                    "optional_fields": [],
+                    "optional_missing_fields": [],
+                    "optional_null_fields": [],
+                    "type_mismatches": [],
+                    "status": "validated",
+                    "line": 5
+                  }
                 ]
               }
             }"#,
@@ -4045,6 +4068,19 @@ mod tests {
         assert_eq!(
             json_field_string(read, "root_type").as_deref(),
             Some("object")
+        );
+        let configs = inspectors
+            .config_promotions
+            .as_array()
+            .expect("config promotions");
+        let config = configs.first().expect("config promotion");
+        assert_eq!(
+            json_field_string(config, "binding").as_deref(),
+            Some("config")
+        );
+        assert_eq!(
+            json_field_string(config, "status").as_deref(),
+            Some("validated")
         );
     }
 

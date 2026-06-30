@@ -48,6 +48,7 @@ function emptyInspectors() {
     timeAlignments: [],
     tableTransforms: [],
     structuredReads: [],
+    configPromotions: [],
     systems: [],
     systemIr: [],
     kernelPlan: null,
@@ -799,14 +800,20 @@ function renderTablesPanel() {
 
 function renderReadsPanel() {
   const reads = inspectorRows("structuredReads");
+  const configs = inspectorRows("configPromotions");
   const parsed = reads.filter((read) => (read.parse_status || read.parseStatus) === "parsed").length;
   return `
     <div class="panel-title compact">Structured Reads</div>
     <div class="badges">
       <span class="badge">Reads ${reads.length}</span>
       <span class="badge">Parsed ${parsed}</span>
+      <span class="badge">Configs ${configs.length}</span>
     </div>
-    <div class="scroll">${renderStructuredReads(reads)}</div>
+    <div class="scroll">
+      ${renderStructuredReads(reads)}
+      <div class="panel-title compact">Config Promotions</div>
+      ${renderConfigPromotions(configs)}
+    </div>
   `;
 }
 
@@ -1293,6 +1300,38 @@ function renderStructuredReads(reads) {
     <table class="artifact-table">
       <thead><tr><th>Binding</th><th>Kind</th><th>Path</th><th>Status</th><th>Shape</th><th>Hash</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="6" class="muted">Run a file with read text/json/toml to inspect structured inputs.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderConfigPromotions(configs) {
+  const rows = configs.map((config) => {
+    const missing = config.missing_fields || config.missingFields || [];
+    const unknown = config.unknown_fields || config.unknownFields || [];
+    const optionalMissing = config.optional_missing_fields || config.optionalMissingFields || [];
+    const optionalNull = config.optional_null_fields || config.optionalNullFields || [];
+    const fieldCount = config.field_count ?? config.fieldCount ?? "-";
+    const policy = [
+      missing.length ? `missing=${missing.length}` : "",
+      unknown.length ? `unknown=${unknown.length}` : "",
+      optionalMissing.length ? `optional missing=${optionalMissing.length}` : "",
+      optionalNull.length ? `optional null=${optionalNull.length}` : ""
+    ].filter(Boolean).join("; ") || "ok";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(config.binding || "-")}</strong><div class="muted">L${escapeHtml(config.line ?? "-")}</div></td>
+        <td>${escapeHtml(config.format || "-")}<div class="muted">${escapeHtml(config.schema_name || config.schemaName || "-")}</div></td>
+        <td><code>${escapeHtml(compactText(config.source || config.source_literal || config.sourceLiteral || "-", 64))}</code><div class="muted">${escapeHtml(compactText(config.resolved_path || config.resolvedPath || "-", 72))}</div></td>
+        <td>${escapeHtml(config.status || "-")}<div class="muted">fields ${escapeHtml(fieldCount)}</div></td>
+        <td>${escapeHtml(compactText(policy, 80))}</td>
+        <td><code>${escapeHtml(compactText(config.source_hash || config.sourceHash || "-", 64))}</code></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Format</th><th>Source</th><th>Status</th><th>Policy</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No typed config promotions.</td></tr>`}</tbody>
     </table>
   `;
 }
