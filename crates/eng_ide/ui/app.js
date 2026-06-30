@@ -58,6 +58,7 @@ function emptyInspectors() {
     reviewDocument: null,
     artifactOutlines: [],
     effectRecords: null,
+    networkCache: null,
     outputManifest: null,
     runLog: null,
     processResults: null,
@@ -673,6 +674,7 @@ function renderSidePanel() {
         ${sideTabButton("review", "Review")}
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("effects", "Effects")}
+        ${sideTabButton("network", "Net")}
         ${sideTabButton("run", "Run")}
       </div>
       <div class="side-body">${renderSideBody()}</div>
@@ -698,6 +700,7 @@ function renderSideBody() {
   if (state.sideTab === "review") return renderReviewPanel();
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "effects") return renderEffectsPanel();
+  if (state.sideTab === "network") return renderNetworkPanel();
   if (state.sideTab === "run") return renderRunPanel();
   return `
     <div class="panel-title compact">Variables</div>
@@ -2202,6 +2205,63 @@ function renderEffectsPanel() {
       <div class="panel-title compact">External Boundary Records</div>
       ${renderExternalBoundaryRecords(boundaries)}
     </div>
+  `;
+}
+
+function renderNetworkPanel() {
+  const network = inspectorObject("networkCache");
+  const requests = Array.isArray(network.networkRequests) ? network.networkRequests : [];
+  const events = Array.isArray(network.networkEvents) ? network.networkEvents : [];
+  const caches = Array.isArray(network.manifestCaches) ? network.manifestCaches : [];
+  const cacheEvents = Array.isArray(network.cacheEvents) ? network.cacheEvents : [];
+  return `
+    <div class="panel-title compact">Network / Cache</div>
+    <div class="badges">
+      <span class="badge">Requests ${requests.length || events.length}</span>
+      <span class="badge">Cache ${caches.length || cacheEvents.length}</span>
+    </div>
+    <div class="scroll">
+      <div class="panel-title compact">Network Events</div>
+      ${renderNetworkEvents(events, requests)}
+      <div class="panel-title compact">Cache Events</div>
+      ${renderCacheEvents(cacheEvents, caches)}
+    </div>
+  `;
+}
+
+function renderNetworkEvents(events, requests) {
+  const source = events.length ? events : requests;
+  const rows = source.map((event) => `
+    <tr>
+      <td><strong>${escapeHtml(event.kind || event.method || "-")}</strong><div class="muted">L${escapeHtml(event.line ?? "-")}</div></td>
+      <td>${escapeHtml(event.status || "-")}<div class="muted">${escapeHtml(event.status_class || event.statusClass || "-")} ${escapeHtml(event.status_code ?? event.statusCode ?? "")}</div></td>
+      <td><code>${escapeHtml(compactText(event.target || event.url || "-", 90))}</code></td>
+      <td><code>${escapeHtml(compactText(event.response_hash || event.responseHash || event.hash || "-", 70))}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Kind</th><th>Status</th><th>Target</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No network events.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderCacheEvents(events, caches) {
+  const source = events.length ? events : caches;
+  const rows = source.map((event) => `
+    <tr>
+      <td><strong>${escapeHtml(event.owner_kind || event.ownerKind || "-")}</strong><div class="muted">${escapeHtml(event.owner_name || event.ownerName || "-")}</div></td>
+      <td>${escapeHtml(event.status || "-")}</td>
+      <td><code>${escapeHtml(compactText(event.cache_key || event.cacheKey || event.cache_key_hash || event.cacheKeyHash || "-", 80))}</code></td>
+      <td><code>${escapeHtml(compactText(event.cache_path || event.cachePath || event.cache_dir || event.cacheDir || "-", 90))}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Owner</th><th>Status</th><th>Key</th><th>Path</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No cache events.</td></tr>`}</tbody>
+    </table>
   `;
 }
 

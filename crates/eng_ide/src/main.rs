@@ -146,6 +146,7 @@ struct InspectorView {
     review_document: Value,
     artifact_outlines: Value,
     effect_records: Value,
+    network_cache: Value,
     output_manifest: Value,
     run_log: Value,
     process_results: Value,
@@ -176,6 +177,7 @@ impl Default for InspectorView {
             review_document: Value::Null,
             artifact_outlines: Value::Array(Vec::new()),
             effect_records: Value::Null,
+            network_cache: Value::Null,
             output_manifest: Value::Null,
             run_log: Value::Null,
             process_results: Value::Null,
@@ -1085,6 +1087,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let output_manifest = output_manifest_inspector(root, output);
     let run_log = parse_json_value(&output.run_log_json);
     let effect_records = effect_records_inspector(&output_manifest, &run_log);
+    let network_cache = network_cache_inspector(&output_manifest, &run_log);
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
@@ -1113,6 +1116,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
             .unwrap_or(Value::Null),
         artifact_outlines: artifact_outlines(root, output),
         effect_records,
+        network_cache,
         output_manifest,
         run_log,
         process_results: parse_json_value(&output.process_results_json),
@@ -1147,6 +1151,40 @@ fn effect_records_inspector(output_manifest: &Value, run_log: &Value) -> Value {
         "recordTypes": ["ArtifactRecord", "ExternalBoundaryRecord"],
         "artifactRecords": artifact_records,
         "externalBoundaryRecords": external_boundary_records,
+    })
+}
+
+fn network_cache_inspector(output_manifest: &Value, run_log: &Value) -> Value {
+    let registry = output_manifest
+        .get("artifact_registry")
+        .cloned()
+        .unwrap_or(Value::Null);
+    let network_requests = registry
+        .get("network_requests")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let manifest_caches = registry
+        .get("caches")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let network_events = run_log
+        .get("network_events")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let cache_events = run_log
+        .get("cache_events")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    json!({
+        "format": "eng-ide-network-cache-v1",
+        "networkRequests": network_requests,
+        "networkEvents": network_events,
+        "manifestCaches": manifest_caches,
+        "cacheEvents": cache_events,
     })
 }
 
@@ -4003,6 +4041,93 @@ mod tests {
             json_field_string(item, "status").as_deref() == Some("excluded")
                 && json_field_usize(item, "count") == Some(1)
         }));
+    }
+
+    #[test]
+    fn ide_surfaces_network_cache_inspector() {
+        let mut cached = cached_output_with_result_report_and_review("{}", "{}", "{}");
+        cached.run_log_json = r#"{
+          "network_events": [
+            {
+              "kind": "network_request",
+              "target": "https://example.test/weather",
+              "status": "fixture_ready",
+              "status_code": 200,
+              "status_class": "success",
+              "response_hash": "net-hash",
+              "line": 4
+            }
+          ],
+          "cache_events": [
+            {
+              "owner_kind": "network_request",
+              "owner_name": "weather",
+              "cache_key": "station=demo",
+              "cache_path": "build/cache/weather.json",
+              "status": "hit",
+              "line": 4
+            }
+          ]
+        }"#
+        .to_owned();
+        cached.output_manifest_json = r#"{
+          "artifact_registry": {
+            "network_requests": [
+              {
+                "kind": "network_request",
+                "target": "https://example.test/weather",
+                "status": "fixture_ready",
+                "response_hash": "net-hash"
+              }
+            ],
+            "caches": [
+              {
+                "owner_kind": "network_request",
+                "owner_name": "weather",
+                "cache_key": "station=demo",
+                "cache_path": "build/cache/weather.json",
+                "status": "hit"
+              }
+            ]
+          }
+        }"#
+        .to_owned();
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let network_cache = inspectors
+            .network_cache
+            .as_object()
+            .expect("network cache inspector");
+        assert_eq!(
+            network_cache
+                .get("format")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "eng-ide-network-cache-v1"
+        );
+        assert_eq!(
+            network_cache
+                .get("networkEvents")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            network_cache
+                .get("cacheEvents")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            network_cache
+                .get("manifestCaches")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first())
+                .and_then(|item| json_field_string(item, "status"))
+                .as_deref(),
+            Some("hit")
+        );
     }
 
     #[test]
