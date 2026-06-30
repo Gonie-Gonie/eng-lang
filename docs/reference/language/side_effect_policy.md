@@ -26,7 +26,7 @@ what was read, and what external state influenced the result.
 |---|---|---|
 | Pure path manipulation | `join`, `parent`, `stem`, `extension` | Pure, allowed in args defaults and const when inputs are pure |
 | Environment-dependent read | `exists`, `env`, `today`, `now` | Allowed in normal profile, recorded in provenance |
-| Read-only I/O | `read text`, `read json`, `read toml` | UTF-8 raw string reads; source hash is recorded |
+| Read-only I/O | `read text`, `read json`, `read toml` | UTF-8 raw string reads; source hash is recorded; direct JSON field access is rejected |
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |

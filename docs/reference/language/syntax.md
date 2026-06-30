@@ -310,6 +310,7 @@ Read-only I/O rules:
 | Paths resolve source-relative | `file("data/notes.txt")` is resolved beside the `.eng` file |
 | Files are read as UTF-8 | Binary reads are deferred |
 | Values are strings | `read json/toml` records source text, not structured values |
+| JSON field access is rejected | `payload.field` on a `read json` binding emits `E-IO-JSON-FIELD-ACCESS-001`; promote to a schema first |
 | Source hashes are recorded | `review.json`, `result.engres`, and `report_spec.json` include provenance |
 | Hidden imported reads are rejected | Importable const/function files must not hide runtime I/O |
 

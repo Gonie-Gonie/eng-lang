@@ -1398,6 +1398,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut linear_operators,
         &mut diagnostics,
     );
+    validate_json_read_field_access_policy(program, &mut diagnostics);
 
     let mut assembly_components = if component_instances.is_empty() {
         components.clone()
@@ -10413,6 +10414,60 @@ fn equation_dependencies(
             quantity_kind: variable.quantity_kind.clone(),
         })
         .collect()
+}
+
+fn validate_json_read_field_access_policy(
+    program: &ParsedProgram,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let json_read_bindings = program
+        .items
+        .iter()
+        .filter_map(|item| {
+            let AstItem::FastBinding(binding) = item else {
+                return None;
+            };
+            read_only_io_expression(&binding.expression)
+                .is_some_and(|(kind, _)| kind == "json")
+                .then(|| binding.name.clone())
+        })
+        .collect::<HashSet<_>>();
+    if json_read_bindings.is_empty() {
+        return;
+    }
+
+    let mut reported = HashSet::new();
+    for line in &program.lines {
+        for window in line.tokens.windows(3) {
+            let [crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Identifier(binding),
+                ..
+            }, crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Symbol(crate::lexer::Symbol::Dot),
+                ..
+            }, crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Identifier(field),
+                ..
+            }] = window
+            else {
+                continue;
+            };
+            if !json_read_bindings.contains(binding) {
+                continue;
+            }
+            if !reported.insert((line.line, binding.clone(), field.clone())) {
+                continue;
+            }
+            diagnostics.push(Diagnostic::error(
+                "E-IO-JSON-FIELD-ACCESS-001",
+                line.line,
+                &format!(
+                    "`read json` binding `{binding}` does not support direct field access `{binding}.{field}`."
+                ),
+                Some("Promote the JSON payload to a schema first, for example `typed = promote json payload as SchemaName`."),
+            ));
+        }
+    }
 }
 
 fn derivative_states(left: &str, right: &str, variables: &[SystemVariableInfo]) -> Vec<String> {

@@ -7907,6 +7907,36 @@ mod tests {
     }
 
     #[test]
+    fn rejects_direct_json_read_field_access() {
+        let root = std::env::temp_dir().join("englang-json-read-field-access-policy");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("case.json"),
+            "{ \"case\": \"baseline\" }\n",
+        )
+        .expect("json");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "payload = read json file(\"data/case.json\")\ncase_name = payload.case\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-IO-JSON-FIELD-ACCESS-001" && diagnostic.line == 2
+        }));
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic
+                .help
+                .as_deref()
+                .is_some_and(|help| help.contains("promote json payload as SchemaName"))
+        }));
+    }
+
+    #[test]
     fn rejects_invalid_structured_read_sources() {
         let root = std::env::temp_dir().join("englang-structured-read-parse-test");
         let _ = fs::remove_dir_all(&root);

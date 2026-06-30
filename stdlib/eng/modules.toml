@@ -18,7 +18,7 @@ status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Read text/json/toml, write text/json, exports, source hashes, and output hashes."
 artifacts = ["review.inputs", "review.side_effects", "output_manifest"]
-diagnostics = ["E-IO-JSON-PARSE", "E-IO-TOML-PARSE"]
+diagnostics = ["E-IO-JSON-PARSE", "E-IO-TOML-PARSE", "E-IO-JSON-FIELD-ACCESS-001"]
 examples = ["examples/official/11_read_only_io"]
 tests = ["cargo test -p eng_compiler read_only_io"]
 
