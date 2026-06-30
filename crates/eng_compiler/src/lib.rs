@@ -258,6 +258,7 @@ fn workflow_node_review_risk_category(kind: &str) -> &'static str {
         | "timeseries_coverage"
         | "timeseries_fill"
         | "timeseries_quality"
+        | "quality_result"
         | "case"
         | "model" => "data_quality",
         "system" | "component_solution" | "solver_boundary" => "solver_or_numeric",
@@ -7750,6 +7751,11 @@ mod tests {
         assert_eq!(quality.category, "data_quality");
         assert_eq!(quality.severity, "warning");
         assert_eq!(quality.level, "medium");
+
+        let quality_result = classify_workflow_node_review_risk("quality_result", "warning");
+        assert_eq!(quality_result.category, "data_quality");
+        assert_eq!(quality_result.severity, "warning");
+        assert_eq!(quality_result.level, "medium");
     }
 
     #[test]

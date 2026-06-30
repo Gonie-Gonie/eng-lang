@@ -81,6 +81,7 @@ pub struct RuntimeData {
     pub component_solutions: Vec<RuntimeComponentSolution>,
     pub metrics: Vec<RuntimeMetric>,
     pub validations: Vec<RuntimeValidation>,
+    pub quality_results: Vec<RuntimeQualityResult>,
     pub time_alignments: Vec<RuntimeTimeAlignment>,
     pub plot_options: PlotOptions,
 }
@@ -1353,6 +1354,25 @@ pub struct RuntimeTimeSeriesQuality {
     pub coverage_status: String,
     pub fill_status: Option<String>,
     pub quality_score: Option<f64>,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeQualityResult {
+    pub binding: String,
+    pub kind: String,
+    pub category: String,
+    pub target: String,
+    pub subject: String,
+    pub source_table: Option<String>,
+    pub source_column: Option<String>,
+    pub time_column: Option<String>,
+    pub score: Option<f64>,
+    pub passed_count: usize,
+    pub warning_count: usize,
+    pub failed_count: usize,
     pub status: String,
     pub reason: String,
     pub line: usize,
@@ -2911,6 +2931,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         &data.uncertainties,
         &data.timeseries_coverage,
     );
+    data.quality_results = materialize_quality_results(&data.timeseries_quality);
     data
 }
 
@@ -3954,6 +3975,35 @@ fn timeseries_quality_status_reason(
         "warning",
         "TimeSeries quality has missing samples after coverage and fill evaluation",
     )
+}
+
+fn materialize_quality_results(
+    timeseries_quality: &[RuntimeTimeSeriesQuality],
+) -> Vec<RuntimeQualityResult> {
+    timeseries_quality
+        .iter()
+        .map(|quality| {
+            let passed = quality.status == "passed";
+            let warning = quality.status == "warning";
+            RuntimeQualityResult {
+                binding: format!("{}.quality_result", quality.binding),
+                kind: "timeseries_quality_result".to_owned(),
+                category: "timeseries".to_owned(),
+                target: quality.binding.clone(),
+                subject: format!("{}.{}", quality.source_table, quality.source_column),
+                source_table: Some(quality.source_table.clone()),
+                source_column: Some(quality.source_column.clone()),
+                time_column: Some(quality.time_column.clone()),
+                score: quality.quality_score,
+                passed_count: usize::from(passed),
+                warning_count: usize::from(warning),
+                failed_count: usize::from(!passed && !warning),
+                status: quality.status.clone(),
+                reason: quality.reason.clone(),
+                line: quality.line,
+            }
+        })
+        .collect()
 }
 
 fn coverage_status(
@@ -22822,6 +22872,18 @@ with {{
         assert_eq!(quality.remaining_missing_count, 0);
         assert_eq!(quality.quality_score, Some(1.0));
         assert_eq!(quality.status, "passed");
+
+        let quality_result = runtime
+            .quality_results
+            .iter()
+            .find(|result| result.binding == "filled.quality_result")
+            .expect("quality result");
+        assert_eq!(quality_result.kind, "timeseries_quality_result");
+        assert_eq!(quality_result.target, "filled");
+        assert_eq!(quality_result.subject, "weather.wind_speed");
+        assert_eq!(quality_result.score, Some(1.0));
+        assert_eq!(quality_result.passed_count, 1);
+        assert_eq!(quality_result.status, "passed");
 
         let filled_series = runtime
             .time_series

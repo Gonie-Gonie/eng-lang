@@ -4413,6 +4413,34 @@ fn run_plan_json(
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
+    for quality in &runtime_data.quality_results {
+        let id = format!("quality_result:{}", quality.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "quality_result",
+            &quality.binding,
+            &quality.status,
+            "runtime",
+            if quality.status == "passed" {
+                "low"
+            } else {
+                "medium"
+            },
+            quality.line,
+            vec![json!({
+                "kind": &quality.kind,
+                "category": &quality.category,
+                "target": &quality.target,
+                "subject": &quality.subject,
+                "score": quality.score,
+                "passed_count": quality.passed_count,
+                "warning_count": quality.warning_count,
+                "failed_count": quality.failed_count
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
     for boundary in external_boundary_records {
         let id = format!("boundary:{}:{}", boundary.kind, boundary.binding);
         nodes.push(run_plan_node(
@@ -4703,6 +4731,7 @@ fn source_binding_node_id(binding: &str, node_ids: &HashSet<String>) -> Option<S
         format!("timeseries_coverage:{binding}"),
         format!("timeseries_fill:{binding}"),
         format!("timeseries_quality:{binding}"),
+        format!("quality_result:{binding}"),
         format!("model:{binding}"),
     ]
     .into_iter()
@@ -4835,6 +4864,17 @@ fn add_runtime_dependency_edges(
         }
         if !has_dependency {
             if let Some(source_id) = source_binding_node_id(&quality.source_table, node_ids) {
+                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+            }
+        }
+    }
+    for quality in &runtime_data.quality_results {
+        let id = format!("quality_result:{}", quality.binding);
+        let target_id = format!("timeseries_quality:{}", quality.target);
+        if node_ids.contains(&target_id) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &target_id, "depends_on");
+        } else if let Some(source_table) = &quality.source_table {
+            if let Some(source_id) = source_binding_node_id(source_table, node_ids) {
                 push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
             }
         }
@@ -6962,6 +7002,7 @@ fn result_json(
     let network_boundaries = network_boundaries_json(report);
     let table_selections = table_selections_json(runtime_data, "      ");
     let table_transforms = table_transforms_json(runtime_data, "      ");
+    let quality_results = quality_results_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let timeseries_fill = timeseries_fill_json(runtime_data, "      ");
     let timeseries_quality = timeseries_quality_json(runtime_data, "      ");
@@ -7696,6 +7737,12 @@ fn result_json(
         hashes.plot_spec,
         hashes.report_spec
     );
+    let quality_results_marker = "    ],\n    \"time_axes\": [\n";
+    let quality_results_block = format!(
+        "    ],\n    \"quality_results\": [\n{}\n    ],\n    \"time_axes\": [\n",
+        quality_results
+    );
+    result_json = result_json.replace(quality_results_marker, &quality_results_block);
     let timeseries_quality_marker = "    ],\n    \"timeseries_fallbacks\": [\n";
     let timeseries_quality_block = format!(
         "    ],\n    \"timeseries_quality\": [\n{}\n    ],\n    \"timeseries_fallbacks\": [\n",
@@ -8275,6 +8322,8 @@ fn runtime_review_json(
     json.push_str(&table_selections_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"table_transforms\": [\n");
     json.push_str(&table_transforms_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"quality_results\": [\n");
+    json.push_str(&quality_results_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
     json.push_str(&timeseries_coverage_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_fill\": [\n");
@@ -10433,6 +10482,87 @@ fn push_table_transform_json(
     json.push_str(&format!("{indent}}}"));
 }
 
+fn quality_results_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    for (index, quality) in runtime_data.quality_results.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_quality_result_json(&mut json, quality, indent);
+    }
+    json
+}
+
+fn push_quality_result_json(
+    json: &mut String,
+    quality: &runtime_data::RuntimeQualityResult,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&quality.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"kind\": \"{}\",\n",
+        json_escape(&quality.kind)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"category\": \"{}\",\n",
+        json_escape(&quality.category)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"target\": \"{}\",\n",
+        json_escape(&quality.target)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"subject\": \"{}\",\n",
+        json_escape(&quality.subject)
+    ));
+    push_optional_json_string(
+        json,
+        "source_table",
+        quality.source_table.as_deref(),
+        field_indent.len(),
+    );
+    push_optional_json_string(
+        json,
+        "source_column",
+        quality.source_column.as_deref(),
+        field_indent.len(),
+    );
+    push_optional_json_string(
+        json,
+        "time_column",
+        quality.time_column.as_deref(),
+        field_indent.len(),
+    );
+    push_optional_json_number(json, "score", quality.score, field_indent.len());
+    json.push_str(&format!(
+        "{field_indent}\"passed_count\": {},\n",
+        quality.passed_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"warning_count\": {},\n",
+        quality.warning_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"failed_count\": {},\n",
+        quality.failed_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(&quality.status)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"reason\": \"{}\",\n",
+        json_escape(&quality.reason)
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", quality.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
 fn timeseries_coverage_json(runtime_data: &RuntimeData, indent: &str) -> String {
     let mut json = String::new();
     for (index, coverage) in runtime_data.timeseries_coverage.iter().enumerate() {
@@ -12199,6 +12329,28 @@ mod tests {
             quality.get("status").and_then(Value::as_str),
             Some("passed")
         );
+        let quality_result = json_array_item_by_binding(
+            &result,
+            "/typed_payload/quality_results",
+            "filled.quality_result",
+        )
+        .expect("result quality result");
+        assert_eq!(
+            quality_result.get("kind").and_then(Value::as_str),
+            Some("timeseries_quality_result")
+        );
+        assert_eq!(
+            quality_result.get("target").and_then(Value::as_str),
+            Some("filled")
+        );
+        assert_eq!(
+            quality_result.get("score").and_then(Value::as_f64),
+            Some(1.0)
+        );
+        assert_eq!(
+            quality_result.get("status").and_then(Value::as_str),
+            Some("passed")
+        );
         let filled_object =
             json_array_item_by_field(&result, "/object_store/objects", "name", "filled")
                 .expect("filled object");
@@ -12220,6 +12372,15 @@ mod tests {
             review_quality.get("filled_count").and_then(Value::as_u64),
             Some(1)
         );
+        let review_quality_result =
+            json_array_item_by_binding(&review, "/quality_results", "filled.quality_result")
+                .expect("review quality result");
+        assert_eq!(
+            review_quality_result
+                .get("category")
+                .and_then(Value::as_str),
+            Some("timeseries")
+        );
         let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
         let fill_node =
             json_array_item_by_field(&run_plan, "/graph/nodes", "id", "timeseries_fill:filled")
@@ -12233,6 +12394,19 @@ mod tests {
                 .expect("run plan timeseries quality node");
         assert_eq!(
             quality_node.get("risk_category").and_then(Value::as_str),
+            Some("data_quality")
+        );
+        let quality_result_node = json_array_item_by_field(
+            &run_plan,
+            "/graph/nodes",
+            "id",
+            "quality_result:filled.quality_result",
+        )
+        .expect("run plan quality result node");
+        assert_eq!(
+            quality_result_node
+                .get("risk_category")
+                .and_then(Value::as_str),
             Some("data_quality")
         );
         assert!(run_plan_has_edge(
@@ -12251,6 +12425,12 @@ mod tests {
             &run_plan,
             "timeseries_quality:filled",
             "timeseries_coverage:weather.Time.coverage",
+            "depends_on"
+        ));
+        assert!(run_plan_has_edge(
+            &run_plan,
+            "quality_result:filled.quality_result",
+            "timeseries_quality:filled",
             "depends_on"
         ));
     }

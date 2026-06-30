@@ -102,6 +102,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/reviewConfigPromotion" }
     },
+    "quality_results": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/qualityResult" }
+    },
     "timeseries_coverage": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesCoverage" }
@@ -1065,6 +1069,43 @@
         "matched_pair_count": { "type": "integer", "minimum": 0 },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "qualityResult": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "category",
+        "target",
+        "subject",
+        "source_table",
+        "source_column",
+        "time_column",
+        "score",
+        "passed_count",
+        "warning_count",
+        "failed_count",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "enum": ["timeseries_quality_result"] },
+        "category": { "enum": ["timeseries"] },
+        "target": { "type": "string" },
+        "subject": { "type": "string" },
+        "source_table": { "type": ["string", "null"] },
+        "source_column": { "type": ["string", "null"] },
+        "time_column": { "type": ["string", "null"] },
+        "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "passed_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "failed_count": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["passed", "warning", "failed", "unavailable"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "timeSeriesCoverage": {

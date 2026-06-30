@@ -136,6 +136,7 @@ typed_payload.statistics
 typed_payload.integrations
 typed_payload.timeseries_fill
 typed_payload.timeseries_quality
+typed_payload.quality_results
 typed_payload.time_alignments
 ```
 
@@ -176,6 +177,10 @@ fillable count, filled count, skipped count, status, and source line. The
 interpolated output is also available in the VM object store under the fill
 binding name. `typed_payload.timeseries_quality[]` summarizes the related
 coverage/fill outcome with remaining missing count and a 0..1 quality score.
+The same TimeSeries quality summary is also projected into
+`typed_payload.quality_results[]` as a generic `timeseries_quality_result` bridge
+record with target, subject, pass/warning/failure counts, score, status, reason,
+and source line.
 
 ## Alignment And Resampling Hooks
 

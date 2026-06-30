@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "timeseries_coverage", "timeseries_fill", "timeseries_quality", "timeseries_fallbacks", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "quality_results", "time_axes", "timeseries_coverage", "timeseries_fill", "timeseries_quality", "timeseries_fallbacks", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -96,6 +96,10 @@
         "validations": {
           "type": "array",
           "items": { "$ref": "#/$defs/resultValidation" }
+        },
+        "quality_results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualityResult" }
         },
         "time_alignments": {
           "type": "array",
@@ -1063,6 +1067,43 @@
         "unit": { "type": "string" },
         "status": { "enum": ["passed", "failed", "unavailable"] },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "qualityResult": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "category",
+        "target",
+        "subject",
+        "source_table",
+        "source_column",
+        "time_column",
+        "score",
+        "passed_count",
+        "warning_count",
+        "failed_count",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "enum": ["timeseries_quality_result"] },
+        "category": { "enum": ["timeseries"] },
+        "target": { "type": "string" },
+        "subject": { "type": "string" },
+        "source_table": { "type": ["string", "null"] },
+        "source_column": { "type": ["string", "null"] },
+        "time_column": { "type": ["string", "null"] },
+        "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "passed_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "failed_count": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["passed", "warning", "failed", "unavailable"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "timeSeriesCoverage": {
