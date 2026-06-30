@@ -1063,13 +1063,14 @@ function renderModules() {
       <td><strong>${escapeHtml(module.name || "-")}</strong></td>
       <td>${escapeHtml(module.status || "-")}<div class="muted">${escapeHtml(module.backing || "-")}</div></td>
       <td>${escapeHtml(compactText(module.purpose || "-", 120))}</td>
+      <td>${escapeHtml(Array.isArray(module.symbols) && module.symbols.length ? module.symbols.join("; ") : "-")}</td>
       <td>${escapeHtml(Array.isArray(module.artifacts) && module.artifacts.length ? module.artifacts.join("; ") : "-")}</td>
     </tr>
   `).join("");
   return `
     <table class="var-table">
-      <thead><tr><th>Module</th><th>Status</th><th>Purpose</th><th>Artifacts</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No module registry entries.</td></tr>`}</tbody>
+      <thead><tr><th>Module</th><th>Status</th><th>Purpose</th><th>Symbols</th><th>Artifacts</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No module registry entries.</td></tr>`}</tbody>
     </table>
   `;
 }

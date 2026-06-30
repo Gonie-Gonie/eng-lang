@@ -16,6 +16,7 @@ pub struct ModuleRegistryEntry {
     pub backing: String,
     pub purpose: String,
     pub artifacts: Vec<String>,
+    pub symbols: Vec<String>,
 }
 
 impl ModuleRegistryEntry {
@@ -79,6 +80,7 @@ pub fn parse_module_registry(source: &str) -> Result<ModuleRegistry, ModuleRegis
                 backing: None,
                 purpose: None,
                 artifacts: None,
+                symbols: None,
             });
             continue;
         }
@@ -99,6 +101,7 @@ pub fn parse_module_registry(source: &str) -> Result<ModuleRegistry, ModuleRegis
             "backing" => entry.backing = Some(parse_quoted_string(value, line_number)?),
             "purpose" => entry.purpose = Some(parse_quoted_string(value, line_number)?),
             "artifacts" => entry.artifacts = Some(parse_string_array(value, line_number)?),
+            "symbols" => entry.symbols = Some(parse_string_array(value, line_number)?),
             other => {
                 return Err(registry_error(
                     line_number,
@@ -164,10 +167,36 @@ fn parse_string_array(value: &str, line_number: usize) -> Result<Vec<String>, Mo
     if inner.is_empty() {
         return Ok(Vec::new());
     }
-    inner
-        .split(',')
-        .map(|part| parse_quoted_string(part.trim(), line_number))
-        .collect()
+    let mut items = Vec::new();
+    let mut rest = inner;
+    while !rest.is_empty() {
+        let Some(after_open_quote) = rest.strip_prefix('"') else {
+            return Err(registry_error(line_number, "expected quoted string"));
+        };
+        let Some(close_quote) = after_open_quote.find('"') else {
+            return Err(registry_error(line_number, "expected quoted string"));
+        };
+        let item = &after_open_quote[..close_quote];
+        if item.contains('\\') {
+            return Err(registry_error(
+                line_number,
+                "registry strings currently support only plain ASCII text",
+            ));
+        }
+        items.push(item.to_owned());
+        rest = after_open_quote[close_quote + 1..].trim_start();
+        if rest.is_empty() {
+            break;
+        }
+        let Some(after_comma) = rest.strip_prefix(',') else {
+            return Err(registry_error(
+                line_number,
+                "expected comma between strings",
+            ));
+        };
+        rest = after_comma.trim_start();
+    }
+    Ok(items)
 }
 
 fn registry_error(line: usize, message: &str) -> ModuleRegistryError {
@@ -184,6 +213,7 @@ struct PartialModuleRegistryEntry {
     backing: Option<String>,
     purpose: Option<String>,
     artifacts: Option<Vec<String>>,
+    symbols: Option<Vec<String>>,
 }
 
 impl PartialModuleRegistryEntry {
@@ -202,6 +232,7 @@ impl PartialModuleRegistryEntry {
             artifacts: self
                 .artifacts
                 .ok_or_else(|| registry_error(line, "module is missing artifacts"))?,
+            symbols: self.symbols.unwrap_or_default(),
         })
     }
 }
@@ -217,6 +248,17 @@ mod tests {
             .modules
             .iter()
             .any(|module| module.name == "eng.path" && module.status == "supported"));
+        assert!(registry.modules.iter().any(|module| {
+            module.name == "eng.path"
+                && module
+                    .symbols
+                    .iter()
+                    .any(|symbol| symbol.starts_with("file(path: String)"))
+                && module
+                    .symbols
+                    .iter()
+                    .any(|symbol| symbol.starts_with("exists(path:"))
+        }));
         assert!(registry
             .modules
             .iter()

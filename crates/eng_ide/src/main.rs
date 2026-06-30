@@ -96,6 +96,7 @@ struct ModuleView {
     backing: String,
     purpose: String,
     artifacts: Vec<String>,
+    symbols: Vec<String>,
 }
 
 #[derive(Clone, Serialize)]
@@ -833,44 +834,16 @@ fn base_completion_items() -> Vec<CompletionView> {
         let detail = module.completion_detail();
         items.push(CompletionView {
             label: module.name.clone(),
-            insert: module.name,
+            insert: module.name.clone(),
             detail,
             kind: "stdlib".to_owned(),
         });
+        for symbol in &module.symbols {
+            items.push(module_symbol_completion(&module.name, symbol));
+        }
     }
 
     for stdlib in [
-        (
-            "file(...)",
-            "file(\"data/input.csv\")",
-            "eng.path file literal",
-        ),
-        (
-            "dir(...)",
-            "dir(\"build/result\")",
-            "eng.path directory literal",
-        ),
-        (
-            "join(path, name)",
-            "join(args.output, \"summary.csv\")",
-            "eng.path join",
-        ),
-        (
-            "parent(path)",
-            "parent(args.input)",
-            "eng.path parent directory",
-        ),
-        ("stem(path)", "stem(args.input)", "eng.path file stem"),
-        (
-            "extension(path)",
-            "extension(args.input)",
-            "eng.path file extension",
-        ),
-        (
-            "exists path",
-            "exists args.input",
-            "eng.path review-visible exists",
-        ),
         ("read text", "read text args.input", "eng.io raw text read"),
         ("read json", "read json args.config", "eng.io raw JSON read"),
         ("read toml", "read toml args.config", "eng.io raw TOML read"),
@@ -941,6 +914,47 @@ fn base_completion_items() -> Vec<CompletionView> {
     items
 }
 
+fn module_symbol_completion(module_name: &str, symbol: &str) -> CompletionView {
+    CompletionView {
+        label: module_symbol_label(symbol),
+        insert: module_symbol_insert(module_name, symbol),
+        detail: format!("{module_name} {symbol}"),
+        kind: "stdlib".to_owned(),
+    }
+}
+
+fn module_symbol_label(symbol: &str) -> String {
+    let name = module_symbol_name(symbol);
+    if name == "exists" {
+        "exists path".to_owned()
+    } else {
+        format!("{name}(...)")
+    }
+}
+
+fn module_symbol_insert(module_name: &str, symbol: &str) -> String {
+    let name = module_symbol_name(symbol);
+    match (module_name, name.as_str()) {
+        ("eng.path", "file") => "file(\"data/input.csv\")".to_owned(),
+        ("eng.path", "dir") => "dir(\"build/result\")".to_owned(),
+        ("eng.path", "join") => "join(args.output, \"summary.csv\")".to_owned(),
+        ("eng.path", "parent") => "parent(args.input)".to_owned(),
+        ("eng.path", "stem") => "stem(args.input)".to_owned(),
+        ("eng.path", "extension") => "extension(args.input)".to_owned(),
+        ("eng.path", "exists") => "exists args.input".to_owned(),
+        _ => name,
+    }
+}
+
+fn module_symbol_name(symbol: &str) -> String {
+    symbol
+        .split_once('(')
+        .map(|(name, _)| name)
+        .unwrap_or(symbol)
+        .trim()
+        .to_owned()
+}
+
 fn module_browser_items() -> Vec<ModuleView> {
     bundled_module_registry()
         .map(|registry| {
@@ -953,6 +967,7 @@ fn module_browser_items() -> Vec<ModuleView> {
                     backing: module.backing,
                     purpose: module.purpose,
                     artifacts: module.artifacts,
+                    symbols: module.symbols,
                 })
                 .collect()
         })

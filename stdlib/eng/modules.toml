@@ -8,6 +8,7 @@ status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Typed path helpers, joins, names, and review-visible existence checks."
 artifacts = ["review.inputs", "review.environment_dependencies"]
+symbols = ["file(path: String) -> FilePath", "dir(path: String) -> DirectoryPath", "join(base: DirectoryPath, child: String) -> FilePath | DirectoryPath", "parent(path: FilePath) -> DirectoryPath", "stem(path: FilePath) -> String", "extension(path: FilePath) -> String", "exists(path: FilePath | DirectoryPath) -> Bool"]
 
 [module."eng.io"]
 status = "supported"

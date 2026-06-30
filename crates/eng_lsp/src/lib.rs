@@ -497,16 +497,18 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "stdlib",
             &module.completion_detail(),
         );
+        for symbol in &module.symbols {
+            push_completion(
+                &mut items,
+                &mut seen,
+                &module_symbol_label(symbol),
+                "stdlib",
+                &format!("{} {}", module.name, symbol),
+            );
+        }
     }
 
     for (label, detail) in [
-        ("file(\"...\")", "eng.path file literal"),
-        ("dir(\"...\")", "eng.path directory literal"),
-        ("join(path, name)", "eng.path join"),
-        ("parent(path)", "eng.path parent directory"),
-        ("stem(path)", "eng.path file stem"),
-        ("extension(path)", "eng.path file extension"),
-        ("exists path", "eng.path review-visible exists"),
         ("read text", "eng.io raw text read"),
         ("read json", "eng.io raw JSON read"),
         ("read toml", "eng.io raw TOML read"),
@@ -695,6 +697,19 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     }
 
     items
+}
+
+fn module_symbol_label(symbol: &str) -> String {
+    let name = symbol
+        .split_once('(')
+        .map(|(name, _)| name)
+        .unwrap_or(symbol)
+        .trim();
+    if name == "exists" {
+        "exists path".to_owned()
+    } else {
+        format!("{name}(...)")
+    }
 }
 
 pub fn completion_items_at(
