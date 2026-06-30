@@ -668,15 +668,20 @@ DateTime-indexed promoted CSV tables emit generic coverage records before any
 weather-specific fill or imputation logic. Runtime artifacts record them in:
 
 ```text
-review.json                 timeseries_coverage
+review.json                 timeseries_coverage, timeseries_fill, timeseries_fallbacks
 result.engres               typed_payload.timeseries_coverage
+result.engres               typed_payload.timeseries_fill
+result.engres               typed_payload.timeseries_fallbacks
 ```
 
 Each coverage entry records binding/name, source start/end, numeric start/end,
 expected step/count, actual count, missing intervals, max gap, optional coverage
 year, leap-year policy, status, and source line. Automatic axis-span entries use
 `axis_span_only`; explicit `check coverage ... with { year = ... }` entries use a
-Gregorian year grid, including leap-year expected counts.
+Gregorian year grid, including leap-year expected counts. Fill records state
+whether a fill strategy was applied or deferred. Fallback records are emitted
+when coverage is gapped or irregular, so review tooling can surface the need for
+an explicit fill/imputation policy.
 
 ## Native Workflow Graph Metadata
 

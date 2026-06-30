@@ -106,6 +106,14 @@
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesCoverage" }
     },
+    "timeseries_fill": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeSeriesFill" }
+    },
+    "timeseries_fallbacks": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeSeriesFallback" }
+    },
     "case_manifests": {
       "type": "array",
       "items": { "$ref": "#/$defs/caseManifest" }
@@ -1010,6 +1018,58 @@
         "start": { "type": "number" },
         "end": { "type": "number" },
         "missing_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeSeriesFill": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source_table",
+        "source_column",
+        "strategy",
+        "filled_count",
+        "missing_count",
+        "fallback_required",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source_table": { "type": "string" },
+        "source_column": { "type": "string" },
+        "strategy": { "enum": ["none_required", "not_applied"] },
+        "filled_count": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "fallback_required": { "type": "boolean" },
+        "status": { "enum": ["not_required", "deferred"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timeSeriesFallback": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "fallback_source",
+        "fallback_strategy",
+        "missing_count",
+        "max_gap",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "const": "timeseries_fill_policy" },
+        "fallback_source": { "enum": ["coverage_gap", "coverage_status"] },
+        "fallback_strategy": { "const": "defer_to_explicit_fill_policy" },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "max_gap": { "type": ["number", "null"] },
+        "status": { "const": "recorded" },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "workflowGraph": {

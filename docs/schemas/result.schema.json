@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "timeseries_coverage", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "time_axes", "timeseries_coverage", "timeseries_fill", "timeseries_fallbacks", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -108,6 +108,14 @@
         "timeseries_coverage": {
           "type": "array",
           "items": { "$ref": "#/$defs/timeSeriesCoverage" }
+        },
+        "timeseries_fill": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timeSeriesFill" }
+        },
+        "timeseries_fallbacks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/timeSeriesFallback" }
         },
         "systems": {
           "type": "array",
@@ -1087,6 +1095,58 @@
         "start": { "type": "number" },
         "end": { "type": "number" },
         "missing_count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "timeSeriesFill": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source_table",
+        "source_column",
+        "strategy",
+        "filled_count",
+        "missing_count",
+        "fallback_required",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source_table": { "type": "string" },
+        "source_column": { "type": "string" },
+        "strategy": { "enum": ["none_required", "not_applied"] },
+        "filled_count": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "fallback_required": { "type": "boolean" },
+        "status": { "enum": ["not_required", "deferred"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timeSeriesFallback": {
+      "type": "object",
+      "required": [
+        "binding",
+        "kind",
+        "fallback_source",
+        "fallback_strategy",
+        "missing_count",
+        "max_gap",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "const": "timeseries_fill_policy" },
+        "fallback_source": { "enum": ["coverage_gap", "coverage_status"] },
+        "fallback_strategy": { "const": "defer_to_explicit_fill_policy" },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "max_gap": { "type": ["number", "null"] },
+        "status": { "const": "recorded" },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "timeAlignment": {

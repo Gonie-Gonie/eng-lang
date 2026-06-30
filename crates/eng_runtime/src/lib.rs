@@ -6517,6 +6517,8 @@ fn result_json(
     let table_selections = table_selections_json(runtime_data, "      ");
     let table_transforms = table_transforms_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
+    let timeseries_fill = timeseries_fill_json(runtime_data, "      ");
+    let timeseries_fallbacks = timeseries_fallbacks_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
     let case_manifests = case_manifests_json(runtime_data, process_results);
     let db_manifest_records = db_manifest_records(process_results);
@@ -7155,7 +7157,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     let mut result_json = format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"timeseries_fill\": [\n{}\n    ],\n    \"timeseries_fallbacks\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -7192,6 +7194,8 @@ fn result_json(
         validations,
         time_axes,
         timeseries_coverage,
+        timeseries_fill,
+        timeseries_fallbacks,
         time_alignments,
         uncertainties,
         ml,
@@ -7804,6 +7808,10 @@ fn runtime_review_json(
     json.push_str(&table_transforms_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
     json.push_str(&timeseries_coverage_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"timeseries_fill\": [\n");
+    json.push_str(&timeseries_fill_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"timeseries_fallbacks\": [\n");
+    json.push_str(&timeseries_fallbacks_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"case_manifests\": [\n");
     json.push_str(&case_manifests_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"db_manifests\": [\n");
@@ -10021,6 +10029,154 @@ fn push_timeseries_coverage_json(
     json.push_str(&format!("{indent}}}"));
 }
 
+fn timeseries_fill_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    for (index, coverage) in runtime_data.timeseries_coverage.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_timeseries_fill_json(&mut json, coverage, indent);
+    }
+    json
+}
+
+fn push_timeseries_fill_json(
+    json: &mut String,
+    coverage: &runtime_data::RuntimeTimeSeriesCoverage,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    let (strategy, status, reason) = timeseries_fill_policy(coverage);
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&coverage.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_table\": \"{}\",\n",
+        json_escape(&coverage.source_table)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"source_column\": \"{}\",\n",
+        json_escape(&coverage.source_column)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"strategy\": \"{}\",\n",
+        json_escape(strategy)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"filled_count\": {},\n",
+        timeseries_filled_count(coverage)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"missing_count\": {},\n",
+        coverage.missing_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"fallback_required\": {},\n",
+        timeseries_fallback_required(coverage)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(status)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"reason\": \"{}\",\n",
+        json_escape(reason)
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", coverage.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn timeseries_fallbacks_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    let mut first = true;
+    for coverage in &runtime_data.timeseries_coverage {
+        if !timeseries_fallback_required(coverage) {
+            continue;
+        }
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        push_timeseries_fallback_json(&mut json, coverage, indent);
+    }
+    json
+}
+
+fn push_timeseries_fallback_json(
+    json: &mut String,
+    coverage: &runtime_data::RuntimeTimeSeriesCoverage,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&coverage.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"kind\": \"timeseries_fill_policy\",\n"
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"fallback_source\": \"{}\",\n",
+        json_escape(timeseries_fallback_source(coverage))
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"fallback_strategy\": \"defer_to_explicit_fill_policy\",\n"
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"missing_count\": {},\n",
+        coverage.missing_count
+    ));
+    push_optional_json_number(json, "max_gap", coverage.max_gap, field_indent.len());
+    json.push_str(&format!("{field_indent}\"status\": \"recorded\",\n"));
+    json.push_str(&format!(
+        "{field_indent}\"reason\": \"{}\",\n",
+        json_escape(timeseries_fallback_reason(coverage))
+    ));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", coverage.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn timeseries_fill_policy(
+    coverage: &runtime_data::RuntimeTimeSeriesCoverage,
+) -> (&'static str, &'static str, &'static str) {
+    if timeseries_fallback_required(coverage) {
+        (
+            "not_applied",
+            "deferred",
+            "coverage gaps or irregular axis detected; no automatic fill policy was selected",
+        )
+    } else {
+        ("none_required", "not_required", "coverage is complete")
+    }
+}
+
+fn timeseries_fallback_required(coverage: &runtime_data::RuntimeTimeSeriesCoverage) -> bool {
+    coverage.missing_count > 0 || coverage.status != "complete"
+}
+
+fn timeseries_filled_count(_coverage: &runtime_data::RuntimeTimeSeriesCoverage) -> usize {
+    0
+}
+
+fn timeseries_fallback_source(coverage: &runtime_data::RuntimeTimeSeriesCoverage) -> &'static str {
+    if coverage.missing_count > 0 {
+        "coverage_gap"
+    } else {
+        "coverage_status"
+    }
+}
+
+fn timeseries_fallback_reason(coverage: &runtime_data::RuntimeTimeSeriesCoverage) -> &'static str {
+    if coverage.missing_count > 0 {
+        "missing samples require an explicit fill or imputation policy"
+    } else {
+        "coverage status requires an explicit fallback policy"
+    }
+}
+
 fn structured_reads_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, read) in runtime_data.structured_reads.iter().enumerate() {
@@ -10677,6 +10833,18 @@ mod tests {
             })
     }
 
+    fn json_array_item_by_binding<'a>(
+        value: &'a Value,
+        pointer: &str,
+        binding: &str,
+    ) -> Option<&'a Value> {
+        value
+            .pointer(pointer)
+            .and_then(Value::as_array)?
+            .iter()
+            .find(|item| item.get("binding").and_then(Value::as_str) == Some(binding))
+    }
+
     #[test]
     fn run_file_prints_and_writes_explicit_summary_csv_export() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -10824,6 +10992,50 @@ mod tests {
             .review_json
             .contains("\"leap_year_policy\": \"gregorian_year\""));
         assert!(output.review_json.contains("\"status\": \"gapped\""));
+        let result_value: Value =
+            serde_json::from_str(&output.result_json).expect("result artifact json");
+        let result_fill =
+            json_array_item_by_binding(&result_value, "/typed_payload/timeseries_fill", "coverage")
+                .expect("result timeseries fill");
+        let result_fallback = json_array_item_by_binding(
+            &result_value,
+            "/typed_payload/timeseries_fallbacks",
+            "coverage",
+        )
+        .expect("result timeseries fallback");
+        assert_eq!(
+            result_fill.get("status").and_then(Value::as_str),
+            Some("deferred")
+        );
+        assert_eq!(
+            result_fill
+                .get("fallback_required")
+                .and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            result_fallback
+                .get("fallback_source")
+                .and_then(Value::as_str),
+            Some("coverage_gap")
+        );
+        let review_value: Value =
+            serde_json::from_str(&output.review_json).expect("review artifact json");
+        let review_fill = json_array_item_by_binding(&review_value, "/timeseries_fill", "coverage")
+            .expect("review timeseries fill");
+        let review_fallback =
+            json_array_item_by_binding(&review_value, "/timeseries_fallbacks", "coverage")
+                .expect("review timeseries fallback");
+        assert_eq!(
+            review_fill.get("strategy").and_then(Value::as_str),
+            Some("not_applied")
+        );
+        assert_eq!(
+            review_fallback
+                .get("fallback_strategy")
+                .and_then(Value::as_str),
+            Some("defer_to_explicit_fill_policy")
+        );
         assert!(output.run_plan_path.exists());
         assert!(output
             .run_plan_json
