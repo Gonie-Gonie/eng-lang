@@ -8,8 +8,8 @@ use std::process::Command;
 use std::time::Instant;
 
 use eng_compiler::{
-    build_bytecode, check_file, check_source, parse_bytecode, review_json, ArgOverride,
-    CheckOptions, CheckReport,
+    build_bytecode, canonical_path_text, check_file, check_source, parse_bytecode, review_json,
+    ArgOverride, CheckOptions, CheckReport,
 };
 use serde_json::{json, Value};
 
@@ -969,7 +969,7 @@ fn args_help_text(report: &CheckReport) -> String {
 }
 
 fn path_for_manifest(path: &Path) -> String {
-    path.display().to_string().replace('\\', "/")
+    canonical_path_text(&path.display().to_string())
 }
 
 fn dependency_paths(dependencies: &[(String, String)]) -> String {
@@ -3890,13 +3890,13 @@ fn evaluate_runtime_path_expression(expression: &str, report: &CheckReport) -> O
             .map(|arg| arg.value.clone());
     }
     if let Some(value) = runtime_strip_call_string_arg(expression, "file") {
-        return Some(value);
+        return Some(runtime_path_text(value));
     }
     if let Some(value) = runtime_strip_call_string_arg(expression, "dir") {
-        return Some(value);
+        return Some(runtime_path_text(value));
     }
     if expression.starts_with('"') {
-        return Some(strip_runtime_string_value(expression));
+        return Some(runtime_path_text(strip_runtime_string_value(expression)));
     }
     if let Some(inner) = runtime_strip_call_inner(expression, "join") {
         let parts = split_top_level(inner, &[','])
@@ -3974,7 +3974,7 @@ fn runtime_parent_path_text(path: &str) -> String {
 }
 
 fn runtime_path_text(path: impl AsRef<str>) -> String {
-    path.as_ref().replace('\\', "/")
+    canonical_path_text(path.as_ref())
 }
 
 fn runtime_resolve_source_relative_path(path: &str, source_base: Option<&Path>) -> PathBuf {
@@ -6407,11 +6407,7 @@ fn review_artifact_paths_match(target: &str, artifact_path: &str) -> bool {
 }
 
 fn normalize_review_artifact_path(path: &str) -> String {
-    let mut normalized = strip_runtime_string_value(path).replace('\\', "/");
-    while let Some(stripped) = normalized.strip_prefix("./") {
-        normalized = stripped.to_owned();
-    }
-    normalized
+    canonical_path_text(&strip_runtime_string_value(path))
 }
 
 fn component_solutions_json(runtime_data: &RuntimeData) -> String {
@@ -10726,7 +10722,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n    output: DirectoryPath = dir(\"build/out\")\n}\n\ninput_exists = exists args.input\nsummary_file = join(args.output, \"summary.csv\")\ninput_parent = parent(args.input)\ninput_stem = stem(args.input)\ninput_ext = extension(args.input)\n\nprint \"exists={input_exists} summary={summary_file} parent={input_parent} stem={input_stem} ext={input_ext}\"\n",
+            "args {\n    input: CsvFile = file(\".\\\\data\\\\sensor.csv\")\n    output: DirectoryPath = dir(\".\\\\build\\\\out\")\n}\n\ninput_exists = exists args.input\nsummary_file = join(args.output, \"summary.csv\")\ninput_parent = parent(args.input)\ninput_stem = stem(args.input)\ninput_ext = extension(args.input)\n\nprint \"exists={input_exists} summary={summary_file} parent={input_parent} stem={input_stem} ext={input_ext}\"\n",
         )
         .expect("write source");
 
@@ -10737,6 +10733,10 @@ mod tests {
         assert!(output.stdout.contains("parent=data"));
         assert!(output.stdout.contains("stem=sensor"));
         assert!(output.stdout.contains("ext=csv"));
+        assert!(output
+            .result_json
+            .contains("\"value\": \"data/sensor.csv\""));
+        assert!(output.result_json.contains("\"value\": \"build/out\""));
         assert!(output.result_json.contains("\"environment_dependencies\""));
         assert!(output.result_json.contains("\"filesystem_exists\""));
         assert!(output.result_json.contains("\"resolved_value\": \"true\""));

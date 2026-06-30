@@ -630,8 +630,9 @@ fn normalize_arg_value(type_name: &str, value: &str) -> Result<String, String> {
     let stripped = strip_string_literal(value);
     let normalized_type = type_name.trim().to_ascii_lowercase();
     match normalized_type.as_str() {
-        "string" | "path" | "filepath" | "csvfile" | "jsonfile" | "tomlfile" | "textfile"
-        | "reportfile" | "plotfile" | "directorypath" => Ok(stripped),
+        "string" => Ok(stripped),
+        "path" | "filepath" | "csvfile" | "jsonfile" | "tomlfile" | "textfile" | "reportfile"
+        | "plotfile" | "directorypath" => Ok(canonical_path_text(&stripped)),
         "bool" | "boolean" => parse_bool_arg(&stripped).ok_or_else(|| {
             "Use true/false, yes/no, on/off, or 1/0 for boolean Args fields.".to_owned()
         }),
@@ -823,13 +824,13 @@ fn evaluate_read_expression(
     match fs::read_to_string(&path) {
         Ok(source) => Some(ReadObservation {
             kind: kind.to_owned(),
-            resolved_path: path.display().to_string(),
+            resolved_path: canonical_path_text(&path.display().to_string()),
             source_hash: Some(hash_text(&source)),
             status: "read".to_owned(),
         }),
         Err(_) => Some(ReadObservation {
             kind: kind.to_owned(),
-            resolved_path: path.display().to_string(),
+            resolved_path: canonical_path_text(&path.display().to_string()),
             source_hash: None,
             status: "missing".to_owned(),
         }),
@@ -1014,13 +1015,13 @@ fn evaluate_path_expression(expression: &str, arg_values: &[ArgValueInfo]) -> Op
             .map(|arg| arg.value.clone());
     }
     if let Some(value) = strip_call_string_arg(expression, "file") {
-        return Some(value);
+        return Some(canonical_path_text(&value));
     }
     if let Some(value) = strip_call_string_arg(expression, "dir") {
-        return Some(value);
+        return Some(canonical_path_text(&value));
     }
     if expression.starts_with('"') {
-        return Some(strip_string_literal(expression));
+        return Some(canonical_path_text(&strip_string_literal(expression)));
     }
     if let Some(inner) = strip_call_inner(expression, "join") {
         let parts = split_call_args(inner)
@@ -1093,7 +1094,32 @@ fn parent_path_text(path: &str) -> String {
 }
 
 fn path_text(path: impl AsRef<str>) -> String {
-    path.as_ref().replace('\\', "/")
+    canonical_path_text(path.as_ref())
+}
+
+pub fn canonical_path_text(path: &str) -> String {
+    let normalized = path.replace('\\', "/");
+    let preserve_unc_prefix = normalized.starts_with("//");
+    let mut collapsed = String::new();
+    let mut previous_was_slash = false;
+    for ch in normalized.chars() {
+        if ch == '/' {
+            if previous_was_slash && !(preserve_unc_prefix && collapsed == "/") {
+                continue;
+            }
+            previous_was_slash = true;
+        } else {
+            previous_was_slash = false;
+        }
+        collapsed.push(ch);
+    }
+    while let Some(stripped) = collapsed.strip_prefix("./") {
+        collapsed = stripped.to_owned();
+    }
+    if collapsed.is_empty() {
+        return ".".to_owned();
+    }
+    collapsed
 }
 
 fn resolve_source_relative_path(path: &str, source_base: Option<&Path>) -> PathBuf {
@@ -7458,13 +7484,27 @@ mod tests {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n    output: DirectoryPath = dir(\"build/out\")\n}\n\ninput_exists = exists args.input\nsummary_file = join(args.output, \"summary.csv\")\ninput_parent = parent(args.input)\ninput_stem = stem(args.input)\ninput_ext = extension(args.input)\n\nprint \"exists={input_exists} summary={summary_file} parent={input_parent} stem={input_stem} ext={input_ext}\"\n",
+            "args {\n    input: CsvFile = file(\".\\\\data\\\\sensor.csv\")\n    output: DirectoryPath = dir(\".\\\\build\\\\out\")\n}\n\ninput_exists = exists args.input\nsummary_file = join(args.output, \"summary.csv\")\ninput_parent = parent(args.input)\ninput_stem = stem(args.input)\ninput_ext = extension(args.input)\n\nprint \"exists={input_exists} summary={summary_file} parent={input_parent} stem={input_stem} ext={input_ext}\"\n",
         )
         .expect("source");
 
         let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
 
         assert!(!report.has_errors());
+        let input_arg = report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == "input")
+            .expect("input arg");
+        assert_eq!(input_arg.value, "data/sensor.csv");
+        let output_arg = report
+            .semantic_program
+            .arg_values
+            .iter()
+            .find(|arg| arg.name == "output")
+            .expect("output arg");
+        assert_eq!(output_arg.value, "build/out");
         let input_exists = report
             .semantic_program
             .typed_bindings
