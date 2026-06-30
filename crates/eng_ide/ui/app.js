@@ -55,6 +55,7 @@ function emptyInspectors() {
     componentGraph: null,
     reviewDocument: null,
     artifactOutlines: [],
+    effectRecords: null,
     outputManifest: null,
     runLog: null,
     processResults: null,
@@ -2103,47 +2104,56 @@ function renderArtifactOutlines() {
 }
 
 function renderEffectsPanel() {
-  const manifest = inspectorObject("outputManifest");
-  const runLog = inspectorObject("runLog");
-  const processResults = inspectorObject("processResults");
-  const testResults = inspectorObject("testResults");
-  const artifacts = Array.isArray(manifest.artifacts) ? manifest.artifacts : [];
-  const messages = Array.isArray(runLog.messages) ? runLog.messages : [];
-  const processes = Array.isArray(processResults.processes) ? processResults.processes : [];
-  const tests = Array.isArray(testResults.tests) ? testResults.tests : [];
+  const effects = inspectorObject("effectRecords");
+  const artifacts = Array.isArray(effects.artifactRecords) ? effects.artifactRecords : [];
+  const boundaries = Array.isArray(effects.externalBoundaryRecords) ? effects.externalBoundaryRecords : [];
   return `
     <div class="panel-title compact">Effects</div>
     <div class="badges">
-      <span class="badge">Outputs ${artifacts.length}</span>
-      <span class="badge">Log ${messages.length}</span>
-      <span class="badge">Process ${processes.length}</span>
-      <span class="badge">Tests ${tests.length}</span>
+      <span class="badge">Artifacts ${artifacts.length}</span>
+      <span class="badge">Boundaries ${boundaries.length}</span>
     </div>
     <div class="scroll">
-      <div class="panel-title compact">Output Manifest</div>
-      ${renderOutputManifest(artifacts)}
-      <div class="panel-title compact">Run Log</div>
-      ${renderRunLog(messages)}
-      <div class="panel-title compact">Process Results</div>
-      ${renderProcessResults(processes)}
-      <div class="panel-title compact">Test Results</div>
-      ${renderTestResults(tests)}
+      <div class="panel-title compact">Artifact Records</div>
+      ${renderArtifactRecords(artifacts)}
+      <div class="panel-title compact">External Boundary Records</div>
+      ${renderExternalBoundaryRecords(boundaries)}
     </div>
   `;
 }
 
-function renderOutputManifest(artifacts) {
+function renderArtifactRecords(artifacts) {
   const rows = artifacts.map((artifact) => `
     <tr>
       <td><strong>${escapeHtml(artifact.kind || "-")}</strong></td>
+      <td>${escapeHtml(artifact.class || "-")}</td>
       <td><code>${escapeHtml(artifact.path || "-")}</code></td>
+      <td>${escapeHtml(artifact.status || "-")}</td>
       <td><code>${escapeHtml(artifact.hash || "-")}</code></td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Kind</th><th>Path</th><th>Hash</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="3" class="muted">No output manifest entries.</td></tr>`}</tbody>
+      <thead><tr><th>Kind</th><th>Class</th><th>Path</th><th>Status</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No artifact records.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderExternalBoundaryRecords(boundaries) {
+  const rows = boundaries.map((boundary) => `
+    <tr>
+      <td><strong>${escapeHtml(boundary.kind || "-")}</strong><div class="muted">L${escapeHtml(boundary.line ?? "-")}</div></td>
+      <td>${escapeHtml(boundary.binding || "-")}</td>
+      <td><code>${escapeHtml(compactText(boundary.target || boundary.command || "-", 80))}</code></td>
+      <td>${escapeHtml(boundary.status || "-")}<div class="muted">${boundary.success === true ? "success" : boundary.success === false ? "failed" : "-"}</div></td>
+      <td><code>${escapeHtml(compactText(boundary.response_hash || boundary.stdout_hash || boundary.expected_sha256 || "-", 70))}</code></td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Kind</th><th>Binding</th><th>Target</th><th>Status</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No external boundary records.</td></tr>`}</tbody>
     </table>
   `;
 }

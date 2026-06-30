@@ -142,6 +142,7 @@ struct InspectorView {
     component_graph: Value,
     review_document: Value,
     artifact_outlines: Value,
+    effect_records: Value,
     output_manifest: Value,
     run_log: Value,
     process_results: Value,
@@ -169,6 +170,7 @@ impl Default for InspectorView {
             component_graph: Value::Null,
             review_document: Value::Null,
             artifact_outlines: Value::Array(Vec::new()),
+            effect_records: Value::Null,
             output_manifest: Value::Null,
             run_log: Value::Null,
             process_results: Value::Null,
@@ -1061,6 +1063,9 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let report = parse_json_value(&output.report_spec_json);
     let result = parse_json_value(&output.result_json);
     let review = parse_json_value(&output.review_json);
+    let output_manifest = output_manifest_inspector(root, output);
+    let run_log = parse_json_value(&output.run_log_json);
+    let effect_records = effect_records_inspector(&output_manifest, &run_log);
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
@@ -1086,8 +1091,9 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
             .cloned()
             .unwrap_or(Value::Null),
         artifact_outlines: artifact_outlines(root, output),
-        output_manifest: output_manifest_inspector(root, output),
-        run_log: parse_json_value(&output.run_log_json),
+        effect_records,
+        output_manifest,
+        run_log,
         process_results: parse_json_value(&output.process_results_json),
         test_results: parse_json_value(&output.test_results_json),
     }
@@ -1095,6 +1101,32 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
 
 fn parse_json_value(text: &str) -> Value {
     serde_json::from_str::<Value>(text).unwrap_or(Value::Null)
+}
+
+fn effect_records_inspector(output_manifest: &Value, run_log: &Value) -> Value {
+    let artifact_records = output_manifest
+        .get("artifact_registry")
+        .and_then(|registry| registry.get("generated_files"))
+        .and_then(Value::as_array)
+        .cloned()
+        .or_else(|| {
+            output_manifest
+                .get("artifacts")
+                .and_then(Value::as_array)
+                .cloned()
+        })
+        .unwrap_or_default();
+    let external_boundary_records = run_log
+        .get("external_boundary_events")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    json!({
+        "format": "eng-ide-effect-records-v1",
+        "recordTypes": ["ArtifactRecord", "ExternalBoundaryRecord"],
+        "artifactRecords": artifact_records,
+        "externalBoundaryRecords": external_boundary_records,
+    })
 }
 
 fn json_array_clone(value: &Value, key: &str) -> Value {
@@ -2390,6 +2422,41 @@ fn review_document_has_side_effect(value: &Value) -> bool {
     json_array_non_empty(value, "side_effects") && review_hashes_include(value, &["side_effects"])
 }
 
+fn effect_records_has_artifact_and_boundary_records(value: &Value) -> bool {
+    let has_record_types = value
+        .get("recordTypes")
+        .and_then(Value::as_array)
+        .is_some_and(|items| {
+            items
+                .iter()
+                .any(|item| item.as_str() == Some("ArtifactRecord"))
+                && items
+                    .iter()
+                    .any(|item| item.as_str() == Some("ExternalBoundaryRecord"))
+        });
+    let has_artifact_record = value
+        .get("artifactRecords")
+        .and_then(Value::as_array)
+        .is_some_and(|items| items.iter().any(is_artifact_record_value));
+    let has_boundary_record = value
+        .get("externalBoundaryRecords")
+        .and_then(Value::as_array)
+        .is_some_and(|items| items.iter().any(is_external_boundary_record_value));
+    has_record_types && has_artifact_record && has_boundary_record
+}
+
+fn is_artifact_record_value(value: &Value) -> bool {
+    ["kind", "class", "path", "hash", "status", "validation"]
+        .iter()
+        .all(|key| value.get(*key).is_some())
+}
+
+fn is_external_boundary_record_value(value: &Value) -> bool {
+    ["kind", "target", "status", "success", "line"]
+        .iter()
+        .all(|key| value.get(*key).is_some())
+}
+
 fn json_field_f64(value: &Value, key: &str) -> Option<f64> {
     value.get(key).and_then(Value::as_f64)
 }
@@ -2524,41 +2591,19 @@ fn public_package_smoke(root: &Path) -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     let effects_cached = CachedRunOutput::from_output(effects_output);
     let effects_inspectors = runtime_inspectors(root, &effects_cached);
-    let has_manifest = effects_inspectors
-        .output_manifest
-        .get("artifacts")
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
-    let has_run_log = effects_inspectors
-        .run_log
-        .get("messages")
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
-    let has_registry = effects_inspectors
-        .output_manifest
-        .get("artifact_registry")
-        .and_then(|registry| registry.get("external_commands"))
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
-    let has_process = effects_inspectors
-        .process_results
-        .get("processes")
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
+    let has_effect_records =
+        effect_records_has_artifact_and_boundary_records(&effects_inspectors.effect_records);
     let has_review_document = effects_inspectors
         .review_document
         .get("external_boundaries")
         .and_then(Value::as_array)
         .is_some_and(|items| !items.is_empty())
         && review_document_has_external_boundary(&effects_inspectors.review_document);
-    if !has_manifest || !has_registry || !has_run_log || !has_process || !has_review_document {
+    if !has_effect_records || !has_review_document {
         return Err(format!(
-            "{} did not produce IDE side-effect inspector metadata (manifest={}, registry={}, run_log={}, process={}, review={})",
+            "{} did not produce IDE side-effect inspector metadata (effect_records={}, review={})",
             effects_example.display(),
-            has_manifest,
-            has_registry,
-            has_run_log,
-            has_process,
+            has_effect_records,
             has_review_document
         ));
     }
@@ -3415,37 +3460,15 @@ fn smoke() -> Result<(), String> {
     .map_err(|error| error.to_string())?;
     let effects_cached = CachedRunOutput::from_output(effects_output);
     let effects_inspectors = runtime_inspectors(&root, &effects_cached);
-    let has_manifest = effects_inspectors
-        .output_manifest
-        .get("artifacts")
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
-    let has_run_log = effects_inspectors
-        .run_log
-        .get("messages")
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
-    let has_registry = effects_inspectors
-        .output_manifest
-        .get("artifact_registry")
-        .and_then(|registry| registry.get("external_commands"))
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
-    let has_process = effects_inspectors
-        .process_results
-        .get("processes")
-        .and_then(Value::as_array)
-        .is_some_and(|items| !items.is_empty());
+    let has_effect_records =
+        effect_records_has_artifact_and_boundary_records(&effects_inspectors.effect_records);
     let has_review_boundary =
         review_document_has_external_boundary(&effects_inspectors.review_document);
-    if !has_manifest || !has_registry || !has_run_log || !has_process || !has_review_boundary {
+    if !has_effect_records || !has_review_boundary {
         return Err(format!(
-            "{} did not produce IDE side-effect inspector metadata (manifest={}, registry={}, run_log={}, process={}, review_boundary={})",
+            "{} did not produce IDE side-effect inspector metadata (effect_records={}, review_boundary={})",
             effects_example.display(),
-            has_manifest,
-            has_registry,
-            has_run_log,
-            has_process,
+            has_effect_records,
             has_review_boundary
         ));
     }
