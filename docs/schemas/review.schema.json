@@ -558,10 +558,28 @@
     },
     "reviewFallback": {
       "type": "object",
-      "required": ["kind", "category", "status", "reason", "line"],
+      "required": [
+        "kind",
+        "category",
+        "target",
+        "method",
+        "fallback_source",
+        "affected_scope",
+        "assumption",
+        "risk_level",
+        "status",
+        "reason",
+        "line"
+      ],
       "properties": {
         "kind": { "type": "string" },
         "category": { "type": "string" },
+        "target": { "type": "string" },
+        "method": { "type": "string" },
+        "fallback_source": { "type": "string" },
+        "affected_scope": { "type": "string" },
+        "assumption": { "type": "string" },
+        "risk_level": { "enum": ["low", "medium", "high"] },
         "status": { "type": "string" },
         "reason": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }

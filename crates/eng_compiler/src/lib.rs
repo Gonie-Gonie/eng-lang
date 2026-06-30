@@ -139,6 +139,39 @@ impl Diagnostic {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ReviewFallbackRecord {
+    pub kind: String,
+    pub category: String,
+    pub target: String,
+    pub method: String,
+    pub fallback_source: String,
+    pub affected_scope: String,
+    pub assumption: String,
+    pub risk_level: String,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
+}
+
+impl ReviewFallbackRecord {
+    pub fn to_json_value(&self) -> serde_json::Value {
+        serde_json::json!({
+            "kind": &self.kind,
+            "category": &self.category,
+            "target": &self.target,
+            "method": &self.method,
+            "fallback_source": &self.fallback_source,
+            "affected_scope": &self.affected_scope,
+            "assumption": &self.assumption,
+            "risk_level": &self.risk_level,
+            "status": &self.status,
+            "reason": &self.reason,
+            "line": self.line
+        })
+    }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InferredDeclaration {
     pub name: String,
     pub quantity_kind: String,
@@ -5361,19 +5394,54 @@ fn review_input_count(report: &CheckReport) -> usize {
 }
 
 fn review_fallback_count(report: &CheckReport) -> usize {
-    report
-        .semantic_program
-        .with_blocks
-        .iter()
-        .flat_map(|block| block.options.iter())
-        .filter(|option| option.key == "allow_failure" && option.value.trim() == "true")
-        .count()
-        + report
-            .semantic_program
-            .component_assemblies
+    review_fallback_records(report).len()
+}
+
+fn review_fallback_records(report: &CheckReport) -> Vec<ReviewFallbackRecord> {
+    let mut records = Vec::new();
+    for block in &report.semantic_program.with_blocks {
+        let Some(owner_line) = block.owner_line else {
+            continue;
+        };
+        for option in block
+            .options
             .iter()
-            .filter(|assembly| !assembly.solver_preview.limitations.is_empty())
-            .count()
+            .filter(|option| option.key == "allow_failure" && option.value.trim() == "true")
+        {
+            records.push(ReviewFallbackRecord {
+                kind: "allowed_failure".to_owned(),
+                category: "external_boundary".to_owned(),
+                target: format!("owner_line:{owner_line}"),
+                method: "allow_failure".to_owned(),
+                fallback_source: "external_operation".to_owned(),
+                affected_scope: "external boundary status".to_owned(),
+                assumption: "failure is acceptable for this workflow boundary".to_owned(),
+                risk_level: "high".to_owned(),
+                status: "declared".to_owned(),
+                reason: format!("owner line {owner_line} allows an external operation to fail"),
+                line: option.line,
+            });
+        }
+    }
+    for assembly in &report.semantic_program.component_assemblies {
+        if assembly.solver_preview.limitations.is_empty() {
+            continue;
+        }
+        records.push(ReviewFallbackRecord {
+            kind: "solver_preview_limitation".to_owned(),
+            category: "solver_or_numeric".to_owned(),
+            target: assembly.name.clone(),
+            method: "solver_preview".to_owned(),
+            fallback_source: "metadata_only_solver_preview".to_owned(),
+            affected_scope: "component assembly solve interpretation".to_owned(),
+            assumption: "solver preview limitations must be reviewed before using the result as a physical solve".to_owned(),
+            risk_level: "medium".to_owned(),
+            status: "metadata_only".to_owned(),
+            reason: assembly.solver_preview.limitations.join("; "),
+            line: assembly.line,
+        });
+    }
+    records
 }
 
 fn review_risk_count(report: &CheckReport) -> usize {
@@ -6603,65 +6671,62 @@ fn push_review_caches_json(json: &mut String, report: &CheckReport) {
 fn push_review_fallbacks_json(json: &mut String, report: &CheckReport) {
     json.push_str("    \"fallbacks\": [\n");
     let mut first = true;
-    for block in &report.semantic_program.with_blocks {
-        let Some(owner_line) = block.owner_line else {
-            continue;
-        };
-        for option in block
-            .options
-            .iter()
-            .filter(|option| option.key == "allow_failure" && option.value.trim() == "true")
-        {
-            push_review_comma(json, &mut first);
-            json.push_str("      {\n");
-            json.push_str("        \"kind\": \"allowed_failure\",\n");
-            json.push_str("        \"category\": \"external_boundary\",\n");
-            json.push_str(&format!(
-                "        \"target\": \"owner_line:{}\",\n",
-                owner_line
-            ));
-            json.push_str("        \"method\": \"allow_failure\",\n");
-            json.push_str("        \"fallback_source\": \"external_operation\",\n");
-            json.push_str("        \"affected_scope\": \"external boundary status\",\n");
-            json.push_str(
-                "        \"assumption\": \"failure is acceptable for this workflow boundary\",\n",
-            );
-            json.push_str("        \"risk_level\": \"high\",\n");
-            json.push_str("        \"status\": \"declared\",\n");
-            json.push_str(&format!(
-                "        \"reason\": \"owner line {} allows an external operation to fail\",\n",
-                owner_line
-            ));
-            json.push_str(&format!("        \"line\": {}\n", option.line));
-            json.push_str("      }");
-        }
-    }
-    for assembly in &report.semantic_program.component_assemblies {
-        if assembly.solver_preview.limitations.is_empty() {
-            continue;
-        }
+    for record in review_fallback_records(report) {
         push_review_comma(json, &mut first);
-        json.push_str("      {\n");
-        json.push_str("        \"kind\": \"solver_preview_limitation\",\n");
-        json.push_str("        \"category\": \"solver_or_numeric\",\n");
-        json.push_str(&format!(
-            "        \"target\": \"{}\",\n",
-            json_escape(&assembly.name)
-        ));
-        json.push_str("        \"method\": \"solver_preview\",\n");
-        json.push_str("        \"fallback_source\": \"metadata_only_solver_preview\",\n");
-        json.push_str("        \"affected_scope\": \"component assembly solve interpretation\",\n");
-        json.push_str("        \"assumption\": \"solver preview limitations must be reviewed before using the result as a physical solve\",\n");
-        json.push_str("        \"risk_level\": \"medium\",\n");
-        json.push_str("        \"status\": \"metadata_only\",\n");
-        json.push_str(&format!(
-            "        \"reason\": \"{}\",\n",
-            json_escape(&assembly.solver_preview.limitations.join("; "))
-        ));
-        json.push_str(&format!("        \"line\": {}\n", assembly.line));
-        json.push_str("      }");
+        push_review_fallback_record_json(json, &record, 6);
     }
     json.push_str("\n    ],\n");
+}
+
+fn push_review_fallback_record_json(
+    json: &mut String,
+    record: &ReviewFallbackRecord,
+    indent: usize,
+) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}{{\n"));
+    json.push_str(&format!(
+        "{spaces}  \"kind\": \"{}\",\n",
+        json_escape(&record.kind)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"category\": \"{}\",\n",
+        json_escape(&record.category)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"target\": \"{}\",\n",
+        json_escape(&record.target)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"method\": \"{}\",\n",
+        json_escape(&record.method)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"fallback_source\": \"{}\",\n",
+        json_escape(&record.fallback_source)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"affected_scope\": \"{}\",\n",
+        json_escape(&record.affected_scope)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"assumption\": \"{}\",\n",
+        json_escape(&record.assumption)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"risk_level\": \"{}\",\n",
+        json_escape(&record.risk_level)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"status\": \"{}\",\n",
+        json_escape(&record.status)
+    ));
+    json.push_str(&format!(
+        "{spaces}  \"reason\": \"{}\",\n",
+        json_escape(&record.reason)
+    ));
+    json.push_str(&format!("{spaces}  \"line\": {}\n", record.line));
+    json.push_str(&format!("{spaces}}}"));
 }
 
 fn push_review_risks_json(json: &mut String, report: &CheckReport) {
@@ -11089,6 +11154,31 @@ system Envelope {
         assert!(json.contains("\"fallback_source\": \"external_operation\""));
         assert!(json.contains("\"category\": \"external_boundary\""));
         assert!(json.contains("\"level\": \"high\""));
+        let value: serde_json::Value =
+            serde_json::from_str(&json).expect("normalized review document json");
+        let fallback = value
+            .pointer("/review_document/fallbacks/0")
+            .expect("shared fallback record");
+        assert_eq!(
+            fallback.get("target").and_then(serde_json::Value::as_str),
+            Some("owner_line:3")
+        );
+        assert_eq!(
+            fallback.get("method").and_then(serde_json::Value::as_str),
+            Some("allow_failure")
+        );
+        assert_eq!(
+            fallback
+                .get("affected_scope")
+                .and_then(serde_json::Value::as_str),
+            Some("external boundary status")
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/root_contract/fallback_count")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
     }
 
     #[test]

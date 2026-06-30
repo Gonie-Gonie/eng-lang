@@ -9,7 +9,7 @@ use std::time::Instant;
 
 use eng_compiler::{
     build_bytecode, canonical_path_text, check_file, check_source, parse_bytecode, review_json,
-    ArgOverride, CheckOptions, CheckReport,
+    ArgOverride, CheckOptions, CheckReport, ReviewFallbackRecord,
 };
 use serde_json::{json, Value};
 
@@ -7603,17 +7603,13 @@ fn runtime_review_json(
     artifacts: &[OutputArtifact],
     cache_records: &[CacheManifestRecord],
 ) -> String {
-    let enriched_review = enrich_runtime_review_caches(
-        &enrich_runtime_review_side_effects(
-            &enrich_runtime_review_boundaries(
-                base_review,
-                process_results,
-                external_boundary_records,
-            ),
-            artifacts,
-        ),
-        cache_records,
-    );
+    let enriched_boundaries =
+        enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
+    let enriched_side_effects = enrich_runtime_review_side_effects(&enriched_boundaries, artifacts);
+    let enriched_caches = enrich_runtime_review_caches(&enriched_side_effects, cache_records);
+    let runtime_fallbacks = timeseries_review_fallback_records(runtime_data);
+    let enriched_review =
+        enrich_runtime_review_fallbacks(&enriched_caches, runtime_fallbacks.as_slice());
     let trimmed = enriched_review.trim_end();
     let Some(prefix) = trimmed.strip_suffix('}') else {
         return base_review.to_owned();
@@ -8048,6 +8044,43 @@ fn enrich_runtime_review_caches(base_review: &str, records: &[CacheManifestRecor
             "resolved_path".to_owned(),
             Value::String(record.resolved_path.clone()),
         );
+    }
+
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn enrich_runtime_review_fallbacks(base_review: &str, records: &[ReviewFallbackRecord]) -> String {
+    if records.is_empty() {
+        return base_review.to_owned();
+    }
+
+    let Ok(mut review) = serde_json::from_str::<Value>(base_review) else {
+        return base_review.to_owned();
+    };
+    let fallback_count = {
+        let Some(fallbacks) = review
+            .pointer_mut("/review_document/fallbacks")
+            .and_then(Value::as_array_mut)
+        else {
+            return base_review.to_owned();
+        };
+
+        for record in records {
+            fallbacks.push(record.to_json_value());
+        }
+        fallbacks.len()
+    };
+
+    if let Some(contract) = review
+        .pointer_mut("/review_document/root_contract")
+        .and_then(Value::as_object_mut)
+    {
+        contract.insert("fallback_count".to_owned(), json!(fallback_count));
     }
 
     serde_json::to_string_pretty(&review)
@@ -10104,6 +10137,27 @@ fn timeseries_fallbacks_json(runtime_data: &RuntimeData, indent: &str) -> String
     json
 }
 
+fn timeseries_review_fallback_records(runtime_data: &RuntimeData) -> Vec<ReviewFallbackRecord> {
+    runtime_data
+        .timeseries_coverage
+        .iter()
+        .filter(|coverage| timeseries_fallback_required(coverage))
+        .map(|coverage| ReviewFallbackRecord {
+            kind: "timeseries_fill_policy".to_owned(),
+            category: "data_quality".to_owned(),
+            target: coverage.binding.clone(),
+            method: "defer_to_explicit_fill_policy".to_owned(),
+            fallback_source: timeseries_fallback_source(coverage).to_owned(),
+            affected_scope: "timeseries coverage and fill policy".to_owned(),
+            assumption: "missing or irregular samples are not automatically filled".to_owned(),
+            risk_level: "medium".to_owned(),
+            status: "recorded".to_owned(),
+            reason: timeseries_fallback_reason(coverage).to_owned(),
+            line: coverage.line,
+        })
+        .collect()
+}
+
 fn push_timeseries_fallback_json(
     json: &mut String,
     coverage: &runtime_data::RuntimeTimeSeriesCoverage,
@@ -10845,6 +10899,19 @@ mod tests {
             .find(|item| item.get("binding").and_then(Value::as_str) == Some(binding))
     }
 
+    fn json_array_item_by_field<'a>(
+        value: &'a Value,
+        pointer: &str,
+        field: &str,
+        expected: &str,
+    ) -> Option<&'a Value> {
+        value
+            .pointer(pointer)
+            .and_then(Value::as_array)?
+            .iter()
+            .find(|item| item.get(field).and_then(Value::as_str) == Some(expected))
+    }
+
     #[test]
     fn run_file_prints_and_writes_explicit_summary_csv_export() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -11035,6 +11102,40 @@ mod tests {
                 .get("fallback_strategy")
                 .and_then(Value::as_str),
             Some("defer_to_explicit_fill_policy")
+        );
+        let review_document_fallback = json_array_item_by_field(
+            &review_value,
+            "/review_document/fallbacks",
+            "kind",
+            "timeseries_fill_policy",
+        )
+        .expect("review document timeseries fallback");
+        assert_eq!(
+            review_document_fallback
+                .get("category")
+                .and_then(Value::as_str),
+            Some("data_quality")
+        );
+        assert_eq!(
+            review_document_fallback
+                .get("target")
+                .and_then(Value::as_str),
+            Some("coverage")
+        );
+        assert_eq!(
+            review_document_fallback
+                .get("method")
+                .and_then(Value::as_str),
+            Some("defer_to_explicit_fill_policy")
+        );
+        assert_eq!(
+            review_value
+                .pointer("/review_document/root_contract/fallback_count")
+                .and_then(Value::as_u64),
+            review_value
+                .pointer("/review_document/fallbacks")
+                .and_then(Value::as_array)
+                .map(|fallbacks| fallbacks.len() as u64)
         );
         assert!(output.run_plan_path.exists());
         assert!(output

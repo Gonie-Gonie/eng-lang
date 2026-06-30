@@ -528,6 +528,11 @@ appear under `external_boundaries`; declared writes, CSV exports, and
 filesystem mutations appear under `side_effects`; allowed external failures
 and solver-preview limitations appear under `fallbacks`; warnings and
 review-sensitive boundaries appear under `risks` with a review `level`.
+Fallback entries use the shared ReviewFallback record shape: `kind`, `category`,
+`target`, `method`, `fallback_source`, `affected_scope`, `assumption`,
+`risk_level`, `status`, `reason`, and source `line`. Runtime enrichers append
+native module fallback facts, such as TimeSeries coverage gaps, to the same
+`review_document.fallbacks` array.
 
 The quick CLI view is:
 
@@ -668,6 +673,7 @@ DateTime-indexed promoted CSV tables emit generic coverage records before any
 weather-specific fill or imputation logic. Runtime artifacts record them in:
 
 ```text
+review.json                 review_document.fallbacks
 review.json                 timeseries_coverage, timeseries_fill, timeseries_fallbacks
 result.engres               typed_payload.timeseries_coverage
 result.engres               typed_payload.timeseries_fill
@@ -681,7 +687,8 @@ year, leap-year policy, status, and source line. Automatic axis-span entries use
 Gregorian year grid, including leap-year expected counts. Fill records state
 whether a fill strategy was applied or deferred. Fallback records are emitted
 when coverage is gapped or irregular, so review tooling can surface the need for
-an explicit fill/imputation policy.
+an explicit fill/imputation policy. The same fallback is also projected into
+`review_document.fallbacks` using the shared ReviewFallback record contract.
 
 ## Native Workflow Graph Metadata
 
