@@ -984,6 +984,7 @@ pub struct RuntimeTable {
     pub row_count: usize,
     pub columns: Vec<RuntimeColumn>,
     pub parse_failures: Vec<RuntimeParseFailure>,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1195,6 +1196,7 @@ pub struct RuntimeCaseManifest {
     pub metrics: Vec<RuntimeCaseMetric>,
     pub failure_reason: Option<String>,
     pub status: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -2990,6 +2992,7 @@ fn materialize_table(
         row_count: data_rows.len(),
         columns,
         parse_failures,
+        line: promotion.line,
     })
 }
 
@@ -5268,6 +5271,7 @@ fn materialize_case_manifests(tables: &[RuntimeTable]) -> Vec<RuntimeCaseManifes
                 metrics: Vec::new(),
                 failure_reason: None,
                 status: status.to_owned(),
+                line: table.line,
             });
         }
     }
@@ -22207,6 +22211,7 @@ with {{
                 },
             ],
             parse_failures: Vec::new(),
+            line: 9,
         };
 
         let sample_tables = materialize_sample_tables(&[table]);
@@ -22262,6 +22267,7 @@ with {{
                 },
             ],
             parse_failures: Vec::new(),
+            line: 9,
         };
 
         let manifests = materialize_case_manifests(&[table]);
@@ -22271,6 +22277,7 @@ with {{
         assert_eq!(manifests[0].sample_table, "designs");
         assert_eq!(manifests[0].sample_row_number, 1);
         assert_eq!(manifests[0].source_row, 2);
+        assert_eq!(manifests[0].line, 9);
         assert_eq!(manifests[0].sample_row_hash.len(), 16);
         assert_eq!(manifests[0].case_dir, None);
         assert_eq!(manifests[0].generated_input_file, None);
@@ -22870,6 +22877,7 @@ with {
                 conversion_failures: Vec::new(),
             }],
             parse_failures: Vec::new(),
+            line: 1,
         }
     }
 

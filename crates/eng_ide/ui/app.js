@@ -872,7 +872,7 @@ function renderKernelPanel() {
     ].join(", ");
     return `
       <tr>
-        <td><strong>${escapeHtml(candidate.name || "-")}</strong><div class="muted">L${escapeHtml(candidate.line || "-")}</div></td>
+        <td><strong>${escapeHtml(candidate.name || "-")}</strong><div class="muted">${sourceLineButton(candidate)}</div></td>
         <td>${escapeHtml(candidate.kind || "-")}<div class="muted">${escapeHtml(candidate.lowering_status || candidate.loweringStatus || "-")}</div></td>
         <td><code>${escapeHtml(compactText(candidate.source || "-", 72))}</code></td>
         <td>${escapeHtml(executor.status || "-")}<div class="muted">${escapeHtml(executor.backend || "-")}</div></td>
@@ -1344,7 +1344,7 @@ function renderStructuredReads(reads) {
     const error = read.error ? `<div class="muted">${escapeHtml(compactText(read.error, 90))}</div>` : "";
     return `
       <tr>
-        <td><strong>${escapeHtml(read.binding || "-")}</strong><div class="muted">L${escapeHtml(read.line ?? "-")}</div></td>
+        <td><strong>${escapeHtml(read.binding || "-")}</strong><div class="muted">${sourceLineButton(read)}</div></td>
         <td>${escapeHtml(read.kind || "-")}</td>
         <td><code>${escapeHtml(compactText(read.path || "-", 72))}</code></td>
         <td>${escapeHtml(status)}${error}</td>
@@ -1376,7 +1376,7 @@ function renderConfigPromotions(configs) {
     ].filter(Boolean).join("; ") || "ok";
     return `
       <tr>
-        <td><strong>${escapeHtml(config.binding || "-")}</strong><div class="muted">L${escapeHtml(config.line ?? "-")}</div></td>
+        <td><strong>${escapeHtml(config.binding || "-")}</strong><div class="muted">${sourceLineButton(config)}</div></td>
         <td>${escapeHtml(config.format || "-")}<div class="muted">${escapeHtml(config.schema_name || config.schemaName || "-")}</div></td>
         <td><code>${escapeHtml(compactText(config.source || config.source_literal || config.sourceLiteral || "-", 64))}</code><div class="muted">${escapeHtml(compactText(config.resolved_path || config.resolvedPath || "-", 72))}</div></td>
         <td>${escapeHtml(config.status || "-")}<div class="muted">fields ${escapeHtml(fieldCount)}</div></td>
@@ -1396,7 +1396,7 @@ function renderConfigPromotions(configs) {
 function renderSchemas() {
   const rows = inspectorRows("schemas").map((schema) => `
     <tr>
-      <td><strong>${escapeHtml(schema.name || "-")}</strong><div class="muted">L${escapeHtml(schema.line || "-")}</div></td>
+      <td><strong>${escapeHtml(schema.name || "-")}</strong><div class="muted">${sourceLineButton(schema)}</div></td>
       <td>${escapeHtml(schema.row_count ?? schema.rowCount ?? "-")}</td>
       <td>${escapeHtml(schema.date_time_index || schema.dateTimeIndex || "-")}</td>
       <td>${escapeHtml(columnSummary(schema.columns))}</td>
@@ -1575,7 +1575,7 @@ function renderTimeSeriesCoverage() {
       : "-";
     return `
       <tr>
-        <td><strong>${escapeHtml(coverage.binding || coverage.name || "-")}</strong><div class="muted">L${escapeHtml(coverage.line ?? "-")}</div></td>
+        <td><strong>${escapeHtml(coverage.binding || coverage.name || "-")}</strong><div class="muted">${sourceLineButton(coverage)}</div></td>
         <td>${escapeHtml(coverage.source_table || coverage.sourceTable || "-")}.${escapeHtml(coverage.source_column || coverage.sourceColumn || "-")}<div class="muted">${escapeHtml(coverage.source_start || coverage.sourceStart || "-")} - ${escapeHtml(coverage.source_end || coverage.sourceEnd || "-")}</div></td>
         <td>${escapeHtml(actual)} / ${escapeHtml(expected)}<div class="muted">missing ${escapeHtml(missing)}</div></td>
         <td>${metricCell(step)}<div class="muted">max gap ${metricCell(maxGap)}</div></td>
@@ -1797,7 +1797,7 @@ function renderMetrics() {
 function renderValidations() {
   const rows = inspectorRows("validations").map((item) => `
     <tr>
-      <td><strong>${escapeHtml(item.status || "-")}</strong><div class="muted">L${escapeHtml(item.line || "-")}</div></td>
+      <td><strong>${escapeHtml(item.status || "-")}</strong><div class="muted">${sourceLineButton(item)}</div></td>
       <td>${escapeHtml(item.expression || "-")}</td>
       <td>${metricCell(item.left_value ?? item.leftValue)} ${escapeHtml(item.unit || "")}</td>
       <td>${metricCell(item.right_value ?? item.rightValue)} ${escapeHtml(item.unit || "")}</td>
@@ -1865,7 +1865,7 @@ function renderSystems() {
     const substeps = systemStepSummary(systemStepDiagnostics(solver));
     return `
       <tr>
-        <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">L${escapeHtml(system.line || "-")}</div></td>
+        <td><strong>${escapeHtml(system.name || "-")}</strong><div class="muted">${sourceLineButton(system)}</div></td>
         <td>${escapeHtml(stateLabel)}<div class="muted">alg ${escapeHtml(joinOrDash(algebraicNames))}</div></td>
         <td>${escapeHtml(joinOrDash(inputNames))}<div class="muted">params ${escapeHtml(joinOrDash(parameterNames))}</div><div class="muted">outputs ${escapeHtml(joinOrDash(outputNames))}</div></td>
         <td>${escapeHtml(sourceEquations)}</td>
@@ -1894,7 +1894,7 @@ function renderLinearOperators() {
     const canonicalEntries = operator.canonical_entries ?? operator.canonicalEntries ?? [];
     return `
       <tr>
-        <td><strong>${escapeHtml(operator.system || "-")}</strong><div class="muted">L${escapeHtml(operator.line || "-")}</div></td>
+        <td><strong>${escapeHtml(operator.system || "-")}</strong><div class="muted">${sourceLineButton(operator)}</div></td>
         <td>${escapeHtml(operator.name || "-")}<div class="muted">${escapeHtml(operator.from || "-")} -> ${escapeHtml(operator.to || "-")}</div></td>
         <td>${escapeHtml(operator.row_count ?? operator.rowCount ?? 0)}x${escapeHtml(operator.column_count ?? operator.columnCount ?? 0)}</td>
         <td>${escapeHtml(joinOrDash(rowMembers))}<div class="muted">${escapeHtml(joinOrDash(rowUnits))}</div></td>
@@ -2319,7 +2319,7 @@ function renderClassObjects() {
     const validations = Array.isArray(object.validations) ? object.validations : [];
     return `
       <tr>
-        <td><strong>${escapeHtml(object.name || "-")}</strong><div class="muted">L${escapeHtml(object.line || "-")}</div></td>
+        <td><strong>${escapeHtml(object.name || "-")}</strong><div class="muted">${sourceLineButton(object)}</div></td>
         <td>${escapeHtml(object.class_name || object.className || "-")}<div class="muted">${escapeHtml(object.construction || "-")}</div></td>
         <td>${escapeHtml(object.source_object || object.sourceObject || "-")}</td>
         <td>${escapeHtml(fieldSummary(fields))}</td>
@@ -2470,12 +2470,13 @@ function renderCaseManifests(manifests) {
       <td>${escapeHtml(caseProcessSummary(manifest))}</td>
       <td>${escapeHtml(caseOutputSummary(manifest))}</td>
       <td>${escapeHtml(compactText(manifest.failure_reason || manifest.failureReason || "-", 90))}</td>
+      <td>${sourceLineButton(manifest)}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Case</th><th>Sample</th><th>Files</th><th>Process</th><th>Outputs</th><th>Failure</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No case manifests.</td></tr>`}</tbody>
+      <thead><tr><th>Case</th><th>Sample</th><th>Files</th><th>Process</th><th>Outputs</th><th>Failure</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No case manifests.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -2487,12 +2488,13 @@ function renderFailedCases(cases) {
       <td>${escapeHtml(manifest.status || "-")}</td>
       <td>${escapeHtml(caseProcessSummary(manifest))}</td>
       <td>${escapeHtml(compactText(manifest.failure_reason || manifest.failureReason || "-", 110))}</td>
+      <td>${sourceLineButton(manifest)}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Case</th><th>Status</th><th>Process</th><th>Reason</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No failed cases.</td></tr>`}</tbody>
+      <thead><tr><th>Case</th><th>Status</th><th>Process</th><th>Reason</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No failed cases.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -2523,7 +2525,7 @@ function renderModelCards(cards) {
     const metrics = card.metrics || {};
     return `
       <tr>
-        <td><strong>${escapeHtml(card.binding || "-")}</strong><div class="muted">L${escapeHtml(card.line ?? "-")}</div></td>
+        <td><strong>${escapeHtml(card.binding || "-")}</strong><div class="muted">${sourceLineButton(card)}</div></td>
         <td>${escapeHtml(card.model_kind || card.modelKind || "-")}<div class="muted">${escapeHtml(card.status || "-")}</div></td>
         <td>${escapeHtml(card.target || "-")}<div class="muted">${escapeHtml(card.target_quantity || card.targetQuantity || "-")} ${escapeHtml(card.target_unit || card.targetUnit || "")}</div></td>
         <td>${metricCell(metrics.rmse)} / ${metricCell(metrics.mae)} / ${metricCell(metrics.r2)}</td>
@@ -2552,13 +2554,14 @@ function renderModelArtifacts(artifacts) {
         <td>${metricCell(artifact.rmse)} / ${metricCell(artifact.mae)} / ${metricCell(artifact.r2)}</td>
         <td>${escapeHtml(Array.isArray(residuals) ? residuals.length : 0)}<div class="muted">parity ${escapeHtml(Array.isArray(parity) ? parity.length : 0)}</div></td>
         <td><code>${escapeHtml(compactText(artifact.training_data_hash || artifact.trainingDataHash || "-", 70))}</code></td>
+        <td>${sourceLineButton(artifact)}</td>
       </tr>
     `;
   }).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Artifact</th><th>Algorithm</th><th>Features</th><th>RMSE/MAE/R2</th><th>Points</th><th>Training Hash</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No model artifacts.</td></tr>`}</tbody>
+      <thead><tr><th>Artifact</th><th>Algorithm</th><th>Features</th><th>RMSE/MAE/R2</th><th>Points</th><th>Training Hash</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No model artifacts.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -2575,6 +2578,7 @@ function renderDbManifests(manifests) {
           <td>-</td>
           <td>-</td>
           <td>-</td>
+          <td>${sourceLineButton(manifest)}</td>
         </tr>
       `];
     }
@@ -2586,13 +2590,14 @@ function renderDbManifests(manifests) {
         <td><strong>${escapeHtml(table.name || "-")}</strong><div class="muted">${escapeHtml(table.mode || "-")}</div></td>
         <td>${escapeHtml(table.row_count ?? table.rowCount ?? "-")}</td>
         <td>${escapeHtml(dbTableShape(table))}</td>
+        <td>${sourceLineButton(manifest)}</td>
       </tr>
     `);
   }).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Binding</th><th>Database</th><th>Transaction</th><th>Table</th><th>Rows</th><th>Shape</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No DB write manifests.</td></tr>`}</tbody>
+      <thead><tr><th>Binding</th><th>Database</th><th>Transaction</th><th>Table</th><th>Rows</th><th>Shape</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No DB write manifests.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -2611,12 +2616,13 @@ function renderDbRegistry(records) {
       <td>${escapeHtml(record.transaction_status || record.transactionStatus || "-")}</td>
       <td>${escapeHtml(record.table_count ?? record.tableCount ?? "-")}</td>
       <td><code>${escapeHtml(compactText(record.hash || "-", 70))}</code></td>
+      <td>${sourceLineButton(record)}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Binding</th><th>Target</th><th>Transaction</th><th>Tables</th><th>Hash</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No DB registry records.</td></tr>`}</tbody>
+      <thead><tr><th>Binding</th><th>Target</th><th>Transaction</th><th>Tables</th><th>Hash</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No DB registry records.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -2625,7 +2631,7 @@ function renderNetworkEvents(events, requests) {
   const source = events.length ? events : requests;
   const rows = source.map((event) => `
     <tr>
-      <td><strong>${escapeHtml(event.kind || event.method || "-")}</strong><div class="muted">L${escapeHtml(event.line ?? "-")}</div></td>
+      <td><strong>${escapeHtml(event.kind || event.method || "-")}</strong><div class="muted">${sourceLineButton(event)}</div></td>
       <td>${escapeHtml(event.status || "-")}<div class="muted">${escapeHtml(event.status_class || event.statusClass || "-")} ${escapeHtml(event.status_code ?? event.statusCode ?? "")}</div></td>
       <td><code>${escapeHtml(compactText(event.target || event.url || "-", 90))}</code></td>
       <td><code>${escapeHtml(compactText(event.response_hash || event.responseHash || event.hash || "-", 70))}</code></td>
@@ -2647,12 +2653,13 @@ function renderCacheEvents(events, caches) {
       <td>${escapeHtml(event.status || "-")}</td>
       <td><code>${escapeHtml(compactText(event.cache_key || event.cacheKey || event.cache_key_hash || event.cacheKeyHash || "-", 80))}</code></td>
       <td><code>${escapeHtml(compactText(event.cache_path || event.cachePath || event.cache_dir || event.cacheDir || "-", 90))}</code></td>
+      <td>${sourceLineButton(event)}</td>
     </tr>
   `).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Owner</th><th>Status</th><th>Key</th><th>Path</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No cache events.</td></tr>`}</tbody>
+      <thead><tr><th>Owner</th><th>Status</th><th>Key</th><th>Path</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">No cache events.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -2678,7 +2685,7 @@ function renderArtifactRecords(artifacts) {
 function renderExternalBoundaryRecords(boundaries) {
   const rows = boundaries.map((boundary) => `
     <tr>
-      <td><strong>${escapeHtml(boundary.kind || "-")}</strong><div class="muted">L${escapeHtml(boundary.line ?? "-")}</div></td>
+      <td><strong>${escapeHtml(boundary.kind || "-")}</strong><div class="muted">${sourceLineButton(boundary)}</div></td>
       <td>${escapeHtml(boundary.binding || "-")}</td>
       <td><code>${escapeHtml(compactText(boundary.target || boundary.command || "-", 80))}</code></td>
       <td>${escapeHtml(boundary.status || "-")}<div class="muted">${boundary.success === true ? "success" : boundary.success === false ? "failed" : "-"}</div></td>
@@ -2696,7 +2703,7 @@ function renderExternalBoundaryRecords(boundaries) {
 function renderRunLog(messages) {
   const rows = messages.map((message) => `
     <tr>
-      <td><strong>${escapeHtml(message.level || "-")}</strong><div class="muted">L${escapeHtml(message.line ?? "-")}</div></td>
+      <td><strong>${escapeHtml(message.level || "-")}</strong><div class="muted">${sourceLineButton(message)}</div></td>
       <td>${escapeHtml(message.message || "-")}</td>
     </tr>
   `).join("");
@@ -2718,7 +2725,7 @@ function renderProcessResults(processes) {
       : "-";
     return `
       <tr>
-        <td><strong>${escapeHtml(process.binding || "-")}</strong><div class="muted">L${escapeHtml(process.line ?? "-")}</div></td>
+        <td><strong>${escapeHtml(process.binding || "-")}</strong><div class="muted">${sourceLineButton(process)}</div></td>
         <td><code>${escapeHtml([process.command, ...(process.args || [])].filter(Boolean).join(" "))}</code><div class="muted">${escapeHtml(process.cwd || "-")}</div></td>
         <td>${escapeHtml(process.status || "-")}<div class="muted">exit ${escapeHtml(process.exit_code ?? process.exitCode ?? "-")}</div><div class="muted">${escapeHtml(process.expected_output_status || process.expectedOutputStatus || "-")}</div></td>
         <td><code>${escapeHtml(compactText(process.stdout_hash || process.stdoutHash || "-", 70))}</code><div class="muted"><code>${escapeHtml(compactText(process.stderr_hash || process.stderrHash || "-", 70))}</code></div></td>
@@ -2740,7 +2747,7 @@ function renderTestResults(tests) {
     const goldens = Array.isArray(test.goldens) ? test.goldens : [];
     return `
       <tr>
-        <td><strong>${escapeHtml(test.name || "-")}</strong><div class="muted">L${escapeHtml(test.line ?? "-")}</div></td>
+        <td><strong>${escapeHtml(test.name || "-")}</strong><div class="muted">${sourceLineButton(test)}</div></td>
         <td>${escapeHtml(test.status || "-")}</td>
         <td>${escapeHtml(assertions.length)}</td>
         <td>${escapeHtml(goldens.length)}</td>

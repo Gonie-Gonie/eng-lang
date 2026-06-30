@@ -4487,6 +4487,7 @@ mod tests {
                     "source_hash": "sample-hash",
                     "sample_row_number": 1,
                     "source_row": 1,
+                    "line": 14,
                     "sample_row_hash": "row-hash-1",
                     "case_dir": "outputs/case_001",
                     "generated_input_file": "outputs/case_001/input.txt",
@@ -4510,6 +4511,7 @@ mod tests {
                     "source_hash": "sample-hash",
                     "sample_row_number": 2,
                     "source_row": 2,
+                    "line": 14,
                     "sample_row_hash": "row-hash-2",
                     "case_dir": "outputs/case_002",
                     "generated_input_file": "outputs/case_002/input.txt",
@@ -4560,6 +4562,12 @@ mod tests {
                 .and_then(|item| json_field_string(item, "case_id"))
                 .as_deref(),
             Some("case_002")
+        );
+        assert_eq!(
+            failed
+                .first()
+                .and_then(|item| json_field_usize(item, "line")),
+            Some(14)
         );
     }
 

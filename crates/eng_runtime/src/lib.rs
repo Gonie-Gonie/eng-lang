@@ -7753,6 +7753,7 @@ fn case_manifests_json(
             "        \"source_row\": {},\n",
             manifest.source_row
         ));
+        json.push_str(&format!("        \"line\": {},\n", manifest.line));
         json.push_str(&format!(
             "        \"sample_row_hash\": \"{}\",\n",
             json_escape(&manifest.sample_row_hash)
@@ -10660,14 +10661,29 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"status\": \"case_materialized\""));
-        assert!(output.review_json.contains("\"case_manifests\""));
-        assert!(output.review_json.contains("\"case_id\": \"case_001\""));
-        assert!(output
-            .review_json
-            .contains("\"process_bindings\": [\"case_manifest_result\"]"));
-        assert!(output
-            .review_json
-            .contains("\"status\": \"case_materialized\""));
+        let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        let review_case = review
+            .get("case_manifests")
+            .and_then(Value::as_array)
+            .and_then(|items| items.first())
+            .expect("review case manifest");
+        assert_eq!(
+            review_case.get("case_id").and_then(Value::as_str),
+            Some("case_001")
+        );
+        assert_eq!(
+            review_case
+                .get("process_bindings")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first())
+                .and_then(Value::as_str),
+            Some("case_manifest_result")
+        );
+        assert_eq!(
+            review_case.get("status").and_then(Value::as_str),
+            Some("case_materialized")
+        );
+        assert!(review_case.get("line").and_then(Value::as_u64).is_some());
     }
 
     #[test]
