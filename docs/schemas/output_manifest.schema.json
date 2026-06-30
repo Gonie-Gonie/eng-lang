@@ -145,7 +145,11 @@
       ],
       "properties": {
         "kind": {
-          "const": "source_file"
+          "enum": [
+            "source_file",
+            "config_json",
+            "config_toml"
+          ]
         },
         "binding": {
           "type": "string"
@@ -194,6 +198,7 @@
             "generated_file",
             "review_artifact",
             "external_boundary",
+            "case",
             "cache",
             "db_write",
             "model",

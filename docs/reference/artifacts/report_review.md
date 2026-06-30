@@ -380,7 +380,10 @@ separate from `run_log.json`: logs are messages produced by the EngLang
 workflow, while process results record effects from external tools. Expected
 outputs record existence/hash validation and can be classified with
 `artifact_kind`, for example `standard_file` for a generic fixed-record/text
-artifact produced by an external writer.
+artifact produced by an external writer. Module-specific outputs such as
+`case_manifest`, `model_artifact`, and `db_write_manifest` keep the same
+expected-output record shape and are classified in `output_manifest.json` under
+the shared artifact registry.
 
 ## `test_results.json`
 

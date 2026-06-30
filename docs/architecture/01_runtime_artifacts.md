@@ -262,13 +262,15 @@ files alongside explicit CSV exports, write outputs, file operation records,
 run-log records, and process-result records. Generated entries carry a
 validation section with the rule used to accept the file. External process
 outputs may set `artifact_kind = "standard_file"` to record a domain-neutral
-standard text artifact without making the format part of core syntax. The
-saved process artifact is listed as `process_results`; the saved test artifact
-is listed as
-`test_results`. The companion `artifact_registry` groups the same outputs
-with source records, external command boundaries, DB-write summaries, model
-artifact summaries, and named test records so report, review, IDE, and CI tools
-can consume one generic artifact shape.
+standard text artifact without making the format part of core syntax. Module
+artifact kinds such as `case_manifest`, `model_artifact`, and
+`db_write_manifest` are still serialized through the same `ArtifactRecord`
+shape, with a module-level `class` in the artifact registry. The saved process
+artifact is listed as `process_results`; the saved test artifact is listed as
+`test_results`. The companion `artifact_registry` groups the same outputs with
+source records, external command boundaries, DB-write summaries, model artifact
+summaries, and named test records so report, review, IDE, and CI tools can
+consume one generic artifact shape.
 
 ## `.engres`
 

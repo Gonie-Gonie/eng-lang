@@ -5239,7 +5239,13 @@ fn artifact_record_class(kind: &str) -> &'static str {
         | "run_lock" => "review_artifact",
         "process_results" | "process_expected_output" => "external_boundary",
         "cache_manifest" => "cache",
+        "case_input" | "case_result" | "case_manifest" | "result_collection" => "case",
         "db_write_manifest" => "db_write",
+        "model_artifact"
+        | "model_card"
+        | "model_metrics"
+        | "prediction_result"
+        | "prediction_manifest" => "model",
         "test_results" => "test",
         _ => "generated_file",
     }
@@ -12363,9 +12369,9 @@ mod tests {
         .expect("case manifest");
         let source_path = source_dir.join("main.eng");
         let process_source = if cfg!(windows) {
-            "case_manifest_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n}\n"
+            "case_manifest_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n    artifact_kind = \"case_manifest\"\n}\n"
         } else {
-            "case_manifest_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n}\n"
+            "case_manifest_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf case-manifest\"]\n    expected_outputs = [\"outputs/case_001/case_manifest.json\"]\n    artifact_kind = \"case_manifest\"\n}\n"
         };
         fs::write(
             &source_path,
@@ -12450,6 +12456,19 @@ mod tests {
             Some("case_materialized")
         );
         assert!(review_case.get("line").and_then(Value::as_u64).is_some());
+        let output_manifest: Value =
+            serde_json::from_str(&output.output_manifest_json).expect("output manifest json");
+        let case_artifact = json_array_item_by_field(
+            &output_manifest,
+            "/artifact_registry/generated_files",
+            "kind",
+            "case_manifest",
+        )
+        .expect("case manifest artifact record");
+        assert_eq!(
+            case_artifact.get("class").and_then(Value::as_str),
+            Some("case")
+        );
     }
 
     #[test]
@@ -12910,10 +12929,74 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"db_write_manifest\""));
         assert!(output.output_manifest_json.contains("\"db_writes\""));
+        let output_manifest: Value =
+            serde_json::from_str(&output.output_manifest_json).expect("output manifest json");
+        let db_artifact = json_array_item_by_field(
+            &output_manifest,
+            "/artifact_registry/generated_files",
+            "kind",
+            "db_write_manifest",
+        )
+        .expect("db write artifact record");
+        assert_eq!(
+            db_artifact.get("class").and_then(Value::as_str),
+            Some("db_write")
+        );
         assert!(output.run_log_json.contains("\"kind\": \"db_write\""));
         assert!(output
             .run_log_json
             .contains("\"target\": \"outputs/results.sqlite\""));
+    }
+
+    #[test]
+    fn run_file_classifies_model_expected_output_artifact() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-model-expected-output");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-model-expected-output-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "model_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"if not exist outputs mkdir outputs && echo model>outputs/model.json\"]\n    expected_outputs = [\"outputs/model.json\"]\n    artifact_kind = \"model_artifact\"\n}\n"
+        } else {
+            "model_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"mkdir -p outputs && printf model > outputs/model.json\"]\n    expected_outputs = [\"outputs/model.json\"]\n    artifact_kind = \"model_artifact\"\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("model process run");
+
+        assert!(output
+            .process_results_json
+            .contains("\"kind\": \"model_artifact\""));
+        let output_manifest: Value =
+            serde_json::from_str(&output.output_manifest_json).expect("output manifest json");
+        let model_artifact = json_array_item_by_field(
+            &output_manifest,
+            "/artifact_registry/generated_files",
+            "kind",
+            "model_artifact",
+        )
+        .expect("model artifact record");
+        assert_eq!(
+            model_artifact.get("class").and_then(Value::as_str),
+            Some("model")
+        );
     }
 
     #[test]
