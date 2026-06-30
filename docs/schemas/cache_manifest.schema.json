@@ -8,6 +8,8 @@
     "runtime_version",
     "source_path",
     "execution_profile",
+    "diagnostic_count",
+    "diagnostics",
     "cache_record_count",
     "cache_records"
   ],
@@ -28,6 +30,16 @@
         "repro"
       ]
     },
+    "diagnostic_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/cacheDiagnostic"
+      }
+    },
     "cache_record_count": {
       "type": "integer",
       "minimum": 0
@@ -40,6 +52,53 @@
     }
   },
   "$defs": {
+    "cacheDiagnostic": {
+      "type": "object",
+      "required": [
+        "severity",
+        "code",
+        "message",
+        "cache_dir",
+        "cache_path",
+        "resolved_path",
+        "cache_key_hash",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "severity": {
+          "enum": [
+            "warning",
+            "error"
+          ]
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "cache_dir": {
+          "type": "string"
+        },
+        "cache_path": {
+          "type": "string"
+        },
+        "resolved_path": {
+          "type": "string"
+        },
+        "cache_key_hash": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string"
+        },
+        "line": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
     "cacheRecord": {
       "type": "object",
       "required": [

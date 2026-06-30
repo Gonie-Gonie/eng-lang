@@ -17,9 +17,9 @@ case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
 examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network and cache record seeds have
 landed for offline/fixture boundaries and cache manifests; cache manifests now
-share owner records across network, process, model, and case workflow surfaces.
-Live network execution, cache replay/invalidation, case runner, DB writer, and
-public model syntax remain planned or internal until concrete
+share owner records across network, process, model, and case workflow surfaces
+and warn about stale cache entries. Live network execution, cache replay, case
+runner, DB writer, and public model syntax remain planned or internal until concrete
 language/runtime/artifact slices land.
 
 ## Purpose
@@ -56,7 +56,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`review.external_boundaries` | `E-DB-SCHEMA-MISMATCH` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime db_manifest` |
 | `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg` |
-| `eng.cache` | supported_seed | compiler_runtime_builtin | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
+| `eng.cache` | supported_seed | compiler_runtime_builtin | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH`<br>`W-CACHE-STALE` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
 | `eng.quality` | planned | none | `review.validations`<br>`quality_report`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `planned_quality_tests` |
 | `eng.template` | planned | none | `review.side_effects`<br>`output_manifest` | `E-TEMPLATE-MISSING-PLACEHOLDER` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `planned_template_tests` |
 | `eng.workflow` | planned | none | `run_plan`<br>`run_lock`<br>`output_manifest`<br>`run_log` | `run_lock_changed`<br>`artifact_hash_mismatch` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime run_plan` |
@@ -252,6 +252,7 @@ Initial diagnostic families:
 ```text
 E-NET-UNPINNED-REPRO
 E-CACHE-HASH-MISMATCH
+W-CACHE-STALE
 E-TABLE-SCHEMA-MISMATCH
 E-TIMESERIES-COVERAGE-GAP
 E-SAMPLING-SEED-MISSING

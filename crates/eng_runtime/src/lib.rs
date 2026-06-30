@@ -529,8 +529,13 @@ pub fn run_source(
         external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
     let cache_manifest_records = cache_manifest_records(&check_report, &runtime_data, build_root);
     ensure_cache_hashes_valid(&cache_manifest_records)?;
-    let cache_manifest_json =
-        cache_manifest_json(&check_report, &cache_manifest_records, &options.profile);
+    let cache_diagnostics = cache_stale_diagnostics(&cache_manifest_records, build_root);
+    let cache_manifest_json = cache_manifest_json(
+        &check_report,
+        &cache_manifest_records,
+        &cache_diagnostics,
+        &options.profile,
+    );
     let run_log_json = run_log_json(
         &check_report,
         &runtime_data,
@@ -1538,6 +1543,19 @@ struct CacheManifestRecord {
 }
 
 #[derive(Clone, Debug)]
+struct CacheDiagnosticRecord {
+    severity: &'static str,
+    code: &'static str,
+    message: String,
+    cache_dir: String,
+    cache_path: String,
+    resolved_path: String,
+    cache_key_hash: String,
+    status: &'static str,
+    line: usize,
+}
+
+#[derive(Clone, Debug)]
 struct DbManifestRecord {
     binding: String,
     manifest_path: String,
@@ -1806,6 +1824,57 @@ fn serialize_runtime_cache_key(parts: &[String]) -> String {
         .join("|")
 }
 
+fn cache_stale_diagnostics(
+    records: &[CacheManifestRecord],
+    build_root: &Path,
+) -> Vec<CacheDiagnosticRecord> {
+    let mut cache_dirs: HashMap<String, (HashSet<String>, usize)> = HashMap::new();
+    for record in records {
+        let entry = cache_dirs
+            .entry(record.cache_dir.clone())
+            .or_insert_with(|| (HashSet::new(), record.line));
+        entry.0.insert(record.cache_key_hash.clone());
+        entry.1 = entry.1.min(record.line);
+    }
+
+    let mut diagnostics = Vec::new();
+    for (cache_dir, (active_hashes, line)) in cache_dirs {
+        let cache_dir_path = resolve_cache_path(build_root, &cache_dir);
+        let Ok(entries) = fs::read_dir(&cache_dir_path) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let Ok(file_type) = entry.file_type() else {
+                continue;
+            };
+            if !file_type.is_file() && !file_type.is_dir() {
+                continue;
+            }
+            let cache_key_hash = entry.file_name().to_string_lossy().to_string();
+            if active_hashes.contains(&cache_key_hash) {
+                continue;
+            }
+            let cache_path = format!("{}/{}", cache_dir.trim_end_matches('/'), cache_key_hash);
+            let resolved_path = entry.path().display().to_string();
+            diagnostics.push(CacheDiagnosticRecord {
+                severity: "warning",
+                code: "W-CACHE-STALE",
+                message: format!(
+                    "cache entry `{resolved_path}` is not referenced by the current cache manifest"
+                ),
+                cache_dir: cache_dir.clone(),
+                cache_path,
+                resolved_path,
+                cache_key_hash,
+                status: "stale",
+                line,
+            });
+        }
+    }
+    diagnostics.sort_by(|left, right| left.resolved_path.cmp(&right.resolved_path));
+    diagnostics
+}
+
 fn ensure_cache_hashes_valid(records: &[CacheManifestRecord]) -> Result<(), RuntimeError> {
     if let Some(record) = records
         .iter()
@@ -1853,6 +1922,7 @@ fn resolve_cache_path(build_root: &Path, path: &str) -> PathBuf {
 fn cache_manifest_json(
     report: &CheckReport,
     records: &[CacheManifestRecord],
+    diagnostics: &[CacheDiagnosticRecord],
     profile: &ExecutionProfile,
 ) -> String {
     let mut json = String::new();
@@ -1870,12 +1940,60 @@ fn cache_manifest_json(
         "  \"execution_profile\": \"{}\",\n",
         profile.as_str()
     ));
+    json.push_str(&format!("  \"diagnostic_count\": {},\n", diagnostics.len()));
+    json.push_str("  \"diagnostics\": [\n");
+    push_cache_diagnostics_json(&mut json, diagnostics, "    ");
+    json.push_str("\n  ],\n");
     json.push_str(&format!("  \"cache_record_count\": {},\n", records.len()));
     json.push_str("  \"cache_records\": [\n");
     push_cache_manifest_records_json(&mut json, records, "    ");
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
+}
+
+fn push_cache_diagnostics_json(
+    json: &mut String,
+    diagnostics: &[CacheDiagnosticRecord],
+    indent: &str,
+) {
+    for (index, diagnostic) in diagnostics.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!(
+            "{indent}  \"severity\": \"{}\",\n",
+            diagnostic.severity
+        ));
+        json.push_str(&format!("{indent}  \"code\": \"{}\",\n", diagnostic.code));
+        json.push_str(&format!(
+            "{indent}  \"message\": \"{}\",\n",
+            json_escape(&diagnostic.message)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_dir\": \"{}\",\n",
+            json_escape(&diagnostic.cache_dir)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_path\": \"{}\",\n",
+            json_escape(&diagnostic.cache_path)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"resolved_path\": \"{}\",\n",
+            json_escape(&diagnostic.resolved_path)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"cache_key_hash\": \"{}\",\n",
+            json_escape(&diagnostic.cache_key_hash)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"status\": \"{}\",\n",
+            diagnostic.status
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", diagnostic.line));
+        json.push_str(&format!("{indent}}}"));
+    }
 }
 
 fn push_cache_manifest_records_json(
@@ -13000,6 +13118,7 @@ mod tests {
         let _ = fs::remove_dir_all(&source_dir);
         let _ = fs::remove_dir_all(&build_root);
         fs::create_dir_all(&source_dir).expect("source dir");
+        fs::create_dir_all(build_root.join("cache").join("stale-entry")).expect("stale cache");
         let source_path = source_dir.join("main.eng");
         let source = if cfg!(windows) {
             "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-cache\"]\n    tool_version = \"cmd-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n}\n"
@@ -13028,6 +13147,8 @@ mod tests {
         assert!(output
             .cache_manifest_json
             .contains("\"lookup_status\": \"miss\""));
+        assert!(output.cache_manifest_json.contains("\"W-CACHE-STALE\""));
+        assert!(output.cache_manifest_json.contains("stale-entry"));
         assert!(output.run_log_json.contains("\"cache_events\""));
         assert!(output.run_log_json.contains("\"cache_event_count\": 1"));
         assert!(output.review_json.contains("\"caches\""));
