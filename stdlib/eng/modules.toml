@@ -70,8 +70,8 @@ tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"
 [module."eng.timeseries"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, and integration."
-artifacts = ["typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "review.fallbacks"]
+purpose = "TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, and integration."
+artifacts = ["typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "typed_payload.timeseries_quality", "review.fallbacks"]
 diagnostics = ["E-TIMESERIES-COVERAGE-GAP", "W-FALLBACK-USED"]
 examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid"]
 tests = ["cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts"]

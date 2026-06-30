@@ -1,6 +1,6 @@
 # module: eng.timeseries
-# status: supported-narrow-builtins-coverage-and-fill-artifact-seed
-# purpose: TimeSeries statistics, generic coverage artifacts, explicit fill/interpolation artifacts, and planned resampling helpers.
+# status: supported-narrow-builtins-coverage-fill-quality-artifact-seed
+# purpose: TimeSeries statistics, generic coverage artifacts, explicit fill/interpolation artifacts, quality summaries, and planned resampling helpers.
 #
 # Current implementation:
 #   TimeSeries statistics, integration, axis metadata, promoted-table coverage
@@ -8,8 +8,9 @@
 #   promoted tables, explicit `check coverage <table>.<time>` with
 #   `expected_step` and optional `year`, explicit `fill missing <table>.<column>`
 #   records in typed_payload.timeseries_fill[], interpolation into filled
-#   TimeSeries outputs, and selected alignment metadata are supported for documented
-#   public workflows. Uncertainty confidence-band metadata is internal/preview.
+#   TimeSeries outputs, typed_payload.timeseries_quality[] coverage/fill
+#   summaries, and selected alignment metadata are supported for documented public
+#   workflows. Uncertainty confidence-band metadata is internal/preview.
 #
 # Supported helper vocabulary:
 #   check coverage
@@ -21,7 +22,7 @@
 #
 # Review contract:
 #   start/end, expected count, actual count, missing intervals, max gap,
-#   leap-year policy, fill policy, and warnings.
+#   leap-year policy, fill policy, quality score, remaining missing count, and warnings.
 #
 # Non-goal:
 #   richer resampling/fill APIs should not silently change data. They must

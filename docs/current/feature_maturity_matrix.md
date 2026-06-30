@@ -239,7 +239,7 @@ separate.
   sample-table artifacts, typed config promotion optional field policy,
   promoted case manifest seeds enriched from process outputs, DB manifest summaries in `typed_payload.db_manifests[]`, internal model-card
   summaries in `typed_payload.model_cards[]`, DateTime-indexed
-  `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, and time-axis coverage artifacts;
+  `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, and time-axis coverage artifacts;
   hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
   through explicit process/write boundaries; `Planned` for native network,
   cache, sampling generators, native case runner, SQLite writes, and model-card
@@ -253,7 +253,7 @@ separate.
   evidence and row diagnostics,
   `review_document.table_transforms[]`,
   `typed_payload.config_promotions[]`,
-  `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
+  `typed_payload.timeseries_coverage[]`, `typed_payload.timeseries_quality[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,
   data-quality diagnostics for invalid sample rows, IDE table transform

@@ -257,6 +257,7 @@ fn workflow_node_review_risk_category(kind: &str) -> &'static str {
         | "timeseries_kernel"
         | "timeseries_coverage"
         | "timeseries_fill"
+        | "timeseries_quality"
         | "case"
         | "model" => "data_quality",
         "system" | "component_solution" | "solver_boundary" => "solver_or_numeric",
@@ -269,6 +270,7 @@ fn workflow_risk_severity(status: &str) -> &'static str {
     if status.contains("fail")
         || status.contains("error")
         || status.contains("gapped")
+        || status.contains("warning")
         || status.contains("mismatch")
         || status.contains("missing")
     {
@@ -7743,6 +7745,11 @@ mod tests {
         assert_eq!(coverage.category, "data_quality");
         assert_eq!(coverage.severity, "warning");
         assert_eq!(coverage.level, "medium");
+
+        let quality = classify_workflow_node_review_risk("timeseries_quality", "warning");
+        assert_eq!(quality.category, "data_quality");
+        assert_eq!(quality.severity, "warning");
+        assert_eq!(quality.level, "medium");
     }
 
     #[test]

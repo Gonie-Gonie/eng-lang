@@ -110,6 +110,10 @@
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesFill" }
     },
+    "timeseries_quality": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/timeSeriesQuality" }
+    },
     "timeseries_fallbacks": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeSeriesFallback" }
@@ -1155,6 +1159,49 @@
         "skipped_count": { "type": "integer", "minimum": 0 },
         "fallback_required": { "type": "boolean" },
         "status": { "enum": ["not_required", "deferred", "recorded", "applied", "partial"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "timeSeriesQuality": {
+      "type": "object",
+      "required": [
+        "binding",
+        "source_table",
+        "source_column",
+        "time_column",
+        "coverage_binding",
+        "fill_binding",
+        "expected_step",
+        "expected_count",
+        "actual_count",
+        "missing_count",
+        "filled_count",
+        "remaining_missing_count",
+        "coverage_status",
+        "fill_status",
+        "quality_score",
+        "status",
+        "reason",
+        "line"
+      ],
+      "properties": {
+        "binding": { "type": "string" },
+        "source_table": { "type": "string" },
+        "source_column": { "type": "string" },
+        "time_column": { "type": "string" },
+        "coverage_binding": { "type": ["string", "null"] },
+        "fill_binding": { "type": ["string", "null"] },
+        "expected_step": { "type": ["number", "null"] },
+        "expected_count": { "type": ["integer", "null"], "minimum": 0 },
+        "actual_count": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "filled_count": { "type": "integer", "minimum": 0 },
+        "remaining_missing_count": { "type": "integer", "minimum": 0 },
+        "coverage_status": { "type": "string" },
+        "fill_status": { "type": ["string", "null"] },
+        "quality_score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "status": { "enum": ["passed", "warning"] },
         "reason": { "type": "string" },
         "line": { "type": "integer", "minimum": 0 }
       }

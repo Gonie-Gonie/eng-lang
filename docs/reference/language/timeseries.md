@@ -135,6 +135,7 @@ object_store.objects[].points
 typed_payload.statistics
 typed_payload.integrations
 typed_payload.timeseries_fill
+typed_payload.timeseries_quality
 ```
 
 The VM object store records TimeSeries objects as:
@@ -172,7 +173,8 @@ Runtime artifacts include a `typed_payload.timeseries_fill[]` record with the
 source table/column, time column, method, expected step, max gap, missing count,
 fillable count, filled count, skipped count, status, and source line. The
 interpolated output is also available in the VM object store under the fill
-binding name.
+binding name. `typed_payload.timeseries_quality[]` summarizes the related
+coverage/fill outcome with remaining missing count and a 0..1 quality score.
 
 ## Deferred
 

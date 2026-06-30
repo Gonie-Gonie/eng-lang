@@ -686,9 +686,10 @@ weather-specific fill or imputation logic. Runtime artifacts record them in:
 
 ```text
 review.json                 review_document.fallbacks
-review.json                 timeseries_coverage, timeseries_fill, timeseries_fallbacks
+review.json                 timeseries_coverage, timeseries_fill, timeseries_quality, timeseries_fallbacks
 result.engres               typed_payload.timeseries_coverage
 result.engres               typed_payload.timeseries_fill
+result.engres               typed_payload.timeseries_quality
 result.engres               typed_payload.timeseries_fallbacks
 ```
 
@@ -701,7 +702,9 @@ both coverage-derived fallback policy records and explicit
 `fill missing <table>.<column>` command records with source/time columns,
 method, expected step, max gap, missing/fillable/filled/skipped counts, status,
 and source line. For `method = interpolate`, the runtime also materializes the
-filled TimeSeries under the fill binding. Fallback records are emitted when
+filled TimeSeries under the fill binding. Quality records summarize coverage and
+fill together, including remaining missing count, status, reason, and a 0..1
+quality score when an expected count is available. Fallback records are emitted when
 coverage is gapped or irregular, so review tooling can surface the need for an
 explicit fill/imputation policy. The same fallback is also projected into
 `review_document.fallbacks` using the shared ReviewFallback record contract.

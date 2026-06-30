@@ -67,6 +67,7 @@ pub struct RuntimeData {
     pub time_axes: Vec<RuntimeTimeAxis>,
     pub timeseries_coverage: Vec<RuntimeTimeSeriesCoverage>,
     pub timeseries_fill: Vec<RuntimeTimeSeriesFill>,
+    pub timeseries_quality: Vec<RuntimeTimeSeriesQuality>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub structured_reads: Vec<RuntimeStructuredRead>,
     pub numeric_values: Vec<RuntimeNumericValue>,
@@ -1324,6 +1325,28 @@ pub struct RuntimeTimeSeriesFill {
     pub filled_count: usize,
     pub skipped_count: usize,
     pub fallback_required: bool,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTimeSeriesQuality {
+    pub binding: String,
+    pub source_table: String,
+    pub source_column: String,
+    pub time_column: String,
+    pub coverage_binding: Option<String>,
+    pub fill_binding: Option<String>,
+    pub expected_step: Option<f64>,
+    pub expected_count: Option<usize>,
+    pub actual_count: usize,
+    pub missing_count: usize,
+    pub filled_count: usize,
+    pub remaining_missing_count: usize,
+    pub coverage_status: String,
+    pub fill_status: Option<String>,
+    pub quality_score: Option<f64>,
     pub status: String,
     pub reason: String,
     pub line: usize,
@@ -2830,6 +2853,11 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
     data.timeseries_fill =
         materialize_timeseries_fill(report, &data.tables, &data.timeseries_coverage);
+    data.timeseries_quality = materialize_timeseries_quality(
+        &data.tables,
+        &data.timeseries_coverage,
+        &data.timeseries_fill,
+    );
     data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
     data.table_selections = materialize_table_selections(report, &data.tables);
     data.table_transforms = materialize_table_transforms(report, &data.tables);
@@ -3727,6 +3755,192 @@ fn timeseries_fill_command_status(
         "recorded",
         "explicit fill missing policy recorded; values are not mutated in this runtime slice",
         skipped_count > 0,
+    )
+}
+
+fn materialize_timeseries_quality(
+    tables: &[RuntimeTable],
+    coverages: &[RuntimeTimeSeriesCoverage],
+    fills: &[RuntimeTimeSeriesFill],
+) -> Vec<RuntimeTimeSeriesQuality> {
+    let mut quality = Vec::new();
+    let mut summarized_coverage = HashSet::new();
+    for fill in fills {
+        let matching_coverage = matching_timeseries_fill_coverage(coverages, fill);
+        if let Some(coverage) = matching_coverage {
+            summarized_coverage.insert(coverage.binding.clone());
+        }
+        quality.push(materialize_timeseries_fill_quality(
+            tables,
+            matching_coverage,
+            fill,
+        ));
+    }
+    for coverage in coverages {
+        if summarized_coverage.contains(&coverage.binding) {
+            continue;
+        }
+        quality.push(materialize_timeseries_coverage_quality(coverage));
+    }
+    quality
+}
+
+fn matching_timeseries_fill_coverage<'a>(
+    coverage: &'a [RuntimeTimeSeriesCoverage],
+    fill: &RuntimeTimeSeriesFill,
+) -> Option<&'a RuntimeTimeSeriesCoverage> {
+    coverage
+        .iter()
+        .filter(|coverage| {
+            coverage.source_table == fill.source_table && coverage.source_column == fill.time_column
+        })
+        .max_by_key(|coverage| usize::from(coverage.line > 0))
+}
+
+fn materialize_timeseries_fill_quality(
+    tables: &[RuntimeTable],
+    coverage: Option<&RuntimeTimeSeriesCoverage>,
+    fill: &RuntimeTimeSeriesFill,
+) -> RuntimeTimeSeriesQuality {
+    let expected_step = fill
+        .expected_step
+        .or_else(|| coverage.and_then(|coverage| coverage.expected_step));
+    let expected_count = coverage.and_then(|coverage| coverage.expected_count);
+    let actual_count = coverage
+        .map(|coverage| coverage.actual_count)
+        .unwrap_or_else(|| {
+            tables
+                .iter()
+                .find(|table| table.binding == fill.source_table)
+                .map(|table| table.row_count)
+                .unwrap_or_default()
+        });
+    let coverage_missing_count = coverage
+        .map(|coverage| coverage.missing_count)
+        .unwrap_or(fill.missing_count);
+    let missing_count = coverage_missing_count.max(fill.missing_count);
+    let remaining_missing_count = missing_count
+        .saturating_sub(fill.filled_count)
+        .max(fill.skipped_count);
+    let quality_score = timeseries_quality_score(expected_count, remaining_missing_count);
+    let coverage_status = coverage
+        .map(|coverage| coverage.status.clone())
+        .unwrap_or_else(|| "unknown".to_owned());
+    let (status, reason) = timeseries_quality_status_reason(
+        missing_count,
+        fill.filled_count,
+        remaining_missing_count,
+        &coverage_status,
+        Some(&fill.status),
+    );
+
+    RuntimeTimeSeriesQuality {
+        binding: fill.binding.clone(),
+        source_table: fill.source_table.clone(),
+        source_column: fill.source_column.clone(),
+        time_column: fill.time_column.clone(),
+        coverage_binding: coverage.map(|coverage| coverage.binding.clone()),
+        fill_binding: Some(fill.binding.clone()),
+        expected_step,
+        expected_count,
+        actual_count,
+        missing_count,
+        filled_count: fill.filled_count,
+        remaining_missing_count,
+        coverage_status,
+        fill_status: Some(fill.status.clone()),
+        quality_score,
+        status: status.to_owned(),
+        reason: reason.to_owned(),
+        line: fill.line,
+    }
+}
+
+fn materialize_timeseries_coverage_quality(
+    coverage: &RuntimeTimeSeriesCoverage,
+) -> RuntimeTimeSeriesQuality {
+    let filled_count = 0;
+    let remaining_missing_count = coverage.missing_count;
+    let quality_score = timeseries_quality_score(coverage.expected_count, remaining_missing_count);
+    let (status, reason) = timeseries_quality_status_reason(
+        coverage.missing_count,
+        filled_count,
+        remaining_missing_count,
+        &coverage.status,
+        None,
+    );
+
+    RuntimeTimeSeriesQuality {
+        binding: coverage.binding.clone(),
+        source_table: coverage.source_table.clone(),
+        source_column: coverage.source_column.clone(),
+        time_column: coverage.source_column.clone(),
+        coverage_binding: Some(coverage.binding.clone()),
+        fill_binding: None,
+        expected_step: coverage.expected_step,
+        expected_count: coverage.expected_count,
+        actual_count: coverage.actual_count,
+        missing_count: coverage.missing_count,
+        filled_count,
+        remaining_missing_count,
+        coverage_status: coverage.status.clone(),
+        fill_status: None,
+        quality_score,
+        status: status.to_owned(),
+        reason: reason.to_owned(),
+        line: coverage.line,
+    }
+}
+
+fn timeseries_quality_score(
+    expected_count: Option<usize>,
+    remaining_missing_count: usize,
+) -> Option<f64> {
+    let expected_count = expected_count?;
+    if expected_count == 0 {
+        return Some(1.0);
+    }
+    let usable_count = expected_count.saturating_sub(remaining_missing_count.min(expected_count));
+    Some(usable_count as f64 / expected_count as f64)
+}
+
+fn timeseries_quality_status_reason(
+    missing_count: usize,
+    filled_count: usize,
+    remaining_missing_count: usize,
+    coverage_status: &str,
+    fill_status: Option<&String>,
+) -> (&'static str, &'static str) {
+    if remaining_missing_count == 0 {
+        if missing_count > 0 && filled_count > 0 {
+            return (
+                "passed",
+                "fill policy resolved all detected TimeSeries missing samples",
+            );
+        }
+        return ("passed", "TimeSeries coverage has no missing samples");
+    }
+    if filled_count > 0 {
+        return (
+            "warning",
+            "fill policy resolved some TimeSeries missing samples; missing samples remain",
+        );
+    }
+    if fill_status.is_some_and(|status| status == "deferred") {
+        return (
+            "warning",
+            "fill policy was deferred and TimeSeries missing samples remain",
+        );
+    }
+    if coverage_status != "complete" {
+        return (
+            "warning",
+            "TimeSeries coverage is incomplete and requires an explicit fill or acceptance policy",
+        );
+    }
+    (
+        "warning",
+        "TimeSeries quality has missing samples after coverage and fill evaluation",
     )
 }
 
@@ -22399,6 +22613,22 @@ with {{
         assert_eq!(fill.skipped_count, 0);
         assert!(!fill.fallback_required);
         assert_eq!(fill.status, "applied");
+
+        let quality = runtime
+            .timeseries_quality
+            .iter()
+            .find(|quality| quality.binding == "filled")
+            .expect("timeseries quality summary");
+        assert_eq!(
+            quality.coverage_binding.as_deref(),
+            Some("weather.Time.coverage")
+        );
+        assert_eq!(quality.fill_binding.as_deref(), Some("filled"));
+        assert_eq!(quality.missing_count, 1);
+        assert_eq!(quality.filled_count, 1);
+        assert_eq!(quality.remaining_missing_count, 0);
+        assert_eq!(quality.quality_score, Some(1.0));
+        assert_eq!(quality.status, "passed");
 
         let filled_series = runtime
             .time_series
