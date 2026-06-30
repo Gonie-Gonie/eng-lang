@@ -74,6 +74,7 @@ E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tabl
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
 E-NET-INVALID-URL     network boundary URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5
+E-NET-TIMEOUT         network timeout value is not a positive finite duration
 E-CACHE-KEY-NONDETERMINISTIC cache_key contains nondeterministic or secret-dependent input
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run

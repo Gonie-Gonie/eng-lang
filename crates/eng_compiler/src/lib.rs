@@ -4612,6 +4612,7 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
             indent + 4,
         );
         push_optional_json_usize(json, "retry", request.retry, indent + 4);
+        push_optional_json_string(json, "timeout", request.timeout.as_deref(), indent + 4);
         json.push_str(&format!("{spaces}    \"cache\": {},\n", request.cache));
         match request.status_code {
             Some(status_code) => {
@@ -4664,6 +4665,7 @@ fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usiz
             indent + 4,
         );
         push_optional_json_usize(json, "retry", download.retry, indent + 4);
+        push_optional_json_string(json, "timeout", download.timeout.as_deref(), indent + 4);
         json.push_str(&format!("{spaces}    \"cache\": {},\n", download.cache));
         match download.status_code {
             Some(status_code) => {
@@ -12604,7 +12606,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"fixture-hash\"\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"fixture-hash\"\n    retry = 1\n    timeout = 1 min\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -12618,6 +12620,7 @@ system Envelope {
         assert_eq!(request.method, "GET");
         assert_eq!(request.status, "fixture");
         assert_eq!(request.retry, Some(2));
+        assert_eq!(request.timeout.as_deref(), Some("30 s"));
         assert!(request.cache);
         assert_eq!(request.status_code, Some(200));
         assert_eq!(request.status_class, "success");
@@ -12646,6 +12649,9 @@ system Envelope {
             .find(|binding| binding.name == "response")
             .expect("response binding");
         assert_eq!(binding.semantic_type.quantity_kind, "HttpResponse");
+        let download = &report.semantic_program.net_downloads[0];
+        assert_eq!(download.retry, Some(1));
+        assert_eq!(download.timeout.as_deref(), Some("60 s"));
         let review = review_json(&report);
         assert!(review.contains("\"net_requests\""));
         assert!(review.contains("\"net_downloads\""));
@@ -12725,6 +12731,29 @@ system Envelope {
         assert!(retry_diagnostics
             .iter()
             .any(|diagnostic| diagnostic.message.contains("6")));
+    }
+
+    #[test]
+    fn rejects_invalid_net_timeout_policy() {
+        let report = check_source(
+            "bad.eng",
+            "response = http get url(\"https://example.org/data.json\")\nwith {\n    timeout = never\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    timeout = 0 s\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        let timeout_diagnostics = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-NET-TIMEOUT")
+            .collect::<Vec<_>>();
+        assert_eq!(timeout_diagnostics.len(), 2, "{:?}", report.diagnostics);
+        assert!(timeout_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("never")));
+        assert!(timeout_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("0 s")));
     }
 
     #[test]

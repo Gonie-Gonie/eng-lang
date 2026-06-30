@@ -147,7 +147,7 @@ fn build_request(
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
-        timeout: option_value(options, "timeout").map(str::to_owned),
+        timeout: timeout_policy(options, diagnostics),
         fixture,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
@@ -191,7 +191,7 @@ fn build_download(
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
-        timeout: option_value(options, "timeout").map(str::to_owned),
+        timeout: timeout_policy(options, diagnostics),
         fixture,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
@@ -282,6 +282,43 @@ fn retry_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) -
         return None;
     }
     Some(parsed)
+}
+
+fn timeout_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) -> Option<String> {
+    let option = option_for_key(options, "timeout")?;
+    match normalize_timeout_duration(&option.value) {
+        Ok(timeout) => Some(timeout),
+        Err(message) => {
+            diagnostics.push(Diagnostic::error(
+                "E-NET-TIMEOUT",
+                option.line,
+                &format!(
+                    "Network timeout policy `{}` is invalid.",
+                    option.value.trim()
+                ),
+                Some(&message),
+            ));
+            None
+        }
+    }
+}
+
+fn normalize_timeout_duration(value: &str) -> Result<String, String> {
+    let (amount, unit) = parse_number_with_suffix(value)
+        .ok_or_else(|| "Use a timeout such as `500 ms`, `30 s`, `10 min`, or `1 h`.".to_owned())?;
+    if !amount.is_finite() || amount <= 0.0 {
+        return Err("Use a positive finite timeout duration.".to_owned());
+    }
+    let seconds = match unit.unwrap_or("s") {
+        "ms" | "msec" | "millisecond" | "milliseconds" => amount / 1000.0,
+        "s" | "sec" | "secs" | "second" | "seconds" => amount,
+        "m" | "min" | "mins" | "minute" | "minutes" => amount * 60.0,
+        "h" | "hr" | "hrs" | "hour" | "hours" => amount * 3600.0,
+        _ => {
+            return Err("Supported timeout units are ms, s, min, and h.".to_owned());
+        }
+    };
+    Ok(format!("{} s", format_duration_number(seconds)))
 }
 
 fn resolve_query_value(value: &str, arg_values: &[ArgValueInfo]) -> (String, bool) {
@@ -383,6 +420,45 @@ fn parse_bool(value: &str) -> bool {
         value.trim().to_ascii_lowercase().as_str(),
         "true" | "1" | "yes" | "on"
     )
+}
+
+fn parse_number_with_suffix(value: &str) -> Option<(f64, Option<&str>)> {
+    let trimmed = value.trim();
+    let mut split_at = 0usize;
+    let mut saw_digit = false;
+    let mut previous = '\0';
+    for (index, character) in trimmed.char_indices() {
+        let allowed = character.is_ascii_digit()
+            || character == '.'
+            || ((character == '-' || character == '+')
+                && (index == 0 || previous == 'e' || previous == 'E'))
+            || ((character == 'e' || character == 'E') && saw_digit);
+        if !allowed {
+            break;
+        }
+        if character.is_ascii_digit() {
+            saw_digit = true;
+        }
+        split_at = index + character.len_utf8();
+        previous = character;
+    }
+    if !saw_digit {
+        return None;
+    }
+    let amount = trimmed[..split_at].parse::<f64>().ok()?;
+    let unit = trimmed[split_at..].trim();
+    Some((amount, (!unit.is_empty()).then_some(unit)))
+}
+
+fn format_duration_number(value: f64) -> String {
+    let mut text = format!("{value:.6}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
 }
 
 fn parse_u16(value: &str) -> Option<u16> {
