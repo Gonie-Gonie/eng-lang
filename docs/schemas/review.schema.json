@@ -202,6 +202,7 @@
         "status",
         "workflow_signature",
         "root_contract",
+        "workflow_modules",
         "inputs",
         "symbols",
         "calculations",
@@ -221,6 +222,10 @@
         },
         "workflow_signature": { "type": "string" },
         "root_contract": { "$ref": "#/$defs/reviewRootContract" },
+        "workflow_modules": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/reviewWorkflowModule" }
+        },
         "inputs": {
           "type": "array",
           "items": { "$ref": "#/$defs/reviewInput" }
@@ -271,6 +276,7 @@
       "type": "object",
       "required": [
         "input_count",
+        "workflow_module_count",
         "symbol_count",
         "schema_count",
         "calculation_count",
@@ -283,6 +289,7 @@
       ],
       "properties": {
         "input_count": { "type": "integer", "minimum": 0 },
+        "workflow_module_count": { "type": "integer", "minimum": 0 },
         "symbol_count": { "type": "integer", "minimum": 0 },
         "schema_count": { "type": "integer", "minimum": 0 },
         "calculation_count": { "type": "integer", "minimum": 0 },
@@ -293,6 +300,37 @@
         "cache_count": { "type": "integer", "minimum": 0 },
         "fallback_count": { "type": "integer", "minimum": 0 },
         "risk_count": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "reviewWorkflowModule": {
+      "type": "object",
+      "required": [
+        "kind",
+        "name",
+        "status",
+        "backing",
+        "purpose",
+        "artifacts",
+        "symbols",
+        "artifact_count",
+        "symbol_count"
+      ],
+      "properties": {
+        "kind": { "const": "native_module" },
+        "name": { "type": "string" },
+        "status": { "type": "string" },
+        "backing": { "type": "string" },
+        "purpose": { "type": "string" },
+        "artifacts": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "symbols": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "artifact_count": { "type": "integer", "minimum": 0 },
+        "symbol_count": { "type": "integer", "minimum": 0 }
       }
     },
     "reviewInput": {

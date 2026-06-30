@@ -505,6 +505,7 @@ review_document
   semantic_hash
   section_hashes
   root_contract
+  workflow_modules
   inputs
   schemas
   units_quantities
@@ -528,6 +529,10 @@ appear under `external_boundaries`; declared writes, CSV exports, and
 filesystem mutations appear under `side_effects`; allowed external failures
 and solver-preview limitations appear under `fallbacks`; warnings and
 review-sensitive boundaries appear under `risks` with a review `level`.
+Native workflow module registry entries appear under `workflow_modules`, so
+every native module has a Review IR node with status, backing, purpose,
+artifact contract, and symbol count. `workflow_modules` is included in
+`section_hashes`, so semantic diff reports module status/artifact changes.
 Risk entries and workflow graph node risks use the same shared classification:
 category, severity, and low/medium/high level. The category vocabulary is
 `data_quality`, `unit_or_quantity`, `external_boundary`, `reproducibility`,
@@ -554,9 +559,9 @@ semantic diff summary and writes `semantic_diff.json` when combined with
 `--output`.
 
 The native IDE Review panel consumes the same `review_document` data for root
-counts, semantic hashes, variable/quantity rows, unit derivations, schemas,
-time axes, calculation traces, report outputs, validations, side effects,
-external boundaries, fallbacks, and risk entries.
+counts, semantic hashes, workflow module rows, variable/quantity rows, unit
+derivations, schemas, time axes, calculation traces, report outputs,
+validations, side effects, external boundaries, fallbacks, and risk entries.
 
 ## Uncertainty Metadata
 

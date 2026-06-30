@@ -4838,6 +4838,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         + program.net_downloads.len();
     let cache_count = program.cache_records.len();
     let table_transform_count = program.table_transforms.len();
+    let workflow_module_count = review_workflow_module_count();
     let fallback_count = review_fallback_count(report);
     let risk_count = review_risk_count(report);
 
@@ -4907,9 +4908,14 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         external_boundary_count
     ));
     json.push_str(&format!("      \"cache_count\": {},\n", cache_count));
+    json.push_str(&format!(
+        "      \"workflow_module_count\": {},\n",
+        workflow_module_count
+    ));
     json.push_str(&format!("      \"fallback_count\": {},\n", fallback_count));
     json.push_str(&format!("      \"risk_count\": {}\n", risk_count));
     json.push_str("    },\n");
+    push_review_workflow_modules_json(json);
     push_review_inputs_json(json, report);
     push_review_schemas_json(json, report);
     push_review_config_promotions_json(json, report);
@@ -5354,6 +5360,8 @@ fn review_semantic_hash(report: &CheckReport) -> String {
     let mut digest = String::new();
     digest.push_str(&program.workflow.signature());
     digest.push('|');
+    digest.push_str(&review_section_digest(report, "workflow_modules"));
+    digest.push('|');
     digest.push_str(&review_section_digest(report, "inputs"));
     digest.push('|');
     digest.push_str(&review_section_digest(report, "schemas"));
@@ -5387,6 +5395,7 @@ fn review_semantic_hash(report: &CheckReport) -> String {
 fn review_section_digest(report: &CheckReport, section: &str) -> String {
     let program = &report.semantic_program;
     match section {
+        "workflow_modules" => format!("{:?}", review_workflow_module_entries()),
         "inputs" => format!(
             "{:?}|{:?}|{:?}",
             program.args_blocks, program.arg_values, program.environment_dependencies
@@ -5461,6 +5470,7 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
 fn push_review_section_hashes_json(json: &mut String, report: &CheckReport) {
     json.push_str("    \"section_hashes\": {\n");
     let sections = [
+        "workflow_modules",
         "inputs",
         "schemas",
         "units_quantities",
@@ -5488,6 +5498,49 @@ fn push_review_section_hashes_json(json: &mut String, report: &CheckReport) {
     json.push_str("    },\n");
 }
 
+fn push_review_workflow_modules_json(json: &mut String) {
+    json.push_str("    \"workflow_modules\": [\n");
+    for (index, module) in review_workflow_module_entries().iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"native_module\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&module.name)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&module.status)
+        ));
+        json.push_str(&format!(
+            "        \"backing\": \"{}\",\n",
+            json_escape(&module.backing)
+        ));
+        json.push_str(&format!(
+            "        \"purpose\": \"{}\",\n",
+            json_escape(&module.purpose)
+        ));
+        json.push_str("        \"artifacts\": [");
+        push_json_string_array(json, &module.artifacts);
+        json.push_str("],\n");
+        json.push_str("        \"symbols\": [");
+        push_json_string_array(json, &module.symbols);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"artifact_count\": {},\n",
+            module.artifacts.len()
+        ));
+        json.push_str(&format!(
+            "        \"symbol_count\": {}\n",
+            module.symbols.len()
+        ));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
 fn review_input_count(report: &CheckReport) -> usize {
     report
         .semantic_program
@@ -5497,6 +5550,16 @@ fn review_input_count(report: &CheckReport) -> usize {
         .sum::<usize>()
         + report.semantic_program.schemas.len()
         + report.semantic_program.environment_dependencies.len()
+}
+
+fn review_workflow_module_entries() -> Vec<ModuleRegistryEntry> {
+    bundled_module_registry()
+        .map(|registry| registry.modules)
+        .unwrap_or_default()
+}
+
+fn review_workflow_module_count() -> usize {
+    review_workflow_module_entries().len()
 }
 
 fn review_fallback_count(report: &CheckReport) -> usize {
@@ -11233,6 +11296,8 @@ system Envelope {
         assert!(json.contains("\"semantic_hash\""));
         assert!(json.contains("\"section_hashes\""));
         assert!(json.contains("\"root_contract\""));
+        assert!(json.contains("\"workflow_module_count\""));
+        assert!(json.contains("\"workflow_modules\""));
         assert!(json.contains("\"unit_quantity_count\""));
         assert!(json.contains("\"time_axis_count\""));
         assert!(json.contains("\"report_output_count\""));
@@ -11280,6 +11345,22 @@ system Envelope {
                 .and_then(serde_json::Value::as_u64),
             Some(1)
         );
+        assert_eq!(
+            value
+                .pointer("/review_document/workflow_modules/0/kind")
+                .and_then(serde_json::Value::as_str),
+            Some("native_module")
+        );
+        assert!(value
+            .pointer("/review_document/workflow_modules")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|modules| modules.iter().any(|module| {
+                module.get("name").and_then(serde_json::Value::as_str) == Some("eng.review")
+            })));
+        assert!(value
+            .pointer("/review_document/section_hashes/workflow_modules")
+            .and_then(serde_json::Value::as_str)
+            .is_some());
     }
 
     #[test]

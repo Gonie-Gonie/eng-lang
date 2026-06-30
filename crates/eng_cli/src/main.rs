@@ -1047,7 +1047,8 @@ fn print_review_document_summary(document: &serde_json::Value) {
         .get("root_contract")
         .unwrap_or(&serde_json::Value::Null);
     println!(
-        "inputs: {}  symbols: {}  calculations: {}  validations: {}",
+        "modules: {}  inputs: {}  symbols: {}  calculations: {}  validations: {}",
+        json_usize(contract, "workflow_module_count").unwrap_or(0),
         json_usize(contract, "input_count").unwrap_or(0),
         json_usize(contract, "symbol_count").unwrap_or(0),
         json_usize(contract, "calculation_count").unwrap_or(0),
@@ -1068,6 +1069,7 @@ fn print_review_document_summary(document: &serde_json::Value) {
         json_usize(contract, "risk_count").unwrap_or(0)
     );
 
+    print_review_rows(document, "workflow_modules", "workflow modules");
     print_review_rows(document, "external_boundaries", "external boundaries");
     print_review_rows(document, "fallbacks", "fallbacks");
     print_review_rows(document, "risks", "risks");
@@ -1191,6 +1193,66 @@ mod tests {
         assert_eq!(
             diff["section_changes"][0]["changed"][0]["after"]["expression"],
             "Q + 2 kW"
+        );
+    }
+
+    #[test]
+    fn review_semantic_diff_compares_workflow_modules() {
+        let previous = serde_json::json!({
+            "semantic_hash": "before",
+            "section_hashes": {
+                "workflow_modules": "old"
+            },
+            "workflow_modules": [
+                {
+                    "kind": "native_module",
+                    "name": "eng.net",
+                    "status": "planned",
+                    "backing": "none",
+                    "purpose": "Network boundary records",
+                    "artifacts": [],
+                    "symbols": [],
+                    "artifact_count": 0,
+                    "symbol_count": 0
+                }
+            ]
+        });
+        let current = serde_json::json!({
+            "semantic_hash": "after",
+            "section_hashes": {
+                "workflow_modules": "new"
+            },
+            "workflow_modules": [
+                {
+                    "kind": "native_module",
+                    "name": "eng.net",
+                    "status": "supported_seed",
+                    "backing": "compiler_runtime_builtin",
+                    "purpose": "Network boundary records",
+                    "artifacts": ["review.external_boundaries"],
+                    "symbols": [],
+                    "artifact_count": 1,
+                    "symbol_count": 0
+                }
+            ]
+        });
+
+        let diff = review_semantic_diff(&previous, &current);
+
+        assert_eq!(diff["status"], "changed");
+        assert_eq!(diff["changed_sections"][0]["section"], "workflow_modules");
+        assert_eq!(diff["section_changes"][0]["section"], "workflow_modules");
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["key"],
+            "native_module:name:eng.net"
+        );
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["before"]["status"],
+            "planned"
+        );
+        assert_eq!(
+            diff["section_changes"][0]["changed"][0]["after"]["status"],
+            "supported_seed"
         );
     }
 

@@ -69,6 +69,7 @@ Initial node families:
 
 ```text
 ReviewDocument
+ReviewWorkflowModule
 ReviewInput
 ReviewSymbol
 ReviewCalculation
