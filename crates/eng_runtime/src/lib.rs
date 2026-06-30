@@ -8,8 +8,9 @@ use std::process::Command;
 use std::time::Instant;
 
 use eng_compiler::{
-    build_bytecode, canonical_path_text, check_file, check_source, parse_bytecode, review_json,
-    ArgOverride, CheckOptions, CheckReport, ReviewFallbackRecord,
+    build_bytecode, canonical_path_text, check_file, check_source,
+    classify_workflow_node_review_risk, parse_bytecode, review_json, ArgOverride, CheckOptions,
+    CheckReport, ReviewFallbackRecord,
 };
 use serde_json::{json, Value};
 
@@ -4225,18 +4226,21 @@ fn run_plan_node(
     label: &str,
     status: &str,
     phase: &str,
-    risk: &str,
+    _risk: &str,
     line: usize,
     outputs: Vec<Value>,
     rerun_decision: &RerunDecision,
 ) -> Value {
+    let risk = classify_workflow_node_review_risk(kind, status);
     json!({
         "id": id,
         "kind": kind,
         "label": label,
         "status": status,
         "phase": phase,
-        "risk": risk,
+        "risk": risk.level,
+        "risk_category": risk.category,
+        "risk_severity": risk.severity,
         "rerun_status": rerun_status(rerun_decision),
         "line": line,
         "source_span": {
@@ -8119,6 +8123,8 @@ fn enrich_runtime_review_workflow_graph(base_review: &str, run_plan_json: &str) 
                 "kind": node.get("kind").cloned().unwrap_or(Value::Null),
                 "label": node.get("label").cloned().unwrap_or(Value::Null),
                 "risk": node.get("risk").cloned().unwrap_or(Value::Null),
+                "risk_category": node.get("risk_category").cloned().unwrap_or(Value::Null),
+                "risk_severity": node.get("risk_severity").cloned().unwrap_or(Value::Null),
                 "status": node.get("status").cloned().unwrap_or(Value::Null),
                 "line": node.get("line").cloned().unwrap_or(Value::Null),
                 "source_span": node.get("source_span").cloned().unwrap_or(Value::Null)
@@ -11152,6 +11158,36 @@ mod tests {
         assert!(output.review_json.contains("\"risk_by_node\""));
         assert!(output.review_json.contains("\"risk\": \"medium\""));
         let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        let coverage_node = json_array_item_by_field(
+            &run_plan,
+            "/graph/nodes",
+            "id",
+            "timeseries_coverage:coverage",
+        )
+        .expect("run plan timeseries coverage node");
+        assert_eq!(
+            coverage_node.get("risk").and_then(Value::as_str),
+            Some("medium")
+        );
+        assert_eq!(
+            coverage_node.get("risk_category").and_then(Value::as_str),
+            Some("data_quality")
+        );
+        assert_eq!(
+            coverage_node.get("risk_severity").and_then(Value::as_str),
+            Some("warning")
+        );
+        let workflow_risk = json_array_item_by_field(
+            &review_value,
+            "/workflow_graph/risk_by_node",
+            "id",
+            "timeseries_coverage:coverage",
+        )
+        .expect("review workflow graph timeseries risk");
+        assert_eq!(
+            workflow_risk.get("risk_category").and_then(Value::as_str),
+            Some("data_quality")
+        );
         assert_eq!(
             run_plan
                 .pointer("/rerun_decision/decision")

@@ -528,6 +528,10 @@ appear under `external_boundaries`; declared writes, CSV exports, and
 filesystem mutations appear under `side_effects`; allowed external failures
 and solver-preview limitations appear under `fallbacks`; warnings and
 review-sensitive boundaries appear under `risks` with a review `level`.
+Risk entries and workflow graph node risks use the same shared classification:
+category, severity, and low/medium/high level. The category vocabulary is
+`data_quality`, `unit_or_quantity`, `external_boundary`, `reproducibility`,
+`uncertainty`, `solver_or_numeric`, `side_effect`, and `claim_boundary`.
 Fallback entries use the shared ReviewFallback record shape: `kind`, `category`,
 `target`, `method`, `fallback_source`, `affected_scope`, `assumption`,
 `risk_level`, `status`, `reason`, and source `line`. Runtime enrichers append
@@ -718,7 +722,7 @@ metadata is recorded as `decision = skip` and `rerun_status = skipped`, after
 the saved artifact hashes still match the prior lock.
 `review.json.workflow_graph` keeps the graph shape plus `risk_by_node`, a
 compact reviewer-facing list of node id, kind, label, status, source line/span,
-and low/medium/high risk.
+low/medium/high risk, shared risk category, and risk severity.
 
 ## Promoted Table Selection And Transform Metadata
 

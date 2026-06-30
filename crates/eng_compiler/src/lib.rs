@@ -171,6 +171,112 @@ impl ReviewFallbackRecord {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ReviewRiskClassification {
+    pub category: &'static str,
+    pub severity: &'static str,
+    pub level: &'static str,
+}
+
+pub fn classify_review_risk(category: &str, severity: &str) -> ReviewRiskClassification {
+    let category = normalize_review_risk_category(category);
+    let severity = normalize_review_risk_severity(severity);
+    let level = match category {
+        "external_boundary" | "side_effect" => "high",
+        "data_quality" | "unit_or_quantity" | "uncertainty" | "solver_or_numeric"
+        | "reproducibility" => "medium",
+        _ if severity == "warning" || severity == "error" => "medium",
+        _ => "low",
+    };
+    ReviewRiskClassification {
+        category,
+        severity,
+        level,
+    }
+}
+
+pub fn classify_diagnostic_review_risk(code: &str, severity: &str) -> ReviewRiskClassification {
+    classify_review_risk(diagnostic_review_risk_category(code), severity)
+}
+
+pub fn classify_workflow_node_review_risk(kind: &str, status: &str) -> ReviewRiskClassification {
+    classify_review_risk(
+        workflow_node_review_risk_category(kind),
+        workflow_risk_severity(status),
+    )
+}
+
+fn normalize_review_risk_category(category: &str) -> &'static str {
+    match category {
+        "data_quality" => "data_quality",
+        "unit_or_quantity" => "unit_or_quantity",
+        "external_boundary" => "external_boundary",
+        "reproducibility" => "reproducibility",
+        "uncertainty" => "uncertainty",
+        "solver_or_numeric" => "solver_or_numeric",
+        "side_effect" => "side_effect",
+        _ => "claim_boundary",
+    }
+}
+
+fn normalize_review_risk_severity(severity: &str) -> &'static str {
+    match severity {
+        "warning" => "warning",
+        "error" => "error",
+        _ => "info",
+    }
+}
+
+fn diagnostic_review_risk_category(code: &str) -> &'static str {
+    if code.contains("UNIT") || code.contains("QTY") {
+        "unit_or_quantity"
+    } else if code.contains("UNC") {
+        "uncertainty"
+    } else if code.contains("SOLVER") || code.contains("NEWTON") || code.contains("DAE") {
+        "solver_or_numeric"
+    } else if code.contains("SCHEMA")
+        || code.contains("CSV")
+        || code.contains("DATA")
+        || code.contains("TABLE")
+    {
+        "data_quality"
+    } else if code.contains("SIDE") || code.contains("PROCESS") || code.contains("FILE") {
+        "side_effect"
+    } else {
+        "claim_boundary"
+    }
+}
+
+fn workflow_node_review_risk_category(kind: &str) -> &'static str {
+    match kind {
+        "network_request" | "network_download" | "process" | "db_write" => "external_boundary",
+        "file_operation" => "side_effect",
+        "cache" | "environment_dependency" => "reproducibility",
+        "csv_promotion"
+        | "config_promotion"
+        | "timeseries_kernel"
+        | "timeseries_coverage"
+        | "case"
+        | "model" => "data_quality",
+        "system" | "component_solution" | "solver_boundary" => "solver_or_numeric",
+        _ => "claim_boundary",
+    }
+}
+
+fn workflow_risk_severity(status: &str) -> &'static str {
+    let status = status.to_ascii_lowercase();
+    if status.contains("fail")
+        || status.contains("error")
+        || status.contains("gapped")
+        || status.contains("mismatch")
+        || status.contains("missing")
+    {
+        "warning"
+    } else {
+        "info"
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct InferredDeclaration {
     pub name: String,
@@ -6738,12 +6844,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
         .filter(|diagnostic| diagnostic.severity == Severity::Warning)
     {
         push_review_comma(json, &mut first);
-        let category = review_diagnostic_risk_category(&diagnostic.code);
+        let classification = classify_diagnostic_review_risk(&diagnostic.code, "warning");
         push_review_risk_json(
             json,
-            category,
-            "warning",
-            review_default_risk_level(category, "warning"),
+            classification.category,
+            classification.severity,
+            classification.level,
             &diagnostic.message,
             diagnostic.line,
         );
@@ -6751,11 +6857,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
     for schema in &report.semantic_program.schemas {
         for policy in &schema.missing_policies {
             push_review_comma(json, &mut first);
+            let classification = classify_review_risk("data_quality", "info");
             push_review_risk_json(
                 json,
-                "data_quality",
-                "info",
-                "medium",
+                classification.category,
+                classification.severity,
+                classification.level,
                 &format!(
                     "schema `{}` uses missing-data policy `{}` for `{}`",
                     schema.name, policy.policy, policy.column
@@ -6772,11 +6879,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             "external_boundary"
         };
         push_review_comma(json, &mut first);
+        let classification = classify_review_risk(category, "info");
         push_review_risk_json(
             json,
-            category,
-            "info",
-            review_default_risk_level(category, "info"),
+            classification.category,
+            classification.severity,
+            classification.level,
             &format!(
                 "external process `{}` is opaque to EngLang",
                 process.binding
@@ -6786,11 +6894,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
     }
     for operation in &report.semantic_program.file_operations {
         push_review_comma(json, &mut first);
+        let classification = classify_review_risk("side_effect", "info");
         push_review_risk_json(
             json,
-            "side_effect",
-            "info",
-            "high",
+            classification.category,
+            classification.severity,
+            classification.level,
             &format!(
                 "file operation `{}` mutates filesystem state",
                 operation.operation
@@ -6800,11 +6909,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
     }
     for dependency in &report.semantic_program.environment_dependencies {
         push_review_comma(json, &mut first);
+        let classification = classify_review_risk("reproducibility", "info");
         push_review_risk_json(
             json,
-            "reproducibility",
-            "info",
-            "medium",
+            classification.category,
+            classification.severity,
+            classification.level,
             &format!(
                 "environment dependency `{}` affects reproducibility",
                 dependency.name
@@ -6814,11 +6924,12 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
     }
     for uncertainty in &report.semantic_program.uncertainty_infos {
         push_review_comma(json, &mut first);
+        let classification = classify_review_risk("uncertainty", "info");
         push_review_risk_json(
             json,
-            "uncertainty",
-            "info",
-            "medium",
+            classification.category,
+            classification.severity,
+            classification.level,
             &format!(
                 "uncertainty representation `{}` requires assumption review",
                 uncertainty.kind
@@ -6828,22 +6939,24 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
     }
     for system in &report.semantic_program.systems {
         push_review_comma(json, &mut first);
+        let classification = classify_review_risk("solver_or_numeric", "info");
         push_review_risk_json(
             json,
-            "solver_or_numeric",
-            "info",
-            "medium",
+            classification.category,
+            classification.severity,
+            classification.level,
             &format!("system `{}` has solver metadata boundary", system.name),
             system.line,
         );
     }
     for assembly in &report.semantic_program.component_assemblies {
         push_review_comma(json, &mut first);
+        let classification = classify_review_risk("solver_or_numeric", "info");
         push_review_risk_json(
             json,
-            "solver_or_numeric",
-            "info",
-            "medium",
+            classification.category,
+            classification.severity,
+            classification.level,
             &format!(
                 "component assembly `{}` has {} unknown(s) and {} equation(s)",
                 assembly.name, assembly.boundary.unknown_count, assembly.boundary.equation_count
@@ -6878,36 +6991,6 @@ fn push_review_risk_json(
     ));
     json.push_str(&format!("        \"line\": {}\n", line));
     json.push_str("      }");
-}
-
-fn review_default_risk_level(category: &str, severity: &str) -> &'static str {
-    match category {
-        "external_boundary" | "side_effect" => "high",
-        "data_quality" | "unit_or_quantity" | "uncertainty" | "solver_or_numeric"
-        | "reproducibility" => "medium",
-        _ if severity == "warning" => "medium",
-        _ => "low",
-    }
-}
-
-fn review_diagnostic_risk_category(code: &str) -> &'static str {
-    if code.contains("UNIT") || code.contains("QTY") {
-        "unit_or_quantity"
-    } else if code.contains("UNC") {
-        "uncertainty"
-    } else if code.contains("SOLVER") || code.contains("NEWTON") || code.contains("DAE") {
-        "solver_or_numeric"
-    } else if code.contains("SCHEMA")
-        || code.contains("CSV")
-        || code.contains("DATA")
-        || code.contains("TABLE")
-    {
-        "data_quality"
-    } else if code.contains("SIDE") || code.contains("PROCESS") || code.contains("FILE") {
-        "side_effect"
-    } else {
-        "claim_boundary"
-    }
 }
 
 fn push_review_comma(json: &mut String, first: &mut bool) {
@@ -7501,6 +7584,24 @@ fn json_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn shared_review_risk_classifier_covers_diagnostics_and_workflow_nodes() {
+        let diagnostic = classify_diagnostic_review_risk("W-QTY-AMBIG-001", "warning");
+        assert_eq!(diagnostic.category, "unit_or_quantity");
+        assert_eq!(diagnostic.severity, "warning");
+        assert_eq!(diagnostic.level, "medium");
+
+        let process = classify_workflow_node_review_risk("process", "process-ok");
+        assert_eq!(process.category, "external_boundary");
+        assert_eq!(process.severity, "info");
+        assert_eq!(process.level, "high");
+
+        let coverage = classify_workflow_node_review_risk("timeseries_coverage", "gapped");
+        assert_eq!(coverage.category, "data_quality");
+        assert_eq!(coverage.severity, "warning");
+        assert_eq!(coverage.level, "medium");
+    }
 
     #[test]
     fn lexer_records_source_span() {

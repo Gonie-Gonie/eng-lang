@@ -614,24 +614,26 @@
     },
     "reviewRisk": {
       "type": "object",
-      "required": ["category", "severity", "summary", "line"],
+      "required": ["category", "severity", "level", "summary", "line"],
       "properties": {
-        "category": {
-          "enum": [
-            "data_quality",
-            "unit_or_quantity",
-            "external_boundary",
-            "reproducibility",
-            "uncertainty",
-            "solver_or_numeric",
-            "side_effect",
-            "claim_boundary"
-          ]
-        },
+        "category": { "$ref": "#/$defs/reviewRiskCategory" },
         "severity": { "enum": ["info", "warning", "error"] },
+        "level": { "enum": ["low", "medium", "high"] },
         "summary": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
+    },
+    "reviewRiskCategory": {
+      "enum": [
+        "data_quality",
+        "unit_or_quantity",
+        "external_boundary",
+        "reproducibility",
+        "uncertainty",
+        "solver_or_numeric",
+        "side_effect",
+        "claim_boundary"
+      ]
     },
     "argValue": {
       "type": "object",
@@ -1129,6 +1131,8 @@
         "status",
         "phase",
         "risk",
+        "risk_category",
+        "risk_severity",
         "rerun_status",
         "line",
         "source_span",
@@ -1142,6 +1146,8 @@
         "status": { "type": "string" },
         "phase": { "enum": ["static", "runtime"] },
         "risk": { "enum": ["low", "medium", "high"] },
+        "risk_category": { "$ref": "#/$defs/reviewRiskCategory" },
+        "risk_severity": { "enum": ["info", "warning", "error"] },
         "rerun_status": { "enum": ["executed", "skipped"] },
         "line": { "type": "integer", "minimum": 0 },
         "source_span": { "$ref": "#/$defs/workflowSourceSpan" },
@@ -1163,12 +1169,24 @@
     },
     "workflowNodeRisk": {
       "type": "object",
-      "required": ["id", "kind", "label", "risk", "status", "line", "source_span"],
+      "required": [
+        "id",
+        "kind",
+        "label",
+        "risk",
+        "risk_category",
+        "risk_severity",
+        "status",
+        "line",
+        "source_span"
+      ],
       "properties": {
         "id": { "type": "string" },
         "kind": { "type": "string" },
         "label": { "type": "string" },
         "risk": { "enum": ["low", "medium", "high"] },
+        "risk_category": { "$ref": "#/$defs/reviewRiskCategory" },
+        "risk_severity": { "enum": ["info", "warning", "error"] },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 0 },
         "source_span": { "$ref": "#/$defs/workflowSourceSpan" }

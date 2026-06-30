@@ -68,6 +68,8 @@
         "status",
         "phase",
         "risk",
+        "risk_category",
+        "risk_severity",
         "rerun_status",
         "line",
         "source_span",
@@ -81,6 +83,8 @@
         "status": { "type": "string" },
         "phase": { "enum": ["static", "runtime"] },
         "risk": { "enum": ["low", "medium", "high"] },
+        "risk_category": { "$ref": "#/$defs/reviewRiskCategory" },
+        "risk_severity": { "enum": ["info", "warning", "error"] },
         "rerun_status": { "enum": ["executed", "skipped"] },
         "line": { "type": "integer", "minimum": 0 },
         "source_span": {
@@ -105,6 +109,18 @@
         "to": { "type": "string" },
         "kind": { "type": "string" }
       }
+    },
+    "reviewRiskCategory": {
+      "enum": [
+        "data_quality",
+        "unit_or_quantity",
+        "external_boundary",
+        "reproducibility",
+        "uncertainty",
+        "solver_or_numeric",
+        "side_effect",
+        "claim_boundary"
+      ]
     }
   }
 }
