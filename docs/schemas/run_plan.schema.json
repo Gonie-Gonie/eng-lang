@@ -10,6 +10,7 @@
     "source_hash",
     "execution_profile",
     "status",
+    "rerun_status",
     "rerun_decision",
     "artifact_hashes",
     "graph"
@@ -21,6 +22,7 @@
     "source_hash": { "type": "string" },
     "execution_profile": { "enum": ["safe", "normal", "repro"] },
     "status": { "enum": ["completed", "failed"] },
+    "rerun_status": { "enum": ["executed", "skipped"] },
     "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
     "artifact_hashes": {
       "type": "object",
@@ -65,6 +67,7 @@
         "status",
         "phase",
         "risk",
+        "rerun_status",
         "line",
         "source_span",
         "rerun_decision",
@@ -77,6 +80,7 @@
         "status": { "type": "string" },
         "phase": { "enum": ["static", "runtime"] },
         "risk": { "enum": ["low", "medium", "high"] },
+        "rerun_status": { "enum": ["executed", "skipped"] },
         "line": { "type": "integer", "minimum": 0 },
         "source_span": {
           "type": "object",

@@ -687,6 +687,7 @@ function Assert-SchemaFilesPresent {
         "docs\schemas\plotspec.schema.json",
         "docs\schemas\output_manifest.schema.json",
         "docs\schemas\run_plan.schema.json",
+        "docs\schemas\run_lock.schema.json",
         "docs\schemas\run_log.schema.json",
         "docs\schemas\process_results.schema.json",
         "docs\schemas\test_results.schema.json",
@@ -886,6 +887,7 @@ function Assert-CsvPlotGolden {
     $runPlan = Read-ArtifactJson (Join-Path $RepoRoot "build\result\run_plan.json")
     Assert-ArtifactValue $runPlan.format "eng-run-plan-v1" "run_plan.format"
     Assert-ArtifactValue $runPlan.source_hash $review.source_hash "run_plan.source_hash"
+    Assert-ArtifactValue $runPlan.rerun_status "executed" "run_plan.rerun_status"
     $runPlanNodeCount = @($runPlan.graph.nodes).Count
     $runPlanEdgeCount = @($runPlan.graph.edges).Count
     Assert-ArtifactNumber $runPlan.graph.node_count $runPlanNodeCount "run_plan.graph.node_count"
@@ -898,6 +900,14 @@ function Assert-CsvPlotGolden {
     Assert-ArtifactNumber $review.workflow_graph.node_count $runPlanNodeCount "review.workflow_graph.node_count"
     Assert-ArtifactNumber $review.workflow_graph.edge_count $runPlanEdgeCount "review.workflow_graph.edge_count"
     Assert-ArtifactNumber @($review.workflow_graph.risk_by_node).Count $runPlanNodeCount "review.workflow_graph.risk_by_node count"
+
+    $runLock = Read-ArtifactJson (Join-Path $RepoRoot "build\result\run_lock.json")
+    Assert-ArtifactValue $runLock.format "eng-run-lock-v1" "run_lock.format"
+    Assert-ArtifactValue $runLock.source_hash $review.source_hash "run_lock.source_hash"
+    Assert-ArtifactValue $runLock.execution_profile "normal" "run_lock.execution_profile"
+    Assert-ArtifactValue $runLock.rerun_decision.decision "run" "run_lock.rerun_decision.decision"
+    Assert-Artifact ([string]$runLock.input_hash -ne "") "run_lock.input_hash is empty"
+    Assert-Artifact ([string]$runLock.artifact_hashes.run_plan -ne "") "run_lock.artifact_hashes.run_plan is empty"
 
     $plotSpec = Read-ArtifactJson (Join-Path $RepoRoot "build\result\plots\plot_spec.json")
     Assert-ArtifactValue $plotSpec.format $Golden.plot_spec.format "plot_spec.format"

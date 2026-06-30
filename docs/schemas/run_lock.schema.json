@@ -1,0 +1,64 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://eng-lang.local/schemas/run_lock.schema.json",
+  "title": "EngLang Run Lock Artifact",
+  "type": "object",
+  "required": [
+    "format",
+    "runtime_version",
+    "source_path",
+    "source_hash",
+    "execution_profile",
+    "input_hash",
+    "args_hash",
+    "dependency_hash",
+    "dependencies",
+    "rerun_decision",
+    "artifact_hashes"
+  ],
+  "properties": {
+    "format": { "const": "eng-run-lock-v1" },
+    "runtime_version": { "type": "string" },
+    "source_path": { "type": "string" },
+    "source_hash": { "type": "string" },
+    "execution_profile": { "enum": ["safe", "normal", "repro"] },
+    "input_hash": { "type": "string" },
+    "args_hash": { "type": "string" },
+    "dependency_hash": { "type": "string" },
+    "dependencies": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/runLockDependency" }
+    },
+    "rerun_decision": { "$ref": "#/$defs/rerunDecision" },
+    "artifact_hashes": {
+      "type": "object",
+      "required": ["result", "review", "run_plan"],
+      "properties": {
+        "result": { "type": "string" },
+        "review": { "type": "string" },
+        "run_plan": { "type": "string" }
+      }
+    }
+  },
+  "$defs": {
+    "rerunDecision": {
+      "type": "object",
+      "required": ["decision", "reason", "prior_input_hash"],
+      "properties": {
+        "decision": { "enum": ["run", "skip"] },
+        "reason": { "type": "string" },
+        "prior_input_hash": { "type": ["string", "null"] }
+      }
+    },
+    "runLockDependency": {
+      "type": "object",
+      "required": ["kind", "binding", "path", "hash"],
+      "properties": {
+        "kind": { "type": "string" },
+        "binding": { "type": "string" },
+        "path": { "type": "string" },
+        "hash": { "type": "string" }
+      }
+    }
+  }
+}

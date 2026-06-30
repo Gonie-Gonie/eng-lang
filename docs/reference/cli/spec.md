@@ -14,7 +14,7 @@ eng.exe fmt <file.eng> [--check|--write]
 eng.exe ide-check <file.eng>
 eng.exe jit-plan <file.eng> [--backend <name>]
 eng.exe jit-bench <file.eng> [--iterations N] [--backend <name>] [--<arg> <value>...]
-eng.exe run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]
+eng.exe run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
 eng.exe build <file.eng> [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
@@ -363,12 +363,17 @@ include hover `kind`/`status` metadata and completion labels such as
 `Thermal`, `RoomBoundary`, `RoomBoundary.heat`, `component_graph`, and
 `connection_set_1.across_T_1`.
 
-## `eng run <file.eng> [--open-report] [--save-artifacts] [--<arg> <value>...]`
+## `eng run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]`
 
 Runs the file's top-level workflow through bytecode v1 and the native VM seed.
 By default, result/review/report/run-log/process-results/test-results/plot/
 output-manifest payloads remain runtime objects in memory. `--save-artifacts`
 writes those objects to disk.
+`--skip-unchanged` compares the current run input lock against
+`build/result/run_lock.json`. When source, profile, CLI args, and dependency
+hashes match the prior lock, `run_plan.json` records
+`rerun_decision.decision = skip` and `rerun_status = skipped`; otherwise it
+records a normal executed rerun status.
 Explicit `export`, `write`, and constrained `copy/move/delete` statements
 write or mutate files under `build/result` and are recorded in
 `output_manifest.json`. Explicit `run command` statements execute during the
@@ -395,6 +400,7 @@ build/
     report.html
     report_spec.json
     run_plan.json
+    run_lock.json
     run_log.json
     process_results.json
     test_results.json

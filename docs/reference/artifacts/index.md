@@ -15,6 +15,7 @@ Planned pages:
 - report.html
 - report_spec.json
 - run_plan.json
+- run_lock.json
 - plot_spec.json
 - plot_manifest.json
 - output_manifest.json

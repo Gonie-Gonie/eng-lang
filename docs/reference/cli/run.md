@@ -74,6 +74,7 @@ build/
     report.html
     report_spec.json
     run_plan.json
+    run_lock.json
     run_log.json
     process_results.json
     test_results.json

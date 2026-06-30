@@ -62,6 +62,7 @@ impl ExecutionProfile {
 pub struct RunOptions {
     pub open_report: bool,
     pub save_artifacts: bool,
+    pub skip_unchanged: bool,
     pub args: Vec<ArgOverride>,
     pub profile: ExecutionProfile,
 }
@@ -83,6 +84,7 @@ pub struct RunOutput {
     pub plot_manifest_path: PathBuf,
     pub output_manifest_path: PathBuf,
     pub run_plan_path: PathBuf,
+    pub run_lock_path: PathBuf,
     pub run_log_path: PathBuf,
     pub process_results_path: PathBuf,
     pub cache_manifest_path: PathBuf,
@@ -102,6 +104,7 @@ pub struct RunOutput {
     pub plot_manifest_json: String,
     pub output_manifest_json: String,
     pub run_plan_json: String,
+    pub run_lock_json: String,
     pub run_log_json: String,
     pub process_results_json: String,
     pub cache_manifest_json: String,
@@ -392,12 +395,69 @@ pub fn run_source(
     let plot_manifest_path = plots_dir.join("plot_manifest.json");
     let output_manifest_path = result_dir.join("output_manifest.json");
     let run_plan_path = result_dir.join("run_plan.json");
+    let run_lock_path = result_dir.join("run_lock.json");
     let run_log_path = result_dir.join("run_log.json");
     let process_results_path = result_dir.join("process_results.json");
     let cache_manifest_path = result_dir.join("cache_manifest.json");
     let test_results_path = result_dir.join("test_results.json");
     let report_spec_path = result_dir.join("report_spec.json");
     let report_path = result_dir.join("report.html");
+    let artifacts_saved = options.save_artifacts || options.open_report;
+    let run_lock_input = run_lock_input(path, &check_report, options);
+    let mut rerun_decision = rerun_decision_for_run(
+        &run_lock_path,
+        &run_lock_input,
+        options.skip_unchanged,
+        artifacts_saved,
+    );
+    let saved_artifacts_ready = saved_run_artifacts_available(&[
+        &bytecode_path,
+        &result_path,
+        &review_path,
+        &report_path,
+        &report_spec_path,
+        &plot_path,
+        &plot_spec_path,
+        &plot_manifest_path,
+        &output_manifest_path,
+        &run_plan_path,
+        &run_lock_path,
+        &run_log_path,
+        &process_results_path,
+        &cache_manifest_path,
+        &test_results_path,
+    ]);
+    if rerun_decision.decision == "skip" && !saved_artifacts_ready {
+        rerun_decision = RerunDecision {
+            decision: "run".to_owned(),
+            reason: "missing_saved_artifact".to_owned(),
+            prior_input_hash: rerun_decision.prior_input_hash.clone(),
+        };
+    }
+    if rerun_decision.decision == "skip" && saved_artifacts_ready {
+        return skipped_saved_run_output(
+            path,
+            &check_report,
+            &run_lock_input,
+            &rerun_decision,
+            &options.profile,
+            bytecode_path,
+            result_path,
+            review_path,
+            report_path,
+            report_spec_path,
+            plot_path,
+            plot_spec_path,
+            plot_manifest_path,
+            output_manifest_path,
+            run_plan_path,
+            run_lock_path,
+            run_log_path,
+            process_results_path,
+            cache_manifest_path,
+            test_results_path,
+        );
+    }
 
     let bytecode = build_bytecode(&check_report, source);
     let bytecode_hash = hash_text(&bytecode);
@@ -516,6 +576,7 @@ pub fn run_source(
         &result_json,
         &review_json,
         &options.profile,
+        &rerun_decision,
     );
     review_json = enrich_runtime_review_workflow_graph(&review_json, &initial_run_plan_json);
     let run_plan_json = run_plan_json(
@@ -530,9 +591,23 @@ pub fn run_source(
         &result_json,
         &review_json,
         &options.profile,
+        &rerun_decision,
     );
-
-    let artifacts_saved = options.save_artifacts || options.open_report;
+    let result_artifact_hash = hash_text(&result_json);
+    let review_artifact_hash = hash_text(&review_json);
+    let run_plan_artifact_hash = hash_text(&run_plan_json);
+    let run_lock_json = run_lock_json(
+        path,
+        &check_report,
+        &run_lock_input,
+        &rerun_decision,
+        &RunLockArtifactHashes {
+            result: &result_artifact_hash,
+            review: &review_artifact_hash,
+            run_plan: &run_plan_artifact_hash,
+        },
+        &options.profile,
+    );
     if artifacts_saved {
         fs::create_dir_all(&plots_dir)?;
         fs::write(&bytecode_path, &bytecode)?;
@@ -562,6 +637,13 @@ pub fn run_source(
             "run_plan.json".to_owned(),
             &run_plan_json,
             run_plan_path.clone(),
+        ));
+        fs::write(&run_lock_path, &run_lock_json)?;
+        output_artifacts.push(output_artifact(
+            "run_lock",
+            "run_lock.json".to_owned(),
+            &run_lock_json,
+            run_lock_path.clone(),
         ));
         fs::write(&process_results_path, &process_results_json)?;
         output_artifacts.push(output_artifact(
@@ -676,6 +758,7 @@ pub fn run_source(
         plot_manifest_path,
         output_manifest_path,
         run_plan_path,
+        run_lock_path,
         run_log_path,
         process_results_path,
         cache_manifest_path,
@@ -695,6 +778,7 @@ pub fn run_source(
         plot_manifest_json,
         output_manifest_json,
         run_plan_json,
+        run_lock_json,
         run_log_json,
         process_results_json,
         cache_manifest_json,
@@ -2961,6 +3045,407 @@ fn output_manifest_json(
     .to_json()
 }
 
+#[derive(Clone, Debug)]
+struct RunLockInput {
+    input_hash: String,
+    args_hash: String,
+    dependency_hash: String,
+    dependencies: Vec<Value>,
+}
+
+#[derive(Clone, Debug)]
+struct RerunDecision {
+    decision: String,
+    reason: String,
+    prior_input_hash: Option<String>,
+}
+
+struct RunLockArtifactHashes<'a> {
+    result: &'a str,
+    review: &'a str,
+    run_plan: &'a str,
+}
+
+fn run_lock_input(source_path: &Path, report: &CheckReport, options: &RunOptions) -> RunLockInput {
+    let args = run_lock_args(&options.args);
+    let dependencies = run_lock_dependencies(report);
+    let args_json = serde_json::to_string(&args).unwrap_or_else(|_| "[]".to_owned());
+    let dependencies_json =
+        serde_json::to_string(&dependencies).unwrap_or_else(|_| "[]".to_owned());
+    let args_hash = hash_text(&args_json);
+    let dependency_hash = hash_text(&dependencies_json);
+    let input = json!({
+        "source_path": path_for_manifest(source_path),
+        "source_hash": &report.source_hash,
+        "execution_profile": options.profile.as_str(),
+        "args_hash": &args_hash,
+        "dependency_hash": &dependency_hash
+    });
+    let input_json = serde_json::to_string(&input).unwrap_or_else(|_| "{}".to_owned());
+    RunLockInput {
+        input_hash: hash_text(&input_json),
+        args_hash,
+        dependency_hash,
+        dependencies,
+    }
+}
+
+fn run_lock_args(args: &[ArgOverride]) -> Vec<Value> {
+    let mut values = args
+        .iter()
+        .map(|arg| json!({ "name": arg.name, "value": arg.value }))
+        .collect::<Vec<_>>();
+    values.sort_by(|left, right| {
+        let left_name = left.get("name").and_then(Value::as_str).unwrap_or_default();
+        let right_name = right
+            .get("name")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        left_name.cmp(right_name)
+    });
+    values
+}
+
+fn run_lock_dependencies(report: &CheckReport) -> Vec<Value> {
+    let mut dependencies = Vec::new();
+    for promotion in &report.semantic_program.csv_promotions {
+        dependencies.push(json!({
+            "kind": "csv",
+            "binding": &promotion.binding,
+            "path": &promotion.resolved_path,
+            "hash": &promotion.source_hash
+        }));
+    }
+    for promotion in &report.semantic_program.config_promotions {
+        dependencies.push(json!({
+            "kind": format!("config_{}", promotion.format),
+            "binding": &promotion.binding,
+            "path": &promotion.resolved_path,
+            "hash": &promotion.source_hash
+        }));
+    }
+    for dependency in &report.semantic_program.environment_dependencies {
+        if let Some(hash) = &dependency.source_hash {
+            dependencies.push(json!({
+                "kind": &dependency.kind,
+                "binding": &dependency.name,
+                "path": &dependency.resolved_value,
+                "hash": hash
+            }));
+        }
+    }
+    dependencies
+}
+
+fn rerun_decision_for_run(
+    run_lock_path: &Path,
+    input: &RunLockInput,
+    skip_unchanged: bool,
+    artifacts_saved: bool,
+) -> RerunDecision {
+    let prior = fs::read_to_string(run_lock_path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<Value>(&text).ok());
+    let prior_input_hash = prior
+        .as_ref()
+        .and_then(|value| value.get("input_hash"))
+        .and_then(Value::as_str)
+        .map(str::to_owned);
+    let Some(prior_hash) = prior_input_hash.as_deref() else {
+        return RerunDecision {
+            decision: "run".to_owned(),
+            reason: "no_prior_run_lock".to_owned(),
+            prior_input_hash,
+        };
+    };
+    if prior_hash != input.input_hash {
+        return RerunDecision {
+            decision: "run".to_owned(),
+            reason: "run_lock_changed".to_owned(),
+            prior_input_hash,
+        };
+    }
+    if !skip_unchanged {
+        return RerunDecision {
+            decision: "run".to_owned(),
+            reason: "unchanged_run_lock_skip_disabled".to_owned(),
+            prior_input_hash,
+        };
+    }
+    if !artifacts_saved {
+        return RerunDecision {
+            decision: "run".to_owned(),
+            reason: "unchanged_run_lock_requires_saved_artifacts".to_owned(),
+            prior_input_hash,
+        };
+    }
+    RerunDecision {
+        decision: "skip".to_owned(),
+        reason: "unchanged_run_lock".to_owned(),
+        prior_input_hash,
+    }
+}
+
+fn run_lock_json(
+    source_path: &Path,
+    report: &CheckReport,
+    input: &RunLockInput,
+    decision: &RerunDecision,
+    artifact_hashes: &RunLockArtifactHashes<'_>,
+    profile: &ExecutionProfile,
+) -> String {
+    let document = json!({
+        "format": "eng-run-lock-v1",
+        "runtime_version": RUNTIME_VERSION,
+        "source_path": path_for_manifest(source_path),
+        "source_hash": &report.source_hash,
+        "execution_profile": profile.as_str(),
+        "input_hash": &input.input_hash,
+        "args_hash": &input.args_hash,
+        "dependency_hash": &input.dependency_hash,
+        "dependencies": &input.dependencies,
+        "rerun_decision": rerun_decision_json(decision),
+        "artifact_hashes": {
+            "result": artifact_hashes.result,
+            "review": artifact_hashes.review,
+            "run_plan": artifact_hashes.run_plan
+        }
+    });
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(&document).expect("serialize run lock")
+    )
+}
+
+fn saved_run_artifacts_available(paths: &[&Path]) -> bool {
+    paths.iter().all(|path| path.is_file())
+}
+
+#[allow(clippy::too_many_arguments)]
+fn skipped_saved_run_output(
+    source_path: &Path,
+    report: &CheckReport,
+    input: &RunLockInput,
+    decision: &RerunDecision,
+    profile: &ExecutionProfile,
+    bytecode_path: PathBuf,
+    result_path: PathBuf,
+    review_path: PathBuf,
+    report_path: PathBuf,
+    report_spec_path: PathBuf,
+    plot_path: PathBuf,
+    plot_spec_path: PathBuf,
+    plot_manifest_path: PathBuf,
+    output_manifest_path: PathBuf,
+    run_plan_path: PathBuf,
+    run_lock_path: PathBuf,
+    run_log_path: PathBuf,
+    process_results_path: PathBuf,
+    cache_manifest_path: PathBuf,
+    test_results_path: PathBuf,
+) -> Result<RunOutput, RuntimeError> {
+    let bytecode = fs::read_to_string(&bytecode_path)?;
+    let result_json = fs::read_to_string(&result_path)?;
+    let previous_review_json = fs::read_to_string(&review_path)?;
+    let report_html = fs::read_to_string(&report_path)?;
+    let report_spec_json = fs::read_to_string(&report_spec_path)?;
+    let plot_svg = fs::read_to_string(&plot_path)?;
+    let plot_spec_json = fs::read_to_string(&plot_spec_path)?;
+    let plot_manifest_json = fs::read_to_string(&plot_manifest_path)?;
+    let run_log_json = fs::read_to_string(&run_log_path)?;
+    let process_results_json = fs::read_to_string(&process_results_path)?;
+    let cache_manifest_json = fs::read_to_string(&cache_manifest_path)?;
+    let test_results_json = fs::read_to_string(&test_results_path)?;
+    let previous_run_plan_json = fs::read_to_string(&run_plan_path)?;
+    let run_plan_json = mark_run_plan_rerun_decision(&previous_run_plan_json, decision);
+    fs::write(&run_plan_path, &run_plan_json)?;
+    let review_json = mark_review_workflow_rerun_decision(&previous_review_json, decision);
+    fs::write(&review_path, &review_json)?;
+
+    let result_artifact_hash = hash_text(&result_json);
+    let review_artifact_hash = hash_text(&review_json);
+    let run_plan_artifact_hash = hash_text(&run_plan_json);
+    let run_lock_json = run_lock_json(
+        source_path,
+        report,
+        input,
+        decision,
+        &RunLockArtifactHashes {
+            result: &result_artifact_hash,
+            review: &review_artifact_hash,
+            run_plan: &run_plan_artifact_hash,
+        },
+        profile,
+    );
+    fs::write(&run_lock_path, &run_lock_json)?;
+
+    let previous_output_manifest_json = fs::read_to_string(&output_manifest_path)?;
+    let output_manifest_json = update_output_manifest_artifact_hashes(
+        &previous_output_manifest_json,
+        &[
+            ("review", "review.json", hash_text(&review_json)),
+            ("run_plan", "run_plan.json", hash_text(&run_plan_json)),
+            ("run_lock", "run_lock.json", hash_text(&run_lock_json)),
+        ],
+    );
+    fs::write(&output_manifest_path, &output_manifest_json)?;
+
+    Ok(RunOutput {
+        bytecode_path,
+        result_path,
+        review_path,
+        report_path,
+        report_spec_path,
+        plot_path,
+        plot_spec_path,
+        plot_manifest_path,
+        output_manifest_path,
+        run_plan_path,
+        run_lock_path,
+        run_log_path,
+        process_results_path,
+        cache_manifest_path,
+        test_results_path,
+        csv_export_paths: Vec::new(),
+        write_output_paths: Vec::new(),
+        file_operation_paths: Vec::new(),
+        artifacts_saved: true,
+        stdout: "run skipped: unchanged run_lock\n".to_owned(),
+        bytecode,
+        result_json,
+        review_json,
+        report_html,
+        report_spec_json,
+        plot_svg,
+        plot_spec_json,
+        plot_manifest_json,
+        output_manifest_json,
+        run_plan_json,
+        run_lock_json,
+        run_log_json,
+        process_results_json,
+        cache_manifest_json,
+        test_results_json,
+    })
+}
+
+fn mark_run_plan_rerun_decision(run_plan_json: &str, decision: &RerunDecision) -> String {
+    let Ok(mut run_plan) = serde_json::from_str::<Value>(run_plan_json) else {
+        return run_plan_json.to_owned();
+    };
+    let rerun_decision = rerun_decision_json(decision);
+    if let Some(object) = run_plan.as_object_mut() {
+        object.insert("rerun_status".to_owned(), json!(rerun_status(decision)));
+        object.insert("rerun_decision".to_owned(), rerun_decision.clone());
+    }
+    if let Some(nodes) = run_plan
+        .get_mut("graph")
+        .and_then(|graph| graph.get_mut("nodes"))
+        .and_then(Value::as_array_mut)
+    {
+        for node in nodes {
+            if let Some(object) = node.as_object_mut() {
+                object.insert("rerun_status".to_owned(), json!(rerun_status(decision)));
+                object.insert("rerun_decision".to_owned(), rerun_decision.clone());
+            }
+        }
+    }
+    serde_json::to_string_pretty(&run_plan)
+        .map(|mut text| {
+            text.push('\n');
+            text
+        })
+        .unwrap_or_else(|_| run_plan_json.to_owned())
+}
+
+fn mark_review_workflow_rerun_decision(review_json: &str, decision: &RerunDecision) -> String {
+    let Ok(mut review) = serde_json::from_str::<Value>(review_json) else {
+        return review_json.to_owned();
+    };
+    let rerun_decision = rerun_decision_json(decision);
+    if let Some(nodes) = review
+        .get_mut("workflow_graph")
+        .and_then(|graph| graph.get_mut("nodes"))
+        .and_then(Value::as_array_mut)
+    {
+        for node in nodes {
+            if let Some(object) = node.as_object_mut() {
+                object.insert("rerun_status".to_owned(), json!(rerun_status(decision)));
+                object.insert("rerun_decision".to_owned(), rerun_decision.clone());
+            }
+        }
+    }
+    serde_json::to_string_pretty(&review)
+        .map(|mut text| {
+            text.push('\n');
+            text
+        })
+        .unwrap_or_else(|_| review_json.to_owned())
+}
+
+fn update_output_manifest_artifact_hashes(
+    output_manifest_json: &str,
+    hashes: &[(&str, &str, String)],
+) -> String {
+    let Ok(mut output_manifest) = serde_json::from_str::<Value>(output_manifest_json) else {
+        return output_manifest_json.to_owned();
+    };
+    update_artifact_array_hashes(
+        output_manifest
+            .get_mut("artifacts")
+            .and_then(Value::as_array_mut),
+        hashes,
+    );
+    update_artifact_array_hashes(
+        output_manifest
+            .get_mut("artifact_registry")
+            .and_then(|registry| registry.get_mut("generated_files"))
+            .and_then(Value::as_array_mut),
+        hashes,
+    );
+    serde_json::to_string_pretty(&output_manifest)
+        .map(|mut text| {
+            text.push('\n');
+            text
+        })
+        .unwrap_or_else(|_| output_manifest_json.to_owned())
+}
+
+fn update_artifact_array_hashes(
+    artifacts: Option<&mut Vec<Value>>,
+    hashes: &[(&str, &str, String)],
+) {
+    let Some(artifacts) = artifacts else {
+        return;
+    };
+    for artifact in artifacts {
+        let Some(object) = artifact.as_object_mut() else {
+            continue;
+        };
+        let kind = object
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let path = object
+            .get("path")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        if let Some((_, _, hash)) = hashes.iter().find(|(expected_kind, expected_path, _)| {
+            kind == *expected_kind || path == *expected_path
+        }) {
+            object.insert("hash".to_owned(), Value::String(hash.clone()));
+        }
+    }
+}
+
+fn rerun_decision_json(decision: &RerunDecision) -> Value {
+    json!({
+        "decision": decision.decision,
+        "reason": decision.reason,
+        "prior_input_hash": decision.prior_input_hash
+    })
+}
+
 fn run_plan_json(
     source_path: &Path,
     report: &CheckReport,
@@ -2973,6 +3458,7 @@ fn run_plan_json(
     result_json: &str,
     review_json: &str,
     profile: &ExecutionProfile,
+    rerun_decision: &RerunDecision,
 ) -> String {
     let mut nodes = Vec::new();
     let mut edges = Vec::new();
@@ -2985,6 +3471,7 @@ fn run_plan_json(
         "low",
         1,
         vec![json!({"kind": "source_hash", "hash": &report.source_hash})],
+        rerun_decision,
     ));
 
     for promotion in &report.semantic_program.csv_promotions {
@@ -3003,6 +3490,7 @@ fn run_plan_json(
                 "hash": &promotion.source_hash,
                 "row_count": promotion.row_count
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3022,6 +3510,7 @@ fn run_plan_json(
                 "hash": &promotion.source_hash,
                 "field_count": promotion.field_count
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3039,6 +3528,7 @@ fn run_plan_json(
                 "source_table": &selection.source_table,
                 "matched_row_count": selection.matched_count
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3057,6 +3547,7 @@ fn run_plan_json(
                 "source_table": &transform.source_table,
                 "output_row_count": transform.output_row_count
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3081,6 +3572,7 @@ fn run_plan_json(
                 "actual_count": coverage.actual_count,
                 "missing_count": coverage.missing_count
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3101,6 +3593,7 @@ fn run_plan_json(
                 "stderr_hash": &boundary.stderr_hash,
                 "output_paths": &boundary.output_paths
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3121,6 +3614,7 @@ fn run_plan_json(
                 "stderr_hash": &process.stderr_hash,
                 "expected_output_status": &process.expected_output_status
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3142,6 +3636,7 @@ fn run_plan_json(
                 "source_hash": &cache.source_hash,
                 "observed_hash": &cache.observed_hash
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3161,6 +3656,7 @@ fn run_plan_json(
                 "sample_row_hash": &case_manifest.sample_row_hash,
                 "process_count": case_manifest.process_statuses.len()
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3180,6 +3676,7 @@ fn run_plan_json(
                 "transaction_status": &db.transaction_status,
                 "table_count": db.tables.len()
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3202,6 +3699,7 @@ fn run_plan_json(
                 "training_data_hash": &artifact.training_data_hash,
                 "model_card_hash": artifact.model_card.as_ref().map(|card| hash_text(card))
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3219,6 +3717,7 @@ fn run_plan_json(
                 "assertion_count": test.assertions.len(),
                 "golden_count": test.goldens.len()
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
@@ -3238,6 +3737,7 @@ fn run_plan_json(
                 "hash": &artifact.hash,
                 "validation_status": &artifact.validation.status
             })],
+            rerun_decision,
         ));
         edges.push(run_plan_edge("source:program", &id, "emits"));
     }
@@ -3251,10 +3751,8 @@ fn run_plan_json(
         "source_hash": &report.source_hash,
         "execution_profile": profile.as_str(),
         "status": "completed",
-        "rerun_decision": {
-            "decision": "run",
-            "reason": "no_prior_run_lock"
-        },
+        "rerun_status": rerun_status(rerun_decision),
+        "rerun_decision": rerun_decision_json(rerun_decision),
         "artifact_hashes": {
             "result": hash_text(result_json),
             "review": hash_text(review_json)
@@ -3281,6 +3779,7 @@ fn run_plan_node(
     risk: &str,
     line: usize,
     outputs: Vec<Value>,
+    rerun_decision: &RerunDecision,
 ) -> Value {
     json!({
         "id": id,
@@ -3289,16 +3788,22 @@ fn run_plan_node(
         "status": status,
         "phase": phase,
         "risk": risk,
+        "rerun_status": rerun_status(rerun_decision),
         "line": line,
         "source_span": {
             "line": line
         },
-        "rerun_decision": {
-            "decision": "run",
-            "reason": "no_prior_run_lock"
-        },
+        "rerun_decision": rerun_decision_json(rerun_decision),
         "outputs": outputs
     })
+}
+
+fn rerun_status(decision: &RerunDecision) -> &'static str {
+    if decision.decision == "skip" {
+        "skipped"
+    } else {
+        "executed"
+    }
 }
 
 fn run_plan_edge(from: &str, to: &str, kind: &str) -> Value {
@@ -4035,7 +4540,7 @@ fn push_artifact_validation_json(
 fn artifact_record_class(kind: &str) -> &'static str {
     match kind {
         "review" | "report_spec" | "report_html" | "result" | "plot_spec" | "plot_svg"
-        | "plot_manifest" | "bytecode" | "run_log" | "run_plan" => "review_artifact",
+        | "plot_manifest" | "bytecode" | "run_log" | "run_plan" | "run_lock" => "review_artifact",
         "process_results" | "process_expected_output" => "external_boundary",
         "cache_manifest" => "cache",
         "db_write_manifest" => "db_write",
@@ -9629,6 +10134,16 @@ mod tests {
         assert!(output.review_json.contains("\"risk_by_node\""));
         assert!(output.review_json.contains("\"risk\": \"medium\""));
         let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        assert_eq!(
+            run_plan
+                .pointer("/rerun_decision/decision")
+                .and_then(Value::as_str),
+            Some("run")
+        );
+        assert_eq!(
+            run_plan.pointer("/rerun_status").and_then(Value::as_str),
+            Some("executed")
+        );
         let review_hash = hash_text(&output.review_json);
         assert_eq!(
             run_plan
@@ -9639,6 +10154,110 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"run_plan\""));
+        assert!(output.run_lock_path.exists());
+        assert!(output
+            .run_lock_json
+            .contains("\"format\": \"eng-run-lock-v1\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"run_lock\""));
+        let run_lock: Value = serde_json::from_str(&output.run_lock_json).expect("run lock json");
+        let first_input_hash = run_lock
+            .get("input_hash")
+            .and_then(Value::as_str)
+            .expect("input hash")
+            .to_owned();
+
+        let second_output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                skip_unchanged: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("rerun file");
+        assert!(second_output
+            .stdout
+            .contains("run skipped: unchanged run_lock"));
+        let second_run_plan: Value =
+            serde_json::from_str(&second_output.run_plan_json).expect("second run plan json");
+        assert_eq!(
+            second_run_plan
+                .pointer("/rerun_decision/decision")
+                .and_then(Value::as_str),
+            Some("skip")
+        );
+        assert_eq!(
+            second_run_plan
+                .pointer("/rerun_decision/reason")
+                .and_then(Value::as_str),
+            Some("unchanged_run_lock")
+        );
+        assert_eq!(
+            second_run_plan
+                .pointer("/graph/nodes/0/rerun_status")
+                .and_then(Value::as_str),
+            Some("skipped")
+        );
+        let second_review: Value =
+            serde_json::from_str(&second_output.review_json).expect("second review json");
+        assert_eq!(
+            second_review
+                .pointer("/workflow_graph/nodes/0/rerun_status")
+                .and_then(Value::as_str),
+            Some("skipped")
+        );
+        assert_eq!(
+            second_review
+                .pointer("/workflow_graph/nodes/0/rerun_decision/decision")
+                .and_then(Value::as_str),
+            Some("skip")
+        );
+        let second_run_lock: Value =
+            serde_json::from_str(&second_output.run_lock_json).expect("second run lock json");
+        assert_eq!(
+            second_run_lock
+                .pointer("/rerun_decision/prior_input_hash")
+                .and_then(Value::as_str),
+            Some(first_input_hash.as_str())
+        );
+
+        fs::remove_file(&second_output.report_path).expect("remove saved report");
+        let third_output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                skip_unchanged: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("rerun file after missing artifact");
+        assert!(!third_output
+            .stdout
+            .contains("run skipped: unchanged run_lock"));
+        let third_run_plan: Value =
+            serde_json::from_str(&third_output.run_plan_json).expect("third run plan json");
+        assert_eq!(
+            third_run_plan
+                .pointer("/rerun_decision/decision")
+                .and_then(Value::as_str),
+            Some("run")
+        );
+        assert_eq!(
+            third_run_plan
+                .pointer("/rerun_decision/reason")
+                .and_then(Value::as_str),
+            Some("missing_saved_artifact")
+        );
+        assert_eq!(
+            third_run_plan
+                .pointer("/rerun_status")
+                .and_then(Value::as_str),
+            Some("executed")
+        );
     }
 
     #[test]

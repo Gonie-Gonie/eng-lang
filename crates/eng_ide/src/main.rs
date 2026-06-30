@@ -226,6 +226,7 @@ struct CachedRunOutput {
     result_path: PathBuf,
     review_path: PathBuf,
     run_plan_path: PathBuf,
+    run_lock_path: PathBuf,
     run_log_path: PathBuf,
     process_results_path: PathBuf,
     test_results_path: PathBuf,
@@ -240,6 +241,7 @@ struct CachedRunOutput {
     result_json: String,
     review_json: String,
     run_plan_json: String,
+    run_lock_json: String,
     run_log_json: String,
     process_results_json: String,
     test_results_json: String,
@@ -258,6 +260,7 @@ impl CachedRunOutput {
             result_path: output.result_path,
             review_path: output.review_path,
             run_plan_path: output.run_plan_path,
+            run_lock_path: output.run_lock_path,
             run_log_path: output.run_log_path,
             process_results_path: output.process_results_path,
             test_results_path: output.test_results_path,
@@ -272,6 +275,7 @@ impl CachedRunOutput {
             result_json: output.result_json,
             review_json: output.review_json,
             run_plan_json: output.run_plan_json,
+            run_lock_json: output.run_lock_json,
             run_log_json: output.run_log_json,
             process_results_json: output.process_results_json,
             test_results_json: output.test_results_json,
@@ -292,6 +296,7 @@ impl CachedRunOutput {
         fs::write(&self.result_path, &self.result_json).map_err(|error| error.to_string())?;
         fs::write(&self.review_path, &self.review_json).map_err(|error| error.to_string())?;
         fs::write(&self.run_plan_path, &self.run_plan_json).map_err(|error| error.to_string())?;
+        fs::write(&self.run_lock_path, &self.run_lock_json).map_err(|error| error.to_string())?;
         fs::write(&self.run_log_path, &self.run_log_json).map_err(|error| error.to_string())?;
         fs::write(&self.process_results_path, &self.process_results_json)
             .map_err(|error| error.to_string())?;
@@ -550,6 +555,7 @@ fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String,
         "result" => output.result_path.clone(),
         "review" => output.review_path.clone(),
         "run_plan" => output.run_plan_path.clone(),
+        "run_lock" => output.run_lock_path.clone(),
         "run_log" => output.run_log_path.clone(),
         "process_results" => output.process_results_path.clone(),
         "test_results" => output.test_results_path.clone(),
@@ -1071,6 +1077,7 @@ fn runtime_artifacts(root: &Path, output: &CachedRunOutput) -> Vec<ArtifactView>
         ("result", &output.result_path),
         ("review", &output.review_path),
         ("run_plan", &output.run_plan_path),
+        ("run_lock", &output.run_lock_path),
         ("run_log", &output.run_log_path),
         ("process_results", &output.process_results_path),
         ("test_results", &output.test_results_path),
@@ -2008,6 +2015,7 @@ fn artifact_outlines(root: &Path, output: &CachedRunOutput) -> Value {
         ("result", &output.result_path, &output.result_json),
         ("review", &output.review_path, &output.review_json),
         ("run_plan", &output.run_plan_path, &output.run_plan_json),
+        ("run_lock", &output.run_lock_path, &output.run_lock_json),
         ("run_log", &output.run_log_path, &output.run_log_json),
         (
             "process_results",
@@ -4739,6 +4747,7 @@ mod tests {
             result_path: PathBuf::new(),
             review_path: PathBuf::new(),
             run_plan_path: PathBuf::new(),
+            run_lock_path: PathBuf::new(),
             run_log_path: PathBuf::new(),
             process_results_path: PathBuf::new(),
             test_results_path: PathBuf::new(),
@@ -4753,6 +4762,7 @@ mod tests {
             result_json: result_json.to_owned(),
             review_json: review_json.to_owned(),
             run_plan_json: "{}".to_owned(),
+            run_lock_json: "{}".to_owned(),
             run_log_json: "{}".to_owned(),
             process_results_json: "{}".to_owned(),
             test_results_json: "{}".to_owned(),

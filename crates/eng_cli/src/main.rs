@@ -459,12 +459,13 @@ fn command_fmt(args: Vec<String>) -> ExitCode {
 fn command_run(args: Vec<String>) -> ExitCode {
     let Some(path) = first_non_flag(&args) else {
         eprintln!(
-            "usage: eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts]"
+            "usage: eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--skip-unchanged]"
         );
         return ExitCode::from(2);
     };
     let open_report = args.iter().any(|arg| arg == "--open-report");
     let save_artifacts = open_report || args.iter().any(|arg| arg == "--save-artifacts");
+    let skip_unchanged = args.iter().any(|arg| arg == "--skip-unchanged");
     let profile = match parse_execution_profile(&args) {
         Ok(profile) => profile,
         Err(message) => {
@@ -475,7 +476,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
     let runtime_args = match parse_arg_overrides(
         &args,
         &["--profile"],
-        &["--open-report", "--save-artifacts"],
+        &["--open-report", "--save-artifacts", "--skip-unchanged"],
     ) {
         Ok(values) => values,
         Err(message) => {
@@ -490,6 +491,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
         &RunOptions {
             open_report,
             save_artifacts,
+            skip_unchanged,
             args: runtime_args,
             profile,
         },
@@ -504,6 +506,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("result:   {}", output.result_path.display());
                 println!("review:   {}", output.review_path.display());
                 println!("runplan:  {}", output.run_plan_path.display());
+                println!("runlock:  {}", output.run_lock_path.display());
                 println!("runlog:   {}", output.run_log_path.display());
                 println!("process:  {}", output.process_results_path.display());
                 println!("cache:    {}", output.cache_manifest_path.display());
@@ -520,6 +523,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 println!("result:   {} bytes", output.result_json.len());
                 println!("review:   {} bytes", output.review_json.len());
                 println!("runplan:  {} bytes", output.run_plan_json.len());
+                println!("runlock:  {} bytes", output.run_lock_json.len());
                 println!("runlog:   {} bytes", output.run_log_json.len());
                 println!("process:  {} bytes", output.process_results_json.len());
                 println!("cache:    {} bytes", output.cache_manifest_json.len());
@@ -1243,7 +1247,7 @@ Usage:
   eng ide-check <file.eng>
   eng jit-plan <file.eng>
   eng jit-bench <file.eng> [--iterations N] [--<arg> <value>...]
-  eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--<arg> <value>...]
+  eng run <file.eng> [--profile safe|normal|repro] [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
   eng build <file.eng> [--standalone] [--profile repro]
   eng view <result.engres>
   eng test <project_or_examples>
