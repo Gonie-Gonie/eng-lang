@@ -2337,6 +2337,7 @@ fn is_command_style_verb(verb: &str) -> bool {
             | "fill"
             | "align"
             | "resample"
+            | "render"
     )
 }
 
@@ -2501,6 +2502,13 @@ fn command_target_is_ambiguous(verb: &str, target: &str) -> bool {
         return false;
     }
     if matches!(verb, "align" | "resample") && is_simple_dotted_identifier(target) {
+        return false;
+    }
+    if verb == "render"
+        && target
+            .strip_prefix("template ")
+            .is_some_and(|source| !source.trim().is_empty())
+    {
         return false;
     }
     if verb == "plot" && target.split(" and ").all(is_simple_dotted_identifier) {

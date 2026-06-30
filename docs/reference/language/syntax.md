@@ -1003,6 +1003,37 @@ The runnable example is:
 examples/official/12_write_output_manifest/main.eng
 ```
 
+## Template Rendering
+
+Use `render template` when an external simulator or adapter needs a generated
+text input file. Templates are source-relative UTF-8 files. Rendered outputs
+and their sidecar manifests are written under `build/result`.
+
+```eng partial
+input_file = render template file("model/base_template.txt")
+with {
+    values = { case_id = "case_001", load = 12000 W }
+    output = "outputs/case_001/input.txt"
+    missing = error
+}
+```
+
+Supported placeholder forms:
+
+| Form | Meaning |
+|---|---|
+| `{{name}}` | Insert the named value from `with { values = { ... } }` |
+| `{{name: unit}}` | Insert a numeric value formatted in the requested unit |
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Output boundary | Rendered files and `.render_manifest.json` sidecars stay under `build/result` |
+| Missing policy | `missing = error`, `keep`, or `empty`; default is `error` |
+| Hashes | The manifest records template, values, and rendered output hashes |
+| Reviewable records | `result.engres` and `review.json` include `render_manifests[]` |
+
 ## File Operations
 
 Use file operations when a workflow needs a small, explicit filesystem mutation

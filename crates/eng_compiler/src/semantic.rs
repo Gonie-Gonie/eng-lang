@@ -2262,6 +2262,10 @@ fn analyze_with_blocks(
                 block.owner_line,
             ));
             extra_known_options.extend(with_owner_net_options(program, block.owner_line));
+            extra_known_options.extend(with_owner_template_options(
+                command_styles,
+                block.owner_line,
+            ));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -2376,6 +2380,28 @@ fn with_owner_timeseries_alignment_options(
         return HashSet::new();
     }
     ["method", "step", "target_step", "tolerance"]
+        .into_iter()
+        .map(str::to_owned)
+        .collect()
+}
+
+fn with_owner_template_options(
+    command_styles: &[CommandStyleInfo],
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let Some(command) = command_styles
+        .iter()
+        .find(|command| command.line == owner_line)
+    else {
+        return HashSet::new();
+    };
+    if command.verb != "render" || !command.target.trim().starts_with("template ") {
+        return HashSet::new();
+    }
+    ["values", "missing", "output", "overwrite", "artifact_kind"]
         .into_iter()
         .map(str::to_owned)
         .collect()
@@ -5248,6 +5274,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "fill"
             | "align"
             | "resample"
+            | "render"
             | "file"
             | "dir"
             | "join"
@@ -11043,6 +11070,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.starts_with("align(") || lowered_expression.starts_with("resample(") {
         return semantic_type("TimeSeriesAlignmentResult", "");
+    }
+
+    if lowered_expression.starts_with("render(") && lowered_expression.contains("template ") {
+        return semantic_type("TemplateFile", "");
     }
 
     if lowered_expression.starts_with("simulate ") {

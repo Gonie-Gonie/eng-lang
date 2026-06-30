@@ -7849,6 +7849,36 @@ mod tests {
     }
 
     #[test]
+    fn render_template_command_lowers_with_template_contract() {
+        let report = check_source(
+            "ok.eng",
+            "input_file = render template file(\"model/base_template.txt\")\nwith {\n    values = { case_id = \"case_001\", load = 12000 W }\n    output = \"outputs/case_001/input.txt\"\n    missing = error\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.command_styles, 1);
+        let command = &report.semantic_program.command_styles[0];
+        assert_eq!(command.verb, "render");
+        assert_eq!(command.status, "lowered");
+        assert_eq!(command.owner.as_deref(), Some("input_file"));
+        assert_eq!(command.target, "template file(\"model/base_template.txt\")");
+        let template_file = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "input_file")
+            .expect("TemplateFile declaration");
+        assert_eq!(template_file.quantity_kind, "TemplateFile");
+        let with_options = &report.semantic_program.with_blocks[0].options;
+        assert!(with_options
+            .iter()
+            .any(|option| option.key == "values" && option.status == "accepted"));
+        assert!(with_options
+            .iter()
+            .any(|option| option.key == "missing" && option.status == "accepted"));
+    }
+
+    #[test]
     fn records_args_block_metadata() {
         let report = check_source(
             "ok.eng",

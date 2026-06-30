@@ -287,8 +287,8 @@ pressure/flow solve with a fixed pressure-drop seed; it is still not a productio
 ## `output_manifest.json`
 
 `output_manifest.json` is the runtime-generated file list for saved artifacts,
-explicit CSV exports, `write text/json` outputs, and constrained file
-operation records.
+explicit CSV exports, `write text/json` outputs, native template renders, and
+constrained file operation records.
 
 Current output manifest contract:
 
@@ -316,8 +316,9 @@ profile_diagnostics
 ```
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
-`copy_file`, `move_file`, `delete_file`, `standard_file`, `plot_svg`,
-`report_html`, `result`, `run_log`, `process_results`, and `test_results`.
+`template_render`, `template_render_manifest`, `copy_file`, `move_file`,
+`delete_file`, `standard_file`, `plot_svg`, `report_html`, `result`,
+`run_log`, `process_results`, and `test_results`.
 Each generated artifact includes a validation record with status, rule, and
 message.
 

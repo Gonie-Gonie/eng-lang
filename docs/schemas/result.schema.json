@@ -47,7 +47,7 @@
     },
     "typed_payload": {
       "type": "object",
-      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "model_cards", "metrics", "validations", "expectation_suites", "quality_results", "time_axes", "timeseries_coverage", "timeseries_fill", "timeseries_quality", "timeseries_fallbacks", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
+      "required": ["kind", "status", "result_format", "vm_steps", "numeric_values", "statistics", "integrations", "table_diagnostics", "table_selections", "table_transforms", "config_promotions", "sample_tables", "case_manifests", "db_manifests", "render_manifests", "model_cards", "metrics", "validations", "expectation_suites", "quality_results", "time_axes", "timeseries_coverage", "timeseries_fill", "timeseries_quality", "timeseries_fallbacks", "time_alignments", "uncertainties", "ml", "policy_results", "systems", "component_solutions", "solver_boundaries", "system_ir"],
       "properties": {
         "numeric_values": {
           "type": "array",
@@ -80,6 +80,10 @@
         "db_manifests": {
           "type": "array",
           "items": { "$ref": "#/$defs/dbManifest" }
+        },
+        "render_manifests": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/renderManifest" }
         },
         "model_cards": {
           "type": "array",
@@ -441,6 +445,53 @@
           "items": { "type": "string" }
         },
         "row_count": { "type": ["integer", "null"], "minimum": 0 }
+      }
+    },
+    "renderManifest": {
+      "type": "object",
+      "required": [
+        "format",
+        "binding",
+        "template_path",
+        "output_path",
+        "manifest_path",
+        "template_hash",
+        "values_hash",
+        "output_hash",
+        "placeholder_count",
+        "substituted_count",
+        "missing_count",
+        "placeholders",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "format": { "const": "eng-template-render-manifest-v1" },
+        "binding": { "type": "string" },
+        "template_path": { "type": "string" },
+        "output_path": { "type": "string" },
+        "manifest_path": { "type": "string" },
+        "template_hash": { "type": "string" },
+        "values_hash": { "type": "string" },
+        "output_hash": { "type": "string" },
+        "placeholder_count": { "type": "integer", "minimum": 0 },
+        "substituted_count": { "type": "integer", "minimum": 0 },
+        "missing_count": { "type": "integer", "minimum": 0 },
+        "placeholders": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/renderPlaceholder" }
+        },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "renderPlaceholder": {
+      "type": "object",
+      "required": ["name", "value", "status"],
+      "properties": {
+        "name": { "type": "string" },
+        "value": { "type": ["string", "null"] },
+        "status": { "type": "string" }
       }
     },
     "modelCardSummary": {

@@ -167,13 +167,13 @@ examples = ["examples/diagnostics/data_quality"]
 tests = ["cargo test -p eng_compiler lowers_expectation_suite_seed", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
 
 [module."eng.template"]
-status = "planned"
-backing = "none"
-purpose = "Template rendering for explicit generated inputs and adapter boundaries."
-artifacts = ["review.side_effects", "output_manifest"]
-diagnostics = ["E-TEMPLATE-MISSING-PLACEHOLDER"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement."
+artifacts = ["typed_payload.render_manifests", "template_render_manifest", "review.render_manifests", "output_manifest"]
+diagnostics = ["E-TEMPLATE-MISSING-VALUE"]
 examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
-tests = ["planned_template_tests"]
+tests = ["cargo test -p eng_compiler render_template_command_lowers_with_template_contract", "cargo test -p eng_runtime template"]
 
 [module."eng.workflow"]
 status = "planned"

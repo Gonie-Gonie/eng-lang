@@ -92,7 +92,8 @@ review material. It is not a broad solver claim.
 - Read-only UTF-8 `read text`, `read json`, and `read toml` expressions with
   source-relative resolution and source hash provenance.
 - Explicit `write text/json`, constrained copy/move/delete file operations,
-  CSV overwrite hardening, and `output_manifest.json`.
+  native `render template` generated inputs with render manifests, CSV
+  overwrite hardening, and `output_manifest.json`.
 - Structured `log debug/info/warn/error` and `run_log.json`.
 - Explicit `run command`, `ProcessResult`, `tool_version`, expected-output
   contracts, stdout/stderr hashes, and `process_results.json`.

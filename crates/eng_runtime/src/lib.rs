@@ -523,6 +523,8 @@ pub fn run_source(
     let runtime_data = materialize_runtime_data(&check_report, source);
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
+    let template_render_output =
+        render_template_outputs(&check_report, &runtime_data, &result_dir)?;
     let process_results = execute_process_runs(&check_report)?;
     let db_manifest_records = db_manifest_records(&process_results);
     let external_boundary_records =
@@ -600,6 +602,7 @@ pub fn run_source(
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
     let mut output_artifacts = Vec::new();
+    output_artifacts.extend(template_render_output.artifacts.clone());
     output_artifacts.extend(process_expected_output_artifacts(&process_results));
     output_artifacts.extend(csv_export_artifacts);
     output_artifacts.extend(write_artifacts);
@@ -611,6 +614,7 @@ pub fn run_source(
         &external_boundary_records,
         &output_artifacts,
         &cache_manifest_records,
+        &template_render_output.records,
     );
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
@@ -620,6 +624,7 @@ pub fn run_source(
         &execution,
         &runtime_data,
         &process_results,
+        &template_render_output.records,
         &ResultArtifactHashes {
             bytecode: &bytecode_hash,
             plot_spec: &plot_spec_hash,
@@ -2988,6 +2993,36 @@ struct ArtifactRegistryContext<'a> {
     test_results: &'a [TestExecutionRecord],
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TemplatePlaceholderRecord {
+    name: String,
+    value: Option<String>,
+    status: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TemplateRenderRecord {
+    binding: String,
+    template_path: String,
+    output_path: String,
+    manifest_path: String,
+    template_hash: String,
+    values_hash: String,
+    output_hash: String,
+    placeholder_count: usize,
+    substituted_count: usize,
+    missing_count: usize,
+    placeholders: Vec<TemplatePlaceholderRecord>,
+    status: String,
+    line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TemplateRenderOutput {
+    artifacts: Vec<OutputArtifact>,
+    records: Vec<TemplateRenderRecord>,
+}
+
 fn process_expected_output_artifacts(records: &[ProcessExecutionRecord]) -> Vec<OutputArtifact> {
     records
         .iter()
@@ -3108,6 +3143,507 @@ fn write_csv_exports(
         ));
     }
     Ok(artifacts)
+}
+
+fn render_template_outputs(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+) -> Result<TemplateRenderOutput, RuntimeError> {
+    let mut artifacts = Vec::new();
+    let mut records = Vec::new();
+    for command in report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| {
+            command.verb == "render"
+                && command.status == "lowered"
+                && command.target.trim().starts_with("template ")
+        })
+    {
+        let source_expression = command
+            .target
+            .trim()
+            .strip_prefix("template ")
+            .map(str::trim)
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| invalid_input("render template command is missing a template source"))?;
+        let source_path_text = evaluate_runtime_path_expression(source_expression, report)
+            .ok_or_else(|| {
+                invalid_input(&format!(
+                    "invalid render template source `{source_expression}`"
+                ))
+            })?;
+        let source_path =
+            runtime_resolve_source_relative_path(&source_path_text, report.source_path.parent());
+        let template_text = fs::read_to_string(&source_path)?;
+
+        let output_expression = template_command_output_expression(report, command)
+            .ok_or_else(|| invalid_input("render template command is missing output path"))?;
+        let output_path_text = evaluate_runtime_output_path_expression(&output_expression, report)
+            .ok_or_else(|| {
+                invalid_input(&format!(
+                    "invalid render template output `{output_expression}`"
+                ))
+            })?;
+        let output_path = export_output_path(result_dir, &output_path_text).ok_or_else(|| {
+            invalid_input(&format!(
+                "render template output `{output_path_text}` is outside the output boundary"
+            ))
+        })?;
+        let output_relative_path = relative_output_path(result_dir, &output_path);
+        let manifest_relative_path =
+            runtime_path_text(format!("{output_relative_path}.render_manifest.json"));
+        let manifest_path = export_output_path(result_dir, &manifest_relative_path).ok_or_else(
+            || {
+                invalid_input(&format!(
+                    "render template manifest `{manifest_relative_path}` is outside the output boundary"
+                ))
+            },
+        )?;
+
+        let explicit_values = template_values_for_owner(report, runtime_data, command.line)?;
+        let missing_policy = template_missing_policy(report, command.line)?;
+        let placeholders = template_placeholders(&template_text);
+        let mut rendered = String::new();
+        let mut cursor = 0usize;
+        let mut placeholder_records = Vec::new();
+        let mut substituted_count = 0usize;
+        let mut missing_count = 0usize;
+        let mut resolved_values = HashMap::new();
+        for placeholder in &placeholders {
+            rendered.push_str(&template_text[cursor..placeholder.start]);
+            let replacement =
+                template_value_for_placeholder(placeholder, &explicit_values, report, runtime_data);
+            match replacement {
+                Some(value) => {
+                    rendered.push_str(&value);
+                    substituted_count += 1;
+                    resolved_values
+                        .entry(placeholder.name.clone())
+                        .or_insert_with(|| value.clone());
+                    placeholder_records.push(TemplatePlaceholderRecord {
+                        name: placeholder.name.clone(),
+                        value: Some(value),
+                        status: "substituted".to_owned(),
+                    });
+                }
+                None => match missing_policy {
+                    TemplateMissingPolicy::Error => {
+                        return Err(invalid_input(&format!(
+                            "E-TEMPLATE-MISSING-VALUE: missing template value `{}` at line {}",
+                            placeholder.name, command.line
+                        )));
+                    }
+                    TemplateMissingPolicy::Keep => {
+                        rendered.push_str(&placeholder.raw);
+                        missing_count += 1;
+                        placeholder_records.push(TemplatePlaceholderRecord {
+                            name: placeholder.name.clone(),
+                            value: None,
+                            status: "missing_kept".to_owned(),
+                        });
+                    }
+                    TemplateMissingPolicy::Empty => {
+                        missing_count += 1;
+                        placeholder_records.push(TemplatePlaceholderRecord {
+                            name: placeholder.name.clone(),
+                            value: Some(String::new()),
+                            status: "missing_empty".to_owned(),
+                        });
+                    }
+                },
+            }
+            cursor = placeholder.end;
+        }
+        rendered.push_str(&template_text[cursor..]);
+
+        let overwrite_policy = overwrite_policy(report, command.line);
+        write_output_file(&output_path, &rendered, overwrite_policy.allowed)?;
+        let output_hash = hash_text(&rendered);
+        let template_hash = hash_text(&template_text);
+        let values_hash = template_string_values_hash(&resolved_values);
+        let record = TemplateRenderRecord {
+            binding: command
+                .owner
+                .clone()
+                .unwrap_or_else(|| format!("render:{}", command.line)),
+            template_path: path_for_manifest(&source_path),
+            output_path: output_relative_path.clone(),
+            manifest_path: manifest_relative_path.clone(),
+            template_hash,
+            values_hash,
+            output_hash,
+            placeholder_count: placeholders.len(),
+            substituted_count,
+            missing_count,
+            placeholders: placeholder_records,
+            status: "rendered".to_owned(),
+            line: command.line,
+        };
+        let manifest_json = template_render_manifest_json(&record);
+        write_output_file(&manifest_path, &manifest_json, overwrite_policy.allowed)?;
+        let artifact_kind = artifact_kind_for_owner(report, command.line, "template_render");
+        artifacts.push(output_artifact_with_overwrite_policy(
+            &artifact_kind,
+            output_relative_path,
+            &rendered,
+            output_path,
+            overwrite_policy.label,
+        ));
+        artifacts.push(output_artifact_with_overwrite_policy(
+            "template_render_manifest",
+            manifest_relative_path,
+            &manifest_json,
+            manifest_path,
+            overwrite_policy.label,
+        ));
+        records.push(record);
+    }
+    Ok(TemplateRenderOutput { artifacts, records })
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct TemplateValue {
+    value: RuntimeFormatValue,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct TemplatePlaceholder {
+    start: usize,
+    end: usize,
+    raw: String,
+    name: String,
+    requested_unit: Option<String>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TemplateMissingPolicy {
+    Error,
+    Keep,
+    Empty,
+}
+
+fn template_render_node_id(command: &eng_compiler::CommandStyleInfo) -> String {
+    format!("template_render:{}", command.line)
+}
+
+fn template_command_output_expression(
+    report: &CheckReport,
+    command: &eng_compiler::CommandStyleInfo,
+) -> Option<String> {
+    command
+        .clauses
+        .iter()
+        .find(|clause| clause.name == "to")
+        .map(|clause| clause.value.clone())
+        .or_else(|| process_option(report, command.line, "output"))
+}
+
+fn evaluate_runtime_output_path_expression(
+    expression: &str,
+    report: &CheckReport,
+) -> Option<String> {
+    evaluate_runtime_path_expression(expression, report).or_else(|| {
+        let value = strip_runtime_string_value(expression);
+        (!value.trim().is_empty()).then(|| runtime_path_text(value))
+    })
+}
+
+fn template_missing_policy(
+    report: &CheckReport,
+    owner_line: usize,
+) -> Result<TemplateMissingPolicy, RuntimeError> {
+    let raw = process_option(report, owner_line, "missing").unwrap_or_else(|| "error".to_owned());
+    match strip_runtime_string_value(&raw)
+        .trim()
+        .to_ascii_lowercase()
+        .as_str()
+    {
+        "error" => Ok(TemplateMissingPolicy::Error),
+        "keep" => Ok(TemplateMissingPolicy::Keep),
+        "empty" => Ok(TemplateMissingPolicy::Empty),
+        other => Err(invalid_input(&format!(
+            "invalid render template missing policy `{other}`; use error, keep, or empty"
+        ))),
+    }
+}
+
+fn template_values_for_owner(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    owner_line: usize,
+) -> Result<HashMap<String, TemplateValue>, RuntimeError> {
+    let Some(raw) = process_option(report, owner_line, "values") else {
+        return Ok(HashMap::new());
+    };
+    let trimmed = raw.trim();
+    let inner = trimmed
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+        .ok_or_else(|| {
+            invalid_input(
+                "render template `values` must be an inline object such as `{ name = value }`",
+            )
+        })?;
+    let mut values = HashMap::new();
+    for entry in split_template_top_level(inner, &[',', ';']) {
+        let (key, expression) = split_template_assignment(&entry).ok_or_else(|| {
+            invalid_input(&format!(
+                "render template values entry `{entry}` must use `name = expression`"
+            ))
+        })?;
+        let key = strip_runtime_string_value(key.trim());
+        if !is_template_placeholder_name(&key) {
+            return Err(invalid_input(&format!(
+                "render template value key `{key}` is not a valid placeholder name"
+            )));
+        }
+        let value = evaluate_runtime_expression(expression.trim(), report, runtime_data)
+            .ok_or_else(|| {
+                invalid_input(&format!(
+                    "cannot resolve render template value `{}`",
+                    expression.trim()
+                ))
+            })?;
+        values.insert(key, TemplateValue { value });
+    }
+    Ok(values)
+}
+
+fn template_value_for_placeholder(
+    placeholder: &TemplatePlaceholder,
+    explicit_values: &HashMap<String, TemplateValue>,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> Option<String> {
+    explicit_values
+        .get(&placeholder.name)
+        .map(|value| {
+            format_runtime_value(
+                value.value.clone(),
+                placeholder.requested_unit.as_deref(),
+                None,
+                true,
+            )
+        })
+        .or_else(|| {
+            evaluate_runtime_expression(&placeholder.name, report, runtime_data).map(|value| {
+                format_runtime_value(value, placeholder.requested_unit.as_deref(), None, true)
+            })
+        })
+}
+
+fn template_placeholders(template: &str) -> Vec<TemplatePlaceholder> {
+    let mut placeholders = Vec::new();
+    let mut cursor = 0usize;
+    while let Some(open_offset) = template[cursor..].find("{{") {
+        let start = cursor + open_offset;
+        let content_start = start + 2;
+        let Some(close_offset) = template[content_start..].find("}}") else {
+            break;
+        };
+        let end = content_start + close_offset + 2;
+        let raw = template[start..end].to_owned();
+        let content = template[content_start..content_start + close_offset].trim();
+        if let Some((name, requested_unit)) = parse_template_placeholder_content(content) {
+            placeholders.push(TemplatePlaceholder {
+                start,
+                end,
+                raw,
+                name,
+                requested_unit,
+            });
+        }
+        cursor = end;
+    }
+    placeholders
+}
+
+fn parse_template_placeholder_content(content: &str) -> Option<(String, Option<String>)> {
+    let (name, requested_unit) = content
+        .split_once(':')
+        .map(|(name, unit)| (name.trim(), Some(unit.trim())))
+        .unwrap_or((content.trim(), None));
+    if !is_template_placeholder_name(name) {
+        return None;
+    }
+    Some((
+        name.to_owned(),
+        requested_unit
+            .filter(|unit| !unit.is_empty())
+            .map(str::to_owned),
+    ))
+}
+
+fn is_template_placeholder_name(name: &str) -> bool {
+    let mut parts = name.split('.');
+    parts.next().is_some_and(|part| is_identifier(part)) && parts.all(is_identifier)
+}
+
+fn split_template_assignment(entry: &str) -> Option<(&str, &str)> {
+    let mut paren_depth = 0i32;
+    let mut brace_depth = 0i32;
+    let mut bracket_depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in entry.char_indices() {
+        if in_string {
+            escaped = character == '\\' && !escaped;
+            if character == '"' && !escaped {
+                in_string = false;
+            }
+            if character != '\\' {
+                escaped = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' => paren_depth += 1,
+            ')' => paren_depth -= 1,
+            '{' => brace_depth += 1,
+            '}' => brace_depth -= 1,
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth -= 1,
+            '=' if paren_depth == 0 && brace_depth == 0 && bracket_depth == 0 => {
+                let key = entry[..index].trim();
+                let value = entry[index + 1..].trim();
+                if key.is_empty() || value.is_empty() {
+                    return None;
+                }
+                return Some((key, value));
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn split_template_top_level(expression: &str, delimiters: &[char]) -> Vec<String> {
+    let mut parts = Vec::new();
+    let mut paren_depth = 0i32;
+    let mut brace_depth = 0i32;
+    let mut bracket_depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    let mut start = 0usize;
+    for (index, character) in expression.char_indices() {
+        if in_string {
+            escaped = character == '\\' && !escaped;
+            if character == '"' && !escaped {
+                in_string = false;
+            }
+            if character != '\\' {
+                escaped = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' => paren_depth += 1,
+            ')' => paren_depth -= 1,
+            '{' => brace_depth += 1,
+            '}' => brace_depth -= 1,
+            '[' => bracket_depth += 1,
+            ']' => bracket_depth -= 1,
+            other
+                if paren_depth == 0
+                    && brace_depth == 0
+                    && bracket_depth == 0
+                    && delimiters.contains(&other) =>
+            {
+                let part = expression[start..index].trim();
+                if !part.is_empty() {
+                    parts.push(part.to_owned());
+                }
+                start = index + other.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    let tail = expression[start..].trim();
+    if !tail.is_empty() {
+        parts.push(tail.to_owned());
+    }
+    parts
+}
+
+fn template_string_values_hash(values: &HashMap<String, String>) -> String {
+    let mut entries = values.iter().collect::<Vec<_>>();
+    entries.sort_by(|left, right| left.0.cmp(right.0));
+    let mut payload = String::new();
+    payload.push('{');
+    for (index, (key, value)) in entries.iter().enumerate() {
+        if index > 0 {
+            payload.push(',');
+        }
+        payload.push_str(&format!(
+            "\"{}\":\"{}\"",
+            json_escape(key),
+            json_escape(value)
+        ));
+    }
+    payload.push('}');
+    hash_text(&payload)
+}
+
+fn template_render_manifest_json(record: &TemplateRenderRecord) -> String {
+    let document = template_render_record_value(record);
+    format!(
+        "{}\n",
+        serde_json::to_string_pretty(&document).expect("serialize template render manifest")
+    )
+}
+
+fn template_render_record_value(record: &TemplateRenderRecord) -> Value {
+    let placeholders = record
+        .placeholders
+        .iter()
+        .map(|placeholder| {
+            json!({
+                "name": placeholder.name,
+                "value": placeholder.value,
+                "status": placeholder.status
+            })
+        })
+        .collect::<Vec<_>>();
+    json!({
+        "format": "eng-template-render-manifest-v1",
+        "binding": record.binding,
+        "template_path": record.template_path,
+        "output_path": record.output_path,
+        "manifest_path": record.manifest_path,
+        "template_hash": record.template_hash,
+        "values_hash": record.values_hash,
+        "output_hash": record.output_hash,
+        "placeholder_count": record.placeholder_count,
+        "substituted_count": record.substituted_count,
+        "missing_count": record.missing_count,
+        "placeholders": placeholders,
+        "status": record.status,
+        "line": record.line
+    })
+}
+
+fn template_render_records_json(records: &[TemplateRenderRecord], indent: &str) -> String {
+    let mut json = String::new();
+    for (index, record) in records.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        let object = serde_json::to_string_pretty(&template_render_record_value(record))
+            .expect("serialize template render record");
+        for (line_index, line) in object.lines().enumerate() {
+            if line_index > 0 {
+                json.push('\n');
+            }
+            json.push_str(indent);
+            json.push_str(line);
+        }
+    }
+    json
 }
 
 fn write_outputs(
@@ -4124,6 +4660,39 @@ fn static_run_plan_json(
         ));
         edges.push(run_plan_edge("source:program", &id, "emits"));
     }
+    for command in report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| {
+            command.verb == "render" && command.target.trim().starts_with("template ")
+        })
+    {
+        let id = template_render_node_id(command);
+        let source = command
+            .target
+            .trim()
+            .strip_prefix("template ")
+            .map(str::trim)
+            .unwrap_or_default();
+        let output = template_command_output_expression(report, command);
+        nodes.push(run_plan_node(
+            &id,
+            "template_render",
+            command.owner.as_deref().unwrap_or("render template"),
+            "planned",
+            "static",
+            "low",
+            command.line,
+            vec![json!({
+                "source": source,
+                "output": output,
+                "placeholder_syntax": "{{name}}"
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "emits"));
+    }
     for operation in &report.semantic_program.file_operations {
         let id = format!("file_operation:{}:{}", operation.operation, operation.line);
         nodes.push(run_plan_node(
@@ -4612,6 +5181,39 @@ fn run_plan_json(
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
+    for command in report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| {
+            command.verb == "render" && command.target.trim().starts_with("template ")
+        })
+    {
+        let id = template_render_node_id(command);
+        let source = command
+            .target
+            .trim()
+            .strip_prefix("template ")
+            .map(str::trim)
+            .unwrap_or_default();
+        let output = template_command_output_expression(report, command);
+        nodes.push(run_plan_node(
+            &id,
+            "template_render",
+            command.owner.as_deref().unwrap_or("render template"),
+            "rendered",
+            "runtime",
+            "low",
+            command.line,
+            vec![json!({
+                "source": source,
+                "output": output,
+                "placeholder_syntax": "{{name}}"
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "emits"));
+    }
     for artifact in output_artifacts {
         let id = format!("artifact:{}", artifact.path);
         nodes.push(run_plan_node(
@@ -5015,6 +5617,36 @@ fn add_output_artifact_dependency_edges(
                     edges,
                     node_ids,
                     &export_id,
+                    &artifact_id,
+                    "produces",
+                );
+            }
+        }
+        for command in report
+            .semantic_program
+            .command_styles
+            .iter()
+            .filter(|command| {
+                command.verb == "render" && command.target.trim().starts_with("template ")
+            })
+        {
+            let Some(output_expression) = template_command_output_expression(report, command)
+            else {
+                continue;
+            };
+            let Some(output_path) =
+                evaluate_runtime_output_path_expression(&output_expression, report)
+            else {
+                continue;
+            };
+            let output_path = runtime_path_text(output_path);
+            let manifest_path = runtime_path_text(format!("{output_path}.render_manifest.json"));
+            if artifact.path == output_path || artifact.path == manifest_path {
+                let render_id = template_render_node_id(command);
+                push_run_plan_edge_if_present(
+                    edges,
+                    node_ids,
+                    &render_id,
                     &artifact_id,
                     "produces",
                 );
@@ -5755,6 +6387,7 @@ fn artifact_record_class(kind: &str) -> &'static str {
         "cache_manifest" => "cache",
         "case_input" | "case_result" | "case_manifest" | "result_collection" => "case",
         "db_write_manifest" => "db_write",
+        "template_render" | "template_render_manifest" => "template",
         "model_artifact"
         | "model_card"
         | "model_metrics"
@@ -6636,6 +7269,7 @@ fn result_json(
     execution: &VmExecution,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    template_render_records: &[TemplateRenderRecord],
     hashes: &ResultArtifactHashes<'_>,
     profile_context: &ProfileContext<'_>,
 ) -> String {
@@ -7057,6 +7691,7 @@ fn result_json(
     let case_manifests = case_manifests_json(runtime_data, process_results);
     let db_manifest_records = db_manifest_records(process_results);
     let db_manifests = db_manifests_json(&db_manifest_records);
+    let render_manifests = template_render_records_json(template_render_records, "      ");
     let model_cards = model_cards_json(runtime_data);
 
     let mut timeseries_uncertainty_calculations = String::new();
@@ -7711,7 +8346,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     let mut result_json = format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"timeseries_fill\": [\n{}\n    ],\n    \"timeseries_fallbacks\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"render_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"timeseries_fill\": [\n{}\n    ],\n    \"timeseries_fallbacks\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -7743,6 +8378,7 @@ fn result_json(
         sample_tables,
         case_manifests,
         db_manifests,
+        render_manifests,
         timeseries_uncertainty_calculations,
         metrics,
         validations,
@@ -8168,6 +8804,7 @@ fn runtime_review_json(
     external_boundary_records: &[ExternalBoundaryRecord],
     artifacts: &[OutputArtifact],
     cache_records: &[CacheManifestRecord],
+    template_render_records: &[TemplateRenderRecord],
 ) -> String {
     let enriched_boundaries =
         enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
@@ -8372,6 +9009,11 @@ fn runtime_review_json(
     json.push_str(&expectation_suites_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"quality_results\": [\n");
     json.push_str(&quality_results_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"render_manifests\": [\n");
+    json.push_str(&template_render_records_json(
+        template_render_records,
+        "    ",
+    ));
     json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
     json.push_str(&timeseries_coverage_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_fill\": [\n");
@@ -11876,6 +12518,17 @@ fn open_path(path: &Path) {
 mod tests {
     use super::*;
 
+    fn run_plan_has_node(run_plan: &Value, id: &str) -> bool {
+        run_plan
+            .pointer("/graph/nodes")
+            .and_then(Value::as_array)
+            .is_some_and(|nodes| {
+                nodes
+                    .iter()
+                    .any(|node| node.get("id").and_then(Value::as_str) == Some(id))
+            })
+    }
+
     fn run_plan_has_edge(run_plan: &Value, from: &str, to: &str, kind: &str) -> bool {
         run_plan
             .pointer("/graph/edges")
@@ -11993,6 +12646,146 @@ mod tests {
         assert!(output.review_json.contains("\"rule\": \"content_hash\""));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
+    }
+
+    #[test]
+    fn run_file_renders_template_and_records_manifest() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-template-render");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-template-render-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("model")).expect("model dir");
+        fs::write(
+            source_dir.join("model").join("base_template.txt"),
+            "CASE={{case_id}}\nLOAD={{load: kW}}\nNOTE={{note}}\n",
+        )
+        .expect("template");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "input_file = render template file(\"model/base_template.txt\")\nwith {\n    values = { case_id = \"case_001\", load = 12000 W, note = \"ready\" }\n    output = \"outputs/case_001/input.txt\"\n    missing = error\n}\n",
+        )
+        .expect("source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let rendered_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("case_001")
+            .join("input.txt");
+        let rendered = fs::read_to_string(&rendered_path).expect("rendered template");
+        assert!(rendered.contains("CASE=case_001"));
+        assert!(rendered.contains("LOAD=12 kW"));
+        assert!(rendered.contains("NOTE=ready"));
+        let render_manifest_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("case_001")
+            .join("input.txt.render_manifest.json");
+        let render_manifest: Value = serde_json::from_str(
+            &fs::read_to_string(&render_manifest_path).expect("render manifest"),
+        )
+        .expect("render manifest json");
+        assert_eq!(
+            render_manifest.get("format").and_then(Value::as_str),
+            Some("eng-template-render-manifest-v1")
+        );
+        assert_eq!(
+            render_manifest
+                .get("placeholder_count")
+                .and_then(Value::as_u64),
+            Some(3)
+        );
+        assert!(render_manifest
+            .get("output_hash")
+            .and_then(Value::as_str)
+            .is_some_and(|hash| !hash.is_empty()));
+        assert!(render_manifest
+            .get("values_hash")
+            .and_then(Value::as_str)
+            .is_some_and(|hash| !hash.is_empty()));
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let result_render = result
+            .pointer("/typed_payload/render_manifests/0")
+            .expect("result render manifest");
+        assert_eq!(
+            result_render.get("binding").and_then(Value::as_str),
+            Some("input_file")
+        );
+        assert_eq!(
+            result_render.get("output_path").and_then(Value::as_str),
+            Some("outputs/case_001/input.txt")
+        );
+
+        let output_manifest: Value =
+            serde_json::from_str(&output.output_manifest_json).expect("output manifest json");
+        let artifacts = output_manifest
+            .get("artifacts")
+            .and_then(Value::as_array)
+            .expect("artifacts");
+        assert!(artifacts.iter().any(|artifact| {
+            artifact.get("kind").and_then(Value::as_str) == Some("template_render")
+                && artifact.get("class").and_then(Value::as_str) == Some("template")
+                && artifact.get("path").and_then(Value::as_str)
+                    == Some("outputs/case_001/input.txt")
+                && artifact.get("hash").and_then(Value::as_str).is_some()
+        }));
+        assert!(artifacts.iter().any(|artifact| {
+            artifact.get("kind").and_then(Value::as_str) == Some("template_render_manifest")
+                && artifact.get("path").and_then(Value::as_str)
+                    == Some("outputs/case_001/input.txt.render_manifest.json")
+        }));
+
+        let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        assert!(run_plan_has_node(&run_plan, "template_render:1"));
+        assert!(run_plan_has_edge(
+            &run_plan,
+            "template_render:1",
+            "artifact:outputs/case_001/input.txt",
+            "produces"
+        ));
+        assert!(output.review_json.contains("\"render_manifests\""));
+    }
+
+    #[test]
+    fn run_file_reports_missing_template_value() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root
+            .join("build")
+            .join("runtime-template-render-missing");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-template-render-missing-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("model")).expect("model dir");
+        fs::write(
+            source_dir.join("model").join("base_template.txt"),
+            "MISSING={{required_value}}\n",
+        )
+        .expect("template");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "render template file(\"model/base_template.txt\") to \"outputs/input.txt\"\n",
+        )
+        .expect("source");
+
+        let error = run_file(&source_path, &build_root, &RunOptions::default())
+            .expect_err("missing template value should fail");
+        assert!(error
+            .to_string()
+            .contains("E-TEMPLATE-MISSING-VALUE: missing template value `required_value`"));
     }
 
     #[test]

@@ -29,6 +29,7 @@ what was read, and what external state influenced the result.
 | Read-only I/O | `read text`, `read json`, `read toml` | UTF-8 raw string reads; source hash is recorded; direct JSON field access is rejected |
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
+| Template render | `render template file("base.txt")` | Explicit output required; rendered file and render manifest stay under `build/result` |
 | File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
@@ -49,6 +50,7 @@ TextFile
 ReportFile
 PlotFile
 ProcessResult
+TemplateFile
 ```
 
 Path helpers are pure unless they query the filesystem:
@@ -83,6 +85,11 @@ Implemented behavior in the current package scope:
 - an identical existing output is accepted as an idempotent rerun.
 - replacing different existing contents requires `with { overwrite = true }`.
 - output_manifest.json records generated file paths and content hashes.
+- render template statements write generated text inputs under `build/result`.
+- render template placeholders use `{{name}}` or `{{name: unit}}` and values
+  from an explicit inline `values = { ... }` object.
+- saved template renders write `.render_manifest.json` with input template,
+  values, and output hashes.
 - copy can copy a source-relative UTF-8 text file or generated output file into
   `build/result`.
 - move operates on generated output paths under `build/result`.
