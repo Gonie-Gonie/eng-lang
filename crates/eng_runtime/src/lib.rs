@@ -10414,6 +10414,7 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             request.expected_sha256.as_deref(),
             8,
         );
+        push_optional_json_usize(&mut json, "retry", request.retry, 8);
         match request.status_code {
             Some(status_code) => {
                 json.push_str(&format!("        \"status_code\": {},\n", status_code))
@@ -10459,6 +10460,7 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             download.expected_sha256.as_deref(),
             8,
         );
+        push_optional_json_usize(&mut json, "retry", download.retry, 8);
         match download.status_code {
             Some(status_code) => {
                 json.push_str(&format!("        \"status_code\": {},\n", status_code))
@@ -13632,7 +13634,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"fixture-hash\"\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    retry = 2\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"fixture-hash\"\n    retry = 1\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\n",
         )
         .expect("write source");
 
@@ -13657,6 +13659,18 @@ mod tests {
                 .pointer("/typed_payload/network_boundaries/0/status_class")
                 .and_then(Value::as_str),
             Some("success")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/retry")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/1/retry")
+                .and_then(Value::as_u64),
+            Some(1)
         );
         assert!(output.result_json.contains("\"network_boundaries\""));
         assert!(output.result_json.contains("\"kind\": \"http_get\""));

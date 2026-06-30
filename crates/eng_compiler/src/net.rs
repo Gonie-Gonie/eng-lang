@@ -6,6 +6,8 @@ use crate::parser::ParsedProgram;
 use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
 use crate::Diagnostic;
 
+const MAX_RETRY_ATTEMPTS: usize = 5;
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NetQueryParam {
     pub key: String,
@@ -142,7 +144,7 @@ fn build_request(
         url_literal: url_literal.to_owned(),
         url_value,
         query: query_params(options, arg_values),
-        retry: option_value(options, "retry").and_then(parse_usize),
+        retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
         timeout: option_value(options, "timeout").map(str::to_owned),
@@ -186,7 +188,7 @@ fn build_download(
         target_literal: target_literal.to_owned(),
         target_value,
         query: query_params(options, arg_values),
-        retry: option_value(options, "retry").and_then(parse_usize),
+        retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
         timeout: option_value(options, "timeout").map(str::to_owned),
@@ -244,10 +246,42 @@ pub fn is_net_control_option(key: &str) -> bool {
 }
 
 fn option_value<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a str> {
+    option_for_key(options, key).map(|option| option.value.as_str())
+}
+
+fn option_for_key<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a WithOptionInfo> {
     options
         .iter()
         .find(|option| option.key == key && option.status == "accepted")
-        .map(|option| option.value.as_str())
+}
+
+fn retry_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) -> Option<usize> {
+    let option = option_for_key(options, "retry")?;
+    let raw = option.value.trim();
+    let parsed = match raw.parse::<usize>() {
+        Ok(value) => value,
+        Err(_) => {
+            diagnostics.push(Diagnostic::error(
+                "E-NET-RETRY-POLICY",
+                option.line,
+                &format!("Network retry policy `{raw}` is not a whole number."),
+                Some("Use `retry = 0` to disable retries or an integer from 1 to 5."),
+            ));
+            return None;
+        }
+    };
+    if parsed > MAX_RETRY_ATTEMPTS {
+        diagnostics.push(Diagnostic::error(
+            "E-NET-RETRY-POLICY",
+            option.line,
+            &format!(
+                "Network retry policy `{parsed}` exceeds the maximum of {MAX_RETRY_ATTEMPTS}."
+            ),
+            Some("Use a retry count from 0 to 5."),
+        ));
+        return None;
+    }
+    Some(parsed)
 }
 
 fn resolve_query_value(value: &str, arg_values: &[ArgValueInfo]) -> (String, bool) {
@@ -349,10 +383,6 @@ fn parse_bool(value: &str) -> bool {
         value.trim().to_ascii_lowercase().as_str(),
         "true" | "1" | "yes" | "on"
     )
-}
-
-fn parse_usize(value: &str) -> Option<usize> {
-    value.trim().parse::<usize>().ok()
 }
 
 fn parse_u16(value: &str) -> Option<u16> {

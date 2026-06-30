@@ -11,13 +11,14 @@
 # Current implementation:
 #   records offline/fixture network boundaries in review.json, result.engres,
 #   run_log.json, and output_manifest.json. Query values using `secret env(...)`
-#   or Args fields typed as `Secret[T]` are redacted in artifacts. The runtime
-#   does not perform live HTTP requests yet.
+#   or Args fields typed as `Secret[T]` are redacted in artifacts. `retry`
+#   accepts integer retry counts from 0 to 5. The runtime does not perform live
+#   HTTP requests yet.
 #
 # Planned helper vocabulary:
 #   live HTTP execution
 #   true SHA-256 validation
-#   retry/timeout execution policy
+#   timeout execution policy
 #   cache integration
 #   repro profile pinning
 #

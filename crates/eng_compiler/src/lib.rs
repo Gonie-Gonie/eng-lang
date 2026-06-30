@@ -12705,6 +12705,29 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_invalid_net_retry_policy() {
+        let report = check_source(
+            "bad.eng",
+            "response = http get url(\"https://example.org/data.json\")\nwith {\n    retry = many\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    retry = 6\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        let retry_diagnostics = report
+            .diagnostics
+            .iter()
+            .filter(|diagnostic| diagnostic.code == "E-NET-RETRY-POLICY")
+            .collect::<Vec<_>>();
+        assert_eq!(retry_diagnostics.len(), 2, "{:?}", report.diagnostics);
+        assert!(retry_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("many")));
+        assert!(retry_diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.message.contains("6")));
+    }
+
+    #[test]
     fn rejects_nondeterministic_cache_key() {
         let report = check_source(
             "bad.eng",
