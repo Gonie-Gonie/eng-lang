@@ -403,8 +403,9 @@ pub fn run_source(
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let process_results = execute_process_runs(&check_report)?;
+    let db_manifest_records = db_manifest_records(&process_results);
     let external_boundary_records =
-        external_boundary_records_for_run(&check_report, &process_results);
+        external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
     let cache_manifest_records = cache_manifest_records(&check_report, build_root);
     let cache_manifest_json =
         cache_manifest_json(&check_report, &cache_manifest_records, &options.profile);
@@ -423,7 +424,6 @@ pub fn run_source(
     let file_operation_artifacts = apply_file_operations(&check_report, &result_dir)?;
     let test_results = execute_tests(&check_report, &runtime_data, &result_dir)?;
     let test_results_json = test_results_json(&check_report, &test_results);
-    let db_manifest_records = db_manifest_records(&process_results);
     let csv_export_paths = csv_export_artifacts
         .iter()
         .map(|artifact| artifact.absolute_path.clone())
@@ -1334,6 +1334,7 @@ struct DbManifestRecord {
     schema_status: Option<String>,
     tables: Vec<DbManifestTableRecord>,
     status: String,
+    line: usize,
 }
 
 #[derive(Clone, Debug)]
@@ -1611,6 +1612,7 @@ fn db_manifest_record(
         } else {
             "missing".to_owned()
         },
+        line: process.line,
     };
     if !output.exists {
         return record;
@@ -2983,9 +2985,11 @@ fn artifact_records_for_outputs(artifacts: &[OutputArtifact]) -> Vec<ArtifactRec
 fn external_boundary_records_for_run(
     report: &CheckReport,
     processes: &[ProcessExecutionRecord],
+    db_records: &[DbManifestRecord],
 ) -> Vec<ExternalBoundaryRecord> {
     let mut records = external_boundary_records_for_processes(processes);
     records.extend(external_boundary_records_for_network(report));
+    records.extend(external_boundary_records_for_db_manifests(db_records));
     records
 }
 
@@ -3065,6 +3069,36 @@ fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBo
         });
     }
     records
+}
+
+fn external_boundary_records_for_db_manifests(
+    records: &[DbManifestRecord],
+) -> Vec<ExternalBoundaryRecord> {
+    records
+        .iter()
+        .map(|record| ExternalBoundaryRecord {
+            kind: "db_write".to_owned(),
+            binding: record.binding.clone(),
+            command: "db write manifest".to_owned(),
+            target: record
+                .database
+                .clone()
+                .unwrap_or_else(|| record.manifest_path.clone()),
+            tool_version: None,
+            args: Vec::new(),
+            cwd: String::new(),
+            output_paths: vec![record.manifest_path.clone()],
+            expected_output_count: 1,
+            expected_output_status: record.status.clone(),
+            response_hash: record.hash.clone(),
+            expected_hash: None,
+            stdout_hash: record.hash.clone().unwrap_or_default(),
+            stderr_hash: String::new(),
+            success: record.status == "manifest_loaded",
+            status: record.status.clone(),
+            line: record.line,
+        })
+        .collect()
 }
 
 fn network_query_args(query: &[eng_compiler::NetQueryParam]) -> Vec<String> {
@@ -10392,6 +10426,10 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"db_write_manifest\""));
         assert!(output.output_manifest_json.contains("\"db_writes\""));
+        assert!(output.run_log_json.contains("\"kind\": \"db_write\""));
+        assert!(output
+            .run_log_json
+            .contains("\"target\": \"outputs/results.sqlite\""));
     }
 
     #[test]
