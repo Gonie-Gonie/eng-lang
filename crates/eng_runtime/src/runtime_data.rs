@@ -12,11 +12,12 @@ use eng_report::{
     ReportComponentSolverStepDiagnostic, ReportComponentSolverTrajectory,
     ReportComponentSolverVariable, ReportComputedIntegration, ReportComputedMetric,
     ReportComputedStatisticValue, ReportComputedStatistics, ReportMlCoefficient, ReportMlInfo,
-    ReportPolicyResult, ReportPolicyViolation, ReportResidualDependency, ReportResidualGraph,
-    ReportResidualGraphResidual, ReportSolverFailureArtifact, ReportSpec,
-    ReportSystemEquationMetadata, ReportSystemSolution, ReportSystemSolutionPoint,
-    ReportSystemSolverStepDiagnostic, ReportTimeAlignment, ReportTimeAxis, ReportUncertaintyInfo,
-    ReportUncertaintyPropagationTerm, ReportValidationResult,
+    ReportPolicyResult, ReportPolicyViolation, ReportQualityReport, ReportQualityResult,
+    ReportResidualDependency, ReportResidualGraph, ReportResidualGraphResidual,
+    ReportSolverFailureArtifact, ReportSpec, ReportSystemEquationMetadata, ReportSystemSolution,
+    ReportSystemSolutionPoint, ReportSystemSolverStepDiagnostic, ReportTimeAlignment,
+    ReportTimeAxis, ReportUncertaintyInfo, ReportUncertaintyPropagationTerm,
+    ReportValidationResult,
 };
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
@@ -532,6 +533,65 @@ impl RuntimeData {
                 line: validation.line,
             })
             .collect()
+    }
+
+    pub fn report_quality_report(&self) -> ReportQualityReport {
+        let total_count = self.quality_results.len();
+        let passed_count = self
+            .quality_results
+            .iter()
+            .filter(|result| result.status == "passed")
+            .count();
+        let warning_count = self
+            .quality_results
+            .iter()
+            .filter(|result| result.status == "warning")
+            .count();
+        let failed_count = self
+            .quality_results
+            .iter()
+            .filter(|result| result.status == "failed")
+            .count();
+        let unavailable_count = self
+            .quality_results
+            .iter()
+            .filter(|result| result.status == "unavailable")
+            .count();
+        let status = if failed_count > 0 {
+            "failed"
+        } else if warning_count > 0 {
+            "warning"
+        } else if unavailable_count > 0 || total_count == 0 {
+            "unavailable"
+        } else {
+            "passed"
+        };
+        ReportQualityReport {
+            status: status.to_owned(),
+            total_count,
+            passed_count,
+            warning_count,
+            failed_count,
+            unavailable_count,
+            results: self
+                .quality_results
+                .iter()
+                .map(|result| ReportQualityResult {
+                    binding: result.binding.clone(),
+                    kind: result.kind.clone(),
+                    category: result.category.clone(),
+                    target: result.target.clone(),
+                    subject: result.subject.clone(),
+                    score: result.score,
+                    passed_count: result.passed_count,
+                    warning_count: result.warning_count,
+                    failed_count: result.failed_count,
+                    status: result.status.clone(),
+                    reason: result.reason.clone(),
+                    line: result.line,
+                })
+                .collect(),
+        }
     }
 
     pub fn report_time_axes(&self) -> Vec<ReportTimeAxis> {

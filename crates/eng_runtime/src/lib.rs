@@ -589,6 +589,7 @@ pub fn run_source(
     report_spec.computed_integrations = runtime_data.report_computed_integrations();
     report_spec.computed_metrics = runtime_data.report_computed_metrics();
     report_spec.validations = runtime_data.report_validations();
+    report_spec.quality_report = runtime_data.report_quality_report();
     report_spec.time_axes = runtime_data.report_time_axes();
     report_spec.time_alignments = runtime_data.report_time_alignments();
     report_spec.uncertainty = runtime_data.report_uncertainty();
@@ -12738,6 +12739,38 @@ mod tests {
             suite_quality.get("score").and_then(Value::as_f64),
             Some(0.5)
         );
+        let report_spec: Value =
+            serde_json::from_str(&output.report_spec_json).expect("report spec json");
+        let quality_report = report_spec
+            .get("quality_report")
+            .expect("report spec quality report");
+        assert_eq!(
+            quality_report.get("status").and_then(Value::as_str),
+            Some("failed")
+        );
+        assert!(quality_report
+            .get("total_count")
+            .and_then(Value::as_u64)
+            .is_some_and(|count| count >= 4));
+        assert_eq!(
+            quality_report.get("failed_count").and_then(Value::as_u64),
+            Some(2)
+        );
+        assert!(quality_report
+            .pointer("/results")
+            .and_then(Value::as_array)
+            .is_some_and(|results| {
+                results.iter().any(|result| {
+                    result.get("binding").and_then(Value::as_str)
+                        == Some("sensor.expectations.quality_result")
+                        && result.get("category").and_then(Value::as_str)
+                            == Some("expectation_suite")
+                })
+            }));
+        assert!(output.report_html.contains("Quality Report"));
+        assert!(output
+            .report_html
+            .contains("sensor.expectations.quality_result"));
 
         let review: Value = serde_json::from_str(&output.review_json).expect("review json");
         let review_suite =

@@ -70,6 +70,7 @@ pub struct ReportSpec {
     pub computed_integrations: Vec<ReportComputedIntegration>,
     pub computed_metrics: Vec<ReportComputedMetric>,
     pub validations: Vec<ReportValidationResult>,
+    pub quality_report: ReportQualityReport,
     pub time_axes: Vec<ReportTimeAxis>,
     pub time_alignments: Vec<ReportTimeAlignment>,
     pub uncertainty: Vec<ReportUncertaintyInfo>,
@@ -90,6 +91,47 @@ pub struct ReportSpec {
     pub plot_manifest: ReportPlotManifest,
     pub warnings: Vec<ReportWarning>,
     pub provenance: ReportProvenance,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportQualityReport {
+    pub status: String,
+    pub total_count: usize,
+    pub passed_count: usize,
+    pub warning_count: usize,
+    pub failed_count: usize,
+    pub unavailable_count: usize,
+    pub results: Vec<ReportQualityResult>,
+}
+
+impl Default for ReportQualityReport {
+    fn default() -> Self {
+        Self {
+            status: "unavailable".to_owned(),
+            total_count: 0,
+            passed_count: 0,
+            warning_count: 0,
+            failed_count: 0,
+            unavailable_count: 0,
+            results: Vec::new(),
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReportQualityResult {
+    pub binding: String,
+    pub kind: String,
+    pub category: String,
+    pub target: String,
+    pub subject: String,
+    pub score: Option<f64>,
+    pub passed_count: usize,
+    pub warning_count: usize,
+    pub failed_count: usize,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -1913,6 +1955,7 @@ pub fn report_spec_from_report(
         computed_integrations: Vec::new(),
         computed_metrics: Vec::new(),
         validations: Vec::new(),
+        quality_report: ReportQualityReport::default(),
         time_axes: Vec::new(),
         time_alignments: Vec::new(),
         uncertainty,
@@ -3135,6 +3178,84 @@ pub fn report_spec_json(spec: &ReportSpec) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+
+    json.push_str("  \"quality_report\": {\n");
+    json.push_str(&format!(
+        "    \"status\": \"{}\",\n",
+        json_escape(&spec.quality_report.status)
+    ));
+    json.push_str(&format!(
+        "    \"total_count\": {},\n",
+        spec.quality_report.total_count
+    ));
+    json.push_str(&format!(
+        "    \"passed_count\": {},\n",
+        spec.quality_report.passed_count
+    ));
+    json.push_str(&format!(
+        "    \"warning_count\": {},\n",
+        spec.quality_report.warning_count
+    ));
+    json.push_str(&format!(
+        "    \"failed_count\": {},\n",
+        spec.quality_report.failed_count
+    ));
+    json.push_str(&format!(
+        "    \"unavailable_count\": {},\n",
+        spec.quality_report.unavailable_count
+    ));
+    json.push_str("    \"results\": [\n");
+    for (index, result) in spec.quality_report.results.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&result.binding)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&result.kind)
+        ));
+        json.push_str(&format!(
+            "        \"category\": \"{}\",\n",
+            json_escape(&result.category)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&result.target)
+        ));
+        json.push_str(&format!(
+            "        \"subject\": \"{}\",\n",
+            json_escape(&result.subject)
+        ));
+        push_optional_json_f64(&mut json, "score", result.score, 8);
+        json.push_str(&format!(
+            "        \"passed_count\": {},\n",
+            result.passed_count
+        ));
+        json.push_str(&format!(
+            "        \"warning_count\": {},\n",
+            result.warning_count
+        ));
+        json.push_str(&format!(
+            "        \"failed_count\": {},\n",
+            result.failed_count
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&result.status)
+        ));
+        json.push_str(&format!(
+            "        \"reason\": \"{}\",\n",
+            json_escape(&result.reason)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", result.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ]\n");
+    json.push_str("  },\n");
 
     json.push_str("  \"time_axes\": [\n");
     for (index, axis) in spec.time_axes.iter().enumerate() {
@@ -6691,6 +6812,7 @@ fn render_html_inner(
         .map(render_computed_metrics_section)
         .unwrap_or_default();
     let validations_section = spec.map(render_validations_section).unwrap_or_default();
+    let quality_report_section = spec.map(render_quality_report_section).unwrap_or_default();
     let time_axes_section = spec.map(render_time_axes_section).unwrap_or_default();
     let time_alignments_section = spec.map(render_time_alignments_section).unwrap_or_default();
     let component_solver_section = spec
@@ -6855,6 +6977,7 @@ fn render_html_inner(
     </table>
     {computed_metrics_section}
     {validations_section}
+    {quality_report_section}
     {time_alignments_section}
     <h2>Uncertainty</h2>
     <table>
@@ -7011,6 +7134,55 @@ fn render_validations_section(spec: &ReportSpec) -> String {
       <thead><tr><th>Line</th><th>Expression</th><th>Left</th><th>Right</th><th>Status</th></tr></thead>
       <tbody>{rows}</tbody>
     </table>"#
+    )
+}
+
+fn render_quality_report_section(spec: &ReportSpec) -> String {
+    if spec.quality_report.results.is_empty() {
+        return String::new();
+    }
+    let summary = format!(
+        "status={} total={} passed={} warning={} failed={} unavailable={}",
+        spec.quality_report.status,
+        spec.quality_report.total_count,
+        spec.quality_report.passed_count,
+        spec.quality_report.warning_count,
+        spec.quality_report.failed_count,
+        spec.quality_report.unavailable_count
+    );
+    let rows = spec
+        .quality_report
+        .results
+        .iter()
+        .map(|result| {
+            let score = result
+                .score
+                .map(|value| format!("{value:.3}"))
+                .unwrap_or_else(|| "-".to_owned());
+            format!(
+                "<tr><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}</td><td>{}/{}/{}</td><td>{}</td></tr>",
+                result.line,
+                html_escape(&result.binding),
+                html_escape(&result.category),
+                html_escape(&result.subject),
+                html_escape(&score),
+                html_escape(&result.status),
+                result.passed_count,
+                result.warning_count,
+                result.failed_count,
+                html_escape(&result.reason)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("");
+    format!(
+        r#"<h2>Quality Report</h2>
+    <p><code>{}</code></p>
+    <table>
+      <thead><tr><th>Line</th><th>Binding</th><th>Category</th><th>Subject</th><th>Score</th><th>Status</th><th>Pass/Warn/Fail</th><th>Reason</th></tr></thead>
+      <tbody>{rows}</tbody>
+    </table>"#,
+        html_escape(&summary)
     )
 }
 

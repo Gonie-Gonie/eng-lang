@@ -49,7 +49,7 @@ APIs unless a status document says so.
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
 | `eng.net` | Supported seed | Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries. |
 | `eng.cache` | Supported seed | Explicit cache keys, cache manifests, and hit/miss lookup artifacts; reuse/invalidation remains planned. |
-| `eng.quality` | Supported seed | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, and lightweight expectation suites; quality report sections remain planned. |
+| `eng.quality` | Supported seed | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, and report-facing quality tables. |
 | `eng.template` | Planned | Template rendering for generated inputs and adapter boundaries. |
 | `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |

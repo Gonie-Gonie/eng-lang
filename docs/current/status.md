@@ -58,6 +58,7 @@ workflow, and covered by the breaking-change policy.
   summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite
   records, `typed_payload.quality_results[]` common quality records for
   TimeSeries, validation, schema-constraint, and expectation-suite results,
+  report-facing `report_spec.quality_report` and HTML Quality Report tables,
   `typed_payload.time_alignments[]` alignment/resampling hook records,
   `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
   and `typed_payload.case_manifests[]` case row manifests with sample row hashes

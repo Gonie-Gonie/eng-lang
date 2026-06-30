@@ -19,6 +19,7 @@
     "computed_integrations",
     "computed_metrics",
     "validations",
+    "quality_report",
     "time_axes",
     "time_alignments",
     "policy_results",
@@ -84,6 +85,7 @@
       "type": "array",
       "items": { "$ref": "#/$defs/reportValidation" }
     },
+    "quality_report": { "$ref": "#/$defs/qualityReport" },
     "time_alignments": {
       "type": "array",
       "items": { "$ref": "#/$defs/timeAlignment" }
@@ -324,6 +326,40 @@
         "unit": { "type": "string" },
         "status": { "enum": ["passed", "failed", "unavailable"] },
         "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "qualityReport": {
+      "type": "object",
+      "required": ["status", "total_count", "passed_count", "warning_count", "failed_count", "unavailable_count", "results"],
+      "properties": {
+        "status": { "enum": ["passed", "warning", "failed", "unavailable"] },
+        "total_count": { "type": "integer", "minimum": 0 },
+        "passed_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "failed_count": { "type": "integer", "minimum": 0 },
+        "unavailable_count": { "type": "integer", "minimum": 0 },
+        "results": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/qualityReportResult" }
+        }
+      }
+    },
+    "qualityReportResult": {
+      "type": "object",
+      "required": ["binding", "kind", "category", "target", "subject", "score", "passed_count", "warning_count", "failed_count", "status", "reason", "line"],
+      "properties": {
+        "binding": { "type": "string" },
+        "kind": { "type": "string" },
+        "category": { "type": "string" },
+        "target": { "type": "string" },
+        "subject": { "type": "string" },
+        "score": { "type": ["number", "null"], "minimum": 0, "maximum": 1 },
+        "passed_count": { "type": "integer", "minimum": 0 },
+        "warning_count": { "type": "integer", "minimum": 0 },
+        "failed_count": { "type": "integer", "minimum": 0 },
+        "status": { "enum": ["passed", "warning", "failed", "unavailable"] },
+        "reason": { "type": "string" },
+        "line": { "type": "integer", "minimum": 0 }
       }
     },
     "timeAlignment": {

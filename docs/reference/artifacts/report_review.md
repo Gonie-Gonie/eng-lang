@@ -221,6 +221,7 @@ connection_summary
 assembly_summary
 plot_manifest
 warning_list
+quality_report
 system_summary
 system_ir
 ```
@@ -692,6 +693,8 @@ result.engres               typed_payload.timeseries_fill
 result.engres               typed_payload.timeseries_quality
 result.engres               typed_payload.expectation_suites
 result.engres               typed_payload.quality_results
+report_spec.json            quality_report
+report.html                 Quality Report
 result.engres               typed_payload.timeseries_fallbacks
 result.engres               typed_payload.time_alignments
 ```
@@ -711,6 +714,8 @@ quality score when an expected count is available. Generic quality result
 records expose TimeSeries quality summaries, `validate` statement outcomes,
 schema constraint policy results, and lightweight expectation-suite summaries
 under `typed_payload.quality_results[]` for quality-report consumers.
+`report_spec.json` summarizes the same common results in `quality_report`, and
+`report.html` renders them in the Quality Report table.
 Expectation suite records from `expect <table> { ... }` include expectation
 counts, pass/warning/failure counts, per-expectation status/reason, and source
 line. Fallback records are emitted when coverage is gapped or irregular, so
