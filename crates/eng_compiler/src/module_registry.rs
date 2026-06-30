@@ -16,6 +16,9 @@ pub struct ModuleRegistryEntry {
     pub backing: String,
     pub purpose: String,
     pub artifacts: Vec<String>,
+    pub diagnostics: Vec<String>,
+    pub examples: Vec<String>,
+    pub tests: Vec<String>,
     pub symbols: Vec<String>,
 }
 
@@ -80,6 +83,9 @@ pub fn parse_module_registry(source: &str) -> Result<ModuleRegistry, ModuleRegis
                 backing: None,
                 purpose: None,
                 artifacts: None,
+                diagnostics: None,
+                examples: None,
+                tests: None,
                 symbols: None,
             });
             continue;
@@ -101,6 +107,9 @@ pub fn parse_module_registry(source: &str) -> Result<ModuleRegistry, ModuleRegis
             "backing" => entry.backing = Some(parse_quoted_string(value, line_number)?),
             "purpose" => entry.purpose = Some(parse_quoted_string(value, line_number)?),
             "artifacts" => entry.artifacts = Some(parse_string_array(value, line_number)?),
+            "diagnostics" => entry.diagnostics = Some(parse_string_array(value, line_number)?),
+            "examples" => entry.examples = Some(parse_string_array(value, line_number)?),
+            "tests" => entry.tests = Some(parse_string_array(value, line_number)?),
             "symbols" => entry.symbols = Some(parse_string_array(value, line_number)?),
             other => {
                 return Err(registry_error(
@@ -213,6 +222,9 @@ struct PartialModuleRegistryEntry {
     backing: Option<String>,
     purpose: Option<String>,
     artifacts: Option<Vec<String>>,
+    diagnostics: Option<Vec<String>>,
+    examples: Option<Vec<String>>,
+    tests: Option<Vec<String>>,
     symbols: Option<Vec<String>>,
 }
 
@@ -232,6 +244,15 @@ impl PartialModuleRegistryEntry {
             artifacts: self
                 .artifacts
                 .ok_or_else(|| registry_error(line, "module is missing artifacts"))?,
+            diagnostics: self
+                .diagnostics
+                .ok_or_else(|| registry_error(line, "module is missing diagnostics"))?,
+            examples: self
+                .examples
+                .ok_or_else(|| registry_error(line, "module is missing examples"))?,
+            tests: self
+                .tests
+                .ok_or_else(|| registry_error(line, "module is missing tests"))?,
             symbols: self.symbols.unwrap_or_default(),
         })
     }
@@ -271,6 +292,28 @@ mod tests {
             .modules
             .iter()
             .any(|module| module.name == "eng.case" && !module.artifacts.is_empty()));
+        let net_module = registry
+            .modules
+            .iter()
+            .find(|module| module.name == "eng.net")
+            .expect("eng.net should be registered");
+        assert!(net_module
+            .diagnostics
+            .iter()
+            .any(|code| code == "E-NET-INVALID-URL"));
+        assert!(net_module
+            .examples
+            .iter()
+            .any(|example| example == "examples/workflows/01_weather_api_to_standard_file_hybrid"));
+        assert!(net_module
+            .tests
+            .iter()
+            .any(|test| test == "cargo test -p eng_compiler net_"));
+        assert!(registry.modules.iter().all(|module| {
+            module.diagnostics.iter().all(|value| value != "")
+                && module.examples.iter().all(|value| value != "")
+                && module.tests.iter().all(|value| value != "")
+        }));
     }
 
     #[test]

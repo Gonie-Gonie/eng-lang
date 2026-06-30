@@ -5525,12 +5525,33 @@ fn push_review_workflow_modules_json(json: &mut String) {
         json.push_str("        \"artifacts\": [");
         push_json_string_array(json, &module.artifacts);
         json.push_str("],\n");
+        json.push_str("        \"diagnostics\": [");
+        push_json_string_array(json, &module.diagnostics);
+        json.push_str("],\n");
+        json.push_str("        \"examples\": [");
+        push_json_string_array(json, &module.examples);
+        json.push_str("],\n");
+        json.push_str("        \"tests\": [");
+        push_json_string_array(json, &module.tests);
+        json.push_str("],\n");
         json.push_str("        \"symbols\": [");
         push_json_string_array(json, &module.symbols);
         json.push_str("],\n");
         json.push_str(&format!(
             "        \"artifact_count\": {},\n",
             module.artifacts.len()
+        ));
+        json.push_str(&format!(
+            "        \"diagnostic_count\": {},\n",
+            module.diagnostics.len()
+        ));
+        json.push_str(&format!(
+            "        \"example_count\": {},\n",
+            module.examples.len()
+        ));
+        json.push_str(&format!(
+            "        \"test_count\": {},\n",
+            module.tests.len()
         ));
         json.push_str(&format!(
             "        \"symbol_count\": {}\n",

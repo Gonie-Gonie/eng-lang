@@ -34,30 +34,39 @@ that make those adapters typed, explicit, reproducible, and reviewable.
 ## Module Map
 
 The canonical machine-readable registry is `stdlib/eng/modules.toml`. The table
-below is a reader-facing summary and must stay consistent with that registry.
+below is generated from that registry and checked by `dev.bat docs-check`.
 
-| Module | Current status | Purpose |
-|---|---|---|
-| `eng.path` | Supported through built-ins | typed paths, joins, names, existence checks, and generated-output root policy diagnostics |
-| `eng.io` | Supported through built-ins | read/write text, JSON, TOML, source hashes, structured read parse summaries |
-| `eng.fs` | Supported narrow scope | copy, move, delete under generated-output boundaries |
-| `eng.config` | Supported narrow scope | typed JSON/TOML file promotion, config validation, optional field policy, source hashes, and config summaries |
-| `eng.log` | Supported through built-ins | structured runtime messages and run logs |
-| `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
-| `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
-| `eng.table` | Supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join artifact seeds; planned broader APIs | promoted table row/column diagnostics, deterministic row selection, filter/select/derive/sort/require_one row counts, Date/DateTime predicate comparison, selected and derived columns, sort keys, join key pair counts, transform row-level diagnostics; derived-value execution planned |
-| `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
-| `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
-| `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
-| `eng.net` | Supported seed | offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries |
-| `eng.cache` | Supported seed; planned reuse/invalidation | explicit cache keys, cache manifests, hit/miss lookup artifacts, pinned hash metadata |
-| `eng.quality` | Planned | data expectations, quality summaries, and reportable validation results |
-| `eng.template` | Planned | generated input rendering and template provenance |
-| `eng.artifact` | Supported seed | output manifests, artifact_registry records, hashes, report/review links |
-| `eng.db` | Supported DB-manifest artifact seed; planned native sqlite | DB side-effect manifest summaries; SQLite/open database writes with transaction artifacts planned |
-| `eng.model` | Supported model-card artifact seed; planned public syntax | model cards, target quantity/unit, metrics, residual plots, training/model hashes |
-| `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and node status |
-| `eng.report` | Planned | report-facing helper vocabulary layered over report/review artifacts |
+<!-- module-registry-table:start -->
+| Module | Status | Backing | Artifacts | Diagnostics | Examples | Tests |
+|---|---|---|---|---|---|---|
+| `eng.path` | supported | compiler_runtime_builtin | `review.inputs`<br>`review.environment_dependencies` | `E-PATH-INVALID`<br>`E-PATH-TRAVERSAL`<br>`E-PATH-OUTSIDE-OUTPUT-ROOT` | `examples/official/10_path_policy` | `cargo test -p eng_compiler path_policy` |
+| `eng.io` | supported | compiler_runtime_builtin | `review.inputs`<br>`review.side_effects`<br>`output_manifest` | `E-IO-JSON-PARSE`<br>`E-IO-TOML-PARSE` | `examples/official/11_read_only_io` | `cargo test -p eng_compiler read_only_io` |
+| `eng.fs` | supported_narrow | compiler_runtime_builtin | `review.side_effects`<br>`output_manifest`<br>`run_log` | `E-FS-CONFIRM-001`<br>`E-FS-DELETE-001`<br>`E-PROFILE-SAFE-FS` | `examples/official/13_file_operations` | `cargo test -p eng_compiler file_operations` |
+| `eng.log` | supported | compiler_runtime_builtin | `run_log` | `none_current` | `examples/official/15_process_result` | `cargo test -p eng_runtime run_file` |
+| `eng.process` | supported_narrow | compiler_runtime_builtin | `review.external_boundaries`<br>`process_results`<br>`output_manifest`<br>`run_log` | `E-PROCESS-001`<br>`E-PROCESS-BINDING-001`<br>`E-PROCESS-CMD-001`<br>`E-PROFILE-SAFE-PROCESS` | `examples/official/15_process_result`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler process`<br>`cargo test -p eng_runtime process` |
+| `eng.test` | supported_narrow | compiler_runtime_builtin | `test_results`<br>`review.tests`<br>`output_manifest` | `E-ASSERT-001`<br>`E-ASSERT-002`<br>`E-ASSERT-UNIT-001`<br>`E-GOLDEN-002` | `examples/official/13_file_operations` | `cargo test -p eng_compiler records_test_assert_and_golden_metadata`<br>`cargo test -p eng_runtime run_file_executes_test_assert_and_golden_checks` |
+| `eng.table` | supported_seed | compiler_runtime_builtin | `review.inputs`<br>`review_document.table_transforms`<br>`typed_payload.table_diagnostics`<br>`typed_payload.table_selections`<br>`typed_payload.table_transforms` | `E-TABLE-UNKNOWN-COLUMN`<br>`E-TABLE-PREDICATE-TYPE`<br>`E-TABLE-JOIN-KEY-MISMATCH`<br>`E-TABLE-SCHEMA-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime table_`<br>`cargo test -p eng_compiler table_` |
+| `eng.timeseries` | supported_seed | compiler_runtime_builtin | `typed_payload.timeseries_coverage`<br>`review.fallbacks` | `E-TIMESERIES-COVERAGE-GAP`<br>`W-FALLBACK-USED` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review` |
+| `eng.sampling` | supported_seed | compiler_runtime_builtin | `typed_payload.sample_tables`<br>`case_manifest` | `E-SAMPLING-SEED-MISSING`<br>`E-CASE-ID-DUPLICATE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime sample_table` |
+| `eng.case` | supported_seed | compiler_runtime_builtin | `typed_payload.case_manifests`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-PROCESS-OUTPUT-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime case_manifest` |
+| `eng.artifact` | supported_seed | compiler_runtime_builtin | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | `artifact_validation_failed` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime output_manifest` |
+| `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
+| `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_cards`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-CARD-MISSING` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model_card` |
+| `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`review.external_boundaries` | `E-DB-SCHEMA-MISMATCH` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime db_manifest` |
+| `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_optional_fields` |
+| `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-UNPINNED` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network` |
+| `eng.cache` | supported_seed | compiler_runtime_builtin | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
+| `eng.quality` | planned | none | `review.validations`<br>`quality_report`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `planned_quality_tests` |
+| `eng.template` | planned | none | `review.side_effects`<br>`output_manifest` | `E-TEMPLATE-MISSING-PLACEHOLDER` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `planned_template_tests` |
+| `eng.workflow` | planned | none | `run_plan`<br>`run_lock`<br>`output_manifest`<br>`run_log` | `run_lock_changed`<br>`artifact_hash_mismatch` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime run_plan` |
+| `eng.report` | planned | none | `report`<br>`review`<br>`output_manifest` | `none_current` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_report` |
+| `eng.stats` | planned | none | `review.statistics` | `W-STATS-SUM-001` | `examples/official/01_csv_plot` | `cargo test -p eng_compiler stats` |
+| `eng.plot` | planned | none | `plotspec`<br>`plot_manifest`<br>`output_manifest` | `none_current` | `examples/official/01_csv_plot` | `cargo test -p eng_report plot` |
+| `eng.building` | planned | none | `review.objects` | `planned` | `planned_building_examples` | `planned_building_tests` |
+| `eng.system` | internal_planned | internal | `review.systems`<br>`system_ir` | `solver_or_numeric` | `examples/advanced_solver/31_external_behavior_solver` | `cargo test -p eng_runtime system` |
+| `eng.ml` | internal | compiler_runtime_builtin | `typed_payload.ml`<br>`typed_payload.model_cards` | `E-MODEL-CARD-MISSING` | `examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model_card` |
+| `eng.uncertainty` | internal | compiler_runtime_builtin | `typed_payload.uncertainties`<br>`review.uncertainty` | `W-UNC-INDEPENDENCE-ASSUMED`<br>`W-WITH-UNCERTAINTY-SEED-001` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_compiler uncertainty`<br>`cargo test -p eng_runtime uncertainty` |
+<!-- module-registry-table:end -->
 
 These names describe module boundaries. The current implementation may expose
 some behavior as built-ins before it is factored into `.eng` stdlib modules.
@@ -263,8 +272,11 @@ Composite examples live under:
 examples/workflows/
 ```
 
-The first examples are hybrid skeletons. They use current supported primitives
-where possible and document the target contracts for planned modules:
+### Hybrid Workflow Fixtures
+
+The current executable workflow examples are hybrid fixtures. They use current
+supported primitives where possible and document the target contracts for
+planned modules:
 
 ```text
 examples/workflows/01_weather_api_to_standard_file_hybrid
@@ -273,3 +285,12 @@ examples/workflows/02_external_simulation_surrogate_hybrid
 
 These examples are not a claim that the core language includes weather APIs,
 EPW writing, EnergyPlus adapters, SQLite, or ML frameworks.
+
+### Native Workflow Targets
+
+Native workflow examples should use generic `eng.*` modules directly once their
+parser, semantic, runtime, artifact, and review contracts exist. They should be
+stored separately from hybrid fixtures and named without the `_hybrid` suffix.
+Until those examples land, the module registry table above is the source of
+truth for which native workflow surfaces are supported, seed-only, planned, or
+internal.

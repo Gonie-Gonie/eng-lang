@@ -425,7 +425,10 @@ function Test-ModuleRegistryDocs {
         [string] $RegistryPath,
 
         [Parameter(Mandatory = $true)]
-        [string] $ReadmePath
+        [string] $ReadmePath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $WorkflowDocsPath
     )
 
     if (-not (Test-Path -LiteralPath $RegistryPath -PathType Leaf)) {
@@ -434,15 +437,58 @@ function Test-ModuleRegistryDocs {
     if (-not (Test-Path -LiteralPath $ReadmePath -PathType Leaf)) {
         throw "missing stdlib README at $ReadmePath"
     }
+    if (-not (Test-Path -LiteralPath $WorkflowDocsPath -PathType Leaf)) {
+        throw "missing workflow module docs at $WorkflowDocsPath"
+    }
 
     $RegistryText = Get-Content -LiteralPath $RegistryPath -Raw -Encoding UTF8
     $ReadmeText = Get-Content -LiteralPath $ReadmePath -Raw -Encoding UTF8
+    $WorkflowDocsText = Get-Content -LiteralPath $WorkflowDocsPath -Raw -Encoding UTF8
     $RegistryModules = [System.Collections.Generic.HashSet[string]]::new()
+    $RegistryEntries = New-Object System.Collections.Generic.List[object]
+    $CurrentEntry = $null
     foreach ($match in [regex]::Matches($RegistryText, '(?m)^\[module\."([^"]+)"\]')) {
         [void]$RegistryModules.Add($match.Groups[1].Value)
     }
+    foreach ($rawLine in ($RegistryText -split "`r?`n")) {
+        $line = $rawLine.Trim()
+        if ($line -eq "" -or $line.StartsWith("#")) {
+            continue
+        }
+        if ($line -match '^\[module\."([^"]+)"\]') {
+            if ($null -ne $CurrentEntry) {
+                $RegistryEntries.Add($CurrentEntry) | Out-Null
+            }
+            $CurrentEntry = [ordered]@{ name = $Matches[1] }
+            continue
+        }
+        if ($null -eq $CurrentEntry) {
+            continue
+        }
+        if ($line -match '^(status|backing|purpose)\s*=\s*"([^"]*)"') {
+            $CurrentEntry[$Matches[1]] = $Matches[2]
+            continue
+        }
+        if ($line -match '^(artifacts|diagnostics|examples|tests)\s*=\s*\[(.*)\]') {
+            $items = New-Object System.Collections.Generic.List[string]
+            foreach ($itemMatch in [regex]::Matches($Matches[2], '"([^"]*)"')) {
+                $items.Add($itemMatch.Groups[1].Value) | Out-Null
+            }
+            $CurrentEntry[$Matches[1]] = $items.ToArray()
+        }
+    }
+    if ($null -ne $CurrentEntry) {
+        $RegistryEntries.Add($CurrentEntry) | Out-Null
+    }
     if ($RegistryModules.Count -eq 0) {
         throw "module registry has no [module.`"eng.name`"] entries"
+    }
+    foreach ($entry in $RegistryEntries) {
+        foreach ($field in @("status", "backing", "purpose", "artifacts", "diagnostics", "examples", "tests")) {
+            if (-not $entry.Contains($field)) {
+                throw "module registry entry $($entry.name) is missing $field"
+            }
+        }
     }
 
     $ReadmeModules = [System.Collections.Generic.HashSet[string]]::new()
@@ -464,7 +510,47 @@ function Test-ModuleRegistryDocs {
         throw "Module registry docs check failed."
     }
 
+    $generatedTable = New-Object System.Collections.Generic.List[string]
+    $generatedTable.Add("| Module | Status | Backing | Artifacts | Diagnostics | Examples | Tests |") | Out-Null
+    $generatedTable.Add("|---|---|---|---|---|---|---|") | Out-Null
+    foreach ($entry in $RegistryEntries) {
+        $artifacts = Convert-ModuleRegistryTableCell $entry.artifacts
+        $diagnostics = Convert-ModuleRegistryTableCell $entry.diagnostics
+        $examples = Convert-ModuleRegistryTableCell $entry.examples
+        $tests = Convert-ModuleRegistryTableCell $entry.tests
+        $generatedTable.Add("| ``$($entry.name)`` | $($entry.status) | $($entry.backing) | $artifacts | $diagnostics | $examples | $tests |") | Out-Null
+    }
+    $expectedBlock = ($generatedTable.ToArray() -join "`n").Trim()
+    $startMarker = "<!-- module-registry-table:start -->"
+    $endMarker = "<!-- module-registry-table:end -->"
+    $startIndex = $WorkflowDocsText.IndexOf($startMarker)
+    $endIndex = $WorkflowDocsText.IndexOf($endMarker)
+    if ($startIndex -lt 0 -or $endIndex -lt 0 -or $endIndex -le $startIndex) {
+        throw "workflow module docs must contain module-registry-table start/end markers"
+    }
+    $actualBlock = $WorkflowDocsText.Substring(
+        $startIndex + $startMarker.Length,
+        $endIndex - ($startIndex + $startMarker.Length)
+    ).Trim() -replace "`r`n", "`n"
+    if ($actualBlock -ne $expectedBlock) {
+        Write-Host "docs/current/workflow_modules.md module table is out of sync with stdlib/eng/modules.toml."
+        Write-Host "Expected generated table:"
+        Write-Host $expectedBlock
+        throw "Module registry docs check failed."
+    }
+
     Write-Host "Module registry docs check passed. Checked $($RegistryModules.Count) module(s)."
+}
+
+function Convert-ModuleRegistryTableCell {
+    param([object[]] $Items)
+    if ($null -eq $Items -or $Items.Count -eq 0) {
+        return "-"
+    }
+    $formatted = foreach ($item in $Items) {
+        "``$item``"
+    }
+    return ($formatted -join "<br>")
 }
 
 function Invoke-DocsCheck {
@@ -517,7 +603,8 @@ function Invoke-DocsCheck {
     Test-MarkdownLinks -Files $linkFiles.ToArray()
     Test-ModuleRegistryDocs `
         -RegistryPath (Join-Path $RepoRoot "stdlib\eng\modules.toml") `
-        -ReadmePath (Join-Path $RepoRoot "stdlib\README.md")
+        -ReadmePath (Join-Path $RepoRoot "stdlib\README.md") `
+        -WorkflowDocsPath (Join-Path $RepoRoot "docs\current\workflow_modules.md")
 
     $checked = 0
     $skipped = 0

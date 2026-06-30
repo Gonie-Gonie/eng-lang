@@ -311,8 +311,14 @@
         "backing",
         "purpose",
         "artifacts",
+        "diagnostics",
+        "examples",
+        "tests",
         "symbols",
         "artifact_count",
+        "diagnostic_count",
+        "example_count",
+        "test_count",
         "symbol_count"
       ],
       "properties": {
@@ -325,11 +331,26 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "diagnostics": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "examples": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "tests": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "symbols": {
           "type": "array",
           "items": { "type": "string" }
         },
         "artifact_count": { "type": "integer", "minimum": 0 },
+        "diagnostic_count": { "type": "integer", "minimum": 0 },
+        "example_count": { "type": "integer", "minimum": 0 },
+        "test_count": { "type": "integer", "minimum": 0 },
         "symbol_count": { "type": "integer", "minimum": 0 }
       }
     },

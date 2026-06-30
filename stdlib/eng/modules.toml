@@ -8,6 +8,9 @@ status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Typed path helpers, joins, names, and review-visible existence checks."
 artifacts = ["review.inputs", "review.environment_dependencies"]
+diagnostics = ["E-PATH-INVALID", "E-PATH-TRAVERSAL", "E-PATH-OUTSIDE-OUTPUT-ROOT"]
+examples = ["examples/official/10_path_policy"]
+tests = ["cargo test -p eng_compiler path_policy"]
 symbols = ["file(path: String) -> FilePath", "dir(path: String) -> DirectoryPath", "join(base: DirectoryPath, child: String) -> FilePath | DirectoryPath", "parent(path: FilePath) -> DirectoryPath", "stem(path: FilePath) -> String", "extension(path: FilePath) -> String", "exists(path: FilePath | DirectoryPath) -> Bool"]
 
 [module."eng.io"]
@@ -15,153 +18,231 @@ status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Read text/json/toml, write text/json, exports, source hashes, and output hashes."
 artifacts = ["review.inputs", "review.side_effects", "output_manifest"]
+diagnostics = ["E-IO-JSON-PARSE", "E-IO-TOML-PARSE"]
+examples = ["examples/official/11_read_only_io"]
+tests = ["cargo test -p eng_compiler read_only_io"]
 
 [module."eng.fs"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
 purpose = "Explicit generated-output copy, move, and delete operations."
 artifacts = ["review.side_effects", "output_manifest", "run_log"]
+diagnostics = ["E-FS-CONFIRM-001", "E-FS-DELETE-001", "E-PROFILE-SAFE-FS"]
+examples = ["examples/official/13_file_operations"]
+tests = ["cargo test -p eng_compiler file_operations"]
 
 [module."eng.log"]
 status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Structured runtime messages and run-log records."
 artifacts = ["run_log"]
+diagnostics = ["none_current"]
+examples = ["examples/official/15_process_result"]
+tests = ["cargo test -p eng_runtime run_file"]
 
 [module."eng.process"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
 purpose = "Explicit external process boundaries with args, cwd, tool version, expected outputs, and captured output hashes."
 artifacts = ["review.external_boundaries", "process_results", "output_manifest", "run_log"]
+diagnostics = ["E-PROCESS-001", "E-PROCESS-BINDING-001", "E-PROCESS-CMD-001", "E-PROFILE-SAFE-PROCESS"]
+examples = ["examples/official/15_process_result", "examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_compiler process", "cargo test -p eng_runtime process"]
 
 [module."eng.test"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
 purpose = "Local assertions, golden checks, and test-result artifacts."
 artifacts = ["test_results", "review.tests", "output_manifest"]
+diagnostics = ["E-ASSERT-001", "E-ASSERT-002", "E-ASSERT-UNIT-001", "E-GOLDEN-002"]
+examples = ["examples/official/13_file_operations"]
+tests = ["cargo test -p eng_compiler records_test_assert_and_golden_metadata", "cargo test -p eng_runtime run_file_executes_test_assert_and_golden_checks"]
 
 [module."eng.table"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Promoted table diagnostics, deterministic row-selection artifacts, and filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned."
 artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
+diagnostics = ["E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH"]
+examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid", "examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
 
 [module."eng.timeseries"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "TimeSeries statistics, coverage checks, coverage metadata, and integration."
 artifacts = ["typed_payload.timeseries_coverage", "review.fallbacks"]
+diagnostics = ["E-TIMESERIES-COVERAGE-GAP", "W-FALLBACK-USED"]
+examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid"]
+tests = ["cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review"]
 
 [module."eng.sampling"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews; generators are planned."
 artifacts = ["typed_payload.sample_tables", "case_manifest"]
+diagnostics = ["E-SAMPLING-SEED-MISSING", "E-CASE-ID-DUPLICATE"]
+examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_runtime sample_table"]
 
 [module."eng.case"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Case manifest artifacts with case IDs, row hashes, row diagnostics, and process-output enrichment; native runner is planned."
 artifacts = ["typed_payload.case_manifests", "case_manifest", "output_manifest"]
+diagnostics = ["E-CASE-ID-DUPLICATE", "E-PROCESS-OUTPUT-MISSING"]
+examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_runtime case_manifest"]
 
 [module."eng.artifact"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Generated artifact kinds, hashes, manifests, validation records, and report/review links."
 artifacts = ["output_manifest", "review.side_effects", "artifact_registry"]
+diagnostics = ["artifact_validation_failed"]
+examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid", "examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_runtime output_manifest"]
 
 [module."eng.review"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records."
 artifacts = ["review"]
+diagnostics = ["semantic_diff_changed", "review_risk"]
+examples = ["eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng"]
+tests = ["cargo test -p eng_compiler review_json_exposes_normalized_review_document", "cargo test -p eng_cli review_semantic_diff_compares_workflow_modules"]
 
 [module."eng.model"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Model-card, metric, residual, prediction, and hash review artifacts; public model syntax is planned."
 artifacts = ["typed_payload.model_cards", "model_card", "model_metrics", "output_manifest"]
+diagnostics = ["E-MODEL-CARD-MISSING"]
+examples = ["examples/workflows/02_external_simulation_surrogate_hybrid", "examples/internal/05_data_driven_modeling"]
+tests = ["cargo test -p eng_runtime model_card"]
 
 [module."eng.db"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "DB side-effect manifest summaries; native SQLite write/upsert helpers are planned."
 artifacts = ["typed_payload.db_manifests", "db_write_manifest", "review.external_boundaries"]
+diagnostics = ["E-DB-SCHEMA-MISMATCH"]
+examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_runtime db_manifest"]
 
 [module."eng.config"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
 purpose = "Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries."
 artifacts = ["typed_payload.config_promotions", "review.config_promotions", "output_manifest"]
+diagnostics = ["E-CONFIG-SOURCE-001", "E-CONFIG-MISSING-FIELD", "E-CONFIG-UNKNOWN-FIELD", "E-CONFIG-NULL-NOT-OPTIONAL", "E-CONFIG-TYPE-MISMATCH"]
+examples = ["tests/runtime/config_optional_fields.eng"]
+tests = ["cargo test -p eng_compiler config_", "cargo test -p eng_runtime config_optional_fields"]
 
 [module."eng.net"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries."
 artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
+diagnostics = ["E-NET-INVALID-URL", "E-NET-UNPINNED"]
+examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid"]
+tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network"]
 
 [module."eng.cache"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
 purpose = "Explicit cache keys, cache hit/miss lookup records, cache manifests, and review/run-log cache summaries; reuse/invalidation remains planned."
 artifacts = ["cache_manifest", "review.caches", "run_log.cache_events", "output_manifest"]
+diagnostics = ["E-CACHE-KEY-NONDETERMINISTIC", "E-CACHE-HASH-MISMATCH"]
+examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid"]
+tests = ["cargo test -p eng_compiler cache_", "cargo test -p eng_runtime cache"]
 
 [module."eng.quality"]
 status = "planned"
 backing = "none"
 purpose = "Data quality expectations, validation summaries, and reportable quality results."
 artifacts = ["review.validations", "quality_report", "output_manifest"]
+diagnostics = ["E-TABLE-SCHEMA-MISMATCH", "W-FALLBACK-USED"]
+examples = ["examples/diagnostics/data_quality"]
+tests = ["planned_quality_tests"]
 
 [module."eng.template"]
 status = "planned"
 backing = "none"
 purpose = "Template rendering for explicit generated inputs and adapter boundaries."
 artifacts = ["review.side_effects", "output_manifest"]
+diagnostics = ["E-TEMPLATE-MISSING-PLACEHOLDER"]
+examples = ["examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["planned_template_tests"]
 
 [module."eng.workflow"]
 status = "planned"
 backing = "none"
 purpose = "RunPlan, run lock, dependency graph, rerun decisions, and workflow node status."
 artifacts = ["run_plan", "run_lock", "output_manifest", "run_log"]
+diagnostics = ["run_lock_changed", "artifact_hash_mismatch"]
+examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid", "examples/workflows/02_external_simulation_surrogate_hybrid"]
+tests = ["cargo test -p eng_runtime run_plan"]
 
 [module."eng.report"]
 status = "planned"
 backing = "none"
 purpose = "Report-facing helper vocabulary layered over existing report/review artifacts."
 artifacts = ["report", "review", "output_manifest"]
+diagnostics = ["none_current"]
+examples = ["examples/workflows/03_uncertain_sensor_report"]
+tests = ["cargo test -p eng_report"]
 
 [module."eng.stats"]
 status = "planned"
 backing = "none"
 purpose = "Semantic statistics helpers for TimeSeries and tables."
 artifacts = ["review.statistics"]
+diagnostics = ["W-STATS-SUM-001"]
+examples = ["examples/official/01_csv_plot"]
+tests = ["cargo test -p eng_compiler stats"]
 
 [module."eng.plot"]
 status = "planned"
 backing = "none"
 purpose = "PlotSpec-oriented helper vocabulary above current plot built-ins."
 artifacts = ["plotspec", "plot_manifest", "output_manifest"]
+diagnostics = ["none_current"]
+examples = ["examples/official/01_csv_plot"]
+tests = ["cargo test -p eng_report plot"]
 
 [module."eng.building"]
 status = "planned"
 backing = "none"
 purpose = "Building, zone, and construction object vocabulary before domain simulation adapters."
 artifacts = ["review.objects"]
+diagnostics = ["planned"]
+examples = ["planned_building_examples"]
+tests = ["planned_building_tests"]
 
 [module."eng.system"]
 status = "internal_planned"
 backing = "internal"
 purpose = "Solver-facing adapters and metadata, not the public identity of stdlib."
 artifacts = ["review.systems", "system_ir"]
+diagnostics = ["solver_or_numeric"]
+examples = ["examples/advanced_solver/31_external_behavior_solver"]
+tests = ["cargo test -p eng_runtime system"]
 
 [module."eng.ml"]
 status = "internal"
 backing = "compiler_runtime_builtin"
 purpose = "Internal data-driven modeling vocabulary, target contracts, and model-card artifacts."
 artifacts = ["typed_payload.ml", "typed_payload.model_cards"]
+diagnostics = ["E-MODEL-CARD-MISSING"]
+examples = ["examples/internal/05_data_driven_modeling"]
+tests = ["cargo test -p eng_runtime model_card"]
 
 [module."eng.uncertainty"]
 status = "internal"
 backing = "compiler_runtime_builtin"
 purpose = "Constructor, propagation, and uncertainty review vocabulary."
 artifacts = ["typed_payload.uncertainties", "review.uncertainty"]
+diagnostics = ["W-UNC-INDEPENDENCE-ASSUMED", "W-WITH-UNCERTAINTY-SEED-001"]
+examples = ["examples/workflows/03_uncertain_sensor_report"]
+tests = ["cargo test -p eng_compiler uncertainty", "cargo test -p eng_runtime uncertainty"]
