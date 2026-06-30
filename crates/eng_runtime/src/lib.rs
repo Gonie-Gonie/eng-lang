@@ -13,10 +13,12 @@ use eng_compiler::{
 };
 use serde_json::Value;
 
+mod artifact;
 mod runtime_data;
 pub mod solver;
 mod vm;
 
+use artifact::{ArtifactRecord, ArtifactValidation, ExternalBoundaryRecord, SourceRecord};
 use runtime_data::{
     materialize_runtime_data, RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus,
     RuntimeComponentResidualEvaluation, RuntimeData, RuntimeNumericUncertaintyPayload,
@@ -1095,13 +1097,6 @@ struct ProcessExpectedOutputRecord {
 }
 
 #[derive(Clone, Debug)]
-struct ArtifactValidation {
-    status: String,
-    rule: String,
-    message: String,
-}
-
-#[derive(Clone, Debug)]
 struct DbManifestRecord {
     binding: String,
     manifest_path: String,
@@ -1917,11 +1912,7 @@ fn expected_output_validation(exists: bool, hash: Option<&String>) -> ArtifactVa
 }
 
 fn artifact_validation(status: &str, rule: &str, message: &str) -> ArtifactValidation {
-    ArtifactValidation {
-        status: status.to_owned(),
-        rule: rule.to_owned(),
-        message: message.to_owned(),
-    }
+    ArtifactValidation::new(status, rule, message)
 }
 
 fn expected_output_status(outputs: &[ProcessExpectedOutputRecord]) -> String {
@@ -2539,6 +2530,73 @@ fn output_manifest_json(
     json
 }
 
+fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
+    let mut records = vec![SourceRecord {
+        kind: "source_file".to_owned(),
+        binding: "program".to_owned(),
+        path: registry.report.source_path.display().to_string(),
+        hash: Some(registry.report.source_hash.clone()),
+        schema: None,
+        row_count: None,
+        status: "loaded".to_owned(),
+        line: 1,
+    }];
+    records.extend(
+        registry
+            .report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .map(|promotion| SourceRecord {
+                kind: "source_file".to_owned(),
+                binding: promotion.binding.clone(),
+                path: promotion.resolved_path.clone(),
+                hash: promotion.source_hash.clone(),
+                schema: Some(promotion.schema_name.clone()),
+                row_count: Some(promotion.row_count),
+                status: "promoted_csv".to_owned(),
+                line: promotion.line,
+            }),
+    );
+    records
+}
+
+fn artifact_records_for_outputs(artifacts: &[OutputArtifact]) -> Vec<ArtifactRecord> {
+    artifacts
+        .iter()
+        .map(|artifact| ArtifactRecord {
+            kind: artifact.kind.clone(),
+            class: artifact_record_class(&artifact.kind).to_owned(),
+            path: artifact.path.clone(),
+            hash: artifact.hash.clone(),
+            status: "generated".to_owned(),
+            validation: artifact.validation.clone(),
+        })
+        .collect()
+}
+
+fn external_boundary_records_for_processes(
+    processes: &[ProcessExecutionRecord],
+) -> Vec<ExternalBoundaryRecord> {
+    processes
+        .iter()
+        .map(|process| ExternalBoundaryRecord {
+            binding: process.binding.clone(),
+            command: process.command.clone(),
+            tool_version: process.tool_version.clone(),
+            args: process.args.clone(),
+            cwd: process.cwd.clone(),
+            expected_output_count: process.expected_outputs.len(),
+            expected_output_status: process.expected_output_status.clone(),
+            stdout_hash: process.stdout_hash.clone(),
+            stderr_hash: process.stderr_hash.clone(),
+            success: process.success,
+            status: process.status.clone(),
+            line: process.line,
+        })
+        .collect()
+}
+
 fn push_artifact_registry_json(
     json: &mut String,
     artifacts: &[OutputArtifact],
@@ -2546,118 +2604,120 @@ fn push_artifact_registry_json(
 ) {
     json.push_str("    \"format\": \"eng-artifact-registry-v1\",\n");
     json.push_str("    \"source_files\": [\n");
-    json.push_str("      {\n");
-    json.push_str("        \"kind\": \"source_file\",\n");
-    json.push_str("        \"binding\": \"program\",\n");
-    json.push_str(&format!(
-        "        \"path\": \"{}\",\n",
-        json_escape(&registry.report.source_path.display().to_string())
-    ));
-    json.push_str(&format!(
-        "        \"hash\": \"{}\",\n",
-        json_escape(&registry.report.source_hash)
-    ));
-    json.push_str("        \"status\": \"loaded\",\n");
-    json.push_str("        \"line\": 1\n");
-    json.push_str("      }");
-    for promotion in &registry.report.semantic_program.csv_promotions {
-        json.push_str(",\n      {\n");
-        json.push_str("        \"kind\": \"source_file\",\n");
+    for (index, record) in source_records_for_registry(registry).iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
-            json_escape(&promotion.binding)
+            json_escape(&record.binding)
+        ));
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&record.kind)
         ));
         json.push_str(&format!(
             "        \"path\": \"{}\",\n",
-            json_escape(&promotion.resolved_path)
+            json_escape(&record.path)
         ));
-        push_optional_json_string_runtime(json, "hash", promotion.source_hash.as_deref(), 8);
+        push_optional_json_string_runtime(json, "hash", record.hash.as_deref(), 8);
+        if let Some(schema) = &record.schema {
+            json.push_str(&format!(
+                "        \"schema\": \"{}\",\n",
+                json_escape(schema)
+            ));
+        }
+        if let Some(row_count) = record.row_count {
+            json.push_str(&format!("        \"row_count\": {},\n", row_count));
+        }
         json.push_str(&format!(
-            "        \"schema\": \"{}\",\n",
-            json_escape(&promotion.schema_name)
+            "        \"status\": \"{}\",\n",
+            json_escape(&record.status)
         ));
-        json.push_str(&format!(
-            "        \"row_count\": {},\n",
-            promotion.row_count
-        ));
-        json.push_str("        \"status\": \"promoted_csv\",\n");
-        json.push_str(&format!("        \"line\": {}\n", promotion.line));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
 
     json.push_str("    \"generated_files\": [\n");
-    for (index, artifact) in artifacts.iter().enumerate() {
+    for (index, record) in artifact_records_for_outputs(artifacts).iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
         json.push_str("      {\n");
         json.push_str(&format!(
             "        \"kind\": \"{}\",\n",
-            json_escape(&artifact.kind)
+            json_escape(&record.kind)
         ));
         json.push_str(&format!(
             "        \"class\": \"{}\",\n",
-            json_escape(artifact_record_class(&artifact.kind))
+            json_escape(&record.class)
         ));
         json.push_str(&format!(
             "        \"path\": \"{}\",\n",
-            json_escape(&artifact.path)
+            json_escape(&record.path)
         ));
         json.push_str(&format!(
             "        \"hash\": \"{}\",\n",
-            json_escape(&artifact.hash)
+            json_escape(&record.hash)
         ));
-        json.push_str("        \"status\": \"generated\",\n");
-        push_artifact_validation_json(json, &artifact.validation, 8);
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&record.status)
+        ));
+        push_artifact_validation_json(json, &record.validation, 8);
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
 
     json.push_str("    \"external_commands\": [\n");
-    for (index, process) in registry.process_results.iter().enumerate() {
+    for (index, record) in external_boundary_records_for_processes(registry.process_results)
+        .iter()
+        .enumerate()
+    {
         if index > 0 {
             json.push_str(",\n");
         }
         json.push_str("      {\n");
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
-            json_escape(&process.binding)
+            json_escape(&record.binding)
         ));
         json.push_str(&format!(
             "        \"command\": \"{}\",\n",
-            json_escape(&process.command)
+            json_escape(&record.command)
         ));
-        push_optional_json_string_runtime(json, "tool_version", process.tool_version.as_deref(), 8);
+        push_optional_json_string_runtime(json, "tool_version", record.tool_version.as_deref(), 8);
         json.push_str("        \"args\": ");
-        push_json_string_array_runtime(json, &process.args);
+        push_json_string_array_runtime(json, &record.args);
         json.push_str(",\n");
         json.push_str(&format!(
             "        \"cwd\": \"{}\",\n",
-            json_escape(&process.cwd)
+            json_escape(&record.cwd)
         ));
         json.push_str(&format!(
             "        \"expected_output_count\": {},\n",
-            process.expected_outputs.len()
+            record.expected_output_count
         ));
         json.push_str(&format!(
             "        \"expected_output_status\": \"{}\",\n",
-            json_escape(&process.expected_output_status)
+            json_escape(&record.expected_output_status)
         ));
         json.push_str(&format!(
             "        \"stdout_hash\": \"{}\",\n",
-            json_escape(&process.stdout_hash)
+            json_escape(&record.stdout_hash)
         ));
         json.push_str(&format!(
             "        \"stderr_hash\": \"{}\",\n",
-            json_escape(&process.stderr_hash)
+            json_escape(&record.stderr_hash)
         ));
-        json.push_str(&format!("        \"success\": {},\n", process.success));
+        json.push_str(&format!("        \"success\": {},\n", record.success));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&process.status)
+            json_escape(&record.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", process.line));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
