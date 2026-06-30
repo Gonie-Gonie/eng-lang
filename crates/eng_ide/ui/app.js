@@ -43,6 +43,7 @@ function emptyInspectors() {
     unitConversions: [],
     timeAxes: [],
     timeSeries: [],
+    timeSeriesCoverage: [],
     metrics: [],
     validations: [],
     timeAlignments: [],
@@ -773,6 +774,7 @@ function renderTimePanel() {
     <div class="badges">
       <span class="badge">Series ${inspectorRows("timeSeries").length}</span>
       <span class="badge">Axes ${inspectorRows("timeAxes").length}</span>
+      <span class="badge">Coverage ${inspectorRows("timeSeriesCoverage").length}</span>
       <span class="badge">Alignments ${inspectorRows("timeAlignments").length}</span>
       <span class="badge">Solver ${solverTrajectoryRows().length}</span>
     </div>
@@ -780,6 +782,8 @@ function renderTimePanel() {
       ${renderTimeAxes()}
       <div class="panel-title compact">Series</div>
       ${renderTimeSeries()}
+      <div class="panel-title compact">Coverage</div>
+      ${renderTimeSeriesCoverage()}
       <div class="panel-title compact">Solver Results</div>
       ${renderSolverTrajectories()}
     </div>
@@ -1504,6 +1508,36 @@ function renderTimeSeries() {
     <table class="var-table">
       <thead><tr><th>Name</th><th>Range</th><th>Step</th><th>Rows</th><th>Unit</th><th>Mean/Max</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="6" class="muted">Run a TimeSeries workflow.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderTimeSeriesCoverage() {
+  const rows = inspectorRows("timeSeriesCoverage").map((coverage) => {
+    const expected = coverage.expected_count ?? coverage.expectedCount ?? "-";
+    const actual = coverage.actual_count ?? coverage.actualCount ?? "-";
+    const missing = coverage.missing_count ?? coverage.missingCount ?? 0;
+    const maxGap = coverage.max_gap ?? coverage.maxGap;
+    const step = coverage.expected_step ?? coverage.expectedStep;
+    const intervals = coverage.missing_intervals || coverage.missingIntervals || [];
+    const intervalText = Array.isArray(intervals) && intervals.length
+      ? intervals.slice(0, 3).map((interval) => `${metricCell(interval.start)}-${metricCell(interval.end)} (${interval.missing_count ?? interval.missingCount ?? "?"})`).join("; ")
+      : "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(coverage.binding || coverage.name || "-")}</strong><div class="muted">L${escapeHtml(coverage.line ?? "-")}</div></td>
+        <td>${escapeHtml(coverage.source_table || coverage.sourceTable || "-")}.${escapeHtml(coverage.source_column || coverage.sourceColumn || "-")}<div class="muted">${escapeHtml(coverage.source_start || coverage.sourceStart || "-")} - ${escapeHtml(coverage.source_end || coverage.sourceEnd || "-")}</div></td>
+        <td>${escapeHtml(actual)} / ${escapeHtml(expected)}<div class="muted">missing ${escapeHtml(missing)}</div></td>
+        <td>${metricCell(step)}<div class="muted">max gap ${metricCell(maxGap)}</div></td>
+        <td>${escapeHtml(coverage.status || "-")}<div class="muted">${escapeHtml(coverage.coverage_year ?? coverage.coverageYear ?? "-")} ${escapeHtml(coverage.leap_year_policy || coverage.leapYearPolicy || "-")}</div></td>
+        <td>${escapeHtml(compactText(intervalText, 110))}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table">
+      <thead><tr><th>Coverage</th><th>Source</th><th>Actual/Expected</th><th>Step</th><th>Status</th><th>Missing Intervals</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No TimeSeries coverage records.</td></tr>`}</tbody>
     </table>
   `;
 }

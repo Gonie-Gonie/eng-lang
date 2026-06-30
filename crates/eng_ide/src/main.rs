@@ -129,6 +129,7 @@ struct InspectorView {
     unit_conversions: Value,
     time_axes: Value,
     time_series: Value,
+    time_series_coverage: Value,
     metrics: Value,
     validations: Value,
     uncertainty: Value,
@@ -160,6 +161,7 @@ impl Default for InspectorView {
             unit_conversions: Value::Array(Vec::new()),
             time_axes: Value::Array(Vec::new()),
             time_series: Value::Array(Vec::new()),
+            time_series_coverage: Value::Array(Vec::new()),
             metrics: Value::Array(Vec::new()),
             validations: Value::Array(Vec::new()),
             uncertainty: Value::Null,
@@ -1093,6 +1095,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
         time_axes: json_array_clone(&report, "time_axes"),
         time_series: time_series_inspector(&report, &result),
+        time_series_coverage: time_series_coverage_inspector(&result, &review),
         metrics: json_array_clone(&report, "computed_metrics"),
         validations: json_array_clone(&report, "validations"),
         uncertainty: uncertainty_inspector(&report, &review),
@@ -1200,6 +1203,21 @@ fn typed_payload_array_clone(value: &Value, key: &str) -> Value {
     value
         .get("typed_payload")
         .and_then(|payload| payload.get(key))
+        .and_then(Value::as_array)
+        .map(|items| Value::Array(items.clone()))
+        .unwrap_or_else(|| Value::Array(Vec::new()))
+}
+
+fn time_series_coverage_inspector(result: &Value, review: &Value) -> Value {
+    let runtime_items = typed_payload_array_clone(result, "timeseries_coverage");
+    if runtime_items
+        .as_array()
+        .is_some_and(|items| !items.is_empty())
+    {
+        return runtime_items;
+    }
+    review
+        .get("timeseries_coverage")
         .and_then(Value::as_array)
         .map(|items| Value::Array(items.clone()))
         .unwrap_or_else(|| Value::Array(Vec::new()))
@@ -4128,6 +4146,60 @@ mod tests {
                 .as_deref(),
             Some("hit")
         );
+    }
+
+    #[test]
+    fn ide_surfaces_timeseries_coverage_inspector() {
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "timeseries_coverage": [
+                  {
+                    "binding": "coverage_weather_time",
+                    "name": "weather_time",
+                    "source_table": "weather",
+                    "source_column": "time",
+                    "unit": "h",
+                    "start": 0.0,
+                    "end": 23.0,
+                    "source_start": "2024-01-01T00:00:00Z",
+                    "source_end": "2024-01-01T23:00:00Z",
+                    "expected_step": 1.0,
+                    "expected_count": 24,
+                    "actual_count": 23,
+                    "missing_count": 1,
+                    "missing_intervals": [
+                      { "start": 12.0, "end": 12.0, "missing_count": 1 }
+                    ],
+                    "max_gap": 2.0,
+                    "coverage_year": 2024,
+                    "leap_year_policy": "gregorian",
+                    "status": "gapped",
+                    "line": 12
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+            "{}",
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let coverage = inspectors
+            .time_series_coverage
+            .as_array()
+            .expect("timeseries coverage");
+        let item = coverage.first().expect("coverage item");
+        assert_eq!(
+            json_field_string(item, "binding").as_deref(),
+            Some("coverage_weather_time")
+        );
+        assert_eq!(json_field_string(item, "status").as_deref(), Some("gapped"));
+        assert_eq!(json_field_usize(item, "missing_count"), Some(1));
+        assert!(item
+            .get("missing_intervals")
+            .and_then(Value::as_array)
+            .is_some_and(|intervals| intervals.len() == 1));
     }
 
     #[test]
