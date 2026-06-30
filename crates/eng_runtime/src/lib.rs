@@ -2558,6 +2558,24 @@ fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<So
                 line: promotion.line,
             }),
     );
+    records.extend(
+        registry
+            .report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .filter(|dependency| dependency.kind.starts_with("filesystem_read_"))
+            .map(|dependency| SourceRecord {
+                kind: "source_file".to_owned(),
+                binding: dependency.name.clone(),
+                path: dependency.resolved_value.clone(),
+                hash: dependency.source_hash.clone(),
+                schema: None,
+                row_count: None,
+                status: dependency.status.clone(),
+                line: dependency.line,
+            }),
+    );
     records
 }
 
@@ -8702,5 +8720,10 @@ mod tests {
         assert!(output.result_json.contains("\"filesystem_read_toml\""));
         assert!(output.result_json.contains("\"source_hash\": \""));
         assert!(output.report_spec_json.contains("\"filesystem_read_text\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"binding\": \"notes_text\""));
+        assert!(output.output_manifest_json.contains("notes.txt"));
+        assert!(output.output_manifest_json.contains("\"hash\": \""));
     }
 }
