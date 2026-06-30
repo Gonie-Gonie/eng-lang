@@ -1,6 +1,8 @@
 # External Simulation Surrogate Hybrid
 
-This workflow is not EnergyPlus-specific.
+This hybrid workflow is not EnergyPlus-specific. It is a native library
+contract fixture for the generic `eng.sampling`, `eng.case`, `eng.process`,
+`eng.model`, `eng.db`, and `eng.artifact` target modules.
 
 EnergyPlus-like tools are one example of the broader pattern:
 
@@ -26,9 +28,22 @@ Because native loop/case helpers are still planned, `main.eng` expands three
 fixture cases explicitly. That keeps the case manifest and DB write contract
 reviewable without claiming a native parameter-sweep abstraction yet.
 
-The Python files in `tools/` are fake adapters. They document how a future
-`eng.case`, `eng.process`, `eng.model`, and `eng.db` stack should make the
-same contract native without turning EngLang into a solver wrapper.
+The Python files in `tools/` are fake adapters. They document opaque process
+boundaries that future native modules should replace without turning EngLang
+into a solver wrapper or making EnergyPlus-like tooling part of the core
+language.
+
+## Native Module Replacement Map
+
+| Current construct | Native module target |
+|---|---|
+| three explicit `patch_result` blocks | `eng.case.apply` / `eng.case.materialize` |
+| `run command tools/patch_input.py` | `eng.template` / `eng.process` |
+| `run command tools/run_external_sim.py` | `eng.process` with expected outputs |
+| `run command tools/collect_results.py` | `eng.case.collect` + `eng.table` |
+| `run command tools/train_surrogate.py` | `eng.model.train` / `ModelCard` |
+| `run command tools/predict_surrogate.py` | `eng.model.predict` |
+| `run command tools/write_db_manifest.py` | `eng.db.sqlite` |
 
 Target contract:
 
