@@ -47,6 +47,7 @@ function emptyInspectors() {
     validations: [],
     timeAlignments: [],
     tableTransforms: [],
+    structuredReads: [],
     systems: [],
     systemIr: [],
     kernelPlan: null,
@@ -661,6 +662,7 @@ function renderSidePanel() {
         ${sideTabButton("schema", "Schema")}
         ${sideTabButton("time", "Time")}
         ${sideTabButton("tables", "Tables")}
+        ${sideTabButton("reads", "Reads")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
         ${sideTabButton("kernels", "Kernel")}
@@ -686,6 +688,7 @@ function renderSideBody() {
   if (state.sideTab === "schema") return renderSchemaPanel();
   if (state.sideTab === "time") return renderTimePanel();
   if (state.sideTab === "tables") return renderTablesPanel();
+  if (state.sideTab === "reads") return renderReadsPanel();
   if (state.sideTab === "checks") return renderChecksPanel();
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
@@ -791,6 +794,19 @@ function renderTablesPanel() {
       <span class="badge">Rows ${rowDiagnostics}</span>
     </div>
     <div class="scroll">${renderTableTransforms(transforms)}</div>
+  `;
+}
+
+function renderReadsPanel() {
+  const reads = inspectorRows("structuredReads");
+  const parsed = reads.filter((read) => (read.parse_status || read.parseStatus) === "parsed").length;
+  return `
+    <div class="panel-title compact">Structured Reads</div>
+    <div class="badges">
+      <span class="badge">Reads ${reads.length}</span>
+      <span class="badge">Parsed ${parsed}</span>
+    </div>
+    <div class="scroll">${renderStructuredReads(reads)}</div>
   `;
 }
 
@@ -1250,6 +1266,33 @@ function renderArtifacts() {
           </tr>
         `).join("")}
       </tbody>
+    </table>
+  `;
+}
+
+function renderStructuredReads(reads) {
+  const rows = reads.map((read) => {
+    const status = read.parse_status || read.parseStatus || "-";
+    const rootType = read.root_type || read.rootType || "-";
+    const fieldCount = read.field_count ?? read.fieldCount;
+    const itemCount = read.item_count ?? read.itemCount;
+    const shape = `${rootType}${fieldCount != null ? ` fields=${fieldCount}` : ""}${itemCount != null ? ` items=${itemCount}` : ""}`;
+    const error = read.error ? `<div class="muted">${escapeHtml(compactText(read.error, 90))}</div>` : "";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(read.binding || "-")}</strong><div class="muted">L${escapeHtml(read.line ?? "-")}</div></td>
+        <td>${escapeHtml(read.kind || "-")}</td>
+        <td><code>${escapeHtml(compactText(read.path || "-", 72))}</code></td>
+        <td>${escapeHtml(status)}${error}</td>
+        <td>${escapeHtml(shape)}</td>
+        <td><code>${escapeHtml(compactText(read.source_hash || read.sourceHash || "-", 64))}</code></td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Binding</th><th>Kind</th><th>Path</th><th>Status</th><th>Shape</th><th>Hash</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">Run a file with read text/json/toml to inspect structured inputs.</td></tr>`}</tbody>
     </table>
   `;
 }

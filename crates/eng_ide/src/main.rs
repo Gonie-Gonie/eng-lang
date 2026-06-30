@@ -134,6 +134,7 @@ struct InspectorView {
     uncertainty: Value,
     time_alignments: Value,
     table_transforms: Value,
+    structured_reads: Value,
     systems: Value,
     system_ir: Value,
     linear_operators: Value,
@@ -162,6 +163,7 @@ impl Default for InspectorView {
             uncertainty: Value::Null,
             time_alignments: Value::Array(Vec::new()),
             table_transforms: Value::Array(Vec::new()),
+            structured_reads: Value::Array(Vec::new()),
             systems: Value::Array(Vec::new()),
             system_ir: Value::Array(Vec::new()),
             linear_operators: Value::Array(Vec::new()),
@@ -1091,6 +1093,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         uncertainty: uncertainty_inspector(&report, &review),
         time_alignments: json_array_clone(&report, "time_alignments"),
         table_transforms: table_transform_inspector(&result, &review),
+        structured_reads: typed_payload_array_clone(&result, "structured_reads"),
         systems: system_inspector(&report, &result),
         system_ir: json_array_clone(&report, "system_ir"),
         linear_operators: json_array_clone(&report, "linear_operators"),
@@ -1147,6 +1150,15 @@ fn effect_records_inspector(output_manifest: &Value, run_log: &Value) -> Value {
 fn json_array_clone(value: &Value, key: &str) -> Value {
     value
         .get(key)
+        .and_then(Value::as_array)
+        .map(|items| Value::Array(items.clone()))
+        .unwrap_or_else(|| Value::Array(Vec::new()))
+}
+
+fn typed_payload_array_clone(value: &Value, key: &str) -> Value {
+    value
+        .get("typed_payload")
+        .and_then(|payload| payload.get(key))
         .and_then(Value::as_array)
         .map(|items| Value::Array(items.clone()))
         .unwrap_or_else(|| Value::Array(Vec::new()))
@@ -3988,6 +4000,52 @@ mod tests {
             json_field_string(item, "status").as_deref() == Some("excluded")
                 && json_field_usize(item, "count") == Some(1)
         }));
+    }
+
+    #[test]
+    fn ide_surfaces_structured_read_inspector() {
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "structured_reads": [
+                  {
+                    "binding": "json_text",
+                    "kind": "json",
+                    "path": "data/case.json",
+                    "source_hash": "abc123",
+                    "parse_status": "parsed",
+                    "root_type": "object",
+                    "field_count": 2,
+                    "item_count": null,
+                    "error": null,
+                    "line": 4
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+            "{}",
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let reads = inspectors
+            .structured_reads
+            .as_array()
+            .expect("structured reads");
+        let read = reads.first().expect("structured read");
+
+        assert_eq!(
+            json_field_string(read, "binding").as_deref(),
+            Some("json_text")
+        );
+        assert_eq!(
+            json_field_string(read, "parse_status").as_deref(),
+            Some("parsed")
+        );
+        assert_eq!(
+            json_field_string(read, "root_type").as_deref(),
+            Some("object")
+        );
     }
 
     #[test]
