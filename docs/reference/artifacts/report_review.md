@@ -695,7 +695,10 @@ run_lock.json               input_hash and rerun decision
 `static_run_plan.json.graph` is generated before bytecode execution from the
 checked semantic program. `run_plan.json.graph` records the executed graph:
 nodes, edges, node/edge counts, source spans, rerun decisions, `rerun_status`,
-outputs, and artifact hashes including the static plan hash. `run_lock.json`
+outputs, and artifact hashes including the static plan hash. Dependency edges
+use `depends_on` for data/model/table dependencies, `uses_cache` for cache
+records owned by process/network nodes, and `produces` for node-to-artifact
+outputs. `run_lock.json`
 records the input hash used for rerun comparison: source hash, execution
 profile, CLI args hash, dependency hash, and run-plan artifact hashes. When
 `eng run --skip-unchanged --save-artifacts` sees the same prior lock, rerun

@@ -3673,7 +3673,7 @@ fn static_run_plan_json(
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
     for download in &report.semantic_program.net_downloads {
-        let id = format!("network_download:{}", download.line);
+        let id = format!("network_download:{}", download.target_value);
         nodes.push(run_plan_node(
             &id,
             "network_download",
@@ -3852,6 +3852,9 @@ fn static_run_plan_json(
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
+
+    let node_ids = run_plan_node_ids(&nodes);
+    add_static_dependency_edges(report, &node_ids, &mut edges);
 
     let node_count = nodes.len();
     let edge_count = edges.len();
@@ -4175,6 +4178,18 @@ fn run_plan_json(
         edges.push(run_plan_edge("source:program", &id, "emits"));
     }
 
+    let node_ids = run_plan_node_ids(&nodes);
+    add_runtime_dependency_edges(
+        report,
+        runtime_data,
+        process_results,
+        cache_records,
+        db_records,
+        output_artifacts,
+        &node_ids,
+        &mut edges,
+    );
+
     let node_count = nodes.len();
     let edge_count = edges.len();
     let document = json!({
@@ -4246,6 +4261,248 @@ fn run_plan_edge(from: &str, to: &str, kind: &str) -> Value {
         "to": to,
         "kind": kind
     })
+}
+
+fn run_plan_node_ids(nodes: &[Value]) -> HashSet<String> {
+    nodes
+        .iter()
+        .filter_map(|node| node.get("id").and_then(Value::as_str).map(str::to_owned))
+        .collect()
+}
+
+fn push_run_plan_edge_if_present(
+    edges: &mut Vec<Value>,
+    node_ids: &HashSet<String>,
+    from: &str,
+    to: &str,
+    kind: &str,
+) {
+    if !node_ids.contains(from) || !node_ids.contains(to) {
+        return;
+    }
+    if edges.iter().any(|edge| {
+        edge.get("from").and_then(Value::as_str) == Some(from)
+            && edge.get("to").and_then(Value::as_str) == Some(to)
+            && edge.get("kind").and_then(Value::as_str) == Some(kind)
+    }) {
+        return;
+    }
+    edges.push(run_plan_edge(from, to, kind));
+}
+
+fn source_binding_node_id(binding: &str, node_ids: &HashSet<String>) -> Option<String> {
+    [
+        format!("table_transform:{binding}"),
+        format!("source:csv:{binding}"),
+        format!("source:config:{binding}"),
+        format!("table_selection:{binding}"),
+        format!("timeseries_coverage:{binding}"),
+        format!("model:{binding}"),
+    ]
+    .into_iter()
+    .find(|id| node_ids.contains(id))
+}
+
+fn cache_owner_node_id(
+    owner_kind: &str,
+    owner_name: &str,
+    node_ids: &HashSet<String>,
+    runtime: bool,
+) -> Option<String> {
+    let candidates = if runtime {
+        vec![
+            format!("process:{owner_name}"),
+            format!("boundary:{owner_kind}:{owner_name}"),
+            format!("boundary:{owner_kind}:download"),
+        ]
+    } else {
+        vec![
+            format!("process:{owner_name}"),
+            format!("{owner_kind}:{owner_name}"),
+        ]
+    };
+    candidates.into_iter().find(|id| node_ids.contains(id))
+}
+
+fn add_static_dependency_edges(
+    report: &CheckReport,
+    node_ids: &HashSet<String>,
+    edges: &mut Vec<Value>,
+) {
+    for transform in &report.semantic_program.table_transforms {
+        let id = format!("table_transform:{}", transform.binding);
+        if let Some(source_id) = source_binding_node_id(&transform.source_table, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+        if let Some(secondary_table) = &transform.secondary_table {
+            if let Some(source_id) = source_binding_node_id(secondary_table, node_ids) {
+                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+            }
+        }
+    }
+    for kernel in &report.semantic_program.timeseries_kernels {
+        let id = format!("timeseries_kernel:{}", kernel.binding);
+        if let Some(source_table) = &kernel.source_table {
+            if let Some(source_id) = source_binding_node_id(source_table, node_ids) {
+                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+            }
+        }
+    }
+    for cache in &report.semantic_program.cache_records {
+        let cache_id = format!("cache:{}:{}", cache.owner_kind, cache.owner_name);
+        if let Some(owner_id) =
+            cache_owner_node_id(&cache.owner_kind, &cache.owner_name, node_ids, false)
+        {
+            push_run_plan_edge_if_present(edges, node_ids, &owner_id, &cache_id, "uses_cache");
+        }
+    }
+    for export in &report.semantic_program.csv_exports {
+        let id = format!("csv_export:{}:{}", export.source, export.line);
+        if let Some(source_id) = source_binding_node_id(&export.source, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+    }
+    for ml in &report.semantic_program.ml_infos {
+        let id = format!("model:{}", ml.binding);
+        if let Some(source) = &ml.source {
+            if let Some(source_id) = source_binding_node_id(source, node_ids) {
+                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+            }
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn add_runtime_dependency_edges(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    cache_records: &[CacheManifestRecord],
+    db_records: &[DbManifestRecord],
+    output_artifacts: &[OutputArtifact],
+    node_ids: &HashSet<String>,
+    edges: &mut Vec<Value>,
+) {
+    for selection in &runtime_data.table_selections {
+        let id = format!("table_selection:{}", selection.binding);
+        if let Some(source_id) = source_binding_node_id(&selection.source_table, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+    }
+    for transform in &runtime_data.table_transforms {
+        let id = format!("table_transform:{}", transform.binding);
+        if let Some(source_id) = source_binding_node_id(&transform.source_table, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+        if let Some(secondary_table) = &transform.secondary_table {
+            if let Some(source_id) = source_binding_node_id(secondary_table, node_ids) {
+                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+            }
+        }
+    }
+    for coverage in &runtime_data.timeseries_coverage {
+        let id = format!("timeseries_coverage:{}", coverage.binding);
+        if let Some(source_id) = source_binding_node_id(&coverage.source_table, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+    }
+    for cache in cache_records {
+        let cache_id = format!("cache:{}:{}", cache.owner_kind, cache.owner_name);
+        if let Some(owner_id) =
+            cache_owner_node_id(&cache.owner_kind, &cache.owner_name, node_ids, true)
+        {
+            push_run_plan_edge_if_present(edges, node_ids, &owner_id, &cache_id, "uses_cache");
+        }
+    }
+    for case_manifest in &runtime_data.case_manifests {
+        let id = format!("case:{}", case_manifest.case_id);
+        if let Some(sample_id) = source_binding_node_id(&case_manifest.sample_table, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &sample_id, "depends_on");
+        }
+        for process in &case_manifest.process_bindings {
+            let process_id = format!("process:{process}");
+            push_run_plan_edge_if_present(edges, node_ids, &id, &process_id, "depends_on");
+        }
+    }
+    for db in db_records {
+        let db_id = format!("db:{}", db.binding);
+        let process_id = format!("process:{}", db.binding);
+        push_run_plan_edge_if_present(edges, node_ids, &db_id, &process_id, "depends_on");
+    }
+    for artifact in &runtime_data.ml_artifacts {
+        let id = format!("model:{}", artifact.binding);
+        if let Some(source) = &artifact.source {
+            if let Some(source_id) = source_binding_node_id(source, node_ids) {
+                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+            }
+        }
+    }
+    add_output_artifact_dependency_edges(
+        report,
+        runtime_data,
+        process_results,
+        db_records,
+        output_artifacts,
+        node_ids,
+        edges,
+    );
+}
+
+fn add_output_artifact_dependency_edges(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+    db_records: &[DbManifestRecord],
+    output_artifacts: &[OutputArtifact],
+    node_ids: &HashSet<String>,
+    edges: &mut Vec<Value>,
+) {
+    for artifact in output_artifacts {
+        let artifact_id = format!("artifact:{}", artifact.path);
+        for process in process_results {
+            if process.expected_outputs.iter().any(|expected| {
+                path_for_manifest(&expected.resolved_path) == artifact.path
+                    || expected.path == artifact.path
+            }) {
+                let process_id = format!("process:{}", process.binding);
+                push_run_plan_edge_if_present(
+                    edges,
+                    node_ids,
+                    &process_id,
+                    &artifact_id,
+                    "produces",
+                );
+            }
+        }
+        for db in db_records {
+            if db.manifest_path == artifact.path || db.resolved_path == artifact.path {
+                let db_id = format!("db:{}", db.binding);
+                push_run_plan_edge_if_present(edges, node_ids, &db_id, &artifact_id, "produces");
+            }
+        }
+        for case_manifest in &runtime_data.case_manifests {
+            if case_manifest
+                .output_artifacts
+                .iter()
+                .any(|path| path == &artifact.path)
+            {
+                let case_id = format!("case:{}", case_manifest.case_id);
+                push_run_plan_edge_if_present(edges, node_ids, &case_id, &artifact_id, "produces");
+            }
+        }
+        for export in &report.semantic_program.csv_exports {
+            if export.path == artifact.path {
+                let export_id = format!("csv_export:{}:{}", export.source, export.line);
+                push_run_plan_edge_if_present(
+                    edges,
+                    node_ids,
+                    &export_id,
+                    &artifact_id,
+                    "produces",
+                );
+            }
+        }
+    }
 }
 
 fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
@@ -10407,6 +10664,19 @@ fn open_path(path: &Path) {
 mod tests {
     use super::*;
 
+    fn run_plan_has_edge(run_plan: &Value, from: &str, to: &str, kind: &str) -> bool {
+        run_plan
+            .pointer("/graph/edges")
+            .and_then(Value::as_array)
+            .is_some_and(|edges| {
+                edges.iter().any(|edge| {
+                    edge.get("from").and_then(Value::as_str) == Some(from)
+                        && edge.get("to").and_then(Value::as_str) == Some(to)
+                        && edge.get("kind").and_then(Value::as_str) == Some(kind)
+                })
+            })
+    }
+
     #[test]
     fn run_file_prints_and_writes_explicit_summary_csv_export() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -10579,6 +10849,12 @@ mod tests {
             run_plan.pointer("/rerun_status").and_then(Value::as_str),
             Some("executed")
         );
+        assert!(run_plan_has_edge(
+            &run_plan,
+            "timeseries_coverage:coverage",
+            "source:csv:weather",
+            "depends_on"
+        ));
         let review_hash = hash_text(&output.review_json);
         assert_eq!(
             run_plan
