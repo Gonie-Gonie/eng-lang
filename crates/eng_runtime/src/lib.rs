@@ -11,7 +11,7 @@ use eng_compiler::{
     build_bytecode, check_file, check_source, parse_bytecode, review_json, ArgOverride,
     CheckOptions, CheckReport,
 };
-use serde_json::Value;
+use serde_json::{json, Value};
 
 mod artifact;
 mod runtime_data;
@@ -5219,7 +5219,8 @@ fn runtime_review_json(
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
 ) -> String {
-    let trimmed = base_review.trim_end();
+    let enriched_review = enrich_runtime_review_boundaries(base_review, process_results);
+    let trimmed = enriched_review.trim_end();
     let Some(prefix) = trimmed.strip_suffix('}') else {
         return base_review.to_owned();
     };
@@ -5415,6 +5416,89 @@ fn runtime_review_json(
     json.push_str(&db_manifests_json(&db_manifest_records));
     json.push_str("\n  ]\n}\n");
     json
+}
+
+fn enrich_runtime_review_boundaries(
+    base_review: &str,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
+    if process_results.is_empty() {
+        return base_review.to_owned();
+    }
+
+    let Ok(mut review) = serde_json::from_str::<Value>(base_review) else {
+        return base_review.to_owned();
+    };
+    let Some(boundaries) = review
+        .pointer_mut("/review_document/external_boundaries")
+        .and_then(Value::as_array_mut)
+    else {
+        return base_review.to_owned();
+    };
+
+    for process in process_results {
+        let Some(boundary) = boundaries.iter_mut().find(|boundary| {
+            boundary.get("kind").and_then(Value::as_str) == Some("process")
+                && boundary.get("name").and_then(Value::as_str) == Some(process.binding.as_str())
+        }) else {
+            continue;
+        };
+        let Some(object) = boundary.as_object_mut() else {
+            continue;
+        };
+        let outputs = process
+            .expected_outputs
+            .iter()
+            .map(|output| output.path.clone())
+            .collect::<Vec<_>>();
+        let output_artifacts = process
+            .expected_outputs
+            .iter()
+            .map(|output| {
+                json!({
+                    "kind": output.artifact_kind.clone(),
+                    "path": output.path.clone(),
+                    "hash": output.hash.clone(),
+                    "status": output.status.clone(),
+                    "validation": {
+                        "status": output.validation.status.clone(),
+                        "rule": output.validation.rule.clone(),
+                        "message": output.validation.message.clone()
+                    }
+                })
+            })
+            .collect::<Vec<_>>();
+
+        object.insert(
+            "provenance".to_owned(),
+            Value::String("runtime_process_result".to_owned()),
+        );
+        object.insert("success".to_owned(), Value::Bool(process.success));
+        object.insert("status".to_owned(), Value::String(process.status.clone()));
+        object.insert(
+            "expected_output_status".to_owned(),
+            Value::String(process.expected_output_status.clone()),
+        );
+        object.insert(
+            "stdout_hash".to_owned(),
+            Value::String(process.stdout_hash.clone()),
+        );
+        object.insert(
+            "stderr_hash".to_owned(),
+            Value::String(process.stderr_hash.clone()),
+        );
+        object.insert("exit_code".to_owned(), json!(process.exit_code));
+        object.insert("duration_ms".to_owned(), json!(process.duration_ms));
+        object.insert("outputs".to_owned(), json!(outputs));
+        object.insert("output_artifacts".to_owned(), json!(output_artifacts));
+    }
+
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or_else(|_| base_review.to_owned())
 }
 
 fn component_solutions_json(runtime_data: &RuntimeData) -> String {
@@ -8298,6 +8382,14 @@ mod tests {
             .process_results_json
             .contains("\"format\": \"eng-process-results-v1\""));
         assert!(output.review_json.contains("\"tool_version\": \""));
+        assert!(output
+            .review_json
+            .contains("\"provenance\": \"runtime_process_result\""));
+        assert!(output.review_json.contains("\"success\": true"));
+        assert!(output.review_json.contains("\"stdout_hash\""));
+        assert!(output
+            .review_json
+            .contains("\"expected_output_status\": \"not_declared\""));
         assert!(output.process_results_json.contains("\"tool_version\": \""));
         assert!(output.process_results_json.contains("process-ok"));
         assert!(output.process_results_json.contains("\"stdout_hash\""));
@@ -8345,6 +8437,11 @@ mod tests {
 
         assert!(source_dir.join("outputs").join("out.txt").exists());
         assert!(output.review_json.contains("\"expected_outputs\""));
+        assert!(output
+            .review_json
+            .contains("\"expected_output_status\": \"satisfied\""));
+        assert!(output.review_json.contains("\"output_artifacts\""));
+        assert!(output.review_json.contains("\"exists_and_hash\""));
         assert!(output.process_results_json.contains("\"expected_outputs\""));
         assert!(output
             .process_results_json
