@@ -62,6 +62,7 @@ function emptyInspectors() {
     networkCache: null,
     dbWrites: null,
     modelCards: null,
+    caseManifests: null,
     outputManifest: null,
     runLog: null,
     processResults: null,
@@ -678,6 +679,7 @@ function renderSidePanel() {
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("effects", "Effects")}
         ${sideTabButton("network", "Net")}
+        ${sideTabButton("case", "Case")}
         ${sideTabButton("model", "Model")}
         ${sideTabButton("db", "DB")}
         ${sideTabButton("run", "Run")}
@@ -706,6 +708,7 @@ function renderSideBody() {
   if (state.sideTab === "artifacts") return renderArtifactsPanel();
   if (state.sideTab === "effects") return renderEffectsPanel();
   if (state.sideTab === "network") return renderNetworkPanel();
+  if (state.sideTab === "case") return renderCasePanel();
   if (state.sideTab === "model") return renderModelPanel();
   if (state.sideTab === "db") return renderDbPanel();
   if (state.sideTab === "run") return renderRunPanel();
@@ -2313,6 +2316,81 @@ function renderModelPanel() {
       ${renderModelArtifacts(artifacts)}
     </div>
   `;
+}
+
+function renderCasePanel() {
+  const caseData = inspectorObject("caseManifests");
+  const manifests = Array.isArray(caseData.manifests) ? caseData.manifests : [];
+  const failed = Array.isArray(caseData.failedCases) ? caseData.failedCases : [];
+  return `
+    <div class="panel-title compact">Cases</div>
+    <div class="badges">
+      <span class="badge">Cases ${manifests.length}</span>
+      <span class="badge">Failed ${failed.length}</span>
+    </div>
+    <div class="scroll">
+      ${renderCaseManifests(manifests)}
+      <div class="panel-title compact">Failed Cases</div>
+      ${renderFailedCases(failed)}
+    </div>
+  `;
+}
+
+function renderCaseManifests(manifests) {
+  const rows = manifests.map((manifest) => `
+    <tr>
+      <td><strong>${escapeHtml(manifest.case_id || manifest.caseId || "-")}</strong><div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
+      <td>${escapeHtml(manifest.sample_table || manifest.sampleTable || "-")}<div class="muted">row ${escapeHtml(manifest.sample_row_number ?? manifest.sampleRowNumber ?? "-")}</div></td>
+      <td><code>${escapeHtml(compactText(manifest.case_dir || manifest.caseDir || "-", 80))}</code><div class="muted">${escapeHtml(compactText(manifest.generated_input_file || manifest.generatedInputFile || "-", 80))}</div></td>
+      <td>${escapeHtml(caseProcessSummary(manifest))}</td>
+      <td>${escapeHtml(caseOutputSummary(manifest))}</td>
+      <td>${escapeHtml(compactText(manifest.failure_reason || manifest.failureReason || "-", 90))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Case</th><th>Sample</th><th>Files</th><th>Process</th><th>Outputs</th><th>Failure</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No case manifests.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderFailedCases(cases) {
+  const rows = cases.map((manifest) => `
+    <tr>
+      <td><strong>${escapeHtml(manifest.case_id || manifest.caseId || "-")}</strong></td>
+      <td>${escapeHtml(manifest.status || "-")}</td>
+      <td>${escapeHtml(caseProcessSummary(manifest))}</td>
+      <td>${escapeHtml(compactText(manifest.failure_reason || manifest.failureReason || "-", 110))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Case</th><th>Status</th><th>Process</th><th>Reason</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No failed cases.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function caseProcessSummary(manifest) {
+  const bindings = manifest.process_bindings || manifest.processBindings || [];
+  const statuses = manifest.process_statuses || manifest.processStatuses || [];
+  const bindingText = Array.isArray(bindings) && bindings.length ? bindings.join(", ") : "-";
+  const statusText = Array.isArray(statuses) && statuses.length
+    ? statuses.map((status) => `${status.binding || "-"}:${status.status || "-"}`).join(", ")
+    : "-";
+  return compactText(`${bindingText}; ${statusText}`, 100);
+}
+
+function caseOutputSummary(manifest) {
+  const artifacts = manifest.output_artifacts || manifest.outputArtifacts || [];
+  const results = manifest.result_files || manifest.resultFiles || [];
+  const metrics = manifest.metrics || [];
+  const parts = [];
+  if (Array.isArray(artifacts) && artifacts.length) parts.push(`artifacts ${artifacts.length}`);
+  if (Array.isArray(results) && results.length) parts.push(`results ${results.length}`);
+  if (Array.isArray(metrics) && metrics.length) parts.push(`metrics ${metrics.length}`);
+  return parts.length ? parts.join(", ") : "-";
 }
 
 function renderModelCards(cards) {

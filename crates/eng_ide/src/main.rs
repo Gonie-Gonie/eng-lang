@@ -150,6 +150,7 @@ struct InspectorView {
     network_cache: Value,
     db_writes: Value,
     model_cards: Value,
+    case_manifests: Value,
     output_manifest: Value,
     run_log: Value,
     process_results: Value,
@@ -184,6 +185,7 @@ impl Default for InspectorView {
             network_cache: Value::Null,
             db_writes: Value::Null,
             model_cards: Value::Null,
+            case_manifests: Value::Null,
             output_manifest: Value::Null,
             run_log: Value::Null,
             process_results: Value::Null,
@@ -1096,6 +1098,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let network_cache = network_cache_inspector(&output_manifest, &run_log);
     let db_writes = db_writes_inspector(&result, &review, &output_manifest);
     let model_cards = model_cards_inspector(&result);
+    let case_manifests = case_manifests_inspector(&result);
     InspectorView {
         schemas: schema_inspector(&report, &result),
         unit_conversions: json_array_clone(&report, "unit_conversion_table"),
@@ -1128,6 +1131,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
         network_cache,
         db_writes,
         model_cards,
+        case_manifests,
         output_manifest,
         run_log,
         process_results: parse_json_value(&output.process_results_json),
@@ -1231,6 +1235,32 @@ fn model_cards_inspector(result: &Value) -> Value {
         "format": "eng-ide-model-cards-v1",
         "cards": typed_payload_array_clone(result, "model_cards"),
         "artifacts": typed_payload_array_clone(result, "ml"),
+    })
+}
+
+fn case_manifests_inspector(result: &Value) -> Value {
+    let manifests = typed_payload_array_clone(result, "case_manifests");
+    let failed_cases = manifests
+        .as_array()
+        .map(|items| {
+            items
+                .iter()
+                .filter(|item| {
+                    let status = json_field_string(item, "status").unwrap_or_default();
+                    let failure_reason = json_field_string(item, "failure_reason");
+                    !matches!(
+                        status.as_str(),
+                        "" | "ready" | "succeeded" | "success" | "completed" | "materialized"
+                    ) || failure_reason.is_some()
+                })
+                .cloned()
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    json!({
+        "format": "eng-ide-case-manifests-v1",
+        "manifests": manifests,
+        "failedCases": failed_cases,
     })
 }
 
@@ -4430,6 +4460,96 @@ mod tests {
             .get("residual_points")
             .and_then(Value::as_array)
             .is_some_and(|points| points.len() == 1));
+    }
+
+    #[test]
+    fn ide_surfaces_case_manifest_inspector() {
+        let cached = cached_output_with_result_report_and_review(
+            r#"{
+              "typed_payload": {
+                "case_manifests": [
+                  {
+                    "case_id": "case_001",
+                    "sample_table": "designs",
+                    "schema_name": "DesignSample",
+                    "source": "samples/design_samples.csv",
+                    "source_hash": "sample-hash",
+                    "sample_row_number": 1,
+                    "source_row": 1,
+                    "sample_row_hash": "row-hash-1",
+                    "case_dir": "outputs/case_001",
+                    "generated_input_file": "outputs/case_001/input.txt",
+                    "process_bindings": ["run_case_001"],
+                    "process_statuses": [
+                      { "binding": "run_case_001", "status": "succeeded", "exit_code": 0 }
+                    ],
+                    "output_artifacts": ["outputs/case_001/result.csv"],
+                    "result_files": ["outputs/case_001/result.csv"],
+                    "metrics": [
+                      { "name": "annual_electricity", "value": 123.4, "unit": "kWh" }
+                    ],
+                    "failure_reason": null,
+                    "status": "succeeded"
+                  },
+                  {
+                    "case_id": "case_002",
+                    "sample_table": "designs",
+                    "schema_name": "DesignSample",
+                    "source": "samples/design_samples.csv",
+                    "source_hash": "sample-hash",
+                    "sample_row_number": 2,
+                    "source_row": 2,
+                    "sample_row_hash": "row-hash-2",
+                    "case_dir": "outputs/case_002",
+                    "generated_input_file": "outputs/case_002/input.txt",
+                    "process_bindings": ["run_case_002"],
+                    "process_statuses": [
+                      { "binding": "run_case_002", "status": "failed", "exit_code": 7 }
+                    ],
+                    "output_artifacts": [],
+                    "result_files": [],
+                    "metrics": [],
+                    "failure_reason": "process run_case_002 failed",
+                    "status": "failed"
+                  }
+                ]
+              }
+            }"#,
+            "{}",
+            "{}",
+        );
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let cases = inspectors
+            .case_manifests
+            .as_object()
+            .expect("case manifest inspector");
+        assert_eq!(
+            cases
+                .get("format")
+                .and_then(Value::as_str)
+                .unwrap_or_default(),
+            "eng-ide-case-manifests-v1"
+        );
+        assert_eq!(
+            cases
+                .get("manifests")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(2)
+        );
+        let failed = cases
+            .get("failedCases")
+            .and_then(Value::as_array)
+            .expect("failed cases");
+        assert_eq!(failed.len(), 1);
+        assert_eq!(
+            failed
+                .first()
+                .and_then(|item| json_field_string(item, "case_id"))
+                .as_deref(),
+            Some("case_002")
+        );
     }
 
     #[test]
