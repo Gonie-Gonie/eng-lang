@@ -401,7 +401,7 @@ The compiler validates referenced predicate, selected, derived-source, and
 sort-key columns against the promoted table schema and validates join keys against both promoted table
 schemas. It records the transform contract in `review_document.table_transforms[]`.
 Runtime artifacts record row counts, selected columns, derived columns, sort
-keys, predicate evidence, and join key pair counts in
+keys, predicate evidence, join key pair counts, and row diagnostics in
 `typed_payload.table_transforms[]`.
 
 ## Declarations

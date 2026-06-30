@@ -14,7 +14,7 @@
 #   `on { left.key == right.key }` are supported as transform record seeds.
 #   These appear in result.engres as
 #   typed_payload.table_diagnostics[], typed_payload.table_selections[], and
-#   typed_payload.table_transforms[].
+#   typed_payload.table_transforms[] with row_diagnostics[] records.
 #
 # Planned helper vocabulary:
 #   validate rows
@@ -23,8 +23,8 @@
 #   source schema, row counts, column counts, missing cells, parse failures,
 #   conversion failures, time-axis coverage, selected row/reason, filter
 #   predicate summaries, selected columns, derived columns, sort keys,
-#   operation row counts, join keys, matched pair counts, row-level diagnostics,
-#   and source spans.
+#   operation row counts, join keys, matched pair counts, transform
+#   row-level diagnostics, and source spans.
 #
 # Non-goal:
 #   this is not a general SQL replacement. Initial operations must stay

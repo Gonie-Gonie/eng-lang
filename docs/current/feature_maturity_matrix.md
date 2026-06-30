@@ -248,7 +248,8 @@ separate.
   core, not core language identity.
 - Evidence: official side-effect examples, process artifacts, output manifests,
   `typed_payload.table_diagnostics[]`, `typed_payload.table_selections[]`,
-  `typed_payload.table_transforms[]`, `review_document.table_transforms[]`,
+  `typed_payload.table_transforms[]` with row diagnostics,
+  `review_document.table_transforms[]`,
   `typed_payload.timeseries_coverage[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_manifests[]`, `typed_payload.db_manifests[]`,
   `typed_payload.model_cards[]`, workflow examples under `examples/workflows`,

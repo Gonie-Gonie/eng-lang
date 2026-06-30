@@ -7896,6 +7896,85 @@ fn push_table_transform_json(
         json.push_str(&format!("{nested_indent}}}"));
     }
     json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!("{field_indent}\"row_diagnostics\": [\n"));
+    for (row_index, row) in transform.row_diagnostics.iter().enumerate() {
+        if row_index > 0 {
+            json.push_str(",\n");
+        }
+        let row_field_indent = format!("{nested_indent}  ");
+        let predicate_indent = format!("{nested_indent}    ");
+        let predicate_field_indent = format!("{nested_indent}      ");
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{row_field_indent}\"row_index\": {},\n",
+            row.row_index
+        ));
+        json.push_str(&format!("{row_field_indent}\"secondary_row_indices\": ["));
+        for (secondary_index, secondary_row) in row.secondary_row_indices.iter().enumerate() {
+            if secondary_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&secondary_row.to_string());
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "{row_field_indent}\"status\": \"{}\",\n",
+            json_escape(&row.status)
+        ));
+        json.push_str(&format!(
+            "{row_field_indent}\"reason\": \"{}\",\n",
+            json_escape(&row.reason)
+        ));
+        json.push_str(&format!("{row_field_indent}\"predicates\": [\n"));
+        for (predicate_index, predicate) in row.predicates.iter().enumerate() {
+            if predicate_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str(&format!("{predicate_indent}{{\n"));
+            json.push_str(&format!(
+                "{predicate_field_indent}\"expression\": \"{}\",\n",
+                json_escape(&predicate.expression)
+            ));
+            push_optional_json_string(
+                json,
+                "column",
+                predicate.column.as_deref(),
+                predicate_field_indent.len(),
+            );
+            json.push_str(&format!(
+                "{predicate_field_indent}\"operator\": \"{}\",\n",
+                json_escape(&predicate.operator)
+            ));
+            push_optional_json_string(
+                json,
+                "expected",
+                predicate.expected.as_deref(),
+                predicate_field_indent.len(),
+            );
+            push_optional_json_string(
+                json,
+                "actual",
+                predicate.actual.as_deref(),
+                predicate_field_indent.len(),
+            );
+            json.push_str(&format!(
+                "{predicate_field_indent}\"matched\": {},\n",
+                predicate.matched
+            ));
+            json.push_str(&format!(
+                "{predicate_field_indent}\"status\": \"{}\",\n",
+                json_escape(&predicate.status)
+            ));
+            json.push_str(&format!(
+                "{predicate_field_indent}\"line\": {}\n",
+                predicate.line
+            ));
+            json.push_str(&format!("{predicate_indent}}}"));
+        }
+        json.push_str(&format!("\n{row_field_indent}]\n"));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
     json.push_str(&format!(
         "{field_indent}\"status\": \"{}\",\n",
         json_escape(&transform.status)
@@ -9115,12 +9194,26 @@ mod tests {
         assert!(output.result_json.contains("\"operation\": \"filter\""));
         assert!(output.result_json.contains("\"input_row_count\": 2"));
         assert!(output.result_json.contains("\"output_row_count\": 1"));
+        assert!(output.result_json.contains("\"row_diagnostics\""));
+        assert!(output.result_json.contains("\"row_index\": 1"));
+        assert!(output.result_json.contains("\"row_index\": 2"));
+        assert!(output.result_json.contains("\"status\": \"matched\""));
+        assert!(output.result_json.contains("\"status\": \"excluded\""));
+        assert!(output
+            .result_json
+            .contains("\"reason\": \"one or more predicates did not match\""));
+        assert!(output.result_json.contains("\"actual\": \"other\""));
+        assert!(output.result_json.contains("\"expected\": \"demo\""));
         assert!(output.result_json.contains("\"binding\": \"station\""));
         assert!(output
             .result_json
             .contains("\"operation\": \"require_one\""));
         assert!(output.result_json.contains("\"status\": \"selected\""));
+        assert!(output
+            .result_json
+            .contains("\"reason\": \"require_one selected the only candidate row\""));
         assert!(output.review_json.contains("\"table_transforms\""));
+        assert!(output.review_json.contains("\"row_diagnostics\""));
         assert!(output.review_json.contains("\"table_transform_count\": 2"));
         assert!(!virtual_path.exists());
     }
@@ -9374,8 +9467,17 @@ mod tests {
             .contains("\"secondary_input_row_count\": 3"));
         assert!(output.result_json.contains("\"output_row_count\": 2"));
         assert!(output.result_json.contains("\"matched_pair_count\": 2"));
+        assert!(output.result_json.contains("\"row_diagnostics\""));
+        assert!(output
+            .result_json
+            .contains("\"secondary_row_indices\": [1]"));
+        assert!(output
+            .result_json
+            .contains("\"secondary_row_indices\": [2]"));
+        assert!(output.result_json.contains("\"operator\": \"join_key\""));
         assert!(output.review_json.contains("\"operation\": \"join\""));
         assert!(output.review_json.contains("\"join_keys\""));
+        assert!(output.review_json.contains("\"row_diagnostics\""));
         assert!(!virtual_path.exists());
     }
 

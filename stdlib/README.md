@@ -30,7 +30,7 @@ is still future work.
 | `eng.process` | External process boundaries with args, cwd, expected outputs, tool version, stdout/stderr hashes, and status. |
 | `eng.test` | Local assertions, golden checks, and test-result artifacts. |
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
-| `eng.table` | Promoted table diagnostics, deterministic row selection, and schema-aware filter/select/derive/sort/require_one/join transform records. |
+| `eng.table` | Promoted table diagnostics, deterministic row selection, and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |
 | `eng.sampling` | Promoted sample-table metadata, parameter ranges, duplicate case IDs, and row-hash previews. |
 | `eng.case` | Promoted case manifests with case IDs, sample row hashes, row-level diagnostics, and process-output enrichment. |
 | `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |

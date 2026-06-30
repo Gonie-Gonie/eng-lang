@@ -1074,6 +1074,7 @@ pub struct RuntimeTableTransform {
     pub derived_columns: Vec<RuntimeTableDerivedColumn>,
     pub predicates: Vec<RuntimeTableTransformPredicate>,
     pub join_keys: Vec<RuntimeTableJoinKey>,
+    pub row_diagnostics: Vec<RuntimeTableRowDiagnostic>,
     pub status: String,
     pub reason: String,
     pub line: usize,
@@ -1111,6 +1112,27 @@ pub struct RuntimeTableJoinKey {
     pub right_table: String,
     pub right_column: String,
     pub matched_pair_count: usize,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableRowDiagnostic {
+    pub row_index: usize,
+    pub secondary_row_indices: Vec<usize>,
+    pub status: String,
+    pub reason: String,
+    pub predicates: Vec<RuntimeTableRowPredicateDiagnostic>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableRowPredicateDiagnostic {
+    pub expression: String,
+    pub column: Option<String>,
+    pub operator: String,
+    pub expected: Option<String>,
+    pub actual: Option<String>,
+    pub matched: bool,
     pub status: String,
     pub line: usize,
 }
@@ -3934,10 +3956,12 @@ fn materialize_table_transforms(
                     &source_rows,
                     &transform.predicates,
                 );
-                let matched_rows = source_rows
+                let row_diagnostics =
+                    table_transform_row_diagnostics(report, table, &source_rows, transform);
+                let matched_rows = row_diagnostics
                     .iter()
-                    .copied()
-                    .filter(|row| table_transform_row_matches(report, table, *row, transform))
+                    .filter(|diagnostic| diagnostic.status == "matched")
+                    .map(|diagnostic| diagnostic.row_index.saturating_sub(1))
                     .collect::<Vec<_>>();
                 transform_rows.insert(
                     transform.binding.clone(),
@@ -3962,6 +3986,7 @@ fn materialize_table_transforms(
                     derived_columns: Vec::new(),
                     predicates,
                     join_keys: Vec::new(),
+                    row_diagnostics,
                     status: "filtered".to_owned(),
                     reason: if transform.predicates.is_empty() {
                         "no predicates; retained all source rows".to_owned()
@@ -4003,6 +4028,10 @@ fn materialize_table_transforms(
                     derived_columns: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: Vec::new(),
+                    row_diagnostics: retained_row_diagnostics(
+                        &source_rows,
+                        "row retained by column selection",
+                    ),
                     status: "selected_columns".to_owned(),
                     reason: if transform.selected_columns.is_empty() {
                         "no selected columns recorded".to_owned()
@@ -4044,6 +4073,10 @@ fn materialize_table_transforms(
                     derived_columns: runtime_table_derived_columns(&transform.derived_columns),
                     predicates: Vec::new(),
                     join_keys: Vec::new(),
+                    row_diagnostics: retained_row_diagnostics(
+                        &source_rows,
+                        "row retained by derived-column transform",
+                    ),
                     status: "derived_columns".to_owned(),
                     reason: if transform.derived_columns.is_empty() {
                         "no derived columns recorded".to_owned()
@@ -4086,6 +4119,10 @@ fn materialize_table_transforms(
                     derived_columns: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: Vec::new(),
+                    row_diagnostics: retained_row_diagnostics(
+                        &sorted_rows,
+                        "row retained after sort",
+                    ),
                     status: "sorted".to_owned(),
                     reason: if transform.sort_keys.is_empty() {
                         "no sort keys recorded".to_owned()
@@ -4141,6 +4178,7 @@ fn materialize_table_transforms(
                         &transform.predicates,
                     ),
                     join_keys: Vec::new(),
+                    row_diagnostics: require_one_row_diagnostics(&source_rows, status),
                     status: status.to_owned(),
                     reason,
                     line: transform.line,
@@ -4207,6 +4245,14 @@ fn materialize_table_transforms(
                         &right_rows,
                         &transform.join_keys,
                     ),
+                    row_diagnostics: join_row_diagnostics(
+                        left_table,
+                        &left_rows,
+                        right_table,
+                        &right_rows,
+                        &joined_pairs,
+                        transform,
+                    ),
                     status: "joined".to_owned(),
                     reason: if transform.join_keys.is_empty() {
                         "no join keys; no joined rows materialized".to_owned()
@@ -4236,6 +4282,7 @@ fn materialize_table_transforms(
                     &transform.predicates,
                 ),
                 join_keys: Vec::new(),
+                row_diagnostics: Vec::new(),
                 status: "unsupported".to_owned(),
                 reason: "unsupported table transform operation".to_owned(),
                 line: transform.line,
@@ -4290,6 +4337,7 @@ fn missing_source_table_transform(
         derived_columns: runtime_table_derived_columns(&transform.derived_columns),
         predicates: runtime_table_transform_predicates(report, None, &[], &transform.predicates),
         join_keys: runtime_table_join_keys_empty(&transform.join_keys),
+        row_diagnostics: Vec::new(),
         status: "missing_source".to_owned(),
         reason: "source table or table transform was not materialized".to_owned(),
         line: transform.line,
@@ -4411,6 +4459,216 @@ fn runtime_table_transform_predicates(
                 matched_count,
                 status: predicate.status.clone(),
                 line: predicate.line,
+            }
+        })
+        .collect()
+}
+
+fn table_transform_row_diagnostics(
+    report: &CheckReport,
+    table: &RuntimeTable,
+    rows: &[usize],
+    transform: &eng_compiler::TableTransformInfo,
+) -> Vec<RuntimeTableRowDiagnostic> {
+    rows.iter()
+        .map(|row| {
+            let predicates =
+                runtime_table_row_predicates(report, table, *row, &transform.predicates);
+            let matched = table_transform_row_matches(report, table, *row, transform);
+            let status = if matched { "matched" } else { "excluded" };
+            let reason = if transform.predicates.is_empty() {
+                "no predicates; row retained"
+            } else if matched {
+                "row matched all predicates"
+            } else {
+                "one or more predicates did not match"
+            };
+            RuntimeTableRowDiagnostic {
+                row_index: row + 1,
+                secondary_row_indices: Vec::new(),
+                status: status.to_owned(),
+                reason: reason.to_owned(),
+                predicates,
+            }
+        })
+        .collect()
+}
+
+fn runtime_table_row_predicates(
+    report: &CheckReport,
+    table: &RuntimeTable,
+    row: usize,
+    predicates: &[eng_compiler::TablePredicateInfo],
+) -> Vec<RuntimeTableRowPredicateDiagnostic> {
+    predicates
+        .iter()
+        .map(|predicate| {
+            let matched =
+                table_transform_expression_matches(report, table, row, &predicate.expression);
+            let actual = predicate
+                .column
+                .as_deref()
+                .and_then(|column| table_column_value(table, column, row));
+            let expected = table_row_predicate_expected_value(report, predicate);
+            let status = if predicate.status == "accepted" {
+                if matched {
+                    "matched"
+                } else {
+                    "not_matched"
+                }
+            } else {
+                predicate.status.as_str()
+            };
+            RuntimeTableRowPredicateDiagnostic {
+                expression: predicate.expression.clone(),
+                column: predicate.column.clone(),
+                operator: predicate.operator.clone(),
+                expected,
+                actual,
+                matched,
+                status: status.to_owned(),
+                line: predicate.line,
+            }
+        })
+        .collect()
+}
+
+fn table_row_predicate_expected_value(
+    report: &CheckReport,
+    predicate: &eng_compiler::TablePredicateInfo,
+) -> Option<String> {
+    match predicate.operator.as_str() {
+        "is_none" => Some("none".to_owned()),
+        "is_not_none" => Some("not none".to_owned()),
+        _ => predicate
+            .value
+            .as_deref()
+            .and_then(|value| resolve_table_selection_value(value, report))
+            .or_else(|| predicate.value.clone()),
+    }
+}
+
+fn retained_row_diagnostics(rows: &[usize], reason: &str) -> Vec<RuntimeTableRowDiagnostic> {
+    rows.iter()
+        .map(|row| RuntimeTableRowDiagnostic {
+            row_index: row + 1,
+            secondary_row_indices: Vec::new(),
+            status: "retained".to_owned(),
+            reason: reason.to_owned(),
+            predicates: Vec::new(),
+        })
+        .collect()
+}
+
+fn require_one_row_diagnostics(rows: &[usize], status: &str) -> Vec<RuntimeTableRowDiagnostic> {
+    let (row_status, reason) = match status {
+        "selected" => ("selected", "require_one selected the only candidate row"),
+        "multiple_matches" => (
+            "multiple_match",
+            "require_one rejected this row because multiple candidates were present",
+        ),
+        "no_match" => ("excluded", "require_one found no candidate rows"),
+        _ => ("excluded", "require_one did not select this row"),
+    };
+    rows.iter()
+        .map(|row| RuntimeTableRowDiagnostic {
+            row_index: row + 1,
+            secondary_row_indices: Vec::new(),
+            status: row_status.to_owned(),
+            reason: reason.to_owned(),
+            predicates: Vec::new(),
+        })
+        .collect()
+}
+
+fn join_row_diagnostics(
+    left_table: &RuntimeTable,
+    left_rows: &[usize],
+    right_table: &RuntimeTable,
+    right_rows: &[usize],
+    joined_pairs: &[(usize, usize)],
+    transform: &eng_compiler::TableTransformInfo,
+) -> Vec<RuntimeTableRowDiagnostic> {
+    left_rows
+        .iter()
+        .map(|left_row| {
+            let mut secondary_row_indices = joined_pairs
+                .iter()
+                .filter_map(|(matched_left, matched_right)| {
+                    if matched_left == left_row {
+                        Some(matched_right + 1)
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+            secondary_row_indices.sort_unstable();
+            secondary_row_indices.dedup();
+            let matched = !secondary_row_indices.is_empty();
+            RuntimeTableRowDiagnostic {
+                row_index: left_row + 1,
+                secondary_row_indices,
+                status: if matched { "matched" } else { "excluded" }.to_owned(),
+                reason: if matched {
+                    "row matched one or more secondary rows"
+                } else {
+                    "row did not match join keys"
+                }
+                .to_owned(),
+                predicates: join_row_key_diagnostics(
+                    left_table,
+                    *left_row,
+                    right_table,
+                    right_rows,
+                    &transform.join_keys,
+                ),
+            }
+        })
+        .collect()
+}
+
+fn join_row_key_diagnostics(
+    left_table: &RuntimeTable,
+    left_row: usize,
+    right_table: &RuntimeTable,
+    right_rows: &[usize],
+    keys: &[eng_compiler::TableJoinKeyInfo],
+) -> Vec<RuntimeTableRowPredicateDiagnostic> {
+    keys.iter()
+        .map(|key| {
+            let actual = table_column_value(left_table, &key.left_column, left_row);
+            let matched_right_values = right_rows
+                .iter()
+                .filter(|right_row| {
+                    table_join_key_matches(left_table, left_row, right_table, **right_row, key)
+                })
+                .filter_map(|right_row| {
+                    table_column_value(right_table, &key.right_column, *right_row)
+                })
+                .collect::<Vec<_>>();
+            let matched = !matched_right_values.is_empty();
+            let status = if key.status == "accepted" {
+                if matched {
+                    "matched"
+                } else {
+                    "not_matched"
+                }
+            } else {
+                key.status.as_str()
+            };
+            RuntimeTableRowPredicateDiagnostic {
+                expression: key.expression.clone(),
+                column: Some(format!("{}.{}", key.left_table, key.left_column)),
+                operator: "join_key".to_owned(),
+                expected: if matched_right_values.is_empty() {
+                    None
+                } else {
+                    Some(matched_right_values.join(", "))
+                },
+                actual,
+                matched,
+                status: status.to_owned(),
+                line: key.line,
             }
         })
         .collect()

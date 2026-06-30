@@ -51,7 +51,7 @@ workflow, and covered by the breaking-change policy.
   provenance, `typed_payload.table_diagnostics[]` summaries for promoted data,
   `typed_payload.table_selections[]` records for deterministic promoted-table row
   selection, `typed_payload.table_transforms[]` records for filter/select/derive/sort/require_one/join
-  row counts, selected columns, derived columns, sort keys, predicate evidence, and join key pair counts,
+  row counts, selected columns, derived columns, sort keys, predicate evidence, join key pair counts, and row-level diagnostics,
   `typed_payload.timeseries_coverage[]` records for DateTime-indexed
   promoted-table coverage, `typed_payload.sample_tables[]` summaries for promoted sample/case tables,
   and `typed_payload.case_manifests[]` case row manifests with sample row hashes

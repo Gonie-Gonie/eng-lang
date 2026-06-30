@@ -72,10 +72,11 @@ syntax:
 - `runtime/table_filter_station_map.eng`, `runtime/table_select_columns_station_map.eng`,
   `runtime/table_derive_station_map.eng`, `runtime/table_sort_station_map.eng`,
   `runtime/table_require_one.eng`,
+  `runtime/table_row_diagnostics_station_map.eng`,
   `runtime/table_join_samples_results.eng`, and
   `runtime/timeseries_coverage.eng` map to the weather workflow smoke.
   They check deterministic station selection, filter/select/derive/sort/require_one/join table
-  transform artifacts, and Gregorian-year coverage artifacts without real
+  transform artifacts, row-level diagnostics, and Gregorian-year coverage artifacts without real
   network access.
 - `runtime/case_manifest.eng` and
   `runtime/process_expected_outputs.eng` map to the external

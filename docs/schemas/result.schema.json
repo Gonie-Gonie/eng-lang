@@ -643,6 +643,7 @@
         "sort_keys",
         "predicates",
         "join_keys",
+        "row_diagnostics",
         "status",
         "reason",
         "line"
@@ -680,6 +681,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/tableJoinKey" }
         },
+        "row_diagnostics": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableRowDiagnostic" }
+        },
         "status": {
           "enum": ["filtered", "selected_columns", "derived_columns", "sorted", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
         },
@@ -716,6 +721,37 @@
       "properties": {
         "column": { "type": "string" },
         "direction": { "enum": ["asc", "desc"] },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableRowDiagnostic": {
+      "type": "object",
+      "required": ["row_index", "secondary_row_indices", "status", "reason", "predicates"],
+      "properties": {
+        "row_index": { "type": "integer", "minimum": 1 },
+        "secondary_row_indices": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 1 }
+        },
+        "status": { "type": "string" },
+        "reason": { "type": "string" },
+        "predicates": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableRowPredicateDiagnostic" }
+        }
+      }
+    },
+    "tableRowPredicateDiagnostic": {
+      "type": "object",
+      "required": ["expression", "column", "operator", "expected", "actual", "matched", "status", "line"],
+      "properties": {
+        "expression": { "type": "string" },
+        "column": { "type": ["string", "null"] },
+        "operator": { "type": "string" },
+        "expected": { "type": ["string", "null"] },
+        "actual": { "type": ["string", "null"] },
+        "matched": { "type": "boolean" },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

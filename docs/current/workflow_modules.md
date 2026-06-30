@@ -9,7 +9,7 @@ intervals, max gaps, and leap-year policy, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
 table filter/select/derive/sort/require_one/join seeds now emit static `review_document.table_transforms[]`
 and runtime `typed_payload.table_transforms[]` records with predicates, join
-keys, matched pair counts, and row counts. Promoted
+keys, matched pair counts, row counts, and `row_diagnostics[]`. Promoted
 DesignSample-style CSV tables now emit `typed_payload.sample_tables[]` with
 case ID, parameter range, duplicate-case, and row-hash preview metadata, plus
 `typed_payload.case_manifests[]` case row manifests with sample row hashes and process-output enrichment. Hybrid
@@ -44,7 +44,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |
 | `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
-| `eng.table` | Supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join artifact seeds; planned broader APIs | promoted table row/column diagnostics, deterministic row selection, filter/select/derive/sort/require_one row counts, selected and derived columns, sort keys, join key pair counts; derived-value execution planned |
+| `eng.table` | Supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join artifact seeds; planned broader APIs | promoted table row/column diagnostics, deterministic row selection, filter/select/derive/sort/require_one row counts, selected and derived columns, sort keys, join key pair counts, transform row-level diagnostics; derived-value execution planned |
 | `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
@@ -114,7 +114,7 @@ promoted tables, `typed_payload.table_diagnostics[]` records the current
 reviewable schema/row/coverage summary, `typed_payload.table_selections[]`
 records selected row, selected value, filters, match count, and selection
 reason, `typed_payload.table_transforms[]` records filter/select/derive/sort/require_one/join row
-counts, selected columns, derived columns, sort keys, predicates, join keys, matched pair counts, status, and reason,
+counts, selected columns, derived columns, sort keys, predicates, join keys, matched pair counts, row diagnostics, status, and reason,
 `review_document.table_transforms[]` records the static transform contract,
 `typed_payload.sample_tables[]` records
 deterministic sample/case table metadata when a promoted table is

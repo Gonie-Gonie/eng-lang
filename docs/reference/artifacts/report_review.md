@@ -704,7 +704,7 @@ result.engres               typed_payload.table_transforms
 Each transform entry records the binding, operation, source table, optional
 secondary table, schema, selected columns, derived columns, sort keys,
 predicate metadata, join keys, input/output row counts, matched row indices or
-pair counts, status, reason, and source line. General table derived-value
+pair counts, row diagnostics, status, reason, and source line. General table derived-value
 execution and fill transforms remain planned.
 
 ## Manual Checks
