@@ -26,6 +26,7 @@ pub struct NetRequestInfo {
     pub cache: bool,
     pub expected_sha256: Option<String>,
     pub timeout: Option<String>,
+    pub body_size_limit_bytes: Option<usize>,
     pub fixture: Option<String>,
     pub status_code: Option<u16>,
     pub status_class: String,
@@ -45,6 +46,7 @@ pub struct NetDownloadInfo {
     pub cache: bool,
     pub expected_sha256: Option<String>,
     pub timeout: Option<String>,
+    pub body_size_limit_bytes: Option<usize>,
     pub fixture: Option<String>,
     pub status_code: Option<u16>,
     pub status_class: String,
@@ -148,6 +150,7 @@ fn build_request(
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
         timeout: timeout_policy(options, diagnostics),
+        body_size_limit_bytes: body_size_limit_policy(options, diagnostics),
         fixture,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
@@ -192,6 +195,7 @@ fn build_download(
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: option_value(options, "expected_sha256").map(str::to_owned),
         timeout: timeout_policy(options, diagnostics),
+        body_size_limit_bytes: body_size_limit_policy(options, diagnostics),
         fixture,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
@@ -255,6 +259,15 @@ fn option_for_key<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a Wi
         .find(|option| option.key == key && option.status == "accepted")
 }
 
+fn option_for_any_key<'a>(
+    options: &'a [WithOptionInfo],
+    keys: &[&str],
+) -> Option<&'a WithOptionInfo> {
+    options
+        .iter()
+        .find(|option| option.status == "accepted" && keys.iter().any(|key| option.key == *key))
+}
+
 fn retry_policy(options: &[WithOptionInfo], diagnostics: &mut Vec<Diagnostic>) -> Option<usize> {
     let option = option_for_key(options, "retry")?;
     let raw = option.value.trim();
@@ -309,7 +322,8 @@ fn normalize_timeout_duration(value: &str) -> Result<String, String> {
     if !amount.is_finite() || amount <= 0.0 {
         return Err("Use a positive finite timeout duration.".to_owned());
     }
-    let seconds = match unit.unwrap_or("s") {
+    let unit = unit.unwrap_or("s").to_ascii_lowercase();
+    let seconds = match unit.as_str() {
         "ms" | "msec" | "millisecond" | "milliseconds" => amount / 1000.0,
         "s" | "sec" | "secs" | "second" | "seconds" => amount,
         "m" | "min" | "mins" | "minute" | "minutes" => amount * 60.0,
@@ -319,6 +333,64 @@ fn normalize_timeout_duration(value: &str) -> Result<String, String> {
         }
     };
     Ok(format!("{} s", format_duration_number(seconds)))
+}
+
+fn body_size_limit_policy(
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<usize> {
+    let option = option_for_any_key(options, &["body_size_limit", "response_body_limit"])?;
+    match normalize_body_size_limit(&option.value) {
+        Ok(limit) => Some(limit),
+        Err(message) => {
+            diagnostics.push(Diagnostic::error(
+                "E-NET-BODY-SIZE-LIMIT",
+                option.line,
+                &format!(
+                    "Network response body size limit `{}` is invalid.",
+                    option.value.trim()
+                ),
+                Some(&message),
+            ));
+            None
+        }
+    }
+}
+
+fn normalize_body_size_limit(value: &str) -> Result<usize, String> {
+    let (amount, unit) = parse_number_with_suffix(value).ok_or_else(|| {
+        "Use a size such as `512 KB`, `10 MB`, `1 GiB`, or a raw byte count.".to_owned()
+    })?;
+    if !amount.is_finite() || amount <= 0.0 {
+        return Err("Use a positive finite response body size limit.".to_owned());
+    }
+    let unit = unit.unwrap_or("B").to_ascii_lowercase();
+    let multiplier = match unit.as_str() {
+        "b" | "byte" | "bytes" => 1.0,
+        "k" | "kb" | "kilobyte" | "kilobytes" => 1_000.0,
+        "m" | "mb" | "megabyte" | "megabytes" => 1_000_000.0,
+        "g" | "gb" | "gigabyte" | "gigabytes" => 1_000_000_000.0,
+        "kib" | "kibibyte" | "kibibytes" => 1_024.0,
+        "mib" | "mebibyte" | "mebibytes" => 1_048_576.0,
+        "gib" | "gibibyte" | "gibibytes" => 1_073_741_824.0,
+        _ => {
+            return Err("Supported size units are B, KB, MB, GB, KiB, MiB, and GiB.".to_owned());
+        }
+    };
+    let bytes = amount * multiplier;
+    if !bytes.is_finite() || bytes <= 0.0 {
+        return Err("Use a positive finite response body size limit.".to_owned());
+    }
+    if bytes > usize::MAX as f64 {
+        return Err(
+            "Response body size limit exceeds the maximum supported byte count.".to_owned(),
+        );
+    }
+    let rounded = bytes.round();
+    if (bytes - rounded).abs() > 0.000001 {
+        return Err("Use a size that resolves to a whole number of bytes.".to_owned());
+    }
+    Ok(rounded as usize)
 }
 
 fn resolve_query_value(value: &str, arg_values: &[ArgValueInfo]) -> (String, bool) {
