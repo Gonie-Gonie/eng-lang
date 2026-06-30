@@ -219,7 +219,15 @@ processes[]
   command
   tool_version
   args
+  env
   cwd
+  timeout
+  retry
+  attempt_count
+  allow_failure
+  timed_out
+  expected_outputs
+  expected_output_status
   exit_code
   success
   stdout

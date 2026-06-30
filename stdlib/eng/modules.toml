@@ -43,9 +43,9 @@ tests = ["cargo test -p eng_runtime run_file"]
 [module."eng.process"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
-purpose = "Explicit external process boundaries with args, cwd, tool version, expected outputs, and captured output hashes."
+purpose = "Explicit external process boundaries with args, env, cwd, timeout/retry, tool version, expected outputs, and captured output hashes."
 artifacts = ["review.external_boundaries", "process_results", "output_manifest", "run_log"]
-diagnostics = ["E-PROCESS-001", "E-PROCESS-BINDING-001", "E-PROCESS-CMD-001", "E-PROFILE-SAFE-PROCESS"]
+diagnostics = ["E-PROCESS-001", "E-PROCESS-BINDING-001", "E-PROCESS-CMD-001", "E-PROCESS-ENV-001", "E-PROCESS-CWD-001", "E-PROCESS-TIMEOUT", "E-PROCESS-RETRY-POLICY", "E-PROCESS-ALLOW-FAILURE", "E-PROFILE-SAFE-PROCESS"]
 examples = ["examples/official/15_process_result", "examples/workflows/02_external_simulation_surrogate_hybrid"]
 tests = ["cargo test -p eng_compiler process", "cargo test -p eng_runtime process"]
 

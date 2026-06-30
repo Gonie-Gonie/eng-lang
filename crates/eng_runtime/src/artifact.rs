@@ -33,7 +33,13 @@ pub(crate) struct ExternalBoundaryRecord {
     pub target: String,
     pub tool_version: Option<String>,
     pub args: Vec<String>,
+    pub env_keys: Vec<String>,
     pub cwd: String,
+    pub timeout: Option<String>,
+    pub retry: usize,
+    pub attempt_count: usize,
+    pub allow_failure: bool,
+    pub timed_out: bool,
     pub output_paths: Vec<String>,
     pub expected_output_count: usize,
     pub expected_output_status: String,
@@ -267,7 +273,13 @@ mod tests {
             target: "sim".to_owned(),
             tool_version: Some("sim 1.0".to_owned()),
             args: vec!["--input".to_owned(), "case.in".to_owned()],
+            env_keys: vec!["SIM_THREADS".to_owned()],
             cwd: "outputs/case_001".to_owned(),
+            timeout: Some("30 s".to_owned()),
+            retry: 1,
+            attempt_count: 1,
+            allow_failure: false,
+            timed_out: false,
             output_paths: vec!["case.out".to_owned(), "case.log".to_owned()],
             expected_output_count: 2,
             expected_output_status: "satisfied".to_owned(),
@@ -282,6 +294,8 @@ mod tests {
 
         assert!(record.success);
         assert_eq!(record.expected_output_count, 2);
+        assert_eq!(record.env_keys, vec!["SIM_THREADS"]);
+        assert_eq!(record.timeout.as_deref(), Some("30 s"));
     }
 
     #[test]

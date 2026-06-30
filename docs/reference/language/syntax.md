@@ -769,8 +769,11 @@ Common accepted option keys:
 | `recursive` | Required for directory delete operations |
 | `args` | External process argument array |
 | `cwd` | External process working directory |
+| `env` | Portable environment variables passed to the process |
 | `tool_version` | Explicit external tool version metadata |
 | `expected_outputs` | Process output files that must exist after the command exits |
+| `timeout` | Positive process timeout duration |
+| `retry` | Retry count from 0 to 5 for failed, timed-out, or missing-output attempts |
 | `allow_failure` | Record a non-zero process exit instead of failing the run |
 
 Unknown options are rejected with `E-WITH-OPTION-001`. When a block declares
@@ -1106,8 +1109,11 @@ Current process options:
 |---|---|
 | `args` | String array passed as process arguments |
 | `cwd` | Working directory, resolved source-relative when relative |
+| `env` | Inline object of portable environment variable names and values |
 | `tool_version` | Explicit string metadata for the external tool identity |
 | `expected_outputs` | Output files that must exist after the process exits |
+| `timeout` | Positive duration such as `10 s`, `10 min`, or `1 h` |
+| `retry` | Integer retry count from 0 to 5 |
 | `allow_failure` | If `true`, non-zero exit code is recorded instead of failing the run |
 
 Rules:
@@ -1121,9 +1127,10 @@ Rules:
 | Reviewable records | `review.json` includes `process_runs[]` |
 | Runtime records | Saved runs write `build/result/process_results.json` |
 
-The process result artifact records command, args, cwd, tool version, exit code,
-success, stdout/stderr plus hashes, expected output status and hashes, duration,
-status, and source line. The binding itself is typed
+The process result artifact records command, args, env keys, cwd, timeout,
+retry policy, attempt count, allow-failure policy, timed-out state, tool
+version, exit code, success, stdout/stderr plus hashes, expected output status
+and hashes, duration, status, and source line. The binding itself is typed
 as `ProcessResult` so IDEs and review tools can show it in variable metadata.
 
 The runnable example is:

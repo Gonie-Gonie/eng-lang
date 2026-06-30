@@ -4,8 +4,9 @@ use std::error::Error;
 use std::fmt;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
-use std::process::Command;
-use std::time::Instant;
+use std::process::{Command, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use eng_compiler::{
     build_bytecode, canonical_path_text, check_file, check_source,
@@ -1410,6 +1411,22 @@ fn push_external_boundary_events_json(
             "{indent}  \"target\": \"{}\",\n",
             json_escape(&record.target)
         ));
+        if record.kind == "process" {
+            json.push_str(&format!("{indent}  \"env\": "));
+            push_json_string_array_runtime(json, &record.env_keys);
+            json.push_str(",\n");
+            push_optional_json_string(json, "timeout", record.timeout.as_deref(), indent.len() + 2);
+            json.push_str(&format!("{indent}  \"retry\": {},\n", record.retry));
+            json.push_str(&format!(
+                "{indent}  \"attempt_count\": {},\n",
+                record.attempt_count
+            ));
+            json.push_str(&format!(
+                "{indent}  \"allow_failure\": {},\n",
+                record.allow_failure
+            ));
+            json.push_str(&format!("{indent}  \"timed_out\": {},\n", record.timed_out));
+        }
         push_optional_json_string(
             json,
             "response_hash",
@@ -1508,9 +1525,15 @@ struct ProcessExecutionRecord {
     command: String,
     tool_version: Option<String>,
     args: Vec<String>,
+    env_keys: Vec<String>,
     cwd: String,
     expected_outputs: Vec<ProcessExpectedOutputRecord>,
     expected_output_status: String,
+    timeout: Option<String>,
+    retry: usize,
+    attempt_count: usize,
+    allow_failure: bool,
+    timed_out: bool,
     exit_code: Option<i32>,
     success: bool,
     stdout: String,
@@ -1520,6 +1543,38 @@ struct ProcessExecutionRecord {
     duration_ms: u128,
     status: String,
     line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct ProcessSpec {
+    binding: String,
+    command: String,
+    tool_version: Option<String>,
+    args: Vec<String>,
+    env: Vec<ProcessEnvVar>,
+    cwd: PathBuf,
+    cwd_text: String,
+    timeout: Option<Duration>,
+    timeout_label: Option<String>,
+    retry: usize,
+    allow_failure: bool,
+    line: usize,
+}
+
+#[derive(Clone, Debug)]
+struct ProcessEnvVar {
+    key: String,
+    value: String,
+}
+
+#[derive(Clone, Debug)]
+struct ProcessAttemptOutput {
+    exit_code: Option<i32>,
+    success: bool,
+    stdout: String,
+    stderr: String,
+    duration_ms: u128,
+    timed_out: bool,
 }
 
 #[derive(Clone, Debug)]
@@ -1590,41 +1645,55 @@ struct DbManifestTableRecord {
 fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionRecord>, RuntimeError> {
     let mut records = Vec::new();
     for process in &report.semantic_program.process_runs {
-        let args = process_args_for_owner(report, process.line)?;
-        let cwd = process_cwd_for_owner(report, process.line)?;
-        let tool_version = process_string_option(report, process.line, "tool_version");
-        let allow_failure = process_bool_option(report, process.line, "allow_failure");
-        let started = Instant::now();
-        let output = Command::new(&process.command)
-            .args(&args)
-            .current_dir(&cwd)
-            .output()
-            .map_err(|error| {
-                invalid_input(&format!(
-                    "process `{}` failed to start: {error}",
-                    process.command
-                ))
-            })?;
-        let duration_ms = started.elapsed().as_millis();
-        let exit_code = output.status.code();
-        let success = output.status.success();
-        let stdout = String::from_utf8_lossy(&output.stdout).to_string();
-        let stderr = String::from_utf8_lossy(&output.stderr).to_string();
+        let spec = process_spec_for_run(report, process)?;
+        let mut attempt_count = 0usize;
+        let mut final_attempt = None;
+        let mut final_expected_outputs = Vec::new();
+        let mut final_expected_output_status = "not_declared".to_owned();
+
+        for attempt_index in 0..=spec.retry {
+            attempt_count += 1;
+            let attempt = execute_process_attempt(&spec)?;
+            let expected_outputs =
+                process_expected_outputs_for_owner(report, spec.line, &spec.cwd)?;
+            let expected_output_status = expected_output_status(&expected_outputs);
+            let should_retry = process_attempt_should_retry(&attempt, &expected_output_status)
+                && attempt_index < spec.retry;
+            final_expected_outputs = expected_outputs;
+            final_expected_output_status = expected_output_status;
+            final_attempt = Some(attempt);
+            if !should_retry {
+                break;
+            }
+        }
+
+        let Some(attempt) = final_attempt else {
+            continue;
+        };
+        let exit_code = attempt.exit_code;
+        let success = attempt.success;
+        let stdout = attempt.stdout;
+        let stderr = attempt.stderr;
         let stdout_hash = hash_text(&stdout);
         let stderr_hash = hash_text(&stderr);
-        let expected_outputs = process_expected_outputs_for_owner(report, process.line, &cwd)?;
-        let expected_output_status = expected_output_status(&expected_outputs);
-        if !success && !allow_failure {
+        if attempt.timed_out && !spec.allow_failure {
+            return Err(invalid_input(&format!(
+                "E-PROCESS-TIMEOUT: process `{}` timed out after {}; add `with {{ allow_failure = true }}` to record the timeout as a ProcessResult",
+                spec.command,
+                spec.timeout_label.as_deref().unwrap_or("the configured timeout")
+            )));
+        }
+        if !success && !spec.allow_failure {
             return Err(invalid_input(&format!(
                 "process `{}` exited with code {}; add `with {{ allow_failure = true }}` to record the failure as a ProcessResult",
-                process.command,
+                spec.command,
                 exit_code
                     .map(|code| code.to_string())
                     .unwrap_or_else(|| "unknown".to_owned())
             )));
         }
-        if expected_output_status == "missing" && !allow_failure {
-            let missing = expected_outputs
+        if final_expected_output_status == "missing" && !spec.allow_failure {
+            let missing = final_expected_outputs
                 .iter()
                 .filter(|output| !output.exists)
                 .map(|output| output.path.as_str())
@@ -1632,35 +1701,120 @@ fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionReco
                 .join(", ");
             return Err(invalid_input(&format!(
                 "process `{}` did not create expected output(s): {}; add `with {{ allow_failure = true }}` to record the missing output contract",
-                process.command, missing
+                spec.command, missing
             )));
         }
         records.push(ProcessExecutionRecord {
-            binding: process.binding.clone(),
-            command: process.command.clone(),
-            tool_version,
-            args,
-            cwd: cwd.display().to_string(),
-            expected_outputs,
-            expected_output_status: expected_output_status.clone(),
+            binding: spec.binding,
+            command: spec.command,
+            tool_version: spec.tool_version,
+            args: spec.args,
+            env_keys: spec.env.iter().map(|entry| entry.key.clone()).collect(),
+            cwd: spec.cwd_text,
+            expected_outputs: final_expected_outputs,
+            expected_output_status: final_expected_output_status.clone(),
+            timeout: spec.timeout_label,
+            retry: spec.retry,
+            attempt_count,
+            allow_failure: spec.allow_failure,
+            timed_out: attempt.timed_out,
             exit_code,
             success,
             stdout,
             stdout_hash,
             stderr,
             stderr_hash,
-            duration_ms,
-            status: if success && expected_output_status != "missing" {
+            duration_ms: attempt.duration_ms,
+            status: if attempt.timed_out {
+                "timed_out_allowed".to_owned()
+            } else if success && final_expected_output_status != "missing" {
                 "completed".to_owned()
             } else if success {
                 "output_missing_allowed".to_owned()
             } else {
                 "failed_allowed".to_owned()
             },
-            line: process.line,
+            line: spec.line,
         });
     }
     Ok(records)
+}
+
+fn process_spec_for_run(
+    report: &CheckReport,
+    process: &eng_compiler::ProcessRunInfo,
+) -> Result<ProcessSpec, RuntimeError> {
+    let args = process_args_for_owner(report, process.line)?;
+    let cwd = process_cwd_for_owner(report, process.line)?;
+    let timeout_label = process_timeout_label(report, process.line)?;
+    let timeout = timeout_label
+        .as_deref()
+        .map(parse_process_timeout_duration)
+        .transpose()?;
+    Ok(ProcessSpec {
+        binding: process.binding.clone(),
+        command: process.command.clone(),
+        tool_version: process_string_option(report, process.line, "tool_version"),
+        args,
+        env: process_env_for_owner(report, process.line)?,
+        cwd_text: cwd.display().to_string(),
+        cwd,
+        timeout,
+        timeout_label,
+        retry: process_retry_for_owner(report, process.line)?,
+        allow_failure: process_bool_option(report, process.line, "allow_failure"),
+        line: process.line,
+    })
+}
+
+fn execute_process_attempt(spec: &ProcessSpec) -> Result<ProcessAttemptOutput, RuntimeError> {
+    let started = Instant::now();
+    let mut command = Command::new(&spec.command);
+    command
+        .args(&spec.args)
+        .current_dir(&spec.cwd)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped());
+    for env_var in &spec.env {
+        command.env(&env_var.key, &env_var.value);
+    }
+    let mut child = command.spawn().map_err(|error| {
+        invalid_input(&format!(
+            "process `{}` failed to start: {error}",
+            spec.command
+        ))
+    })?;
+
+    let mut timed_out = false;
+    loop {
+        if child.try_wait()?.is_some() {
+            break;
+        }
+        if spec
+            .timeout
+            .is_some_and(|timeout| started.elapsed() >= timeout)
+        {
+            timed_out = true;
+            let _ = child.kill();
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+
+    let output = child.wait_with_output()?;
+    let duration_ms = started.elapsed().as_millis();
+    Ok(ProcessAttemptOutput {
+        exit_code: output.status.code(),
+        success: output.status.success() && !timed_out,
+        stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+        stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+        duration_ms,
+        timed_out,
+    })
+}
+
+fn process_attempt_should_retry(attempt: &ProcessAttemptOutput, expected_status: &str) -> bool {
+    attempt.timed_out || !attempt.success || expected_status == "missing"
 }
 
 fn cache_manifest_records(
@@ -2241,10 +2395,24 @@ fn process_results_json(
         json.push_str("      \"args\": ");
         push_json_string_array_runtime(&mut json, &record.args);
         json.push_str(",\n");
+        json.push_str("      \"env\": ");
+        push_json_string_array_runtime(&mut json, &record.env_keys);
+        json.push_str(",\n");
         json.push_str(&format!(
             "      \"cwd\": \"{}\",\n",
             json_escape(&record.cwd)
         ));
+        push_optional_json_string_runtime(&mut json, "timeout", record.timeout.as_deref(), 6);
+        json.push_str(&format!("      \"retry\": {},\n", record.retry));
+        json.push_str(&format!(
+            "      \"attempt_count\": {},\n",
+            record.attempt_count
+        ));
+        json.push_str(&format!(
+            "      \"allow_failure\": {},\n",
+            record.allow_failure
+        ));
+        json.push_str(&format!("      \"timed_out\": {},\n", record.timed_out));
         json.push_str("      \"expected_outputs\": [\n");
         for (output_index, output) in record.expected_outputs.iter().enumerate() {
             if output_index > 0 {
@@ -2735,6 +2903,118 @@ fn process_cwd_for_owner(report: &CheckReport, owner_line: usize) -> Result<Path
             .unwrap_or_else(|| PathBuf::from("."))
     };
     Ok(cwd)
+}
+
+fn process_env_for_owner(
+    report: &CheckReport,
+    owner_line: usize,
+) -> Result<Vec<ProcessEnvVar>, RuntimeError> {
+    let Some(raw) = process_option(report, owner_line, "env") else {
+        return Ok(Vec::new());
+    };
+    let trimmed = raw.trim();
+    let inner = trimmed
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+        .ok_or_else(|| invalid_input("process env must be an inline object"))?;
+    let mut env_vars = Vec::new();
+    for entry in split_template_top_level(inner, &[',', ';']) {
+        let (key, value_expression) = split_template_assignment(&entry).ok_or_else(|| {
+            invalid_input(&format!(
+                "process env entry `{entry}` must use `NAME = expression`"
+            ))
+        })?;
+        let key = key.trim();
+        if !is_process_env_key_runtime(key) {
+            return Err(invalid_input(&format!(
+                "process env key `{key}` is not portable"
+            )));
+        }
+        let value = process_env_value(value_expression, report).ok_or_else(|| {
+            invalid_input(&format!(
+                "cannot resolve process env value `{}`",
+                value_expression.trim()
+            ))
+        })?;
+        env_vars.push(ProcessEnvVar {
+            key: key.to_owned(),
+            value,
+        });
+    }
+    Ok(env_vars)
+}
+
+fn process_env_value(expression: &str, report: &CheckReport) -> Option<String> {
+    evaluate_runtime_expression(expression, report, &RuntimeData::default())
+        .map(|value| format_runtime_value(value, None, None, true))
+        .or_else(|| evaluate_runtime_path_expression(expression, report))
+        .or_else(|| Some(strip_runtime_string_value(expression)).filter(|value| !value.is_empty()))
+}
+
+fn is_process_env_key_runtime(key: &str) -> bool {
+    let mut chars = key.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
+}
+
+fn process_timeout_label(
+    report: &CheckReport,
+    owner_line: usize,
+) -> Result<Option<String>, RuntimeError> {
+    process_option(report, owner_line, "timeout")
+        .map(|value| normalize_process_timeout(&value).map_err(|message| invalid_input(&message)))
+        .transpose()
+}
+
+fn normalize_process_timeout(value: &str) -> Result<String, String> {
+    let seconds = parse_process_timeout_seconds(value)?;
+    Ok(format!("{} s", format_number_with_precision(seconds, None)))
+}
+
+fn parse_process_timeout_duration(value: &str) -> Result<Duration, RuntimeError> {
+    let seconds =
+        parse_process_timeout_seconds(value).map_err(|message| invalid_input(&message))?;
+    Ok(Duration::from_secs_f64(seconds))
+}
+
+fn parse_process_timeout_seconds(value: &str) -> Result<f64, String> {
+    let (amount, unit) = number_with_optional_unit(value).ok_or_else(|| {
+        "process timeout must be a duration such as `10 s` or `10 min`".to_owned()
+    })?;
+    if !amount.is_finite() || amount <= 0.0 {
+        return Err("process timeout must be positive and finite".to_owned());
+    }
+    let Some(unit) = unit else {
+        return Err("process timeout must include a duration unit".to_owned());
+    };
+    match unit.trim().to_ascii_lowercase().as_str() {
+        "s" | "sec" | "second" | "seconds" => Ok(amount),
+        "min" | "minute" | "minutes" => Ok(amount * 60.0),
+        "h" | "hr" | "hour" | "hours" => Ok(amount * 3600.0),
+        _ => Err("process timeout units are s, min, and h".to_owned()),
+    }
+}
+
+fn process_retry_for_owner(report: &CheckReport, owner_line: usize) -> Result<usize, RuntimeError> {
+    const MAX_PROCESS_RETRY_ATTEMPTS: usize = 5;
+    let Some(raw) = process_option(report, owner_line, "retry") else {
+        return Ok(0);
+    };
+    let value = raw.trim().parse::<usize>().map_err(|_| {
+        invalid_input(&format!(
+            "process retry policy `{}` is not a whole number",
+            raw.trim()
+        ))
+    })?;
+    if value > MAX_PROCESS_RETRY_ATTEMPTS {
+        return Err(invalid_input(&format!(
+            "process retry policy `{value}` exceeds the maximum of {MAX_PROCESS_RETRY_ATTEMPTS}"
+        )));
+    }
+    Ok(value)
 }
 
 fn process_expected_outputs_for_owner(
@@ -5048,6 +5328,12 @@ fn run_plan_json(
             boundary.line,
             vec![json!({
                 "target": &boundary.target,
+                "env": &boundary.env_keys,
+                "timeout": &boundary.timeout,
+                "retry": boundary.retry,
+                "attempt_count": boundary.attempt_count,
+                "allow_failure": boundary.allow_failure,
+                "timed_out": boundary.timed_out,
                 "response_hash": &boundary.response_hash,
                 "stdout_hash": &boundary.stdout_hash,
                 "stderr_hash": &boundary.stderr_hash,
@@ -5069,6 +5355,12 @@ fn run_plan_json(
             process.line,
             vec![json!({
                 "command": &process.command,
+                "env": &process.env_keys,
+                "timeout": &process.timeout,
+                "retry": process.retry,
+                "attempt_count": process.attempt_count,
+                "allow_failure": process.allow_failure,
+                "timed_out": process.timed_out,
                 "exit_code": process.exit_code,
                 "stdout_hash": &process.stdout_hash,
                 "stderr_hash": &process.stderr_hash,
@@ -5844,7 +6136,13 @@ fn external_boundary_records_for_processes(
             target: process.command.clone(),
             tool_version: process.tool_version.clone(),
             args: process.args.clone(),
+            env_keys: process.env_keys.clone(),
             cwd: process.cwd.clone(),
+            timeout: process.timeout.clone(),
+            retry: process.retry,
+            attempt_count: process.attempt_count,
+            allow_failure: process.allow_failure,
+            timed_out: process.timed_out,
             output_paths: process
                 .expected_outputs
                 .iter()
@@ -5873,7 +6171,13 @@ fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBo
             target: request.url_value.clone(),
             tool_version: None,
             args: network_query_args(&request.query),
+            env_keys: Vec::new(),
             cwd: String::new(),
+            timeout: None,
+            retry: 0,
+            attempt_count: 1,
+            allow_failure: false,
+            timed_out: false,
             output_paths: Vec::new(),
             expected_output_count: 0,
             expected_output_status: "not_applicable".to_owned(),
@@ -5894,7 +6198,13 @@ fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBo
             target: download.url_value.clone(),
             tool_version: None,
             args: network_query_args(&download.query),
+            env_keys: Vec::new(),
             cwd: String::new(),
+            timeout: None,
+            retry: 0,
+            attempt_count: 1,
+            allow_failure: false,
+            timed_out: false,
             output_paths: vec![download.target_value.clone()],
             expected_output_count: 1,
             expected_output_status: download.status.clone(),
@@ -5925,7 +6235,13 @@ fn external_boundary_records_for_db_manifests(
                 .unwrap_or_else(|| record.manifest_path.clone()),
             tool_version: None,
             args: Vec::new(),
+            env_keys: Vec::new(),
             cwd: String::new(),
+            timeout: None,
+            retry: 0,
+            attempt_count: 1,
+            allow_failure: false,
+            timed_out: false,
             output_paths: vec![record.manifest_path.clone()],
             expected_output_count: 1,
             expected_output_status: record.status.clone(),
@@ -9116,6 +9432,12 @@ fn enrich_runtime_review_boundaries(
                     })
                 })
                 .collect::<Vec<_>>();
+            object.insert("env".to_owned(), json!(process.env_keys));
+            object.insert("timeout".to_owned(), json!(process.timeout));
+            object.insert("retry".to_owned(), json!(process.retry));
+            object.insert("attempt_count".to_owned(), json!(process.attempt_count));
+            object.insert("allow_failure".to_owned(), json!(process.allow_failure));
+            object.insert("timed_out".to_owned(), json!(process.timed_out));
             object.insert("exit_code".to_owned(), json!(process.exit_code));
             object.insert("duration_ms".to_owned(), json!(process.duration_ms));
             object.insert("output_artifacts".to_owned(), json!(output_artifacts));
@@ -15301,6 +15623,137 @@ mod tests {
             .contains("\"kind\": \"process_expected_output\""));
         assert!(output.output_manifest_json.contains("\"generated_files\""));
         assert!(output.output_manifest_json.contains("\"validation\""));
+    }
+
+    #[test]
+    fn run_file_records_process_spec_options() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-process-spec-options");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-spec-options-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo %ENG_PROCESS_TEST%\"]\n    env = { ENG_PROCESS_TEST = \"process-env-ok\" }\n    timeout = 5 s\n    retry = 1\n    tool_version = \"cmd-test 1.0\"\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"printf $ENG_PROCESS_TEST\"]\n    env = { ENG_PROCESS_TEST = \"process-env-ok\" }\n    timeout = 5 s\n    retry = 1\n    tool_version = \"sh-test 1.0\"\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("process spec option run");
+
+        let process_results: Value =
+            serde_json::from_str(&output.process_results_json).expect("process results json");
+        let process = process_results
+            .pointer("/processes/0")
+            .expect("first process record");
+        assert_eq!(
+            process.pointer("/env/0").and_then(Value::as_str),
+            Some("ENG_PROCESS_TEST")
+        );
+        assert_eq!(process.get("timeout").and_then(Value::as_str), Some("5 s"));
+        assert_eq!(process.get("retry").and_then(Value::as_u64), Some(1));
+        assert_eq!(
+            process.get("attempt_count").and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            process.get("allow_failure").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(
+            process.get("timed_out").and_then(Value::as_bool),
+            Some(false)
+        );
+        assert_eq!(process.get("success").and_then(Value::as_bool), Some(true));
+        assert!(process
+            .get("stdout")
+            .and_then(Value::as_str)
+            .is_some_and(|stdout| stdout.contains("process-env-ok")));
+        assert!(output.review_json.contains("\"env\""));
+        assert!(output.review_json.contains("ENG_PROCESS_TEST"));
+        assert!(output.review_json.contains("\"timeout\": \"5 s\""));
+        assert!(output.review_json.contains("\"retry\": 1"));
+        assert!(output.run_log_json.contains("\"env\""));
+        assert!(output.run_log_json.contains("ENG_PROCESS_TEST"));
+        assert!(output.run_log_json.contains("\"attempt_count\": 1"));
+    }
+
+    #[test]
+    fn run_file_records_allowed_process_timeout() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-process-timeout");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-process-timeout-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        let source = if cfg!(windows) {
+            "process_result = run command \"powershell\"\nwith {\n    args = [\"-NoProfile\", \"-Command\", \"Start-Sleep -Seconds 2\"]\n    timeout = 1 s\n    retry = 1\n    allow_failure = true\n}\n"
+        } else {
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"sleep 2\"]\n    timeout = 1 s\n    retry = 1\n    allow_failure = true\n}\n"
+        };
+        fs::write(&source_path, source).expect("write source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("allowed process timeout");
+
+        let process_results: Value =
+            serde_json::from_str(&output.process_results_json).expect("process results json");
+        let process = process_results
+            .pointer("/processes/0")
+            .expect("first process record");
+        assert_eq!(
+            process.get("status").and_then(Value::as_str),
+            Some("timed_out_allowed")
+        );
+        assert_eq!(
+            process.get("timed_out").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(
+            process.get("allow_failure").and_then(Value::as_bool),
+            Some(true)
+        );
+        assert_eq!(process.get("retry").and_then(Value::as_u64), Some(1));
+        assert_eq!(
+            process.get("attempt_count").and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(process.get("success").and_then(Value::as_bool), Some(false));
+        assert!(output.review_json.contains("\"timed_out\": true"));
+        assert!(output.review_json.contains("\"attempt_count\": 2"));
+        assert!(output
+            .run_log_json
+            .contains("\"status\": \"timed_out_allowed\""));
+        assert!(output.run_log_json.contains("\"timed_out\": true"));
+        assert!(output.run_log_json.contains("\"attempt_count\": 2"));
     }
 
     #[test]

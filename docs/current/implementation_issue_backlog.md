@@ -244,8 +244,8 @@ Definition of Done:
 
 - Output manifest viewer lists generated artifacts and side-effect records.
 - Run log viewer shows `print` and `log` records with level/source line.
-- Process result viewer shows command, args, cwd, status, stdout/stderr, and
-  duration.
+- Process result viewer shows command, args, env keys, cwd, timeout/retry,
+  attempts, status, stdout/stderr, and duration.
 - Test result viewer shows named tests, assertions, golden checks, and failures.
 - Safe/normal/repro profile diagnostics are visible.
 - Missing artifact files do not crash the IDE.

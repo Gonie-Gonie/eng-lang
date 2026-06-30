@@ -27,7 +27,7 @@ is still future work.
 | `eng.io` | Read text/json/toml, write text/json, exports, and hashes. |
 | `eng.fs` | Explicit generated-output copy/move/delete mutations. |
 | `eng.log` | Structured runtime messages and run-log records. |
-| `eng.process` | External process boundaries with args, cwd, expected outputs, tool version, stdout/stderr hashes, and status. |
+| `eng.process` | External process boundaries with args, env, cwd, timeout/retry, expected outputs, tool version, stdout/stderr hashes, and status. |
 | `eng.test` | Local assertions, golden checks, and test-result artifacts. |
 | `eng.artifact` | Generated artifact kinds, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics, deterministic row selection, and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |

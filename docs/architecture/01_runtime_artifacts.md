@@ -149,7 +149,13 @@ processes[].binding
 processes[].command
 processes[].tool_version
 processes[].args
+processes[].env
 processes[].cwd
+processes[].timeout
+processes[].retry
+processes[].attempt_count
+processes[].allow_failure
+processes[].timed_out
 processes[].expected_outputs
 processes[].expected_outputs[].kind
 processes[].expected_outputs[].validation
@@ -169,7 +175,9 @@ processes[].line
 declaration in `review.json`; the runtime writes exit status and captured
 stdout/stderr plus stable stdout/stderr hashes here. `tool_version` is an
 explicit owner option for workflows that need to pin or review the external
-tool identity. Non-zero exits fail by default unless the owner has
+tool identity. `env`, `timeout`, `retry`, `attempt_count`, `allow_failure`,
+and `timed_out` make process policy and timeout behavior visible to review
+tools. Non-zero exits and timeouts fail by default unless the owner has
 `with { allow_failure = true }`.
 
 ## `test_results.json`

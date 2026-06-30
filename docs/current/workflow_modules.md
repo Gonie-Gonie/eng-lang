@@ -54,7 +54,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.io` | supported | compiler_runtime_builtin | `review.inputs`<br>`review.side_effects`<br>`output_manifest` | `E-IO-JSON-PARSE`<br>`E-IO-TOML-PARSE`<br>`E-IO-JSON-FIELD-ACCESS-001` | `examples/official/11_read_only_io` | `cargo test -p eng_compiler read_only_io` |
 | `eng.fs` | supported_narrow | compiler_runtime_builtin | `review.side_effects`<br>`output_manifest`<br>`run_log` | `E-FS-CONFIRM-001`<br>`E-FS-DELETE-001`<br>`E-PROFILE-SAFE-FS` | `examples/official/13_file_operations` | `cargo test -p eng_compiler file_operations` |
 | `eng.log` | supported | compiler_runtime_builtin | `run_log` | `none_current` | `examples/official/15_process_result` | `cargo test -p eng_runtime run_file` |
-| `eng.process` | supported_narrow | compiler_runtime_builtin | `review.external_boundaries`<br>`process_results`<br>`output_manifest`<br>`run_log` | `E-PROCESS-001`<br>`E-PROCESS-BINDING-001`<br>`E-PROCESS-CMD-001`<br>`E-PROFILE-SAFE-PROCESS` | `examples/official/15_process_result`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler process`<br>`cargo test -p eng_runtime process` |
+| `eng.process` | supported_narrow | compiler_runtime_builtin | `review.external_boundaries`<br>`process_results`<br>`output_manifest`<br>`run_log` | `E-PROCESS-001`<br>`E-PROCESS-BINDING-001`<br>`E-PROCESS-CMD-001`<br>`E-PROCESS-ENV-001`<br>`E-PROCESS-CWD-001`<br>`E-PROCESS-TIMEOUT`<br>`E-PROCESS-RETRY-POLICY`<br>`E-PROCESS-ALLOW-FAILURE`<br>`E-PROFILE-SAFE-PROCESS` | `examples/official/15_process_result`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler process`<br>`cargo test -p eng_runtime process` |
 | `eng.test` | supported_narrow | compiler_runtime_builtin | `test_results`<br>`review.tests`<br>`output_manifest` | `E-ASSERT-001`<br>`E-ASSERT-002`<br>`E-ASSERT-UNIT-001`<br>`E-GOLDEN-002` | `examples/official/13_file_operations` | `cargo test -p eng_compiler records_test_assert_and_golden_metadata`<br>`cargo test -p eng_runtime run_file_executes_test_assert_and_golden_checks` |
 | `eng.table` | supported_seed | compiler_runtime_builtin | `review.inputs`<br>`review_document.table_transforms`<br>`typed_payload.table_diagnostics`<br>`typed_payload.table_selections`<br>`typed_payload.table_transforms` | `E-TABLE-UNKNOWN-COLUMN`<br>`E-TABLE-PREDICATE-TYPE`<br>`E-TABLE-JOIN-KEY-MISMATCH`<br>`E-TABLE-SCHEMA-MISMATCH` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime table_`<br>`cargo test -p eng_compiler table_` |
 | `eng.timeseries` | supported_seed | compiler_runtime_builtin | `typed_payload.timeseries_coverage`<br>`typed_payload.timeseries_fill`<br>`typed_payload.timeseries_quality`<br>`typed_payload.quality_results`<br>`typed_payload.time_alignments`<br>`review.fallbacks` | `E-TIMESERIES-COVERAGE-GAP`<br>`W-FALLBACK-USED` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review`<br>`cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts`<br>`cargo test -p eng_runtime run_file_records_timeseries_alignment_and_resampling_hooks` |
@@ -130,9 +130,11 @@ For generated files, `output_manifest.json` is the minimum public record. Its
 commands, network/cache seed records, DB writes, model artifacts, and tests a
 shared review shape, including generated artifact validation records and
 `standard_file` classifications for generic fixed-record/text outputs. For
-external processes, `process_results.json` records command, args, cwd, tool
-version, stdout/stderr hashes, expected outputs, expected-output kind, output
-hashes, validation status, duration, and status. For
+external processes, `process_results.json` records command, args, env keys,
+cwd, timeout, retry policy, attempt count, allow-failure policy, timed-out
+state, tool version, stdout/stderr hashes, expected outputs,
+expected-output kind, output hashes, validation status, duration, and status.
+For
 promoted tables, `typed_payload.table_diagnostics[]` records the current
 reviewable schema/row/coverage summary, `typed_payload.table_selections[]`
 records selected row, selected value, filters, match count, and selection

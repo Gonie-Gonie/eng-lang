@@ -116,6 +116,11 @@ E-PROCESS-001          run command is supported only at top level
 E-PROCESS-BINDING-001  run command must bind a ProcessResult
 E-PROCESS-CMD-001      run command requires a command string
 E-PROCESS-BINDING-002  ProcessResult binding conflicts with an existing binding
+E-PROCESS-ENV-001      process env option must be an inline portable-name object
+E-PROCESS-CWD-001      process cwd option must be a path expression
+E-PROCESS-TIMEOUT      process timeout option must be a positive duration
+E-PROCESS-RETRY-POLICY process retry option must be an integer from 0 to 5
+E-PROCESS-ALLOW-FAILURE process allow_failure option must be true or false
 E-PATH-INVALID         generated output path is empty
 E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
 E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted

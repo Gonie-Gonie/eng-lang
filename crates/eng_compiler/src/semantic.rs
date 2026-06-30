@@ -1434,6 +1434,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut diagnostics,
     );
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
+    validate_process_options(&process_runs, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_component_behavior_calls(&domains, &components, &mut diagnostics);
@@ -2266,6 +2267,7 @@ fn analyze_with_blocks(
                 command_styles,
                 block.owner_line,
             ));
+            extra_known_options.extend(with_owner_process_options(program, block.owner_line));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -2405,6 +2407,40 @@ fn with_owner_template_options(
         .into_iter()
         .map(str::to_owned)
         .collect()
+}
+
+fn with_owner_process_options(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let is_process_owner = program.items.iter().any(|item| match item {
+        AstItem::ProcessRun(process) => process.line == owner_line,
+        _ => false,
+    });
+    if !is_process_owner {
+        return HashSet::new();
+    }
+    [
+        "args",
+        "cwd",
+        "env",
+        "tool_version",
+        "expected_outputs",
+        "timeout",
+        "retry",
+        "allow_failure",
+        "artifact_kind",
+        "cache",
+        "cache_key",
+        "cache_dir",
+        "cache_ttl",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 
 fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) -> HashSet<String> {
@@ -3635,6 +3671,156 @@ fn validate_file_operation_options(
                 Some("Delete directory trees only with both `recursive = true` and `confirm = true`."),
             ));
         }
+    }
+}
+
+fn validate_process_options(
+    processes: &[ProcessRunInfo],
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for process in processes {
+        let options = with_blocks
+            .iter()
+            .find(|block| block.owner_line == Some(process.line))
+            .map(|block| block.options.as_slice())
+            .unwrap_or(&[]);
+        if let Some(option) = accepted_option(options, "env") {
+            validate_process_env_option(option, diagnostics);
+        }
+        if let Some(option) = accepted_option(options, "cwd") {
+            validate_process_cwd_option(option, diagnostics);
+        }
+        if let Some(option) = accepted_option(options, "timeout") {
+            validate_process_timeout_option(option, diagnostics);
+        }
+        if let Some(option) = accepted_option(options, "retry") {
+            validate_process_retry_option(option, diagnostics);
+        }
+        if let Some(option) = accepted_option(options, "allow_failure") {
+            validate_process_allow_failure_option(option, diagnostics);
+        }
+    }
+}
+
+fn validate_process_env_option(option: &WithOptionInfo, diagnostics: &mut Vec<Diagnostic>) {
+    let trimmed = option.value.trim();
+    let Some(inner) = trimmed
+        .strip_prefix('{')
+        .and_then(|value| value.strip_suffix('}'))
+    else {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-ENV-001",
+            option.line,
+            "`env` expects an inline object.",
+            Some("Use `env = { NAME = \"value\" }` with portable environment variable names."),
+        ));
+        return;
+    };
+    for entry in split_top_level(inner, &[',', ';']) {
+        let Some((key, value)) = entry.split_once('=') else {
+            diagnostics.push(Diagnostic::error(
+                "E-PROCESS-ENV-001",
+                option.line,
+                &format!("Process env entry `{entry}` must use `NAME = value`."),
+                Some("Use `env = { NAME = \"value\" }`."),
+            ));
+            continue;
+        };
+        let key = key.trim();
+        if !is_process_env_key(key) {
+            diagnostics.push(Diagnostic::error(
+                "E-PROCESS-ENV-001",
+                option.line,
+                &format!("Process env key `{key}` is not portable."),
+                Some("Use ASCII names such as `OMP_NUM_THREADS` or `CASE_ID`."),
+            ));
+        }
+        if value.trim().is_empty() {
+            diagnostics.push(Diagnostic::error(
+                "E-PROCESS-ENV-001",
+                option.line,
+                &format!("Process env key `{key}` has an empty value expression."),
+                Some("Provide a string, args value, path expression, or numeric literal."),
+            ));
+        }
+    }
+}
+
+fn is_process_env_key(key: &str) -> bool {
+    let mut chars = key.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
+}
+
+fn validate_process_cwd_option(option: &WithOptionInfo, diagnostics: &mut Vec<Diagnostic>) {
+    let value = option.value.trim();
+    if value.is_empty()
+        || matches!(value, "true" | "false")
+        || numeric_literal_with_optional_unit(value).is_some()
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-CWD-001",
+            option.line,
+            &format!("Process cwd `{value}` is not a path expression."),
+            Some("Use a string, `dir(...)`, `join(...)`, `args.<name>`, or a bound DirectoryPath."),
+        ));
+    }
+}
+
+fn validate_process_timeout_option(option: &WithOptionInfo, diagnostics: &mut Vec<Diagnostic>) {
+    if parse_duration_option_seconds(&option.value).is_none() {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-TIMEOUT",
+            option.line,
+            &format!("Process timeout `{}` is invalid.", option.value.trim()),
+            Some("Use a positive duration with units such as `10 s`, `10 min`, or `1 h`."),
+        ));
+    }
+}
+
+fn validate_process_retry_option(option: &WithOptionInfo, diagnostics: &mut Vec<Diagnostic>) {
+    const MAX_PROCESS_RETRY_ATTEMPTS: usize = 5;
+    let raw = option.value.trim();
+    let Ok(value) = raw.parse::<usize>() else {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-RETRY-POLICY",
+            option.line,
+            &format!("Process retry policy `{raw}` is not a whole number."),
+            Some("Use `retry = 0` to disable retries or an integer from 1 to 5."),
+        ));
+        return;
+    };
+    if value > MAX_PROCESS_RETRY_ATTEMPTS {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-RETRY-POLICY",
+            option.line,
+            &format!("Process retry policy `{value}` exceeds the maximum of {MAX_PROCESS_RETRY_ATTEMPTS}."),
+            Some("Use a retry count from 0 to 5."),
+        ));
+    }
+}
+
+fn validate_process_allow_failure_option(
+    option: &WithOptionInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if !matches!(
+        option.value.trim().to_ascii_lowercase().as_str(),
+        "true" | "false"
+    ) {
+        diagnostics.push(Diagnostic::error(
+            "E-PROCESS-ALLOW-FAILURE",
+            option.line,
+            &format!(
+                "`allow_failure` expects true or false, got `{}`.",
+                option.value.trim()
+            ),
+            Some("Use `allow_failure = true` only when a failed process is expected data."),
+        ));
     }
 }
 

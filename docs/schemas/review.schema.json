@@ -632,6 +632,24 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "env": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "timeout": { "type": ["string", "null"] },
+        "retry": { "type": "integer", "minimum": 0 },
+        "attempt_count": { "type": "integer", "minimum": 1 },
+        "allow_failure": { "type": "boolean" },
+        "timed_out": { "type": "boolean" },
+        "exit_code": { "type": ["integer", "null"] },
+        "duration_ms": { "type": "integer", "minimum": 0 },
+        "expected_output_status": { "type": "string" },
+        "stdout_hash": { "type": "string" },
+        "stderr_hash": { "type": "string" },
+        "output_artifacts": {
+          "type": "array",
+          "items": { "type": "object" }
+        },
         "status_code": { "type": ["integer", "null"], "minimum": 100 },
         "status_class": {
           "enum": [

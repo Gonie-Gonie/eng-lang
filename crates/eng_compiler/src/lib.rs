@@ -74,9 +74,10 @@ pub use semantic::{
     EquationInfo, EquationIrInfo, ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo,
     FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo,
     ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo,
-    PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo,
-    StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo,
-    TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    PortInfo, PrintInfo, ProcessRunInfo, ResidualInfo, SemanticProgram, SemanticType,
+    SolverPlanInfo, StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo,
+    TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo,
+    WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -9764,6 +9765,32 @@ system Envelope {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-PROCESS-CMD-001" && diagnostic.line == 3));
+    }
+
+    #[test]
+    fn rejects_invalid_process_spec_options() {
+        let report = check_source(
+            "bad.eng",
+            "process_result = run command \"cmd\"\nwith {\n    env = [\"BAD\"]\n    cwd = true\n    timeout = never\n    retry = many\n    allow_failure = sometimes\n}\n",
+            &CheckOptions::default(),
+        );
+
+        for code in [
+            "E-PROCESS-ENV-001",
+            "E-PROCESS-CWD-001",
+            "E-PROCESS-TIMEOUT",
+            "E-PROCESS-RETRY-POLICY",
+            "E-PROCESS-ALLOW-FAILURE",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "missing {code}: {:?}",
+                report.diagnostics
+            );
+        }
     }
 
     #[test]

@@ -47,7 +47,13 @@
         "command",
         "tool_version",
         "args",
+        "env",
         "cwd",
+        "timeout",
+        "retry",
+        "attempt_count",
+        "allow_failure",
+        "timed_out",
         "expected_outputs",
         "expected_output_status",
         "exit_code",
@@ -79,8 +85,34 @@
             "type": "string"
           }
         },
+        "env": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
         "cwd": {
           "type": "string"
+        },
+        "timeout": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retry": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "attempt_count": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "allow_failure": {
+          "type": "boolean"
+        },
+        "timed_out": {
+          "type": "boolean"
         },
         "expected_outputs": {
           "type": "array",
@@ -124,7 +156,8 @@
           "enum": [
             "completed",
             "failed_allowed",
-            "output_missing_allowed"
+            "output_missing_allowed",
+            "timed_out_allowed"
           ]
         },
         "line": {

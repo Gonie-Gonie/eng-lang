@@ -95,8 +95,9 @@ review material. It is not a broad solver claim.
   native `render template` generated inputs with render manifests, CSV
   overwrite hardening, and `output_manifest.json`.
 - Structured `log debug/info/warn/error` and `run_log.json`.
-- Explicit `run command`, `ProcessResult`, `tool_version`, expected-output
-  contracts, stdout/stderr hashes, and `process_results.json`.
+- Explicit `run command`, `ProcessResult`, `env`, `timeout`, `retry`,
+  `tool_version`, expected-output contracts, stdout/stderr hashes, and
+  `process_results.json`.
 - Named `test` blocks, checked assertions, golden artifact comparisons, and
   `test_results.json`.
 - `eng run --profile safe|normal|repro` runtime policy basics.

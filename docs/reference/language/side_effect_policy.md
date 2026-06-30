@@ -104,12 +104,14 @@ Implemented behavior in the current package scope:
   metadata for IDEs and tools.
 - output_manifest.json records the saved run-log artifact.
 - run command statements bind `ProcessResult` values.
-- process options support `args`, `cwd`, and `allow_failure`.
+- process options support `args`, `cwd`, `env`, `timeout`, `retry`, and
+  `allow_failure`.
 - process options support `expected_outputs` for files that must exist after
   the command exits; saved runs record existence and hashes in
   `process_results.json` and `output_manifest.json`.
-- saved runs write `process_results.json` with command, args, cwd, exit code,
-  stdout, stderr, duration, expected outputs, status, and line metadata.
+- saved runs write `process_results.json` with command, args, env keys, cwd,
+  timeout, retry, attempt count, allow-failure policy, timed-out state, exit
+  code, stdout, stderr, duration, expected outputs, status, and line metadata.
 - output_manifest.json records the saved process-results artifact.
 - test blocks group runtime assertions and golden artifact comparisons.
 - assert operands are checked for compatible quantity dimensions.
@@ -249,7 +251,13 @@ stderr_hash
 command
 tool_version
 args
+env
 cwd
+timeout
+retry
+attempt_count
+allow_failure
+timed_out
 duration
 status
 line
@@ -260,14 +268,19 @@ Implemented rules:
 ```text
 - `run command` must bind a result, for example `result = run command "cmd"`
 - args are string arrays such as `args = ["/C", "echo", "ok"]`
+- env is an inline object with portable environment variable names
 - cwd is a typed path expression resolved source-relative when relative
+- timeout is a positive duration such as `10 s`, `10 min`, or `1 h`
+- retry is an integer from 0 to 5 and repeats failed, timed-out, or
+  missing-output attempts
 - tool_version is an explicit string metadata option recorded in review and
   process artifacts
 - stdout and stderr are recorded with stable hashes for compact comparison
 - expected outputs are path-expression arrays resolved relative to the process
   cwd and recorded with existence status plus file hashes when readable
-- non-zero exit codes fail the run by default
-- `with { allow_failure = true }` records a failed process as a ProcessResult
+- non-zero exit codes and timeouts fail the run by default
+- `with { allow_failure = true }` records a failed or timed-out process as a
+  ProcessResult
 - process results are written to build/result/process_results.json on saved runs
 ```
 
