@@ -2378,6 +2378,7 @@ function renderEffectsPanel() {
 
 function renderNetworkPanel() {
   const network = inspectorObject("networkCache");
+  const boundaries = Array.isArray(network.networkBoundaries) ? network.networkBoundaries : [];
   const requests = Array.isArray(network.networkRequests) ? network.networkRequests : [];
   const events = Array.isArray(network.networkEvents) ? network.networkEvents : [];
   const caches = Array.isArray(network.manifestCaches) ? network.manifestCaches : [];
@@ -2385,15 +2386,47 @@ function renderNetworkPanel() {
   return `
     <div class="panel-title compact">Network / Cache</div>
     <div class="badges">
+      <span class="badge">Boundaries ${boundaries.length}</span>
       <span class="badge">Requests ${requests.length || events.length}</span>
       <span class="badge">Cache ${caches.length || cacheEvents.length}</span>
     </div>
     <div class="scroll">
+      <div class="panel-title compact">Network Boundaries</div>
+      ${renderNetworkBoundaries(boundaries)}
       <div class="panel-title compact">Network Events</div>
       ${renderNetworkEvents(events, requests)}
       <div class="panel-title compact">Cache Events</div>
       ${renderCacheEvents(cacheEvents, caches)}
     </div>
+  `;
+}
+
+function renderNetworkBoundaries(boundaries) {
+  const rows = boundaries.map((boundary) => {
+    const query = Array.isArray(boundary.query) ? boundary.query : [];
+    const bodyLimit = boundary.body_size_limit_bytes ?? boundary.bodySizeLimitBytes;
+    const policy = [
+      boundary.retry !== undefined && boundary.retry !== null ? `retry ${boundary.retry}` : "",
+      boundary.timeout ? `timeout ${boundary.timeout}` : "",
+      bodyLimit !== undefined && bodyLimit !== null ? `limit ${bodyLimit} B` : "",
+      query.length ? `query ${query.length}` : "",
+    ].filter(Boolean).join("; ") || "-";
+    return `
+      <tr>
+        <td><strong>${escapeHtml(boundary.kind || "-")}</strong><div class="muted">${escapeHtml(boundary.binding || boundary.target || "-")}</div></td>
+        <td>${escapeHtml(boundary.status || "-")}<div class="muted">${escapeHtml(boundary.status_class || boundary.statusClass || "-")} ${escapeHtml(boundary.status_code ?? boundary.statusCode ?? "")}</div></td>
+        <td><code>${escapeHtml(compactText(boundary.url || boundary.target || "-", 90))}</code></td>
+        <td>${escapeHtml(policy)}</td>
+        <td><code>${escapeHtml(compactText(boundary.response_hash || boundary.responseHash || "-", 68))}</code><div class="muted"><code>${escapeHtml(compactText(boundary.expected_sha256 || boundary.expectedSha256 || "-", 68))}</code></div></td>
+        <td>${sourceLineButton(boundary)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Boundary</th><th>Status</th><th>URL / Target</th><th>Policy</th><th>Observed / Expected</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No network boundaries.</td></tr>`}</tbody>
+    </table>
   `;
 }
 

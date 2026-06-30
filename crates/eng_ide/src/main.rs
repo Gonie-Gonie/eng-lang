@@ -643,6 +643,7 @@ fn run_source_file(
         &RunOptions {
             open_report: false,
             save_artifacts: false,
+            skip_unchanged: false,
             args: Vec::new(),
             profile,
         },
@@ -710,6 +711,7 @@ fn run_virtual_source_file(
         &RunOptions {
             open_report: false,
             save_artifacts: false,
+            skip_unchanged: false,
             args: Vec::new(),
             profile,
         },
@@ -1119,7 +1121,7 @@ fn runtime_inspectors(root: &Path, output: &CachedRunOutput) -> InspectorView {
     let output_manifest = output_manifest_inspector(root, output);
     let run_log = parse_json_value(&output.run_log_json);
     let effect_records = effect_records_inspector(&output_manifest, &run_log);
-    let network_cache = network_cache_inspector(&output_manifest, &run_log);
+    let network_cache = network_cache_inspector(&result, &output_manifest, &run_log);
     let db_writes = db_writes_inspector(&result, &review, &output_manifest);
     let model_cards = model_cards_inspector(&result);
     let case_manifests = case_manifests_inspector(&result);
@@ -1194,11 +1196,12 @@ fn effect_records_inspector(output_manifest: &Value, run_log: &Value) -> Value {
     })
 }
 
-fn network_cache_inspector(output_manifest: &Value, run_log: &Value) -> Value {
+fn network_cache_inspector(result: &Value, output_manifest: &Value, run_log: &Value) -> Value {
     let registry = output_manifest
         .get("artifact_registry")
         .cloned()
         .unwrap_or(Value::Null);
+    let network_boundaries = typed_payload_array_clone(result, "network_boundaries");
     let network_requests = registry
         .get("network_requests")
         .and_then(Value::as_array)
@@ -1221,6 +1224,7 @@ fn network_cache_inspector(output_manifest: &Value, run_log: &Value) -> Value {
         .unwrap_or_default();
     json!({
         "format": "eng-ide-network-cache-v1",
+        "networkBoundaries": network_boundaries,
         "networkRequests": network_requests,
         "networkEvents": network_events,
         "manifestCaches": manifest_caches,
@@ -4169,6 +4173,27 @@ mod tests {
     #[test]
     fn ide_surfaces_network_cache_inspector() {
         let mut cached = cached_output_with_result_report_and_review("{}", "{}", "{}");
+        cached.result_json = r#"{
+          "typed_payload": {
+            "network_boundaries": [
+              {
+                "kind": "http_get",
+                "binding": "weather",
+                "url": "https://example.test/weather",
+                "status": "fixture",
+                "status_code": 200,
+                "status_class": "success",
+                "response_hash": "net-hash",
+                "expected_sha256": "net-hash",
+                "retry": 2,
+                "timeout": "30 s",
+                "body_size_limit_bytes": 2000000,
+                "line": 4
+              }
+            ]
+          }
+        }"#
+        .to_owned();
         cached.run_log_json = r#"{
           "network_events": [
             {
@@ -4227,6 +4252,22 @@ mod tests {
                 .and_then(Value::as_str)
                 .unwrap_or_default(),
             "eng-ide-network-cache-v1"
+        );
+        assert_eq!(
+            network_cache
+                .get("networkBoundaries")
+                .and_then(Value::as_array)
+                .map(Vec::len),
+            Some(1)
+        );
+        assert_eq!(
+            network_cache
+                .get("networkBoundaries")
+                .and_then(Value::as_array)
+                .and_then(|items| items.first())
+                .and_then(|item| json_field_string(item, "expected_sha256"))
+                .as_deref(),
+            Some("net-hash")
         );
         assert_eq!(
             network_cache
