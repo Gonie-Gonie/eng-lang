@@ -19,8 +19,8 @@ pub mod solver;
 mod vm;
 
 use artifact::{
-    ArtifactRecord, ArtifactValidation, ExternalBoundaryRecord, OutputArtifact, OutputManifest,
-    SourceRecord,
+    ArtifactRecord, ArtifactValidation, ExternalBoundaryRecord, ModelArtifactRecord,
+    OutputArtifact, OutputManifest, SourceRecord,
 };
 use runtime_data::{
     materialize_runtime_data, RuntimeCaseManifest, RuntimeCaseMetric, RuntimeCaseProcessStatus,
@@ -2982,6 +2982,48 @@ fn artifact_records_for_outputs(artifacts: &[OutputArtifact]) -> Vec<ArtifactRec
         .collect()
 }
 
+fn model_artifact_records_for_registry(
+    registry: &ArtifactRegistryContext<'_>,
+) -> Vec<ModelArtifactRecord> {
+    registry
+        .runtime_data
+        .ml_artifacts
+        .iter()
+        .filter(|artifact| artifact.model_artifact_hash.is_some() || artifact.model_card.is_some())
+        .map(|artifact| {
+            let hash = artifact
+                .model_artifact_hash
+                .clone()
+                .or_else(|| artifact.model_card.as_ref().map(|card| hash_text(card)))
+                .unwrap_or_else(|| hash_text(&artifact.binding));
+            ModelArtifactRecord {
+                artifact: ArtifactRecord {
+                    kind: "model_artifact".to_owned(),
+                    class: "model".to_owned(),
+                    path: format!("model://{}", artifact.binding),
+                    hash,
+                    status: artifact.status.clone(),
+                    validation: artifact_validation(
+                        "passed",
+                        "model_artifact_hash",
+                        "model artifact hash was recorded",
+                    ),
+                },
+                binding: artifact.binding.clone(),
+                kind: artifact.kind.clone(),
+                source: artifact.source.clone(),
+                target: artifact.target.clone(),
+                target_quantity: artifact.target_quantity.clone(),
+                target_unit: artifact.display_unit.clone(),
+                training_data_hash: artifact.training_data_hash.clone(),
+                model_artifact_hash: artifact.model_artifact_hash.clone(),
+                status: artifact.status.clone(),
+                line: artifact.line,
+            }
+        })
+        .collect()
+}
+
 fn external_boundary_records_for_run(
     report: &CheckReport,
     processes: &[ProcessExecutionRecord],
@@ -3286,27 +3328,7 @@ fn push_artifact_registry_json(
             json.push_str(",\n");
         }
         json.push_str("      {\n");
-        json.push_str(&format!(
-            "        \"kind\": \"{}\",\n",
-            json_escape(&record.kind)
-        ));
-        json.push_str(&format!(
-            "        \"class\": \"{}\",\n",
-            json_escape(&record.class)
-        ));
-        json.push_str(&format!(
-            "        \"path\": \"{}\",\n",
-            json_escape(&record.path)
-        ));
-        json.push_str(&format!(
-            "        \"hash\": \"{}\",\n",
-            json_escape(&record.hash)
-        ));
-        json.push_str(&format!(
-            "        \"status\": \"{}\",\n",
-            json_escape(&record.status)
-        ));
-        push_artifact_validation_json(json, &record.validation, 8);
+        push_artifact_record_fields_json(json, record, 8);
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -3418,55 +3440,54 @@ fn push_artifact_registry_json(
     json.push_str("\n    ],\n");
 
     json.push_str("    \"model_artifacts\": [\n");
-    let mut model_index = 0usize;
-    for artifact in registry
-        .runtime_data
-        .ml_artifacts
+    for (index, record) in model_artifact_records_for_registry(registry)
         .iter()
-        .filter(|artifact| artifact.model_artifact_hash.is_some() || artifact.model_card.is_some())
+        .enumerate()
     {
-        if model_index > 0 {
+        if index > 0 {
             json.push_str(",\n");
         }
-        model_index += 1;
         json.push_str("      {\n");
+        json.push_str("        \"artifact\": {\n");
+        push_artifact_record_fields_json(json, &record.artifact, 10);
+        json.push_str("        },\n");
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
-            json_escape(&artifact.binding)
+            json_escape(&record.binding)
         ));
         json.push_str(&format!(
             "        \"kind\": \"{}\",\n",
-            json_escape(&artifact.kind)
+            json_escape(&record.kind)
         ));
-        push_optional_json_string_runtime(json, "source", artifact.source.as_deref(), 8);
-        push_optional_json_string_runtime(json, "target", artifact.target.as_deref(), 8);
+        push_optional_json_string_runtime(json, "source", record.source.as_deref(), 8);
+        push_optional_json_string_runtime(json, "target", record.target.as_deref(), 8);
         push_optional_json_string_runtime(
             json,
             "target_quantity",
-            artifact.target_quantity.as_deref(),
+            record.target_quantity.as_deref(),
             8,
         );
         json.push_str(&format!(
             "        \"target_unit\": \"{}\",\n",
-            json_escape(&artifact.display_unit)
+            json_escape(&record.target_unit)
         ));
         push_optional_json_string_runtime(
             json,
             "training_data_hash",
-            artifact.training_data_hash.as_deref(),
+            record.training_data_hash.as_deref(),
             8,
         );
         push_optional_json_string_runtime(
             json,
             "model_artifact_hash",
-            artifact.model_artifact_hash.as_deref(),
+            record.model_artifact_hash.as_deref(),
             8,
         );
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&artifact.status)
+            json_escape(&record.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", artifact.line));
+        json.push_str(&format!("        \"line\": {}\n", record.line));
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -3501,6 +3522,31 @@ fn push_artifact_registry_json(
         json.push_str("      }");
     }
     json.push_str("\n    ]");
+}
+
+fn push_artifact_record_fields_json(json: &mut String, record: &ArtifactRecord, indent: usize) {
+    let padding = " ".repeat(indent);
+    json.push_str(&format!(
+        "{padding}\"kind\": \"{}\",\n",
+        json_escape(&record.kind)
+    ));
+    json.push_str(&format!(
+        "{padding}\"class\": \"{}\",\n",
+        json_escape(&record.class)
+    ));
+    json.push_str(&format!(
+        "{padding}\"path\": \"{}\",\n",
+        json_escape(&record.path)
+    ));
+    json.push_str(&format!(
+        "{padding}\"hash\": \"{}\",\n",
+        json_escape(&record.hash)
+    ));
+    json.push_str(&format!(
+        "{padding}\"status\": \"{}\",\n",
+        json_escape(&record.status)
+    ));
+    push_artifact_validation_json(json, &record.validation, indent);
 }
 
 fn push_artifact_validation_json(
@@ -10430,6 +10476,31 @@ mod tests {
         assert!(output
             .run_log_json
             .contains("\"target\": \"outputs/results.sqlite\""));
+    }
+
+    #[test]
+    fn run_file_records_model_artifact_records() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_path = repo_root.join("examples/internal/05_data_driven_modeling/main.eng");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-model-artifact-records");
+        let _ = fs::remove_dir_all(&build_root);
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        assert!(output.output_manifest_json.contains("\"model_artifacts\""));
+        assert!(output.output_manifest_json.contains("\"artifact\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"model_artifact\""));
+        assert!(output.output_manifest_json.contains("\"class\": \"model\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"model_artifact_hash\""));
     }
 
     #[test]

@@ -188,6 +188,7 @@
             "external_boundary",
             "cache",
             "db_write",
+            "model",
             "test"
           ]
         },
@@ -356,6 +357,7 @@
     "modelRecord": {
       "type": "object",
       "required": [
+        "artifact",
         "binding",
         "kind",
         "source",
@@ -368,6 +370,9 @@
         "line"
       ],
       "properties": {
+        "artifact": {
+          "$ref": "#/$defs/artifactRecord"
+        },
         "binding": {
           "type": "string"
         },

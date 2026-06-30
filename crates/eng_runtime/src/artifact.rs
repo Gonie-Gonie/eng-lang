@@ -44,6 +44,21 @@ pub(crate) struct ExternalBoundaryRecord {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub(crate) struct ModelArtifactRecord {
+    pub artifact: ArtifactRecord,
+    pub binding: String,
+    pub kind: String,
+    pub source: Option<String>,
+    pub target: Option<String>,
+    pub target_quantity: Option<String>,
+    pub target_unit: String,
+    pub training_data_hash: Option<String>,
+    pub model_artifact_hash: Option<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub(crate) struct OutputArtifact {
     pub kind: String,
     pub path: String,
