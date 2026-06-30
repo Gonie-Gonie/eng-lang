@@ -211,6 +211,11 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     );
     semantic_output
         .diagnostics
+        .extend(validate_structured_read_parse_diagnostics(
+            &semantic_output.semantic_program.environment_dependencies,
+        ));
+    semantic_output
+        .diagnostics
         .extend(semantic::validate_simulation_contracts(
             &semantic_output.semantic_program,
             &semantic_output.inferred_declarations,
@@ -793,6 +798,50 @@ fn evaluate_read_expression(
             source_hash: None,
             status: "missing".to_owned(),
         }),
+    }
+}
+
+fn validate_structured_read_parse_diagnostics(
+    dependencies: &[EnvironmentDependencyInfo],
+) -> Vec<Diagnostic> {
+    dependencies
+        .iter()
+        .filter_map(|dependency| {
+            let kind = dependency.kind.strip_prefix("filesystem_read_")?;
+            if dependency.status != "read" || !matches!(kind, "json" | "toml") {
+                return None;
+            }
+            let source = fs::read_to_string(&dependency.resolved_value).ok()?;
+            structured_read_parse_error(kind, &source).map(|error| {
+                let (code, label) = match kind {
+                    "json" => ("E-IO-JSON-PARSE", "JSON"),
+                    "toml" => ("E-IO-TOML-PARSE", "TOML"),
+                    _ => unreachable!(),
+                };
+                Diagnostic::error(
+                    code,
+                    dependency.line,
+                    &format!(
+                        "read {kind} source `{}` is not valid {label}: {error}",
+                        dependency.resolved_value
+                    ),
+                    Some("Fix the source file syntax, or use `read text` if raw UTF-8 content is intended."),
+                )
+            })
+        })
+        .collect()
+}
+
+fn structured_read_parse_error(kind: &str, source: &str) -> Option<String> {
+    match kind {
+        "json" => serde_json::from_str::<serde_json::Value>(source)
+            .err()
+            .map(|error| error.to_string()),
+        "toml" => source
+            .parse::<toml::Value>()
+            .err()
+            .map(|error| error.to_string()),
+        _ => None,
     }
 }
 
@@ -6807,6 +6856,32 @@ mod tests {
         assert!(review.contains("\"filesystem_read_json\""));
         assert!(review.contains("\"filesystem_read_toml\""));
         assert!(review.contains("\"source_hash\""));
+    }
+
+    #[test]
+    fn rejects_invalid_structured_read_sources() {
+        let root = std::env::temp_dir().join("englang-structured-read-parse-test");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("bad.json"), "{ \"case\": ").expect("json");
+        fs::write(root.join("data").join("bad.toml"), "case = ").expect("toml");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "json_text = read json file(\"data/bad.json\")\ntoml_text = read toml file(\"data/bad.toml\")\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == "E-IO-JSON-PARSE" && diagnostic.line == 1 }));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| { diagnostic.code == "E-IO-TOML-PARSE" && diagnostic.line == 2 }));
     }
 
     #[test]

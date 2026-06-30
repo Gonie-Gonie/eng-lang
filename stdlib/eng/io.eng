@@ -18,6 +18,10 @@
 #   output_manifest.json.
 #   structured json/toml promotion remains a future eng.config boundary.
 #
+# Diagnostics:
+#   E-IO-JSON-PARSE: read json source is not valid JSON.
+#   E-IO-TOML-PARSE: read toml source is not valid TOML.
+#
 # Pure .eng helpers:
 #   none yet. Importable stdlib execution is planned; current behavior lives in
 #   compiler/runtime built-ins.

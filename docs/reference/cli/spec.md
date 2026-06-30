@@ -98,6 +98,8 @@ E-PROCESS-BINDING-002  ProcessResult binding conflicts with an existing binding
 E-PATH-INVALID         generated output path is empty
 E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
 E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted
+E-IO-JSON-PARSE        read json source is not valid JSON
+E-IO-TOML-PARSE        read toml source is not valid TOML
 E-TEST-001             test block syntax is invalid
 E-TEST-NAME-001        test block name is missing or invalid
 E-ASSERT-001           assert is outside a test block
