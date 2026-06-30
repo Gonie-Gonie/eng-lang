@@ -10797,6 +10797,9 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
     if crate::table::is_sort_expression(expression) {
         return semantic_type("TableTransform[Sort]", "eng.table");
     }
+    if crate::table::is_derive_expression(expression) {
+        return semantic_type("TableTransform[Derive]", "eng.table");
+    }
     if crate::table::is_join_expression(expression) {
         return semantic_type("TableTransform[Join]", "eng.table");
     }

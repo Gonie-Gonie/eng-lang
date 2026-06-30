@@ -7762,6 +7762,36 @@ fn push_table_transform_json(
         json.push_str(&format!("{nested_indent}}}"));
     }
     json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!("{field_indent}\"derived_columns\": [\n"));
+    for (column_index, column) in transform.derived_columns.iter().enumerate() {
+        if column_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"name\": \"{}\",\n",
+            json_escape(&column.name)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"expression\": \"{}\",\n",
+            json_escape(&column.expression)
+        ));
+        json.push_str(&format!("{nested_indent}  \"source_columns\": ["));
+        for (source_index, source_column) in column.source_columns.iter().enumerate() {
+            if source_index > 0 {
+                json.push_str(", ");
+            }
+            json.push_str(&format!("\"{}\"", json_escape(source_column)));
+        }
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "{nested_indent}  \"status\": \"{}\",\n",
+            json_escape(&column.status)
+        ));
+        json.push_str(&format!("{nested_indent}  \"line\": {}\n", column.line));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
     json.push_str(&format!("{field_indent}\"sort_keys\": [\n"));
     for (key_index, key) in transform.sort_keys.iter().enumerate() {
         if key_index > 0 {
@@ -9209,6 +9239,67 @@ mod tests {
             .contains("\"matched_row_indices\": [2, 1]"));
         assert!(output.review_json.contains("\"operation\": \"sort\""));
         assert!(output.review_json.contains("\"sort_keys\""));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_derive_transform_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-derive-run");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-derive-run-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("station_map.csv"),
+            concat!(
+                "station_id,longitude\n",
+                "STN001,126.9780\n",
+                "STN002,129.0756\n",
+            ),
+        )
+        .expect("station map csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema StationMap {\n",
+                "    station_id: String\n",
+                "    longitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "station_plus = derive stations column longitude_copy = longitude\n",
+                "report {\n",
+                "    show station_plus\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"operation\": \"derive\""));
+        assert!(output
+            .result_json
+            .contains("\"status\": \"derived_columns\""));
+        assert!(output.result_json.contains("\"input_row_count\": 2"));
+        assert!(output.result_json.contains("\"output_row_count\": 2"));
+        assert!(output.result_json.contains("\"derived_columns\""));
+        assert!(output.result_json.contains("\"name\": \"longitude_copy\""));
+        assert!(output
+            .result_json
+            .contains("\"source_columns\": [\"longitude\"]"));
+        assert!(output.review_json.contains("\"operation\": \"derive\""));
+        assert!(output.review_json.contains("\"derived_columns\""));
         assert!(!virtual_path.exists());
     }
 

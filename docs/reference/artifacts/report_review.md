@@ -690,7 +690,8 @@ Each selection entry records the source table, return column, filters, matched
 row count, selected row values, status, reason, and source line.
 
 `filter <table>` with a `where { ... }` predicate block,
-`select <table> columns a, b`, `sort <table> by column`, `require_one <source>`, and
+`select <table> columns a, b`, `derive <table> column name = expression`,
+`sort <table> by column`, `require_one <source>`, and
 `join <left> with <right>` with an `on { left.key == right.key }` block now
 add schema-aware transform records:
 
@@ -701,9 +702,10 @@ result.engres               typed_payload.table_transforms
 ```
 
 Each transform entry records the binding, operation, source table, optional
-secondary table, schema, selected columns, sort keys, predicate metadata, join keys,
-input/output row counts, matched row indices or pair counts, status, reason,
-and source line. General table derive/fill transforms remain planned.
+secondary table, schema, selected columns, derived columns, sort keys,
+predicate metadata, join keys, input/output row counts, matched row indices or
+pair counts, status, reason, and source line. General table derived-value
+execution and fill transforms remain planned.
 
 ## Manual Checks
 

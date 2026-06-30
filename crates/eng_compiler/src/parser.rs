@@ -2252,6 +2252,7 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "const"
             | "copy"
             | "delete"
+            | "derive"
             | "domain"
             | "download"
             | "export"

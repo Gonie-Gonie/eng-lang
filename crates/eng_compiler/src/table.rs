@@ -40,6 +40,15 @@ pub struct TableSortKeyInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TableDerivedColumnInfo {
+    pub name: String,
+    pub expression: String,
+    pub source_columns: Vec<String>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableTransformInfo {
     pub binding: String,
     pub operation: String,
@@ -48,6 +57,7 @@ pub struct TableTransformInfo {
     pub schema_name: Option<String>,
     pub selected_columns: Vec<TableColumnInfo>,
     pub sort_keys: Vec<TableSortKeyInfo>,
+    pub derived_columns: Vec<TableDerivedColumnInfo>,
     pub predicates: Vec<TablePredicateInfo>,
     pub join_keys: Vec<TableJoinKeyInfo>,
     pub status: String,
@@ -86,6 +96,7 @@ pub fn analyze_table_transforms(
                 secondary_table: None,
                 selected_columns: Vec::new(),
                 sort_keys: Vec::new(),
+                derived_columns: Vec::new(),
                 predicates,
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -109,6 +120,7 @@ pub fn analyze_table_transforms(
                 secondary_table: None,
                 selected_columns,
                 sort_keys: Vec::new(),
+                derived_columns: Vec::new(),
                 predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -132,6 +144,34 @@ pub fn analyze_table_transforms(
                 secondary_table: None,
                 selected_columns: Vec::new(),
                 sort_keys,
+                derived_columns: Vec::new(),
+                predicates: Vec::new(),
+                join_keys: Vec::new(),
+                status: "declared".to_owned(),
+                line: binding.line,
+            });
+        } else if let Some((source_table, name, expression)) =
+            parse_derive_expression(&binding.expression)
+        {
+            let derived_columns = derived_columns_for_transform(
+                program,
+                &analysis.transforms,
+                &source_table,
+                name,
+                expression,
+                binding.line,
+                &mut analysis.diagnostics,
+            );
+            let schema_name = schema_name_for_source(program, &analysis.transforms, &source_table);
+            analysis.transforms.push(TableTransformInfo {
+                binding: binding.name.clone(),
+                operation: "derive".to_owned(),
+                schema_name,
+                source_table,
+                secondary_table: None,
+                selected_columns: Vec::new(),
+                sort_keys: Vec::new(),
+                derived_columns,
                 predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -153,6 +193,7 @@ pub fn analyze_table_transforms(
                 secondary_table: None,
                 selected_columns: Vec::new(),
                 sort_keys: Vec::new(),
+                derived_columns: Vec::new(),
                 predicates: Vec::new(),
                 join_keys: Vec::new(),
                 status: "declared".to_owned(),
@@ -183,6 +224,7 @@ pub fn analyze_table_transforms(
                 schema_name,
                 selected_columns: Vec::new(),
                 sort_keys: Vec::new(),
+                derived_columns: Vec::new(),
                 predicates: Vec::new(),
                 join_keys,
                 status: "declared".to_owned(),
@@ -209,6 +251,10 @@ pub fn is_sort_expression(expression: &str) -> bool {
     parse_sort_expression(expression).is_some()
 }
 
+pub fn is_derive_expression(expression: &str) -> bool {
+    parse_derive_expression(expression).is_some()
+}
+
 pub fn is_join_expression(expression: &str) -> bool {
     parse_join_expression(expression).is_some()
 }
@@ -233,6 +279,24 @@ fn parse_sort_expression(expression: &str) -> Option<(String, Vec<(String, Strin
     let source = expression.trim().strip_prefix("sort ")?.trim();
     let (source_table, keys) = source.split_once(" by ")?;
     Some((simple_identifier(source_table)?, parse_sort_key_list(keys)))
+}
+
+fn parse_derive_expression(expression: &str) -> Option<(String, String, String)> {
+    let source = expression.trim().strip_prefix("derive ")?.trim();
+    let (source_table, rest) = source
+        .split_once(" column ")
+        .or_else(|| source.split_once(" columns "))?;
+    let (name, expression) = rest.split_once('=')?;
+    let name = simple_identifier(name.trim())?;
+    let expression = expression.trim();
+    if expression.is_empty() {
+        return None;
+    }
+    Some((
+        simple_identifier(source_table)?,
+        name,
+        expression.to_owned(),
+    ))
 }
 
 fn parse_join_expression(expression: &str) -> Option<(String, String)> {
@@ -378,6 +442,39 @@ fn sort_keys_for_transform(
             }
         })
         .collect()
+}
+
+fn derived_columns_for_transform(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    source_table: &str,
+    name: String,
+    expression: String,
+    line: usize,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<TableDerivedColumnInfo> {
+    let source_columns = expression_columns(&expression);
+    let mut status = "accepted".to_owned();
+    for column in &source_columns {
+        if !source_has_column(program, transforms, source_table, column) {
+            diagnostics.push(Diagnostic::error(
+                "E-TABLE-UNKNOWN-COLUMN",
+                line,
+                &format!(
+                    "Table `{source_table}` does not have source column `{column}` used by derived column `{name}`."
+                ),
+                Some("Use columns declared in the promoted table schema or prior table transform."),
+            ));
+            status = "unknown_column".to_owned();
+        }
+    }
+    vec![TableDerivedColumnInfo {
+        name,
+        expression,
+        source_columns,
+        status,
+        line,
+    }]
 }
 
 fn join_keys_for_owner(
@@ -531,7 +628,10 @@ fn validate_join_key_columns(
         return;
     }
     let left_column = schema_column_for_source(program, transforms, left_table, &key.left_column);
-    if left_column.is_none() && schema_name_for_source(program, transforms, left_table).is_some() {
+    if left_column.is_none()
+        && !source_has_column(program, transforms, left_table, &key.left_column)
+        && schema_name_for_source(program, transforms, left_table).is_some()
+    {
         diagnostics.push(Diagnostic::error(
             "E-TABLE-UNKNOWN-COLUMN",
             key.line,
@@ -544,7 +644,9 @@ fn validate_join_key_columns(
     }
     let right_column =
         schema_column_for_source(program, transforms, right_table, &key.right_column);
-    if right_column.is_none() && schema_name_for_source(program, transforms, right_table).is_some()
+    if right_column.is_none()
+        && !source_has_column(program, transforms, right_table, &key.right_column)
+        && schema_name_for_source(program, transforms, right_table).is_some()
     {
         diagnostics.push(Diagnostic::error(
             "E-TABLE-UNKNOWN-COLUMN",
@@ -673,6 +775,46 @@ fn predicate_columns(expression: &str) -> Vec<String> {
         .unwrap_or_default()
 }
 
+fn expression_columns(expression: &str) -> Vec<String> {
+    let mut columns = Vec::new();
+    let chars = expression.char_indices().collect::<Vec<_>>();
+    let mut index = 0usize;
+    while index < chars.len() {
+        let (byte_index, character) = chars[index];
+        if character.is_ascii_alphabetic() || character == '_' {
+            let start = byte_index;
+            let mut end = byte_index + character.len_utf8();
+            index += 1;
+            while index < chars.len() {
+                let (next_byte, next_character) = chars[index];
+                if !is_identifier_part(next_character) {
+                    break;
+                }
+                end = next_byte + next_character.len_utf8();
+                index += 1;
+            }
+            let identifier = &expression[start..end];
+            let next_non_space = expression[end..].chars().find(|next| !next.is_whitespace());
+            if !table_expression_keyword(identifier)
+                && next_non_space != Some('(')
+                && !columns.iter().any(|column| column == identifier)
+            {
+                columns.push(identifier.to_owned());
+            }
+            continue;
+        }
+        index += 1;
+    }
+    columns
+}
+
+fn table_expression_keyword(identifier: &str) -> bool {
+    matches!(
+        identifier.to_ascii_lowercase().as_str(),
+        "and" | "or" | "is" | "not" | "none" | "null" | "true" | "false"
+    )
+}
+
 fn split_logical_expression<'a>(expression: &'a str, keyword: &str) -> Vec<&'a str> {
     let mut parts = Vec::new();
     let mut depth = 0i32;
@@ -726,6 +868,24 @@ fn source_has_column(
     table: &str,
     column: &str,
 ) -> bool {
+    if let Some(transform) = transforms
+        .iter()
+        .find(|transform| transform.binding == table)
+    {
+        if transform.operation == "select" && !transform.selected_columns.is_empty() {
+            return transform
+                .selected_columns
+                .iter()
+                .any(|selected| selected.status == "accepted" && selected.name == column);
+        }
+        if transform
+            .derived_columns
+            .iter()
+            .any(|derived| derived.status == "accepted" && derived.name == column)
+        {
+            return true;
+        }
+    }
     schema_column_for_source(program, transforms, table, column).is_some()
         || schema_name_for_source(program, transforms, table).is_none()
 }

@@ -1,0 +1,21 @@
+schema StationMap {
+    region: String
+    station_id: String
+    valid_from: DateTime
+    valid_to: DateTime
+    latitude: DimensionlessNumber [1]
+    longitude: DimensionlessNumber [1]
+}
+
+args {
+    station_map: CsvFile = file("data/table_station_map.csv")
+}
+
+stations = promote csv args.station_map as StationMap
+station_plus = derive stations column longitude_copy = longitude
+station_fields = select station_plus columns station_id, longitude_copy
+
+report {
+    show station_plus
+    show station_fields
+}

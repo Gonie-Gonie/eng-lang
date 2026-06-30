@@ -80,7 +80,8 @@ pub use semantic::{
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
 pub use table::{
-    TableColumnInfo, TableJoinKeyInfo, TablePredicateInfo, TableSortKeyInfo, TableTransformInfo,
+    TableColumnInfo, TableDerivedColumnInfo, TableJoinKeyInfo, TablePredicateInfo,
+    TableSortKeyInfo, TableTransformInfo,
 };
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
@@ -6023,6 +6024,36 @@ fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
             json.push_str("          }");
         }
         json.push_str("\n        ],\n");
+        json.push_str("        \"derived_columns\": [\n");
+        for (column_index, column) in transform.derived_columns.iter().enumerate() {
+            if column_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"name\": \"{}\",\n",
+                json_escape(&column.name)
+            ));
+            json.push_str(&format!(
+                "            \"expression\": \"{}\",\n",
+                json_escape(&column.expression)
+            ));
+            json.push_str("            \"source_columns\": [");
+            for (source_index, source_column) in column.source_columns.iter().enumerate() {
+                if source_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!("\"{}\"", json_escape(source_column)));
+            }
+            json.push_str("],\n");
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&column.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", column.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str("        \"sort_keys\": [\n");
         for (key_index, key) in transform.sort_keys.iter().enumerate() {
             if key_index > 0 {
@@ -11293,6 +11324,94 @@ system Envelope {
                 "}\n\n",
                 "stations = promote csv args.station_map as StationMap\n",
                 "ordered = sort stations by missing_column\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-TABLE-UNKNOWN-COLUMN"));
+    }
+
+    #[test]
+    fn records_table_derive_columns_transform() {
+        let root = env::temp_dir().join(format!("englang-table-derive-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            "station_id,longitude\nSTN001,126.9\n",
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    station_id: String\n",
+                "    longitude: DimensionlessNumber [1]\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "station_plus = derive stations column longitude_copy = longitude\n",
+                "station_fields = select station_plus columns station_id, longitude_copy\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let transform = report
+            .semantic_program
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == "station_plus")
+            .expect("derive transform");
+        assert_eq!(transform.operation, "derive");
+        assert_eq!(transform.source_table, "stations");
+        assert_eq!(transform.derived_columns.len(), 1);
+        assert_eq!(transform.derived_columns[0].name, "longitude_copy");
+        assert_eq!(transform.derived_columns[0].expression, "longitude");
+        assert_eq!(
+            transform.derived_columns[0].source_columns,
+            vec!["longitude".to_owned()]
+        );
+
+        let review = review_json(&report);
+        assert!(review.contains("\"operation\": \"derive\""));
+        assert!(review.contains("\"derived_columns\""));
+        assert!(review.contains("\"name\": \"longitude_copy\""));
+    }
+
+    #[test]
+    fn diagnoses_unknown_table_derive_source_column() {
+        let root = env::temp_dir().join(format!("englang-table-derive-bad-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("station_map.csv"),
+            "station_id\nSTN001\n",
+        )
+        .expect("station map csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema StationMap {\n",
+                "    station_id: String\n",
+                "}\n\n",
+                "args {\n",
+                "    station_map: CsvFile = file(\"data/station_map.csv\")\n",
+                "}\n\n",
+                "stations = promote csv args.station_map as StationMap\n",
+                "station_plus = derive stations column longitude_copy = longitude\n",
             ),
         )
         .expect("source");

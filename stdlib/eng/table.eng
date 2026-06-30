@@ -1,6 +1,6 @@
 # module: eng.table
-# status: supported diagnostics, row-selection, and filter/select/sort/require_one/join transform seeds; planned broader transform APIs
-# purpose: domain-neutral promoted-table diagnostics, filters, column projection, row ordering, row requirements, joins, derived columns, and schema helpers.
+# status: supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join transform seeds; planned broader transform APIs
+# purpose: domain-neutral promoted-table diagnostics, filters, column projection, derived-column provenance, row ordering, row requirements, joins, and schema helpers.
 #
 # Current implementation:
 #   typed CSV promotion, source-hash provenance, row/column diagnostics,
@@ -8,7 +8,8 @@
 #   through compiler/runtime built-ins for current examples. Deterministic
 #   select_first_row(...) selection over promoted tables is supported as a
 #   narrow artifact seed. Schema-aware `filter <table>` with `where { ... }`
-#   predicates, `select <table> columns a, b`, `sort <table> by column`,
+#   predicates, `select <table> columns a, b`,
+#   `derive <table> column name = expression`, `sort <table> by column`,
 #   `require_one <filtered_table>`, and `join <left> with <right>` plus
 #   `on { left.key == right.key }` are supported as transform record seeds.
 #   These appear in result.engres as
@@ -16,14 +17,14 @@
 #   typed_payload.table_transforms[].
 #
 # Planned helper vocabulary:
-#   derive columns
 #   validate rows
 #
 # Review contract:
 #   source schema, row counts, column counts, missing cells, parse failures,
 #   conversion failures, time-axis coverage, selected row/reason, filter
-#   predicate summaries, selected columns, sort keys, operation row counts,
-#   join keys, matched pair counts, row-level diagnostics, and source spans.
+#   predicate summaries, selected columns, derived columns, sort keys,
+#   operation row counts, join keys, matched pair counts, row-level diagnostics,
+#   and source spans.
 #
 # Non-goal:
 #   this is not a general SQL replacement. Initial operations must stay

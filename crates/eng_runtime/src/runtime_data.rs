@@ -1071,6 +1071,7 @@ pub struct RuntimeTableTransform {
     pub matched_row_indices: Vec<usize>,
     pub selected_columns: Vec<RuntimeTableColumn>,
     pub sort_keys: Vec<RuntimeTableSortKey>,
+    pub derived_columns: Vec<RuntimeTableDerivedColumn>,
     pub predicates: Vec<RuntimeTableTransformPredicate>,
     pub join_keys: Vec<RuntimeTableJoinKey>,
     pub status: String,
@@ -1089,6 +1090,15 @@ pub struct RuntimeTableColumn {
 pub struct RuntimeTableSortKey {
     pub column: String,
     pub direction: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableDerivedColumn {
+    pub name: String,
+    pub expression: String,
+    pub source_columns: Vec<String>,
     pub status: String,
     pub line: usize,
 }
@@ -3949,6 +3959,7 @@ fn materialize_table_transforms(
                     matched_row_indices: one_based_rows(&matched_rows),
                     selected_columns: Vec::new(),
                     sort_keys: Vec::new(),
+                    derived_columns: Vec::new(),
                     predicates,
                     join_keys: Vec::new(),
                     status: "filtered".to_owned(),
@@ -3989,6 +4000,7 @@ fn materialize_table_transforms(
                     matched_row_indices: one_based_rows(&source_rows),
                     selected_columns: runtime_table_columns(&transform.selected_columns),
                     sort_keys: Vec::new(),
+                    derived_columns: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: Vec::new(),
                     status: "selected_columns".to_owned(),
@@ -3996,6 +4008,47 @@ fn materialize_table_transforms(
                         "no selected columns recorded".to_owned()
                     } else {
                         "recorded selected table columns".to_owned()
+                    },
+                    line: transform.line,
+                });
+            }
+            "derive" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name: schema_name.clone(),
+                        rows: source_rows.clone(),
+                    },
+                );
+                records.push(RuntimeTableTransform {
+                    binding: transform.binding.clone(),
+                    operation: transform.operation.clone(),
+                    source_table: transform.source_table.clone(),
+                    secondary_table: transform.secondary_table.clone(),
+                    schema_name,
+                    input_row_count: source_rows.len(),
+                    secondary_input_row_count: None,
+                    output_row_count: source_rows.len(),
+                    matched_row_indices: one_based_rows(&source_rows),
+                    selected_columns: Vec::new(),
+                    sort_keys: Vec::new(),
+                    derived_columns: runtime_table_derived_columns(&transform.derived_columns),
+                    predicates: Vec::new(),
+                    join_keys: Vec::new(),
+                    status: "derived_columns".to_owned(),
+                    reason: if transform.derived_columns.is_empty() {
+                        "no derived columns recorded".to_owned()
+                    } else {
+                        "recorded derived table columns".to_owned()
                     },
                     line: transform.line,
                 });
@@ -4030,6 +4083,7 @@ fn materialize_table_transforms(
                     matched_row_indices: one_based_rows(&sorted_rows),
                     selected_columns: Vec::new(),
                     sort_keys: runtime_table_sort_keys(&transform.sort_keys),
+                    derived_columns: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: Vec::new(),
                     status: "sorted".to_owned(),
@@ -4079,6 +4133,7 @@ fn materialize_table_transforms(
                     matched_row_indices: one_based_rows(&source_rows),
                     selected_columns: Vec::new(),
                     sort_keys: Vec::new(),
+                    derived_columns: Vec::new(),
                     predicates: runtime_table_transform_predicates(
                         report,
                         Some(table),
@@ -4143,6 +4198,7 @@ fn materialize_table_transforms(
                     matched_row_indices: one_based_rows(&matched_left_rows),
                     selected_columns: Vec::new(),
                     sort_keys: Vec::new(),
+                    derived_columns: Vec::new(),
                     predicates: Vec::new(),
                     join_keys: runtime_table_join_keys(
                         left_table,
@@ -4172,6 +4228,7 @@ fn materialize_table_transforms(
                 matched_row_indices: Vec::new(),
                 selected_columns: runtime_table_columns(&transform.selected_columns),
                 sort_keys: runtime_table_sort_keys(&transform.sort_keys),
+                derived_columns: runtime_table_derived_columns(&transform.derived_columns),
                 predicates: runtime_table_transform_predicates(
                     report,
                     None,
@@ -4230,6 +4287,7 @@ fn missing_source_table_transform(
         matched_row_indices: Vec::new(),
         selected_columns: runtime_table_columns(&transform.selected_columns),
         sort_keys: runtime_table_sort_keys(&transform.sort_keys),
+        derived_columns: runtime_table_derived_columns(&transform.derived_columns),
         predicates: runtime_table_transform_predicates(report, None, &[], &transform.predicates),
         join_keys: runtime_table_join_keys_empty(&transform.join_keys),
         status: "missing_source".to_owned(),
@@ -4256,6 +4314,21 @@ fn runtime_table_sort_keys(keys: &[eng_compiler::TableSortKeyInfo]) -> Vec<Runti
             direction: key.direction.clone(),
             status: key.status.clone(),
             line: key.line,
+        })
+        .collect()
+}
+
+fn runtime_table_derived_columns(
+    columns: &[eng_compiler::TableDerivedColumnInfo],
+) -> Vec<RuntimeTableDerivedColumn> {
+    columns
+        .iter()
+        .map(|column| RuntimeTableDerivedColumn {
+            name: column.name.clone(),
+            expression: column.expression.clone(),
+            source_columns: column.source_columns.clone(),
+            status: column.status.clone(),
+            line: column.line,
         })
         .collect()
 }

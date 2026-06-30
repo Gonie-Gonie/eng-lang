@@ -639,6 +639,7 @@
         "output_row_count",
         "matched_row_indices",
         "selected_columns",
+        "derived_columns",
         "sort_keys",
         "predicates",
         "join_keys",
@@ -648,7 +649,7 @@
       ],
       "properties": {
         "binding": { "type": "string" },
-        "operation": { "enum": ["filter", "select", "sort", "require_one", "join"] },
+        "operation": { "enum": ["filter", "select", "derive", "sort", "require_one", "join"] },
         "source_table": { "type": "string" },
         "secondary_table": { "type": ["string", "null"] },
         "schema_name": { "type": ["string", "null"] },
@@ -663,6 +664,10 @@
           "type": "array",
           "items": { "$ref": "#/$defs/tableColumn" }
         },
+        "derived_columns": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableDerivedColumn" }
+        },
         "sort_keys": {
           "type": "array",
           "items": { "$ref": "#/$defs/tableSortKey" }
@@ -676,7 +681,7 @@
           "items": { "$ref": "#/$defs/tableJoinKey" }
         },
         "status": {
-          "enum": ["filtered", "selected_columns", "sorted", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
+          "enum": ["filtered", "selected_columns", "derived_columns", "sorted", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
         },
         "reason": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
@@ -687,6 +692,20 @@
       "required": ["name", "status", "line"],
       "properties": {
         "name": { "type": "string" },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableDerivedColumn": {
+      "type": "object",
+      "required": ["name", "expression", "source_columns", "status", "line"],
+      "properties": {
+        "name": { "type": "string" },
+        "expression": { "type": "string" },
+        "source_columns": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }
