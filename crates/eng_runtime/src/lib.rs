@@ -454,8 +454,17 @@ pub fn run_source(
     runtime_data.apply_component_solutions(&mut report_spec);
     let report_spec_json = eng_report::report_spec_json(&report_spec);
     let report_spec_hash = hash_text(&report_spec_json);
-    let review_json =
-        runtime_review_json(&review_json(&check_report), &runtime_data, &process_results);
+    let mut output_artifacts = Vec::new();
+    output_artifacts.extend(process_expected_output_artifacts(&process_results));
+    output_artifacts.extend(csv_export_artifacts);
+    output_artifacts.extend(write_artifacts);
+    output_artifacts.extend(file_operation_artifacts);
+    let review_json = runtime_review_json(
+        &review_json(&check_report),
+        &runtime_data,
+        &process_results,
+        &output_artifacts,
+    );
     let report_html =
         eng_report::render_html_with_spec(&check_report, "plots/timeseries.svg", &report_spec);
     let result_json = result_json(
@@ -476,11 +485,6 @@ pub fn run_source(
     );
 
     let artifacts_saved = options.save_artifacts || options.open_report;
-    let mut output_artifacts = Vec::new();
-    output_artifacts.extend(process_expected_output_artifacts(&process_results));
-    output_artifacts.extend(csv_export_artifacts);
-    output_artifacts.extend(write_artifacts);
-    output_artifacts.extend(file_operation_artifacts);
     if artifacts_saved {
         fs::create_dir_all(&plots_dir)?;
         fs::write(&bytecode_path, &bytecode)?;
@@ -5218,8 +5222,12 @@ fn runtime_review_json(
     base_review: &str,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
+    artifacts: &[OutputArtifact],
 ) -> String {
-    let enriched_review = enrich_runtime_review_boundaries(base_review, process_results);
+    let enriched_review = enrich_runtime_review_side_effects(
+        &enrich_runtime_review_boundaries(base_review, process_results),
+        artifacts,
+    );
     let trimmed = enriched_review.trim_end();
     let Some(prefix) = trimmed.strip_suffix('}') else {
         return base_review.to_owned();
@@ -5499,6 +5507,102 @@ fn enrich_runtime_review_boundaries(
             json
         })
         .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn enrich_runtime_review_side_effects(base_review: &str, artifacts: &[OutputArtifact]) -> String {
+    if artifacts.is_empty() {
+        return base_review.to_owned();
+    }
+
+    let artifact_records = artifact_records_for_outputs(artifacts);
+    let Ok(mut review) = serde_json::from_str::<Value>(base_review) else {
+        return base_review.to_owned();
+    };
+    let Some(side_effects) = review
+        .pointer_mut("/review_document/side_effects")
+        .and_then(Value::as_array_mut)
+    else {
+        return base_review.to_owned();
+    };
+
+    for side_effect in side_effects {
+        let effect_kind = side_effect
+            .get("kind")
+            .and_then(Value::as_str)
+            .unwrap_or_default();
+        let Some(target) = side_effect.get("target").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(record) = artifact_records.iter().find(|record| {
+            side_effect_artifact_kind_matches(effect_kind, &record.kind)
+                && review_artifact_paths_match(target, &record.path)
+        }) else {
+            continue;
+        };
+        let Some(object) = side_effect.as_object_mut() else {
+            continue;
+        };
+
+        object.insert(
+            "provenance".to_owned(),
+            Value::String("runtime_artifact_record".to_owned()),
+        );
+        object.insert(
+            "artifact_kind".to_owned(),
+            Value::String(record.kind.clone()),
+        );
+        object.insert(
+            "artifact_class".to_owned(),
+            Value::String(record.class.clone()),
+        );
+        object.insert(
+            "artifact_path".to_owned(),
+            Value::String(record.path.clone()),
+        );
+        object.insert("hash".to_owned(), Value::String(record.hash.clone()));
+        object.insert("status".to_owned(), Value::String(record.status.clone()));
+        object.insert(
+            "validation".to_owned(),
+            json!({
+                "status": record.validation.status.clone(),
+                "rule": record.validation.rule.clone(),
+                "message": record.validation.message.clone()
+            }),
+        );
+    }
+
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn side_effect_artifact_kind_matches(effect_kind: &str, artifact_kind: &str) -> bool {
+    match effect_kind {
+        "csv_export" => artifact_kind == "csv_export",
+        "write_output" => artifact_kind.starts_with("write_"),
+        "file_copy" => artifact_kind == "copy_file",
+        "file_move" => artifact_kind == "move_file",
+        "file_delete" => matches!(
+            artifact_kind,
+            "delete_file" | "delete_dir" | "delete_missing"
+        ),
+        _ => false,
+    }
+}
+
+fn review_artifact_paths_match(target: &str, artifact_path: &str) -> bool {
+    normalize_review_artifact_path(target) == normalize_review_artifact_path(artifact_path)
+}
+
+fn normalize_review_artifact_path(path: &str) -> String {
+    let mut normalized = strip_runtime_string_value(path).replace('\\', "/");
+    while let Some(stripped) = normalized.strip_prefix("./") {
+        normalized = stripped.to_owned();
+    }
+    normalized
 }
 
 fn component_solutions_json(runtime_data: &RuntimeData) -> String {
@@ -7550,6 +7654,17 @@ mod tests {
             .contains("\"artifact_registry\""));
         assert!(output.output_manifest_json.contains("\"source_files\""));
         assert!(output.output_manifest_json.contains("\"generated_files\""));
+        assert!(output
+            .review_json
+            .contains("\"provenance\": \"runtime_artifact_record\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_kind\": \"csv_export\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_kind\": \"write_text\""));
+        assert!(output.review_json.contains("\"hash\": \""));
+        assert!(output.review_json.contains("\"rule\": \"content_hash\""));
         assert!(output.output_manifest_path.exists());
         assert_eq!(second_output.csv_export_paths.len(), 1);
     }
@@ -8341,6 +8456,22 @@ mod tests {
             .output_manifest_json
             .contains("\"kind\": \"delete_file\""));
         assert!(output.review_json.contains("\"file_operations\""));
+        assert!(output
+            .review_json
+            .contains("\"provenance\": \"runtime_artifact_record\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_kind\": \"copy_file\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_kind\": \"move_file\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_kind\": \"delete_file\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_class\": \"generated_file\""));
+        assert!(output.review_json.contains("\"validation\""));
     }
 
     #[test]
