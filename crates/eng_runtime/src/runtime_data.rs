@@ -81,6 +81,7 @@ pub struct RuntimeData {
     pub component_solutions: Vec<RuntimeComponentSolution>,
     pub metrics: Vec<RuntimeMetric>,
     pub validations: Vec<RuntimeValidation>,
+    pub expectation_suites: Vec<RuntimeExpectationSuite>,
     pub quality_results: Vec<RuntimeQualityResult>,
     pub time_alignments: Vec<RuntimeTimeAlignment>,
     pub plot_options: PlotOptions,
@@ -1373,6 +1374,30 @@ pub struct RuntimeQualityResult {
     pub passed_count: usize,
     pub warning_count: usize,
     pub failed_count: usize,
+    pub status: String,
+    pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeExpectationSuite {
+    pub binding: String,
+    pub target: String,
+    pub expectation_count: usize,
+    pub passed_count: usize,
+    pub warning_count: usize,
+    pub failed_count: usize,
+    pub status: String,
+    pub expectations: Vec<RuntimeExpectation>,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeExpectation {
+    pub kind: String,
+    pub subject: String,
+    pub text: String,
+    pub matched_result: Option<String>,
     pub status: String,
     pub reason: String,
     pub line: usize,
@@ -2931,10 +2956,17 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         &data.uncertainties,
         &data.timeseries_coverage,
     );
+    data.expectation_suites = materialize_expectation_suites(
+        report,
+        &data.tables,
+        &data.timeseries_coverage,
+        &data.policy_results,
+    );
     data.quality_results = materialize_quality_results(
         &data.timeseries_quality,
         &data.validations,
         &data.policy_results,
+        &data.expectation_suites,
     );
     data
 }
@@ -3981,10 +4013,259 @@ fn timeseries_quality_status_reason(
     )
 }
 
+fn materialize_expectation_suites(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+    coverage: &[RuntimeTimeSeriesCoverage],
+    policy_results: &[RuntimePolicyResult],
+) -> Vec<RuntimeExpectationSuite> {
+    report
+        .semantic_program
+        .expectation_suites
+        .iter()
+        .map(|suite| {
+            let expectations = suite
+                .expectations
+                .iter()
+                .map(|expectation| {
+                    materialize_expectation_result(
+                        expectation,
+                        &suite.target,
+                        tables,
+                        coverage,
+                        policy_results,
+                    )
+                })
+                .collect::<Vec<_>>();
+            let passed_count = expectations
+                .iter()
+                .filter(|expectation| expectation.status == "passed")
+                .count();
+            let warning_count = expectations
+                .iter()
+                .filter(|expectation| expectation.status == "warning")
+                .count();
+            let failed_count = expectations
+                .iter()
+                .filter(|expectation| expectation.status == "failed")
+                .count();
+            let status = if failed_count > 0 {
+                "failed"
+            } else if warning_count > 0 {
+                "warning"
+            } else {
+                "passed"
+            };
+            RuntimeExpectationSuite {
+                binding: suite.binding.clone(),
+                target: suite.target.clone(),
+                expectation_count: expectations.len(),
+                passed_count,
+                warning_count,
+                failed_count,
+                status: status.to_owned(),
+                expectations,
+                line: suite.line,
+            }
+        })
+        .collect()
+}
+
+fn materialize_expectation_result(
+    expectation: &eng_compiler::ExpectationInfo,
+    suite_target: &str,
+    tables: &[RuntimeTable],
+    coverage: &[RuntimeTimeSeriesCoverage],
+    policy_results: &[RuntimePolicyResult],
+) -> RuntimeExpectation {
+    let text = expectation.text.trim();
+    let policy_match =
+        matching_policy_result(suite_target, text, &expectation.subject, policy_results);
+    let evaluated = if text.contains(" is continuous") {
+        evaluate_continuous_expectation(suite_target, &expectation.subject, coverage)
+    } else if text.contains(" is monotonic") {
+        evaluate_monotonic_expectation(suite_target, &expectation.subject, tables)
+    } else if let Some((column, min, max)) = parse_between_constraint(text) {
+        evaluate_between_expectation(suite_target, &column, min, max, tables)
+    } else if let Some(bound) = parse_bound_constraint(text) {
+        evaluate_bound_expectation(suite_target, &bound, tables)
+    } else {
+        None
+    };
+    let (status, reason, matched_result) = if let Some(result) = evaluated {
+        result
+    } else if let Some(policy) = policy_match {
+        (
+            policy_quality_status(policy).to_owned(),
+            policy_quality_reason(policy).to_owned(),
+            Some(format!(
+                "policy_result:{}.{}",
+                policy.binding, policy.target
+            )),
+        )
+    } else {
+        (
+            "warning".to_owned(),
+            "expectation was recorded but no runtime evaluator matched it".to_owned(),
+            None,
+        )
+    };
+    RuntimeExpectation {
+        kind: expectation.kind.clone(),
+        subject: expectation.subject.clone(),
+        text: expectation.text.clone(),
+        matched_result,
+        status,
+        reason,
+        line: expectation.line,
+    }
+}
+
+fn matching_policy_result<'a>(
+    suite_target: &str,
+    text: &str,
+    subject: &str,
+    policy_results: &'a [RuntimePolicyResult],
+) -> Option<&'a RuntimePolicyResult> {
+    policy_results.iter().find(|policy| {
+        policy.kind == "constraint"
+            && policy.binding == suite_target
+            && (policy.policy.trim() == text.trim() || policy.target == subject)
+    })
+}
+
+fn evaluate_continuous_expectation(
+    suite_target: &str,
+    subject: &str,
+    coverage: &[RuntimeTimeSeriesCoverage],
+) -> Option<(String, String, Option<String>)> {
+    let coverage = coverage.iter().find(|coverage| {
+        coverage.source_table == suite_target
+            && (coverage.source_column == subject
+                || coverage.binding == format!("{suite_target}.{subject}.coverage"))
+    })?;
+    if coverage.status == "complete" {
+        Some((
+            "passed".to_owned(),
+            "time axis coverage is complete".to_owned(),
+            Some(format!("timeseries_coverage:{}", coverage.binding)),
+        ))
+    } else {
+        Some((
+            "failed".to_owned(),
+            "time axis coverage is incomplete".to_owned(),
+            Some(format!("timeseries_coverage:{}", coverage.binding)),
+        ))
+    }
+}
+
+fn evaluate_between_expectation(
+    suite_target: &str,
+    column_name: &str,
+    min: f64,
+    max: f64,
+    tables: &[RuntimeTable],
+) -> Option<(String, String, Option<String>)> {
+    let table = tables.iter().find(|table| table.binding == suite_target)?;
+    let column = table.column(column_name)?;
+    let values = numeric_values(column);
+    let failed_count = values
+        .iter()
+        .filter(|value| value.is_some_and(|value| value < min || value > max))
+        .count();
+    if failed_count == 0 {
+        Some((
+            "passed".to_owned(),
+            "all numeric values are inside the expected range".to_owned(),
+            None,
+        ))
+    } else {
+        Some((
+            "failed".to_owned(),
+            format!("{failed_count} numeric value(s) are outside the expected range"),
+            None,
+        ))
+    }
+}
+
+fn evaluate_bound_expectation(
+    suite_target: &str,
+    bound: &BoundConstraint,
+    tables: &[RuntimeTable],
+) -> Option<(String, String, Option<String>)> {
+    let table = tables.iter().find(|table| table.binding == suite_target)?;
+    let column = table.column(&bound.column)?;
+    let values = numeric_values(column);
+    let failed_count = values
+        .iter()
+        .filter(|value| value.is_some_and(|value| !bound.accepts(value)))
+        .count();
+    if failed_count == 0 {
+        Some((
+            "passed".to_owned(),
+            "all numeric values satisfy the expected bound".to_owned(),
+            None,
+        ))
+    } else {
+        Some((
+            "failed".to_owned(),
+            format!("{failed_count} numeric value(s) violate the expected bound"),
+            None,
+        ))
+    }
+}
+
+fn evaluate_monotonic_expectation(
+    suite_target: &str,
+    column_name: &str,
+    tables: &[RuntimeTable],
+) -> Option<(String, String, Option<String>)> {
+    let table = tables.iter().find(|table| table.binding == suite_target)?;
+    let column = table.column(column_name)?;
+    let failed = match &column.values {
+        RuntimeValues::Number(values) => values
+            .iter()
+            .flatten()
+            .try_fold(None, |previous: Option<f64>, value| {
+                if previous.is_some_and(|previous| *value < previous) {
+                    Err(())
+                } else {
+                    Ok(Some(*value))
+                }
+            })
+            .is_err(),
+        RuntimeValues::Text(values) => values
+            .iter()
+            .filter_map(|value| parse_utc_timestamp_seconds(value))
+            .try_fold(None, |previous: Option<i64>, value| {
+                if previous.is_some_and(|previous| value < previous) {
+                    Err(())
+                } else {
+                    Ok(Some(value))
+                }
+            })
+            .is_err(),
+    };
+    if failed {
+        Some((
+            "failed".to_owned(),
+            "column values are not monotonic".to_owned(),
+            None,
+        ))
+    } else {
+        Some((
+            "passed".to_owned(),
+            "column values are monotonic".to_owned(),
+            None,
+        ))
+    }
+}
+
 fn materialize_quality_results(
     timeseries_quality: &[RuntimeTimeSeriesQuality],
     validations: &[RuntimeValidation],
     policy_results: &[RuntimePolicyResult],
+    expectation_suites: &[RuntimeExpectationSuite],
 ) -> Vec<RuntimeQualityResult> {
     let mut results = timeseries_quality
         .iter()
@@ -4069,6 +4350,30 @@ fn materialize_quality_results(
                 }
             }),
     );
+    results.extend(expectation_suites.iter().map(|suite| {
+        let score = if suite.expectation_count == 0 {
+            None
+        } else {
+            Some(suite.passed_count as f64 / suite.expectation_count as f64)
+        };
+        RuntimeQualityResult {
+            binding: format!("{}.quality_result", suite.binding),
+            kind: "expectation_suite_result".to_owned(),
+            category: "expectation_suite".to_owned(),
+            target: suite.binding.clone(),
+            subject: suite.target.clone(),
+            source_table: Some(suite.target.clone()),
+            source_column: None,
+            time_column: None,
+            score,
+            passed_count: suite.passed_count,
+            warning_count: suite.warning_count,
+            failed_count: suite.failed_count,
+            status: suite.status.clone(),
+            reason: expectation_suite_quality_reason(suite).to_owned(),
+            line: suite.line,
+        }
+    }));
     results
 }
 
@@ -4125,6 +4430,16 @@ fn policy_quality_reason(policy: &RuntimePolicyResult) -> &'static str {
         "schema constraint policy passed"
     } else {
         "schema constraint policy was recorded but not executed"
+    }
+}
+
+fn expectation_suite_quality_reason(suite: &RuntimeExpectationSuite) -> &'static str {
+    if suite.failed_count > 0 {
+        "expectation suite reported failed expectations"
+    } else if suite.warning_count > 0 {
+        "expectation suite has expectations that could not be fully evaluated"
+    } else {
+        "expectation suite passed"
     }
 }
 

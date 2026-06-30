@@ -180,8 +180,9 @@ coverage/fill outcome with remaining missing count and a 0..1 quality score.
 The same TimeSeries quality summary is also projected into
 `typed_payload.quality_results[]` as a generic `timeseries_quality_result` bridge
 record with target, subject, pass/warning/failure counts, score, status, reason,
-and source line. That common array also carries non-TimeSeries validation and
-schema-constraint quality results when a workflow emits them.
+and source line. That common array also carries non-TimeSeries validation,
+schema-constraint, and expectation-suite quality results when a workflow emits
+them.
 
 ## Alignment And Resampling Hooks
 

@@ -449,6 +449,21 @@ pub struct WithOptionDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpectationSuiteDecl {
+    pub target: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpectationDecl {
+    pub suite_line: Option<usize>,
+    pub text: String,
+    pub line: usize,
+    pub span: SourceSpan,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ExplicitDecl {
     pub name: String,
     pub type_name: String,
@@ -512,5 +527,7 @@ pub enum AstItem {
     OnPredicate(OnPredicateDecl),
     WithBlock(WithBlockDecl),
     WithOption(WithOptionDecl),
+    ExpectationSuite(ExpectationSuiteDecl),
+    Expectation(ExpectationDecl),
     ReservedKeywordUse { keyword: String, span: SourceSpan },
 }

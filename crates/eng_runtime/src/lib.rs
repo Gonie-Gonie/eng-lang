@@ -4413,6 +4413,31 @@ fn run_plan_json(
         ));
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
+    for suite in &runtime_data.expectation_suites {
+        let id = format!("expectation_suite:{}", suite.binding);
+        nodes.push(run_plan_node(
+            &id,
+            "expectation_suite",
+            &suite.binding,
+            &suite.status,
+            "runtime",
+            if suite.status == "passed" {
+                "low"
+            } else {
+                "medium"
+            },
+            suite.line,
+            vec![json!({
+                "target": &suite.target,
+                "expectation_count": suite.expectation_count,
+                "passed_count": suite.passed_count,
+                "warning_count": suite.warning_count,
+                "failed_count": suite.failed_count
+            })],
+            rerun_decision,
+        ));
+        edges.push(run_plan_edge("source:program", &id, "declares"));
+    }
     for quality in &runtime_data.quality_results {
         let id = format!("quality_result:{}", quality.binding);
         nodes.push(run_plan_node(
@@ -4868,14 +4893,33 @@ fn add_runtime_dependency_edges(
             }
         }
     }
+    for suite in &runtime_data.expectation_suites {
+        let id = format!("expectation_suite:{}", suite.binding);
+        if let Some(source_id) = source_binding_node_id(&suite.target, node_ids) {
+            push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        }
+    }
     for quality in &runtime_data.quality_results {
         let id = format!("quality_result:{}", quality.binding);
         let target_id = format!("timeseries_quality:{}", quality.target);
         if node_ids.contains(&target_id) {
             push_run_plan_edge_if_present(edges, node_ids, &id, &target_id, "depends_on");
-        } else if let Some(source_table) = &quality.source_table {
-            if let Some(source_id) = source_binding_node_id(source_table, node_ids) {
-                push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+        } else {
+            let expectation_suite_id = format!("expectation_suite:{}", quality.target);
+            if node_ids.contains(&expectation_suite_id) {
+                push_run_plan_edge_if_present(
+                    edges,
+                    node_ids,
+                    &id,
+                    &expectation_suite_id,
+                    "depends_on",
+                );
+                continue;
+            }
+            if let Some(source_table) = &quality.source_table {
+                if let Some(source_id) = source_binding_node_id(source_table, node_ids) {
+                    push_run_plan_edge_if_present(edges, node_ids, &id, &source_id, "depends_on");
+                }
             }
         }
     }
@@ -7002,6 +7046,7 @@ fn result_json(
     let network_boundaries = network_boundaries_json(report);
     let table_selections = table_selections_json(runtime_data, "      ");
     let table_transforms = table_transforms_json(runtime_data, "      ");
+    let expectation_suites = expectation_suites_json(runtime_data, "      ");
     let quality_results = quality_results_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let timeseries_fill = timeseries_fill_json(runtime_data, "      ");
@@ -7739,8 +7784,8 @@ fn result_json(
     );
     let quality_results_marker = "    ],\n    \"time_axes\": [\n";
     let quality_results_block = format!(
-        "    ],\n    \"quality_results\": [\n{}\n    ],\n    \"time_axes\": [\n",
-        quality_results
+        "    ],\n    \"expectation_suites\": [\n{}\n    ],\n    \"quality_results\": [\n{}\n    ],\n    \"time_axes\": [\n",
+        expectation_suites, quality_results
     );
     result_json = result_json.replace(quality_results_marker, &quality_results_block);
     let timeseries_quality_marker = "    ],\n    \"timeseries_fallbacks\": [\n";
@@ -8322,6 +8367,8 @@ fn runtime_review_json(
     json.push_str(&table_selections_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"table_transforms\": [\n");
     json.push_str(&table_transforms_json(runtime_data, "    "));
+    json.push_str("\n  ],\n  \"expectation_suites\": [\n");
+    json.push_str(&expectation_suites_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"quality_results\": [\n");
     json.push_str(&quality_results_json(runtime_data, "    "));
     json.push_str("\n  ],\n  \"timeseries_coverage\": [\n");
@@ -10493,6 +10540,97 @@ fn quality_results_json(runtime_data: &RuntimeData, indent: &str) -> String {
     json
 }
 
+fn expectation_suites_json(runtime_data: &RuntimeData, indent: &str) -> String {
+    let mut json = String::new();
+    for (index, suite) in runtime_data.expectation_suites.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        push_expectation_suite_json(&mut json, suite, indent);
+    }
+    json
+}
+
+fn push_expectation_suite_json(
+    json: &mut String,
+    suite: &runtime_data::RuntimeExpectationSuite,
+    indent: &str,
+) {
+    let field_indent = format!("{indent}  ");
+    let expectation_indent = format!("{indent}    ");
+    let expectation_field_indent = format!("{indent}      ");
+    json.push_str(&format!("{indent}{{\n"));
+    json.push_str(&format!(
+        "{field_indent}\"binding\": \"{}\",\n",
+        json_escape(&suite.binding)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"target\": \"{}\",\n",
+        json_escape(&suite.target)
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"expectation_count\": {},\n",
+        suite.expectation_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"passed_count\": {},\n",
+        suite.passed_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"warning_count\": {},\n",
+        suite.warning_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"failed_count\": {},\n",
+        suite.failed_count
+    ));
+    json.push_str(&format!(
+        "{field_indent}\"status\": \"{}\",\n",
+        json_escape(&suite.status)
+    ));
+    json.push_str(&format!("{field_indent}\"expectations\": [\n"));
+    for (index, expectation) in suite.expectations.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{expectation_indent}{{\n"));
+        json.push_str(&format!(
+            "{expectation_field_indent}\"kind\": \"{}\",\n",
+            json_escape(&expectation.kind)
+        ));
+        json.push_str(&format!(
+            "{expectation_field_indent}\"subject\": \"{}\",\n",
+            json_escape(&expectation.subject)
+        ));
+        json.push_str(&format!(
+            "{expectation_field_indent}\"text\": \"{}\",\n",
+            json_escape(&expectation.text)
+        ));
+        push_optional_json_string(
+            json,
+            "matched_result",
+            expectation.matched_result.as_deref(),
+            expectation_field_indent.len(),
+        );
+        json.push_str(&format!(
+            "{expectation_field_indent}\"status\": \"{}\",\n",
+            json_escape(&expectation.status)
+        ));
+        json.push_str(&format!(
+            "{expectation_field_indent}\"reason\": \"{}\",\n",
+            json_escape(&expectation.reason)
+        ));
+        json.push_str(&format!(
+            "{expectation_field_indent}\"line\": {}\n",
+            expectation.line
+        ));
+        json.push_str(&format!("{expectation_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!("{field_indent}\"line\": {}\n", suite.line));
+    json.push_str(&format!("{indent}}}"));
+}
+
 fn push_quality_result_json(
     json: &mut String,
     quality: &runtime_data::RuntimeQualityResult,
@@ -12476,6 +12614,10 @@ mod tests {
                 "    input: CsvFile = file(\"data/sensor.csv\")\n",
                 "}\n\n",
                 "sensor = promote csv args.input as SensorData\n",
+                "expect sensor {\n",
+                "    time is continuous with { step = 1 h }\n",
+                "    m_dot <= 0.25 kg/s\n",
+                "}\n",
                 "Q_dist = normal(mean=5 kW, std=0.2 kW, samples=31)\n",
                 "validate mean(Q_dist) between 4 kW and 6 kW\n",
             ),
@@ -12546,8 +12688,65 @@ mod tests {
             schema_quality.get("score").and_then(Value::as_f64),
             Some(0.5)
         );
+        let expectation_suite = json_array_item_by_binding(
+            &result,
+            "/typed_payload/expectation_suites",
+            "sensor.expectations",
+        )
+        .expect("result expectation suite");
+        assert_eq!(
+            expectation_suite.get("target").and_then(Value::as_str),
+            Some("sensor")
+        );
+        assert_eq!(
+            expectation_suite
+                .get("expectation_count")
+                .and_then(Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            expectation_suite
+                .get("passed_count")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            expectation_suite
+                .get("failed_count")
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            expectation_suite.get("status").and_then(Value::as_str),
+            Some("failed")
+        );
+        let suite_quality = json_array_item_by_binding(
+            &result,
+            "/typed_payload/quality_results",
+            "sensor.expectations.quality_result",
+        )
+        .expect("expectation suite quality result");
+        assert_eq!(
+            suite_quality.get("kind").and_then(Value::as_str),
+            Some("expectation_suite_result")
+        );
+        assert_eq!(
+            suite_quality.get("category").and_then(Value::as_str),
+            Some("expectation_suite")
+        );
+        assert_eq!(
+            suite_quality.get("score").and_then(Value::as_f64),
+            Some(0.5)
+        );
 
         let review: Value = serde_json::from_str(&output.review_json).expect("review json");
+        let review_suite =
+            json_array_item_by_binding(&review, "/expectation_suites", "sensor.expectations")
+                .expect("review expectation suite");
+        assert_eq!(
+            review_suite.get("failed_count").and_then(Value::as_u64),
+            Some(1)
+        );
         let review_quality_results = review
             .pointer("/quality_results")
             .and_then(Value::as_array)
@@ -12563,6 +12762,17 @@ mod tests {
         }));
 
         let run_plan: Value = serde_json::from_str(&output.run_plan_json).expect("run plan json");
+        let suite_node = json_array_item_by_field(
+            &run_plan,
+            "/graph/nodes",
+            "id",
+            "expectation_suite:sensor.expectations",
+        )
+        .expect("expectation suite run plan node");
+        assert_eq!(
+            suite_node.get("risk_category").and_then(Value::as_str),
+            Some("data_quality")
+        );
         let schema_quality_binding = schema_quality
             .get("binding")
             .and_then(Value::as_str)
@@ -12581,6 +12791,18 @@ mod tests {
             &run_plan,
             &schema_quality_node_id,
             "source:csv:sensor",
+            "depends_on"
+        ));
+        assert!(run_plan_has_edge(
+            &run_plan,
+            "expectation_suite:sensor.expectations",
+            "source:csv:sensor",
+            "depends_on"
+        ));
+        assert!(run_plan_has_edge(
+            &run_plan,
+            "quality_result:sensor.expectations.quality_result",
+            "expectation_suite:sensor.expectations",
             "depends_on"
         ));
     }

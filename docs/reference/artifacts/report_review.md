@@ -690,6 +690,7 @@ review.json                 timeseries_coverage, timeseries_fill, timeseries_qua
 result.engres               typed_payload.timeseries_coverage
 result.engres               typed_payload.timeseries_fill
 result.engres               typed_payload.timeseries_quality
+result.engres               typed_payload.expectation_suites
 result.engres               typed_payload.quality_results
 result.engres               typed_payload.timeseries_fallbacks
 result.engres               typed_payload.time_alignments
@@ -707,11 +708,14 @@ and source line. For `method = interpolate`, the runtime also materializes the
 filled TimeSeries under the fill binding. Quality records summarize coverage and
 fill together, including remaining missing count, status, reason, and a 0..1
 quality score when an expected count is available. Generic quality result
-records expose TimeSeries quality summaries, `validate` statement outcomes, and
-schema constraint policy results under `typed_payload.quality_results[]` for
-quality-report consumers. Fallback records are emitted when coverage is gapped
-or irregular, so review tooling can surface the need for an explicit
-fill/imputation policy. Time alignment records include automatic
+records expose TimeSeries quality summaries, `validate` statement outcomes,
+schema constraint policy results, and lightweight expectation-suite summaries
+under `typed_payload.quality_results[]` for quality-report consumers.
+Expectation suite records from `expect <table> { ... }` include expectation
+counts, pass/warning/failure counts, per-expectation status/reason, and source
+line. Fallback records are emitted when coverage is gapped or irregular, so
+review tooling can surface the need for an explicit fill/imputation policy. Time
+alignment records include automatic
 pairwise metadata plus explicit `align`/`resample` hooks with strategy, method,
 optional resample step, tolerance, and source line. The same fallback is also
 projected into

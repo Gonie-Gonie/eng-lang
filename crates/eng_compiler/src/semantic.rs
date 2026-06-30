@@ -2,10 +2,10 @@ use crate::ast::{
     ArgsFieldDecl, AssertDecl, AstItem, ClassFieldDecl, ClassMethodDecl, ClassObjectCopyDecl,
     ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl, CommandStyleDecl, ConnectDecl,
     ConstDecl, CsvExportDecl, CsvExportFieldDecl, DomainTypeParameterDecl, DomainVariableDecl,
-    ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl,
-    ImportDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, StateSpaceTypeBlockDecl,
-    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, SystemVariableDecl, TestDecl, WhereBindingDecl,
-    WithOptionDecl, WriteDecl,
+    ExpectationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl,
+    GoldenDecl, ImportDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl,
+    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StateSpaceVectorDecl, SystemVariableDecl,
+    TestDecl, WhereBindingDecl, WithOptionDecl, WriteDecl,
 };
 use crate::cache::CacheRecordInfo;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
@@ -694,6 +694,25 @@ pub struct CommandStyleInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpectationInfo {
+    pub target: String,
+    pub text: String,
+    pub kind: String,
+    pub subject: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ExpectationSuiteInfo {
+    pub binding: String,
+    pub target: String,
+    pub expectations: Vec<ExpectationInfo>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct WhereBindingInfo {
     pub name: String,
     pub expression: String,
@@ -781,6 +800,7 @@ pub struct SemanticProgram {
     pub process_runs: Vec<ProcessRunInfo>,
     pub tests: Vec<TestInfo>,
     pub command_styles: Vec<CommandStyleInfo>,
+    pub expectation_suites: Vec<ExpectationSuiteInfo>,
     pub where_blocks: Vec<WhereBlockInfo>,
     pub with_blocks: Vec<WithBlockInfo>,
     pub timeseries_kernels: Vec<TimeSeriesKernelInfo>,
@@ -835,6 +855,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     let mut tests = Vec::new();
     let mut current_test_index = None;
     let mut command_styles = Vec::new();
+    let mut expectation_suites = Vec::new();
+    let mut current_expectation_suite_index = None;
     let mut timeseries_kernels = Vec::new();
 
     for line in &program.lines {
@@ -1365,6 +1387,32 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                     &mut diagnostics,
                 );
             }
+            AstItem::ExpectationSuite(suite) => {
+                expectation_suites.push(ExpectationSuiteInfo {
+                    binding: expectation_suite_binding(&suite.target, expectation_suites.len()),
+                    target: suite.target.clone(),
+                    expectations: Vec::new(),
+                    status: "recorded".to_owned(),
+                    line: suite.line,
+                });
+                current_expectation_suite_index = Some(expectation_suites.len() - 1);
+            }
+            AstItem::Expectation(expectation) => {
+                if let Some(suite_index) = expectation
+                    .suite_line
+                    .and_then(|line| {
+                        expectation_suites
+                            .iter()
+                            .position(|suite| suite.line == line)
+                    })
+                    .or(current_expectation_suite_index)
+                {
+                    let target = expectation_suites[suite_index].target.clone();
+                    expectation_suites[suite_index]
+                        .expectations
+                        .push(expectation_info(expectation, &target));
+                }
+            }
             AstItem::ReservedKeywordUse { keyword, span } => diagnostics.push(Diagnostic::error(
                 "E-RESERVED-KEYWORD-001",
                 span.line,
@@ -1471,6 +1519,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             process_runs,
             tests,
             command_styles,
+            expectation_suites,
             where_blocks,
             with_blocks,
             timeseries_kernels,
@@ -1489,6 +1538,73 @@ fn analyze_import_decl(import: &ImportDecl) -> ImportInfo {
         },
         line: import.line,
     }
+}
+
+fn expectation_suite_binding(target: &str, index: usize) -> String {
+    let slug = target
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_owned();
+    let slug = if slug.is_empty() {
+        format!("suite_{}", index + 1)
+    } else {
+        slug
+    };
+    format!("{slug}.expectations")
+}
+
+fn expectation_info(expectation: &ExpectationDecl, target: &str) -> ExpectationInfo {
+    let text = expectation.text.trim().to_owned();
+    let kind = expectation_kind(&text).to_owned();
+    let subject = expectation_subject(&text).unwrap_or_else(|| target.to_owned());
+    ExpectationInfo {
+        target: target.to_owned(),
+        text,
+        kind,
+        subject,
+        status: "recorded".to_owned(),
+        line: expectation.line,
+    }
+}
+
+fn expectation_kind(text: &str) -> &'static str {
+    if text.contains(" is continuous") {
+        "continuous"
+    } else if text.contains(" between ") {
+        "between"
+    } else if text.contains(" is monotonic") {
+        "monotonic"
+    } else {
+        "constraint"
+    }
+}
+
+fn expectation_subject(text: &str) -> Option<String> {
+    let trimmed = text.trim();
+    if let Some((left, _)) = trimmed.split_once(" is ") {
+        return Some(left.trim().to_owned());
+    }
+    if let Some((left, _)) = trimmed.split_once(" between ") {
+        return Some(left.trim().to_owned());
+    }
+    for operator in ["<=", ">=", "==", "!=", "<", ">"] {
+        if let Some((left, _)) = trimmed.split_once(operator) {
+            return Some(left.trim().to_owned());
+        }
+    }
+    trimmed
+        .split_whitespace()
+        .next()
+        .filter(|subject| !subject.is_empty())
+        .map(str::to_owned)
 }
 
 fn analyze_command_style_decl(

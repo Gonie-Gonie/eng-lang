@@ -30,12 +30,13 @@ pub use ast::{
     ArgsDecl, ArgsFieldDecl, AssertDecl, AstItem, ClassDecl, ClassFieldDecl, ClassMethodDecl,
     ClassObjectCopyDecl, ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl,
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
-    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
-    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
-    NetDownloadDecl, OnBlockDecl, OnPredicateDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl,
-    ScriptDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
-    WithBlockDecl, WithOptionDecl, WriteDecl,
+    CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl,
+    ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl, FastBinding, FileOperationDecl,
+    FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl, NetDownloadDecl, OnBlockDecl,
+    OnPredicateDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl,
+    TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl,
+    WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -70,12 +71,12 @@ pub use semantic::{
     ComponentResidualGraphResidualInfo, ComponentSolverPreviewInfo, ConnectionInfo,
     ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
     DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
-    EquationInfo, EquationIrInfo, FileOperationInfo, FormatExpressionInfo, FunctionInfo,
-    FunctionLocalInfo, FunctionParamInfo, GoldenInfo, ImportInfo, JacobianSeedInfo,
-    LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo, PortInfo, PrintInfo, ResidualInfo,
-    SemanticProgram, SemanticType, SolverPlanInfo, StateSpaceVectorInfo, SystemInfo,
-    SystemVariableInfo, TestInfo, TimeSeriesKernelInfo, TypedBinding, WhereBindingInfo,
-    WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
+    EquationInfo, EquationIrInfo, ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo,
+    FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo,
+    ImportInfo, JacobianSeedInfo, LinearOperatorEntryInfo, LinearOperatorInfo, OdeRunnerInfo,
+    PortInfo, PrintInfo, ResidualInfo, SemanticProgram, SemanticType, SolverPlanInfo,
+    StateSpaceVectorInfo, SystemInfo, SystemVariableInfo, TestInfo, TimeSeriesKernelInfo,
+    TypedBinding, WhereBindingInfo, WhereBlockInfo, WithBlockInfo, WithOptionInfo, WriteInfo,
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
@@ -258,6 +259,7 @@ fn workflow_node_review_risk_category(kind: &str) -> &'static str {
         | "timeseries_coverage"
         | "timeseries_fill"
         | "timeseries_quality"
+        | "expectation_suite"
         | "quality_result"
         | "case"
         | "model" => "data_quality",
@@ -1589,6 +1591,14 @@ pub fn review_json(report: &CheckReport) -> String {
         report.syntax_summary.command_styles
     ));
     json.push_str(&format!(
+        "    \"expectation_suites\": {},\n",
+        report.syntax_summary.expectation_suites
+    ));
+    json.push_str(&format!(
+        "    \"expectations\": {},\n",
+        report.syntax_summary.expectations
+    ));
+    json.push_str(&format!(
         "    \"where_blocks\": {},\n",
         report.syntax_summary.where_blocks
     ));
@@ -2689,6 +2699,59 @@ pub fn review_json(report: &CheckReport) -> String {
         ));
         push_optional_json_string(&mut json, "owner", command.owner.as_deref(), 6);
         json.push_str(&format!("      \"line\": {}\n", command.line));
+        json.push_str("    }");
+    }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"expectation_suites\": [\n");
+    for (index, suite) in report
+        .semantic_program
+        .expectation_suites
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&suite.binding)
+        ));
+        json.push_str(&format!(
+            "      \"target\": \"{}\",\n",
+            json_escape(&suite.target)
+        ));
+        json.push_str("      \"expectations\": [\n");
+        for (expectation_index, expectation) in suite.expectations.iter().enumerate() {
+            if expectation_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"kind\": \"{}\",\n",
+                json_escape(&expectation.kind)
+            ));
+            json.push_str(&format!(
+                "          \"subject\": \"{}\",\n",
+                json_escape(&expectation.subject)
+            ));
+            json.push_str(&format!(
+                "          \"text\": \"{}\",\n",
+                json_escape(&expectation.text)
+            ));
+            json.push_str(&format!(
+                "          \"status\": \"{}\",\n",
+                json_escape(&expectation.status)
+            ));
+            json.push_str(&format!("          \"line\": {}\n", expectation.line));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&suite.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", suite.line));
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
@@ -9951,6 +10014,30 @@ system Envelope {
             .command_styles
             .iter()
             .any(|command| command.canonical == "validate(rmse_T < 5 K)"));
+    }
+
+    #[test]
+    fn lowers_expectation_suite_seed() {
+        let source = concat!(
+            "expect weather {\n",
+            "    time is continuous with { step = 1 h }\n",
+            "    dry_bulb between -50 degC and 60 degC\n",
+            "}\n",
+        );
+        let report = check_source("ok.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.expectation_suites, 1);
+        assert_eq!(report.syntax_summary.expectations, 2);
+        let suite = &report.semantic_program.expectation_suites[0];
+        assert_eq!(suite.binding, "weather.expectations");
+        assert_eq!(suite.target, "weather");
+        assert_eq!(suite.expectations[0].kind, "continuous");
+        assert_eq!(suite.expectations[0].subject, "time");
+        assert_eq!(suite.expectations[1].kind, "between");
+        let review = review_json(&report);
+        assert!(review.contains("\"expectation_suites\""));
+        assert!(review.contains("\"binding\": \"weather.expectations\""));
     }
 
     #[test]

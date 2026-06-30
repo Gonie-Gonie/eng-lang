@@ -3,12 +3,13 @@ use crate::ast::{
     ClassObjectCopyDecl, ClassObjectDecl, ClassObjectFieldDecl, ClassValidationDecl,
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
     ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
-    DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
-    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, NetDownloadDecl, OnBlockDecl,
-    OnPredicateDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl,
-    SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl,
-    WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    DomainVariableDecl, EquationDecl, ExpectationDecl, ExpectationSuiteDecl, ExplicitDecl,
+    FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
+    MissingPolicyDecl, NetDownloadDecl, OnBlockDecl, OnPredicateDecl, PortDecl, PrintDecl,
+    ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
+    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
+    WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -36,6 +37,7 @@ pub enum ParseContext {
     Where,
     On,
     With,
+    Expect,
     Other,
 }
 
@@ -83,6 +85,8 @@ pub struct SyntaxSummary {
     pub fast_bindings: usize,
     pub explicit_declarations: usize,
     pub command_styles: usize,
+    pub expectation_suites: usize,
+    pub expectations: usize,
     pub where_blocks: usize,
     pub with_blocks: usize,
     pub tests: usize,
@@ -115,6 +119,8 @@ impl ParsedProgram {
         let mut fast_bindings = 0usize;
         let mut explicit_declarations = 0usize;
         let mut command_styles = 0usize;
+        let mut expectation_suites = 0usize;
+        let mut expectations = 0usize;
         let mut where_blocks = 0usize;
         let mut with_blocks = 0usize;
         let mut tests = 0usize;
@@ -146,6 +152,8 @@ impl ParsedProgram {
                 AstItem::FastBinding(_) => fast_bindings += 1,
                 AstItem::ExplicitDecl(_) => explicit_declarations += 1,
                 AstItem::CommandStyle(_) => command_styles += 1,
+                AstItem::ExpectationSuite(_) => expectation_suites += 1,
+                AstItem::Expectation(_) => expectations += 1,
                 AstItem::WhereBlock(_) => where_blocks += 1,
                 AstItem::WithBlock(_) => with_blocks += 1,
                 AstItem::Test(_) => tests += 1,
@@ -205,6 +213,8 @@ impl ParsedProgram {
             fast_bindings,
             explicit_declarations,
             command_styles,
+            expectation_suites,
+            expectations,
             where_blocks,
             with_blocks,
             tests,
@@ -235,9 +245,11 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut where_depth = 0i32;
     let mut on_depth = 0i32;
     let mut with_depth = 0i32;
+    let mut expect_depth = 0i32;
     let mut current_where_owner_line = None;
     let mut current_on_owner_line = None;
     let mut current_with_owner_line = None;
+    let mut current_expect_owner_line = None;
     let mut current_object_owner_line = None;
     let mut last_attachable_line = None;
 
@@ -255,6 +267,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::On
         } else if with_depth > 0 {
             ParseContext::With
+        } else if expect_depth > 0 {
+            ParseContext::Expect
         } else if missing_depth > 0 {
             ParseContext::SchemaMissing
         } else if constraints_depth > 0 {
@@ -292,6 +306,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
                 ParseContext::Where => current_where_owner_line,
                 ParseContext::On => current_on_owner_line,
                 ParseContext::With => current_with_owner_line,
+                ParseContext::Expect => current_expect_owner_line,
                 ParseContext::Object => current_object_owner_line,
                 _ => last_attachable_line,
             };
@@ -563,6 +578,22 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if context == ParseContext::TopLevel && starts_with_identifier(&tokens, "expect") {
+            current_expect_owner_line = tokens.first().map(|token| token.span.line);
+            let delta = brace_delta(&tokens);
+            if delta != 0 {
+                expect_depth += delta;
+            } else {
+                expect_depth = 1;
+            }
+        } else if expect_depth > 0 {
+            expect_depth += brace_delta(&tokens);
+            if expect_depth <= 0 {
+                expect_depth = 0;
+                current_expect_owner_line = None;
+            }
+        }
+
         if line_is_attachable_owner(&tokens, context) {
             last_attachable_line = Some(source_line.line);
         }
@@ -693,6 +724,12 @@ fn parse_line_items(
             items.push(AstItem::WithOption(option));
         }
     }
+    if let Some(suite) = parse_expectation_suite_decl(tokens, line_text, context) {
+        items.push(AstItem::ExpectationSuite(suite));
+    }
+    if let Some(expectation) = parse_expectation_decl(tokens, line_text, owner_line, context) {
+        items.push(AstItem::Expectation(expectation));
+    }
     if let Some(predicate) = parse_where_predicate_decl(tokens, line_text, owner_line, context) {
         items.push(AstItem::WherePredicate(predicate));
     } else if let Some(binding) = parse_where_binding_decl(tokens, line_text, owner_line, context) {
@@ -732,6 +769,7 @@ fn parse_line_items(
             | ParseContext::Object
             | ParseContext::SchemaConstraints
             | ParseContext::SchemaMissing
+            | ParseContext::Expect
     ) {
         if let Some(declaration) = parse_explicit_decl(tokens, line_text, context) {
             items.push(AstItem::ExplicitDecl(declaration));
@@ -770,6 +808,62 @@ fn parse_line_items(
     if let Some(keyword) = parse_reserved_keyword_use(tokens) {
         items.push(keyword);
     }
+}
+
+fn parse_expectation_suite_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<ExpectationSuiteDecl> {
+    if context != ParseContext::TopLevel {
+        return None;
+    }
+    let first = tokens.first()?;
+    if !token_is_identifier(first, "expect") {
+        return None;
+    }
+    if !contains_symbol(tokens, Symbol::LBrace) {
+        return None;
+    }
+    let target = line_text
+        .trim_start()
+        .strip_prefix("expect")?
+        .trim()
+        .trim_end_matches('{')
+        .trim();
+    if target.is_empty() {
+        return None;
+    }
+    Some(ExpectationSuiteDecl {
+        target: target.to_owned(),
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_expectation_decl(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+    context: ParseContext,
+) -> Option<ExpectationDecl> {
+    if context != ParseContext::Expect {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(first.kind, TokenKind::Symbol(Symbol::RBrace)) {
+        return None;
+    }
+    let text = line_text.trim();
+    if text.is_empty() || text == "}" {
+        return None;
+    }
+    Some(ExpectationDecl {
+        suite_line: owner_line,
+        text: text.to_owned(),
+        line: first.span.line,
+        span: first.span,
+    })
 }
 
 fn parse_schema_decl(tokens: &[Token]) -> Option<SchemaDecl> {
@@ -2139,6 +2233,7 @@ fn parse_standalone_command_style_decl(
             | ParseContext::Domain
             | ParseContext::Component
             | ParseContext::Equation
+            | ParseContext::Expect
             | ParseContext::Test
     ) {
         return None;
