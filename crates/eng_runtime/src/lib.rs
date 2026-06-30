@@ -290,6 +290,32 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                     });
                 }
             }
+            for request in &report.semantic_program.net_requests {
+                if request.fixture.is_none() || request.expected_sha256.is_none() {
+                    diagnostics.push(ProfileDiagnostic {
+                        severity: "error",
+                        code: "E-NET-UNPINNED-REPRO",
+                        message: format!(
+                            "repro profile requires network request `{}` to declare fixture and expected_sha256",
+                            request.binding
+                        ),
+                        line: request.line,
+                    });
+                }
+            }
+            for download in &report.semantic_program.net_downloads {
+                if download.fixture.is_none() || download.expected_sha256.is_none() {
+                    diagnostics.push(ProfileDiagnostic {
+                        severity: "error",
+                        code: "E-NET-UNPINNED-REPRO",
+                        message: format!(
+                            "repro profile requires network download `{}` to declare fixture and expected_sha256",
+                            download.target_value
+                        ),
+                        line: download.line,
+                    });
+                }
+            }
         }
         ExecutionProfile::Normal => {}
     }
@@ -13788,6 +13814,41 @@ mod tests {
         assert!(output
             .review_json
             .contains("\"kind\": \"network_download\""));
+    }
+
+    #[test]
+    fn run_file_repro_profile_rejects_unpinned_network_boundaries() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-net-repro-unpinned");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-net-repro-unpinned-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/hourly\")\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\n\nx = 1\nprint \"x={x}\"\n",
+        )
+        .expect("write source");
+
+        let error = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                profile: ExecutionProfile::Repro,
+                ..RunOptions::default()
+            },
+        )
+        .expect_err("repro profile should reject unpinned network boundaries");
+
+        assert!(error.to_string().contains("profile `repro` rejected"));
+        assert!(error.to_string().contains("E-NET-UNPINNED-REPRO"));
+        assert!(error.to_string().contains("fixture and expected_sha256"));
     }
 
     #[test]

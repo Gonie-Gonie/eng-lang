@@ -4,9 +4,9 @@ Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
 GP-4 constrained copy/move/delete file operations, GP-5 structured runtime
 log messages, GP-6 explicit external process execution, GP-7 test/assert/
 golden support, and safe/normal/repro profile basics are implemented for
-the current public package. Broader filesystem mutation outside generated-output boundaries,
-network, workspace-wide test discovery, and full process sandboxing remain
-planned tracks, not supported behavior.
+the current public package. Broader filesystem mutation outside generated-output
+boundaries, live network access, workspace-wide test discovery, and full
+process sandboxing remain planned tracks, not supported behavior.
 
 EngLang is not trying to become a fully general replacement for Python, MATLAB,
 or R. Real engineering workflows still need practical file, path, config,
@@ -33,7 +33,7 @@ what was read, and what external state influenced the result.
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
 | Test checks | `test { assert ...; golden ... }` | Runtime verification plus structured `test_results.json` metadata |
-| Network | `download url(...) to file(...)` | Long-term only; repro profile requires hash/cache |
+| Network | `download url(...) to file(...)` | Offline/fixture boundary records; repro profile requires fixture and `expected_sha256` |
 
 ## Types
 
@@ -347,5 +347,5 @@ read-only source-hashed inputs, generated output writes, constrained
 copy/move/delete operations under `build/result`, structured runtime message
 artifacts, explicit external process records, local test/assert/golden records,
 and CLI-selected safe/normal/repro profile basics. Broader filesystem access,
-network effects, workspace-wide test discovery, and full process sandboxing
+live network effects, workspace-wide test discovery, and full process sandboxing
 remain outside the supported surface until their policy slices land.

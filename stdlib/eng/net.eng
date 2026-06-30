@@ -17,12 +17,12 @@
 #   `response_body_limit` accept positive byte sizes with B/KB/MB/GB or
 #   KiB/MiB/GiB units. Offline fixture response hashes are SHA-256 values and
 #   `expected_sha256` is checked when provided. The runtime does not perform
-#   live HTTP requests yet.
+#   live HTTP requests yet. The repro profile rejects unpinned network
+#   boundaries that lack fixture or expected_sha256.
 #
 # Planned helper vocabulary:
 #   live HTTP execution
 #   cache integration
-#   repro profile pinning
 #
 # Review contract:
 #   method, URL, query, headers policy, cache key, expected hash, observed hash,
