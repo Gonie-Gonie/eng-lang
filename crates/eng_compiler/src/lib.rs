@@ -11202,6 +11202,64 @@ system Envelope {
     }
 
     #[test]
+    fn diagnoses_table_datetime_predicate_type_mismatch() {
+        let root = env::temp_dir().join(format!(
+            "englang-table-datetime-predicate-type-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("events.csv"),
+            "timestamp,name\n2024-01-01T00:00:00Z,start\n",
+        )
+        .expect("events csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema EventLog {\n",
+                "    timestamp: DateTime\n",
+                "    name: String\n",
+                "}\n\n",
+                "args {\n",
+                "    events_path: CsvFile = file(\"data/events.csv\")\n",
+                "}\n\n",
+                "events = promote csv args.events_path as EventLog\n",
+                "bad_time = filter events\n",
+                "where {\n",
+                "    timestamp >= 42\n",
+                "    name <= date(2024, 1, 1)\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert_eq!(
+            report
+                .diagnostics
+                .iter()
+                .filter(|diagnostic| diagnostic.code == "E-TABLE-PREDICATE-TYPE")
+                .count(),
+            2
+        );
+        let transform = report
+            .semantic_program
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == "bad_time")
+            .expect("filter transform");
+        assert_eq!(transform.predicates.len(), 2);
+        assert!(transform
+            .predicates
+            .iter()
+            .all(|predicate| predicate.status == "type_mismatch"));
+    }
+
+    #[test]
     fn records_table_select_columns_transform() {
         let root = env::temp_dir().join(format!("englang-table-select-ok-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);

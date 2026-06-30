@@ -69,6 +69,7 @@ E-CONFIG-UNKNOWN-FIELD config source contains a field outside the schema
 E-CONFIG-TYPE-MISMATCH config field type does not match the schema
 E-CONFIG-NULL-NOT-OPTIONAL config field is null but schema field is not Optional[T] or T?
 E-TABLE-UNKNOWN-COLUMN table filter predicate references a column outside the promoted schema
+E-TABLE-PREDICATE-TYPE table filter predicate compares a schema column with an incompatible literal
 E-TABLE-JOIN-KEY-MISMATCH join key does not compare columns from the joined tables
 E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
 E-NET-INVALID-URL     network boundary URL is not absolute HTTP(S)

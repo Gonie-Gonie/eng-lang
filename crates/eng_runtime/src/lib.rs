@@ -9228,6 +9228,74 @@ mod tests {
     }
 
     #[test]
+    fn run_source_materializes_table_datetime_comparison_transform_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-datetime-run");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-datetime-run-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("events.csv"),
+            concat!(
+                "event_id,timestamp\n",
+                "equal,2024-01-01T09:00:00+09:00\n",
+                "later,2024-01-01T10:00:00+09:00\n",
+            ),
+        )
+        .expect("events csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema EventLog {\n",
+                "    event_id: String\n",
+                "    timestamp: DateTime\n",
+                "}\n\n",
+                "args {\n",
+                "    events_path: CsvFile = file(\"data/events.csv\")\n",
+                "}\n\n",
+                "events = promote csv args.events_path as EventLog\n",
+                "exact = filter events\n",
+                "where {\n",
+                "    timestamp == \"2024-01-01T00:00:00Z\"\n",
+                "}\n",
+                "report {\n",
+                "    show exact\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"binding\": \"exact\""));
+        assert!(output.result_json.contains("\"operation\": \"filter\""));
+        assert!(output.result_json.contains("\"input_row_count\": 2"));
+        assert!(output.result_json.contains("\"output_row_count\": 1"));
+        assert!(output.result_json.contains("\"matched_row_indices\": [1]"));
+        assert!(output.result_json.contains("\"row_index\": 1"));
+        assert!(output.result_json.contains("\"row_index\": 2"));
+        assert!(output.result_json.contains("\"status\": \"matched\""));
+        assert!(output.result_json.contains("\"status\": \"excluded\""));
+        assert!(output
+            .result_json
+            .contains("\"actual\": \"2024-01-01T09:00:00+09:00\""));
+        assert!(output
+            .result_json
+            .contains("\"expected\": \"2024-01-01T00:00:00Z\""));
+        assert!(output.review_json.contains("\"table_transforms\""));
+        assert!(output.review_json.contains("\"table_transform_count\": 1"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
     fn run_source_materializes_table_select_transform_artifacts() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")

@@ -418,8 +418,13 @@ on {
 ```
 
 The compiler validates referenced predicate, selected, derived-source, and
-sort-key columns against the promoted table schema and validates join keys against both promoted table
-schemas. It records the transform contract in `review_document.table_transforms[]`.
+sort-key columns against the promoted table schema, rejects obvious predicate
+literal type mismatches with `E-TABLE-PREDICATE-TYPE`, and validates join keys
+against both promoted table schemas. Date/DateTime predicates compare ISO
+timestamp strings by UTC instant when both sides include time zones, and compare
+date-only values by their `YYYY-MM-DD` prefix, including values produced by
+`date(year, month, day)`. It records the transform contract in
+`review_document.table_transforms[]`.
 Runtime artifacts record row counts, selected columns, derived columns, sort
 keys, predicate evidence, join key pair counts, and row diagnostics in
 `typed_payload.table_transforms[]`.

@@ -379,6 +379,15 @@ fn predicates_for_owner(
                     info.status = "unknown_column".to_owned();
                 }
             }
+            validate_predicate_type(
+                program,
+                transforms,
+                source_table,
+                &predicate.expression,
+                predicate.line,
+                &mut info.status,
+                diagnostics,
+            );
             info
         })
         .collect()
@@ -773,6 +782,159 @@ fn predicate_columns(expression: &str) -> Vec<String> {
         .column
         .map(|column| vec![column])
         .unwrap_or_default()
+}
+
+fn validate_predicate_type(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    source_table: &str,
+    expression: &str,
+    line: usize,
+    status: &mut String,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let or_parts = split_logical_expression(expression, "or");
+    if or_parts.len() > 1 {
+        for part in or_parts {
+            validate_predicate_type(
+                program,
+                transforms,
+                source_table,
+                part,
+                line,
+                status,
+                diagnostics,
+            );
+        }
+        return;
+    }
+    let and_parts = split_logical_expression(expression, "and");
+    if and_parts.len() > 1 {
+        for part in and_parts {
+            validate_predicate_type(
+                program,
+                transforms,
+                source_table,
+                part,
+                line,
+                status,
+                diagnostics,
+            );
+        }
+        return;
+    }
+
+    let predicate = parse_predicate(expression, line);
+    let Some(column_name) = predicate.column.as_deref() else {
+        return;
+    };
+    let Some(column) = schema_column_for_source(program, transforms, source_table, column_name)
+    else {
+        return;
+    };
+    let Some(value) = predicate.value.as_deref() else {
+        return;
+    };
+    if schema_type_is_temporal(&column.type_name) {
+        if predicate_value_is_obviously_non_temporal(value) {
+            diagnostics.push(table_predicate_type_diagnostic(
+                line,
+                expression,
+                column_name,
+                &column.type_name,
+                "Date/DateTime literal such as date(year, month, day) or an ISO timestamp string",
+            ));
+            *status = "type_mismatch".to_owned();
+        }
+    } else if predicate_value_is_date_constructor(value) {
+        diagnostics.push(table_predicate_type_diagnostic(
+            line,
+            expression,
+            column_name,
+            &column.type_name,
+            "non-date value",
+        ));
+        *status = "type_mismatch".to_owned();
+    }
+}
+
+fn schema_type_is_temporal(type_name: &str) -> bool {
+    matches!(type_name, "Date" | "DateTime")
+}
+
+fn predicate_value_is_date_constructor(value: &str) -> bool {
+    value.trim().starts_with("date(")
+}
+
+fn predicate_value_is_obviously_non_temporal(value: &str) -> bool {
+    let trimmed = value.trim();
+    if trimmed.starts_with("args.") || is_identifier(trimmed) {
+        return false;
+    }
+    if predicate_value_is_date_constructor(trimmed) {
+        return false;
+    }
+    let unquoted = trimmed
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .unwrap_or(trimmed);
+    if date_prefix(unquoted).is_some() || datetime_like(unquoted) {
+        return false;
+    }
+    trimmed.parse::<f64>().is_ok()
+        || matches!(
+            unquoted.to_ascii_lowercase().as_str(),
+            "true" | "false" | "none" | "null"
+        )
+        || (trimmed.starts_with('"') && trimmed.ends_with('"'))
+}
+
+fn datetime_like(value: &str) -> bool {
+    let Some((date, time)) = value.split_once('T') else {
+        return false;
+    };
+    date_prefix(date).is_some()
+        && time.len() >= 9
+        && time.as_bytes().get(2) == Some(&b':')
+        && time.as_bytes().get(5) == Some(&b':')
+}
+
+fn date_prefix(value: &str) -> Option<&str> {
+    let date = value.trim().get(..10)?;
+    let bytes = date.as_bytes();
+    if bytes.len() == 10
+        && bytes[0].is_ascii_digit()
+        && bytes[1].is_ascii_digit()
+        && bytes[2].is_ascii_digit()
+        && bytes[3].is_ascii_digit()
+        && bytes[4] == b'-'
+        && bytes[5].is_ascii_digit()
+        && bytes[6].is_ascii_digit()
+        && bytes[7] == b'-'
+        && bytes[8].is_ascii_digit()
+        && bytes[9].is_ascii_digit()
+    {
+        Some(date)
+    } else {
+        None
+    }
+}
+
+fn table_predicate_type_diagnostic(
+    line: usize,
+    expression: &str,
+    column: &str,
+    type_name: &str,
+    expected: &str,
+) -> Diagnostic {
+    Diagnostic::error(
+        "E-TABLE-PREDICATE-TYPE",
+        line,
+        &format!(
+            "Filter predicate `{expression}` compares column `{column}` of type `{type_name}` with an incompatible value."
+        ),
+        Some(&format!("Use a {expected} for this table predicate.")),
+    )
 }
 
 fn expression_columns(expression: &str) -> Vec<String> {

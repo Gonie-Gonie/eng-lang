@@ -72,11 +72,13 @@ syntax:
 - `runtime/table_filter_station_map.eng`, `runtime/table_select_columns_station_map.eng`,
   `runtime/table_derive_station_map.eng`, `runtime/table_sort_station_map.eng`,
   `runtime/table_require_one.eng`,
+  `runtime/table_datetime_comparison.eng`,
   `runtime/table_row_diagnostics_station_map.eng`,
   `runtime/table_join_samples_results.eng`, and
   `runtime/timeseries_coverage.eng` map to the weather workflow smoke.
   They check deterministic station selection, filter/select/derive/sort/require_one/join table
-  transform artifacts, row-level diagnostics, and Gregorian-year coverage artifacts without real
+  transform artifacts, Date/DateTime predicate comparison, row-level
+  diagnostics, and Gregorian-year coverage artifacts without real
   network access.
 - `runtime/config_optional_fields.eng` covers typed JSON config promotion with
   optional missing/null fields recorded in result and review artifacts.

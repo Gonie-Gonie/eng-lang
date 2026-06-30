@@ -1,0 +1,18 @@
+schema EventLog {
+    event_id: String
+    timestamp: DateTime
+}
+
+args {
+    events_path: CsvFile = file("data/table_datetime_comparison.csv")
+}
+
+events = promote csv args.events_path as EventLog
+exact = filter events
+where {
+    timestamp == "2024-01-01T00:00:00Z"
+}
+
+report {
+    show exact
+}

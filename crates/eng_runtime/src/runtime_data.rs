@@ -4834,18 +4834,71 @@ fn table_transform_atom_matches(
             };
             let expected = resolve_table_selection_value(right, report)
                 .unwrap_or_else(|| strip_selection_quotes(right));
-            return match operator {
-                "==" => actual.trim() == expected.trim(),
-                "!=" => actual.trim() != expected.trim(),
-                "<=" => !table_transform_value_after(&actual, &expected),
-                ">=" => !table_transform_value_before(&actual, &expected),
-                "<" => table_transform_value_before(&actual, &expected),
-                ">" => table_transform_value_after(&actual, &expected),
-                _ => false,
-            };
+            return table_transform_compare_value(table, column, &actual, &expected, operator);
         }
     }
     false
+}
+
+fn table_transform_compare_value(
+    table: &RuntimeTable,
+    column: &str,
+    actual: &str,
+    expected: &str,
+    operator: &str,
+) -> bool {
+    if table_column_is_temporal(table, column) {
+        return table_transform_temporal_compare(actual, expected, operator);
+    }
+    match operator {
+        "==" => actual.trim() == expected.trim(),
+        "!=" => actual.trim() != expected.trim(),
+        "<=" => !table_transform_value_after(actual, expected),
+        ">=" => !table_transform_value_before(actual, expected),
+        "<" => table_transform_value_before(actual, expected),
+        ">" => table_transform_value_after(actual, expected),
+        _ => false,
+    }
+}
+
+fn table_column_is_temporal(table: &RuntimeTable, column_name: &str) -> bool {
+    table
+        .columns
+        .iter()
+        .find(|column| column.name == column_name)
+        .is_some_and(|column| matches!(column.type_name.as_str(), "Date" | "DateTime"))
+}
+
+fn table_transform_temporal_compare(actual: &str, expected: &str, operator: &str) -> bool {
+    let Some(ordering) = table_temporal_ordering(actual, expected) else {
+        return false;
+    };
+    match operator {
+        "==" => ordering == Ordering::Equal,
+        "!=" => ordering != Ordering::Equal,
+        "<=" => matches!(ordering, Ordering::Less | Ordering::Equal),
+        ">=" => matches!(ordering, Ordering::Greater | Ordering::Equal),
+        "<" => ordering == Ordering::Less,
+        ">" => ordering == Ordering::Greater,
+        _ => false,
+    }
+}
+
+fn table_temporal_ordering(actual: &str, expected: &str) -> Option<Ordering> {
+    match (
+        parse_utc_timestamp_seconds(actual.trim()),
+        parse_utc_timestamp_seconds(expected.trim()),
+    ) {
+        (Some(actual), Some(expected)) => return Some(actual.cmp(&expected)),
+        _ => {}
+    }
+    match (
+        table_selection_date_prefix(actual),
+        table_selection_date_prefix(expected),
+    ) {
+        (Some(actual), Some(expected)) => Some(actual.cmp(expected)),
+        _ => None,
+    }
 }
 
 fn table_transform_value_after(actual: &str, expected: &str) -> bool {
