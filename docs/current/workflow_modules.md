@@ -43,7 +43,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | `eng.timeseries` | Supported narrow scope plus coverage artifact seed | TimeSeries statistics, explicit `check coverage`, table time-axis coverage metadata, timeseries_coverage records, integration |
 | `eng.sampling` | Supported promoted-table artifact seed; planned generators | sample table metadata, parameter ranges, row-hash previews; grid/random/LHS planned |
 | `eng.case` | Supported case-manifest artifact seed; planned native runner | case IDs, sample row hashes, duplicate/missing diagnostics, case dirs, process/output links, result files, metrics, failure reasons |
-| `eng.net` | Planned | HTTP/download boundaries with cache and hash policy |
+| `eng.net` | Supported seed | offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries |
 | `eng.cache` | Planned | reproducible cache keys, hit/miss artifacts, pinned downloads |
 | `eng.quality` | Planned | data expectations, quality summaries, and reportable validation results |
 | `eng.template` | Planned | generated input rendering and template provenance |

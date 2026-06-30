@@ -1,16 +1,24 @@
 # module: eng.net
-# status: planned
+# status: supported_seed
 # purpose: HTTP/download boundaries with endpoint, cache, hash, fixture, and reproducibility policy.
 #
+# Supported seed vocabulary:
+#   response = http get url("https://example.org/api")
+#   download url("https://example.org/file.csv") to file("build/raw/file.csv")
+#   with fixture = file("fixtures/response.json")
+#   with query fields, retry, cache, timeout, status_code, expected_sha256
+#
 # Current implementation:
-#   no native network module yet. Workflow examples use fixture files and
-#   explicit process boundaries.
+#   records offline/fixture network boundaries in review.json, result.engres,
+#   run_log.json, and output_manifest.json. Query values using `secret env(...)`
+#   are redacted in artifacts. The runtime does not perform live HTTP requests yet.
 #
 # Planned helper vocabulary:
-#   http get
-#   download
-#   fixture fallback
-#   require pinned hash
+#   live HTTP execution
+#   true SHA-256 validation
+#   retry/timeout execution policy
+#   cache integration
+#   repro profile pinning
 #
 # Review contract:
 #   method, URL, query, headers policy, cache key, expected hash, observed hash,

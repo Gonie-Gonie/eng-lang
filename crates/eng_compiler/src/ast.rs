@@ -329,6 +329,15 @@ pub struct FileOperationDecl {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NetDownloadDecl {
+    pub url: String,
+    pub target: String,
+    pub line: usize,
+    pub span: SourceSpan,
+    pub context: ParseContext,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProcessRunDecl {
     pub binding: Option<String>,
     pub command: String,
@@ -467,6 +476,7 @@ pub enum AstItem {
     CsvExportField(CsvExportFieldDecl),
     Write(WriteDecl),
     FileOperation(FileOperationDecl),
+    NetDownload(NetDownloadDecl),
     ProcessRun(ProcessRunDecl),
     Test(TestDecl),
     Assert(AssertDecl),

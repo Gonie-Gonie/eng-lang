@@ -4,8 +4,8 @@ use crate::ast::{
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
     ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
     DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
-    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, PortDecl, PrintDecl,
-    ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
+    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, NetDownloadDecl, PortDecl,
+    PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
     StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl,
     SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl,
     WriteDecl,
@@ -162,6 +162,7 @@ impl ParsedProgram {
                 | AstItem::CsvExportField(_)
                 | AstItem::Write(_)
                 | AstItem::FileOperation(_)
+                | AstItem::NetDownload(_)
                 | AstItem::ProcessRun(_)
                 | AstItem::Assert(_)
                 | AstItem::Golden(_)
@@ -721,6 +722,9 @@ fn parse_line_items(
     }
     if let Some(operation) = parse_file_operation_decl(tokens, line_text, context) {
         items.push(AstItem::FileOperation(operation));
+    }
+    if let Some(download) = parse_net_download_decl(tokens, line_text, context) {
+        items.push(AstItem::NetDownload(download));
     }
     if let Some(command) = parse_standalone_command_style_decl(tokens, line_text, context) {
         items.push(AstItem::CommandStyle(command));
@@ -2097,9 +2101,11 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "copy"
             | "delete"
             | "domain"
+            | "download"
             | "export"
             | "fn"
             | "golden"
+            | "http"
             | "import"
             | "log"
             | "move"
@@ -2560,6 +2566,34 @@ fn parse_file_operation_decl(
         operation: operation.to_owned(),
         source,
         destination,
+        line: first.span.line,
+        span: first.span,
+        context,
+    })
+}
+
+fn parse_net_download_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<NetDownloadDecl> {
+    let first = tokens.first()?;
+    if !matches!(&first.kind, TokenKind::Identifier(value) if value == "download") {
+        return None;
+    }
+    if contains_symbol(tokens, Symbol::Equal) {
+        return None;
+    }
+    let rest = line_text.trim().strip_prefix("download")?.trim();
+    let (url, target) = split_file_operation_to(rest)?;
+    let url = url.trim();
+    let target = target.trim();
+    if url.is_empty() || target.is_empty() {
+        return None;
+    }
+    Some(NetDownloadDecl {
+        url: url.to_owned(),
+        target: target.to_owned(),
         line: first.span.line,
         span: first.span,
         context,

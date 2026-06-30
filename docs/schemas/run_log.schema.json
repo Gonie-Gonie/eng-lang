@@ -10,6 +10,10 @@
     "execution_profile",
     "message_count",
     "messages",
+    "external_boundary_event_count",
+    "external_boundary_events",
+    "network_event_count",
+    "network_events",
     "profile_diagnostics"
   ],
   "properties": {
@@ -21,6 +25,16 @@
     "messages": {
       "type": "array",
       "items": { "$ref": "#/$defs/runLogMessage" }
+    },
+    "external_boundary_event_count": { "type": "integer", "minimum": 0 },
+    "external_boundary_events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/boundaryEvent" }
+    },
+    "network_event_count": { "type": "integer", "minimum": 0 },
+    "network_events": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/boundaryEvent" }
     },
     "profile_diagnostics": {
       "type": "array",
@@ -35,6 +49,21 @@
         "index": { "type": "integer", "minimum": 0 },
         "level": { "enum": ["print", "debug", "info", "warn", "error"] },
         "message": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "boundaryEvent": {
+      "type": "object",
+      "required": ["kind", "status", "line"],
+      "properties": {
+        "kind": { "type": "string" },
+        "binding": { "type": "string" },
+        "command": { "type": "string" },
+        "url": { "type": "string" },
+        "target": { "type": "string" },
+        "response_hash": { "type": ["string", "null"] },
+        "status": { "type": "string" },
+        "success": { "type": "boolean" },
         "line": { "type": "integer", "minimum": 1 }
       }
     },

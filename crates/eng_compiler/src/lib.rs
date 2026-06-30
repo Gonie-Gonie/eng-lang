@@ -6,6 +6,7 @@ mod hover;
 mod lexer;
 mod ml;
 mod module_registry;
+mod net;
 mod parser;
 mod quantities;
 mod schema;
@@ -29,9 +30,9 @@ pub use ast::{
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
     CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
     FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
-    PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
-    StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl, TestDecl,
-    WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
+    NetDownloadDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl,
+    TestDecl, WhereBindingDecl, WhereBlockDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -46,6 +47,7 @@ pub use module_registry::{
     bundled_module_registry, load_module_registry, parse_module_registry, ModuleRegistry,
     ModuleRegistryEntry, ModuleRegistryError,
 };
+pub use net::{NetDownloadInfo, NetQueryParam, NetRequestInfo};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{
@@ -208,6 +210,14 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
     semantic_output.semantic_program.config_promotions = schema_analysis.config_promotions;
     semantic_output.semantic_program.arg_values = arg_values;
+    let net_analysis = net::analyze_net_boundaries(
+        &parsed,
+        source_path.parent(),
+        &semantic_output.semantic_program,
+    );
+    semantic_output.diagnostics.extend(net_analysis.diagnostics);
+    semantic_output.semantic_program.net_requests = net_analysis.requests;
+    semantic_output.semantic_program.net_downloads = net_analysis.downloads;
     semantic_output.semantic_program.environment_dependencies = collect_environment_dependencies(
         &parsed,
         source_path.parent(),
@@ -1790,6 +1800,9 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+
+    push_net_requests_json(&mut json, report, 2);
+    push_net_downloads_json(&mut json, report, 2);
 
     json.push_str("  \"inferred_declarations\": [\n");
     for (index, declaration) in report.inferred_declarations.iter().enumerate() {
@@ -4248,6 +4261,14 @@ fn push_optional_json_number(json: &mut String, key: &str, value: Option<f64>, i
     }
 }
 
+fn push_optional_json_usize(json: &mut String, key: &str, value: Option<usize>, indent: usize) {
+    let spaces = " ".repeat(indent);
+    match value {
+        Some(value) => json.push_str(&format!("{spaces}\"{key}\": {value},\n")),
+        None => json.push_str(&format!("{spaces}\"{key}\": null,\n")),
+    }
+}
+
 fn push_optional_json_matrix(json: &mut String, matrix: Option<&[Vec<f64>]>) {
     let Some(matrix) = matrix else {
         json.push_str("null");
@@ -4322,6 +4343,123 @@ fn push_json_string_array(json: &mut String, values: &[String]) {
         }
         json.push_str(&format!("\"{}\"", json_escape(value)));
     }
+}
+
+fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"net_requests\": [\n"));
+    for (index, request) in report.semantic_program.net_requests.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{spaces}  {{\n"));
+        json.push_str(&format!(
+            "{spaces}    \"binding\": \"{}\",\n",
+            json_escape(&request.binding)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"method\": \"{}\",\n",
+            json_escape(&request.method)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"url\": \"{}\",\n",
+            json_escape(&request.url_value)
+        ));
+        push_net_query_json(json, &request.query, indent + 4);
+        push_optional_json_string(
+            json,
+            "expected_sha256",
+            request.expected_sha256.as_deref(),
+            indent + 4,
+        );
+        push_optional_json_string(json, "fixture", request.fixture.as_deref(), indent + 4);
+        push_optional_json_string(
+            json,
+            "response_hash",
+            request.response_hash.as_deref(),
+            indent + 4,
+        );
+        push_optional_json_usize(json, "retry", request.retry, indent + 4);
+        json.push_str(&format!("{spaces}    \"cache\": {},\n", request.cache));
+        match request.status_code {
+            Some(status_code) => {
+                json.push_str(&format!("{spaces}    \"status_code\": {},\n", status_code))
+            }
+            None => json.push_str(&format!("{spaces}    \"status_code\": null,\n")),
+        }
+        json.push_str(&format!(
+            "{spaces}    \"status\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!("{spaces}    \"line\": {}\n", request.line));
+        json.push_str(&format!("{spaces}  }}"));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
+}
+
+fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usize) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"net_downloads\": [\n"));
+    for (index, download) in report.semantic_program.net_downloads.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{spaces}  {{\n"));
+        json.push_str(&format!(
+            "{spaces}    \"url\": \"{}\",\n",
+            json_escape(&download.url_value)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"target\": \"{}\",\n",
+            json_escape(&download.target_value)
+        ));
+        push_net_query_json(json, &download.query, indent + 4);
+        push_optional_json_string(
+            json,
+            "expected_sha256",
+            download.expected_sha256.as_deref(),
+            indent + 4,
+        );
+        push_optional_json_string(json, "fixture", download.fixture.as_deref(), indent + 4);
+        push_optional_json_string(
+            json,
+            "response_hash",
+            download.response_hash.as_deref(),
+            indent + 4,
+        );
+        push_optional_json_usize(json, "retry", download.retry, indent + 4);
+        json.push_str(&format!("{spaces}    \"cache\": {},\n", download.cache));
+        match download.status_code {
+            Some(status_code) => {
+                json.push_str(&format!("{spaces}    \"status_code\": {},\n", status_code))
+            }
+            None => json.push_str(&format!("{spaces}    \"status_code\": null,\n")),
+        }
+        json.push_str(&format!(
+            "{spaces}    \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("{spaces}    \"line\": {}\n", download.line));
+        json.push_str(&format!("{spaces}  }}"));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
+}
+
+fn push_net_query_json(json: &mut String, query: &[net::NetQueryParam], indent: usize) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"query\": [\n"));
+    for (index, param) in query.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!(
+            "{spaces}  {{ \"key\": \"{}\", \"value\": \"{}\", \"redacted\": {} }}",
+            json_escape(&param.key),
+            json_escape(&param.value),
+            param.redacted
+        ));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
 }
 
 fn review_option_values(report: &CheckReport, owner_line: usize, key: &str) -> Vec<String> {
@@ -4416,10 +4554,14 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
             .iter()
             .map(|object| object.validations.len())
             .sum::<usize>();
-    let side_effect_count =
-        program.writes.len() + program.file_operations.len() + program.csv_exports.len();
-    let external_boundary_count =
-        program.process_runs.len() + program.environment_dependencies.len();
+    let side_effect_count = program.writes.len()
+        + program.file_operations.len()
+        + program.csv_exports.len()
+        + program.net_downloads.len();
+    let external_boundary_count = program.process_runs.len()
+        + program.environment_dependencies.len()
+        + program.net_requests.len()
+        + program.net_downloads.len();
     let fallback_count = review_fallback_count(report);
     let risk_count = review_risk_count(report);
 
@@ -4994,24 +5136,29 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             program.command_styles, program.classes, program.class_objects
         ),
         "side_effects" => format!(
-            "{:?}|{:?}|{:?}",
-            program.csv_exports, program.writes, program.file_operations
+            "{:?}|{:?}|{:?}|{:?}",
+            program.csv_exports, program.writes, program.file_operations, program.net_downloads
         ),
         "external_boundaries" => format!(
-            "{:?}|{:?}",
-            program.process_runs, program.environment_dependencies
+            "{:?}|{:?}|{:?}|{:?}",
+            program.process_runs,
+            program.environment_dependencies,
+            program.net_requests,
+            program.net_downloads
         ),
         "fallbacks" => format!(
             "{:?}|{:?}",
             program.with_blocks, program.component_assemblies
         ),
         "risks" => format!(
-            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
+            "{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}|{:?}",
             report.diagnostics,
             program.schemas,
             program.process_runs,
             program.file_operations,
             program.environment_dependencies,
+            program.net_requests,
+            program.net_downloads,
             program.uncertainty_infos,
             program.systems,
             program.component_assemblies
@@ -5890,6 +6037,21 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
         json.push_str(&format!("        \"line\": {}\n", operation.line));
         json.push_str("      }");
     }
+    for download in &report.semantic_program.net_downloads {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"network_download\",\n");
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&download.target_value)
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str("      }");
+    }
     json.push_str("\n    ],\n");
 }
 
@@ -5965,6 +6127,61 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", dependency.line));
         json.push_str(&format!("        \"line\": {}\n", dependency.line));
+        json.push_str("      }");
+    }
+    for request in &report.semantic_program.net_requests {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"network_request\",\n");
+        json.push_str(&format!(
+            "        \"name\": \"{}\",\n",
+            json_escape(&request.binding)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&request.url_value)
+        ));
+        json.push_str("        \"inputs\": [],\n");
+        json.push_str("        \"outputs\": [],\n");
+        json.push_str("        \"side_effects\": [\"http_get\"],\n");
+        push_optional_json_string(json, "provenance", request.response_hash.as_deref(), 8);
+        json.push_str("        \"success\": null,\n");
+        json.push_str("        \"risk_level\": \"medium\",\n");
+        json.push_str("        \"expected_outputs\": [],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!("        \"source_line\": {},\n", request.line));
+        json.push_str(&format!("        \"line\": {}\n", request.line));
+        json.push_str("      }");
+    }
+    for download in &report.semantic_program.net_downloads {
+        push_review_comma(json, &mut first);
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"network_download\",\n");
+        json.push_str("        \"name\": \"download\",\n");
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&download.url_value)
+        ));
+        json.push_str("        \"inputs\": [],\n");
+        json.push_str("        \"outputs\": [");
+        push_json_string_array(json, std::slice::from_ref(&download.target_value));
+        json.push_str("],\n");
+        json.push_str("        \"side_effects\": [\"download_file\"],\n");
+        push_optional_json_string(json, "provenance", download.response_hash.as_deref(), 8);
+        json.push_str("        \"success\": null,\n");
+        json.push_str("        \"risk_level\": \"high\",\n");
+        json.push_str("        \"expected_outputs\": [");
+        push_json_string_array(json, std::slice::from_ref(&download.target_value));
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("        \"source_line\": {},\n", download.line));
+        json.push_str(&format!("        \"line\": {}\n", download.line));
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -10629,6 +10846,65 @@ system Envelope {
         assert_eq!(promotion.unknown_fields, vec!["extra".to_owned()]);
         assert_eq!(promotion.null_fields, vec!["region".to_owned()]);
         assert_eq!(promotion.type_mismatches[0].field, "year");
+    }
+
+    #[test]
+    fn records_net_http_get_and_download_boundaries() {
+        let root = env::temp_dir().join(format!("englang-net-boundary-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n")
+            .expect("response fixture");
+        fs::write(root.join("data").join("file.csv"), "id,value\n1,42\n")
+            .expect("download fixture");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    cache = true\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"fixture-hash\"\n}\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.net_requests.len(), 1);
+        assert_eq!(report.semantic_program.net_downloads.len(), 1);
+        let request = &report.semantic_program.net_requests[0];
+        assert_eq!(request.method, "GET");
+        assert_eq!(request.status, "fixture");
+        assert_eq!(request.retry, Some(2));
+        assert!(request.cache);
+        assert!(request.response_hash.is_some());
+        assert!(request.query.iter().any(|param| param.key == "serviceKey"
+            && param.value == "<redacted>"
+            && param.redacted));
+        let binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "response")
+            .expect("response binding");
+        assert_eq!(binding.semantic_type.quantity_kind, "HttpResponse");
+        let review = review_json(&report);
+        assert!(review.contains("\"net_requests\""));
+        assert!(review.contains("\"net_downloads\""));
+        assert!(review.contains("\"kind\": \"network_request\""));
+        assert!(review.contains("\"kind\": \"network_download\""));
+    }
+
+    #[test]
+    fn rejects_invalid_net_url() {
+        let report = check_source(
+            "bad.eng",
+            "response = http get url(\"ftp://example.org/file.csv\")\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-NET-INVALID-URL"));
     }
 
     #[test]

@@ -323,7 +323,7 @@ eng.config   promote toml/json as schema
 eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
 eng.test     test/assert/golden support
-eng.net      download/cache/hash, later
+eng.net      offline/fixture network boundary records now; live download/cache/hash later
 ```
 
 ## Implementation Phases

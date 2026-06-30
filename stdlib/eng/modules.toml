@@ -94,10 +94,10 @@ purpose = "Typed JSON/TOML file promotion with schema validation, source hashes,
 artifacts = ["typed_payload.config_promotions", "review.config_promotions", "output_manifest"]
 
 [module."eng.net"]
-status = "planned"
-backing = "none"
-purpose = "HTTP/download boundary with cache, hash, secret, retry, timeout, and repro policy."
-artifacts = ["review.external_boundaries", "output_manifest", "run_log", "cache_manifest"]
+status = "supported_seed"
+backing = "compiler_runtime_builtin"
+purpose = "Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries."
+artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
 
 [module."eng.cache"]
 status = "planned"

@@ -10,6 +10,7 @@ use crate::ast::{
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
 use crate::ml::MlInfo;
+use crate::net::{NetDownloadInfo, NetRequestInfo};
 use crate::parser::{ParseContext, ParsedProgram};
 use crate::quantities::{
     candidates_for_unit, completion_labels, first_unit_in_expression,
@@ -747,6 +748,8 @@ pub struct SemanticProgram {
     pub schemas: Vec<SchemaInfo>,
     pub csv_promotions: Vec<CsvPromotion>,
     pub config_promotions: Vec<ConfigPromotion>,
+    pub net_requests: Vec<NetRequestInfo>,
+    pub net_downloads: Vec<NetDownloadInfo>,
     pub workflow: Workflow,
     pub axis_infos: Vec<AxisInfo>,
     pub stats_infos: Vec<StatsInfo>,
@@ -1433,6 +1436,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
             schemas: Vec::new(),
             csv_promotions: Vec::new(),
             config_promotions: Vec::new(),
+            net_requests: Vec::new(),
+            net_downloads: Vec::new(),
             workflow: Workflow::top_level(top_level_workflow_line(program)),
             stats_infos,
             integrations,
@@ -2123,6 +2128,7 @@ fn analyze_with_blocks(
                 command_styles,
                 block.owner_line,
             ));
+            extra_known_options.extend(with_owner_net_options(program, block.owner_line));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
                 .map(|option| {
@@ -2196,6 +2202,48 @@ fn with_owner_coverage_options(
         .into_iter()
         .map(str::to_owned)
         .collect()
+}
+
+fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let is_net_owner = program.items.iter().any(|item| match item {
+        AstItem::FastBinding(binding) if binding.line == owner_line => {
+            crate::net::is_http_get_expression(&binding.expression)
+        }
+        AstItem::NetDownload(download) => download.line == owner_line,
+        _ => false,
+    });
+    if !is_net_owner {
+        return HashSet::new();
+    }
+    let mut options = program
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::WithOption(option) if option.owner_line == Some(owner_line) => {
+                Some(option.key.clone())
+            }
+            _ => None,
+        })
+        .collect::<HashSet<_>>();
+    options.extend(
+        [
+            "query",
+            "retry",
+            "cache",
+            "expected_sha256",
+            "timeout",
+            "fixture",
+            "status_code",
+            "body_size_limit",
+            "response_body_limit",
+        ]
+        .into_iter()
+        .map(str::to_owned),
+    );
+    options
 }
 
 fn with_options_for_owner(
@@ -10702,6 +10750,18 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
 
     if lowered_expression.contains("promote json") || lowered_expression.contains("promote toml") {
         return semantic_type("ConfigObject", "schema-defined");
+    }
+
+    if lowered_expression.starts_with("http get ") {
+        return semantic_type("HttpResponse", "eng.net");
+    }
+
+    if lowered_expression.starts_with("url(") {
+        return semantic_type("Url", "eng.net");
+    }
+
+    if lowered_expression.starts_with("secret env(") {
+        return semantic_type("Secret[String]", "redacted");
     }
 
     if lowered_expression.starts_with("select_first_row(") {

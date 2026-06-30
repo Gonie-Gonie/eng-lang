@@ -68,6 +68,7 @@ E-CONFIG-MISSING-FIELD config source is missing a required schema field
 E-CONFIG-UNKNOWN-FIELD config source contains a field outside the schema
 E-CONFIG-TYPE-MISMATCH config field type does not match the schema
 E-CONFIG-NULL-NOT-OPTIONAL config field is null before optional support
+E-NET-INVALID-URL     network boundary URL is not absolute HTTP(S)
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run
 E-ARGS-TYPE-001        Args value cannot be converted to the declared type

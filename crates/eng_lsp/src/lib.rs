@@ -1193,7 +1193,7 @@ mod tests {
             .iter()
             .any(|completion| completion.label == "eng.process"));
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.net" && completion.detail.contains("planned")
+            completion.label == "eng.net" && completion.detail.contains("supported_seed")
         }));
 
         let json = snapshot_json(&snapshot);

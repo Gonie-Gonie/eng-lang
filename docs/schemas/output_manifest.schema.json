@@ -59,6 +59,7 @@
         "generated_files",
         "external_commands",
         "network_requests",
+        "downloads",
         "db_writes",
         "model_artifacts",
         "caches",
@@ -87,6 +88,12 @@
           }
         },
         "network_requests": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sideEffectRecord"
+          }
+        },
+        "downloads": {
           "type": "array",
           "items": {
             "$ref": "#/$defs/sideEffectRecord"

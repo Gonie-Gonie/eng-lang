@@ -1105,11 +1105,78 @@ fn run_log_json(
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
+    json.push_str(&format!(
+        "  \"network_event_count\": {},\n",
+        report.semantic_program.net_requests.len() + report.semantic_program.net_downloads.len()
+    ));
+    json.push_str("  \"network_events\": [\n");
+    push_network_events_json(&mut json, report, "    ");
+    json.push_str("\n  ],\n");
     json.push_str("  \"profile_diagnostics\": [\n");
     push_profile_diagnostics_json(&mut json, profile_diagnostics, "    ");
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
+}
+
+fn push_network_events_json(json: &mut String, report: &CheckReport, indent: &str) {
+    let mut first = true;
+    for request in &report.semantic_program.net_requests {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!("{indent}  \"kind\": \"http_get\",\n"));
+        json.push_str(&format!(
+            "{indent}  \"binding\": \"{}\",\n",
+            json_escape(&request.binding)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"url\": \"{}\",\n",
+            json_escape(&request.url_value)
+        ));
+        push_optional_json_string(
+            json,
+            "response_hash",
+            request.response_hash.as_deref(),
+            indent.len() + 2,
+        );
+        json.push_str(&format!(
+            "{indent}  \"status\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", request.line));
+        json.push_str(&format!("{indent}}}"));
+    }
+    for download in &report.semantic_program.net_downloads {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str(&format!("{indent}{{\n"));
+        json.push_str(&format!("{indent}  \"kind\": \"download\",\n"));
+        json.push_str(&format!(
+            "{indent}  \"url\": \"{}\",\n",
+            json_escape(&download.url_value)
+        ));
+        json.push_str(&format!(
+            "{indent}  \"target\": \"{}\",\n",
+            json_escape(&download.target_value)
+        ));
+        push_optional_json_string(
+            json,
+            "response_hash",
+            download.response_hash.as_deref(),
+            indent.len() + 2,
+        );
+        json.push_str(&format!(
+            "{indent}  \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("{indent}  \"line\": {}\n", download.line));
+        json.push_str(&format!("{indent}}}"));
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -2679,6 +2746,117 @@ fn external_boundary_records_for_processes(
         .collect()
 }
 
+fn push_output_manifest_network_requests_json(
+    json: &mut String,
+    registry: &ArtifactRegistryContext<'_>,
+) {
+    let mut first = true;
+    for request in &registry.report.semantic_program.net_requests {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"http_get\",\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&request.binding)
+        ));
+        json.push_str(&format!(
+            "        \"url\": \"{}\",\n",
+            json_escape(&request.url_value)
+        ));
+        push_optional_json_string_runtime(
+            json,
+            "response_hash",
+            request.response_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string_runtime(
+            json,
+            "expected_sha256",
+            request.expected_sha256.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", request.line));
+        json.push_str("      }");
+    }
+    for download in &registry.report.semantic_program.net_downloads {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"download\",\n");
+        json.push_str(&format!(
+            "        \"url\": \"{}\",\n",
+            json_escape(&download.url_value)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&download.target_value)
+        ));
+        push_optional_json_string_runtime(
+            json,
+            "response_hash",
+            download.response_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string_runtime(
+            json,
+            "expected_sha256",
+            download.expected_sha256.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str("      }");
+    }
+}
+
+fn push_output_manifest_downloads_json(json: &mut String, registry: &ArtifactRegistryContext<'_>) {
+    for (index, download) in registry
+        .report
+        .semantic_program
+        .net_downloads
+        .iter()
+        .enumerate()
+    {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"url\": \"{}\",\n",
+            json_escape(&download.url_value)
+        ));
+        json.push_str(&format!(
+            "        \"path\": \"{}\",\n",
+            json_escape(&download.target_value)
+        ));
+        push_optional_json_string_runtime(json, "hash", download.response_hash.as_deref(), 8);
+        push_optional_json_string_runtime(
+            json,
+            "expected_sha256",
+            download.expected_sha256.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str("      }");
+    }
+}
+
 fn push_artifact_registry_json(
     json: &mut String,
     artifacts: &[OutputArtifact],
@@ -2804,7 +2982,13 @@ fn push_artifact_registry_json(
     }
     json.push_str("\n    ],\n");
 
-    json.push_str("    \"network_requests\": [],\n");
+    json.push_str("    \"network_requests\": [\n");
+    push_output_manifest_network_requests_json(json, registry);
+    json.push_str("\n    ],\n");
+
+    json.push_str("    \"downloads\": [\n");
+    push_output_manifest_downloads_json(json, registry);
+    json.push_str("\n    ],\n");
 
     json.push_str("    \"db_writes\": [\n");
     for (index, record) in registry.db_manifest_records.iter().enumerate() {
@@ -4216,6 +4400,7 @@ fn result_json(
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let structured_reads = structured_reads_json(runtime_data);
     let config_promotions = config_promotions_json(report);
+    let network_boundaries = network_boundaries_json(report);
     let table_selections = table_selections_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
@@ -4856,7 +5041,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"network_boundaries\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"network_boundary_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4883,6 +5068,7 @@ fn result_json(
         table_diagnostics,
         structured_reads,
         config_promotions,
+        network_boundaries,
         table_selections,
         sample_tables,
         case_manifests,
@@ -4904,6 +5090,7 @@ fn result_json(
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
         report.semantic_program.config_promotions.len(),
+        report.semantic_program.net_requests.len() + report.semantic_program.net_downloads.len(),
         report.semantic_program.systems.len(),
         report
             .semantic_program
@@ -7352,6 +7539,98 @@ fn config_promotions_json(report: &CheckReport) -> String {
     json
 }
 
+fn network_boundaries_json(report: &CheckReport) -> String {
+    let mut json = String::new();
+    let mut first = true;
+    for request in &report.semantic_program.net_requests {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"http_get\",\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&request.binding)
+        ));
+        json.push_str(&format!(
+            "        \"url\": \"{}\",\n",
+            json_escape(&request.url_value)
+        ));
+        push_network_query_json(&mut json, &request.query, "        ");
+        push_optional_json_string(
+            &mut json,
+            "response_hash",
+            request.response_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "expected_sha256",
+            request.expected_sha256.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", request.line));
+        json.push_str("      }");
+    }
+    for download in &report.semantic_program.net_downloads {
+        if !first {
+            json.push_str(",\n");
+        }
+        first = false;
+        json.push_str("      {\n");
+        json.push_str("        \"kind\": \"download\",\n");
+        json.push_str(&format!(
+            "        \"url\": \"{}\",\n",
+            json_escape(&download.url_value)
+        ));
+        json.push_str(&format!(
+            "        \"target\": \"{}\",\n",
+            json_escape(&download.target_value)
+        ));
+        push_network_query_json(&mut json, &download.query, "        ");
+        push_optional_json_string(
+            &mut json,
+            "response_hash",
+            download.response_hash.as_deref(),
+            8,
+        );
+        push_optional_json_string(
+            &mut json,
+            "expected_sha256",
+            download.expected_sha256.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str("      }");
+    }
+    json
+}
+
+fn push_network_query_json(json: &mut String, query: &[eng_compiler::NetQueryParam], indent: &str) {
+    json.push_str(&format!("{indent}\"query\": [\n"));
+    for (index, param) in query.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!(
+            "{indent}  {{ \"key\": \"{}\", \"value\": \"{}\", \"redacted\": {} }}",
+            json_escape(&param.key),
+            json_escape(&param.value),
+            param.redacted
+        ));
+    }
+    json.push_str(&format!("\n{indent}],\n"));
+}
+
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
@@ -9185,5 +9464,60 @@ mod tests {
             .output_manifest_json
             .contains("\"schema\": \"WorkflowConfig\""));
         assert!(output.output_manifest_json.contains("workflow.toml"));
+    }
+
+    #[test]
+    fn run_file_records_network_boundary_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-net-boundary");
+        let build_root = repo_root.join("build").join("runtime-net-boundary-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("response.json"),
+            "{\"ok\":true}\n",
+        )
+        .expect("response");
+        fs::write(
+            source_dir.join("data").join("download.csv"),
+            "id,value\n1,42\n",
+        )
+        .expect("download");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    cache = true\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"fixture-hash\"\n}\n\nx = 1\nprint \"x={x}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(output.stdout.contains("x=1"));
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("fixture")
+        );
+        assert!(output.result_json.contains("\"network_boundaries\""));
+        assert!(output.result_json.contains("\"kind\": \"http_get\""));
+        assert!(output.result_json.contains("\"kind\": \"download\""));
+        assert!(output.result_json.contains("\"value\": \"<redacted>\""));
+        assert!(output.result_json.contains("\"network_boundary_count\": 2"));
+        assert!(output.run_log_json.contains("\"network_events\""));
+        assert!(output.run_log_json.contains("\"network_event_count\": 2"));
+        assert!(output.output_manifest_json.contains("\"network_requests\""));
+        assert!(output.output_manifest_json.contains("\"downloads\""));
+        assert!(output.output_manifest_json.contains("build/raw/file.csv"));
+        assert!(output.review_json.contains("\"external_boundaries\""));
+        assert!(output.review_json.contains("\"kind\": \"network_request\""));
+        assert!(output
+            .review_json
+            .contains("\"kind\": \"network_download\""));
     }
 }

@@ -220,7 +220,7 @@ mod tests {
         assert!(registry
             .modules
             .iter()
-            .any(|module| module.name == "eng.net" && module.status == "planned"));
+            .any(|module| module.name == "eng.net" && module.status == "supported_seed"));
         assert!(registry
             .modules
             .iter()
