@@ -891,12 +891,12 @@ fn base_completion_items() -> Vec<CompletionView> {
         (
             "promote json config",
             "promote json file(\"workflow.json\") as WorkflowConfig",
-            "eng.config planned JSON promotion",
+            "eng.config JSON file promotion",
         ),
         (
             "promote toml config",
             "promote toml file(\"workflow.toml\") as WorkflowConfig",
-            "eng.config planned TOML promotion",
+            "eng.config TOML file promotion",
         ),
     ] {
         items.push(CompletionView {

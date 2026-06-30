@@ -516,8 +516,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("move file", "eng.fs move generated output"),
         ("delete file", "eng.fs delete generated output"),
         ("run command", "eng.process command boundary"),
-        ("promote json config", "eng.config planned JSON promotion"),
-        ("promote toml config", "eng.config planned TOML promotion"),
+        ("promote json config", "eng.config JSON file promotion"),
+        ("promote toml config", "eng.config TOML file promotion"),
     ] {
         push_completion(&mut items, &mut seen, label, "stdlib", detail);
     }

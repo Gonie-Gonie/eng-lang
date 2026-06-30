@@ -2609,6 +2609,23 @@ fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<So
         registry
             .report
             .semantic_program
+            .config_promotions
+            .iter()
+            .map(|promotion| SourceRecord {
+                kind: format!("config_{}", promotion.format),
+                binding: promotion.binding.clone(),
+                path: promotion.resolved_path.clone(),
+                hash: promotion.source_hash.clone(),
+                schema: Some(promotion.schema_name.clone()),
+                row_count: None,
+                status: promotion.status.clone(),
+                line: promotion.line,
+            }),
+    );
+    records.extend(
+        registry
+            .report
+            .semantic_program
             .environment_dependencies
             .iter()
             .filter(|dependency| dependency.kind.starts_with("filesystem_read_"))
@@ -4198,6 +4215,7 @@ fn result_json(
 
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let structured_reads = structured_reads_json(runtime_data);
+    let config_promotions = config_promotions_json(report);
     let table_selections = table_selections_json(runtime_data, "      ");
     let timeseries_coverage = timeseries_coverage_json(runtime_data, "      ");
     let sample_tables = sample_tables_json(runtime_data);
@@ -4838,7 +4856,7 @@ fn result_json(
     let system_ir = system_ir_json(report, runtime_data);
 
     format!(
-        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
+        "{{\n  \"format\": \"engres-v1\",\n  \"result_format_version\": 1,\n  \"runtime_version\": \"{RUNTIME_VERSION}\",\n  \"compiler_version\": \"{}\",\n  \"bytecode_version\": {},\n  \"source_path\": \"{}\",\n  \"source_hash\": \"{}\",\n  \"bytecode_hash\": \"{}\",\n  \"numeric_profile\": \"preview-f64\",\n  \"execution_profile\": \"{}\",\n  \"workflow\": {{\n    \"kind\": \"{}\",\n    \"arg_name\": \"{}\",\n    \"arg_type\": \"{}\",\n    \"return_type\": \"{}\"\n  }},\n  \"args_schema\": [\n{}\n  ],\n  \"arg_values\": [\n{}\n  ],\n  \"object_store\": {{\n    \"scalar_count\": {},\n    \"table_count\": {},\n    \"timeseries_count\": {},\n    \"array_count\": {},\n    \"objects\": [\n{}\n    ]\n  }},\n  \"typed_payload\": {{\n    \"kind\": \"{}\",\n    \"status\": \"ok\",\n    \"result_format\": \"{}\",\n    \"vm_steps\": [{}],\n    \"numeric_values\": [\n{}\n    ],\n    \"statistics\": [\n{}\n    ],\n    \"integrations\": [\n{}\n    ],\n    \"table_diagnostics\": [\n{}\n    ],\n    \"structured_reads\": [\n{}\n    ],\n    \"config_promotions\": [\n{}\n    ],\n    \"table_selections\": [\n{}\n    ],\n    \"sample_tables\": [\n{}\n    ],\n    \"case_manifests\": [\n{}\n    ],\n    \"db_manifests\": [\n{}\n    ],\n    \"timeseries_uncertainty_calculations\": [\n{}\n    ],\n    \"metrics\": [\n{}\n    ],\n    \"validations\": [\n{}\n    ],\n    \"time_axes\": [\n{}\n    ],\n    \"timeseries_coverage\": [\n{}\n    ],\n    \"time_alignments\": [\n{}\n    ],\n    \"uncertainties\": [\n{}\n    ],\n    \"ml\": [\n{}\n    ],\n    \"model_cards\": [\n{}\n    ],\n    \"policy_results\": [\n{}\n    ],\n    \"systems\": [\n{}\n    ],\n    \"component_solutions\": [\n{}\n    ],\n    \"solver_boundaries\": [\n{}\n    ],\n    \"system_ir\": [\n{}\n    ]\n  }},\n  \"provenance\": {{\n    \"schema_count\": {},\n    \"csv_promotion_count\": {},\n    \"config_promotion_count\": {},\n    \"system_count\": {},\n    \"equation_count\": {},\n    \"residual_count\": {},\n    \"component_solution_count\": {},\n    \"environment_dependencies\": [\n{}\n    ],\n    \"profile_diagnostics\": [\n{}\n    ],\n    \"data_hashes\": [\n{}\n    ],\n    \"unit_conversion_history\": [],\n    \"plot_spec_hash\": \"{}\",\n    \"report_spec_hash\": \"{}\",\n    \"schema_hash\": \"preview\"\n  }}\n}}\n",
         eng_compiler::COMPILER_VERSION,
         eng_compiler::BYTECODE_VERSION,
         json_escape(&path.display().to_string()),
@@ -4864,6 +4882,7 @@ fn result_json(
         integrations,
         table_diagnostics,
         structured_reads,
+        config_promotions,
         table_selections,
         sample_tables,
         case_manifests,
@@ -4884,6 +4903,7 @@ fn result_json(
         system_ir,
         report.semantic_program.schemas.len(),
         report.semantic_program.csv_promotions.len(),
+        report.semantic_program.config_promotions.len(),
         report.semantic_program.systems.len(),
         report
             .semantic_program
@@ -7268,6 +7288,70 @@ fn structured_reads_json(runtime_data: &RuntimeData) -> String {
     json
 }
 
+fn config_promotions_json(report: &CheckReport) -> String {
+    let mut json = String::new();
+    for (index, promotion) in report.semantic_program.config_promotions.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&promotion.binding)
+        ));
+        json.push_str(&format!(
+            "        \"format\": \"{}\",\n",
+            json_escape(&promotion.format)
+        ));
+        json.push_str(&format!(
+            "        \"schema_name\": \"{}\",\n",
+            json_escape(&promotion.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&promotion.source_literal)
+        ));
+        json.push_str(&format!(
+            "        \"source_value\": \"{}\",\n",
+            json_escape(&promotion.source_value)
+        ));
+        json.push_str(&format!(
+            "        \"resolved_path\": \"{}\",\n",
+            json_escape(&promotion.resolved_path)
+        ));
+        push_optional_json_string(
+            &mut json,
+            "source_hash",
+            promotion.source_hash.as_deref(),
+            8,
+        );
+        json.push_str(&format!(
+            "        \"field_count\": {},\n",
+            promotion.field_count
+        ));
+        json.push_str("        \"missing_fields\": [");
+        push_json_string_array(&mut json, &promotion.missing_fields);
+        json.push_str("],\n");
+        json.push_str("        \"unknown_fields\": [");
+        push_json_string_array(&mut json, &promotion.unknown_fields);
+        json.push_str("],\n");
+        json.push_str("        \"null_fields\": [");
+        push_json_string_array(&mut json, &promotion.null_fields);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"type_mismatch_count\": {},\n",
+            promotion.type_mismatches.len()
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&promotion.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", promotion.line));
+        json.push_str("      }");
+    }
+    json
+}
+
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
     let mut json = String::new();
     for (index, diagnostic) in runtime_data.table_diagnostics.iter().enumerate() {
@@ -9052,5 +9136,54 @@ mod tests {
             .contains("\"binding\": \"notes_text\""));
         assert!(output.output_manifest_json.contains("notes.txt"));
         assert!(output.output_manifest_json.contains("\"hash\": \""));
+    }
+
+    #[test]
+    fn run_file_records_typed_config_promotion_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-config-promotion");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-config-promotion-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("workflow.toml"),
+            "year = 2026\nregion = \"KR\"\noutput = \"build/out\"\ncache = true\n",
+        )
+        .expect("config");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    region: String\n    output: DirectoryPath\n    cache: Bool\n}\n\nconfig = promote toml file(\"data/workflow.toml\") as WorkflowConfig\nx = 1\nprint \"x={x}\"\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(output.stdout.contains("x=1"));
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/status")
+                .and_then(Value::as_str),
+            Some("validated")
+        );
+        assert!(output.result_json.contains("\"config_promotions\""));
+        assert!(output.result_json.contains("\"binding\": \"config\""));
+        assert!(output.result_json.contains("\"format\": \"toml\""));
+        assert!(output.result_json.contains("\"status\": \"validated\""));
+        assert!(output.result_json.contains("\"config_promotion_count\": 1"));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"config_toml\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"schema\": \"WorkflowConfig\""));
+        assert!(output.output_manifest_json.contains("workflow.toml"));
     }
 }

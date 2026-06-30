@@ -35,7 +35,7 @@ below is a reader-facing summary and must stay consistent with that registry.
 | `eng.path` | Supported through built-ins | typed paths, joins, names, existence checks, and generated-output root policy diagnostics |
 | `eng.io` | Supported through built-ins | read/write text, JSON, TOML, source hashes, structured read parse summaries |
 | `eng.fs` | Supported narrow scope | copy, move, delete under generated-output boundaries |
-| `eng.config` | Planned | typed JSON/TOML promotion and config validation |
+| `eng.config` | Supported narrow scope | typed JSON/TOML file promotion, config validation, source hashes, and config summaries |
 | `eng.log` | Supported through built-ins | structured runtime messages and run logs |
 | `eng.process` | Supported narrow scope | explicit command boundary, tool-version metadata, expected-output hashes, and process artifacts |
 | `eng.test` | Supported narrow scope | local assertions, golden checks, test artifacts |
@@ -74,9 +74,10 @@ stdlib/eng/io.eng
 stdlib/eng/fs.eng
 ```
 
-`stdlib/eng/config.eng` is intentionally planned: raw `read json` and
-`read toml` exist today through `eng.io`, but typed config promotion is not yet
-a supported workflow contract.
+`stdlib/eng/config.eng` is supported in narrow scope: `promote json file(...)`
+and `promote toml file(...)` validate top-level config fields against schema
+columns and emit source hashes plus config promotion summaries. Payload
+promotion, nested/list fields, defaults, and unit mismatch policy remain planned.
 
 IDE and LSP completions expose the module boundary names so users can discover
 the current surface without implying that every planned helper is executable.

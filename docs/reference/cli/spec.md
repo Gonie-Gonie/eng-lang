@@ -63,10 +63,16 @@ E-SCHEMA-PROMOTE-001   unknown schema in promote csv
 E-SCHEMA-CSV-001       CSV source cannot be read
 E-SCHEMA-CSV-002       CSV source missing required columns
 E-SCHEMA-MISSING-001   missing policy references unknown column
+E-CONFIG-SOURCE-001    JSON/TOML config source cannot be read or parsed
+E-CONFIG-MISSING-FIELD config source is missing a required schema field
+E-CONFIG-UNKNOWN-FIELD config source contains a field outside the schema
+E-CONFIG-TYPE-MISMATCH config field type does not match the schema
+E-CONFIG-NULL-NOT-OPTIONAL config field is null before optional support
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run
 E-ARGS-TYPE-001        Args value cannot be converted to the declared type
 E-ARGS-CSV-001         CSV promotion references an Args field without a value
+E-ARGS-CONFIG-001      config promotion references an Args field without a value
 E-SCRIPT-001           `script` blocks are not supported as execution roots
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq

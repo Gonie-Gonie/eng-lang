@@ -88,10 +88,10 @@ purpose = "DB side-effect manifest summaries; native SQLite write/upsert helpers
 artifacts = ["typed_payload.db_manifests", "db_write_manifest", "review.external_boundaries"]
 
 [module."eng.config"]
-status = "planned"
-backing = "none"
-purpose = "Typed JSON/TOML configuration promotion and validation."
-artifacts = ["review.inputs", "config_summary"]
+status = "supported_narrow"
+backing = "compiler_runtime_builtin"
+purpose = "Typed JSON/TOML file promotion with schema validation, source hashes, and config summaries."
+artifacts = ["typed_payload.config_promotions", "review.config_promotions", "output_manifest"]
 
 [module."eng.net"]
 status = "planned"

@@ -2751,8 +2751,20 @@ fn parse_explicit_decl(
     let [first, second, ..] = tokens else {
         return None;
     };
-    let TokenKind::Identifier(name) = &first.kind else {
-        return None;
+    let name = match &first.kind {
+        TokenKind::Identifier(name) => name.clone(),
+        TokenKind::Keyword(Keyword::Input | Keyword::Output)
+            if matches!(
+                context,
+                ParseContext::Schema
+                    | ParseContext::Args
+                    | ParseContext::Struct
+                    | ParseContext::Class
+            ) =>
+        {
+            first.lexeme.clone()
+        }
+        _ => return None,
     };
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Colon)) {
         return None;
@@ -2766,7 +2778,7 @@ fn parse_explicit_decl(
     let (type_name, unit) = split_type_and_unit(type_part);
 
     Some(ExplicitDecl {
-        name: name.clone(),
+        name,
         type_name,
         unit,
         expression,

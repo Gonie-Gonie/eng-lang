@@ -48,7 +48,10 @@ pub use module_registry::{
 };
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
-pub use schema::{CsvPromotion, MissingPolicy, SchemaColumn, SchemaConstraint, SchemaInfo};
+pub use schema::{
+    ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,
+    SchemaConstraint, SchemaInfo,
+};
 pub use semantic::read_only_io_expression;
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
@@ -203,6 +206,7 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
         .extend(schema_analysis.diagnostics);
     semantic_output.semantic_program.schemas = schema_analysis.schemas;
     semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
+    semantic_output.semantic_program.config_promotions = schema_analysis.config_promotions;
     semantic_output.semantic_program.arg_values = arg_values;
     semantic_output.semantic_program.environment_dependencies = collect_environment_dependencies(
         &parsed,
@@ -3938,6 +3942,86 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str(&format!("      \"line\": {}\n", promotion.line));
         json.push_str("    }");
     }
+    json.push_str("\n  ],\n");
+    json.push_str("  \"config_promotions\": [\n");
+    for (index, promotion) in report.semantic_program.config_promotions.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("    {\n");
+        json.push_str(&format!(
+            "      \"binding\": \"{}\",\n",
+            json_escape(&promotion.binding)
+        ));
+        json.push_str(&format!(
+            "      \"format\": \"{}\",\n",
+            json_escape(&promotion.format)
+        ));
+        json.push_str(&format!(
+            "      \"schema_name\": \"{}\",\n",
+            json_escape(&promotion.schema_name)
+        ));
+        json.push_str(&format!(
+            "      \"source_literal\": \"{}\",\n",
+            json_escape(&promotion.source_literal)
+        ));
+        json.push_str(&format!(
+            "      \"source_value\": \"{}\",\n",
+            json_escape(&promotion.source_value)
+        ));
+        json.push_str(&format!(
+            "      \"resolved_path\": \"{}\",\n",
+            json_escape(&promotion.resolved_path)
+        ));
+        if let Some(hash) = &promotion.source_hash {
+            json.push_str(&format!(
+                "      \"source_hash\": \"{}\",\n",
+                json_escape(hash)
+            ));
+        } else {
+            json.push_str("      \"source_hash\": null,\n");
+        }
+        json.push_str(&format!(
+            "      \"field_count\": {},\n",
+            promotion.field_count
+        ));
+        json.push_str("      \"missing_fields\": [");
+        push_json_string_array(&mut json, &promotion.missing_fields);
+        json.push_str("],\n");
+        json.push_str("      \"unknown_fields\": [");
+        push_json_string_array(&mut json, &promotion.unknown_fields);
+        json.push_str("],\n");
+        json.push_str("      \"null_fields\": [");
+        push_json_string_array(&mut json, &promotion.null_fields);
+        json.push_str("],\n");
+        json.push_str("      \"type_mismatches\": [\n");
+        for (mismatch_index, mismatch) in promotion.type_mismatches.iter().enumerate() {
+            if mismatch_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("        {\n");
+            json.push_str(&format!(
+                "          \"field\": \"{}\",\n",
+                json_escape(&mismatch.field)
+            ));
+            json.push_str(&format!(
+                "          \"expected\": \"{}\",\n",
+                json_escape(&mismatch.expected)
+            ));
+            json.push_str(&format!(
+                "          \"actual\": \"{}\"\n",
+                json_escape(&mismatch.actual)
+            ));
+            json.push_str("        }");
+        }
+        json.push_str("\n      ],\n");
+        json.push_str(&format!(
+            "      \"status\": \"{}\",\n",
+            json_escape(&promotion.status)
+        ));
+        json.push_str(&format!("      \"line\": {}\n", promotion.line));
+        json.push_str("    }");
+    }
     json.push_str("\n  ]\n");
     json.push_str("}\n");
     json
@@ -4365,6 +4449,10 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
         program.schemas.len()
     ));
     json.push_str(&format!(
+        "      \"config_promotion_count\": {},\n",
+        program.config_promotions.len()
+    ));
+    json.push_str(&format!(
         "      \"unit_quantity_count\": {},\n",
         program.typed_bindings.len()
     ));
@@ -4401,6 +4489,7 @@ fn push_review_document_json(json: &mut String, report: &CheckReport) {
     json.push_str("    },\n");
     push_review_inputs_json(json, report);
     push_review_schemas_json(json, report);
+    push_review_config_promotions_json(json, report);
     push_review_units_quantities_json(json, report);
     push_review_time_axes_json(json, report);
     push_review_symbols_json(json, report);
@@ -4873,7 +4962,10 @@ fn review_section_digest(report: &CheckReport, section: &str) -> String {
             "{:?}|{:?}|{:?}",
             program.args_blocks, program.arg_values, program.environment_dependencies
         ),
-        "schemas" => format!("{:?}|{:?}", program.schemas, program.csv_promotions),
+        "schemas" => format!(
+            "{:?}|{:?}|{:?}",
+            program.schemas, program.csv_promotions, program.config_promotions
+        ),
         "units_quantities" => {
             format!(
                 "{:?}|{:?}",
@@ -5131,6 +5223,61 @@ fn push_review_schemas_json(json: &mut String, report: &CheckReport) {
         }
         json.push_str("],\n");
         json.push_str(&format!("        \"line\": {}\n", schema.line));
+        json.push_str("      }");
+    }
+    json.push_str("\n    ],\n");
+}
+
+fn push_review_config_promotions_json(json: &mut String, report: &CheckReport) {
+    json.push_str("    \"config_promotions\": [\n");
+    for (index, promotion) in report.semantic_program.config_promotions.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str("      {\n");
+        json.push_str(&format!(
+            "        \"binding\": \"{}\",\n",
+            json_escape(&promotion.binding)
+        ));
+        json.push_str(&format!(
+            "        \"format\": \"{}\",\n",
+            json_escape(&promotion.format)
+        ));
+        json.push_str(&format!(
+            "        \"schema_name\": \"{}\",\n",
+            json_escape(&promotion.schema_name)
+        ));
+        json.push_str(&format!(
+            "        \"source\": \"{}\",\n",
+            json_escape(&promotion.source_literal)
+        ));
+        json.push_str(&format!(
+            "        \"resolved_path\": \"{}\",\n",
+            json_escape(&promotion.resolved_path)
+        ));
+        push_optional_json_string(json, "source_hash", promotion.source_hash.as_deref(), 8);
+        json.push_str(&format!(
+            "        \"field_count\": {},\n",
+            promotion.field_count
+        ));
+        json.push_str("        \"missing_fields\": [");
+        push_json_string_array(json, &promotion.missing_fields);
+        json.push_str("],\n");
+        json.push_str("        \"unknown_fields\": [");
+        push_json_string_array(json, &promotion.unknown_fields);
+        json.push_str("],\n");
+        json.push_str("        \"null_fields\": [");
+        push_json_string_array(json, &promotion.null_fields);
+        json.push_str("],\n");
+        json.push_str(&format!(
+            "        \"type_mismatch_count\": {},\n",
+            promotion.type_mismatches.len()
+        ));
+        json.push_str(&format!(
+            "        \"status\": \"{}\",\n",
+            json_escape(&promotion.status)
+        ));
+        json.push_str(&format!("        \"line\": {}\n", promotion.line));
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -10382,6 +10529,106 @@ system Envelope {
 
         assert!(report.has_errors());
         assert_eq!(report.diagnostics[0].code, "E-SCHEMA-PROMOTE-001");
+    }
+
+    #[test]
+    fn records_typed_config_promotions() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-ok-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.toml"),
+            "year = 2026\nregion = \"KR\"\noutput = \"build/out\"\ncache = true\n",
+        )
+        .expect("toml config");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": 2026, \"region\": \"KR\", \"output\": \"build/out\", \"cache\": true }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    region: String\n    output: DirectoryPath\n    cache: Bool\n}\n\ntoml_config = promote toml file(\"data/workflow.toml\") as WorkflowConfig\njson_config = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.config_promotions.len(), 2);
+        assert!(report
+            .semantic_program
+            .config_promotions
+            .iter()
+            .all(|promotion| promotion.status == "validated"
+                && promotion.schema_name == "WorkflowConfig"
+                && promotion.field_count == 4
+                && promotion.source_hash.is_some()));
+        let toml_binding = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "toml_config")
+            .expect("toml config binding");
+        assert_eq!(toml_binding.semantic_type.quantity_kind, "ConfigObject");
+        let review = review_json(&report);
+        assert!(review.contains("\"config_promotions\""));
+        assert!(review.contains("\"config_promotion_count\": 2"));
+        assert!(review.contains("\"source_hash\": \""));
+    }
+
+    #[test]
+    fn diagnoses_invalid_typed_config_promotions() {
+        let root = env::temp_dir().join(format!(
+            "englang-config-promotion-bad-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("workflow.json"),
+            "{ \"year\": \"2026\", \"region\": null, \"extra\": true }\n",
+        )
+        .expect("json config");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WorkflowConfig {\n    year: Int\n    region: String\n    output: DirectoryPath\n}\n\nconfig = promote json file(\"data/workflow.json\") as WorkflowConfig\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        for code in [
+            "E-CONFIG-MISSING-FIELD",
+            "E-CONFIG-UNKNOWN-FIELD",
+            "E-CONFIG-NULL-NOT-OPTIONAL",
+            "E-CONFIG-TYPE-MISMATCH",
+        ] {
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == code),
+                "{code}: {:?}",
+                report.diagnostics
+            );
+        }
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .first()
+            .expect("config promotion");
+        assert_eq!(promotion.status, "invalid");
+        assert_eq!(promotion.missing_fields, vec!["output".to_owned()]);
+        assert_eq!(promotion.unknown_fields, vec!["extra".to_owned()]);
+        assert_eq!(promotion.null_fields, vec!["region".to_owned()]);
+        assert_eq!(promotion.type_mismatches[0].field, "year");
     }
 
     #[test]

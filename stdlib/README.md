@@ -46,7 +46,7 @@ APIs unless a status document says so.
 | `eng.stats` | Planned | Semantic statistics helpers for TimeSeries and tables. |
 | `eng.plot` | Planned | PlotSpec-oriented helper vocabulary. |
 | `eng.report` | Planned | Report/review helper vocabulary. |
-| `eng.config` | Planned | Typed JSON/TOML configuration promotion and validation. |
+| `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, source hashes, and config summaries. |
 | `eng.net` | Planned | HTTP/download boundary with cache and hash policy. |
 | `eng.cache` | Planned | Reproducible cache keys and hit/miss artifacts. |
 | `eng.quality` | Planned | Data quality expectations, validation summaries, and reportable quality results. |

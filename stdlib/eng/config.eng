@@ -1,20 +1,23 @@
 # module: eng.config
-# status: planned
+# status: supported_narrow
 # purpose: typed JSON/TOML configuration promotion with schema validation.
 #
-# Current implementation:
-#   read json/toml returns raw UTF-8 text through eng.io built-ins.
-#
-# Planned helper vocabulary:
+# Supported built-in vocabulary:
 #   promote json file(...) as ConfigSchema
 #   promote toml file(...) as ConfigSchema
-#   optional/default config fields
-#   missing/null policy diagnostics
+#   promote json args.config_path as ConfigSchema
+#   promote toml args.config_path as ConfigSchema
 #
-# Review contract:
-#   source path, source hash, schema name, field defaults, missing fields,
-#   type/unit mismatches, and source spans.
+# Current review/runtime contract:
+#   source path, source hash, schema name, field count, missing fields,
+#   unknown fields, null fields, type mismatches, and source spans.
+#
+# Planned helper vocabulary:
+#   promote json payload as ConfigSchema
+#   optional/default config fields
+#   nested object and array/list promotion
+#   unit mismatch validation
 #
 # Non-goal:
 #   raw config reads should not bypass typed schema promotion in reviewable
-#   composite workflows once this module is implemented.
+#   composite workflows.
