@@ -7709,6 +7709,12 @@ fn push_table_transform_json(
     ));
     push_optional_json_string(
         json,
+        "secondary_table",
+        transform.secondary_table.as_deref(),
+        field_indent.len(),
+    );
+    push_optional_json_string(
+        json,
         "schema_name",
         transform.schema_name.as_deref(),
         field_indent.len(),
@@ -7717,6 +7723,15 @@ fn push_table_transform_json(
         "{field_indent}\"input_row_count\": {},\n",
         transform.input_row_count
     ));
+    match transform.secondary_input_row_count {
+        Some(count) => json.push_str(&format!(
+            "{field_indent}\"secondary_input_row_count\": {},\n",
+            count
+        )),
+        None => json.push_str(&format!(
+            "{field_indent}\"secondary_input_row_count\": null,\n"
+        )),
+    }
     json.push_str(&format!(
         "{field_indent}\"output_row_count\": {},\n",
         transform.output_row_count
@@ -7770,6 +7785,44 @@ fn push_table_transform_json(
             json_escape(&predicate.status)
         ));
         json.push_str(&format!("{nested_indent}  \"line\": {}\n", predicate.line));
+        json.push_str(&format!("{nested_indent}}}"));
+    }
+    json.push_str(&format!("\n{field_indent}],\n"));
+    json.push_str(&format!("{field_indent}\"join_keys\": [\n"));
+    for (key_index, key) in transform.join_keys.iter().enumerate() {
+        if key_index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!("{nested_indent}{{\n"));
+        json.push_str(&format!(
+            "{nested_indent}  \"expression\": \"{}\",\n",
+            json_escape(&key.expression)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"left_table\": \"{}\",\n",
+            json_escape(&key.left_table)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"left_column\": \"{}\",\n",
+            json_escape(&key.left_column)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"right_table\": \"{}\",\n",
+            json_escape(&key.right_table)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"right_column\": \"{}\",\n",
+            json_escape(&key.right_column)
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"matched_pair_count\": {},\n",
+            key.matched_pair_count
+        ));
+        json.push_str(&format!(
+            "{nested_indent}  \"status\": \"{}\",\n",
+            json_escape(&key.status)
+        ));
+        json.push_str(&format!("{nested_indent}  \"line\": {}\n", key.line));
         json.push_str(&format!("{nested_indent}}}"));
     }
     json.push_str(&format!("\n{field_indent}],\n"));
@@ -8999,6 +9052,82 @@ mod tests {
         assert!(output.result_json.contains("\"status\": \"selected\""));
         assert!(output.review_json.contains("\"table_transforms\""));
         assert!(output.review_json.contains("\"table_transform_count\": 2"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
+    fn run_source_materializes_table_join_transform_artifacts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-table-join-run");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-table-join-run-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("samples.csv"),
+            concat!("case_id,cooling_cop\n", "case_001,3.2\n", "case_002,3.4\n",),
+        )
+        .expect("samples csv");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            concat!(
+                "case_id,unmet_hours\n",
+                "case_001,12\n",
+                "case_002,8\n",
+                "case_003,15\n",
+            ),
+        )
+        .expect("results csv");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "schema DesignSample {\n",
+                "    case_id: String\n",
+                "    cooling_cop: Ratio [1]\n",
+                "}\n\n",
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    unmet_hours: Duration [h]\n",
+                "}\n\n",
+                "args {\n",
+                "    samples_path: CsvFile = file(\"data/samples.csv\")\n",
+                "    results_path: CsvFile = file(\"data/results.csv\")\n",
+                "}\n\n",
+                "samples = promote csv args.samples_path as DesignSample\n",
+                "results = promote csv args.results_path as SimulationResult\n",
+                "joined = join samples with results\n",
+                "on {\n",
+                "    samples.case_id == results.case_id\n",
+                "}\n",
+                "report {\n",
+                "    show joined\n",
+                "}\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("run");
+
+        assert!(output.result_json.contains("\"operation\": \"join\""));
+        assert!(output.result_json.contains("\"binding\": \"joined\""));
+        assert!(output
+            .result_json
+            .contains("\"secondary_table\": \"results\""));
+        assert!(output.result_json.contains("\"input_row_count\": 2"));
+        assert!(output
+            .result_json
+            .contains("\"secondary_input_row_count\": 3"));
+        assert!(output.result_json.contains("\"output_row_count\": 2"));
+        assert!(output.result_json.contains("\"matched_pair_count\": 2"));
+        assert!(output.review_json.contains("\"operation\": \"join\""));
+        assert!(output.review_json.contains("\"join_keys\""));
         assert!(!virtual_path.exists());
     }
 

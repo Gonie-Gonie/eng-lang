@@ -1062,13 +1062,28 @@ pub struct RuntimeTableTransform {
     pub binding: String,
     pub operation: String,
     pub source_table: String,
+    pub secondary_table: Option<String>,
     pub schema_name: Option<String>,
     pub input_row_count: usize,
+    pub secondary_input_row_count: Option<usize>,
     pub output_row_count: usize,
     pub matched_row_indices: Vec<usize>,
     pub predicates: Vec<RuntimeTableTransformPredicate>,
+    pub join_keys: Vec<RuntimeTableJoinKey>,
     pub status: String,
     pub reason: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeTableJoinKey {
+    pub expression: String,
+    pub left_table: String,
+    pub left_column: String,
+    pub right_table: String,
+    pub right_column: String,
+    pub matched_pair_count: usize,
+    pub status: String,
     pub line: usize,
 }
 
@@ -3908,11 +3923,14 @@ fn materialize_table_transforms(
                     binding: transform.binding.clone(),
                     operation: transform.operation.clone(),
                     source_table: transform.source_table.clone(),
+                    secondary_table: transform.secondary_table.clone(),
                     schema_name,
                     input_row_count: source_rows.len(),
+                    secondary_input_row_count: None,
                     output_row_count: matched_rows.len(),
                     matched_row_indices: one_based_rows(&matched_rows),
                     predicates,
+                    join_keys: Vec::new(),
                     status: "filtered".to_owned(),
                     reason: if transform.predicates.is_empty() {
                         "no predicates; retained all source rows".to_owned()
@@ -3952,8 +3970,10 @@ fn materialize_table_transforms(
                     binding: transform.binding.clone(),
                     operation: transform.operation.clone(),
                     source_table: transform.source_table.clone(),
+                    secondary_table: transform.secondary_table.clone(),
                     schema_name,
                     input_row_count: source_rows.len(),
+                    secondary_input_row_count: None,
                     output_row_count,
                     matched_row_indices: one_based_rows(&source_rows),
                     predicates: runtime_table_transform_predicates(
@@ -3962,8 +3982,76 @@ fn materialize_table_transforms(
                         &source_rows,
                         &transform.predicates,
                     ),
+                    join_keys: Vec::new(),
                     status: status.to_owned(),
                     reason,
+                    line: transform.line,
+                });
+            }
+            "join" => {
+                let Some(secondary_table) = transform.secondary_table.as_deref() else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                let Some((left_table, left_rows, left_schema_name)) =
+                    resolve_table_transform_source(
+                        tables,
+                        &transform_rows,
+                        &transform.source_table,
+                    )
+                else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                let Some((right_table, right_rows, right_schema_name)) =
+                    resolve_table_transform_source(tables, &transform_rows, secondary_table)
+                else {
+                    records.push(missing_source_table_transform(report, transform));
+                    continue;
+                };
+                let joined_pairs = join_table_transform_pairs(
+                    left_table,
+                    &left_rows,
+                    right_table,
+                    &right_rows,
+                    transform,
+                );
+                let mut matched_left_rows = joined_pairs
+                    .iter()
+                    .map(|(left_row, _right_row)| *left_row)
+                    .collect::<HashSet<_>>()
+                    .into_iter()
+                    .collect::<Vec<_>>();
+                matched_left_rows.sort_unstable();
+                let schema_name = transform.schema_name.clone().or_else(|| {
+                    left_schema_name
+                        .zip(right_schema_name)
+                        .map(|(left, right)| format!("{left}+{right}"))
+                });
+                records.push(RuntimeTableTransform {
+                    binding: transform.binding.clone(),
+                    operation: transform.operation.clone(),
+                    source_table: transform.source_table.clone(),
+                    secondary_table: transform.secondary_table.clone(),
+                    schema_name,
+                    input_row_count: left_rows.len(),
+                    secondary_input_row_count: Some(right_rows.len()),
+                    output_row_count: joined_pairs.len(),
+                    matched_row_indices: one_based_rows(&matched_left_rows),
+                    predicates: Vec::new(),
+                    join_keys: runtime_table_join_keys(
+                        left_table,
+                        &left_rows,
+                        right_table,
+                        &right_rows,
+                        &transform.join_keys,
+                    ),
+                    status: "joined".to_owned(),
+                    reason: if transform.join_keys.is_empty() {
+                        "no join keys; no joined rows materialized".to_owned()
+                    } else {
+                        "matched rows on join keys".to_owned()
+                    },
                     line: transform.line,
                 });
             }
@@ -3971,8 +4059,10 @@ fn materialize_table_transforms(
                 binding: transform.binding.clone(),
                 operation: transform.operation.clone(),
                 source_table: transform.source_table.clone(),
+                secondary_table: transform.secondary_table.clone(),
                 schema_name: transform.schema_name.clone(),
                 input_row_count: 0,
+                secondary_input_row_count: None,
                 output_row_count: 0,
                 matched_row_indices: Vec::new(),
                 predicates: runtime_table_transform_predicates(
@@ -3981,6 +4071,7 @@ fn materialize_table_transforms(
                     &[],
                     &transform.predicates,
                 ),
+                join_keys: Vec::new(),
                 status: "unsupported".to_owned(),
                 reason: "unsupported table transform operation".to_owned(),
                 line: transform.line,
@@ -4024,11 +4115,14 @@ fn missing_source_table_transform(
         binding: transform.binding.clone(),
         operation: transform.operation.clone(),
         source_table: transform.source_table.clone(),
+        secondary_table: transform.secondary_table.clone(),
         schema_name: transform.schema_name.clone(),
         input_row_count: 0,
+        secondary_input_row_count: None,
         output_row_count: 0,
         matched_row_indices: Vec::new(),
         predicates: runtime_table_transform_predicates(report, None, &[], &transform.predicates),
+        join_keys: runtime_table_join_keys_empty(&transform.join_keys),
         status: "missing_source".to_owned(),
         reason: "source table or table transform was not materialized".to_owned(),
         line: transform.line,
@@ -4073,6 +4167,100 @@ fn runtime_table_transform_predicates(
             }
         })
         .collect()
+}
+
+fn join_table_transform_pairs(
+    left_table: &RuntimeTable,
+    left_rows: &[usize],
+    right_table: &RuntimeTable,
+    right_rows: &[usize],
+    transform: &eng_compiler::TableTransformInfo,
+) -> Vec<(usize, usize)> {
+    if transform.join_keys.is_empty() {
+        return Vec::new();
+    }
+    let mut pairs = Vec::new();
+    for left_row in left_rows {
+        for right_row in right_rows {
+            if transform.join_keys.iter().all(|key| {
+                table_join_key_matches(left_table, *left_row, right_table, *right_row, key)
+            }) {
+                pairs.push((*left_row, *right_row));
+            }
+        }
+    }
+    pairs
+}
+
+fn runtime_table_join_keys(
+    left_table: &RuntimeTable,
+    left_rows: &[usize],
+    right_table: &RuntimeTable,
+    right_rows: &[usize],
+    keys: &[eng_compiler::TableJoinKeyInfo],
+) -> Vec<RuntimeTableJoinKey> {
+    keys.iter()
+        .map(|key| RuntimeTableJoinKey {
+            expression: key.expression.clone(),
+            left_table: key.left_table.clone(),
+            left_column: key.left_column.clone(),
+            right_table: key.right_table.clone(),
+            right_column: key.right_column.clone(),
+            matched_pair_count: if key.status == "accepted" {
+                left_rows
+                    .iter()
+                    .flat_map(|left_row| {
+                        right_rows
+                            .iter()
+                            .map(move |right_row| (*left_row, *right_row))
+                    })
+                    .filter(|(left_row, right_row)| {
+                        table_join_key_matches(left_table, *left_row, right_table, *right_row, key)
+                    })
+                    .count()
+            } else {
+                0
+            },
+            status: key.status.clone(),
+            line: key.line,
+        })
+        .collect()
+}
+
+fn runtime_table_join_keys_empty(
+    keys: &[eng_compiler::TableJoinKeyInfo],
+) -> Vec<RuntimeTableJoinKey> {
+    keys.iter()
+        .map(|key| RuntimeTableJoinKey {
+            expression: key.expression.clone(),
+            left_table: key.left_table.clone(),
+            left_column: key.left_column.clone(),
+            right_table: key.right_table.clone(),
+            right_column: key.right_column.clone(),
+            matched_pair_count: 0,
+            status: key.status.clone(),
+            line: key.line,
+        })
+        .collect()
+}
+
+fn table_join_key_matches(
+    left_table: &RuntimeTable,
+    left_row: usize,
+    right_table: &RuntimeTable,
+    right_row: usize,
+    key: &eng_compiler::TableJoinKeyInfo,
+) -> bool {
+    if key.status != "accepted" {
+        return false;
+    }
+    let Some(left_value) = table_column_value(left_table, &key.left_column, left_row) else {
+        return false;
+    };
+    let Some(right_value) = table_column_value(right_table, &key.right_column, right_row) else {
+        return false;
+    };
+    left_value.trim() == right_value.trim()
 }
 
 fn table_transform_row_matches(

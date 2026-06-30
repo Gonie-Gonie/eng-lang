@@ -10791,6 +10791,9 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
     if crate::table::is_require_one_expression(expression) {
         return semantic_type("TableRow", "eng.table");
     }
+    if crate::table::is_join_expression(expression) {
+        return semantic_type("TableTransform[Join]", "eng.table");
+    }
 
     if lowered_expression.starts_with("check(") && lowered_expression.contains("coverage ") {
         return semantic_type("CoverageResult", "");

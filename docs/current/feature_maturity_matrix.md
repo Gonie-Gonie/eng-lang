@@ -258,7 +258,7 @@ separate.
   result rows, surrogate model cards, prediction manifests with output quantity/unit
   and hashes, and DB write manifests with schema diagnostics, table records, and
   transaction status as reviewable fixture artifacts.
-- Not included: live HTTP execution/cache replay API, general table select/derive/sort/join/fill transforms,
+- Not included: live HTTP execution/cache replay API, general table select/derive/sort/fill transforms,
   native grid/random/LHS sample generation, native case runner, domain weather
   adapters, EPW writer, EnergyPlus IDF parser, native SQLite write/upsert, broad
   DB support, or ML framework support.

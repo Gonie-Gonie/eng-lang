@@ -1,0 +1,25 @@
+schema DesignSample {
+    case_id: String
+    cooling_cop: Ratio [1]
+}
+
+schema SimulationResult {
+    case_id: String
+    unmet_hours: Duration [h]
+}
+
+args {
+    samples_path: CsvFile = file("data/table_design_samples.csv")
+    results_path: CsvFile = file("data/table_sim_results.csv")
+}
+
+samples = promote csv args.samples_path as DesignSample
+results = promote csv args.results_path as SimulationResult
+joined = join samples with results
+on {
+    samples.case_id == results.case_id
+}
+
+report {
+    show joined
+}

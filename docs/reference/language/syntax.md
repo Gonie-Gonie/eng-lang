@@ -386,11 +386,17 @@ with {
     on_none = error "No station for region/year"
     on_many = error "Multiple stations for region/year"
 }
+
+joined = join samples with results
+on {
+    samples.case_id == results.case_id
+}
 ```
 
 The compiler validates referenced predicate columns against the promoted table
-schema and records the transform contract in `review_document.table_transforms[]`.
-Runtime artifacts record row counts and predicate evidence in
+schema and validates join keys against both promoted table schemas. It records
+the transform contract in `review_document.table_transforms[]`.
+Runtime artifacts record row counts, predicate evidence, and join key pair counts in
 `typed_payload.table_transforms[]`.
 
 ## Declarations

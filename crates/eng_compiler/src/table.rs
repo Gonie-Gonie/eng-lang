@@ -1,7 +1,7 @@
 use crate::ast::AstItem;
 use crate::parser::ParsedProgram;
 use crate::semantic::SemanticProgram;
-use crate::{Diagnostic, SchemaInfo};
+use crate::{Diagnostic, SchemaColumn, SchemaInfo};
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TablePredicateInfo {
@@ -14,12 +14,25 @@ pub struct TablePredicateInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct TableJoinKeyInfo {
+    pub expression: String,
+    pub left_table: String,
+    pub left_column: String,
+    pub right_table: String,
+    pub right_column: String,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TableTransformInfo {
     pub binding: String,
     pub operation: String,
     pub source_table: String,
+    pub secondary_table: Option<String>,
     pub schema_name: Option<String>,
     pub predicates: Vec<TablePredicateInfo>,
+    pub join_keys: Vec<TableJoinKeyInfo>,
     pub status: String,
     pub line: usize,
 }
@@ -52,7 +65,9 @@ pub fn analyze_table_transforms(
                 operation: "filter".to_owned(),
                 schema_name: schema_name_for_table(program, &source_table),
                 source_table,
+                secondary_table: None,
                 predicates,
+                join_keys: Vec::new(),
                 status: "declared".to_owned(),
                 line: binding.line,
             });
@@ -69,7 +84,37 @@ pub fn analyze_table_transforms(
                 operation: "require_one".to_owned(),
                 schema_name,
                 source_table,
+                secondary_table: None,
                 predicates: Vec::new(),
+                join_keys: Vec::new(),
+                status: "declared".to_owned(),
+                line: binding.line,
+            });
+        } else if let Some((left_table, right_table)) = parse_join_expression(&binding.expression) {
+            let join_keys = join_keys_for_owner(
+                parsed,
+                program,
+                &analysis.transforms,
+                binding.line,
+                &left_table,
+                &right_table,
+                &mut analysis.diagnostics,
+            );
+            let schema_name = schema_name_for_source(program, &analysis.transforms, &left_table)
+                .zip(schema_name_for_source(
+                    program,
+                    &analysis.transforms,
+                    &right_table,
+                ))
+                .map(|(left, right)| format!("{left}+{right}"));
+            analysis.transforms.push(TableTransformInfo {
+                binding: binding.name.clone(),
+                operation: "join".to_owned(),
+                source_table: left_table,
+                secondary_table: Some(right_table),
+                schema_name,
+                predicates: Vec::new(),
+                join_keys,
                 status: "declared".to_owned(),
                 line: binding.line,
             });
@@ -86,6 +131,10 @@ pub fn is_require_one_expression(expression: &str) -> bool {
     parse_require_one_expression(expression).is_some()
 }
 
+pub fn is_join_expression(expression: &str) -> bool {
+    parse_join_expression(expression).is_some()
+}
+
 fn parse_filter_expression(expression: &str) -> Option<String> {
     let source = expression.trim().strip_prefix("filter ")?.trim();
     simple_identifier(source)
@@ -94,6 +143,12 @@ fn parse_filter_expression(expression: &str) -> Option<String> {
 fn parse_require_one_expression(expression: &str) -> Option<String> {
     let source = expression.trim().strip_prefix("require_one ")?.trim();
     simple_identifier(source)
+}
+
+fn parse_join_expression(expression: &str) -> Option<(String, String)> {
+    let source = expression.trim().strip_prefix("join ")?.trim();
+    let (left, right) = source.split_once(" with ")?;
+    Some((simple_identifier(left)?, simple_identifier(right)?))
 }
 
 fn simple_identifier(source: &str) -> Option<String> {
@@ -139,6 +194,214 @@ fn predicates_for_owner(
             info
         })
         .collect()
+}
+
+fn join_keys_for_owner(
+    parsed: &ParsedProgram,
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    owner_line: usize,
+    left_table: &str,
+    right_table: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Vec<TableJoinKeyInfo> {
+    let keys = parsed
+        .items
+        .iter()
+        .filter_map(|item| match item {
+            AstItem::OnPredicate(predicate) if predicate.owner_line == Some(owner_line) => {
+                Some(predicate)
+            }
+            _ => None,
+        })
+        .map(|predicate| {
+            parse_join_key(
+                &predicate.expression,
+                predicate.line,
+                left_table,
+                right_table,
+                diagnostics,
+            )
+        })
+        .collect::<Vec<_>>();
+
+    if keys.is_empty() {
+        diagnostics.push(Diagnostic::error(
+            "E-TABLE-JOIN-KEY-MISMATCH",
+            owner_line,
+            &format!("Join `{left_table}` with `{right_table}` requires at least one `on` key."),
+            Some("Attach an `on { left.column == right.column }` block to the join."),
+        ));
+    }
+
+    for key in &keys {
+        validate_join_key_columns(
+            program,
+            transforms,
+            left_table,
+            right_table,
+            key,
+            diagnostics,
+        );
+    }
+
+    keys
+}
+
+fn parse_join_key(
+    expression: &str,
+    line: usize,
+    left_table: &str,
+    right_table: &str,
+    diagnostics: &mut Vec<Diagnostic>,
+) -> TableJoinKeyInfo {
+    let invalid = || TableJoinKeyInfo {
+        expression: expression.to_owned(),
+        left_table: left_table.to_owned(),
+        left_column: String::new(),
+        right_table: right_table.to_owned(),
+        right_column: String::new(),
+        status: "invalid_key".to_owned(),
+        line,
+    };
+
+    let Some((left, right)) = expression.split_once("==") else {
+        diagnostics.push(join_key_mismatch_diagnostic(
+            line,
+            expression,
+            left_table,
+            right_table,
+        ));
+        return invalid();
+    };
+    let Some((first_table, first_column)) = parse_qualified_column(left.trim()) else {
+        diagnostics.push(join_key_mismatch_diagnostic(
+            line,
+            expression,
+            left_table,
+            right_table,
+        ));
+        return invalid();
+    };
+    let Some((second_table, second_column)) = parse_qualified_column(right.trim()) else {
+        diagnostics.push(join_key_mismatch_diagnostic(
+            line,
+            expression,
+            left_table,
+            right_table,
+        ));
+        return invalid();
+    };
+
+    if first_table == left_table && second_table == right_table {
+        TableJoinKeyInfo {
+            expression: expression.to_owned(),
+            left_table: first_table,
+            left_column: first_column,
+            right_table: second_table,
+            right_column: second_column,
+            status: "accepted".to_owned(),
+            line,
+        }
+    } else if first_table == right_table && second_table == left_table {
+        TableJoinKeyInfo {
+            expression: expression.to_owned(),
+            left_table: second_table,
+            left_column: second_column,
+            right_table: first_table,
+            right_column: first_column,
+            status: "accepted".to_owned(),
+            line,
+        }
+    } else {
+        diagnostics.push(join_key_mismatch_diagnostic(
+            line,
+            expression,
+            left_table,
+            right_table,
+        ));
+        invalid()
+    }
+}
+
+fn parse_qualified_column(value: &str) -> Option<(String, String)> {
+    let (table, column) = value.split_once('.')?;
+    let table = table.trim();
+    let column = column.trim();
+    if is_identifier(table) && is_identifier(column) {
+        Some((table.to_owned(), column.to_owned()))
+    } else {
+        None
+    }
+}
+
+fn validate_join_key_columns(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    left_table: &str,
+    right_table: &str,
+    key: &TableJoinKeyInfo,
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    if key.status != "accepted" {
+        return;
+    }
+    let left_column = schema_column_for_source(program, transforms, left_table, &key.left_column);
+    if left_column.is_none() && schema_name_for_source(program, transforms, left_table).is_some() {
+        diagnostics.push(Diagnostic::error(
+            "E-TABLE-UNKNOWN-COLUMN",
+            key.line,
+            &format!(
+                "Table `{left_table}` does not have join key column `{}`.",
+                key.left_column
+            ),
+            Some("Use a column declared in the promoted table schema."),
+        ));
+    }
+    let right_column =
+        schema_column_for_source(program, transforms, right_table, &key.right_column);
+    if right_column.is_none() && schema_name_for_source(program, transforms, right_table).is_some()
+    {
+        diagnostics.push(Diagnostic::error(
+            "E-TABLE-UNKNOWN-COLUMN",
+            key.line,
+            &format!(
+                "Table `{right_table}` does not have join key column `{}`.",
+                key.right_column
+            ),
+            Some("Use a column declared in the promoted table schema."),
+        ));
+    }
+    if let (Some(left_column), Some(right_column)) = (left_column, right_column) {
+        if left_column.type_name != right_column.type_name || left_column.unit != right_column.unit
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-TABLE-SCHEMA-MISMATCH",
+                key.line,
+                &format!(
+                    "Join key `{left_table}.{}` and `{right_table}.{}` have incompatible schema types.",
+                    key.left_column, key.right_column
+                ),
+                Some("Join columns should use the same schema type and unit."),
+            ));
+        }
+    }
+}
+
+fn join_key_mismatch_diagnostic(
+    line: usize,
+    expression: &str,
+    left_table: &str,
+    right_table: &str,
+) -> Diagnostic {
+    Diagnostic::error(
+        "E-TABLE-JOIN-KEY-MISMATCH",
+        line,
+        &format!(
+            "Join key `{expression}` must compare `{left_table}.<column>` with `{right_table}.<column>`."
+        ),
+        Some("Use `on { left.column == right.column }` with the tables named in the join."),
+    )
 }
 
 fn parse_predicate(expression: &str, line: usize) -> TablePredicateInfo {
@@ -290,6 +553,35 @@ fn schema_name_for_table(program: &SemanticProgram, table: &str) -> Option<Strin
         .iter()
         .find(|promotion| promotion.binding == table)
         .map(|promotion| promotion.schema_name.clone())
+}
+
+fn schema_name_for_source(
+    program: &SemanticProgram,
+    transforms: &[TableTransformInfo],
+    table: &str,
+) -> Option<String> {
+    schema_name_for_table(program, table).or_else(|| {
+        transforms
+            .iter()
+            .find(|transform| transform.binding == table)
+            .and_then(|transform| transform.schema_name.clone())
+    })
+}
+
+fn schema_column_for_source<'a>(
+    program: &'a SemanticProgram,
+    transforms: &[TableTransformInfo],
+    table: &str,
+    column: &str,
+) -> Option<&'a SchemaColumn> {
+    let schema_name = schema_name_for_source(program, transforms, table)?;
+    program
+        .schemas
+        .iter()
+        .find(|schema| schema.name == schema_name)?
+        .columns
+        .iter()
+        .find(|candidate| candidate.name == column)
 }
 
 fn schema_has_column(schema: &SchemaInfo, column: &str) -> bool {

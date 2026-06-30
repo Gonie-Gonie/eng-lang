@@ -1,5 +1,5 @@
 # module: eng.table
-# status: supported diagnostics, row-selection, and filter/require_one transform seeds; planned broader transform APIs
+# status: supported diagnostics, row-selection, and filter/require_one/join transform seeds; planned broader transform APIs
 # purpose: domain-neutral promoted-table diagnostics, filters, row requirements, joins, derived columns, and schema helpers.
 #
 # Current implementation:
@@ -8,23 +8,23 @@
 #   through compiler/runtime built-ins for current examples. Deterministic
 #   select_first_row(...) selection over promoted tables is supported as a
 #   narrow artifact seed. Schema-aware `filter <table>` with `where { ... }`
-#   predicates and `require_one <filtered_table>` are supported as transform
-#   record seeds. These appear in result.engres as
+#   predicates, `require_one <filtered_table>`, and `join <left> with <right>`
+#   plus `on { left.key == right.key }` are supported as transform record
+#   seeds. These appear in result.engres as
 #   typed_payload.table_diagnostics[], typed_payload.table_selections[], and
 #   typed_payload.table_transforms[].
 #
 # Planned helper vocabulary:
 #   select columns
 #   derive columns
-#   join tables
 #   sort rows
 #   validate rows
 #
 # Review contract:
 #   source schema, row counts, column counts, missing cells, parse failures,
 #   conversion failures, time-axis coverage, selected row/reason, filter
-#   predicate summaries, operation row counts, join keys, row-level diagnostics,
-#   and source spans.
+#   predicate summaries, operation row counts, join keys, matched pair counts,
+#   row-level diagnostics, and source spans.
 #
 # Non-goal:
 #   this is not a general SQL replacement. Initial operations must stay

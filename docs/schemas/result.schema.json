@@ -632,21 +632,26 @@
         "binding",
         "operation",
         "source_table",
+        "secondary_table",
         "schema_name",
         "input_row_count",
+        "secondary_input_row_count",
         "output_row_count",
         "matched_row_indices",
         "predicates",
+        "join_keys",
         "status",
         "reason",
         "line"
       ],
       "properties": {
         "binding": { "type": "string" },
-        "operation": { "enum": ["filter", "require_one"] },
+        "operation": { "enum": ["filter", "require_one", "join"] },
         "source_table": { "type": "string" },
+        "secondary_table": { "type": ["string", "null"] },
         "schema_name": { "type": ["string", "null"] },
         "input_row_count": { "type": "integer", "minimum": 0 },
+        "secondary_input_row_count": { "type": ["integer", "null"], "minimum": 0 },
         "output_row_count": { "type": "integer", "minimum": 0 },
         "matched_row_indices": {
           "type": "array",
@@ -656,8 +661,12 @@
           "type": "array",
           "items": { "$ref": "#/$defs/tableTransformPredicate" }
         },
+        "join_keys": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/tableJoinKey" }
+        },
         "status": {
-          "enum": ["filtered", "selected", "no_match", "multiple_matches", "missing_source", "unsupported"]
+          "enum": ["filtered", "selected", "no_match", "multiple_matches", "joined", "missing_source", "unsupported"]
         },
         "reason": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
@@ -682,6 +691,29 @@
         "value": { "type": ["string", "null"] },
         "resolved_value": { "type": ["string", "null"] },
         "matched_count": { "type": "integer", "minimum": 0 },
+        "status": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tableJoinKey": {
+      "type": "object",
+      "required": [
+        "expression",
+        "left_table",
+        "left_column",
+        "right_table",
+        "right_column",
+        "matched_pair_count",
+        "status",
+        "line"
+      ],
+      "properties": {
+        "expression": { "type": "string" },
+        "left_table": { "type": "string" },
+        "left_column": { "type": "string" },
+        "right_table": { "type": "string" },
+        "right_column": { "type": "string" },
+        "matched_pair_count": { "type": "integer", "minimum": 0 },
         "status": { "type": "string" },
         "line": { "type": "integer", "minimum": 1 }
       }

@@ -32,10 +32,10 @@ pub use ast::{
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
     CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainVariableDecl, EquationDecl, ExplicitDecl,
     FastBinding, FileOperationDecl, FunctionDecl, FunctionParamDecl, GoldenDecl, ImportDecl,
-    NetDownloadDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl, ScriptDecl,
-    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl, SystemVariableDecl,
-    TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl, WithBlockDecl, WithOptionDecl,
-    WriteDecl,
+    NetDownloadDecl, OnBlockDecl, OnPredicateDecl, PortDecl, PrintDecl, ReturnDecl, SchemaDecl,
+    ScriptDecl, StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StructDecl, SystemDecl,
+    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
+    WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 pub use bytecode::{
     build_bytecode_program, encode_bytecode, parse_bytecode, BytecodeInstruction, BytecodeObject,
@@ -79,7 +79,7 @@ pub use semantic::{
 };
 pub use source::SourceSpan;
 pub use stats::{AxisInfo, IntegrationInfo, StatsInfo};
-pub use table::{TablePredicateInfo, TableTransformInfo};
+pub use table::{TableJoinKeyInfo, TablePredicateInfo, TableTransformInfo};
 pub use type_info::{TypeInfo, TypeInfoSource};
 pub use uncertainty::{UncertaintyInfo, UncertaintyPropagationTerm};
 pub use units::{all_unit_infos, UnitDerivation, UnitInfo};
@@ -5992,6 +5992,12 @@ fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
             "        \"source_table\": \"{}\",\n",
             json_escape(&transform.source_table)
         ));
+        push_optional_json_string(
+            json,
+            "secondary_table",
+            transform.secondary_table.as_deref(),
+            8,
+        );
         push_optional_json_string(json, "schema_name", transform.schema_name.as_deref(), 8);
         json.push_str(&format!(
             "        \"predicate_count\": {},\n",
@@ -6018,6 +6024,40 @@ fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
                 json_escape(&predicate.status)
             ));
             json.push_str(&format!("            \"line\": {}\n", predicate.line));
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
+        json.push_str("        \"join_keys\": [\n");
+        for (key_index, key) in transform.join_keys.iter().enumerate() {
+            if key_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"expression\": \"{}\",\n",
+                json_escape(&key.expression)
+            ));
+            json.push_str(&format!(
+                "            \"left_table\": \"{}\",\n",
+                json_escape(&key.left_table)
+            ));
+            json.push_str(&format!(
+                "            \"left_column\": \"{}\",\n",
+                json_escape(&key.left_column)
+            ));
+            json.push_str(&format!(
+                "            \"right_table\": \"{}\",\n",
+                json_escape(&key.right_table)
+            ));
+            json.push_str(&format!(
+                "            \"right_column\": \"{}\",\n",
+                json_escape(&key.right_column)
+            ));
+            json.push_str(&format!(
+                "            \"status\": \"{}\",\n",
+                json_escape(&key.status)
+            ));
+            json.push_str(&format!("            \"line\": {}\n", key.line));
             json.push_str("          }");
         }
         json.push_str("\n        ],\n");
@@ -11054,6 +11094,109 @@ system Envelope {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-TABLE-UNKNOWN-COLUMN"));
+    }
+
+    #[test]
+    fn records_table_join_transform_keys() {
+        let root = env::temp_dir().join(format!("englang-table-join-ok-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("samples.csv"),
+            "case_id,cooling_cop\ncase_001,3.2\ncase_002,3.4\n",
+        )
+        .expect("samples csv");
+        fs::write(
+            root.join("data").join("results.csv"),
+            "case_id,unmet_hours\ncase_001,12\ncase_002,8\n",
+        )
+        .expect("results csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema DesignSample {\n",
+                "    case_id: String\n",
+                "    cooling_cop: Ratio [1]\n",
+                "}\n\n",
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    unmet_hours: Duration [h]\n",
+                "}\n\n",
+                "args {\n",
+                "    samples: CsvFile = file(\"data/samples.csv\")\n",
+                "    results: CsvFile = file(\"data/results.csv\")\n",
+                "}\n\n",
+                "samples = promote csv args.samples as DesignSample\n",
+                "results = promote csv args.results as SimulationResult\n",
+                "joined = join samples with results\n",
+                "on { samples.case_id == results.case_id }\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let join = report
+            .semantic_program
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == "joined")
+            .expect("join transform");
+        assert_eq!(join.operation, "join");
+        assert_eq!(join.source_table, "samples");
+        assert_eq!(join.secondary_table.as_deref(), Some("results"));
+        assert_eq!(join.join_keys.len(), 1);
+        assert_eq!(join.join_keys[0].left_column, "case_id");
+        assert_eq!(join.join_keys[0].right_column, "case_id");
+
+        let review = review_json(&report);
+        assert!(review.contains("\"operation\": \"join\""));
+        assert!(review.contains("\"secondary_table\": \"results\""));
+        assert!(review.contains("\"join_keys\""));
+    }
+
+    #[test]
+    fn diagnoses_table_join_key_mismatch() {
+        let root = env::temp_dir().join(format!("englang-table-join-bad-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("samples.csv"), "case_id\ncase_001\n")
+            .expect("samples csv");
+        fs::write(root.join("data").join("results.csv"), "case_id\ncase_001\n")
+            .expect("results csv");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema DesignSample {\n",
+                "    case_id: String\n",
+                "}\n\n",
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "}\n\n",
+                "args {\n",
+                "    samples: CsvFile = file(\"data/samples.csv\")\n",
+                "    results: CsvFile = file(\"data/results.csv\")\n",
+                "}\n\n",
+                "samples = promote csv args.samples as DesignSample\n",
+                "results = promote csv args.results as SimulationResult\n",
+                "joined = join samples with results\n",
+                "on {\n",
+                "    samples.case_id == missing.case_id\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-TABLE-JOIN-KEY-MISMATCH"));
     }
 
     #[test]

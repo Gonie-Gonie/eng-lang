@@ -4,11 +4,11 @@ use crate::ast::{
     CommandClauseDecl, CommandStyleDecl, ComponentDecl, ConnectDecl, ConservationDecl, ConstDecl,
     ConstraintDecl, CsvExportDecl, CsvExportFieldDecl, DomainDecl, DomainTypeParameterDecl,
     DomainVariableDecl, EquationDecl, ExplicitDecl, FastBinding, FileOperationDecl, FunctionDecl,
-    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, NetDownloadDecl, PortDecl,
-    PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl, StateSpaceTypeBlockDecl,
-    StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl, SummaryDecl, SystemDecl,
-    SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl, WherePredicateDecl,
-    WithBlockDecl, WithOptionDecl, WriteDecl,
+    FunctionParamDecl, GoldenDecl, ImportDecl, MissingPolicyDecl, NetDownloadDecl, OnBlockDecl,
+    OnPredicateDecl, PortDecl, PrintDecl, ProcessRunDecl, ReturnDecl, SchemaDecl, ScriptDecl,
+    StateSpaceTypeBlockDecl, StateSpaceTypeMemberDecl, StateSpaceVectorDecl, StructDecl,
+    SummaryDecl, SystemDecl, SystemVariableDecl, TestDecl, WhereBindingDecl, WhereBlockDecl,
+    WherePredicateDecl, WithBlockDecl, WithOptionDecl, WriteDecl,
 };
 use crate::lexer::{lex_line, Keyword, Symbol, Token, TokenKind};
 use crate::source::{source_lines, SourceSpan};
@@ -34,6 +34,7 @@ pub enum ParseContext {
     Export,
     Test,
     Where,
+    On,
     With,
     Other,
 }
@@ -168,6 +169,8 @@ impl ParsedProgram {
                 | AstItem::Golden(_)
                 | AstItem::WhereBinding(_)
                 | AstItem::WherePredicate(_)
+                | AstItem::OnBlock(_)
+                | AstItem::OnPredicate(_)
                 | AstItem::WithOption(_)
                 | AstItem::ReservedKeywordUse { .. } => {}
             }
@@ -230,8 +233,10 @@ pub fn parse_source(source: &str) -> ParsedProgram {
     let mut export_depth = 0i32;
     let mut test_depth = 0i32;
     let mut where_depth = 0i32;
+    let mut on_depth = 0i32;
     let mut with_depth = 0i32;
     let mut current_where_owner_line = None;
+    let mut current_on_owner_line = None;
     let mut current_with_owner_line = None;
     let mut current_object_owner_line = None;
     let mut last_attachable_line = None;
@@ -246,6 +251,8 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             ParseContext::Test
         } else if where_depth > 0 {
             ParseContext::Where
+        } else if on_depth > 0 {
+            ParseContext::On
         } else if with_depth > 0 {
             ParseContext::With
         } else if missing_depth > 0 {
@@ -283,6 +290,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
         if !tokens.is_empty() {
             let owner_line = match context {
                 ParseContext::Where => current_where_owner_line,
+                ParseContext::On => current_on_owner_line,
                 ParseContext::With => current_with_owner_line,
                 ParseContext::Object => current_object_owner_line,
                 _ => last_attachable_line,
@@ -519,6 +527,24 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
+        if starts_with_keyword(&tokens, Keyword::On) {
+            current_on_owner_line = last_attachable_line;
+            let delta = brace_delta(&tokens);
+            if delta != 0 {
+                on_depth += delta;
+            } else if !(contains_symbol(&tokens, Symbol::LBrace)
+                && contains_symbol(&tokens, Symbol::RBrace))
+            {
+                on_depth = 1;
+            }
+        } else if on_depth > 0 {
+            on_depth += brace_delta(&tokens);
+            if on_depth <= 0 {
+                on_depth = 0;
+                current_on_owner_line = None;
+            }
+        }
+
         if starts_with_keyword(&tokens, Keyword::With) {
             current_with_owner_line = last_attachable_line;
             let delta = brace_delta(&tokens);
@@ -655,6 +681,12 @@ fn parse_line_items(
     if let Some(block) = parse_where_block_decl(tokens, owner_line) {
         items.push(AstItem::WhereBlock(block));
     }
+    if let Some(block) = parse_on_block_decl(tokens, owner_line) {
+        items.push(AstItem::OnBlock(block));
+        for predicate in parse_inline_on_predicates(tokens, line_text, owner_line) {
+            items.push(AstItem::OnPredicate(predicate));
+        }
+    }
     if let Some(block) = parse_with_block_decl(tokens, owner_line) {
         items.push(AstItem::WithBlock(block));
         for option in parse_inline_with_options(tokens, line_text, owner_line) {
@@ -665,6 +697,9 @@ fn parse_line_items(
         items.push(AstItem::WherePredicate(predicate));
     } else if let Some(binding) = parse_where_binding_decl(tokens, line_text, owner_line, context) {
         items.push(AstItem::WhereBinding(binding));
+    }
+    if let Some(predicate) = parse_on_predicate_decl(tokens, line_text, owner_line, context) {
+        items.push(AstItem::OnPredicate(predicate));
     }
     if let Some(option) = parse_with_option_decl(tokens, line_text, owner_line, context) {
         items.push(AstItem::WithOption(option));
@@ -1918,6 +1953,80 @@ fn looks_like_where_predicate(expression: &str) -> bool {
         || lowered.contains(" is not none")
 }
 
+fn parse_on_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<OnBlockDecl> {
+    let first = tokens.first()?;
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::On)) {
+        return None;
+    }
+    Some(OnBlockDecl {
+        owner_line,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
+fn parse_inline_on_predicates(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+) -> Vec<OnPredicateDecl> {
+    let Some(first) = tokens.first() else {
+        return Vec::new();
+    };
+    if !matches!(first.kind, TokenKind::Keyword(Keyword::On)) {
+        return Vec::new();
+    }
+    let Some(start) = line_text.find('{') else {
+        return Vec::new();
+    };
+    let Some(end) = line_text.rfind('}') else {
+        return Vec::new();
+    };
+    if end <= start {
+        return Vec::new();
+    }
+
+    line_text[start + 1..end]
+        .split(',')
+        .map(str::trim)
+        .filter(|expression| expression.contains("=="))
+        .map(|expression| OnPredicateDecl {
+            owner_line,
+            expression: expression.to_owned(),
+            line: first.span.line,
+            span: first.span,
+        })
+        .collect()
+}
+
+fn parse_on_predicate_decl(
+    tokens: &[Token],
+    line_text: &str,
+    owner_line: Option<usize>,
+    context: ParseContext,
+) -> Option<OnPredicateDecl> {
+    if context != ParseContext::On {
+        return None;
+    }
+    let first = tokens.first()?;
+    if matches!(
+        &first.kind,
+        TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
+    ) {
+        return None;
+    }
+    let expression = line_text.trim().trim_end_matches(',').to_owned();
+    if expression.is_empty() || !expression.contains("==") {
+        return None;
+    }
+    Some(OnPredicateDecl {
+        owner_line,
+        expression,
+        line: first.span.line,
+        span: first.span,
+    })
+}
+
 fn parse_with_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<WithBlockDecl> {
     let first = tokens.first()?;
     if !matches!(first.kind, TokenKind::Keyword(Keyword::With)) {
@@ -2146,14 +2255,17 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "domain"
             | "download"
             | "export"
+            | "filter"
             | "fn"
             | "golden"
             | "http"
             | "import"
+            | "join"
             | "log"
             | "move"
             | "print"
             | "promote"
+            | "require_one"
             | "run"
             | "schema"
             | "script"
@@ -3001,7 +3113,7 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
     };
     if matches!(
         first.kind,
-        TokenKind::Keyword(Keyword::Where | Keyword::With)
+        TokenKind::Keyword(Keyword::Where | Keyword::On | Keyword::With)
             | TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
     ) {
         return false;

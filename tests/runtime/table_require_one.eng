@@ -1,0 +1,32 @@
+schema StationMap {
+    region: String
+    station_id: String
+    valid_from: DateTime
+    valid_to: DateTime
+    latitude: DimensionlessNumber [1]
+    longitude: DimensionlessNumber [1]
+}
+
+args {
+    year: Int = 2024
+    region: String = "demo"
+    station_map: CsvFile = file("data/table_station_map.csv")
+}
+
+stations = promote csv args.station_map as StationMap
+candidates = filter stations
+where {
+    region == args.region
+    valid_from <= date(args.year, 1, 1)
+    valid_to is none or valid_to >= date(args.year, 12, 31)
+}
+
+station = require_one candidates
+with {
+    on_none = error "No station for region/year"
+    on_many = error "Multiple stations for region/year"
+}
+
+report {
+    show station
+}

@@ -69,10 +69,12 @@ and a native IDE semantic diff panel are still planned.
 Current coverage uses generic artifact contracts rather than native module
 syntax:
 
-- `runtime/table_filter_station_map.eng` and
+- `runtime/table_filter_station_map.eng`, `runtime/table_require_one.eng`,
+  `runtime/table_join_samples_results.eng`, and
   `runtime/timeseries_coverage.eng` map to the weather workflow smoke.
-  It checks deterministic station selection and Gregorian-year coverage
-  artifacts without real network access.
+  They check deterministic station selection, filter/require_one/join table
+  transform artifacts, and Gregorian-year coverage artifacts without real
+  network access.
 - `runtime/case_manifest.eng` and
   `runtime/process_expected_outputs.eng` map to the external
   simulation workflow smoke. It checks case input/result/manifest outputs,
