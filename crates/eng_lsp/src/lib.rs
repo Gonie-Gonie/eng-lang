@@ -1,9 +1,10 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source, CheckOptions,
-    CheckReport, ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, Severity,
+    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
+    classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
+    ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, SemanticProgram, Severity,
 };
 use serde_json::{json, Value};
 
@@ -903,7 +904,113 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
     }
 
+    add_review_risk_semantic_tokens(report, &mut builder);
+
     builder.finish()
+}
+
+fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticTokenBuilder<'_>) {
+    let program = &report.semantic_program;
+
+    for diagnostic in report
+        .diagnostics
+        .iter()
+        .filter(|diagnostic| diagnostic.severity == Severity::Warning)
+    {
+        let classification = classify_diagnostic_review_risk(&diagnostic.code, "warning");
+        if let Some(modifier) = review_risk_modifier(classification.level) {
+            builder.push_first_identifier_on_line(diagnostic.line, "variable", &[modifier]);
+        }
+    }
+
+    for schema in &program.schemas {
+        for policy in &schema.missing_policies {
+            if let Some(modifier) =
+                review_risk_modifier(classify_review_risk("data_quality", "info").level)
+            {
+                builder.push_on_line(policy.line, &policy.column, "property", &[modifier]);
+            }
+        }
+    }
+
+    for process in &program.process_runs {
+        let category = if with_option_present(program, process.line, "expected_outputs") {
+            "external_boundary"
+        } else {
+            "reproducibility"
+        };
+        if let Some(modifier) = review_risk_modifier(classify_review_risk(category, "info").level) {
+            builder.push_on_line(process.line, &process.binding, "variable", &[modifier]);
+            builder.push_keywords_on_line(process.line, &["run", "command"], &[modifier]);
+        }
+    }
+
+    for operation in &program.file_operations {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("side_effect", "info").level)
+        {
+            builder.push_keywords_on_line(
+                operation.line,
+                &[operation.operation.as_str()],
+                &[modifier],
+            );
+        }
+    }
+
+    for dependency in &program.environment_dependencies {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("reproducibility", "info").level)
+        {
+            builder.push_first_identifier_on_line(dependency.line, "variable", &[modifier]);
+        }
+    }
+
+    for uncertainty in &program.uncertainty_infos {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("uncertainty", "info").level)
+        {
+            builder.push_on_line(
+                uncertainty.line,
+                &uncertainty.binding,
+                "variable",
+                &[modifier],
+            );
+        }
+    }
+
+    for system in &program.systems {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("solver_or_numeric", "info").level)
+        {
+            builder.push_on_line(system.line, &system.name, "class", &[modifier]);
+        }
+    }
+
+    for assembly in &program.component_assemblies {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("solver_or_numeric", "info").level)
+        {
+            builder.push_on_line(assembly.line, &assembly.name, "class", &[modifier]);
+        }
+    }
+}
+
+fn review_risk_modifier(level: &str) -> Option<&'static str> {
+    match level {
+        "high" => Some("riskHigh"),
+        "medium" => Some("riskMedium"),
+        _ => None,
+    }
+}
+
+fn with_option_present(program: &SemanticProgram, owner_line: usize, key: &str) -> bool {
+    program.with_blocks.iter().any(|block| {
+        block.owner_line == Some(owner_line)
+            && block
+                .options
+                .iter()
+                .any(|option| option.key == key && !option.value.trim().is_empty())
+    })
 }
 
 const SYMBOL_KIND_MODULE: u8 = 2;
@@ -1804,7 +1911,7 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
 struct SemanticTokenBuilder<'a> {
     lines: Vec<&'a str>,
     tokens: Vec<LspSemanticToken>,
-    seen: BTreeSet<(usize, usize, usize, String)>,
+    token_keys: BTreeMap<(usize, usize, usize, String), usize>,
 }
 
 impl<'a> SemanticTokenBuilder<'a> {
@@ -1812,7 +1919,7 @@ impl<'a> SemanticTokenBuilder<'a> {
         Self {
             lines: source.lines().collect(),
             tokens: Vec::new(),
-            seen: BTreeSet::new(),
+            token_keys: BTreeMap::new(),
         }
     }
 
@@ -2056,6 +2163,46 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
     }
 
+    fn push_first_identifier_on_line(
+        &mut self,
+        line_one_based: usize,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let bytes = line.as_bytes();
+        for (range_start, range_end) in code_ranges(line) {
+            let mut index = range_start;
+            while index < range_end {
+                if index < bytes.len() && is_ident_start(bytes[index]) {
+                    let token_start = index;
+                    index += 1;
+                    while index < range_end && index < bytes.len() && is_ident_byte(bytes[index]) {
+                        index += 1;
+                    }
+                    let token = &line[token_start..index];
+                    if !COMPLETION_KEYWORDS.contains(&token) {
+                        self.push_byte_range(
+                            line_index,
+                            token_start,
+                            index - token_start,
+                            token_type,
+                            modifiers,
+                        );
+                        return;
+                    }
+                    continue;
+                }
+                index += 1;
+            }
+        }
+    }
+
     fn push_byte_range(
         &mut self,
         line: usize,
@@ -2076,18 +2223,32 @@ impl<'a> SemanticTokenBuilder<'a> {
         let start = utf16_len(&line_text[..byte_start]);
         let length = utf16_len(&line_text[byte_start..byte_start + byte_length]);
         let key = (line, start, length, token_type.to_owned());
-        if !self.seen.insert(key) {
+        let modifiers = modifiers
+            .iter()
+            .copied()
+            .filter(|modifier| SEMANTIC_TOKEN_MODIFIERS.contains(modifier))
+            .collect::<Vec<_>>();
+        if let Some(index) = self.token_keys.get(&key).copied() {
+            for modifier in modifiers {
+                if !self.tokens[index]
+                    .modifiers
+                    .iter()
+                    .any(|existing| existing == modifier)
+                {
+                    self.tokens[index].modifiers.push(modifier.to_owned());
+                }
+            }
             return;
         }
+        self.token_keys.insert(key, self.tokens.len());
         self.tokens.push(LspSemanticToken {
             line,
             start,
             length,
             token_type: token_type.to_owned(),
             modifiers: modifiers
-                .iter()
-                .filter(|modifier| SEMANTIC_TOKEN_MODIFIERS.contains(modifier))
-                .map(|modifier| (*modifier).to_owned())
+                .into_iter()
+                .map(|modifier| modifier.to_owned())
                 .collect(),
         });
     }
@@ -3429,6 +3590,23 @@ fn is_ident_byte(byte: u8) -> bool {
 mod tests {
     use super::*;
 
+    fn assert_semantic_token_modifier(
+        snapshot: &LspSnapshot,
+        source: &str,
+        label: &str,
+        modifier: &str,
+    ) {
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                source.lines().nth(token.line).is_some_and(|line| {
+                    line.get(token.start..token.start + token.length) == Some(label)
+                        && token.modifiers.iter().any(|item| item == modifier)
+                })
+            }),
+            "semantic token `{label}` should include modifier `{modifier}`"
+        );
+    }
+
     #[test]
     fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
         let source = "/// heat rate smoke\nQ: HeatRate [kW] = 2 kW - 1\n}\n";
@@ -3558,6 +3736,36 @@ mod tests {
             .unwrap()
             .iter()
             .any(|symbol| symbol["name"] == "Q"));
+    }
+
+    #[test]
+    fn snapshot_marks_review_risk_semantic_tokens() {
+        let source = r#"schema SensorData {
+    reading: HeatRate [kW]
+
+    missing {
+        reading: interpolate max_gap=10 min
+    }
+}
+
+process_result = run command "cmd"
+with {
+    expected_outputs = ["outputs/result.txt"]
+}
+
+T_measured = measured(12 degC, std=0.2 K)
+
+system RoomThermal {
+    state T_zone: AbsoluteTemperature = 22 degC
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("risk.eng"), source);
+
+        assert_semantic_token_modifier(&snapshot, source, "process_result", "riskHigh");
+        assert_semantic_token_modifier(&snapshot, source, "run", "riskHigh");
+        assert_semantic_token_modifier(&snapshot, source, "reading", "riskMedium");
+        assert_semantic_token_modifier(&snapshot, source, "T_measured", "riskMedium");
+        assert_semantic_token_modifier(&snapshot, source, "RoomThermal", "riskMedium");
     }
 
     #[test]

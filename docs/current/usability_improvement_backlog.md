@@ -242,6 +242,19 @@ Status: implemented after semantic highlighting review.
 - Extended `ide-check` contract coverage for semantic token modifiers, fallback
   scopes, and language default settings.
 
+## Batch 21: LSP Review Risk Semantic Tokens
+
+Status: implemented after compiler-backed semantic token review.
+
+- Connected review risk classification metadata to LSP semantic tokens.
+- Added `riskHigh` and `riskMedium` modifiers for diagnostics, schema missing
+  policies, explicit process boundaries, file operations, environment
+  dependencies, uncertainty declarations, systems, and component assemblies.
+- Changed duplicate semantic-token handling to merge modifiers instead of
+  dropping later role information for the same token span.
+- Added LSP snapshot test coverage for high-risk process tokens and medium-risk
+  data-quality, uncertainty, and solver-boundary tokens.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -283,7 +296,8 @@ Status: implemented after semantic highlighting review.
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
 - Expand compiler-backed semantic token coverage where review metadata still
-  lacks roles for module names, workflow step references, or richer symbols.
+  lacks roles for module names, workflow step references, model artifacts, or
+  DB/cache records.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need semantic context, such
