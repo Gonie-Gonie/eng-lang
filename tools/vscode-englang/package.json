@@ -446,12 +446,20 @@
         "title": "EngLang: Open Last Run Plan"
       },
       {
+        "command": "englang.openRunLock",
+        "title": "EngLang: Open Last Run Lock"
+      },
+      {
         "command": "englang.openProcessResults",
         "title": "EngLang: Open Last Run Process Results"
       },
       {
         "command": "englang.openCacheManifest",
         "title": "EngLang: Open Last Run Cache Manifest"
+      },
+      {
+        "command": "englang.openTestResults",
+        "title": "EngLang: Open Last Run Test Results"
       },
       {
         "command": "englang.showSemanticTokensDebug",

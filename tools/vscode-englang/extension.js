@@ -175,8 +175,10 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openOutputManifest", () => openLastRunArtifact("outputManifest")),
     vscode.commands.registerCommand("englang.openRunLog", () => openLastRunArtifact("runLog")),
     vscode.commands.registerCommand("englang.openRunPlan", () => openLastRunArtifact("runPlan")),
+    vscode.commands.registerCommand("englang.openRunLock", () => openLastRunArtifact("runLock")),
     vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),
     vscode.commands.registerCommand("englang.openCacheManifest", () => openLastRunArtifact("cacheManifest")),
+    vscode.commands.registerCommand("englang.openTestResults", () => openLastRunArtifact("testResults")),
     vscode.commands.registerCommand("englang.showSemanticTokensDebug", () => showSemanticTokensDebug(context)),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider(context)),
     vscode.languages.registerCompletionItemProvider(

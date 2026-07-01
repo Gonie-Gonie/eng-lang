@@ -1822,8 +1822,10 @@ function Assert-VscodeExtensionContract {
         "englang.openOutputManifest",
         "englang.openRunLog",
         "englang.openRunPlan",
+        "englang.openRunLock",
         "englang.openProcessResults",
         "englang.openCacheManifest",
+        "englang.openTestResults",
         "englang.showSemanticTokensDebug"
     )) {
         if ($Commands -notcontains $Required) {
@@ -1838,8 +1840,10 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openOutputManifest"; Text = "Last Run Output Manifest" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
         @{ Command = "englang.openRunPlan"; Text = "Last Run Plan" },
+        @{ Command = "englang.openRunLock"; Text = "Last Run Lock" },
         @{ Command = "englang.openProcessResults"; Text = "Last Run Process Results" },
         @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Manifest" },
+        @{ Command = "englang.openTestResults"; Text = "Last Run Test Results" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]

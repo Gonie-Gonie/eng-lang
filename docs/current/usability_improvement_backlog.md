@@ -1393,6 +1393,17 @@ Status: implemented after builtin highlighting review.
   completion/semantic token surface but lose builtin fallback coloring.
 - Verified the guard with the existing 159 explicit token expectations.
 
+## Batch 115: Direct Last-Run Artifact Commands
+
+Status: implemented after VS Code artifact command review.
+
+- Added direct VS Code commands for opening `build/result/run_lock.json` and
+  `build/result/test_results.json`.
+- Kept the artifact picker unchanged while making the two remaining configured
+  artifacts accessible from the Command Palette without an intermediate pick.
+- Extended `ide-check` command/title coverage and README command-surface docs
+  for the new artifact actions.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
