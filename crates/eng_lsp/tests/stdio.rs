@@ -575,6 +575,49 @@ fn snapshot_stdin_reads_unsaved_source() {
 }
 
 #[test]
+fn editor_metadata_cli_exports_editor_contract() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let output = Command::new(server)
+        .arg("--editor-metadata")
+        .output()
+        .expect("eng-lsp editor metadata should run");
+
+    assert!(
+        output.status.success(),
+        "editor metadata failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let metadata: Value =
+        serde_json::from_slice(&output.stdout).expect("editor metadata stdout should be JSON");
+    assert_eq!(metadata["format"], "eng-lsp-editor-metadata-v1");
+    assert!(metadata["semantic_token_legend"]["token_types"]
+        .as_array()
+        .expect("token types should be an array")
+        .iter()
+        .any(|token_type| token_type == "keyword"));
+    assert!(metadata["semantic_token_legend"]["token_modifiers"]
+        .as_array()
+        .expect("token modifiers should be an array")
+        .iter()
+        .any(|modifier| modifier == "workflowStep"));
+    let completions = metadata["completion_seed"]
+        .as_array()
+        .expect("completion seed should be an array");
+    assert_eq!(
+        metadata["completion_seed_count"].as_u64(),
+        Some(completions.len() as u64)
+    );
+    for label in ["records", "promote json records", "read json", "eng.table"] {
+        assert!(
+            completions
+                .iter()
+                .any(|completion| completion["label"] == label),
+            "editor metadata should include {label}"
+        );
+    }
+}
+
+#[test]
 fn completion_stdin_returns_position_aware_items() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source = r#"schema SensorData {

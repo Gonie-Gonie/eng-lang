@@ -9,6 +9,7 @@ use eng_compiler::{
 use serde_json::{json, Value};
 
 pub const LSP_SNAPSHOT_FORMAT: &str = "eng-lsp-snapshot-v1";
+pub const LSP_EDITOR_METADATA_FORMAT: &str = "eng-lsp-editor-metadata-v1";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LspSnapshot {
@@ -726,6 +727,28 @@ pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
     })
 }
 
+pub fn editor_metadata_json() -> Value {
+    let report = check_source(
+        Path::new("editor-metadata.eng"),
+        "",
+        &CheckOptions::default(),
+    );
+    let completions = completion_items(&report);
+    json!({
+        "format": LSP_EDITOR_METADATA_FORMAT,
+        "semantic_token_legend": semantic_legend_json(&semantic_legend()),
+        "completion_seed_count": completions.len(),
+        "completion_seed": completions.iter().map(editor_completion_json).collect::<Vec<_>>(),
+    })
+}
+
+pub fn semantic_legend_json(legend: &LspSemanticLegend) -> Value {
+    json!({
+        "token_types": legend.token_types,
+        "token_modifiers": legend.token_modifiers,
+    })
+}
+
 pub fn semantic_legend() -> LspSemanticLegend {
     LspSemanticLegend {
         token_types: SEMANTIC_TOKEN_TYPES
@@ -741,10 +764,7 @@ pub fn semantic_legend() -> LspSemanticLegend {
 
 pub fn semantic_tokens_json(tokens: &LspSemanticTokens) -> Value {
     json!({
-        "legend": {
-            "token_types": tokens.legend.token_types,
-            "token_modifiers": tokens.legend.token_modifiers,
-        },
+        "legend": semantic_legend_json(&tokens.legend),
         "tokens": tokens.tokens.iter().map(semantic_token_json).collect::<Vec<_>>(),
     })
 }
@@ -2801,6 +2821,15 @@ pub fn completion_json(completion: &LspCompletion) -> Value {
     })
 }
 
+pub fn editor_completion_json(completion: &LspCompletion) -> Value {
+    json!({
+        "label": completion.label,
+        "kind": completion.kind,
+        "lsp_kind": completion_kind(&completion.kind),
+        "detail": completion.detail,
+    })
+}
+
 pub fn hover_json(hover: &LspHover) -> Value {
     let mut value = format!(
         "**{}**\n\nKind: `{}`\n\n{}\n\nQuantity: `{}`\n\nDisplay unit: `{}`",
@@ -4378,6 +4407,43 @@ mod tests {
             .unwrap()
             .iter()
             .any(|symbol| symbol["name"] == "Q"));
+    }
+
+    #[test]
+    fn editor_metadata_exports_completion_seed_and_semantic_legend() {
+        let metadata = editor_metadata_json();
+        assert_eq!(metadata["format"], LSP_EDITOR_METADATA_FORMAT);
+        assert_eq!(
+            metadata["semantic_token_legend"]["token_types"][0],
+            SEMANTIC_TOKEN_TYPES[0]
+        );
+        assert_eq!(
+            metadata["semantic_token_legend"]["token_modifiers"][0],
+            SEMANTIC_TOKEN_MODIFIERS[0]
+        );
+
+        let completions = metadata["completion_seed"]
+            .as_array()
+            .expect("editor completion seed should be an array");
+        assert_eq!(
+            metadata["completion_seed_count"].as_u64(),
+            Some(completions.len() as u64)
+        );
+        for (label, kind) in [
+            ("records", "keyword"),
+            ("promote json records", "stdlib"),
+            ("read json", "stdlib"),
+            ("eng.table", "stdlib"),
+            ("HeatRate", "class"),
+            ("kW", "unit"),
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion["label"] == label && completion["kind"] == kind),
+                "editor metadata should include completion {label} as {kind}"
+            );
+        }
     }
 
     #[test]

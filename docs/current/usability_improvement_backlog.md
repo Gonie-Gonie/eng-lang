@@ -650,6 +650,19 @@ Status: implemented after grammar/LSP consistency review.
 - Added an LSP snapshot regression that pins completion, semantic token, and
   document-symbol behavior for the JSON records promotion syntax.
 
+## Batch 54: LSP Editor Metadata Export
+
+Status: implemented after VS Code/LSP drift review.
+
+- Added `eng-lsp --editor-metadata`, a machine-readable editor contract export
+  for the LSP semantic-token legend and completion seed.
+- The export now includes string completion kinds, LSP numeric kinds, details,
+  and a seed count so extension checks can catch missing workflow phrases such
+  as `promote json records` before users see inconsistent highlighting or
+  completion behavior.
+- Extended LSP stdio coverage, `lsp-check`, and VS Code extension docs to
+  verify the metadata export and keep it connected to editor maintenance.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

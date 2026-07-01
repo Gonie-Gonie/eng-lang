@@ -5,8 +5,8 @@ use std::path::{Path, PathBuf};
 use eng_compiler::{parse_source, AstItem};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
-    diagnostic_json, document_symbols_lsp_json, folding_ranges_lsp_json, hover_json,
-    semantic_legend, semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
+    diagnostic_json, document_symbols_lsp_json, editor_metadata_json, folding_ranges_lsp_json,
+    hover_json, semantic_legend, semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
     LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
@@ -15,6 +15,9 @@ fn main() -> std::process::ExitCode {
     let args = std::env::args().skip(1).collect::<Vec<_>>();
     if args.first().map(String::as_str) == Some("--smoke") {
         return command_smoke();
+    }
+    if args.first().map(String::as_str) == Some("--editor-metadata") {
+        return command_editor_metadata();
     }
     if args.first().map(String::as_str) == Some("--snapshot") {
         return command_snapshot(args.get(1));
@@ -39,6 +42,11 @@ fn main() -> std::process::ExitCode {
             std::process::ExitCode::from(1)
         }
     }
+}
+
+fn command_editor_metadata() -> std::process::ExitCode {
+    println!("{}", editor_metadata_json());
+    std::process::ExitCode::SUCCESS
 }
 
 fn command_smoke() -> std::process::ExitCode {

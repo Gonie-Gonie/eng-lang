@@ -2039,6 +2039,25 @@ function Invoke-LspCheck {
     Invoke-Native $cargo "test" "-p" "eng_lsp" "--test" "stdio" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--smoke"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--snapshot-check" "examples\official\01_csv_plot\main.eng"
+    $EditorMetadataOutput = & $cargo "run" "-p" "eng_lsp" "--quiet" "--" "--editor-metadata"
+    if ($LASTEXITCODE -ne 0) {
+        throw "eng-lsp --editor-metadata failed with exit code $LASTEXITCODE"
+    }
+    $EditorMetadata = ($EditorMetadataOutput | Out-String).Trim() | ConvertFrom-Json
+    if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
+        throw "eng-lsp --editor-metadata returned unexpected format $($EditorMetadata.format)"
+    }
+    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table")) {
+        $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
+        if ($null -eq $Completion) {
+            throw "eng-lsp --editor-metadata missing completion seed $RequiredCompletion"
+        }
+    }
+    foreach ($RequiredModifier in @("workflowStep", "unit", "quantity")) {
+        if (@($EditorMetadata.semantic_token_legend.token_modifiers) -notcontains $RequiredModifier) {
+            throw "eng-lsp --editor-metadata missing semantic token modifier $RequiredModifier"
+        }
+    }
     Write-Host "LSP check passed."
 }
 

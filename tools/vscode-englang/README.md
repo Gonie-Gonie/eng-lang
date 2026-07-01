@@ -21,6 +21,8 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
   token payload as JSON for theme/highlighting inspection
 - hover from compiler review metadata
 - position-aware completion from `eng-lsp --completion-stdin`
+- editor metadata export from `eng-lsp --editor-metadata` for completion seed
+  and semantic-token legend contract checks
 - current-file go-to-definition from `eng-lsp --snapshot-stdin` document
   symbols
 - snippets from `snippets/eng.json`
@@ -112,7 +114,9 @@ highlighting.
 
 Completion requests call `eng-lsp.exe --completion-stdin <file.eng> <line>
 <character>` with the current unsaved buffer. JavaScript does not maintain a
-separate keyword, type, quantity, or unit table.
+separate keyword, type, quantity, or unit table. `eng-lsp.exe
+--editor-metadata` exposes the completion seed and semantic-token legend used
+by editor contract checks.
 
 Go-to-definition uses the current unsaved-buffer snapshot document symbols and
 stays within the current file. It resolves top-level symbols and nested document
