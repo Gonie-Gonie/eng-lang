@@ -887,6 +887,78 @@ with {
 }
 
 #[test]
+fn code_actions_stdin_returns_linter_quick_fixes_for_unsaved_source() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root().join("build/editor-tests/code_actions_stdin.eng");
+    let uri = file_uri(&source_path);
+    let source = r#"power = 10 kW
+Q_total = 10 + 2 kW
+
+schema SensorData {
+    m_dot = 1 kg/s
+}
+
+process_result = run command "cmd"
+with {
+    timeout = never
+    retry = many
+    allow_failure = sometimes
+}
+"#;
+    let mut child = Command::new(server)
+        .arg("--code-actions-stdin")
+        .arg(&source_path)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp code-actions-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("code-actions-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "code-actions-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let payload: Value =
+        serde_json::from_slice(&output.stdout).expect("code-actions stdout should be JSON");
+    assert_eq!(payload["format"], "eng-lsp-snapshot-v1");
+    assert_eq!(payload["uri"], uri);
+    let actions = payload["actions"]
+        .as_array()
+        .expect("actions should be an array");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Annotate power as HeatRate [kW]",
+        "power: HeatRate [kW] =",
+    );
+    assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Convert m_dot to schema column annotation",
+        "    m_dot: MassFlowRate [kg/s]",
+    );
+    assert_action_edit(actions, &uri, "Set timeout to 10 s: timeout = 10 s", "10 s");
+    assert_action_edit(actions, &uri, "Disable retries: retry = 0", "0");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Allow process failure: allow_failure = true",
+        "true",
+    );
+}
+
+#[test]
 fn stdio_formatting_formats_unsaved_document() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/formatting.eng");

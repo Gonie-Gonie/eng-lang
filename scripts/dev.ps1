@@ -2016,6 +2016,11 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
+        "--code-actions-stdin",
+        "codeActionsForDocumentSource",
+        "lspCodeActionsFromPayload",
+        "workspaceEditFromLspCodeAction",
+        "localCodeActions",
         "E-SYNTAX-DECL-001",
         "E-STRUCT-ARGS-001",
         "E-SCRIPT-001",
@@ -2126,6 +2131,9 @@ function Assert-VscodeExtensionContract {
         if (-not $LspCliSource.Contains($RequiredLspFormattingToken)) {
             throw "eng-lsp CLI missing formatting protocol token $RequiredLspFormattingToken"
         }
+    }
+    if (-not $LspCliSource.Contains("--code-actions-stdin") -or -not $LspCliSource.Contains("command_code_actions_stdin")) {
+        throw "eng-lsp CLI missing stdin code action bridge"
     }
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
     $GeneratedCompletions = Get-Content -LiteralPath $CompletionsPath -Raw | ConvertFrom-Json

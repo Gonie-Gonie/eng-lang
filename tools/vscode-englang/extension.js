@@ -201,7 +201,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngFormattingProvider(context)
     ),
-    vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(), {
+    vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(context), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
     })
   );
@@ -1810,6 +1810,57 @@ function formatDocumentSource(document, context, cancellationToken) {
   });
 }
 
+function codeActionsForDocumentSource(document, context, cancellationToken) {
+  return new Promise((resolve) => {
+    if (!isEngDocument(document)) {
+      resolve(undefined);
+      return;
+    }
+
+    const runtime = findLspRuntime(context, document);
+    const cwd = workspaceRoot(document);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const child = cp.execFile(
+      runtime,
+      ["--code-actions-stdin", document.uri.fsPath],
+      { cwd, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
+        }
+        if (error) {
+          output.appendLine(`code action lookup failed: ${error.message}`);
+          finish(undefined);
+          return;
+        }
+        try {
+          finish(JSON.parse(stdout));
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang code actions: ${parseError.message}`);
+          finish(undefined);
+        }
+      }
+    );
+
+    cancellationToken?.onCancellationRequested(() => {
+      child.kill();
+      finish(undefined);
+    });
+
+    if (child.stdin) {
+      child.stdin.end(document.getText());
+    }
+  });
+}
+
 function semanticTokensFromSnapshot(snapshot) {
   const builder = new vscode.SemanticTokensBuilder(semanticLegend);
   const tokens = snapshot.semantic_tokens?.tokens ?? [];
@@ -2297,7 +2348,21 @@ class EngCompletionProvider {
 }
 
 class EngCodeActionProvider {
-  provideCodeActions(document, _range, context) {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideCodeActions(document, _range, context, cancellationToken) {
+    const payload = await codeActionsForDocumentSource(document, this.context, cancellationToken);
+    const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
+    if (lspActions.length > 0) {
+      return lspActions;
+    }
+    return localCodeActions(document, context);
+  }
+}
+
+function localCodeActions(document, context) {
     const actions = [];
     for (const diagnostic of context.diagnostics) {
       const code = diagnosticCode(diagnostic);
@@ -2368,7 +2433,6 @@ class EngCodeActionProvider {
       }
     }
     return actions;
-  }
 }
 
 function diagnosticCode(diagnostic) {
@@ -2376,6 +2440,109 @@ function diagnosticCode(diagnostic) {
     return diagnostic.code;
   }
   return diagnostic.code?.value;
+}
+
+function lspCodeActionsFromPayload(document, payload, contextDiagnostics) {
+  const lspActions = Array.isArray(payload?.actions)
+    ? payload.actions
+    : (Array.isArray(payload) ? payload : []);
+  return lspActions
+    .map((action) => vscodeCodeActionFromLsp(document, action, contextDiagnostics))
+    .filter((action) => action !== undefined);
+}
+
+function vscodeCodeActionFromLsp(document, lspAction, contextDiagnostics) {
+  if (!lspAction || typeof lspAction.title !== "string") {
+    return undefined;
+  }
+  if (
+    Array.isArray(contextDiagnostics) &&
+    contextDiagnostics.length > 0 &&
+    !lspActionMatchesDiagnostics(lspAction, contextDiagnostics)
+  ) {
+    return undefined;
+  }
+  const edit = workspaceEditFromLspCodeAction(document, lspAction);
+  if (!edit) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(lspAction.title, codeActionKindFromLsp(lspAction.kind));
+  action.isPreferred = lspAction.isPreferred === true;
+  action.edit = edit;
+  action.diagnostics = matchingDiagnosticsForLspAction(lspAction, contextDiagnostics);
+  return action;
+}
+
+function codeActionKindFromLsp(kind) {
+  return kind === "quickfix" ? vscode.CodeActionKind.QuickFix : vscode.CodeActionKind.Empty;
+}
+
+function workspaceEditFromLspCodeAction(document, lspAction) {
+  const changes = lspAction.edit?.changes;
+  if (!changes || typeof changes !== "object") {
+    return undefined;
+  }
+  const entries = Object.entries(changes);
+  const documentUris = new Set([
+    document.uri.toString(),
+    document.uri.toString(true)
+  ]);
+  const entry =
+    entries.find(([uri]) => documentUris.has(uri)) ??
+    (entries.length === 1 ? entries[0] : undefined);
+  if (!entry || !Array.isArray(entry[1])) {
+    return undefined;
+  }
+
+  const workspaceEdit = new vscode.WorkspaceEdit();
+  let hasEdit = false;
+  for (const edit of entry[1]) {
+    const range = vscodeRangeFromLsp(edit.range);
+    if (!range || typeof edit.newText !== "string") {
+      continue;
+    }
+    workspaceEdit.replace(document.uri, range, edit.newText);
+    hasEdit = true;
+  }
+  return hasEdit ? workspaceEdit : undefined;
+}
+
+function lspActionMatchesDiagnostics(lspAction, contextDiagnostics) {
+  const actionDiagnostics = Array.isArray(lspAction.diagnostics)
+    ? lspAction.diagnostics
+    : [];
+  return actionDiagnostics.some((lspDiagnostic) =>
+    contextDiagnostics.some((diagnostic) => lspDiagnosticMatchesVscode(lspDiagnostic, diagnostic))
+  );
+}
+
+function matchingDiagnosticsForLspAction(lspAction, contextDiagnostics) {
+  if (!Array.isArray(contextDiagnostics) || contextDiagnostics.length === 0) {
+    return [];
+  }
+  const actionDiagnostics = Array.isArray(lspAction.diagnostics)
+    ? lspAction.diagnostics
+    : [];
+  return contextDiagnostics.filter((diagnostic) =>
+    actionDiagnostics.some((lspDiagnostic) => lspDiagnosticMatchesVscode(lspDiagnostic, diagnostic))
+  );
+}
+
+function lspDiagnosticMatchesVscode(lspDiagnostic, diagnostic) {
+  const lspCode = typeof lspDiagnostic?.code === "string"
+    ? lspDiagnostic.code
+    : lspDiagnostic?.code?.value;
+  if (lspCode !== diagnosticCode(diagnostic)) {
+    return false;
+  }
+  const lspRange = vscodeRangeFromLsp(lspDiagnostic.range);
+  if (!lspRange) {
+    return false;
+  }
+  return (
+    lspRange.start.line === diagnostic.range.start.line &&
+    lspRange.end.line === diagnostic.range.end.line
+  );
 }
 
 function replacementAction(document, diagnostic, search, replacement, title) {

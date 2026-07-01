@@ -982,6 +982,18 @@ Status: implemented after VS Code-only quick-fix parity review.
 - Extended stdio and `ide-check` coverage so non-VS Code LSP clients receive
   the same common linter repair actions.
 
+## Batch 81: VS Code LSP Code Action Bridge
+
+Status: implemented after VS Code/LSP quick-fix source-of-truth review.
+
+- Added `eng-lsp --code-actions-stdin <file.eng>` so editor clients can request
+  quick fixes for the current unsaved buffer without running a persistent
+  server session.
+- Updated the VS Code code action provider to prefer LSP-owned quick fixes and
+  convert LSP `WorkspaceEdit` payloads into VS Code edits.
+- Kept the existing JavaScript quick fixes as a local fallback when the LSP
+  bridge is unavailable or returns no matching actions.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

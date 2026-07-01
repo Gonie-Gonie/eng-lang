@@ -31,6 +31,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--format-stdin") {
         return command_format_stdin(args.get(1));
     }
+    if args.first().map(String::as_str) == Some("--code-actions-stdin") {
+        return command_code_actions_stdin(args.get(1));
+    }
     if args.first().map(String::as_str) == Some("--completion") {
         return command_completion(args.get(1), args.get(2), args.get(3));
     }
@@ -200,6 +203,43 @@ fn command_format_stdin(path: Option<&String>) -> std::process::ExitCode {
             "format": LSP_SNAPSHOT_FORMAT,
             "formatted": result.formatted,
             "changed": result.changed
+        })
+    );
+    std::process::ExitCode::SUCCESS
+}
+
+fn command_code_actions_stdin(path: Option<&String>) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --code-actions-stdin <file.eng>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let path = Path::new(path);
+    let uri = file_uri_from_path(path);
+    let snapshot = snapshot_for_source(path, &source);
+    let diagnostics = snapshot
+        .diagnostics
+        .iter()
+        .map(diagnostic_json)
+        .collect::<Vec<_>>();
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "context": { "diagnostics": diagnostics }
+        }
+    });
+    let mut documents = HashMap::new();
+    documents.insert(uri.clone(), source);
+    println!(
+        "{}",
+        json!({
+            "format": LSP_SNAPSHOT_FORMAT,
+            "uri": uri,
+            "actions": code_actions_for_request(&request, &documents)
         })
     );
     std::process::ExitCode::SUCCESS
