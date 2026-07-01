@@ -22,6 +22,7 @@ with {
     }
     expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     body_size_limit = 2 MB
+    response_body_limit = 2 MB
 }
 
 response_text = response.body
@@ -38,4 +39,5 @@ with {
 download url("https://example.org/file.csv") to file("outputs/file.csv")
 with {
     cache = true
+    cache_dir = dir("build/cache")
 }

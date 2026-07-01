@@ -5,24 +5,28 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$RepoRoot = Split-Path -Parent (Split-Path -Parent $ExtensionRoot)
 if ([string]::IsNullOrWhiteSpace($OutputRoot)) {
-    $RepoRoot = Split-Path -Parent (Split-Path -Parent $ExtensionRoot)
     $OutputRoot = Join-Path $RepoRoot "build\editor-tests\textmate_tokens"
 }
 
 & (Join-Path $PSScriptRoot "build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
 
+$GrammarSourcePath = Join-Path $ExtensionRoot "syntaxes\eng.tmLanguage.source.json"
 $GrammarPath = Join-Path $ExtensionRoot "syntaxes\eng.tmLanguage.json"
 $ExpectedPath = Join-Path $ExtensionRoot "test\expected\grammar_tokens.json"
 $FixtureRoot = Join-Path $ExtensionRoot "test\grammar-fixtures"
-foreach ($RequiredPath in @($GrammarPath, $ExpectedPath, $FixtureRoot)) {
+$LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
+foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $FixtureRoot, $LspSourcePath)) {
     if (-not (Test-Path -LiteralPath $RequiredPath)) {
         throw "missing grammar test input at $RequiredPath"
     }
 }
 
+$GrammarSourceRaw = Get-Content -LiteralPath $GrammarSourcePath -Raw -Encoding UTF8
 $Grammar = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $ExpectedJson = Get-Content -LiteralPath $ExpectedPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$LspSource = Get-Content -LiteralPath $LspSourcePath -Raw -Encoding UTF8
 $Expected = New-Object System.Collections.Generic.List[object]
 if ($ExpectedJson -is [System.Array]) {
     foreach ($item in $ExpectedJson) {
@@ -82,6 +86,61 @@ function Test-PatternMatchesText {
     }
     return $false
 }
+
+function Read-RustStringSliceConst {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+
+    $pattern = "const\s+$([regex]::Escape($Name))\s*:\s*&\[\&str\]\s*=\s*&\[(?<body>.*?)\];"
+    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $match.Success) {
+        throw "missing Rust string slice constant $Name"
+    }
+    return @([regex]::Matches($match.Groups["body"].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+}
+
+function Read-RustTupleFirstStringsConst {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+
+    $pattern = "const\s+$([regex]::Escape($Name))\s*:\s*&\[\(\&str,\s*\&str\)\]\s*=\s*&\[(?<body>.*?)\];"
+    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $match.Success) {
+        throw "missing Rust tuple string constant $Name"
+    }
+    return @([regex]::Matches($match.Groups["body"].Value, '\(\s*"([^"]+)"\s*,') | ForEach-Object { $_.Groups[1].Value })
+}
+
+function Assert-GrammarSourceContainsLabels {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string[]] $Labels,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    foreach ($Label in $Labels) {
+        $pattern = "(?<![A-Za-z0-9_])$([regex]::Escape($Label))(?![A-Za-z0-9_])"
+        if ($Source -notmatch $pattern) {
+            throw "TextMate grammar source missing $Description label $Label"
+        }
+    }
+}
+
+$CompletionKeywords = Read-RustStringSliceConst -Source $LspSource -Name "COMPLETION_KEYWORDS"
+$WorkflowBuiltins = Read-RustStringSliceConst -Source $LspSource -Name "WORKFLOW_BUILTIN_KEYWORDS"
+$WorkflowOptions = Read-RustTupleFirstStringsConst -Source $LspSource -Name "WORKFLOW_OPTION_COMPLETIONS"
+$PublicTypes = @(Read-RustTupleFirstStringsConst -Source $LspSource -Name "PUBLIC_TYPE_COMPLETIONS" | ForEach-Object {
+    ($_ -replace "\[.*$", "")
+} | Select-Object -Unique)
+
+Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
+Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
+Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowOptions -Description "LSP workflow option"
+Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $PublicTypes -Description "LSP public type"
 
 $Results = New-Object System.Collections.Generic.List[object]
 foreach ($case in $Expected) {

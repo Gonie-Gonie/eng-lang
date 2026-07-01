@@ -381,6 +381,11 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "cache_dir ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "to"
   },
@@ -393,6 +398,11 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
     "text": "body_size_limit ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "response_body_limit ="
   },
   {
     "fixture": "06_declarations_native_workflow.eng",

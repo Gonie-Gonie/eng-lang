@@ -663,6 +663,18 @@ Status: implemented after VS Code/LSP drift review.
 - Extended LSP stdio coverage, `lsp-check`, and VS Code extension docs to
   verify the metadata export and keep it connected to editor maintenance.
 
+## Batch 55: TextMate/LSP Option Coverage Guard
+
+Status: implemented after keyword-highlighting drift review.
+
+- Added missing TextMate highlighting for LSP workflow option completions
+  `cache_dir` and `response_body_limit`.
+- Extended the VS Code grammar fixture and expected token smoke from 104 to
+  106 checks so both options are highlighted as with-block properties.
+- Strengthened `vscode-grammar-test` to compare the TextMate grammar source
+  against LSP keyword, workflow builtin, workflow option, and public type
+  completion seed constants, catching future editor-color drift earlier.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
