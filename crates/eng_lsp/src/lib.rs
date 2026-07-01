@@ -359,30 +359,73 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
-    ("apply", "eng.case apply a workflow step over rows"),
-    ("collect", "eng.case collect case results"),
-    ("coverage", "eng.timeseries coverage check"),
     ("date", "calendar date constructor"),
     ("datetime", "timestamp constructor"),
     ("dir", "eng.path directory path helper"),
-    ("duration_above", "TimeSeries threshold duration"),
     ("env", "environment variable lookup"),
     ("exists", "eng.path existence check"),
     ("extension", "eng.path extension helper"),
     ("file", "eng.path file path helper"),
     ("join", "eng.path join helper"),
-    ("materialize", "eng.case materialize case inputs"),
-    ("max", "TimeSeries maximum"),
-    ("mean", "TimeSeries mean"),
-    ("median", "TimeSeries median"),
-    ("min", "TimeSeries minimum"),
-    ("normal", "normal distribution sampling helper"),
     ("parent", "eng.path parent directory helper"),
     ("secret", "redacted secret constructor"),
-    ("std", "TimeSeries standard deviation"),
     ("stem", "eng.path filename stem helper"),
-    ("sum", "domain conservation sum"),
     ("url", "HTTP or HTTPS URL constructor"),
+    ("select_first_row", "eng.table first-row selection helper"),
+    ("filter", "eng.table row filter helper"),
+    ("select", "eng.table column selection helper"),
+    ("derive", "eng.table derived-column helper"),
+    ("sort", "eng.table sort helper"),
+    ("require_one", "eng.table single-row assertion helper"),
+    ("check", "eng.table validation helper"),
+    ("coverage", "eng.timeseries coverage check"),
+    ("fill_missing", "eng.timeseries missing-value fill helper"),
+    ("align", "eng.timeseries alignment helper"),
+    ("resample", "eng.timeseries resampling helper"),
+    ("sample", "eng.sampling sample set helper"),
+    ("uniform", "eng.sampling uniform distribution helper"),
+    ("normal", "eng.sampling normal distribution helper"),
+    ("grid", "eng.sampling grid construction helper"),
+    ("random", "eng.sampling random generator helper"),
+    ("lhs", "eng.sampling Latin hypercube helper"),
+    ("materialize", "eng.case materialize case inputs"),
+    ("apply", "eng.case apply a workflow step over rows"),
+    ("collect", "eng.case collect case results"),
+    ("run_case", "eng.case single-case execution helper"),
+    ("measured", "eng.uncertainty measured value helper"),
+    ("interval", "eng.uncertainty interval helper"),
+    ("ensemble", "eng.uncertainty ensemble helper"),
+    ("propagate", "eng.uncertainty propagation helper"),
+    ("probability", "eng.uncertainty probability helper"),
+    ("train_test_split", "eng.model train/test split helper"),
+    ("regression", "eng.model regression training helper"),
+    (
+        "regression_table",
+        "eng.model regression result table helper",
+    ),
+    (
+        "train_regression",
+        "eng.model explicit regression training helper",
+    ),
+    ("mlp", "eng.model neural network training helper"),
+    ("evaluate", "eng.model evaluation helper"),
+    ("model_card", "eng.model model-card artifact helper"),
+    ("leakage_lint", "eng.model leakage lint helper"),
+    ("predict", "eng.model prediction helper"),
+    ("mean", "eng.timeseries mean"),
+    ("time_weighted_mean", "eng.timeseries time-weighted mean"),
+    ("min", "eng.timeseries minimum"),
+    ("max", "eng.timeseries maximum"),
+    ("median", "eng.timeseries median"),
+    ("std", "eng.timeseries standard deviation"),
+    ("p90", "eng.timeseries 90th percentile"),
+    ("p95", "eng.timeseries 95th percentile"),
+    ("rmse", "eng.timeseries root mean square error"),
+    ("duration_above", "eng.timeseries threshold duration"),
+    ("integrate", "eng.timeseries integration helper"),
+    ("der", "eng.timeseries derivative helper"),
+    ("delay", "eng.timeseries delay helper"),
+    ("sum", "domain conservation sum"),
 ];
 
 const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
@@ -2891,16 +2934,16 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     let mut seen = BTreeSet::new();
     let mut items = Vec::new();
 
-    for keyword in COMPLETION_KEYWORDS.iter().copied() {
-        push_completion(&mut items, &mut seen, keyword, "keyword", "EngLang keyword");
-    }
-
     for (type_name, detail) in PUBLIC_TYPE_COMPLETIONS.iter().copied() {
         push_completion(&mut items, &mut seen, type_name, "class", detail);
     }
 
     for (label, detail) in WORKFLOW_BUILTIN_COMPLETIONS.iter().copied() {
         push_completion(&mut items, &mut seen, label, "function", detail);
+    }
+
+    for keyword in COMPLETION_KEYWORDS.iter().copied() {
+        push_completion(&mut items, &mut seen, keyword, "keyword", "EngLang keyword");
     }
 
     for (label, detail) in WORKFLOW_OPTION_COMPLETIONS.iter().copied() {
@@ -3841,6 +3884,25 @@ mod tests {
         assert!(snapshot.completions.iter().any(|completion| {
             completion.label == "eng.cache" && completion.detail.contains("Native workflow support")
         }));
+        for (label, detail_part) in [
+            ("require_one", "eng.table"),
+            ("uniform", "eng.sampling"),
+            ("regression_table", "eng.model"),
+            ("predict", "eng.model"),
+            ("time_weighted_mean", "eng.timeseries"),
+        ] {
+            let completion = snapshot
+                .completions
+                .iter()
+                .find(|completion| completion.label == label)
+                .unwrap_or_else(|| panic!("LSP completion should include {label}"));
+            assert_eq!(completion.kind, "function");
+            assert!(
+                completion.detail.contains(detail_part),
+                "completion {label} detail should contain {detail_part}, got {}",
+                completion.detail
+            );
+        }
 
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);

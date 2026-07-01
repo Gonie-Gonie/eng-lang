@@ -426,6 +426,18 @@ Status: implemented after public annotation diagnostic review.
 - Extended compiler tests, extension README wording, and `ide-check` contract
   coverage.
 
+## Batch 36: Workflow Helper Completion Details
+
+Status: implemented after LSP completion vocabulary review.
+
+- Expanded workflow helper completion details so table, sampling, case, model,
+  uncertainty, and timeseries helpers expose concrete module-oriented wording.
+- Changed completion ordering so workflow helpers such as `require_one`,
+  `regression_table`, and `predict` keep `function` completion kind instead of
+  being deduplicated as generic keywords.
+- Added LSP snapshot assertions for helper kind/detail parity across table,
+  sampling, model, and timeseries helpers.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
