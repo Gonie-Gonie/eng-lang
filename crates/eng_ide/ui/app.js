@@ -435,6 +435,13 @@ function bind() {
   document.querySelectorAll("[data-source-line]").forEach((button) => {
     button.onclick = () => selectSourceLine(Number(button.dataset.sourceLine || 0));
   });
+  document.querySelectorAll("[data-source-token-line]").forEach((button) => {
+    button.onclick = () => selectSourceTokenRange(
+      Number(button.dataset.sourceTokenLine || 0),
+      Number(button.dataset.sourceTokenStart || 0),
+      Number(button.dataset.sourceTokenLength || 0)
+    );
+  });
   const terminalInput = byId("terminalInput");
   if (terminalInput) {
     terminalInput.focus();
@@ -767,16 +774,62 @@ function runtimeRowKey(row) {
 function selectSourceLine(line) {
   const editor = byId("editor");
   if (!editor || !Number.isFinite(line) || line <= 0) return;
-  const lines = editor.value.split(/\r\n|\r|\n/);
-  const lineIndex = Math.max(0, Math.min(lines.length - 1, line - 1));
-  let offset = 0;
-  for (let index = 0; index < lineIndex; index += 1) {
-    offset += lines[index].length + 1;
-  }
+  const lineRange = sourceLineRange(editor.value, line - 1);
   editor.focus();
-  editor.selectionStart = offset;
-  editor.selectionEnd = offset + lines[lineIndex].length;
-  editor.scrollTop = Math.max(0, (lineIndex - 3) * 20);
+  editor.selectionStart = lineRange.start;
+  editor.selectionEnd = lineRange.end;
+  editor.scrollTop = Math.max(0, (lineRange.lineIndex - 3) * 20);
+  updateCursorInsight();
+}
+
+function selectSourceTokenRange(line, startByte, lengthBytes) {
+  const editor = byId("editor");
+  if (
+    !editor ||
+    !Number.isFinite(line) ||
+    !Number.isFinite(startByte) ||
+    !Number.isFinite(lengthBytes) ||
+    line <= 0 ||
+    startByte < 0 ||
+    lengthBytes <= 0
+  ) {
+    return;
+  }
+  const lineRange = sourceLineRange(editor.value, line - 1);
+  const startColumn = byteOffsetToCodeUnit(lineRange.text, startByte);
+  const endColumn = byteOffsetToCodeUnit(lineRange.text, startByte + lengthBytes);
+  editor.focus();
+  editor.selectionStart = lineRange.start + startColumn;
+  editor.selectionEnd = lineRange.start + Math.max(startColumn, endColumn);
+  editor.scrollTop = Math.max(0, (lineRange.lineIndex - 3) * 20);
+  updateCursorInsight();
+}
+
+function sourceLineRange(source, requestedLineIndex) {
+  const safeSource = String(source || "");
+  const targetLine = Math.max(0, Number(requestedLineIndex) || 0);
+  const newlinePattern = /\r\n|\r|\n/g;
+  let start = 0;
+  let lineIndex = 0;
+  let match;
+  while ((match = newlinePattern.exec(safeSource)) !== null) {
+    if (lineIndex === targetLine) {
+      return {
+        lineIndex,
+        start,
+        end: match.index,
+        text: safeSource.slice(start, match.index)
+      };
+    }
+    start = match.index + match[0].length;
+    lineIndex += 1;
+  }
+  return {
+    lineIndex,
+    start,
+    end: safeSource.length,
+    text: safeSource.slice(start)
+  };
 }
 
 function rememberTerminalCommand(command) {
@@ -1168,13 +1221,12 @@ function renderSemanticLegendTable(items, counts, kind) {
 
 function renderSemanticTokenRows(tokens) {
   const rows = tokens.slice(0, 120).map((token) => {
-    const line = Number(token.line ?? 0) + 1;
     const start = Number(token.start ?? 0);
     const length = Number(token.length ?? 0);
     const modifiers = arrayOrEmpty(token.modifiers);
     return `
       <tr>
-        <td>${sourceLineButton({ line })}<div class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</div></td>
+        <td>${sourceTokenButton(token)}<div class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</div></td>
         <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
         <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
       </tr>
@@ -4081,6 +4133,17 @@ function sourceLineButton(item) {
   const line = item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line;
   if (!line) return "-";
   return `<button class="link-button" data-source-line="${escapeAttr(line)}">L${escapeHtml(line)}</button>`;
+}
+
+function sourceTokenButton(token) {
+  const line = Number(token?.line ?? -1) + 1;
+  const start = Number(token?.start ?? -1);
+  const length = Number(token?.length ?? 0);
+  if (!Number.isFinite(line) || !Number.isFinite(start) || !Number.isFinite(length) || line <= 0 || start < 0 || length <= 0) {
+    return "-";
+  }
+  const label = `L${line}`;
+  return `<button class="link-button token-range-button" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="Select token range">${escapeHtml(label)}</button>`;
 }
 
 function sourceBreadcrumbs(label, items) {

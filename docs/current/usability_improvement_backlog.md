@@ -994,6 +994,17 @@ Status: implemented after VS Code/LSP quick-fix source-of-truth review.
 - Kept the existing JavaScript quick fixes as a local fallback when the LSP
   bridge is unavailable or returns no matching actions.
 
+## Batch 82: Native IDE Token Range Navigation
+
+Status: implemented after native IDE highlight-panel workflow review.
+
+- Added exact semantic-token range navigation from the native IDE Highlight
+  panel so token rows select the token span, not only the containing line.
+- Reworked line selection through a shared source-line range helper that
+  preserves CRLF/LF offsets before updating textarea selection.
+- Extended `ide-check` contract coverage so token-range buttons and selection
+  helpers remain wired.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

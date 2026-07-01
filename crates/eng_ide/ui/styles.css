@@ -910,6 +910,11 @@ button:hover {
   width: 82px;
 }
 
+.token-range-button {
+  min-width: 34px;
+  text-align: center;
+}
+
 .token-chip {
   display: inline-flex;
   align-items: center;
