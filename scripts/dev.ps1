@@ -1657,7 +1657,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.lintOnSave")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.lintOnSave", "englang.lintOnChange")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -1668,6 +1668,9 @@ function Assert-VscodeExtensionContract {
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     if ($ExtensionSource.Contains("--entry") -or $ExtensionSource.Contains("runEntry")) {
         throw "VS Code extension run command must use top-level execution without entry flags"
+    }
+    if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
+        throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
     $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)
     foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {

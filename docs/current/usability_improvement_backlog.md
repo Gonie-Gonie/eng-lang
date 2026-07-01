@@ -29,6 +29,19 @@ Status: implemented in the third cleanup batch.
   `expected_outputs`, `cache_key`, `predict`, and public file/path types stay in
   the completion surface.
 
+## Batch 3: Unsaved Buffer Diagnostics
+
+Status: implemented in the sixth cleanup batch.
+
+- Add `eng-lsp --snapshot-stdin <file.eng>` so editor tooling can lint the
+  current buffer text without forcing a save.
+- Add debounced VS Code on-change diagnostics for dirty `.eng` buffers through
+  the LSP snapshot path.
+- Add an `englang.lintOnChange` setting so users can disable live buffer
+  diagnostics independently from open/save diagnostics.
+- Extend `ide-check` extension contract coverage and LSP integration tests for
+  the stdin snapshot path.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -78,8 +91,6 @@ Status: implemented in the third cleanup batch.
 
 ## VS Code Linter And Highlighting Candidates
 
-- Move from open/save checks to debounced on-change diagnostics for unsaved
-  buffers when no file-relative data reads are needed.
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
 - Add semantic tokens from compiler metadata so symbols, quantities, units,

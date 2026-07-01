@@ -68,6 +68,11 @@
           "type": "boolean",
           "default": true,
           "description": "Run EngLang diagnostics when .eng files are opened or saved."
+        },
+        "englang.lintOnChange": {
+          "type": "boolean",
+          "default": true,
+          "description": "Update EngLang diagnostics for unsaved .eng buffers after a short typing pause using eng-lsp.exe."
         }
       }
     },

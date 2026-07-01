@@ -4,7 +4,9 @@ const path = require("path");
 const vscode = require("vscode");
 
 const LANGUAGE_ID = "englang";
+const CHECK_DEBOUNCE_MS = 350;
 const reviewCache = new Map();
+const changeTimers = new Map();
 let output;
 
 const QUANTITIES = [
@@ -219,8 +221,12 @@ function activate(context) {
 
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => maybeCheck(document, diagnostics, context)),
+    vscode.workspace.onDidChangeTextDocument((event) => scheduleChangedCheck(event.document, diagnostics, context)),
     vscode.workspace.onDidSaveTextDocument((document) => maybeCheck(document, diagnostics, context)),
-    vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      clearPendingCheck(document);
+      diagnostics.delete(document.uri);
+    }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
     vscode.commands.registerCommand("englang.openReport", openLastReport),
@@ -246,7 +252,34 @@ function maybeCheck(document, diagnostics, context) {
   if (document.isDirty) {
     return;
   }
+  clearPendingCheck(document);
   checkDocument(document, diagnostics, context);
+}
+
+function scheduleChangedCheck(document, diagnostics, context) {
+  if (!isEngDocument(document)) {
+    return;
+  }
+  const config = vscode.workspace.getConfiguration("englang", document.uri);
+  if (!config.get("lintOnChange", true)) {
+    return;
+  }
+  clearPendingCheck(document);
+  const key = document.uri.toString();
+  const timer = setTimeout(() => {
+    changeTimers.delete(key);
+    checkDocumentSource(document, diagnostics, context);
+  }, CHECK_DEBOUNCE_MS);
+  changeTimers.set(key, timer);
+}
+
+function clearPendingCheck(document) {
+  const key = document.uri.toString();
+  const timer = changeTimers.get(key);
+  if (timer) {
+    clearTimeout(timer);
+    changeTimers.delete(key);
+  }
 }
 
 async function checkActiveFile(diagnostics, context) {
@@ -256,7 +289,8 @@ async function checkActiveFile(diagnostics, context) {
     return;
   }
   if (document.isDirty) {
-    await document.save();
+    checkDocumentSource(document, diagnostics, context);
+    return;
   }
   await checkDocument(document, diagnostics, context);
 }
@@ -266,6 +300,7 @@ function checkDocument(document, diagnostics, context) {
   const runtime = backend === "lsp-snapshot" ? findLspRuntime(context, document) : findRuntime(context, document);
   const args = backend === "lsp-snapshot" ? ["--snapshot", document.uri.fsPath] : ["ide-check", document.uri.fsPath];
   const cwd = workspaceRoot(document);
+  const documentVersion = document.version;
   output.appendLine(`${backend} check ${document.uri.fsPath}`);
 
   cp.execFile(
@@ -273,35 +308,61 @@ function checkDocument(document, diagnostics, context) {
     args,
     { cwd, maxBuffer: 10 * 1024 * 1024 },
     (error, stdout, stderr) => {
-      if (stderr && stderr.trim().length > 0) {
-        output.appendLine(stderr.trim());
-      }
-
-      let review;
-      try {
-        review = JSON.parse(stdout);
-      } catch (parseError) {
-        output.appendLine(`Unable to parse EngLang ${backend} output: ${parseError.message}`);
-        if (error) {
-          output.appendLine(error.message);
-        }
-        diagnostics.set(document.uri, [
-          new vscode.Diagnostic(
-            firstLineRange(document),
-            "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
-            vscode.DiagnosticSeverity.Error
-          )
-        ]);
-        return;
-      }
-
-      reviewCache.set(document.uri.fsPath, review);
-      diagnostics.set(document.uri, toDiagnostics(document, review));
-      const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
-      const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
-      output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
+      finishDocumentCheck(document, diagnostics, backend, documentVersion, error, stdout, stderr);
     }
   );
+}
+
+function checkDocumentSource(document, diagnostics, context) {
+  const runtime = findLspRuntime(context, document);
+  const cwd = workspaceRoot(document);
+  const documentVersion = document.version;
+  output.appendLine(`lsp-buffer check ${document.uri.fsPath}`);
+
+  const child = cp.execFile(
+    runtime,
+    ["--snapshot-stdin", document.uri.fsPath],
+    { cwd, maxBuffer: 10 * 1024 * 1024 },
+    (error, stdout, stderr) => {
+      finishDocumentCheck(document, diagnostics, "lsp-buffer", documentVersion, error, stdout, stderr);
+    }
+  );
+  if (child.stdin) {
+    child.stdin.end(document.getText());
+  }
+}
+
+function finishDocumentCheck(document, diagnostics, backend, documentVersion, error, stdout, stderr) {
+  if (document.version !== documentVersion) {
+    return;
+  }
+  if (stderr && stderr.trim().length > 0) {
+    output.appendLine(stderr.trim());
+  }
+
+  let review;
+  try {
+    review = JSON.parse(stdout);
+  } catch (parseError) {
+    output.appendLine(`Unable to parse EngLang ${backend} output: ${parseError.message}`);
+    if (error) {
+      output.appendLine(error.message);
+    }
+    diagnostics.set(document.uri, [
+      new vscode.Diagnostic(
+        firstLineRange(document),
+        "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
+        vscode.DiagnosticSeverity.Error
+      )
+    ]);
+    return;
+  }
+
+  reviewCache.set(document.uri.fsPath, review);
+  diagnostics.set(document.uri, toDiagnostics(document, review));
+  const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
+  const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
+  output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
 }
 
 function toDiagnostics(document, review) {

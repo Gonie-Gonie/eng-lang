@@ -387,6 +387,42 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(status.success());
 }
 
+#[test]
+fn snapshot_stdin_reads_unsaved_source() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let mut child = Command::new(server)
+        .arg("--snapshot-stdin")
+        .arg("unsaved_buffer.eng")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp snapshot-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(b"Q = 2 kW - 1\n}\n")
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("snapshot-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "snapshot-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let snapshot: Value =
+        serde_json::from_slice(&output.stdout).expect("snapshot stdout should be JSON");
+    assert_eq!(snapshot["format"], "eng-lsp-snapshot-v1");
+    assert!(snapshot["diagnostics"]
+        .as_array()
+        .expect("diagnostics should be an array")
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "E-DIM-ADD-002"));
+}
+
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

@@ -16,6 +16,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--snapshot") {
         return command_snapshot(args.get(1));
     }
+    if args.first().map(String::as_str) == Some("--snapshot-stdin") {
+        return command_snapshot_stdin(args.get(1));
+    }
     if args.first().map(String::as_str) == Some("--snapshot-check") {
         return command_snapshot_check(args.get(1));
     }
@@ -114,6 +117,21 @@ fn command_snapshot(path: Option<&String>) -> std::process::ExitCode {
             std::process::ExitCode::from(1)
         }
     }
+}
+
+fn command_snapshot_stdin(path: Option<&String>) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --snapshot-stdin <file.eng>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let snapshot = snapshot_for_source(Path::new(path), &source);
+    println!("{}", eng_lsp::snapshot_json(&snapshot));
+    std::process::ExitCode::SUCCESS
 }
 
 fn command_snapshot_check(path: Option<&String>) -> std::process::ExitCode {
