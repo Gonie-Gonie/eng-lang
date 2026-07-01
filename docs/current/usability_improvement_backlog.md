@@ -266,6 +266,17 @@ Status: implemented after workflow docs review.
 - Documented that `dev.bat workflows-test` rejects Python calls, `run command`,
   and nonzero `process_results.json` counts for the three workflow examples.
 
+## Batch 23: Workflow Module Pattern Wording
+
+Status: implemented after workflow module docs review.
+
+- Replaced stale workflow 02 pattern text that described opaque input patching
+  and external process runs as the generic core path.
+- Described the current executable pattern as native sample, case, template,
+  model-card, prediction, DB, and artifact contracts.
+- Clarified that external simulators and legacy tools are optional adapters
+  above the native contracts, not hidden steps in the workflow examples.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

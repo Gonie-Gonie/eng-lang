@@ -29,8 +29,8 @@ hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
 contracts, and process-output enrichment when external processes are used. The
 workflow examples now exercise native network/cache, sampling, template,
 model-prediction, DB-write, and generated-artifact paths with zero external
-processes in workflows 01 and 02. Native network and cache records now cover
-offline/fixture boundaries and cache manifests; cache manifests now
+processes in workflows 01, 02, and 03. Native network and cache records now
+cover offline/fixture boundaries and cache manifests; cache manifests now
 share owner records across network, process, model, and case workflow surfaces,
 materialize/replay network fixture cache entries, enforce observed cache hashes
 under the repro profile, and warn about stale cache entries. Native SQLite
@@ -236,16 +236,18 @@ Generic pattern:
 sample table
 -> typed validation
 -> case materialization
--> input patching through an opaque boundary
--> external process runs
--> typed result collection
+-> native input template rendering
+-> native training/result table materialization
 -> model-card or surrogate training
 -> prediction/export/database write
 -> report/review artifact
 ```
 
-EnergyPlus-like workflows are one adapter of this pattern. The core modules
-should also fit CFD, FEM, Modelica, laboratory equipment, and legacy solvers.
+External simulators such as EnergyPlus, CFD, FEM, Modelica, laboratory
+equipment, and legacy solvers can be adapters above this pattern. The current
+workflow 02 example does not run those adapters; it proves the native table,
+case, template, model-card, prediction, DB, and artifact contracts they should
+feed into.
 
 ## Case Manifest Target
 
@@ -253,15 +255,16 @@ The current case artifact preview records `case_id`, source row, sample row
 number, sample row hash, default case directory, pending/succeeded/failed/skipped
 status, result collection status, cache hit/miss counts, scheduler hooks,
 duplicate diagnostics, and
-process-enriched case materialization fields when matching expected outputs
-exist. The planned native `eng.case` apply/run syntax should make this explicit:
+optional process-enriched case materialization fields only when a workflow uses
+an `eng.process` adapter with matching expected outputs. The planned native
+`eng.case` apply/run syntax should make this explicit:
 
 ```text
 case_id
 sample row hash
 case directory
 generated input files
-process command and status
+optional adapter command and status
 result files
 metrics
 failure reason
