@@ -515,6 +515,8 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
   const symbols = reviewArray(doc, "symbols");
   const units = reviewArray(doc, "units_quantities", "unitsQuantities");
   const schemas = reviewArray(doc, "schemas");
+  const timeAxes = reviewArray(doc, "time_axes", "timeAxes");
+  const derivedValues = reviewArray(doc, "derived_values", "derivedValues");
   const tableTransforms = reviewArray(doc, "table_transforms", "tableTransforms");
   const outputs = reviewArray(doc, "report_outputs", "reportOutputs");
   const validations = reviewArray(doc, "validations");
@@ -522,6 +524,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
   const boundaries = reviewArray(doc, "external_boundaries", "externalBoundaries");
   const fallbacks = reviewArray(doc, "fallbacks");
   const risks = reviewArray(doc, "risks");
+  const caches = reviewArray(doc, "caches");
   const modules = reviewArray(doc, "workflow_modules", "workflowModules");
   const sectionHashes = doc.section_hashes || doc.sectionHashes || {};
   const nativeModuleCount = modules.filter((module) => moduleStatusCategory(module) === "native").length;
@@ -533,7 +536,10 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
     ["Symbols", countOrContract(symbols, contract, "symbol_count", "symbolCount")],
     ["Units", countOrContract(units, contract, "unit_quantity_count", "unitQuantityCount")],
     ["Schemas", countOrContract(schemas, contract, "schema_count", "schemaCount")],
+    ["Time axes", countOrContract(timeAxes, contract, "time_axis_count", "timeAxisCount")],
+    ["Derived values", derivedValues.length],
     ["Calculations", calculations.length],
+    ["Caches", caches.length],
     ["Table transforms", tableTransforms.length],
     ["Outputs", countOrContract(outputs, contract, "report_output_count", "reportOutputCount")],
     ["Validations", countOrContract(validations, contract, "validation_count", "validationCount")],
@@ -723,6 +729,106 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
     <div class="table-wrap">
       <table><tbody><tr><td><code>${escapeHtml(doc.semantic_hash || doc.semanticHash || "-")}</code></td></tr></tbody></table>
     </div>
+
+    <h2>Inputs</h2>
+    ${renderReviewTable(
+      ["Line", "Name", "Kind", "Type", "Default", "Required"],
+      inputs,
+      "No inputs.",
+      (input) => `<tr>
+        <td>${sourceLineCell(input)}</td>
+        <td><strong>${escapeHtml(reviewValue(input, "name"))}</strong></td>
+        <td>${escapeHtml(reviewValue(input, "kind"))}</td>
+        <td>${escapeHtml(reviewValue(input, "type"))}</td>
+        <td><code>${escapeHtml(compactText(reviewValue(input, "default"), 110))}</code></td>
+        <td>${escapeHtml(String(input.required ?? false))}${input.redacted ? `<div class="muted">redacted</div>` : ""}</td>
+      </tr>`
+    )}
+
+    <h2>Symbols</h2>
+    ${renderReviewTable(
+      ["Line", "Name", "Quantity", "Unit", "Source"],
+      symbols,
+      "No symbols.",
+      (symbol) => `<tr>
+        <td>${sourceLineCell(symbol)}</td>
+        <td><strong>${escapeHtml(reviewValue(symbol, "name"))}</strong></td>
+        <td>${escapeHtml(reviewValue(symbol, "quantity_kind", "quantityKind"))}</td>
+        <td>${escapeHtml(reviewValue(symbol, "display_unit", "displayUnit"))}</td>
+        <td>${escapeHtml(reviewValue(symbol, "source"))}</td>
+      </tr>`
+    )}
+
+    <h2>Schemas</h2>
+    ${renderReviewTable(
+      ["Line", "Schema", "Columns", "Constraints", "Missing Policy"],
+      schemas,
+      "No schemas.",
+      (schema) => `<tr>
+        <td>${sourceLineCell(schema)}</td>
+        <td><strong>${escapeHtml(reviewValue(schema, "name"))}</strong></td>
+        <td>${escapeHtml(columnSummary(reviewArray(schema, "columns"), 170))}</td>
+        <td>${escapeHtml(schemaRuleSummary(reviewArray(schema, "constraints"), "text", 130))}</td>
+        <td>${escapeHtml(schemaRuleSummary(reviewArray(schema, "missing_policies", "missingPolicies"), "policy", 130))}</td>
+      </tr>`
+    )}
+
+    <h2>Units And Quantities</h2>
+    ${renderReviewTable(
+      ["Line", "Name", "Quantity", "Source", "Display", "Derivation"],
+      units,
+      "No unit or quantity records.",
+      (unit) => `<tr>
+        <td>${sourceLineCell(unit)}</td>
+        <td><strong>${escapeHtml(reviewValue(unit, "name"))}</strong><div class="muted">${escapeHtml(reviewValue(unit, "status"))}</div></td>
+        <td>${escapeHtml(reviewValue(unit, "quantity_kind", "quantityKind"))}</td>
+        <td>${escapeHtml(reviewValue(unit, "source_unit", "sourceUnit"))}</td>
+        <td>${escapeHtml(reviewValue(unit, "display_unit", "displayUnit"))}<div class="muted">${escapeHtml(reviewValue(unit, "canonical_unit", "canonicalUnit"))}</div></td>
+        <td>${escapeHtml(reviewList(reviewArray(unit, "derivation_steps", "derivationSteps"), 140))}</td>
+      </tr>`
+    )}
+
+    <h2>Time Axes</h2>
+    ${renderReviewTable(
+      ["Line", "Axis", "Binding", "Role", "Source"],
+      timeAxes,
+      "No time axes.",
+      (axis) => `<tr>
+        <td>${sourceLineCell(axis)}</td>
+        <td><strong>${escapeHtml(reviewValue(axis, "axis"))}</strong></td>
+        <td>${escapeHtml(reviewValue(axis, "binding"))}</td>
+        <td>${escapeHtml(reviewValue(axis, "role"))}</td>
+        <td>${escapeHtml(reviewValue(axis, "source"))}</td>
+      </tr>`
+    )}
+
+    <h2>Derived Values</h2>
+    ${renderReviewTable(
+      ["Line", "Name", "Expression", "Quantity", "Unit"],
+      derivedValues,
+      "No derived values.",
+      (derived) => `<tr>
+        <td>${sourceLineCell(derived)}</td>
+        <td><strong>${escapeHtml(reviewValue(derived, "name"))}</strong></td>
+        <td><code>${escapeHtml(compactText(reviewValue(derived, "expression"), 150))}</code></td>
+        <td>${escapeHtml(reviewValue(derived, "quantity_kind", "quantityKind"))}</td>
+        <td>${escapeHtml(reviewValue(derived, "display_unit", "displayUnit"))}</td>
+      </tr>`
+    )}
+
+    <h2>Caches</h2>
+    ${renderReviewTable(
+      ["Line", "Owner", "Status", "Key", "Hash"],
+      caches,
+      "No cache records.",
+      (cache) => `<tr>
+        <td>${sourceLineCell(cache)}</td>
+        <td><strong>${escapeHtml(reviewValue(cache, "owner_name", "ownerName"))}</strong><div class="muted">${escapeHtml(reviewValue(cache, "owner_kind", "ownerKind"))}</div></td>
+        <td>${statusPill(reviewValue(cache, "status"))}<div class="muted">${escapeHtml(reviewValue(cache, "policy"))}</div></td>
+        <td><code>${escapeHtml(compactText(reviewValue(cache, "cache_key", "cacheKey"), 130))}</code></td>
+        <td><code>${escapeHtml(compactText(reviewValue(cache, "observed_hash", "observedHash"), 80))}</code></td>
+      </tr>`
+    )}
 
     <h2>Diagnostics</h2>
     ${renderReviewTable(
@@ -950,6 +1056,41 @@ function reviewList(value, limit = 120) {
         return JSON.stringify(item);
       }
       return String(item);
+    }).join("; "),
+    limit
+  );
+}
+
+function columnSummary(columns, limit = 140) {
+  if (!Array.isArray(columns) || columns.length === 0) {
+    return "-";
+  }
+  return compactText(
+    columns.map((column) => {
+      const name = column.name || "-";
+      const type = column.type || "-";
+      const unit = column.unit ? ` [${column.unit}]` : "";
+      const flags = [
+        column.is_index || column.isIndex ? "index" : "",
+        column.optional ? "optional" : ""
+      ].filter(Boolean);
+      return `${name}: ${type}${unit}${flags.length ? ` (${flags.join(", ")})` : ""}`;
+    }).join("; "),
+    limit
+  );
+}
+
+function schemaRuleSummary(items, valueKey, limit = 120) {
+  if (!Array.isArray(items) || items.length === 0) {
+    return "-";
+  }
+  return compactText(
+    items.map((item) => {
+      if (!item || typeof item !== "object") {
+        return String(item);
+      }
+      const column = item.column ? `${item.column}: ` : "";
+      return `${column}${item[valueKey] || item.text || item.policy || JSON.stringify(item)}`;
     }).join("; "),
     limit
   );

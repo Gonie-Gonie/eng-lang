@@ -1739,6 +1739,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("openReviewPanel") -or -not $ExtensionSource.Contains("createWebviewPanel") -or -not $ExtensionSource.Contains("renderReviewSummaryHtml")) {
         throw "VS Code extension must expose a current-file review summary panel"
     }
+    if (-not $ExtensionSource.Contains("<h2>Inputs</h2>") -or -not $ExtensionSource.Contains("<h2>Schemas</h2>") -or -not $ExtensionSource.Contains("<h2>Units And Quantities</h2>") -or -not $ExtensionSource.Contains("<h2>Derived Values</h2>") -or -not $ExtensionSource.Contains("<h2>Caches</h2>")) {
+        throw "VS Code extension review panel must expose core ReviewDocument sections"
+    }
     if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ExtensionSource.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }

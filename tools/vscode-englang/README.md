@@ -69,12 +69,13 @@ passes `--save-artifacts`, so the generated `build/result` review artifacts are
 available to the open-artifact commands immediately after a successful run.
 `EngLang: Open Current File Review Panel` runs
 `eng.exe review <file.eng> --json` and opens a VS Code-native summary of
+inputs, symbols, schemas, units/quantities, time axes, derived values,
 diagnostics, external boundaries, side effects, table transforms, calculations,
-validations, risks, and workflow modules. Line cells in the panel jump back to
-the matching source line. `EngLang: Open Current File Review JSON` runs the
-same current-file review command and opens the normalized JSON directly,
-without requiring a prior run. `EngLang: Open Last Run Review JSON` opens the
-`build/result/review.json` artifact from the last saved run.
+validations, caches, risks, and workflow modules. Line cells in the panel jump
+back to the matching source line. `EngLang: Open Current File Review JSON`
+runs the same current-file review command and opens the normalized JSON
+directly, without requiring a prior run. `EngLang: Open Last Run Review JSON`
+opens the `build/result/review.json` artifact from the last saved run.
 
 Dirty buffers are checked after a short typing pause with
 `eng-lsp.exe --snapshot-stdin <file.eng>`, so Problems can update before the
