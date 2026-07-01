@@ -877,6 +877,16 @@ function renderPlotPanel() {
   `;
 }
 
+function panelArtifactEmptyState(title, command, artifact) {
+  return `
+    <div class="empty-state panel-empty-state">
+      <strong>${escapeHtml(title)}</strong>
+      <span>${escapeHtml(command)}</span>
+      <code>${escapeHtml(artifact)}</code>
+    </div>
+  `;
+}
+
 function renderRunPanel() {
   return `
     <div class="panel-title compact">Run Context</div>
@@ -1024,6 +1034,16 @@ function renderQualityPanel() {
   const summary = quality.summary || {};
   const results = Array.isArray(quality.results) ? quality.results : [];
   const failureCount = Number(quality.failureCount ?? quality.failure_count ?? 0);
+  if (!Object.keys(summary).length && !results.length) {
+    return `
+      <div class="panel-title compact">Quality</div>
+      ${panelArtifactEmptyState(
+        "No quality artifact data yet.",
+        "Run a file with validations, schema constraints, or expectation suites.",
+        "result.engres typed_payload.quality_results[]"
+      )}
+    `;
+  }
   return `
     <div class="panel-title compact">Quality</div>
     <div class="badges">
@@ -1039,6 +1059,16 @@ function renderKernelPanel() {
   const plan = inspectorObject("kernelPlan");
   const selection = plan.backend_selection || plan.backendSelection || {};
   const candidates = Array.isArray(plan.candidates) ? plan.candidates : [];
+  if (!Object.keys(plan).length) {
+    return `
+      <div class="panel-title compact">Kernel Plan</div>
+      ${panelArtifactEmptyState(
+        "No kernel plan artifact data yet.",
+        "Run a file with supported solver or state-space work.",
+        "report_spec.json kernel_plan"
+      )}
+    `;
+  }
   const rows = candidates.map((candidate) => {
     const estimate = candidate.estimate || {};
     const executor = candidate.executor || {};
@@ -1138,6 +1168,16 @@ function renderModulesPanel() {
 
 function renderWorkflowPanel() {
   const plan = inspectorObject("runPlan");
+  if (!Object.keys(plan).length) {
+    return `
+      <div class="panel-title compact">Workflow</div>
+      ${panelArtifactEmptyState(
+        "No workflow plan artifact data yet.",
+        "Run the current file to generate the workflow graph.",
+        "build/result/run_plan.json"
+      )}
+    `;
+  }
   const graph = plan.graph && typeof plan.graph === "object" ? plan.graph : {};
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph.edges) ? graph.edges : [];
@@ -2733,6 +2773,16 @@ function renderEffectsPanel() {
   const artifacts = Array.isArray(effects.artifactRecords) ? effects.artifactRecords : [];
   const boundaries = Array.isArray(effects.externalBoundaryRecords) ? effects.externalBoundaryRecords : [];
   const processes = Array.isArray(processResults.processes) ? processResults.processes : [];
+  if (!artifacts.length && !boundaries.length && !processes.length) {
+    return `
+      <div class="panel-title compact">Effects</div>
+      ${panelArtifactEmptyState(
+        "No side-effect artifact data yet.",
+        "Run a file with write/render/run/test/database operations.",
+        "output_manifest.json, process_results.json, test_results.json"
+      )}
+    `;
+  }
   return `
     <div class="panel-title compact">Effects</div>
     <div class="badges">
@@ -2758,6 +2808,16 @@ function renderNetworkPanel() {
   const events = Array.isArray(network.networkEvents) ? network.networkEvents : [];
   const caches = Array.isArray(network.manifestCaches) ? network.manifestCaches : [];
   const cacheEvents = Array.isArray(network.cacheEvents) ? network.cacheEvents : [];
+  if (!boundaries.length && !requests.length && !events.length && !caches.length && !cacheEvents.length) {
+    return `
+      <div class="panel-title compact">Network / Cache</div>
+      ${panelArtifactEmptyState(
+        "No network/cache artifact data yet.",
+        "Run a file with http/download/cache boundaries.",
+        "result.engres typed_payload.network_cache and run_log.json cache events"
+      )}
+    `;
+  }
   return `
     <div class="panel-title compact">Network / Cache</div>
     <div class="badges">
@@ -2813,6 +2873,16 @@ function renderDbPanel() {
     const tables = Array.isArray(manifest.tables) ? manifest.tables : [];
     return sum + tables.length;
   }, 0);
+  if (!manifests.length && !registry.length) {
+    return `
+      <div class="panel-title compact">DB Writes</div>
+      ${panelArtifactEmptyState(
+        "No DB write artifact data yet.",
+        "Run a file with open sqlite and write <table> to db.table(...).",
+        "result.engres typed_payload.db_manifests[] and db_write_manifest"
+      )}
+    `;
+  }
   return `
     <div class="panel-title compact">DB Writes</div>
     <div class="badges">
@@ -2839,6 +2909,16 @@ function renderModelPanel() {
     const points = Array.isArray(artifact.residual_points) ? artifact.residual_points : (Array.isArray(artifact.residualPoints) ? artifact.residualPoints : []);
     return sum + points.length;
   }, 0);
+  if (!cards.length && !artifacts.length && !specs.length && !predictionManifests.length && !diagnostics.length) {
+    return `
+      <div class="panel-title compact">Model Review</div>
+      ${panelArtifactEmptyState(
+        "No model artifact data yet.",
+        "Run a file with regression_table, model_card, evaluate, or predict ... using ....",
+        "result.engres typed_payload.model_specs[], model_cards[], and prediction_manifests[]"
+      )}
+    `;
+  }
   return `
     <div class="panel-title compact">Model Review</div>
     <div class="badges">
@@ -2868,6 +2948,16 @@ function renderCasePanel() {
   const caseTables = Array.isArray(caseData.caseTables) ? caseData.caseTables : [];
   const diagnostics = Array.isArray(caseData.diagnostics) ? caseData.diagnostics : [];
   const failed = Array.isArray(caseData.failedCases) ? caseData.failedCases : [];
+  if (!manifests.length && !caseTables.length && !diagnostics.length && !failed.length) {
+    return `
+      <div class="panel-title compact">Cases</div>
+      ${panelArtifactEmptyState(
+        "No case artifact data yet.",
+        "Run a file that materializes case tables or case input artifacts.",
+        "result.engres typed_payload.case_tables[] and case_manifests[]"
+      )}
+    `;
+  }
   return `
     <div class="panel-title compact">Cases</div>
     <div class="badges">

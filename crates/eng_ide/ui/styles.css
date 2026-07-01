@@ -654,6 +654,19 @@ button:hover {
   font-size: 12.5px;
 }
 
+.panel-empty-state {
+  display: grid;
+  gap: 6px;
+}
+
+.panel-empty-state strong {
+  color: var(--text);
+}
+
+.panel-empty-state code {
+  overflow-wrap: anywhere;
+}
+
 .side-plot {
   display: flex;
   flex-direction: column;

@@ -196,6 +196,17 @@ Status: implemented after VS Code linter review.
 - Updated the extension README and `ide-check` contract coverage so the quick
   fix does not disappear silently.
 
+## Batch 17: Native IDE Artifact-Aware Empty States
+
+Status: implemented after native IDE inspector review.
+
+- Added panel-level empty states for Workflow, Quality, Kernel, Effects,
+  Network/Cache, DB, Model, and Case panels.
+- Each empty state names the missing artifact/payload and the kind of file or
+  command that produces it, instead of showing only empty tables.
+- Extended native IDE UI contract coverage in `ide-check` for the shared empty
+  state helper.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -229,8 +240,6 @@ Status: implemented after VS Code linter review.
 
 ## Native IDE Usability Candidates
 
-- Add panel-level empty states that say which artifact is missing and which
-  command produces it.
 - Keep problem filtering by severity/code and source-line jump targets covered
   as part of native IDE regression checks.
 - Group raw JSON inspectors behind advanced toggles so first-run users see the

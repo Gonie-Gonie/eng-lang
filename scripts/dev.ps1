@@ -1846,6 +1846,8 @@ function Invoke-IdeCheck {
         "renderOutputPathList",
         "selectedWorkflowNodeId",
         "renderWorkflowNodeDetail",
+        "panelArtifactEmptyState",
+        "No network/cache artifact data yet.",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
         "data-open-path",
