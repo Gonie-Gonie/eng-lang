@@ -820,6 +820,65 @@ button:hover {
   overflow: hidden;
 }
 
+.problem-panel {
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.problem-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--border);
+  background: #fff;
+}
+
+.problem-toolbar select {
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: #fff;
+  color: var(--text);
+  padding: 0 7px;
+  max-width: 210px;
+}
+
+.segmented {
+  display: inline-flex;
+  align-items: center;
+}
+
+.segmented button {
+  height: 26px;
+  border-radius: 0;
+  border-right: 0;
+  background: #fff;
+}
+
+.segmented button:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.segmented button:last-child {
+  border-right: 1px solid var(--border);
+  border-radius: 0 4px 4px 0;
+}
+
+.segmented button.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.problem-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
 .terminal {
   height: 100%;
   background: var(--terminal);

@@ -26,6 +26,8 @@ const state = {
   terminalCommands: [],
   terminalHistoryIndex: null,
   bottomTab: "terminal",
+  problemSeverity: "all",
+  problemCode: "all",
   sideTab: "variables",
   selectedVariable: null,
   status: "Starting"
@@ -291,6 +293,27 @@ function bind() {
       render();
     };
   });
+  document.querySelectorAll("[data-problem-severity]").forEach((button) => {
+    button.onclick = () => {
+      state.problemSeverity = button.dataset.problemSeverity;
+      render();
+    };
+  });
+  const problemCodeFilter = byId("problemCodeFilter");
+  if (problemCodeFilter) {
+    problemCodeFilter.onchange = (event) => {
+      state.problemCode = event.target.value;
+      render();
+    };
+  }
+  const clearProblemFilters = byId("clearProblemFilters");
+  if (clearProblemFilters) {
+    clearProblemFilters.onclick = () => {
+      state.problemSeverity = "all";
+      state.problemCode = "all";
+      render();
+    };
+  }
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.onclick = () => {
       state.sideTab = tab.dataset.sideTab;
@@ -3281,22 +3304,61 @@ function renderVariableDetail(variable) {
 }
 
 function renderProblems() {
-  const rows = state.check.diagnostics.map((diag) => `
+  const diagnostics = state.check.diagnostics || [];
+  const codes = problemCodeOptions(diagnostics);
+  const activeCode = codes.includes(state.problemCode) ? state.problemCode : "all";
+  const filtered = filteredProblems(activeCode);
+  const rows = filtered.map((diag) => `
     <tr>
       <td class="${diag.severity === "error" ? "error" : "warning"}">${escapeHtml(diag.severity)}</td>
-      <td>L${diag.line}</td>
+      <td>${sourceLineButton(diag)}</td>
       <td><code>${escapeHtml(diag.code)}</code></td>
       <td>${escapeHtml(diag.message)}${diag.help ? `<div class="muted">help: ${escapeHtml(diag.help)}</div>` : ""}</td>
     </tr>
   `).join("");
   return `
-    <div class="scroll" style="height:100%">
+    <div class="problem-panel">
+      <div class="problem-toolbar">
+        <div class="segmented" aria-label="Problem severity">
+          ${["all", "error", "warning"].map((severity) => `
+            <button class="${state.problemSeverity === severity ? "active" : ""}" data-problem-severity="${escapeAttr(severity)}">
+              ${escapeHtml(problemSeverityLabel(severity, diagnostics))}
+            </button>
+          `).join("")}
+        </div>
+        <select id="problemCodeFilter" title="Diagnostic code">
+          <option value="all">All codes</option>
+          ${codes.map((code) => `<option value="${escapeAttr(code)}" ${activeCode === code ? "selected" : ""}>${escapeHtml(code)}</option>`).join("")}
+        </select>
+        <button id="clearProblemFilters">Clear</button>
+        <span class="muted">${filtered.length} of ${diagnostics.length}</span>
+      </div>
+      <div class="scroll problem-scroll">
       <table class="problems-table">
         <thead><tr><th>Severity</th><th>Line</th><th>Code</th><th>Message</th></tr></thead>
-        <tbody>${rows || `<tr><td colspan="4" class="ok">No diagnostics</td></tr>`}</tbody>
+        <tbody>${rows || `<tr><td colspan="4" class="ok">${diagnostics.length ? "No diagnostics match the active filters" : "No diagnostics"}</td></tr>`}</tbody>
       </table>
+      </div>
     </div>
   `;
+}
+
+function filteredProblems(activeCode = state.problemCode) {
+  return (state.check.diagnostics || []).filter((diag) => {
+    const severityMatches = state.problemSeverity === "all" || diag.severity === state.problemSeverity;
+    const codeMatches = activeCode === "all" || diag.code === activeCode;
+    return severityMatches && codeMatches;
+  });
+}
+
+function problemCodeOptions(diagnostics) {
+  return [...new Set(diagnostics.map((diag) => diag.code).filter(Boolean))].sort();
+}
+
+function problemSeverityLabel(severity, diagnostics) {
+  if (severity === "all") return `All ${diagnostics.length}`;
+  const count = diagnostics.filter((diag) => diag.severity === severity).length;
+  return `${severity === "error" ? "Errors" : "Warnings"} ${count}`;
 }
 
 function renderTerminal() {
