@@ -415,6 +415,23 @@
     "text": "response.response_hash"
   },
   {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.promote-json-records.englang",
+    "text": "promote json records",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "records",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "payload.records"
+  },
+  {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.type.englang",
     "text": "Time"

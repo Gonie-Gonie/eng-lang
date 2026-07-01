@@ -290,6 +290,21 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.promote-json-records.englang",
+                                                                    "match":  "\\b(promote)\\s+(json)\\s+(records)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.http-request.englang",
                                                                     "match":  "\\b(http)\\s+(get|post|put|patch|head|request|fetch)\\b",
                                                                     "captures":  {
@@ -358,7 +373,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|to|policy|package|version|port|across|through|input|parameter|state|output|model|return|if|else)\\b"
+                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|records|to|policy|package|version|port|across|through|input|parameter|state|output|model|return|if|else)\\b"
                                                          }
                                                      ]
                                     },
