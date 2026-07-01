@@ -68,6 +68,12 @@
     "fullMatch": true
   },
   {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.write-text.englang",
+    "text": "write text",
+    "fullMatch": true
+  },
+  {
     "fixture": "02_units_quantities.eng",
     "scope": "support.type.englang",
     "text": "SpecificHeat"
@@ -112,6 +118,18 @@
     "fixture": "03_side_effects.eng",
     "scope": "constant.language.englang",
     "text": "append"
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.export-summary-csv.englang",
+    "text": "export summary to csv",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "keyword.control.report.englang",
+    "text": "summary",
+    "fullMatch": true
   },
   {
     "fixture": "04_system_component.eng",
@@ -589,5 +607,10 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "title ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "confidence_band ="
   }
 ]

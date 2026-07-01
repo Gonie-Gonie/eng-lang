@@ -935,6 +935,17 @@ Status: implemented after native uncertainty workflow review.
 - Extended workflow smoke coverage to reject Python/external process helpers in
   workflows 1-3 and to require workflow 03 CSV/text output manifest entries.
 
+## Batch 77: VS Code Plot And Workflow Phrase Highlighting
+
+Status: implemented after VS Code grammar/LSP consistency review.
+
+- Added `confidence_band`, `unit`, and `title` to LSP workflow option
+  completions for plot `with` blocks.
+- Added TextMate phrase scopes for `export summary to csv` and `write text` so
+  common workflow phrases do not leave middle keywords uncolored.
+- Extended grammar fixtures and smoke expectations to cover
+  `confidence_band`, `write text`, and `export summary to csv`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

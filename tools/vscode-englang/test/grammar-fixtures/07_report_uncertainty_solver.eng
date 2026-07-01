@@ -34,5 +34,6 @@ report {
     with {
         unit y = kW
         title = "Coil uncertainty"
+        confidence_band = sensor_std
     }
 }

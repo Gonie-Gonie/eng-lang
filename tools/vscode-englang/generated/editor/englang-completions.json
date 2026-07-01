@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  316,
+    "completion_seed_count":  319,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -1203,6 +1203,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "plot confidence-band source",
+                                "kind":  "property",
+                                "label":  "confidence_band",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "sample count option",
                                 "kind":  "property",
                                 "label":  "count",
@@ -1353,9 +1359,21 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "plot or report title",
+                                "kind":  "property",
+                                "label":  "title",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "external tool version",
                                 "kind":  "property",
                                 "label":  "tool_version",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "display unit or plot axis option",
+                                "kind":  "property",
+                                "label":  "unit",
                                 "lsp_kind":  10
                             },
                             {

@@ -224,6 +224,36 @@
                        "workflowPhrases":  {
                                                "patterns":  [
                                                                 {
+                                                                    "name":  "meta.workflow.export-summary-csv.englang",
+                                                                    "match":  "\\b(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "keyword.control.side-effect.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "keyword.control.report.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.write-text.englang",
+                                                                    "match":  "\\b(write)\\s+(text)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "keyword.control.side-effect.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.materialize-cases.englang",
                                                                     "match":  "\\b(materialize)\\s+(cases)\\b",
                                                                     "captures":  {
@@ -353,7 +383,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.report.englang",
-                                                             "match":  "\\b(report|show|plot|line|bar|histogram|summarize|distribution)\\b"
+                                                             "match":  "\\b(report|show|plot|line|bar|histogram|summarize|summary|distribution)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.validation.englang",
@@ -401,7 +431,7 @@
                                            "patterns":  [
                                                             {
                                                                 "name":  "variable.parameter.property.englang",
-                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|response_body_limit|expected_outputs|artifact_kind|tool_version|values|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_dir|cache_key|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|mean|std|error|samples|scale|offset|uncertainty|timestep|duration|solver|tolerance|atol|rtol|unit|title|split|database|table|schema|path|format|profile|runner|scheduler|transaction)\\b(?=\\s*=)"
+                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|response_body_limit|expected_outputs|artifact_kind|tool_version|values|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_dir|cache_key|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|mean|std|error|samples|scale|offset|uncertainty|timestep|duration|solver|tolerance|atol|rtol|unit|title|confidence_band|split|database|table|schema|path|format|profile|runner|scheduler|transaction)\\b(?=\\s*=)"
                                                             }
                                                         ]
                                        },

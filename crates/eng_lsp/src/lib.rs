@@ -455,6 +455,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("cache_key", "cache identity option"),
     ("case_id", "case identifier expression"),
     ("confirm", "explicit filesystem mutation confirmation"),
+    ("confidence_band", "plot confidence-band source"),
     ("count", "sample count option"),
     ("cwd", "external command working directory"),
     ("env", "external command environment"),
@@ -485,7 +486,9 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("test", "model train/test split option"),
     ("target", "model target column"),
     ("timeout", "external command timeout"),
+    ("title", "plot or report title"),
     ("tool_version", "external tool version"),
+    ("unit", "display unit or plot axis option"),
     ("values", "template value map"),
     ("year", "calendar year option"),
 ];
@@ -3767,6 +3770,9 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     if owner.starts_with("copy ") || owner.starts_with("write ") || owner.starts_with("export ") {
         return Some(&["overwrite", "mode"]);
     }
+    if owner.starts_with("plot ") {
+        return Some(&["unit", "title", "confidence_band"]);
+    }
     if owner.contains("render template") {
         return Some(&[
             "values",
@@ -4915,6 +4921,39 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "confirm"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_plot_context() {
+        let source = r#"plot Q_sensor over Time
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("plot_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "confidence_band"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "unit"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "title"));
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));
