@@ -255,6 +255,17 @@ Status: implemented after compiler-backed semantic token review.
 - Added LSP snapshot test coverage for high-risk process tokens and medium-risk
   data-quality, uncertainty, and solver-boundary tokens.
 
+## Batch 22: Native Workflow Zero-Process Wording
+
+Status: implemented after workflow docs review.
+
+- Updated composite workflow docs to describe workflow 1, 2, and 3 as native
+  module examples with zero Python or `run command` process execution.
+- Replaced stale external-process wording with explicit network, cache, file,
+  DB, and artifact boundary records.
+- Documented that `dev.bat workflows-test` rejects Python calls, `run command`,
+  and nonzero `process_results.json` counts for the three workflow examples.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

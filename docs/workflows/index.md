@@ -1,8 +1,8 @@
 # Composite Workflow Guide
 
 Composite workflow examples show how current EngLang primitives coordinate
-typed data, external adapters, generated artifacts, and review output. They are
-user-facing workflow references, not first-run tutorials and not
+typed data, native workflow modules, generated artifacts, and review output.
+They are user-facing workflow references, not first-run tutorials and not
 domain-specific product claims.
 
 Current examples:
@@ -16,15 +16,18 @@ Current examples:
 The examples repeat a small set of contracts:
 
 - typed input boundary
-- explicit external boundary
+- explicit network, file, DB, cache, and artifact boundary records
 - generated artifact and hash path
 - report/review artifact
-- deterministic fixture mode for smoke runs
+- deterministic fixture/native execution for smoke runs
+- zero `run command` or Python process execution
 
-These contracts define the generic workflow module surface for eng.net,
-eng.cache, eng.case, eng.process, eng.db, eng.model, and eng.artifact. Domain
-adapters such as weather APIs, standard-file writers, external simulators, and
-surrogate trainers stay layered above those generic modules.
+These contracts define the generic workflow module surface for `eng.net`,
+`eng.cache`, `eng.sampling`, `eng.case`, `eng.template`, `eng.db`,
+`eng.model`, and `eng.artifact`. Domain adapters such as weather APIs,
+standard-file writers, external simulators, and surrogate trainers stay layered
+above those generic modules instead of being hidden Python/process steps inside
+the workflow examples.
 
 ## Run All Workflow Examples
 

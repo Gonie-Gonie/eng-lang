@@ -18,23 +18,24 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 ## Expected Artifacts
 
 Each run should produce review evidence and workflow-specific generated
-artifacts. Some examples call small fixture tools so that side-effect and
-adapter contracts are visible but deterministic.
+artifacts. The current workflow examples do not call Python or external
+processes; `process_results.json` should report `process_count = 0`.
 
 ## Explanation
 
 Composite workflows repeat the same generic contracts:
 
 - typed input boundaries
-- explicit external process boundaries
+- explicit network, cache, file, DB, and artifact boundary records
 - generated artifacts with path and hash evidence
 - review/report output
-- deterministic fixture mode for smoke tests
+- deterministic fixture/native execution for smoke tests
+- no hidden Python or `run command` adapter step
 
-Current `eng.net`/`eng.cache` seeds and future modules such as eng.case, eng.db,
-and eng.model should grow from these repeated contracts. Weather APIs,
-standard-file writers, simulators, and surrogate trainers remain adapters above
-the generic workflow layer.
+Current native modules such as `eng.net`, `eng.cache`, `eng.sampling`,
+`eng.case`, `eng.template`, `eng.db`, and `eng.model` grow from these repeated
+contracts. Weather APIs, standard-file writers, simulators, and surrogate
+trainers remain adapters above the generic workflow layer.
 
 ## Common Mistakes
 

@@ -123,7 +123,12 @@ Current coverage:
 - `examples/workflows/02_external_simulation_surrogate/main.eng`
   runs native sampling, template rendering, regression, prediction, and DB writes
   with zero external process adapters.
-- `eng test examples` asserts that both workflows produce review,
+- `examples/workflows/03_uncertain_sensor_report/main.eng`
+  runs typed sensor data and report generation with uncertainty metadata and
+  zero external process adapters.
+- `eng test examples` asserts that all three workflows produce review,
   output-manifest, process, report, and typed result artifacts.
+- `dev.bat workflows-test` rejects `run command`, Python calls, and nonzero
+  process counts in the three native workflow examples.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.
