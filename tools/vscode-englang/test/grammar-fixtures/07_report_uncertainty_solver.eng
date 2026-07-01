@@ -22,6 +22,10 @@ with {
 
 validate Q_probability > 0.95
 
+on {
+    status == passed
+}
+
 report {
     summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]
     plot distribution(Q_coil_dist)

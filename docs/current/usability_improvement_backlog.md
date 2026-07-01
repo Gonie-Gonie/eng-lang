@@ -586,6 +586,17 @@ Status: implemented after imported function navigation review.
 - The stdio LSP regression test now pins `main.eng` `heat_loss(...)` navigation
   to the actual `thermal.eng` `fn heat_loss` source range.
 
+## Batch 49: TextMate Keyword Consistency
+
+Status: implemented after compiler keyword/TextMate coverage review.
+
+- Added TextMate coverage for `predict model using`, `output` declarations,
+  `on` blocks, `import`, and deprecated `script`/`struct` keywords.
+- Extended grammar fixtures and smoke expectations from 94 to 101 token checks
+  so these keyword groups cannot silently drop back to plain identifier colors.
+- Regenerated the VS Code TextMate grammar and synced the grammar files into
+  the installed local extension folder.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

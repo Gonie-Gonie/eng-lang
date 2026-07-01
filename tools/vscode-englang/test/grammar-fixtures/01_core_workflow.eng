@@ -1,6 +1,7 @@
 /// Core workflow fixture
 # normal comment
 use eng.path
+import eng.table
 
 schema SensorData {
     time: DateTime [iso8601]

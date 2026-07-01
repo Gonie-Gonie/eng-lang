@@ -176,7 +176,7 @@
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.system-member.englang",
-                                                                 "match":  "\\b(state|input|parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "match":  "\\b(state|input|parameter|output)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
                                                                                             "name":  "storage.modifier.englang"
@@ -217,7 +217,7 @@
                                       "patterns":  [
                                                        {
                                                            "name":  "storage.type.block.englang",
-                                                           "match":  "\\b(args|report|constraints|missing|test|with)\\b"
+                                                           "match":  "\\b(args|report|constraints|missing|test|with|on)\\b"
                                                        }
                                                    ]
                                   },
@@ -244,6 +244,21 @@
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "keyword.control.workflow.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.predict-model.englang",
+                                                                    "match":  "\\b(predict)\\s+(model)\\s+(using)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.operator.word.englang"
                                                                                            }
                                                                                  }
                                                                 },
@@ -315,7 +330,11 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "keyword.control.import.englang",
-                                                             "match":  "\\b(use|from|as)\\b"
+                                                             "match":  "\\b(use|import|from|as)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "keyword.control.deprecated.englang",
+                                                             "match":  "\\b(script|struct)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.report.englang",
@@ -339,7 +358,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|to|policy|package|version|port|across|through|input|parameter|state|return|if|else)\\b"
+                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|to|policy|package|version|port|across|through|input|parameter|state|output|model|return|if|else)\\b"
                                                          }
                                                      ]
                                     },

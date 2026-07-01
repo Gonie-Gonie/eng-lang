@@ -2,6 +2,7 @@ system RoomThermal {
     state T: AbsoluteTemperature = 20 degC
     parameter C: HeatCapacity = 1200 kJ/K
     input Q_internal: HeatRate = 500 W
+    output Q_load: HeatRate = Q_internal
     equation energy_balance:
         C * der(T) eq Q_internal
 }

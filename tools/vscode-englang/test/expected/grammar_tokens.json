@@ -11,6 +11,11 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.import.englang",
+    "text": "import"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "entity.name.type.declaration.englang",
     "text": "schema SensorData"
   },
@@ -170,6 +175,18 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.predict-model.englang",
+    "text": "predict model using",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "model",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "require_one",
     "fullMatch": true
@@ -264,8 +281,26 @@
   },
   {
     "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.system-member.englang",
+    "text": "output Q_load",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
     "scope": "meta.declaration.interface-member.englang",
     "text": "port heat",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.deprecated.englang",
+    "text": "script",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.deprecated.englang",
+    "text": "struct",
     "fullMatch": true
   },
   {
@@ -466,6 +501,12 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
     "text": "validate"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "storage.type.block.englang",
+    "text": "on",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
