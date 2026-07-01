@@ -1869,13 +1869,18 @@ async function showSemanticTokensDebug(context) {
   updateSemanticSymbolDecorations(document, snapshot);
   const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
   const tokenCounts = {};
+  const modifierCounts = {};
   for (const token of semanticTokens.tokens ?? []) {
     tokenCounts[token.type] = (tokenCounts[token.type] ?? 0) + 1;
+    for (const modifier of token.modifiers ?? []) {
+      modifierCounts[modifier] = (modifierCounts[modifier] ?? 0) + 1;
+    }
   }
   const payload = {
     source: document.uri.fsPath,
     token_count: semanticTokens.tokens?.length ?? 0,
     token_counts_by_type: tokenCounts,
+    token_counts_by_modifier: modifierCounts,
     semantic_tokens: semanticTokens
   };
   const debugDocument = await vscode.workspace.openTextDocument({

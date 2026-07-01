@@ -1503,6 +1503,19 @@ Status: implemented after workflow-module docs review.
 - Kept the raw registry values in `stdlib/eng/modules.toml` as machine-owned
   source data while presenting user-facing wording in generated docs.
 
+## Batch 124: Semantic Token Debug Readability
+
+Status: implemented after Highlight panel review.
+
+- Added a Text column to the Native IDE Highlight Tokens table so users can see
+  which source lexeme each semantic token covers without first jumping back to
+  the editor.
+- Added `token_counts_by_modifier` to the VS Code `EngLang: Inspect Highlight
+  Tokens` JSON output, making unit, quantity, side-effect, workflow-step, and
+  risk modifier coverage easier to audit.
+- Extended `ide-check` contracts so both debug surfaces keep exposing the
+  richer semantic-token inspection data.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

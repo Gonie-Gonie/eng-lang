@@ -1228,6 +1228,7 @@ function renderSemanticTokenRows(tokens) {
     return `
       <tr>
         <td>${sourceTokenButton(token)}<div class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</div></td>
+        <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
         <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
         <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
       </tr>
@@ -1236,8 +1237,8 @@ function renderSemanticTokenRows(tokens) {
   const hidden = tokens.length > 120 ? `<div class="empty-state">Showing first 120 of ${escapeHtml(String(tokens.length))} tokens.</div>` : "";
   return `
     <table class="var-table semantic-token-table">
-      <thead><tr><th>Range</th><th>Type</th><th>Modifiers</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="3" class="muted">No semantic tokens for the current check.</td></tr>`}</tbody>
+      <thead><tr><th>Range</th><th>Text</th><th>Type</th><th>Modifiers</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No semantic tokens for the current check.</td></tr>`}</tbody>
     </table>
     ${hidden}
   `;
@@ -4005,6 +4006,15 @@ function semanticTokenRange(line, token) {
   const start = byteOffsetToCodeUnit(line, startByte);
   const end = byteOffsetToCodeUnit(line, startByte + lengthBytes);
   return { start, end, token };
+}
+
+function semanticTokenText(token) {
+  const lineIndex = Number(token?.line ?? -1);
+  if (!Number.isFinite(lineIndex) || lineIndex < 0) return "-";
+  const line = String(state.highlightSource || "").split(/\r\n|\r|\n/)[lineIndex] || "";
+  const range = semanticTokenRange(line, token);
+  if (!range) return "-";
+  return line.slice(range.start, range.end) || "-";
 }
 
 function byteOffsetToCodeUnit(text, byteOffset) {
