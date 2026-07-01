@@ -2055,6 +2055,19 @@ function Assert-VscodeExtensionContract {
             throw "eng-lsp CLI missing semantic token protocol token $RequiredLspSemanticToken"
         }
     }
+    foreach ($RequiredLspCodeActionToken in @(
+        "codeActionProvider",
+        "textDocument/codeAction",
+        "code_actions_for_request",
+        "lsp_replacement_code_action",
+        "E-SYNTAX-DECL-001",
+        "E-STRUCT-ARGS-001",
+        "E-EQ-BOOL-001"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspCodeActionToken)) {
+            throw "eng-lsp CLI missing code action protocol token $RequiredLspCodeActionToken"
+        }
+    }
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
     $GeneratedCompletions = Get-Content -LiteralPath $CompletionsPath -Raw | ConvertFrom-Json
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {

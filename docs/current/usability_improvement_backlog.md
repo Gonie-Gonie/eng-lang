@@ -860,6 +860,19 @@ Status: implemented after persistent LSP capability review.
 - Extended stdio and `ide-check` coverage so range semantic tokens, full tokens,
   and the advertised LSP capability stay in sync.
 
+## Batch 71: LSP Syntax Migration Code Actions
+
+Status: implemented after linter quick-fix protocol review.
+
+- Added `codeActionProvider` capability to `eng-lsp` with quick-fix support for
+  syntax migration diagnostics.
+- Implemented `textDocument/codeAction` edits for `:=` to `=`, `struct Args`
+  to `args`, and equation-block `==` to `eq`, returning standard WorkspaceEdit
+  payloads from the current document diagnostics context.
+- Extended stdio and `ide-check` coverage so persistent LSP clients retain the
+  migration quick fixes that were previously available only in the VS Code
+  extension layer.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

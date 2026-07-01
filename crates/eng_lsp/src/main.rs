@@ -319,6 +319,10 @@ fn run_lsp() -> io::Result<()> {
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
                                 },
+                                "codeActionProvider": {
+                                    "codeActionKinds": ["quickfix"],
+                                    "resolveProvider": false
+                                },
                                 "semanticTokensProvider": {
                                     "legend": {
                                         "tokenTypes": legend.token_types,
@@ -375,6 +379,13 @@ fn run_lsp() -> io::Result<()> {
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": definition }),
+                )?;
+            }
+            "textDocument/codeAction" => {
+                let actions = code_actions_for_request(&request, &documents);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": actions }),
                 )?;
             }
             "textDocument/semanticTokens/full" => {
@@ -456,6 +467,102 @@ fn semantic_tokens_for_request(
     documents: &HashMap<String, String>,
 ) -> Option<eng_lsp::LspSemanticTokens> {
     Some(snapshot_for_request(request, documents)?.semantic_tokens)
+}
+
+fn code_actions_for_request(request: &Value, documents: &HashMap<String, String>) -> Vec<Value> {
+    let Some(uri) = request_uri(request) else {
+        return Vec::new();
+    };
+    let Some(text) = document_text_for_uri(uri, documents) else {
+        return Vec::new();
+    };
+    let Some(diagnostics) = request
+        .pointer("/params/context/diagnostics")
+        .and_then(Value::as_array)
+    else {
+        return Vec::new();
+    };
+
+    diagnostics
+        .iter()
+        .filter_map(|diagnostic| code_action_for_diagnostic(uri, &text, diagnostic))
+        .collect()
+}
+
+fn code_action_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    match diagnostic_code(diagnostic)? {
+        "E-SYNTAX-DECL-001" => {
+            lsp_replacement_code_action(uri, text, diagnostic, ":=", "=", "Replace := with =")
+        }
+        "E-STRUCT-ARGS-001" => lsp_replacement_code_action(
+            uri,
+            text,
+            diagnostic,
+            "struct Args",
+            "args",
+            "Replace struct Args with args",
+        ),
+        "E-EQ-BOOL-001" => {
+            lsp_replacement_code_action(uri, text, diagnostic, "==", "eq", "Replace == with eq")
+        }
+        _ => None,
+    }
+}
+
+fn diagnostic_code(diagnostic: &Value) -> Option<&str> {
+    diagnostic
+        .get("code")
+        .and_then(Value::as_str)
+        .or_else(|| diagnostic.pointer("/code/value").and_then(Value::as_str))
+}
+
+fn lsp_replacement_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+    search: &str,
+    replacement: &str,
+    title: &str,
+) -> Option<Value> {
+    let line_number = diagnostic
+        .pointer("/range/start/line")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())?;
+    let line = text.lines().nth(line_number)?;
+    let byte_start = line.find(search)?;
+    let start_character = utf16_len(&line[..byte_start]);
+    let end_character = start_character + utf16_len(search);
+    let range = json!({
+        "start": { "line": line_number, "character": start_character },
+        "end": { "line": line_number, "character": end_character }
+    });
+    Some(json!({
+        "title": title,
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, range, replacement)
+    }))
+}
+
+fn single_change_workspace_edit(uri: &str, range: Value, new_text: &str) -> Value {
+    let mut changes = serde_json::Map::new();
+    changes.insert(
+        uri.to_owned(),
+        json!([{
+            "range": range,
+            "newText": new_text
+        }]),
+    );
+    json!({ "changes": changes })
+}
+
+fn document_text_for_uri(uri: &str, documents: &HashMap<String, String>) -> Option<String> {
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    documents
+        .get(uri)
+        .cloned()
+        .or_else(|| std::fs::read_to_string(&path).ok())
 }
 
 fn semantic_tokens_range_for_request(

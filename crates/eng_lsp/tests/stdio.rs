@@ -85,6 +85,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["codeActionProvider"]["codeActionKinds"][0],
+        "quickfix"
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["semanticTokensProvider"]["full"],
         true
     );
@@ -553,6 +557,132 @@ fn stdio_server_round_trips_core_lsp_requests() {
 }
 
 #[test]
+fn stdio_code_actions_offer_syntax_migrations() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root().join("build/editor-tests/code_action_migrations.eng");
+    let uri = file_uri(&source_path);
+    let source = r#"struct Args {
+    output: String = "out"
+}
+
+Q := 2 kW
+
+system RoomThermal {
+    parameter C: HeatCapacity = 500 kJ/K
+    state T: AbsoluteTemperature = 24 degC
+    input T_out: AbsoluteTemperature
+    equation {
+        C * der(T) == T_out
+    }
+}
+"#;
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {}
+        }),
+    );
+    let initialize = read_message(&mut stdout);
+    assert_eq!(
+        initialize["result"]["capabilities"]["codeActionProvider"]["codeActionKinds"][0],
+        "quickfix"
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": source
+                }
+            }
+        }),
+    );
+    let published = read_message(&mut stdout);
+    assert_eq!(published["method"], "textDocument/publishDiagnostics");
+    let diagnostics = published["params"]["diagnostics"]
+        .as_array()
+        .expect("diagnostics should be an array")
+        .clone();
+    for code in ["E-STRUCT-ARGS-001", "E-SYNTAX-DECL-001", "E-EQ-BOOL-001"] {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == code),
+            "diagnostics should include {code}"
+        );
+    }
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": { "uri": uri },
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": source.lines().count(), "character": 0 }
+                },
+                "context": {
+                    "diagnostics": diagnostics
+                }
+            }
+        }),
+    );
+    let code_actions = read_message(&mut stdout);
+    assert_eq!(code_actions["id"], 2);
+    let actions = code_actions["result"]
+        .as_array()
+        .expect("code action result should be an array");
+    assert_replacement_action(actions, &uri, "Replace struct Args with args", "args");
+    assert_replacement_action(actions, &uri, "Replace := with =", "=");
+    assert_replacement_action(actions, &uri, "Replace == with eq", "eq");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "shutdown"
+        }),
+    );
+    let shutdown = read_message(&mut stdout);
+    assert_eq!(shutdown["id"], 3);
+    assert!(shutdown["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    let status = child.wait().expect("eng-lsp should exit");
+    assert!(status.success());
+}
+
+#[test]
 fn snapshot_stdin_reads_unsaved_source() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let mut child = Command::new(server)
@@ -817,6 +947,28 @@ fn document_symbols_contain(symbols: &[Value], name: &str) -> bool {
                 .as_array()
                 .is_some_and(|children| document_symbols_contain(children, name))
     })
+}
+
+fn assert_replacement_action(actions: &[Value], uri: &str, title: &str, new_text: &str) {
+    let action = actions
+        .iter()
+        .find(|action| action["title"] == title)
+        .unwrap_or_else(|| panic!("code actions should include {title}"));
+    assert_eq!(action["kind"], "quickfix");
+    assert_eq!(action["isPreferred"], true);
+    let edits = action["edit"]["changes"][uri]
+        .as_array()
+        .unwrap_or_else(|| panic!("code action {title} should edit {uri}"));
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0]["newText"], new_text);
+    assert!(
+        edits[0]["range"]["start"]["line"].is_number(),
+        "code action {title} should include a start line"
+    );
+    assert!(
+        edits[0]["range"]["end"]["character"].is_number(),
+        "code action {title} should include an end character"
+    );
 }
 
 fn write_message<W: Write>(writer: &mut W, value: Value) {
