@@ -795,7 +795,7 @@ with {
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE",
-        "E-SAMPLING-SEED-MISSING",
+        "E-SAMPLING-SEED-INVALID",
     ] {
         assert!(
             diagnostics

@@ -1114,7 +1114,7 @@ Status: implemented after LSP semantic-token review.
 
 Status: implemented after VS Code/LSP linter quick-fix review.
 
-- Added an LSP-owned quick fix for `E-SAMPLING-SEED-MISSING` diagnostics that
+- Added an LSP-owned quick fix for `E-SAMPLING-SEED-INVALID` diagnostics that
   rewrites invalid `seed` option values to `seed = 42`.
 - Mirrored the same quick fix in the VS Code local fallback for cases where the
   LSP code-action bridge is unavailable.
@@ -1130,6 +1130,18 @@ Status: implemented after docs cleanup review.
 - Narrowed the remaining-gap wording to live network execution, cache policy,
   broader sampling distributions/design policies, case-runner scheduling, DB
   reads/queries, and public model training syntax.
+
+## Batch 94: Sampling Seed Diagnostic Wording
+
+Status: implemented after diagnostic API wording review.
+
+- Split invalid sampling seed values into `E-SAMPLING-SEED-INVALID` while
+  keeping `E-SAMPLING-SEED-MISSING` for repro-profile samples that omit a seed.
+- Kept LSP and VS Code quick-fix matching compatible with both codes, while the
+  option-value replacement path is now documented against the invalid-seed
+  diagnostic.
+- Updated workflow module and CLI diagnostic references so the two conditions
+  are no longer conflated.
 
 ## API And Wording Cleanup Candidates
 

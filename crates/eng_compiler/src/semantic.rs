@@ -4082,7 +4082,7 @@ fn sample_seed_option(
     let raw = option.value.trim();
     let Ok(seed) = raw.parse::<u64>() else {
         diagnostics.push(Diagnostic::error(
-            "E-SAMPLING-SEED-MISSING",
+            "E-SAMPLING-SEED-INVALID",
             option.line,
             &format!("Sample seed `{raw}` is not a non-negative integer."),
             Some("Use `seed = 42` for reproducible random or LHS sampling."),

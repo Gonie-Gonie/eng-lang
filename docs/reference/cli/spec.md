@@ -123,6 +123,7 @@ E-PROCESS-RETRY-POLICY process retry option must be an integer from 0 to 5
 E-PROCESS-ALLOW-FAILURE process allow_failure option must be true or false
 E-SAMPLING-COUNT-INVALID sample count must be a positive integer
 E-SAMPLING-RANGE-UNIT generated sample ranges must use compatible units
+E-SAMPLING-SEED-INVALID sample seed option must be a non-negative integer
 E-SAMPLING-SEED-MISSING repro profile requires seeded random or LHS sampling
 E-CASE-ID-DUPLICATE sample/case table contains a duplicate case_id
 E-CASE-DIR-COLLISION multiple case IDs resolve to the same case directory

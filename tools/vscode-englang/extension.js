@@ -2761,6 +2761,7 @@ function optionQuickFix(code) {
         value: "true",
         label: "Allow process failure"
       };
+    case "E-SAMPLING-SEED-INVALID":
     case "E-SAMPLING-SEED-MISSING":
       return { optionNames: ["seed"], value: "42", label: "Set sample seed" };
     default:

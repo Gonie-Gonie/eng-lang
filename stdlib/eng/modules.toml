@@ -81,7 +81,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews."
 artifacts = ["typed_payload.sample_tables", "case_manifest"]
-diagnostics = ["E-SAMPLING-COUNT-INVALID", "E-SAMPLING-RANGE-UNIT", "E-SAMPLING-SEED-MISSING", "E-CASE-ID-DUPLICATE"]
+diagnostics = ["E-SAMPLING-COUNT-INVALID", "E-SAMPLING-RANGE-UNIT", "E-SAMPLING-SEED-INVALID", "E-SAMPLING-SEED-MISSING", "E-CASE-ID-DUPLICATE"]
 examples = ["examples/workflows/02_external_simulation_surrogate"]
 tests = ["cargo test -p eng_compiler sample_generation", "cargo test -p eng_runtime sample"]
 

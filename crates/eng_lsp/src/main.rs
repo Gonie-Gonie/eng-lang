@@ -1107,7 +1107,7 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "true",
             label: "Allow process failure",
         }),
-        "E-SAMPLING-SEED-MISSING" => Some(OptionQuickFix {
+        "E-SAMPLING-SEED-INVALID" | "E-SAMPLING-SEED-MISSING" => Some(OptionQuickFix {
             option_names: &["seed"],
             value: "42",
             label: "Set sample seed",
