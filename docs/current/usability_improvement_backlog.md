@@ -218,6 +218,17 @@ Status: implemented after native IDE inspector review.
 - Extended native IDE UI contract coverage in `ide-check` for the breadcrumb
   helper and styling.
 
+## Batch 19: Native IDE Raw JSON Toggles
+
+Status: implemented after raw inspector review.
+
+- Added closed advanced raw JSON toggles to Review, Quality, Kernel, Effects,
+  Network/Cache, DB, Model, and Case inspectors.
+- Replaced inline object JSON strings in summary cells with compact object
+  summaries so the first-run view stays table/summary-first.
+- Extended native IDE UI contract coverage in `ide-check` for the shared raw
+  JSON toggle and compact object summary helpers.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -253,8 +264,6 @@ Status: implemented after native IDE inspector review.
 
 - Keep problem filtering by severity/code and source-line jump targets covered
   as part of native IDE regression checks.
-- Group raw JSON inspectors behind advanced toggles so first-run users see the
-  reviewable summary first.
 
 ## VS Code Linter And Highlighting Candidates
 

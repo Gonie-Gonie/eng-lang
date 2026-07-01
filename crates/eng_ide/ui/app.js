@@ -1051,7 +1051,10 @@ function renderQualityPanel() {
       <span class="badge">Results ${results.length}</span>
       <span class="badge">Failures ${failureCount}</span>
     </div>
-    <div class="scroll">${renderQualityResults(results)}</div>
+    <div class="scroll">
+      ${renderQualityResults(results)}
+      ${rawJsonToggle("Raw quality JSON", quality)}
+    </div>
   `;
 }
 
@@ -1107,6 +1110,7 @@ function renderKernelPanel() {
         <thead><tr><th>Candidate</th><th>Kind</th><th>Source</th><th>Executor</th><th>Fallback</th><th>Estimate</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="6" class="muted">No kernel plan candidates.</td></tr>`}</tbody>
       </table>
+      ${rawJsonToggle("Raw kernel plan JSON", plan)}
     </div>
   `;
 }
@@ -1284,6 +1288,7 @@ function renderReviewPanel() {
       ${renderReviewFallbacks(fallbacks)}
       <div class="panel-title compact">Risks</div>
       ${renderReviewRisks(risks)}
+      ${rawJsonToggle("Raw review document JSON", doc)}
     </div>
   `;
 }
@@ -1302,7 +1307,7 @@ function reviewValue(object, snakeKey, camelKey = snakeKey, fallback = "-") {
 function reviewList(value, limit = 90) {
   if (!Array.isArray(value) || !value.length) return "-";
   return compactText(value.map((item) => {
-    if (item && typeof item === "object") return JSON.stringify(item);
+    if (item && typeof item === "object") return compactObjectSummary(item);
     return String(item);
   }).join("; "), limit);
 }
@@ -2611,7 +2616,7 @@ function workflowOutputDetail(output) {
     if (value === null || value === undefined || value === "") continue;
     const text = Array.isArray(value)
       ? value.join(", ")
-      : (typeof value === "object" ? JSON.stringify(value) : String(value));
+      : (typeof value === "object" ? compactObjectSummary(value) : String(value));
     parts.push(`${key}=${text}`);
   }
   return compactText(parts.join("; ") || "-", 120);
@@ -2797,6 +2802,7 @@ function renderEffectsPanel() {
       ${renderExternalBoundaryRecords(boundaries)}
       <div class="panel-title compact">Process Results</div>
       ${renderProcessResults(processes)}
+      ${rawJsonToggle("Raw effects JSON", { effects, processResults })}
     </div>
   `;
 }
@@ -2833,6 +2839,7 @@ function renderNetworkPanel() {
       ${renderNetworkEvents(events, requests)}
       <div class="panel-title compact">Cache Events</div>
       ${renderCacheEvents(cacheEvents, caches)}
+      ${rawJsonToggle("Raw network/cache JSON", network)}
     </div>
   `;
 }
@@ -2896,6 +2903,7 @@ function renderDbPanel() {
       ${renderDbManifests(manifests)}
       <div class="panel-title compact">Registry</div>
       ${renderDbRegistry(registry)}
+      ${rawJsonToggle("Raw DB JSON", db)}
     </div>
   `;
 }
@@ -2941,6 +2949,7 @@ function renderModelPanel() {
       ${renderPredictionManifests(predictionManifests)}
       <div class="panel-title compact">Model Diagnostics</div>
       ${renderModelDiagnostics(diagnostics)}
+      ${rawJsonToggle("Raw model JSON", model)}
     </div>
   `;
 }
@@ -2977,6 +2986,7 @@ function renderCasePanel() {
       ${renderCaseDiagnostics(diagnostics)}
       <div class="panel-title compact">Failed Cases</div>
       ${renderFailedCases(failed)}
+      ${rawJsonToggle("Raw case JSON", caseData)}
     </div>
   `;
 }
@@ -3664,6 +3674,34 @@ function sourceBreadcrumbs(label, items) {
       ${hidden > 0 ? `<span class="muted">+${hidden}</span>` : ""}
     </div>
   `;
+}
+
+function rawJsonToggle(title, payload) {
+  if (!hasPayloadData(payload)) return "";
+  return `
+    <details class="raw-json-toggle">
+      <summary>${escapeHtml(title)}</summary>
+      <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+    </details>
+  `;
+}
+
+function hasPayloadData(payload) {
+  if (Array.isArray(payload)) return payload.length > 0;
+  return Boolean(payload && typeof payload === "object" && Object.keys(payload).length);
+}
+
+function compactObjectSummary(value) {
+  if (!value || typeof value !== "object") return String(value ?? "-");
+  return Object.entries(value)
+    .slice(0, 4)
+    .map(([key, item]) => {
+      const text = Array.isArray(item)
+        ? `[${item.length}]`
+        : (item && typeof item === "object" ? "{...}" : String(item ?? "-"));
+      return `${key}=${text}`;
+    })
+    .join(", ") || "-";
 }
 
 function openPathButton(path, limit = 80) {

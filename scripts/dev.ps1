@@ -1850,6 +1850,8 @@ function Invoke-IdeCheck {
         "No network/cache artifact data yet.",
         "sourceBreadcrumbs",
         "source-breadcrumbs",
+        "rawJsonToggle",
+        "compactObjectSummary",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
         "data-open-path",
