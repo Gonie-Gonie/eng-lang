@@ -5543,10 +5543,34 @@ fn resolve_format_expression_type(
     {
         return Some(semantic_type);
     }
+    if let Some(semantic_type) = net_response_field_semantic_type(expression, typed_bindings) {
+        return Some(semantic_type);
+    }
     typed_bindings
         .iter()
         .find(|binding| binding.name == expression)
         .map(|binding| binding.semantic_type.clone())
+}
+
+fn net_response_field_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (binding_name, field) = expression.trim().split_once('.')?;
+    let has_response_binding = typed_bindings.iter().any(|binding| {
+        binding.name == binding_name.trim()
+            && binding.semantic_type.quantity_kind == "HttpResponse"
+    });
+    if !has_response_binding {
+        return None;
+    }
+    match field.trim() {
+        "body" | "text" | "status" | "status_class" | "response_hash" | "hash" | "url" => {
+            semantic_type("String", "")
+        }
+        "status_code" => semantic_type("DimensionlessNumber", "1"),
+        _ => None,
+    }
 }
 
 fn statistic_expression_semantic_type(
@@ -11380,6 +11404,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| path_helper_semantic_type(&binding.expression))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
+        .or_else(|| net_response_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 

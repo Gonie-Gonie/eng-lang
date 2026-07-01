@@ -7773,6 +7773,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_runtime_read_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
+    if let Some(value) = evaluate_network_response_field_expression(expression, report) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_runtime_exists_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
@@ -8037,6 +8040,38 @@ fn evaluate_runtime_read_expression(expression: &str, report: &CheckReport) -> O
     let path_text = evaluate_runtime_path_expression(path_expression, report)?;
     let path = runtime_resolve_source_relative_path(&path_text, report.source_path.parent());
     fs::read_to_string(path).ok()
+}
+
+fn evaluate_network_response_field_expression(
+    expression: &str,
+    report: &CheckReport,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let request = report
+        .semantic_program
+        .net_requests
+        .iter()
+        .find(|request| request.binding == binding.trim())?;
+    match field.trim() {
+        "body" | "text" => {
+            let fixture = request.fixture.as_ref()?;
+            let path = runtime_resolve_source_relative_path(fixture, report.source_path.parent());
+            fs::read_to_string(path).ok().map(RuntimeFormatValue::Text)
+        }
+        "status" => Some(RuntimeFormatValue::Text(request.status.clone())),
+        "status_class" => Some(RuntimeFormatValue::Text(request.status_class.clone())),
+        "status_code" => request.status_code.map(|status_code| RuntimeFormatValue::Number {
+            value: status_code as f64,
+            quantity_kind: "DimensionlessNumber".to_owned(),
+            unit: String::new(),
+        }),
+        "response_hash" | "hash" => request
+            .response_hash
+            .clone()
+            .map(RuntimeFormatValue::Text),
+        "url" => Some(RuntimeFormatValue::Text(request.url_value.clone())),
+        _ => None,
+    }
 }
 
 fn evaluate_runtime_exists_expression(expression: &str, report: &CheckReport) -> Option<String> {
@@ -19951,7 +19986,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\nprint \"body={response_text}\"\nprint \"status={response_status} code={response_code} hash={response.hash}\"\n",
         )
         .expect("write source");
 
@@ -19959,6 +19994,8 @@ mod tests {
         let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
 
         assert!(output.stdout.contains("x=1"));
+        assert!(output.stdout.contains("body={\"ok\":true}"));
+        assert!(output.stdout.contains("status=fixture code=200"));
         assert_eq!(
             result_json
                 .pointer("/typed_payload/network_boundaries/0/status")

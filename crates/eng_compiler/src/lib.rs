@@ -13049,7 +13049,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -13101,6 +13101,23 @@ system Envelope {
             .find(|binding| binding.name == "response")
             .expect("response binding");
         assert_eq!(binding.semantic_type.quantity_kind, "HttpResponse");
+        let response_text = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "response_text")
+            .expect("response_text binding");
+        assert_eq!(response_text.semantic_type.quantity_kind, "String");
+        let response_code = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "response_code")
+            .expect("response_code binding");
+        assert_eq!(
+            response_code.semantic_type.quantity_kind,
+            "DimensionlessNumber"
+        );
         let download = &report.semantic_program.net_downloads[0];
         assert_eq!(download.retry, Some(1));
         assert_eq!(download.timeout.as_deref(), Some("60 s"));

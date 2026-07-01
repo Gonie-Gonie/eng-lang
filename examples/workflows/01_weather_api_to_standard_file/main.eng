@@ -55,7 +55,7 @@ with {
     cache = true
     cache_key = ["weather", "STN001", "2024"]
 }
-api_payload_text = read text args.api_fixture
+api_payload_text = api_response.body
 coverage = check coverage weather.time
 with {
     expected_step = 1 h

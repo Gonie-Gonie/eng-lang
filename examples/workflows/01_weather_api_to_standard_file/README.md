@@ -4,7 +4,8 @@ This workflow demonstrates a native, domain-neutral API-to-artifact pattern:
 
 ```text
 station table -> selected station -> native HTTP fixture/cache boundary ->
-typed weather table -> TimeSeries coverage -> generated text artifacts
+response body artifact -> typed weather table -> TimeSeries coverage ->
+generated text artifacts
 ```
 
 The workflow uses:
