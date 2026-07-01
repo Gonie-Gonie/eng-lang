@@ -19,10 +19,10 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - position-aware completion from `eng-lsp --completion-stdin`
 - snippets from `snippets/eng.json`
 - quick fixes for `:=` and stale `struct Args` migration diagnostics
-- commands to check, run with saved artifacts, review the current file as JSON,
-  open the latest generated report, and inspect review/run artifacts such as
-  `review.json`, `output_manifest.json`, `run_log.json`, `run_plan.json`,
-  `process_results.json`, and
+- commands to check, run with saved artifacts, open a current-file review panel,
+  open the current file review JSON, open the latest generated report, and
+  inspect review/run artifacts such as `review.json`, `output_manifest.json`,
+  `run_log.json`, `run_plan.json`, `process_results.json`, and
   `cache_manifest.json`
 
 ## Install From Portable Package
@@ -67,8 +67,13 @@ experimental diagnostics, hover metadata, and completion metadata, while
 run/report/artifact commands still use `eng.exe`. `EngLang: Run Current File`
 passes `--save-artifacts`, so the generated `build/result` review artifacts are
 available to the open-artifact commands immediately after a successful run.
-`EngLang: Review Current File` runs `eng.exe review <file.eng> --json` and opens
-the normalized review JSON directly, without requiring a prior run.
+`EngLang: Open Current File Review Panel` runs
+`eng.exe review <file.eng> --json` and opens a VS Code-native summary of
+diagnostics, external boundaries, side effects, table transforms, calculations,
+validations, risks, and workflow modules. `EngLang: Open Current File Review
+JSON` runs the same current-file review command and opens the normalized JSON
+directly, without requiring a prior run. `EngLang: Open Last Run Review JSON`
+opens the `build/result/review.json` artifact from the last saved run.
 
 Dirty buffers are checked after a short typing pause with
 `eng-lsp.exe --snapshot-stdin <file.eng>`, so Problems can update before the

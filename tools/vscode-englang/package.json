@@ -92,7 +92,11 @@
       },
       {
         "command": "englang.reviewFile",
-        "title": "EngLang: Review Current File"
+        "title": "EngLang: Open Current File Review JSON"
+      },
+      {
+        "command": "englang.openReviewPanel",
+        "title": "EngLang: Open Current File Review Panel"
       },
       {
         "command": "englang.openReport",
@@ -104,7 +108,7 @@
       },
       {
         "command": "englang.openReviewJson",
-        "title": "EngLang: Open Review JSON"
+        "title": "EngLang: Open Last Run Review JSON"
       },
       {
         "command": "englang.openOutputManifest",

@@ -132,6 +132,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
     vscode.commands.registerCommand("englang.reviewFile", () => reviewActiveFile(context)),
+    vscode.commands.registerCommand("englang.openReviewPanel", () => openReviewPanel(context)),
     vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
     vscode.commands.registerCommand("englang.openLastArtifact", openLastRunArtifactPicker),
     vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
@@ -373,54 +374,605 @@ async function runActiveFile(context) {
 }
 
 async function reviewActiveFile(context) {
+  const result = await runReviewForActiveDocument(context);
+  if (!result) {
+    return;
+  }
+
+  const reviewDocument = await vscode.workspace.openTextDocument({
+    language: "json",
+    content: JSON.stringify(result.review, null, 2)
+  });
+  await vscode.window.showTextDocument(reviewDocument, { preview: false });
+  announceReviewResult(
+    result,
+    "EngLang review JSON opened.",
+    "EngLang review JSON opened with diagnostics. See the EngLang output panel."
+  );
+}
+
+async function openReviewPanel(context) {
+  const result = await runReviewForActiveDocument(context);
+  if (!result) {
+    return;
+  }
+
+  const panel = vscode.window.createWebviewPanel(
+    "englangReviewPanel",
+    "EngLang Review",
+    vscode.ViewColumn.Beside,
+    {
+      enableScripts: false,
+      retainContextWhenHidden: true
+    }
+  );
+  panel.webview.html = renderReviewSummaryHtml(result.review, result.document.uri.fsPath);
+  announceReviewResult(
+    result,
+    "EngLang review panel opened.",
+    "EngLang review panel opened with diagnostics. See the EngLang output panel."
+  );
+}
+
+async function runReviewForActiveDocument(context) {
   const document = vscode.window.activeTextEditor?.document;
   if (!document || !isEngDocument(document)) {
     vscode.window.showWarningMessage("Open an EngLang .eng file first.");
-    return;
+    return undefined;
   }
   if (document.isDirty) {
     await document.save();
   }
 
+  return runReviewForDocument(context, document);
+}
+
+function runReviewForDocument(context, document) {
   const runtime = findRuntime(context, document);
   const cwd = workspaceRoot(document);
   output.show(true);
   output.appendLine(`review ${document.uri.fsPath}`);
-  cp.execFile(
-    runtime,
-    ["review", document.uri.fsPath, "--json"],
-    { cwd, maxBuffer: 20 * 1024 * 1024 },
-    async (error, stdout, stderr) => {
-      if (stderr && stderr.trim().length > 0) {
-        output.appendLine(stderr.trim());
-      }
-
-      let review;
-      try {
-        review = JSON.parse(stdout);
-      } catch (parseError) {
-        output.appendLine(`Unable to parse EngLang review output: ${parseError.message}`);
-        if (error) {
-          output.appendLine(error.message);
+  return new Promise((resolve) => {
+    cp.execFile(
+      runtime,
+      ["review", document.uri.fsPath, "--json"],
+      { cwd, maxBuffer: 20 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
         }
-        vscode.window.showErrorMessage("EngLang review failed. See the EngLang output panel.");
-        return;
-      }
 
-      const reviewDocument = await vscode.workspace.openTextDocument({
-        language: "json",
-        content: JSON.stringify(review, null, 2)
-      });
-      await vscode.window.showTextDocument(reviewDocument, { preview: false });
+        let review;
+        try {
+          review = JSON.parse(stdout);
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang review output: ${parseError.message}`);
+          if (error) {
+            output.appendLine(error.message);
+          }
+          vscode.window.showErrorMessage("EngLang review failed. See the EngLang output panel.");
+          resolve(undefined);
+          return;
+        }
 
-      if (error) {
-        output.appendLine(error.message);
-        vscode.window.showWarningMessage("EngLang review opened with diagnostics. See the EngLang output panel.");
-      } else {
-        vscode.window.showInformationMessage("EngLang review opened.");
+        reviewCache.set(document.uri.fsPath, review);
+        resolve({ document, review, error });
       }
+    );
+  });
+}
+
+function announceReviewResult(result, successMessage, warningMessage) {
+  if (result.error) {
+    output.appendLine(result.error.message);
+    vscode.window.showWarningMessage(warningMessage);
+    return;
+  }
+  vscode.window.showInformationMessage(successMessage);
+}
+
+function renderReviewSummaryHtml(review, sourcePath) {
+  const doc = normalizedReviewDocument(review);
+  const contract = doc.root_contract || doc.rootContract || {};
+  const diagnostics = firstReviewArray(doc, review, "diagnostics");
+  const inputs = reviewArray(doc, "inputs");
+  const calculations = reviewArray(doc, "calculations");
+  const symbols = reviewArray(doc, "symbols");
+  const units = reviewArray(doc, "units_quantities", "unitsQuantities");
+  const schemas = reviewArray(doc, "schemas");
+  const tableTransforms = reviewArray(doc, "table_transforms", "tableTransforms");
+  const outputs = reviewArray(doc, "report_outputs", "reportOutputs");
+  const validations = reviewArray(doc, "validations");
+  const sideEffects = reviewArray(doc, "side_effects", "sideEffects");
+  const boundaries = reviewArray(doc, "external_boundaries", "externalBoundaries");
+  const fallbacks = reviewArray(doc, "fallbacks");
+  const risks = reviewArray(doc, "risks");
+  const modules = reviewArray(doc, "workflow_modules", "workflowModules");
+  const sectionHashes = doc.section_hashes || doc.sectionHashes || {};
+  const nativeModuleCount = modules.filter((module) => moduleStatusCategory(module) === "native").length;
+  const plannedModuleCount = modules.filter((module) => moduleStatusCategory(module) === "planned").length;
+  const internalModuleCount = modules.filter((module) => moduleStatusCategory(module) === "internal").length;
+
+  const counts = [
+    ["Inputs", countOrContract(inputs, contract, "input_count", "inputCount")],
+    ["Symbols", countOrContract(symbols, contract, "symbol_count", "symbolCount")],
+    ["Units", countOrContract(units, contract, "unit_quantity_count", "unitQuantityCount")],
+    ["Schemas", countOrContract(schemas, contract, "schema_count", "schemaCount")],
+    ["Calculations", calculations.length],
+    ["Table transforms", tableTransforms.length],
+    ["Outputs", countOrContract(outputs, contract, "report_output_count", "reportOutputCount")],
+    ["Validations", countOrContract(validations, contract, "validation_count", "validationCount")],
+    ["Side effects", countOrContract(sideEffects, contract, "side_effect_count", "sideEffectCount")],
+    ["External boundaries", boundaries.length],
+    ["Fallbacks", fallbacks.length],
+    ["Risks", risks.length],
+    ["Workflow modules", modules.length],
+    ["Section hashes", Object.keys(sectionHashes).length]
+  ];
+
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>EngLang Review</title>
+  <style>
+    :root {
+      color-scheme: light dark;
     }
+    body {
+      margin: 0;
+      padding: 0;
+      color: var(--vscode-editor-foreground);
+      background: var(--vscode-editor-background);
+      font-family: var(--vscode-font-family);
+      font-size: var(--vscode-font-size);
+      line-height: 1.45;
+    }
+    header {
+      padding: 18px 22px 14px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      background: var(--vscode-sideBar-background);
+    }
+    main {
+      padding: 18px 22px 28px;
+    }
+    h1, h2 {
+      margin: 0;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+    h1 {
+      font-size: 20px;
+    }
+    h2 {
+      margin-top: 22px;
+      margin-bottom: 8px;
+      font-size: 14px;
+    }
+    code {
+      color: var(--vscode-textPreformat-foreground);
+      font-family: var(--vscode-editor-font-family);
+      font-size: 0.95em;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+    }
+    th, td {
+      padding: 7px 8px;
+      border-bottom: 1px solid var(--vscode-panel-border);
+      text-align: left;
+      vertical-align: top;
+      word-break: break-word;
+    }
+    th {
+      color: var(--vscode-descriptionForeground);
+      background: var(--vscode-editorGroupHeader-tabsBackground);
+      font-size: 12px;
+      font-weight: 600;
+    }
+    .path {
+      margin-top: 4px;
+      color: var(--vscode-descriptionForeground);
+      word-break: break-all;
+    }
+    .badges {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 12px;
+    }
+    .badge, .pill {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      padding: 1px 7px;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      background: var(--vscode-button-secondaryBackground);
+      color: var(--vscode-button-secondaryForeground);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+    .pill.good {
+      border-color: var(--vscode-testing-iconPassed);
+      color: var(--vscode-testing-iconPassed);
+      background: transparent;
+    }
+    .pill.warn {
+      border-color: var(--vscode-editorWarning-foreground);
+      color: var(--vscode-editorWarning-foreground);
+      background: transparent;
+    }
+    .pill.bad {
+      border-color: var(--vscode-editorError-foreground);
+      color: var(--vscode-editorError-foreground);
+      background: transparent;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .metric {
+      padding: 9px 10px;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+      background: var(--vscode-editorWidget-background);
+    }
+    .metric strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 15px;
+    }
+    .metric span, .muted {
+      color: var(--vscode-descriptionForeground);
+      font-size: 12px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--vscode-panel-border);
+      border-radius: 4px;
+    }
+    .section-note {
+      margin: -3px 0 8px;
+      color: var(--vscode-descriptionForeground);
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Review</h1>
+    <div class="path">${escapeHtml(sourcePath)}</div>
+    <div class="badges">
+      ${badge("Status", doc.status || "-")}
+      ${badge("Diagnostics", diagnostics.length)}
+      ${badge("Native modules", nativeModuleCount)}
+      ${badge("Planned", plannedModuleCount)}
+      ${badge("Internal", internalModuleCount)}
+      ${badge("Format", doc.format || "-")}
+    </div>
+  </header>
+  <main>
+    <div class="grid">
+      ${counts.map(([label, value]) => `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`).join("")}
+    </div>
+
+    <h2>Semantic Hash</h2>
+    <div class="table-wrap">
+      <table><tbody><tr><td><code>${escapeHtml(doc.semantic_hash || doc.semanticHash || "-")}</code></td></tr></tbody></table>
+    </div>
+
+    <h2>Diagnostics</h2>
+    ${renderReviewTable(
+      ["Line", "Severity", "Code", "Message"],
+      diagnostics,
+      "No diagnostics.",
+      (diagnostic) => `<tr>
+        <td>${escapeHtml(lineValue(diagnostic))}</td>
+        <td>${statusPill(severityName(diagnostic.severity))}</td>
+        <td><code>${escapeHtml(reviewValue(diagnostic, "code"))}</code></td>
+        <td>${escapeHtml(compactText(reviewValue(diagnostic, "message"), 180))}${diagnostic.help ? `<div class="muted">${escapeHtml(compactText(diagnostic.help, 180))}</div>` : ""}</td>
+      </tr>`
+    )}
+
+    <h2>External Boundaries</h2>
+    ${renderReviewTable(
+      ["Line", "Name", "Target", "Status", "Risk", "Effects"],
+      boundaries,
+      "No external boundaries.",
+      (boundary) => `<tr>
+        <td>${escapeHtml(lineValue(boundary))}</td>
+        <td><strong>${escapeHtml(reviewValue(boundary, "name", "kind"))}</strong><div class="muted">${escapeHtml(reviewValue(boundary, "kind"))}</div></td>
+        <td><code>${escapeHtml(compactText(reviewValue(boundary, "target"), 120))}</code></td>
+        <td>${statusPill(reviewValue(boundary, "status"))}<div class="muted">${escapeHtml(boundary.status_class || boundary.statusClass || "")} ${escapeHtml(boundary.status_code ?? boundary.statusCode ?? "")}</div></td>
+        <td>${statusPill(reviewValue(boundary, "risk_level", "riskLevel"))}</td>
+        <td>${escapeHtml(reviewList(reviewArray(boundary, "side_effects", "sideEffects"), 120))}</td>
+      </tr>`
+    )}
+
+    <h2>Side Effects</h2>
+    ${renderReviewTable(
+      ["Line", "Kind", "Target", "Status", "Risk"],
+      sideEffects,
+      "No side effects.",
+      (effect) => `<tr>
+        <td>${escapeHtml(lineValue(effect))}</td>
+        <td><strong>${escapeHtml(reviewValue(effect, "kind"))}</strong></td>
+        <td><code>${escapeHtml(compactText(reviewValue(effect, "target", "path"), 120))}</code></td>
+        <td>${statusPill(reviewValue(effect, "status"))}</td>
+        <td>${statusPill(reviewValue(effect, "risk_level", "riskLevel"))}</td>
+      </tr>`
+    )}
+
+    <h2>Table Transforms</h2>
+    ${renderReviewTable(
+      ["Line", "Binding", "Operation", "Source", "Predicates", "Status"],
+      tableTransforms,
+      "No table transforms.",
+      (transform) => `<tr>
+        <td>${escapeHtml(lineValue(transform))}</td>
+        <td><strong>${escapeHtml(reviewValue(transform, "binding"))}</strong><div class="muted">${escapeHtml(reviewValue(transform, "schema_name", "schemaName"))}</div></td>
+        <td>${escapeHtml(reviewValue(transform, "operation"))}</td>
+        <td>${escapeHtml(reviewValue(transform, "source_table", "sourceTable"))}</td>
+        <td>${escapeHtml(predicateSummary(reviewArray(transform, "predicates"), 160))}</td>
+        <td>${statusPill(reviewValue(transform, "status"))}</td>
+      </tr>`
+    )}
+
+    <h2>Calculations</h2>
+    ${renderReviewTable(
+      ["Line", "Name", "Expression", "Inputs", "Output"],
+      calculations,
+      "No calculations.",
+      (calculation) => `<tr>
+        <td>${escapeHtml(lineValue(calculation))}</td>
+        <td><strong>${escapeHtml(reviewValue(calculation, "name"))}</strong><div class="muted">${escapeHtml(reviewValue(calculation, "kind"))}</div></td>
+        <td><code>${escapeHtml(compactText(reviewValue(calculation, "expression"), 130))}</code></td>
+        <td>${escapeHtml(reviewList(reviewArray(calculation, "input_symbols", "inputSymbols"), 100))}</td>
+        <td>${escapeHtml(reviewValue(calculation, "output_quantity", "outputQuantity"))}</td>
+      </tr>`
+    )}
+
+    <h2>Report Outputs</h2>
+    ${renderReviewTable(
+      ["Line", "Kind", "Source", "Quantity", "Status"],
+      outputs,
+      "No report outputs.",
+      (outputItem) => `<tr>
+        <td>${escapeHtml(lineValue(outputItem))}</td>
+        <td><strong>${escapeHtml(reviewValue(outputItem, "kind"))}</strong></td>
+        <td>${escapeHtml(reviewValue(outputItem, "source"))}</td>
+        <td>${escapeHtml(reviewValue(outputItem, "quantity_kind", "quantityKind"))}</td>
+        <td>${statusPill(reviewValue(outputItem, "status"))}</td>
+      </tr>`
+    )}
+
+    <h2>Validations</h2>
+    ${renderReviewTable(
+      ["Line", "Target", "Kind", "Status", "Reason"],
+      validations,
+      "No validations.",
+      (validation) => `<tr>
+        <td>${escapeHtml(lineValue(validation))}</td>
+        <td><strong>${escapeHtml(reviewValue(validation, "target", "name"))}</strong></td>
+        <td>${escapeHtml(reviewValue(validation, "kind", "category"))}</td>
+        <td>${statusPill(reviewValue(validation, "status"))}</td>
+        <td>${escapeHtml(compactText(reviewValue(validation, "reason", "summary"), 140))}</td>
+      </tr>`
+    )}
+
+    <h2>Fallbacks</h2>
+    ${renderReviewTable(
+      ["Line", "Kind", "Target", "Method", "Risk", "Assumption"],
+      fallbacks,
+      "No fallbacks.",
+      (fallback) => `<tr>
+        <td>${escapeHtml(lineValue(fallback))}</td>
+        <td><strong>${escapeHtml(reviewValue(fallback, "kind"))}</strong></td>
+        <td>${escapeHtml(reviewValue(fallback, "target"))}</td>
+        <td>${escapeHtml(reviewValue(fallback, "method"))}</td>
+        <td>${statusPill(reviewValue(fallback, "risk_level", "riskLevel"))}</td>
+        <td>${escapeHtml(compactText(reviewValue(fallback, "assumption", "reason"), 140))}</td>
+      </tr>`
+    )}
+
+    <h2>Risks</h2>
+    ${renderReviewTable(
+      ["Line", "Category", "Level", "Severity", "Summary"],
+      risks,
+      "No review risks.",
+      (risk) => `<tr>
+        <td>${escapeHtml(lineValue(risk))}</td>
+        <td><strong>${escapeHtml(reviewValue(risk, "category"))}</strong></td>
+        <td>${statusPill(reviewValue(risk, "level"))}</td>
+        <td>${escapeHtml(reviewValue(risk, "severity"))}</td>
+        <td>${escapeHtml(compactText(reviewValue(risk, "summary"), 150))}</td>
+      </tr>`
+    )}
+
+    <h2>Workflow Modules</h2>
+    <div class="section-note">Native means compiler/runtime-backed for the current public surface.</div>
+    ${renderReviewTable(
+      ["Module", "Status", "Backing", "Purpose", "Artifacts", "Tests"],
+      modules,
+      "No workflow modules.",
+      (module) => `<tr>
+        <td><strong>${escapeHtml(reviewValue(module, "name"))}</strong></td>
+        <td>${statusPill(module.status_label || module.statusLabel || module.status || "-")}<div class="muted">${escapeHtml(compactText(module.status_detail || module.statusDetail || module.status || "-", 100))}</div></td>
+        <td>${escapeHtml(reviewValue(module, "backing"))}</td>
+        <td>${escapeHtml(compactText(reviewValue(module, "purpose"), 160))}</td>
+        <td>${escapeHtml(module.artifact_count ?? module.artifactCount ?? reviewArray(module, "artifacts").length)}</td>
+        <td>${escapeHtml(module.test_count ?? module.testCount ?? reviewArray(module, "tests").length)}</td>
+      </tr>`
+    )}
+  </main>
+</body>
+</html>`;
+}
+
+function normalizedReviewDocument(review) {
+  if (review && typeof review === "object") {
+    return review.review_document || review.reviewDocument || review;
+  }
+  return {};
+}
+
+function firstReviewArray(primary, fallback, snakeKey, camelKey = snakeKey) {
+  const primaryValue = reviewArray(primary, snakeKey, camelKey);
+  if (primaryValue.length > 0) {
+    return primaryValue;
+  }
+  return reviewArray(fallback, snakeKey, camelKey);
+}
+
+function reviewArray(object, snakeKey, camelKey = snakeKey) {
+  const value = object?.[snakeKey] ?? object?.[camelKey];
+  return Array.isArray(value) ? value : [];
+}
+
+function reviewValue(object, snakeKey, camelKey = snakeKey, fallback = "-") {
+  if (!object || typeof object !== "object") {
+    return fallback;
+  }
+  const value = object[snakeKey] ?? object[camelKey];
+  return value === null || value === undefined || value === "" ? fallback : value;
+}
+
+function countOrContract(items, contract, snakeKey, camelKey) {
+  if (items.length > 0) {
+    return items.length;
+  }
+  return contract?.[snakeKey] ?? contract?.[camelKey] ?? 0;
+}
+
+function lineValue(item) {
+  return item?.line ?? item?.source_line ?? item?.sourceLine ?? "-";
+}
+
+function reviewList(value, limit = 120) {
+  if (!Array.isArray(value) || value.length === 0) {
+    return "-";
+  }
+  return compactText(
+    value.map((item) => {
+      if (item && typeof item === "object") {
+        return JSON.stringify(item);
+      }
+      return String(item);
+    }).join("; "),
+    limit
   );
+}
+
+function predicateSummary(predicates, limit = 140) {
+  if (!Array.isArray(predicates) || predicates.length === 0) {
+    return "-";
+  }
+  const text = predicates.map((predicate) => {
+    const expression = predicate.expression || [
+      predicate.column,
+      predicate.operator,
+      predicate.value
+    ].filter((part) => part !== null && part !== undefined && part !== "").join(" ");
+    return `${expression || "-"} (${predicate.status || "-"})`;
+  }).join("; ");
+  return compactText(text, limit);
+}
+
+function compactText(value, limit = 120) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+  const text = typeof value === "string" ? value : String(value);
+  if (text.length <= limit) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, limit - 3))}...`;
+}
+
+function renderReviewTable(headers, rows, emptyLabel, renderRow) {
+  const headerHtml = headers.map((header) => `<th>${escapeHtml(header)}</th>`).join("");
+  const bodyHtml = rows.length > 0
+    ? rows.map(renderRow).join("")
+    : `<tr><td colspan="${headers.length}" class="muted">${escapeHtml(emptyLabel)}</td></tr>`;
+  return `<div class="table-wrap"><table><thead><tr>${headerHtml}</tr></thead><tbody>${bodyHtml}</tbody></table></div>`;
+}
+
+function badge(label, value) {
+  return `<span class="badge">${escapeHtml(label)} ${escapeHtml(value)}</span>`;
+}
+
+function statusPill(value) {
+  return `<span class="pill ${statusClass(value)}">${escapeHtml(value)}</span>`;
+}
+
+function statusClass(value) {
+  const text = String(value ?? "").toLowerCase();
+  if (!text || text === "-") {
+    return "";
+  }
+  if (
+    text.includes("error") ||
+    text.includes("fail") ||
+    text.includes("high") ||
+    text.includes("blocked") ||
+    text.includes("invalid")
+  ) {
+    return "bad";
+  }
+  if (
+    text.includes("warn") ||
+    text.includes("medium") ||
+    text.includes("stale") ||
+    text.includes("missing") ||
+    text.includes("planned")
+  ) {
+    return "warn";
+  }
+  if (
+    text.includes("success") ||
+    text.includes("supported") ||
+    text.includes("native") ||
+    text.includes("accepted") ||
+    text.includes("declared") ||
+    text.includes("fixture") ||
+    text.includes("passed") ||
+    text.includes("ok")
+  ) {
+    return "good";
+  }
+  return "";
+}
+
+function moduleStatusCategory(module) {
+  const status = String(module?.status || "").toLowerCase();
+  if (status.startsWith("supported") || status.includes("native")) {
+    return "native";
+  }
+  if (status.includes("internal")) {
+    return "internal";
+  }
+  if (status.includes("planned")) {
+    return "planned";
+  }
+  return "other";
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 async function openLastRunArtifactPicker() {
