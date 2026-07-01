@@ -4,7 +4,7 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
-    ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, SemanticProgram, Severity,
+    ClassFieldInfo, Diagnostic, DomainTypeParameterInfo, FunctionInfo, SemanticProgram, Severity,
 };
 use serde_json::{json, Value};
 
@@ -23,6 +23,8 @@ pub struct LspSnapshot {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LspDiagnostic {
     pub line: usize,
+    pub start_character: usize,
+    pub end_character: usize,
     pub severity: String,
     pub code: String,
     pub message: String,
@@ -527,13 +529,7 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
         diagnostics: report
             .diagnostics
             .iter()
-            .map(|diagnostic| LspDiagnostic {
-                line: diagnostic.line,
-                severity: diagnostic.severity.as_str().to_owned(),
-                code: diagnostic.code.clone(),
-                message: diagnostic.message.clone(),
-                help: diagnostic.help.clone(),
-            })
+            .map(|diagnostic| lsp_diagnostic(diagnostic, source))
             .collect(),
         completions: completion_items(report),
         hovers: hover_items(report),
@@ -545,6 +541,176 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
             .unwrap_or_default(),
         folding_ranges: source.map(folding_ranges).unwrap_or_default(),
     }
+}
+
+fn lsp_diagnostic(diagnostic: &Diagnostic, source: Option<&str>) -> LspDiagnostic {
+    let (start_character, end_character) = diagnostic_character_range(diagnostic, source);
+    LspDiagnostic {
+        line: diagnostic.line,
+        start_character,
+        end_character,
+        severity: diagnostic.severity.as_str().to_owned(),
+        code: diagnostic.code.clone(),
+        message: diagnostic.message.clone(),
+        help: diagnostic.help.clone(),
+    }
+}
+
+fn diagnostic_character_range(diagnostic: &Diagnostic, source: Option<&str>) -> (usize, usize) {
+    let Some(source) = source else {
+        return (0, 1);
+    };
+    let lines = source_lines(source);
+    let line_index = line_index_from_one_based(&lines, diagnostic.line);
+    let line = lines.get(line_index).copied().unwrap_or_default();
+    let Some((start_byte, end_byte)) = diagnostic_byte_range(line, diagnostic) else {
+        return (0, 1);
+    };
+    byte_range_to_utf16(line, start_byte, end_byte)
+}
+
+fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, usize)> {
+    if diagnostic.code.starts_with("E-DIM-ADD-") {
+        if let Some(range) = binary_add_sub_operator_range(line) {
+            return Some(range);
+        }
+    }
+
+    match diagnostic.code.as_str() {
+        "E-PUBLIC-ANNOTATION-001" => {
+            if let Some(range) = find_byte_range(line, "=") {
+                return Some(range);
+            }
+        }
+        "E-FS-CONFIRM-001" => {
+            if let Some(range) =
+                find_byte_range(line, "delete").or_else(|| find_byte_range(line, "move"))
+            {
+                return Some(range);
+            }
+        }
+        "E-FS-DELETE-001" => {
+            if let Some(range) = find_byte_range(line, "delete") {
+                return Some(range);
+            }
+        }
+        _ => {}
+    }
+
+    diagnostic_backtick_byte_range(line, diagnostic)
+        .or_else(|| first_identifier_byte_range(line))
+        .or_else(|| first_token_byte_range(line))
+}
+
+fn diagnostic_backtick_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, usize)> {
+    if let Some(range) = backtick_payload_byte_range(line, &diagnostic.message) {
+        return Some(range);
+    }
+    diagnostic
+        .help
+        .as_ref()
+        .and_then(|help| backtick_payload_byte_range(line, help))
+}
+
+fn backtick_payload_byte_range(line: &str, text: &str) -> Option<(usize, usize)> {
+    let mut rest = text;
+    loop {
+        let Some(open) = rest.find('`') else {
+            return None;
+        };
+        let payload_start = open + '`'.len_utf8();
+        let after_open = &rest[payload_start..];
+        let Some(close) = after_open.find('`') else {
+            return None;
+        };
+        let payload = &after_open[..close];
+        if let Some(range) = find_byte_range(line, payload) {
+            return Some(range);
+        }
+        rest = &after_open[close + '`'.len_utf8()..];
+    }
+}
+
+fn binary_add_sub_operator_range(line: &str) -> Option<(usize, usize)> {
+    let search_start = line
+        .find('=')
+        .map(|index| index + '='.len_utf8())
+        .unwrap_or(0);
+    for (relative_index, character) in line[search_start..].char_indices() {
+        if character != '+' && character != '-' {
+            continue;
+        }
+        let index = search_start + relative_index;
+        let previous = line[..index]
+            .chars()
+            .rev()
+            .find(|candidate| !candidate.is_whitespace());
+        let next = line[index + character.len_utf8()..]
+            .chars()
+            .find(|candidate| !candidate.is_whitespace());
+        let Some(previous) = previous else {
+            continue;
+        };
+        let Some(next) = next else {
+            continue;
+        };
+        if matches!(
+            previous,
+            '=' | '(' | '[' | '{' | ',' | '+' | '-' | '*' | '/' | ':'
+        ) {
+            continue;
+        }
+        if matches!(next, ')' | ']' | '}' | ',' | '+' | '-' | '*' | '/') {
+            continue;
+        }
+        return Some((index, index + character.len_utf8()));
+    }
+    None
+}
+
+fn find_byte_range(line: &str, needle: &str) -> Option<(usize, usize)> {
+    if needle.is_empty() {
+        return None;
+    }
+    line.find(needle).map(|start| (start, start + needle.len()))
+}
+
+fn first_identifier_byte_range(line: &str) -> Option<(usize, usize)> {
+    let mut start = None;
+    for (index, character) in line.char_indices() {
+        let byte = character as u32;
+        let is_ascii = byte <= u8::MAX as u32;
+        let is_identifier_start = is_ascii && is_ident_start(byte as u8);
+        let is_identifier_byte = is_ascii && is_ident_byte(byte as u8);
+        match (start, is_identifier_start, is_identifier_byte) {
+            (None, true, _) => start = Some(index),
+            (Some(start_index), _, false) => return Some((start_index, index)),
+            _ => {}
+        }
+    }
+    start.map(|start| (start, line.len()))
+}
+
+fn first_token_byte_range(line: &str) -> Option<(usize, usize)> {
+    let (start, _) = line
+        .char_indices()
+        .find(|(_, character)| !character.is_whitespace())?;
+    let end = line[start..]
+        .char_indices()
+        .skip(1)
+        .find(|(_, character)| character.is_whitespace())
+        .map(|(index, _)| start + index)
+        .unwrap_or(line.len());
+    Some((start, end))
+}
+
+fn byte_range_to_utf16(line: &str, start_byte: usize, end_byte: usize) -> (usize, usize) {
+    let start_character = utf16_len(&line[..start_byte]);
+    let mut end_character = utf16_len(&line[..end_byte]);
+    if end_character <= start_character {
+        end_character = start_character + 1;
+    }
+    (start_character, end_character)
 }
 
 pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
@@ -2595,8 +2761,14 @@ fn utf16_len(value: &str) -> usize {
 pub fn diagnostic_json(diagnostic: &LspDiagnostic) -> Value {
     json!({
         "range": {
-            "start": { "line": diagnostic.line.saturating_sub(1), "character": 0 },
-            "end": { "line": diagnostic.line.saturating_sub(1), "character": 1 }
+            "start": {
+                "line": diagnostic.line.saturating_sub(1),
+                "character": diagnostic.start_character
+            },
+            "end": {
+                "line": diagnostic.line.saturating_sub(1),
+                "character": diagnostic.end_character
+            }
         },
         "severity": lsp_severity(&diagnostic.severity),
         "source": "eng",
@@ -4128,6 +4300,24 @@ mod tests {
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);
         assert!(!json["diagnostics"].as_array().unwrap().is_empty());
+        let dim_diagnostic = json["diagnostics"]
+            .as_array()
+            .and_then(|diagnostics| {
+                diagnostics
+                    .iter()
+                    .find(|diagnostic| diagnostic["code"] == "E-DIM-ADD-002")
+            })
+            .expect("dimensionless diagnostic");
+        let dim_line = source.lines().nth(1).expect("diagnostic line");
+        let minus_character = dim_line.find('-').expect("minus operator");
+        assert_eq!(
+            dim_diagnostic["range"]["start"]["character"].as_u64(),
+            Some(minus_character as u64)
+        );
+        assert_eq!(
+            dim_diagnostic["range"]["end"]["character"].as_u64(),
+            Some((minus_character + 1) as u64)
+        );
         assert!(snapshot
             .semantic_tokens
             .legend
@@ -4169,6 +4359,33 @@ mod tests {
             .unwrap()
             .iter()
             .any(|symbol| symbol["name"] == "Q"));
+    }
+
+    #[test]
+    fn diagnostic_json_uses_source_token_ranges() {
+        let source = "schema SensorData {\n    m_dot = 1 kg/s\n}\n";
+        let snapshot = snapshot_for_source(Path::new("schema.eng"), source);
+        let json = snapshot_json(&snapshot);
+        let diagnostic = json["diagnostics"]
+            .as_array()
+            .and_then(|diagnostics| {
+                diagnostics
+                    .iter()
+                    .find(|diagnostic| diagnostic["code"] == "E-PUBLIC-ANNOTATION-001")
+            })
+            .expect("schema annotation diagnostic");
+        let line = source.lines().nth(1).expect("schema column line");
+        let equals_character = line.find('=').expect("assignment operator");
+
+        assert_eq!(diagnostic["range"]["start"]["line"].as_u64(), Some(1));
+        assert_eq!(
+            diagnostic["range"]["start"]["character"].as_u64(),
+            Some(equals_character as u64)
+        );
+        assert_eq!(
+            diagnostic["range"]["end"]["character"].as_u64(),
+            Some((equals_character + 1) as u64)
+        );
     }
 
     #[test]

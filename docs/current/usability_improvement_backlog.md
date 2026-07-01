@@ -488,6 +488,21 @@ Status: implemented after LSP completion context review.
   `confirm`, `recursive`, `cache_dir`, `expected_step`, `response_body_limit`,
   `start`, `end`, and `year`.
 
+## Batch 41: LSP Diagnostic Source Ranges
+
+Status: implemented after VS Code underline review.
+
+- LSP diagnostics now carry source-aware `start_character` and `end_character`
+  values instead of always underlining the first character of the line.
+- Dimensionless arithmetic diagnostics highlight the offending `+`/`-`
+  operator, schema fast-assignment diagnostics highlight `=`, and filesystem
+  mutation diagnostics target `move`/`delete`.
+- Generic diagnostics fall back through backticked message/help text, the first
+  identifier, and then the first visible token so VS Code ranges stay useful
+  even before compiler diagnostics have first-class spans.
+- Added JSON-level regression coverage for arithmetic and schema diagnostic
+  ranges.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
