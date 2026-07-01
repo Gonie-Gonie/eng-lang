@@ -1490,6 +1490,19 @@ Status: implemented after Native IDE wording review.
 - Extended `ide-check` coverage so both editor surfaces keep using display
   helpers instead of leaking raw module registry status/backing keys.
 
+## Batch 123: Workflow Module Backing Wording
+
+Status: implemented after workflow-module docs review.
+
+- Updated the workflow-module docs generator so the Backing column uses
+  `Compiler/runtime`, `No executable backing`, and `Internal` instead of raw
+  registry keys.
+- Regenerated `docs/current/workflow_modules.md` to remove
+  `compiler_runtime_builtin`, `none`, and `internal` backing keys from the
+  public module map table.
+- Kept the raw registry values in `stdlib/eng/modules.toml` as machine-owned
+  source data while presenting user-facing wording in generated docs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

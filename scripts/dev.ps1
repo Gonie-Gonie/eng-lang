@@ -571,11 +571,12 @@ function Test-ModuleRegistryDocs {
     $generatedTable.Add("|---|---|---|---|---|---|---|") | Out-Null
     foreach ($entry in $RegistryEntries) {
         $status = Convert-ModuleRegistryStatusLabel $entry.status
+        $backing = Convert-ModuleRegistryBackingLabel $entry.backing
         $artifacts = Convert-ModuleRegistryTableCell $entry.artifacts
         $diagnostics = Convert-ModuleRegistryTableCell $entry.diagnostics
         $examples = Convert-ModuleRegistryTableCell $entry.examples
         $tests = Convert-ModuleRegistryTableCell $entry.tests
-        $generatedTable.Add("| ``$($entry.name)`` | $status | $($entry.backing) | $artifacts | $diagnostics | $examples | $tests |") | Out-Null
+        $generatedTable.Add("| ``$($entry.name)`` | $status | $backing | $artifacts | $diagnostics | $examples | $tests |") | Out-Null
     }
     $expectedBlock = ($generatedTable.ToArray() -join "`n").Trim()
     $startMarker = "<!-- module-registry-table:start -->"
@@ -610,6 +611,16 @@ function Convert-ModuleRegistryStatusLabel {
         "internal_planned" { return "Internal planned" }
         "internal" { return "Internal" }
         default { return $Status }
+    }
+}
+
+function Convert-ModuleRegistryBackingLabel {
+    param([string] $Backing)
+    switch ($Backing) {
+        "compiler_runtime_builtin" { return "Compiler/runtime" }
+        "none" { return "No executable backing" }
+        "internal" { return "Internal" }
+        default { return $Backing }
     }
 }
 
