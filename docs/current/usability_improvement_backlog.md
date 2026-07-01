@@ -1650,6 +1650,20 @@ Status: implemented after CLI saved-artifact output wording review.
 - Updated the `eng run` reference page and extended `workflows-test` so the
   old CLI summary labels cannot return.
 
+## Batch 136: Editor Completion Offline Response Wording Cleanup
+
+Status: implemented after VS Code/LSP completion wording review.
+
+- Reworded `eng-lsp` completion details for the `fixture` option and
+  HTTP-response member fields from fixture-backed wording to pinned offline
+  response wording.
+- Updated `eng.net` and `eng.cache` module purpose text so generated VS Code
+  completion metadata describes pinned offline HTTP boundaries and cache
+  records instead of network fixture/cache-manifest implementation wording.
+- Regenerated VS Code editor metadata and added `eng_lsp` tests that pin the
+  new completion details for `fixture`, `eng.net`, `eng.cache`, and
+  `response.body`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

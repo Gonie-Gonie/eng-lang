@@ -467,7 +467,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("expected_outputs", "declared process outputs"),
     ("expected_step", "expected TimeSeries step"),
     ("features", "model feature columns"),
-    ("fixture", "offline fixture input"),
+    ("fixture", "pinned offline response input"),
     ("headers", "HTTP request headers"),
     ("hidden", "MLP hidden layer option"),
     ("max_gap", "maximum allowed gap option"),
@@ -497,8 +497,8 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
-    ("body", "fixture-backed HTTP response body text"),
-    ("text", "alias for fixture-backed HTTP response body text"),
+    ("body", "pinned offline HTTP response body text"),
+    ("text", "alias for pinned offline HTTP response body text"),
     ("status", "network boundary status"),
     ("status_code", "HTTP status code"),
     ("status_class", "HTTP status class"),
@@ -4568,6 +4568,36 @@ mod tests {
                 "editor metadata should include completion {label} as {kind}"
             );
         }
+        let fixture_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "fixture")
+            .expect("editor metadata should include fixture option completion");
+        assert_eq!(
+            fixture_completion["detail"],
+            "pinned offline response input"
+        );
+        let net_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "eng.net")
+            .expect("editor metadata should include eng.net module completion");
+        assert!(
+            net_completion["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("Pinned offline HTTP")),
+            "eng.net completion detail should describe pinned offline HTTP, got {}",
+            net_completion["detail"]
+        );
+        let cache_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "eng.cache")
+            .expect("editor metadata should include eng.cache module completion");
+        assert!(
+            cache_completion["detail"]
+                .as_str()
+                .is_some_and(|detail| detail.contains("pinned network response cache")),
+            "eng.cache completion detail should describe pinned network response cache, got {}",
+            cache_completion["detail"]
+        );
     }
 
     #[test]
@@ -4942,9 +4972,14 @@ weather = promote json records payload.records as WeatherApiRecord
             line,
             "response_text = response.".len(),
         );
-        assert!(member_completions
+        let body_completion = member_completions
             .iter()
-            .any(|completion| completion.label == "body"));
+            .find(|completion| completion.label == "body")
+            .expect("HTTP response member completion should include body");
+        assert_eq!(
+            body_completion.detail,
+            "pinned offline HTTP response body text"
+        );
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "status_code"));

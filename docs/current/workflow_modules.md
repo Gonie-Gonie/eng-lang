@@ -30,9 +30,9 @@ contracts, and process-output enrichment when external processes are used. The
 workflow examples now exercise native network/cache, sampling, template,
 model-prediction, DB-write, and generated-artifact paths with zero external
 processes in workflows 01, 02, and 03. Native network and cache records now
-cover offline/fixture boundaries and cache manifests; cache manifests now
+cover pinned offline response boundaries and cache records; cache records now
 share owner records across network, process, model, and case workflow surfaces,
-materialize/replay network fixture cache entries, enforce observed cache hashes
+materialize/replay pinned network response cache entries, enforce observed cache hashes
 under the repro profile, and warn about stale cache entries. Native SQLite
 append/upsert writes now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
@@ -158,9 +158,9 @@ diagnostics, status, and reason,
 sample/case table metadata, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`
 files, `typed_payload.db_manifests[]` records generated and native SQLite DB
-write manifests, and current network/cache records capture fixture boundaries and
-cache hit/miss lookup manifests, including materialized/replayed network
-fixture cache entries. Future live network execution, broader cache
+write manifests, and current network/cache records capture pinned offline
+boundaries and cache hit/miss lookup records, including materialized/replayed
+pinned network response cache entries. Future live network execution, broader cache
 invalidation/reuse, native case runner, broad DB engines, and model modules
 should follow the same artifact pattern.
 

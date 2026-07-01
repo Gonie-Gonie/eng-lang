@@ -142,7 +142,7 @@ tests = ["cargo test -p eng_compiler config_", "cargo test -p eng_runtime config
 [module."eng.net"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Offline/fixture HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries."
+purpose = "Pinned offline HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries."
 artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
 diagnostics = ["E-NET-INVALID-URL", "E-NET-RETRY-POLICY", "E-NET-TIMEOUT", "E-NET-BODY-SIZE-LIMIT", "E-NET-HASH-MISMATCH", "E-NET-UNPINNED-REPRO"]
 examples = ["examples/workflows/01_weather_api_to_standard_file"]
@@ -151,7 +151,7 @@ tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network",
 [module."eng.cache"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Explicit cache keys, network fixture cache materialization/replay, hit/miss records, stale cache diagnostics, cache manifests, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned."
+purpose = "Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned."
 artifacts = ["cache_manifest", "review.caches", "run_log.cache_events", "output_manifest"]
 diagnostics = ["E-CACHE-KEY-NONDETERMINISTIC", "E-CACHE-HASH-MISMATCH", "E-CACHE-UNHASHED-REPRO", "W-CACHE-STALE"]
 examples = ["examples/workflows/01_weather_api_to_standard_file"]

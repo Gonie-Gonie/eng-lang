@@ -1261,7 +1261,7 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "offline fixture input",
+                                "detail":  "pinned offline response input",
                                 "kind":  "property",
                                 "label":  "fixture",
                                 "lsp_kind":  10
@@ -1411,7 +1411,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Explicit cache keys, network fixture cache materialization/replay, hit/miss records, stale cache diagnostics, cache manifests, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned.",
+                                "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned.",
                                 "kind":  "stdlib",
                                 "label":  "eng.cache",
                                 "lsp_kind":  9
@@ -1465,7 +1465,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Offline/fixture HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries.",
+                                "detail":  "Native workflow support: Pinned offline HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries.",
                                 "kind":  "stdlib",
                                 "label":  "eng.net",
                                 "lsp_kind":  9
