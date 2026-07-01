@@ -87,6 +87,75 @@
                                                                                             "name":  "entity.name.type.englang"
                                                                                         }
                                                                               }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.function.englang",
+                                                                 "match":  "\\b(fn|method)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.type.function.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "entity.name.function.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.constant.englang",
+                                                                 "match":  "\\b(const)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.modifier.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.constant.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.test.englang",
+                                                                 "match":  "\\b(test)\\s+(\"[^\"]*\")",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.type.test.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "entity.name.section.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.system-member.englang",
+                                                                 "match":  "\\b(state|input|parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.modifier.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.property.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.interface-member.englang",
+                                                                 "match":  "\\b(port|across|through)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.type.declaration.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.property.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.binding.englang",
+                                                                 "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*[:=])",
+                                                                 "captures":  {
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.definition.englang"
+                                                                                        }
+                                                                              }
                                                              }
                                                          ]
                                         },
@@ -102,7 +171,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(use|const|promote|from|as|read|text|json|toml|csv|write|export|copy|move|delete|render|template|run|command|open|sqlite|to|print|log|show|plot|line|bar|histogram|return|assert|golden|matches|within|policy|package|version|port|connect|across|through|conservation|equation|input|parameter|state)\\b"
+                                                             "match":  "\\b(use|const|promote|from|as|read|text|json|toml|csv|write|export|copy|move|delete|render|template|run|command|open|sqlite|http|get|download|to|print|log|show|plot|line|bar|histogram|return|assert|golden|matches|within|policy|package|version|port|connect|across|through|conservation|equation|input|parameter|state|if|else)\\b"
                                                          }
                                                      ]
                                     },
@@ -122,7 +191,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|sample|uniform|normal|grid|random|lhs|train_test_split|regression|mlp|evaluate|model_card|leakage_lint|predict|mean|min|max|median|std|duration_above|integrate|der|delay|sum)\\b"
+                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|min|max|median|std|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
                                                          }
                                                      ]
                                     },
@@ -130,7 +199,7 @@
                                            "patterns":  [
                                                             {
                                                                 "name":  "variable.parameter.property.englang",
-                                                                "match":  "\\b(args|expected_outputs|artifact_kind|tool_version|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column)\\b(?=\\s*=)"
+                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column)\\b(?=\\s*=)"
                                                             }
                                                         ]
                                        },
@@ -153,8 +222,21 @@
                        "units":  {
                                      "patterns":  [
                                                       {
+                                                          "name":  "meta.quantity.literal.englang",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J)(?![A-Za-z0-9_/])",
+                                                          "captures":  {
+                                                                           "1":  {
+                                                                                     "name":  "constant.other.unit.englang"
+                                                                                 }
+                                                                       }
+                                                      },
+                                                      {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "\\b(degC|K|m|cm|mm|m2|m3|s|min|h|W|kW|J|kJ|MJ|Wh|kWh|Pa|kPa|kg|kg/s|W/K|J/K|kJ/K|J/kg/K|W/m2|person/m2)\\b"
+                                                          "match":  "(?\u003c=\\[)(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J)(?=\\])"
+                                                      },
+                                                      {
+                                                          "name":  "constant.other.unit.englang",
+                                                          "match":  "(?\u003c![A-Za-z0-9_])(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J)(?![A-Za-z0-9_/])"
                                                       }
                                                   ]
                                  },

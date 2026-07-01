@@ -63,11 +63,19 @@ Add-PatternNode $Grammar
 function Test-PatternMatchesText {
     param(
         [Parameter(Mandatory = $true)][object] $Pattern,
-        [Parameter(Mandatory = $true)][string] $Text
+        [Parameter(Mandatory = $true)][string] $Text,
+        [bool] $FullMatch = $false
     )
 
     if ($null -ne $Pattern.match) {
-        return [regex]::IsMatch($Text, [string] $Pattern.match)
+        $match = [regex]::Match($Text, [string] $Pattern.match)
+        if (-not $match.Success) {
+            return $false
+        }
+        if ($FullMatch) {
+            return $match.Value -eq $Text
+        }
+        return $true
     }
     if ($null -ne $Pattern.begin -and $null -ne $Pattern.end) {
         return [regex]::IsMatch($Text, [string] $Pattern.begin) -and [regex]::IsMatch($Text, [string] $Pattern.end)
@@ -88,9 +96,13 @@ foreach ($case in $Expected) {
     if (-not $PatternsByScope.ContainsKey([string] $case.scope)) {
         throw "grammar does not define expected scope $($case.scope)"
     }
+    $fullMatch = $false
+    if ($case.PSObject.Properties.Name -contains "fullMatch") {
+        $fullMatch = [bool] $case.fullMatch
+    }
     $matched = $false
     foreach ($pattern in $PatternsByScope[[string] $case.scope]) {
-        if (Test-PatternMatchesText -Pattern $pattern -Text ([string] $case.text)) {
+        if (Test-PatternMatchesText -Pattern $pattern -Text ([string] $case.text) -FullMatch $fullMatch) {
             $matched = $true
             break
         }
@@ -102,6 +114,7 @@ foreach ($case in $Expected) {
         fixture = $case.fixture
         scope = $case.scope
         text = $case.text
+        full_match = $fullMatch
         status = "passed"
     }) | Out-Null
 }

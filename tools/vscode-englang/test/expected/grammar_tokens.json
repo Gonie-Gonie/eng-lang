@@ -47,7 +47,8 @@
   {
     "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
-    "text": "J/kg/K"
+    "text": "J/kg/K",
+    "fullMatch": true
   },
   {
     "fixture": "02_units_quantities.eng",
@@ -103,5 +104,94 @@
     "fixture": "05_sampling_model.eng",
     "scope": "keyword.operator.word.englang",
     "text": "using"
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "W/m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "person/m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.system-member.englang",
+    "text": "state T",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.system-member.englang",
+    "text": "parameter C",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.interface-member.englang",
+    "text": "port heat",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.constant.englang",
+    "text": "const cp_water",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.function.englang",
+    "text": "fn coil_heat",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.test.englang",
+    "text": "test \"coil heat stays positive\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "4.18 kJ/K",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "url"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "secret"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "env"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "http"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "get"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "download"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "expected_sha256 ="
   }
 ]

@@ -1,0 +1,26 @@
+const cp_water: SpecificHeat [J/kg/K] = 4.18 kJ/K
+
+fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
+    Q = m_dot * cp_water * dT
+    return Q
+}
+
+test "coil heat stays positive" {
+    assert cp_water > 0 J/kg/K
+}
+
+api_url: Url = url("https://example.org/weather")
+api_key: Secret[String] = secret env("WEATHER_API_KEY")
+
+response = http get api_url
+with {
+    query = {
+        key = api_key
+    }
+    expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+}
+
+download url("https://example.org/file.csv") to file("outputs/file.csv")
+with {
+    cache = true
+}
