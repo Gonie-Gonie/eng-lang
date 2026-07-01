@@ -1936,6 +1936,18 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ExtensionSource.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }
+    foreach ($RequiredSourceLineToken in @(
+        "function lineValue(item)",
+        "source_span",
+        "sourceSpan",
+        "source_line",
+        "sourceLine",
+        "reviewRiskLineNumber"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredSourceLineToken)) {
+            throw "VS Code extension review panel missing normalized source-line token $RequiredSourceLineToken"
+        }
+    }
     if (-not $ExtensionSource.Contains("reviewPanelArtifacts") -or -not $ExtensionSource.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
         throw "VS Code extension review panel must expose clickable last-run artifacts"
     }

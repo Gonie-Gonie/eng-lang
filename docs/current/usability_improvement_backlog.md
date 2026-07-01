@@ -1062,6 +1062,19 @@ Status: implemented after native IDE source-jump audit.
 - Extended `ide-check` contract coverage for the normalized source-line field
   variants.
 
+## Batch 88: VS Code Review Source-Line Field Normalization
+
+Status: implemented after VS Code review-panel source-jump audit.
+
+- Normalized VS Code review-panel source-line extraction so clickable source
+  links recognize `source_span.line`, `sourceSpan.line`, `source_line`,
+  `sourceLine`, and plain `line` records.
+- Reused the same normalized helper for review risk decorations so gutter and
+  overview markers do not disappear when risk records use span-shaped source
+  metadata.
+- Extended `ide-check` contract coverage for the VS Code normalized source-line
+  tokens.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

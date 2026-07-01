@@ -453,7 +453,7 @@ function setReviewRiskDecorationLine(byLine, document, lineNumber, level, record
 }
 
 function reviewRiskLineNumber(record) {
-  const raw = record?.line ?? record?.source_line ?? record?.sourceLine;
+  const raw = lineValue(record);
   const lineNumber = Number(raw);
   return Number.isFinite(lineNumber) ? Math.trunc(lineNumber) : NaN;
 }
@@ -1316,7 +1316,12 @@ function countOrContract(items, contract, snakeKey, camelKey) {
 }
 
 function lineValue(item) {
-  return item?.line ?? item?.source_line ?? item?.sourceLine ?? "-";
+  return item?.source_span?.line
+    ?? item?.sourceSpan?.line
+    ?? item?.source_line
+    ?? item?.sourceLine
+    ?? item?.line
+    ?? "-";
 }
 
 function sourceLineCell(item) {
