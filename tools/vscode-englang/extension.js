@@ -2541,7 +2541,9 @@ function lspDiagnosticMatchesVscode(lspDiagnostic, diagnostic) {
   }
   return (
     lspRange.start.line === diagnostic.range.start.line &&
-    lspRange.end.line === diagnostic.range.end.line
+    lspRange.start.character === diagnostic.range.start.character &&
+    lspRange.end.line === diagnostic.range.end.line &&
+    lspRange.end.character === diagnostic.range.end.character
   );
 }
 

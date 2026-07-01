@@ -1005,6 +1005,16 @@ Status: implemented after native IDE highlight-panel workflow review.
 - Extended `ide-check` contract coverage so token-range buttons and selection
   helpers remain wired.
 
+## Batch 83: VS Code LSP Quick Fix Range Matching
+
+Status: implemented after VS Code/LSP quick-fix bridge review.
+
+- Tightened VS Code quick-fix filtering so LSP diagnostics must match the full
+  line and character range of the active VS Code diagnostic before their code
+  actions are shown.
+- Extended `ide-check` contract coverage so the LSP action bridge does not
+  regress to coarse same-line matching.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
