@@ -1121,6 +1121,16 @@ Status: implemented after VS Code/LSP linter quick-fix review.
 - Extended stdio and stdin code-action regression coverage and updated the
   extension README quick-fix surface.
 
+## Batch 93: Workflow Gate Wording Cleanup
+
+Status: implemented after docs cleanup review.
+
+- Reworded workflow test-gate docs so native SQLite prediction writes are
+  described as the current DB write path instead of a DB seed.
+- Narrowed the remaining-gap wording to live network execution, cache policy,
+  broader sampling distributions/design policies, case-runner scheduling, DB
+  reads/queries, and public model training syntax.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
