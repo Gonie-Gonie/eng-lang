@@ -63,6 +63,21 @@
   {
     "fixture": "03_side_effects.eng",
     "scope": "variable.parameter.property.englang",
+    "text": "values ="
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "output ="
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args ="
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
     "text": "expected_outputs ="
   },
   {
@@ -193,5 +208,20 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
     "text": "expected_sha256 ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "body_size_limit ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "response.body"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "response.response_hash"
   }
 ]

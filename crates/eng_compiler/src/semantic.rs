@@ -5558,8 +5558,7 @@ fn net_response_field_semantic_type(
 ) -> Option<SemanticType> {
     let (binding_name, field) = expression.trim().split_once('.')?;
     let has_response_binding = typed_bindings.iter().any(|binding| {
-        binding.name == binding_name.trim()
-            && binding.semantic_type.quantity_kind == "HttpResponse"
+        binding.name == binding_name.trim() && binding.semantic_type.quantity_kind == "HttpResponse"
     });
     if !has_response_binding {
         return None;

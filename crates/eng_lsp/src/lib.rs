@@ -166,6 +166,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "derive",
     "der",
     "domain",
+    "download",
     "eq",
     "equation",
     "evaluate",
@@ -177,6 +178,8 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "golden",
     "grid",
     "histogram",
+    "get",
+    "http",
     "if",
     "import",
     "input",
@@ -284,37 +287,61 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
 
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("coverage", "eng.timeseries coverage check"),
+    ("date", "calendar date constructor"),
+    ("datetime", "timestamp constructor"),
+    ("dir", "eng.path directory path helper"),
     ("duration_above", "TimeSeries threshold duration"),
+    ("env", "environment variable lookup"),
+    ("exists", "eng.path existence check"),
+    ("extension", "eng.path extension helper"),
+    ("file", "eng.path file path helper"),
+    ("join", "eng.path join helper"),
     ("max", "TimeSeries maximum"),
     ("mean", "TimeSeries mean"),
     ("median", "TimeSeries median"),
     ("min", "TimeSeries minimum"),
     ("normal", "normal distribution sampling helper"),
+    ("parent", "eng.path parent directory helper"),
+    ("secret", "redacted secret constructor"),
     ("std", "TimeSeries standard deviation"),
+    ("stem", "eng.path filename stem helper"),
     ("sum", "domain conservation sum"),
+    ("url", "HTTP or HTTPS URL constructor"),
 ];
 
 const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("algorithm", "model training option"),
     ("allow_failure", "external command failure policy"),
     ("artifact_kind", "expected artifact kind"),
+    ("args", "external command argument list"),
+    ("body", "HTTP request body option"),
+    ("body_size_limit", "HTTP response body size limit"),
     ("cache", "cache behavior option"),
     ("cache_key", "cache identity option"),
     ("count", "sample count option"),
     ("cwd", "external command working directory"),
     ("env", "external command environment"),
+    ("expected_sha256", "expected SHA-256 hash"),
     ("expected_outputs", "declared process outputs"),
     ("features", "model feature columns"),
+    ("fixture", "offline fixture input"),
+    ("headers", "HTTP request headers"),
     ("hidden", "MLP hidden layer option"),
     ("method", "fill or transform method"),
+    ("missing", "missing value policy"),
+    ("mode", "write mode"),
+    ("output", "generated output path"),
+    ("query", "HTTP query parameters"),
     ("recursive", "filesystem recursion option"),
     ("retry", "external command retry policy"),
     ("return_column", "projection return column"),
     ("seed", "deterministic sampling seed"),
     ("status", "case or validation status"),
+    ("test", "model train/test split option"),
     ("target", "model target column"),
     ("timeout", "external command timeout"),
     ("tool_version", "external tool version"),
+    ("values", "template value map"),
 ];
 
 const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
@@ -2848,9 +2875,14 @@ pub fn completion_items_at(
     }
 
     if let Some((receiver, prefix)) = member_completion_context(source, line, character) {
-        if report.semantic_program.typed_bindings.iter().any(|binding| {
-            binding.name == receiver && binding.semantic_type.quantity_kind == "HttpResponse"
-        }) {
+        if report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                binding.name == receiver && binding.semantic_type.quantity_kind == "HttpResponse"
+            })
+        {
             let mut seen = BTreeSet::new();
             let mut items = Vec::new();
             for (field, detail) in HTTP_RESPONSE_FIELD_COMPLETIONS {
@@ -3327,6 +3359,14 @@ mod tests {
             "JsonFile",
             "TimeSeries[Time]",
             "ProcessResult",
+            "file",
+            "dir",
+            "join",
+            "url",
+            "secret",
+            "http",
+            "get",
+            "download",
             "render",
             "template",
             "open",
@@ -3334,10 +3374,15 @@ mod tests {
             "predict",
             "check",
             "coverage",
+            "args",
+            "output",
+            "values",
+            "expected_sha256",
             "expected_outputs",
             "artifact_kind",
             "allow_failure",
             "cache_key",
+            "body_size_limit",
             "mean",
             "min",
             "sum",

@@ -18,7 +18,11 @@ with {
         key = api_key
     }
     expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+    body_size_limit = 2 MB
 }
+
+response_text = response.body
+response_hash = response.response_hash
 
 download url("https://example.org/file.csv") to file("outputs/file.csv")
 with {

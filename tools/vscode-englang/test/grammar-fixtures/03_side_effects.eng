@@ -1,5 +1,6 @@
 input_file = render template file("model/base.txt")
 with {
+    values = { case_id = "case_001" }
     output = file("outputs/input.txt")
     overwrite = true
 }

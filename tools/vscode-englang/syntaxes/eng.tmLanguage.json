@@ -12,6 +12,9 @@
                          "include":  "#declarations"
                      },
                      {
+                         "include":  "#members"
+                     },
+                     {
                          "include":  "#blocks"
                      },
                      {
@@ -167,6 +170,14 @@
                                                        }
                                                    ]
                                   },
+                       "members":  {
+                                       "patterns":  [
+                                                        {
+                                                            "name":  "variable.other.property.englang",
+                                                            "match":  "(?\u003c=\\.)[A-Za-z_][A-Za-z0-9_]*"
+                                                        }
+                                                    ]
+                                   },
                        "keywords":  {
                                         "patterns":  [
                                                          {
@@ -199,7 +210,7 @@
                                            "patterns":  [
                                                             {
                                                                 "name":  "variable.parameter.property.englang",
-                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column)\\b(?=\\s*=)"
+                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|values|output|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column)\\b(?=\\s*=)"
                                                             }
                                                         ]
                                        },

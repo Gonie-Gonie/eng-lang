@@ -8060,15 +8060,14 @@ fn evaluate_network_response_field_expression(
         }
         "status" => Some(RuntimeFormatValue::Text(request.status.clone())),
         "status_class" => Some(RuntimeFormatValue::Text(request.status_class.clone())),
-        "status_code" => request.status_code.map(|status_code| RuntimeFormatValue::Number {
-            value: status_code as f64,
-            quantity_kind: "DimensionlessNumber".to_owned(),
-            unit: String::new(),
-        }),
-        "response_hash" | "hash" => request
-            .response_hash
-            .clone()
-            .map(RuntimeFormatValue::Text),
+        "status_code" => request
+            .status_code
+            .map(|status_code| RuntimeFormatValue::Number {
+                value: status_code as f64,
+                quantity_kind: "DimensionlessNumber".to_owned(),
+                unit: String::new(),
+            }),
+        "response_hash" | "hash" => request.response_hash.clone().map(RuntimeFormatValue::Text),
         "url" => Some(RuntimeFormatValue::Text(request.url_value.clone())),
         _ => None,
     }
