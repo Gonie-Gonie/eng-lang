@@ -11279,6 +11279,13 @@ fn validate_json_read_field_access_policy(
 
     let mut reported = HashSet::new();
     for line in &program.lines {
+        if line
+            .text
+            .to_ascii_lowercase()
+            .contains("promote json records ")
+        {
+            continue;
+        }
         for window in line.tokens.windows(3) {
             let [crate::lexer::Token {
                 kind: crate::lexer::TokenKind::Identifier(binding),
@@ -11675,7 +11682,9 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Table[Sample]", "schema-defined");
     }
 
-    if lowered_expression.contains("promote csv") {
+    if lowered_expression.contains("promote csv")
+        || lowered_expression.contains("promote json records")
+    {
         return semantic_type("Table[Time]", "schema-defined");
     }
 

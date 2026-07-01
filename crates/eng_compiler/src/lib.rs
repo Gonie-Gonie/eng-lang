@@ -255,6 +255,7 @@ fn workflow_node_review_risk_category(kind: &str) -> &'static str {
         "file_operation" => "side_effect",
         "cache" | "environment_dependency" => "reproducibility",
         "csv_promotion"
+        | "json_records_promotion"
         | "config_promotion"
         | "timeseries_kernel"
         | "timeseries_coverage"
@@ -4183,6 +4184,10 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&promotion.binding)
         ));
         json.push_str(&format!(
+            "      \"source_format\": \"{}\",\n",
+            json_escape(&promotion.source_format)
+        ));
+        json.push_str(&format!(
             "      \"schema_name\": \"{}\",\n",
             json_escape(&promotion.schema_name)
         ));
@@ -4205,6 +4210,22 @@ pub fn review_json(report: &CheckReport) -> String {
             ));
         } else {
             json.push_str("      \"source_hash\": null,\n");
+        }
+        if let Some(source_binding) = &promotion.json_source_binding {
+            json.push_str(&format!(
+                "      \"json_source_binding\": \"{}\",\n",
+                json_escape(source_binding)
+            ));
+        } else {
+            json.push_str("      \"json_source_binding\": null,\n");
+        }
+        if let Some(records_field) = &promotion.json_records_field {
+            json.push_str(&format!(
+                "      \"json_records_field\": \"{}\",\n",
+                json_escape(records_field)
+            ));
+        } else {
+            json.push_str("      \"json_records_field\": null,\n");
         }
         json.push_str(&format!("      \"row_count\": {},\n", promotion.row_count));
         json.push_str("      \"headers\": [");
@@ -8128,6 +8149,42 @@ mod tests {
                 .as_deref()
                 .is_some_and(|help| help.contains("promote json payload as SchemaName"))
         }));
+    }
+
+    #[test]
+    fn promotes_json_records_from_read_json_binding_as_table() {
+        let root = std::env::temp_dir().join("englang-json-records-table-promotion");
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("weather.json"),
+            "{ \"records\": [{ \"time\": \"2024-01-01T00:00:00Z\", \"value\": 1.5 }, { \"time\": \"2024-01-01T01:00:00Z\", \"value\": 2.5 }] }\n",
+        )
+        .expect("json");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    records: Array[WeatherRecord]\n}\n\npayload = read json file(\"data/weather.json\")\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert_eq!(report.diagnostics, Vec::<Diagnostic>::new());
+        let promotion = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "weather")
+            .expect("weather promotion");
+        assert_eq!(promotion.source_format, "json_records");
+        assert_eq!(promotion.schema_name, "WeatherRecord");
+        assert_eq!(promotion.row_count, 2);
+        assert_eq!(promotion.json_source_binding.as_deref(), Some("payload"));
+        assert_eq!(promotion.json_records_field.as_deref(), Some("records"));
+        assert!(promotion.headers.iter().any(|header| header == "time"));
+        assert!(promotion.headers.iter().any(|header| header == "value"));
+        assert!(promotion.source_hash.is_some());
     }
 
     #[test]

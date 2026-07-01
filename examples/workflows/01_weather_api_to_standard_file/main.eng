@@ -7,35 +7,27 @@ schema StationMap {
     longitude: DimensionlessNumber [1]
 }
 
-schema WeatherHourly {
-    time: DateTime index
-    dry_bulb: AbsoluteTemperature [degC]
-    relative_humidity: Ratio [1]
-    wind_speed: DimensionlessNumber [1]
-    global_horizontal: Irradiance [W/m2]
-
-    constraints {
-        time is monotonic
-        dry_bulb between -50 degC and 60 degC
-        relative_humidity between 0 and 1
-        wind_speed >= 0
-        global_horizontal >= 0 W/m2
-    }
-
-    missing {
-        dry_bulb: error
-        relative_humidity: error
-        wind_speed: interpolate max_gap=3 h
-        global_horizontal: interpolate max_gap=3 h
-    }
-}
-
 schema WeatherApiRecord {
-    time: DateTime
+    time: DateTime index
     dry_bulb_degC: AbsoluteTemperature [degC]
     relative_humidity: Ratio [1]
     wind_speed_mps: DimensionlessNumber [1]
     global_horizontal_W_m2: Irradiance [W/m2]
+
+    constraints {
+        time is monotonic
+        dry_bulb_degC between -50 degC and 60 degC
+        relative_humidity between 0 and 1
+        wind_speed_mps >= 0
+        global_horizontal_W_m2 >= 0 W/m2
+    }
+
+    missing {
+        dry_bulb_degC: error
+        relative_humidity: error
+        wind_speed_mps: interpolate max_gap=3 h
+        global_horizontal_W_m2: interpolate max_gap=3 h
+    }
 }
 
 schema WeatherApiPayload {
@@ -49,14 +41,12 @@ args {
     year: Int = 2024
     region: String = "demo"
     station_map: CsvFile = file("data/station_map_sample.csv")
-    weather_hourly: CsvFile = file("data/sample_weather_hourly.csv")
     api_fixture: JsonFile = file("data/sample_api_response.json")
     api_url: Url = url("https://api.example.org/weather/hourly")
     output: DirectoryPath = dir("outputs")
 }
 
 stations = promote csv args.station_map as StationMap
-weather = promote csv args.weather_hourly as WeatherHourly
 candidates = filter stations
 where {
     region == args.region
@@ -84,6 +74,7 @@ with {
 api_payload_text = api_response.body
 api_payload = read json args.api_fixture
 api_contract = promote json api_payload as WeatherApiPayload
+weather = promote json records api_payload.records as WeatherApiRecord
 coverage = check coverage weather.time
 with {
     expected_step = 1 h

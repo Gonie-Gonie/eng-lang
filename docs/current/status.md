@@ -46,8 +46,8 @@ workflow, and covered by the breaking-change policy.
   relative file imports, and no imported executable-body side effects.
 - Built-in quantity/unit registry with `degC` as the canonical ASCII
   temperature spelling.
-- Typed CSV promotion for the official schema/data boundary.
-- DateTime-indexed table metadata, row-level CSV runtime pages, source hash
+- Typed CSV promotion and JSON-record table promotion for schema/data boundaries.
+- DateTime-indexed table metadata, row-level promoted-table runtime pages, source hash
   provenance, `typed_payload.table_diagnostics[]` summaries for promoted data,
   `typed_payload.table_selections[]` records for deterministic promoted-table row
   selection, `typed_payload.table_transforms[]` records for filter/select/derive/sort/require_one/join
@@ -94,7 +94,8 @@ review material. It is not a broad solver claim.
 - Typed path helpers: `file`, `dir`, `join`, `parent`, `stem`, `extension`.
 - Provenance-visible `exists`.
 - Read-only UTF-8 `read text`, `read json`, and `read toml` expressions with
-  source-relative resolution and source hash provenance.
+  source-relative resolution and source hash provenance; `read json` payloads
+  can be promoted to config contracts or JSON-record tables.
 - Explicit `write text/json`, constrained copy/move/delete file operations,
   native `render template` generated inputs with render manifests, CSV
   overwrite hardening, and `output_manifest.json`.

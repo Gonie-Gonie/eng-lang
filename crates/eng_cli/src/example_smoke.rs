@@ -6385,7 +6385,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         &artifact_run_options(),
     ) {
         Ok(output) => {
-            if !output.review_json.contains("WeatherHourly")
+            if !output.review_json.contains("WeatherApiRecord")
+                || !output
+                    .result_json
+                    .contains("\"source_format\": \"json_records\"")
+                || !output
+                    .run_plan_json
+                    .contains("\"source:json_records:weather\"")
                 || !output.result_json.contains("\"network_boundaries\"")
                 || !output.result_json.contains("\"binding\": \"api_response\"")
                 || !output

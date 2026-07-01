@@ -47,6 +47,7 @@ pub struct SchemaInfo {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CsvPromotion {
     pub binding: String,
+    pub source_format: String,
     pub schema_name: String,
     pub source_literal: String,
     pub source_value: String,
@@ -56,6 +57,8 @@ pub struct CsvPromotion {
     pub row_count: usize,
     pub missing_columns: Vec<String>,
     pub optional_missing_columns: Vec<String>,
+    pub json_source_binding: Option<String>,
+    pub json_records_field: Option<String>,
     pub line: usize,
 }
 
@@ -104,6 +107,18 @@ struct RawConfigSource {
     format: String,
     source_value: String,
     resolved_path: PathBuf,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum TablePromotionSource {
+    Csv {
+        source_literal: String,
+    },
+    JsonRecords {
+        source_literal: String,
+        source_binding: String,
+        records_field: String,
+    },
 }
 
 pub fn analyze_schema(
@@ -194,8 +209,27 @@ pub fn analyze_schema(
         let AstItem::FastBinding(binding) = item else {
             continue;
         };
-        let Some((source_literal, schema_name)) = parse_promote_csv(&binding.expression) else {
+        let Some((source, schema_name)) = parse_promote_table(&binding.expression) else {
             continue;
+        };
+        let source_format = match &source {
+            TablePromotionSource::Csv { .. } => "csv",
+            TablePromotionSource::JsonRecords { .. } => "json_records",
+        }
+        .to_owned();
+        let source_literal = match &source {
+            TablePromotionSource::Csv { source_literal } => source_literal.clone(),
+            TablePromotionSource::JsonRecords { source_literal, .. } => source_literal.clone(),
+        };
+        let json_source_binding = match &source {
+            TablePromotionSource::JsonRecords { source_binding, .. } => {
+                Some(source_binding.clone())
+            }
+            TablePromotionSource::Csv { .. } => None,
+        };
+        let json_records_field = match &source {
+            TablePromotionSource::JsonRecords { records_field, .. } => Some(records_field.clone()),
+            TablePromotionSource::Csv { .. } => None,
         };
         let schema = schemas
             .iter()
@@ -204,57 +238,117 @@ pub fn analyze_schema(
             diagnostics.push(Diagnostic::error(
                 "E-SCHEMA-PROMOTE-001",
                 binding.line,
-                &format!("CSV promotion references unknown schema `{schema_name}`."),
-                Some("Define the schema before the `promote csv` expression."),
+                &format!("Table promotion references unknown schema `{schema_name}`."),
+                Some("Define the schema before the promote expression."),
             ));
         }
         let mut headers = Vec::new();
         let mut row_count = 0usize;
         let mut source_hash = None;
 
-        let source_value = match resolve_source_value(&source_literal, arg_values) {
-            Ok(value) => value,
-            Err(arg_name) => {
-                diagnostics.push(Diagnostic::error(
-                    "E-ARGS-CSV-001",
-                    binding.line,
-                    &format!(
-                        "CSV promotion path references `args.{arg_name}`, but no value is available."
-                    ),
-                    Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
-                ));
-                csv_promotions.push(CsvPromotion {
-                    binding: binding.name.clone(),
-                    schema_name,
-                    source_literal,
-                    source_value: String::new(),
-                    resolved_path: String::new(),
-                    source_hash: None,
-                    headers,
-                    row_count,
-                    missing_columns: Vec::new(),
-                    optional_missing_columns: Vec::new(),
-                    line: binding.line,
-                });
-                continue;
+        let (source_value, resolved_path) = match &source {
+            TablePromotionSource::Csv { source_literal } => {
+                let source_value = match resolve_source_value(source_literal, arg_values) {
+                    Ok(value) => value,
+                    Err(arg_name) => {
+                        diagnostics.push(Diagnostic::error(
+                            "E-ARGS-CSV-001",
+                            binding.line,
+                            &format!(
+                                "CSV promotion path references `args.{arg_name}`, but no value is available."
+                            ),
+                            Some("Provide the field with `--<name> <value>` or add a default in `args { ... }`."),
+                        ));
+                        csv_promotions.push(CsvPromotion {
+                            binding: binding.name.clone(),
+                            source_format,
+                            schema_name,
+                            source_literal: source_literal.clone(),
+                            source_value: String::new(),
+                            resolved_path: String::new(),
+                            source_hash: None,
+                            headers,
+                            row_count,
+                            missing_columns: Vec::new(),
+                            optional_missing_columns: Vec::new(),
+                            json_source_binding,
+                            json_records_field,
+                            line: binding.line,
+                        });
+                        continue;
+                    }
+                };
+                let resolved_path = resolve_csv_path(source_base, &source_value);
+                match read_csv_header(&resolved_path) {
+                    Ok(csv) => {
+                        headers = csv.headers;
+                        row_count = csv.row_count;
+                        source_hash = Some(csv.source_hash);
+                    }
+                    Err(error) => diagnostics.push(Diagnostic::error(
+                        "E-SCHEMA-CSV-001",
+                        binding.line,
+                        &format!("Cannot read CSV source `{source_value}`: {error}."),
+                        Some("Check that the path is relative to the .eng source file."),
+                    )),
+                }
+                (source_value, resolved_path)
+            }
+            TablePromotionSource::JsonRecords {
+                source_binding,
+                records_field,
+                ..
+            } => {
+                let Some(raw_source) = raw_config_sources
+                    .get(source_binding.as_str())
+                    .filter(|source| source.format == "json")
+                else {
+                    diagnostics.push(Diagnostic::error(
+                        "E-SCHEMA-JSON-001",
+                        binding.line,
+                        &format!(
+                            "JSON records promotion references `{source_binding}`, but no matching `read json` source is available."
+                        ),
+                        Some("Bind the payload first, for example `payload = read json args.input`, then use `promote json records payload.records as SchemaName`."),
+                    ));
+                    csv_promotions.push(CsvPromotion {
+                        binding: binding.name.clone(),
+                        source_format,
+                        schema_name,
+                        source_literal,
+                        source_value: String::new(),
+                        resolved_path: String::new(),
+                        source_hash: None,
+                        headers,
+                        row_count,
+                        missing_columns: Vec::new(),
+                        optional_missing_columns: Vec::new(),
+                        json_source_binding,
+                        json_records_field,
+                        line: binding.line,
+                    });
+                    continue;
+                };
+                let source_value = raw_source.source_value.clone();
+                let resolved_path = raw_source.resolved_path.clone();
+                match read_json_records_header(&resolved_path, records_field) {
+                    Ok(json) => {
+                        headers = json.headers;
+                        row_count = json.row_count;
+                        source_hash = Some(json.source_hash);
+                    }
+                    Err(error) => diagnostics.push(Diagnostic::error(
+                        "E-SCHEMA-JSON-001",
+                        binding.line,
+                        &format!(
+                            "Cannot read JSON records source `{source_literal}` from `{source_value}`: {error}."
+                        ),
+                        Some("Check that the JSON path resolves to an array of record objects."),
+                    )),
+                }
+                (source_value, resolved_path)
             }
         };
-        let resolved_path = resolve_csv_path(source_base, &source_value);
-        let csv_read = read_csv_header(&resolved_path);
-
-        match csv_read {
-            Ok(csv) => {
-                headers = csv.headers;
-                row_count = csv.row_count;
-                source_hash = Some(csv.source_hash);
-            }
-            Err(error) => diagnostics.push(Diagnostic::error(
-                "E-SCHEMA-CSV-001",
-                binding.line,
-                &format!("Cannot read CSV source `{source_value}`: {error}."),
-                Some("Check that the path is relative to the .eng source file."),
-            )),
-        }
 
         let missing_columns = schema
             .map(|schema| {
@@ -280,19 +374,33 @@ pub fn analyze_schema(
             .unwrap_or_default();
 
         if !missing_columns.is_empty() {
+            let (code, label, help) = if source_format == "json_records" {
+                (
+                    "E-SCHEMA-JSON-002",
+                    "JSON records source",
+                    "Add the missing JSON record fields or update the schema.",
+                )
+            } else {
+                (
+                    "E-SCHEMA-CSV-002",
+                    "CSV source",
+                    "Add the missing CSV headers or update the schema.",
+                )
+            };
             diagnostics.push(Diagnostic::error(
-                "E-SCHEMA-CSV-002",
+                code,
                 binding.line,
                 &format!(
-                    "CSV source `{source_literal}` is missing required column(s): {}.",
+                    "{label} `{source_literal}` is missing required column(s): {}.",
                     missing_columns.join(", ")
                 ),
-                Some("Add the missing CSV headers or update the schema."),
+                Some(help),
             ));
         }
 
         csv_promotions.push(CsvPromotion {
             binding: binding.name.clone(),
+            source_format,
             schema_name,
             source_literal,
             source_value,
@@ -302,6 +410,8 @@ pub fn analyze_schema(
             row_count,
             missing_columns,
             optional_missing_columns,
+            json_source_binding,
+            json_records_field,
             line: binding.line,
         });
     }
@@ -522,6 +632,14 @@ fn clean_schema_type(type_name: &str) -> String {
         .join(" ")
 }
 
+fn parse_promote_table(expression: &str) -> Option<(TablePromotionSource, String)> {
+    parse_promote_csv(expression)
+        .map(|(source_literal, schema_name)| {
+            (TablePromotionSource::Csv { source_literal }, schema_name)
+        })
+        .or_else(|| parse_promote_json_records(expression))
+}
+
 fn parse_promote_csv(expression: &str) -> Option<(String, String)> {
     let trimmed = expression.trim();
     if !trimmed.starts_with("promote csv ") {
@@ -547,8 +665,42 @@ fn parse_promote_csv(expression: &str) -> Option<(String, String)> {
     Some((source_literal, schema_name))
 }
 
+fn parse_promote_json_records(expression: &str) -> Option<(TablePromotionSource, String)> {
+    let trimmed = expression.trim();
+    let after_prefix = trimmed.strip_prefix("promote json records ")?.trim();
+    let (source_literal, schema_name) = after_prefix.rsplit_once(" as ")?;
+    let source_literal = source_literal.trim();
+    let (source_binding, records_field) = source_literal.split_once('.')?;
+    let source_binding = source_binding.trim();
+    let records_field = records_field.trim();
+    if source_binding.is_empty() || records_field.is_empty() {
+        return None;
+    }
+    let schema_name = schema_name_after_as(schema_name);
+    Some((
+        TablePromotionSource::JsonRecords {
+            source_literal: source_literal.to_owned(),
+            source_binding: source_binding.to_owned(),
+            records_field: records_field.to_owned(),
+        },
+        schema_name,
+    ))
+}
+
+fn schema_name_after_as(schema_name: &str) -> String {
+    schema_name
+        .split_whitespace()
+        .next()
+        .unwrap_or(schema_name)
+        .trim_matches('{')
+        .to_owned()
+}
+
 fn parse_promote_config(expression: &str) -> Option<(String, String, String)> {
     let trimmed = expression.trim();
+    if trimmed.starts_with("promote json records ") {
+        return None;
+    }
     let (format, after_prefix) = if let Some(rest) = trimmed.strip_prefix("promote json ") {
         ("json", rest.trim())
     } else if let Some(rest) = trimmed.strip_prefix("promote toml ") {
@@ -557,12 +709,7 @@ fn parse_promote_config(expression: &str) -> Option<(String, String, String)> {
         return None;
     };
     let (source_literal, schema_name) = after_prefix.rsplit_once(" as ")?;
-    let schema_name = schema_name
-        .split_whitespace()
-        .next()
-        .unwrap_or(schema_name)
-        .trim_matches('{')
-        .to_owned();
+    let schema_name = schema_name_after_as(schema_name);
     Some((
         format.to_owned(),
         source_literal.trim().to_owned(),
@@ -1180,6 +1327,12 @@ struct CsvRead {
     source_hash: String,
 }
 
+struct JsonRecordsRead {
+    headers: Vec<String>,
+    row_count: usize,
+    source_hash: String,
+}
+
 fn read_csv_header(path: &Path) -> std::io::Result<CsvRead> {
     let text = fs::read_to_string(path)?;
     let mut lines = text.lines();
@@ -1197,6 +1350,41 @@ fn read_csv_header(path: &Path) -> std::io::Result<CsvRead> {
         row_count,
         source_hash: hash_text(&text),
     })
+}
+
+fn read_json_records_header(path: &Path, records_field: &str) -> std::io::Result<JsonRecordsRead> {
+    let text = fs::read_to_string(path)?;
+    let value = serde_json::from_str::<JsonValue>(&text)
+        .map_err(|error| invalid_config_data(error.to_string()))?;
+    let records = json_records_array(&value, records_field)
+        .ok_or_else(|| invalid_config_data(format!("field `{records_field}` must be an array")))?;
+    let mut headers = Vec::new();
+    for record in records {
+        let Some(object) = record.as_object() else {
+            continue;
+        };
+        for key in object.keys() {
+            if !headers.iter().any(|header| header == key) {
+                headers.push(key.clone());
+            }
+        }
+    }
+    Ok(JsonRecordsRead {
+        headers,
+        row_count: records.len(),
+        source_hash: hash_text(&text),
+    })
+}
+
+fn json_records_array<'a>(value: &'a JsonValue, records_field: &str) -> Option<&'a Vec<JsonValue>> {
+    let mut current = value;
+    for segment in records_field
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+    {
+        current = current.get(segment)?;
+    }
+    current.as_array()
 }
 
 fn hash_text(source: &str) -> String {

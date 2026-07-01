@@ -606,9 +606,24 @@ Status: implemented after workflow 01 native-contract review.
   `promote json ... as WeatherApiPayload`.
 - Verified the saved run records `api_contract` as a validated config
   promotion and still has `process_results.json.process_count = 0`.
-- Remaining gap: direct JSON-record-to-TimeSeries/table materialization is
-  still separate from the current CSV weather table and should be implemented
-  as a native table promotion path, not as a Python adapter.
+- Follow-up completed in Batch 51: direct JSON-record-to-table materialization
+  now replaces the old CSV weather-table fixture in workflow 01.
+
+## Batch 51: Workflow JSON Records Table Promotion
+
+Status: implemented after workflow 01 native-table review.
+
+- Added native `promote json records <payload>.<array> as <Schema>` analysis
+  for `read json` payload bindings, including row count, source hash, headers,
+  `source_format = json_records`, and review metadata.
+- Runtime materialization now turns JSON record arrays into typed
+  `RuntimeTable` values in schema column order, then reuses existing table
+  diagnostics, DateTime coverage, missing policies, constraints, and
+  provenance paths.
+- Updated workflow 01 to remove the `weather_hourly` CSV arg and promote
+  `api_payload.records` as `WeatherApiRecord`; the workflow contract test
+  now asserts `source:json_records:weather` and absence of
+  `sample_weather_hourly.csv` in the result.
 
 ## API And Wording Cleanup Candidates
 

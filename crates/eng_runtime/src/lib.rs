@@ -968,10 +968,11 @@ pub fn build_standalone(
         let Some(destination) =
             bundled_dependency_path(&source_dir, &bundle_path, &promotion.source_value)
         else {
+            let source_kind = table_promotion_source_kind(&promotion.source_format);
             return Err(RuntimeError::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!(
-                    "CSV dependency `{}` cannot be bundled because it escapes the standalone bundle",
+                    "{source_kind} dependency `{}` cannot be bundled because it escapes the standalone bundle",
                     promotion.source_value
                 ),
             )));
@@ -5268,8 +5269,13 @@ fn run_lock_args(args: &[ArgOverride]) -> Vec<Value> {
 fn run_lock_dependencies(report: &CheckReport) -> Vec<Value> {
     let mut dependencies = Vec::new();
     for promotion in &report.semantic_program.csv_promotions {
+        let kind = if promotion.source_format == "json_records" {
+            "json_records"
+        } else {
+            "csv"
+        };
         dependencies.push(json!({
-            "kind": "csv",
+            "kind": kind,
             "binding": &promotion.binding,
             "path": &promotion.resolved_path,
             "hash": &promotion.source_hash
@@ -5685,16 +5691,19 @@ fn static_run_plan_json(
         edges.push(run_plan_edge("source:program", &id, "declares"));
     }
     for promotion in &report.semantic_program.csv_promotions {
-        let id = format!("source:csv:{}", promotion.binding);
+        let source_kind = table_promotion_source_kind(&promotion.source_format);
+        let id = format!("source:{source_kind}:{}", promotion.binding);
+        let node_kind = table_promotion_node_kind(&promotion.source_format);
         nodes.push(run_plan_node(
             &id,
-            "csv_promotion",
+            node_kind,
             &promotion.binding,
             "planned",
             "static",
             "medium",
             promotion.line,
             vec![json!({
+                "source_format": &promotion.source_format,
                 "schema": &promotion.schema_name,
                 "path": &promotion.resolved_path,
                 "hash": &promotion.source_hash,
@@ -6063,17 +6072,20 @@ fn run_plan_json(
     ));
 
     for promotion in &report.semantic_program.csv_promotions {
-        let id = format!("source:csv:{}", promotion.binding);
+        let source_kind = table_promotion_source_kind(&promotion.source_format);
+        let id = format!("source:{source_kind}:{}", promotion.binding);
+        let node_kind = table_promotion_node_kind(&promotion.source_format);
         nodes.push(run_plan_node(
             &id,
-            "csv_promotion",
+            node_kind,
             &promotion.binding,
             "promoted",
             "static",
             "medium",
             promotion.line,
             vec![json!({
-                "kind": "source_file",
+                "kind": source_kind,
+                "source_format": &promotion.source_format,
                 "path": &promotion.resolved_path,
                 "hash": &promotion.source_hash,
                 "row_count": promotion.row_count
@@ -6601,6 +6613,7 @@ fn source_binding_node_id(binding: &str, node_ids: &HashSet<String>) -> Option<S
     [
         format!("table_transform:{binding}"),
         format!("source:csv:{binding}"),
+        format!("source:json_records:{binding}"),
         format!("source:config:{binding}"),
         format!("table_selection:{binding}"),
         format!("timeseries_coverage:{binding}"),
@@ -6611,6 +6624,22 @@ fn source_binding_node_id(binding: &str, node_ids: &HashSet<String>) -> Option<S
     ]
     .into_iter()
     .find(|id| node_ids.contains(id))
+}
+
+fn table_promotion_source_kind(source_format: &str) -> &'static str {
+    if source_format == "json_records" {
+        "json_records"
+    } else {
+        "csv"
+    }
+}
+
+fn table_promotion_node_kind(source_format: &str) -> &'static str {
+    if source_format == "json_records" {
+        "json_records_promotion"
+    } else {
+        "csv_promotion"
+    }
 }
 
 fn cache_owner_node_id(
@@ -6921,13 +6950,16 @@ fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<So
             .csv_promotions
             .iter()
             .map(|promotion| SourceRecord {
-                kind: "source_file".to_owned(),
+                kind: table_promotion_source_kind(&promotion.source_format).to_owned(),
                 binding: promotion.binding.clone(),
                 path: promotion.resolved_path.clone(),
                 hash: promotion.source_hash.clone(),
                 schema: Some(promotion.schema_name.clone()),
                 row_count: Some(promotion.row_count),
-                status: "promoted_csv".to_owned(),
+                status: format!(
+                    "promoted_{}",
+                    table_promotion_source_kind(&promotion.source_format)
+                ),
                 line: promotion.line,
             }),
     );
@@ -8737,6 +8769,10 @@ fn result_json(
         data_hashes.push_str(&format!(
             "        \"binding\": \"{}\",\n",
             json_escape(&promotion.binding)
+        ));
+        data_hashes.push_str(&format!(
+            "        \"source_format\": \"{}\",\n",
+            json_escape(&promotion.source_format)
         ));
         data_hashes.push_str(&format!(
             "        \"source\": \"{}\",\n",
@@ -15467,6 +15503,24 @@ mod tests {
         assert!(weather_output
             .result_json
             .contains("\"timeseries_coverage\""));
+        assert!(weather_output
+            .result_json
+            .contains("\"source_format\": \"json_records\""));
+        assert!(weather_output
+            .review_json
+            .contains("\"json_records_field\": \"records\""));
+        assert!(weather_output
+            .run_plan_json
+            .contains("\"source:json_records:weather\""));
+        assert!(weather_output
+            .run_plan_json
+            .contains("\"kind\": \"json_records_promotion\""));
+        assert!(weather_output
+            .output_manifest_json
+            .contains("\"kind\": \"json_records\""));
+        assert!(!weather_output
+            .result_json
+            .contains("sample_weather_hourly.csv"));
         assert!(weather_output.review_json.contains("\"workflow_modules\""));
 
         let surrogate_dir = repo_root

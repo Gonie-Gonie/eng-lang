@@ -3244,8 +3244,20 @@ fn materialize_table(
     schema: &SchemaInfo,
     promotion: &eng_compiler::CsvPromotion,
 ) -> Option<RuntimeTable> {
-    let source = fs::read_to_string(&promotion.resolved_path).ok()?;
-    let rows = parse_csv(&source);
+    let rows = if promotion.source_format == "json_records" {
+        materialize_json_record_rows(schema, promotion)?
+    } else {
+        let source = fs::read_to_string(&promotion.resolved_path).ok()?;
+        parse_csv(&source)
+    };
+    materialize_table_from_rows(schema, promotion, rows)
+}
+
+fn materialize_table_from_rows(
+    schema: &SchemaInfo,
+    promotion: &eng_compiler::CsvPromotion,
+    rows: Vec<Vec<String>>,
+) -> Option<RuntimeTable> {
     let headers = rows.first()?.clone();
     let header_index = headers
         .iter()
@@ -3278,6 +3290,64 @@ fn materialize_table(
         parse_failures,
         line: promotion.line,
     })
+}
+
+fn materialize_json_record_rows(
+    schema: &SchemaInfo,
+    promotion: &eng_compiler::CsvPromotion,
+) -> Option<Vec<Vec<String>>> {
+    let records_field = promotion.json_records_field.as_deref()?;
+    let source = fs::read_to_string(&promotion.resolved_path).ok()?;
+    let value = serde_json::from_str::<JsonValue>(&source).ok()?;
+    let records = runtime_json_records_array(&value, records_field)?;
+    let headers = schema
+        .columns
+        .iter()
+        .map(|column| column.name.clone())
+        .collect::<Vec<_>>();
+    let mut rows = Vec::with_capacity(records.len() + 1);
+    rows.push(headers.clone());
+    for record in records {
+        let object = record.as_object();
+        rows.push(
+            headers
+                .iter()
+                .map(|header| {
+                    object
+                        .and_then(|fields| fields.get(header))
+                        .map(json_value_to_cell)
+                        .unwrap_or_default()
+                })
+                .collect(),
+        );
+    }
+    Some(rows)
+}
+
+fn runtime_json_records_array<'a>(
+    value: &'a JsonValue,
+    records_field: &str,
+) -> Option<&'a Vec<JsonValue>> {
+    let mut current = value;
+    for segment in records_field
+        .split('.')
+        .filter(|segment| !segment.is_empty())
+    {
+        current = current.get(segment)?;
+    }
+    current.as_array()
+}
+
+fn json_value_to_cell(value: &JsonValue) -> String {
+    match value {
+        JsonValue::Null => String::new(),
+        JsonValue::Bool(value) => value.to_string(),
+        JsonValue::Number(value) => value.to_string(),
+        JsonValue::String(value) => value.clone(),
+        JsonValue::Array(_) | JsonValue::Object(_) => {
+            serde_json::to_string(value).unwrap_or_default()
+        }
+    }
 }
 
 fn materialize_generated_sample_tables(report: &CheckReport) -> Vec<RuntimeTable> {
