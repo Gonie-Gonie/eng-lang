@@ -1193,6 +1193,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                         &mut typed_bindings,
                         &mut type_infos,
                         &mut unit_derivations,
+                        &mut inferred_declarations,
                     );
                 }
             }
@@ -10070,6 +10071,7 @@ fn analyze_explicit_decl(
     typed_bindings: &mut Vec<TypedBinding>,
     type_infos: &mut Vec<TypeInfo>,
     unit_derivations: &mut Vec<UnitDerivation>,
+    inferred_declarations: &mut Vec<InferredDeclaration>,
 ) {
     expected_types.push(expected_type_from_explicit_decl(declaration));
 
@@ -10120,6 +10122,20 @@ fn analyze_explicit_decl(
         &canonical_unit,
         declaration.line,
     ));
+    if declaration.context == ParseContext::TopLevel
+        && declaration
+            .expression
+            .as_deref()
+            .is_some_and(|expression| expression.trim_start().starts_with("select_first_row("))
+    {
+        inferred_declarations.push(InferredDeclaration {
+            name: declaration.name.clone(),
+            quantity_kind: declaration.type_name.clone(),
+            display_unit,
+            expression: declaration.expression.clone().unwrap_or_default(),
+            line: declaration.line,
+        });
+    }
 }
 
 fn analyze_system_variable(

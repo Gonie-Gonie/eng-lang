@@ -3505,6 +3505,84 @@ fn render_print_template(
     rendered
 }
 
+fn render_runtime_text_template(
+    template: &str,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+) -> String {
+    let mut rendered = String::new();
+    let mut cursor = 0usize;
+    while let Some(open) = template[cursor..].find('{') {
+        let start = cursor + open;
+        rendered.push_str(&template[cursor..start]);
+        let Some(close_offset) = template[start + 1..].find('}') else {
+            rendered.push_str(&template[start..]);
+            return rendered;
+        };
+        let close = start + 1 + close_offset;
+        let field_text = template[start + 1..close].trim();
+        let fallback = format!("{{{field_text}}}");
+        let (expression, spec) = split_runtime_format_field(field_text);
+        let format_spec = parse_runtime_format_spec(spec.unwrap_or_default());
+        let value = evaluate_runtime_expression(expression, report, runtime_data)
+            .map(|value| {
+                format_runtime_value(
+                    value,
+                    format_spec.unit.as_deref(),
+                    format_spec.precision,
+                    true,
+                )
+            })
+            .unwrap_or(fallback);
+        rendered.push_str(&value);
+        cursor = close + 1;
+    }
+    rendered.push_str(&template[cursor..]);
+    rendered
+}
+
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+struct RuntimeFormatSpec {
+    precision: Option<usize>,
+    unit: Option<String>,
+}
+
+fn split_runtime_format_field(field: &str) -> (&str, Option<&str>) {
+    field
+        .split_once(':')
+        .map(|(expression, spec)| (expression.trim(), Some(spec.trim())))
+        .unwrap_or((field.trim(), None))
+}
+
+fn parse_runtime_format_spec(spec: &str) -> RuntimeFormatSpec {
+    let trimmed = spec.trim();
+    if trimmed.is_empty() {
+        return RuntimeFormatSpec::default();
+    }
+    let Some(after_dot) = trimmed.strip_prefix('.') else {
+        return RuntimeFormatSpec {
+            precision: None,
+            unit: Some(trimmed.to_owned()),
+        };
+    };
+    let digit_count = after_dot
+        .chars()
+        .take_while(|character| character.is_ascii_digit())
+        .count();
+    let precision = if digit_count > 0 {
+        after_dot[..digit_count].parse::<usize>().ok()
+    } else {
+        None
+    };
+    let unit_text = after_dot[digit_count..].trim();
+    let unit = if unit_text.is_empty() {
+        None
+    } else {
+        Some(unit_text.to_owned())
+    };
+    RuntimeFormatSpec { precision, unit }
+}
+
 struct ArtifactRegistryContext<'a> {
     report: &'a CheckReport,
     runtime_data: &'a RuntimeData,
@@ -5037,6 +5115,15 @@ fn render_write_contents(
     report: &CheckReport,
     runtime_data: &RuntimeData,
 ) -> Option<String> {
+    if write.format == "text" && write.expression.trim_start().starts_with('"') {
+        let template = strip_runtime_string_value(&write.expression);
+        return Some(render_runtime_text_template(
+            &template,
+            report,
+            runtime_data,
+        ));
+    }
+
     let value = evaluate_runtime_expression(&write.expression, report, runtime_data)?;
     match write.format.as_str() {
         "text" => Some(format_runtime_value(value, None, None, true)),
@@ -7738,6 +7825,28 @@ fn evaluate_runtime_expression(
     }
     if let Some(value) = evaluate_coverage_expression(expression, runtime_data) {
         return Some(value);
+    }
+    if let Some(selection) = runtime_data
+        .table_selections
+        .iter()
+        .find(|selection| selection.binding == expression)
+    {
+        return Some(RuntimeFormatValue::Text(
+            selection.selected_value.clone().unwrap_or_default(),
+        ));
+    }
+    if let Some(transform) = runtime_data
+        .table_transforms
+        .iter()
+        .find(|transform| transform.binding == expression)
+    {
+        return Some(RuntimeFormatValue::Summary(format!(
+            "TableTransform {}: {} -> {} rows ({})",
+            transform.binding,
+            transform.input_row_count,
+            transform.output_row_count,
+            transform.status
+        )));
     }
     if let Some(value) = evaluate_statistic_expression(expression, runtime_data) {
         return Some(value);
@@ -19430,6 +19539,43 @@ mod tests {
         assert_eq!(output.write_output_paths.len(), 1);
         let text = fs::read_to_string(build_root.join("result").join("note.txt")).expect("note");
         assert_eq!(text, "fresh");
+    }
+
+    #[test]
+    fn run_file_interpolates_write_text_string_literals() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-write-template");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-write-template-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("sensor.csv"),
+            "time,T_supply\n2024-01-01T00:00:00+09:00,20\n2024-01-01T01:00:00+09:00,21\n",
+        )
+        .expect("sensor csv");
+        fs::write(
+            source_dir.join("data").join("stations.csv"),
+            "region,station_id,valid_from,valid_to\ndemo,STN001,2020-01-01T00:00:00+09:00,2030-12-31T23:00:00+09:00\n",
+        )
+        .expect("station csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema StationMap {\n    region: String\n    station_id: String\n    valid_from: DateTime\n    valid_to: DateTime\n}\n\nschema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n}\n\nargs {\n    station_map: CsvFile = file(\"data/stations.csv\")\n    input: CsvFile = file(\"data/sensor.csv\")\n}\n\nstations = promote csv args.station_map as StationMap\nsensor = promote csv args.input as SensorData\nselected_station_id: String = select_first_row(stations, return_column=\"station_id\", region=\"demo\", start=date(2024, 1, 1), end=date(2024, 12, 31))\nwrite text \"summary.txt\", \"rows={sensor.rows} station={selected_station_id} input={args.input}\"\nwith {\n    overwrite = true\n}\n",
+        )
+        .expect("write source");
+
+        run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+
+        let text =
+            fs::read_to_string(build_root.join("result").join("summary.txt")).expect("summary");
+        assert_eq!(text, "rows=2 station=STN001 input=data/sensor.csv");
     }
 
     #[test]

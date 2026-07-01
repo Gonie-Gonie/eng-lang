@@ -71,18 +71,18 @@ with {
     overwrite = true
 }
 
-write text "outputs/standard_weather_file.txt", "station_id=STN001 year=2024 records=2 timezone=UTC+09:00"
+write text "outputs/standard_weather_file.txt", "station_id={selected_station_id} year={args.year} records={weather.rows} timezone=UTC+09:00"
 with {
     overwrite = true
 }
 
-write text "outputs/weather_quality_summary.txt", "station_id=STN001 hourly_records=2 missing=0 max_gap_hours=1 status=ok"
+write text "outputs/weather_quality_summary.txt", "station_id={selected_station_id} hourly_records={coverage.actual_count} missing={coverage.missing_count} max_gap_hours={coverage.max_gap_hours: .1 h} status={coverage.status}"
 with {
     overwrite = true
 }
 
 print "Weather fixture region = {args.region}"
-print "Selected station = STN001"
+print "Selected station = {selected_station_id}"
 print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
 log info "weather API fixture fetched through native network/cache boundary and standard artifact recorded"
