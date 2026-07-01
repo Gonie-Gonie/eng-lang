@@ -74,7 +74,11 @@ with {
     overwrite = true
 }
 
-native_case_status = "case inputs rendered natively from declared surrogate cases"
+summary_case_id: String = case_001.case_id
+annual_electricity: Energy [kWh] = case_001.annual_electricity
+peak_cooling: HeatRate [kW] = case_001.peak_cooling
+unmet_hours: Duration [h] = case_001.unmet_hours
+native_case_status = "case inputs and summary metrics rendered natively from selected sample rows"
 native_model_status = "training samples, regression model, predictions, and DB writes materialized natively"
 db = open sqlite file("outputs/surrogate_results.sqlite")
 write training_results to db.table("simulation_results")
@@ -87,9 +91,6 @@ with {
     mode = append
 }
 
-annual_electricity = 12800 kWh
-peak_cooling = 14.2 kW
-unmet_hours = 0 h
 db_tables_written = "simulation_results,predictions"
 
 print "Design samples = {designs.rows}"
@@ -116,6 +117,7 @@ report {
     show model_card_summary
     show model_metrics
     show db_tables_written
+    show summary_case_id
     show annual_electricity
     show peak_cooling
     show unmet_hours

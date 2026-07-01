@@ -13,7 +13,7 @@ The current executable workflow uses:
 ```text
 eng.sampling  deterministic LHS training and prediction sample tables
 eng.case      generated case manifests from sample-style tables
-eng.template  native template rendering for three case input files
+eng.template  native template rendering for three case input files from selected sample rows
 eng.model     regression_table(...) and predict model using samples
 eng.db        native SQLite writes for training results and predictions
 eng.artifact  output manifest records for rendered inputs, DB, model, and report
@@ -27,6 +27,7 @@ typed_payload.sample_tables includes training_results and designs
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
 output_manifest.json records rendered case inputs and workflow_summary.csv
+workflow_summary.csv records values pulled from the selected native sample row, not fixed literals
 ```
 
 The generated training table is produced by EngLang's native sampler and then

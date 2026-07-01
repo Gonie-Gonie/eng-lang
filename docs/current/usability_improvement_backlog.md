@@ -912,6 +912,17 @@ Status: implemented after native workflow API review.
 - Added a `workflows-test` guard so native workflow examples cannot reintroduce
   the legacy table helper while claiming native row selection.
 
+## Batch 75: Workflow 02 Native Summary Values
+
+Status: implemented after native surrogate workflow review.
+
+- Removed fixed summary literals from workflow 02.
+- Routed `annual_electricity`, `peak_cooling`, and `unmet_hours` through the
+  selected `case_001` sample row so the CSV summary matches the native
+  `sample lhs` table and rendered case input.
+- Extended workflow smoke coverage so `workflow_summary.csv` cannot regress to
+  the old fixed `12800.0,14.2,0.0` row while claiming native sampling.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -15690,6 +15690,10 @@ mod tests {
         assert!(surrogate_output
             .output_manifest_json
             .contains("outputs/workflow_summary.csv"));
+        let surrogate_summary_csv =
+            fs::read_to_string(&surrogate_output.csv_export_paths[0]).expect("surrogate summary");
+        assert!(!surrogate_summary_csv.contains("12800.0,14.2,0.0"));
+        assert!(surrogate_summary_csv.contains("12581.5,12.5,1.6"));
         assert!(surrogate_output.result_json.contains("\"case_manifests\""));
         assert!(surrogate_output.result_json.contains("\"model_cards\""));
         assert!(surrogate_output

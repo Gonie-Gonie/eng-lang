@@ -17,7 +17,7 @@ eng.exe run examples/workflows/02_external_simulation_surrogate/main.eng --save-
 What it proves:
 
 - deterministic native `sample lhs` tables for training and prediction inputs
-- native template rendering for case input files
+- native template rendering and summary values from selected sample rows
 - native table-based `regression_table(...)` model training
 - native `predict surrogate_model using designs` prediction table materialization
 - native SQLite writes to `simulation_results` and `predictions`
