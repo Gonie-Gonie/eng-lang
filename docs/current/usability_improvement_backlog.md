@@ -47,9 +47,9 @@ Status: implemented in the third cleanup batch.
 
 ## Seed-To-Implementation Candidates
 
-- Cache replay/invalidation: current cache records hit/miss and hash policy;
-  implement a real replay path only when the artifact contract can prove the
-  cached value is safe to reuse.
+- Cache replay/invalidation: network fixture cache materialization/replay is
+  implemented with hash checks; broader process/model replay and explicit
+  invalidation remain to be designed around artifact safety.
 - Live network execution: current network support is fixture/offline-first;
   add live HTTP only with timeout, retry, body limit, secret redaction, and
   reproducible pinning policy.

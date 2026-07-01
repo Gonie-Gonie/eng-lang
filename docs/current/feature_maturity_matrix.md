@@ -277,13 +277,15 @@ separate.
   quantity/unit, confidence-column metadata, and hashes, and DB write manifests
   with schema diagnostics, table records, and transaction status as reviewable
   fixture artifacts.
-- Not included: live HTTP execution/cache replay API, general table derived-value execution/fill transforms,
+- Not included: live HTTP execution and broader cache invalidation/reuse API,
+  general table derived-value execution/fill transforms,
   native case apply/collect syntax and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
   parser, broad DB engines/query APIs/migrations, or ML framework
   support.
-- Next cleanup action: extend `eng.net` and `eng.cache` beyond fixture/manifest
-  seeds, then use the workflow skeletons to drive remaining `eng.case`,
-  `eng.db`, and `eng.model` slices with artifacts and diagnostics.
+- Next cleanup action: extend `eng.net` beyond fixture execution and grow
+  `eng.cache` beyond network fixture materialization/replay, then use the
+  workflow skeletons to drive remaining `eng.case`, `eng.db`, and `eng.model`
+  slices with artifacts and diagnostics.
 
 ## Solver Vocabulary
 

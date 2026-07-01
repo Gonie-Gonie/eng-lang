@@ -151,7 +151,7 @@ tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network",
 [module."eng.cache"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "Explicit cache keys, cache hit/miss lookup records, stale cache diagnostics, cache manifests, and review/run-log cache summaries; reuse remains planned."
+purpose = "Explicit cache keys, network fixture cache materialization/replay, hit/miss records, stale cache diagnostics, cache manifests, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned."
 artifacts = ["cache_manifest", "review.caches", "run_log.cache_events", "output_manifest"]
 diagnostics = ["E-CACHE-KEY-NONDETERMINISTIC", "E-CACHE-HASH-MISMATCH", "E-CACHE-UNHASHED-REPRO", "W-CACHE-STALE"]
 examples = ["examples/workflows/01_weather_api_to_standard_file_hybrid"]

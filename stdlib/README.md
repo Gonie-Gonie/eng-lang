@@ -48,7 +48,7 @@ APIs unless a status document says so.
 | `eng.report` | Planned | Report/review helper vocabulary. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
 | `eng.net` | Supported narrow scope | Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries. |
-| `eng.cache` | Supported narrow scope | Explicit cache keys, cache manifests, and hit/miss lookup artifacts; reuse/invalidation remains planned. |
+| `eng.cache` | Supported narrow scope | Explicit cache keys, network fixture cache materialization/replay, cache manifests, and hit/miss lookup artifacts; broader reuse/invalidation remains planned. |
 | `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |

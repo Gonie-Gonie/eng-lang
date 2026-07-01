@@ -31,13 +31,14 @@ examples now emit process-generated weather, case, model-card, prediction, and
 database side-effect artifacts. Native network and cache record seeds have
 landed for offline/fixture boundaries and cache manifests; cache manifests now
 share owner records across network, process, model, and case workflow surfaces,
-enforce observed cache hashes under the repro profile, and warn about stale
-cache entries. Native SQLite append/upsert write seeds now produce DB files,
+materialize/replay network fixture cache entries, enforce observed cache hashes
+under the repro profile, and warn about stale cache entries. Native SQLite
+append/upsert write seeds now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
-tables and manifests. Live network execution, cache replay, case runner,
-broad DB support, and broader model train syntax remain planned or internal until concrete
-language/runtime/artifact slices land.
+tables and manifests. Live network execution, broader cache invalidation/reuse,
+case runner, broad DB support, and broader model train syntax remain planned or
+internal until concrete language/runtime/artifact slices land.
 
 ## Purpose
 
@@ -155,9 +156,10 @@ sample/case table metadata, and `typed_payload.case_manifests[]` records one cas
 sample row with process-output enrichment from generated `case_manifest.json`
 files, `typed_payload.db_manifests[]` records generated and native SQLite DB
 write manifests, and current network/cache seeds record fixture boundaries and
-cache hit/miss lookup manifests. Future live network execution,
-cache replay/invalidation, native case runner, broad DB engines, and model
-modules should follow the same artifact pattern.
+cache hit/miss lookup manifests, including materialized/replayed network
+fixture cache entries. Future live network execution, broader cache
+invalidation/reuse, native case runner, broad DB engines, and model modules
+should follow the same artifact pattern.
 
 ## Hybrid Artifact Evidence
 

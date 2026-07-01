@@ -197,9 +197,9 @@ is not mistaken for public module support.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
 - Native composite workflow modules beyond the current network/cache/sampling
-  and SQLite write seeds: live network execution, cache replay/invalidation,
-  native case runner, broad database support, and public model train/predict
-  workflows.
+  and SQLite write seeds: live network execution, broader cache
+  invalidation/reuse APIs, native case runner, broad database support, and
+  public model train/predict workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

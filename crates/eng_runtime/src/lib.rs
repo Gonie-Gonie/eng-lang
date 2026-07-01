@@ -15,6 +15,7 @@ use eng_compiler::{
     CheckReport, ReviewFallbackRecord,
 };
 use serde_json::{json, Value};
+use sha2::{Digest, Sha256};
 
 mod artifact;
 mod runtime_data;
@@ -572,13 +573,18 @@ pub fn run_source(
         execute_native_db_writes(&check_report, &runtime_data, &result_dir)?;
     let mut db_manifest_records = db_manifest_records(&process_results);
     db_manifest_records.extend(native_db_write_output.records.clone());
-    let external_boundary_records =
-        external_boundary_records_for_run(&check_report, &process_results, &db_manifest_records);
-    let cache_manifest_records =
+    let mut cache_manifest_records =
         cache_manifest_records(&check_report, &runtime_data, &process_results, build_root);
+    materialize_network_cache_entries(&check_report, &mut cache_manifest_records, build_root)?;
     ensure_cache_hashes_valid(&cache_manifest_records)?;
     ensure_cache_reproducible(&cache_manifest_records, &options.profile)?;
     let cache_diagnostics = cache_stale_diagnostics(&cache_manifest_records, build_root);
+    let external_boundary_records = external_boundary_records_for_run(
+        &check_report,
+        &process_results,
+        &db_manifest_records,
+        &cache_manifest_records,
+    );
     let cache_manifest_json = cache_manifest_json(
         &check_report,
         &cache_manifest_records,
@@ -1909,6 +1915,69 @@ fn cache_manifest_records(
     records
 }
 
+fn materialize_network_cache_entries(
+    report: &CheckReport,
+    records: &mut [CacheManifestRecord],
+    build_root: &Path,
+) -> Result<(), RuntimeError> {
+    let source_base = report.source_path.parent();
+    for request in &report.semantic_program.net_requests {
+        if request.response_hash.is_none() {
+            continue;
+        }
+        let Some(fixture) = &request.fixture else {
+            continue;
+        };
+        let Some(record) = records.iter_mut().find(|record| {
+            record.owner_kind == "network_request" && record.owner_name == request.binding
+        }) else {
+            continue;
+        };
+        materialize_network_cache_entry(fixture, source_base, record, build_root)?;
+    }
+    for download in &report.semantic_program.net_downloads {
+        if download.response_hash.is_none() {
+            continue;
+        }
+        let Some(fixture) = &download.fixture else {
+            continue;
+        };
+        let Some(record) = records.iter_mut().find(|record| {
+            record.owner_kind == "network_download" && record.owner_name == download.target_value
+        }) else {
+            continue;
+        };
+        materialize_network_cache_entry(fixture, source_base, record, build_root)?;
+    }
+    Ok(())
+}
+
+fn materialize_network_cache_entry(
+    fixture: &str,
+    source_base: Option<&Path>,
+    record: &mut CacheManifestRecord,
+    build_root: &Path,
+) -> Result<(), RuntimeError> {
+    if record.lookup_status == "hit" {
+        return Ok(());
+    }
+    let source = runtime_resolve_source_relative_path(fixture, source_base);
+    if !source.exists() {
+        return Ok(());
+    }
+    let destination = resolve_cache_path(build_root, &record.cache_path);
+    if let Some(parent) = destination.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::copy(&source, &destination)?;
+    record.status = "miss_materialized".to_owned();
+    record.resolved_path = destination.display().to_string();
+    if record.observed_hash.is_none() {
+        record.observed_hash = sha256_file_if_exists(&source);
+    }
+    Ok(())
+}
+
 fn cache_manifest_record(
     record: &eng_compiler::CacheRecordInfo,
     runtime_data: &RuntimeData,
@@ -1921,7 +1990,11 @@ fn cache_manifest_record(
     } else {
         "miss"
     };
-    let observed_hash = cache_observed_hash(record, runtime_data, process_results);
+    let observed_hash = cache_observed_hash(record, runtime_data, process_results).or_else(|| {
+        (network_cache_owner(&record.owner_kind) && resolved_path.exists())
+            .then(|| sha256_file_if_exists(&resolved_path))
+            .flatten()
+    });
     let status = cache_manifest_status(record, observed_hash.as_deref(), lookup_status);
     CacheManifestRecord {
         owner_kind: record.owner_kind.clone(),
@@ -4684,6 +4757,18 @@ fn hash_file_if_exists(path: &Path) -> Option<String> {
     fs::read(path).ok().map(|bytes| hash_bytes(&bytes))
 }
 
+fn sha256_file_if_exists(path: &Path) -> Option<String> {
+    fs::read(path).ok().map(|bytes| sha256_bytes(&bytes))
+}
+
+fn sha256_bytes(source: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(source))
+}
+
+fn network_cache_owner(owner_kind: &str) -> bool {
+    matches!(owner_kind, "network_request" | "network_download")
+}
+
 fn native_db_write_manifest_json(record: &DbManifestRecord) -> String {
     let mut json = String::new();
     json.push_str("{\n");
@@ -6901,9 +6986,10 @@ fn external_boundary_records_for_run(
     report: &CheckReport,
     processes: &[ProcessExecutionRecord],
     db_records: &[DbManifestRecord],
+    cache_records: &[CacheManifestRecord],
 ) -> Vec<ExternalBoundaryRecord> {
     let mut records = external_boundary_records_for_processes(processes);
-    records.extend(external_boundary_records_for_network(report));
+    records.extend(external_boundary_records_for_network(report, cache_records));
     records.extend(external_boundary_records_for_db_manifests(db_records));
     records
 }
@@ -6945,9 +7031,51 @@ fn external_boundary_records_for_processes(
         .collect()
 }
 
-fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBoundaryRecord> {
+fn network_cache_hit_hash<'a>(
+    cache_records: &'a [CacheManifestRecord],
+    owner_kind: &str,
+    owner_name: &str,
+) -> Option<&'a str> {
+    cache_records
+        .iter()
+        .find(|record| {
+            record.owner_kind == owner_kind
+                && record.owner_name == owner_name
+                && record.lookup_status == "hit"
+                && record.status == "hit"
+        })
+        .and_then(|record| record.observed_hash.as_deref())
+}
+
+fn network_status_with_cache(
+    status: &str,
+    response_hash: Option<&str>,
+    cached_hash: Option<&str>,
+) -> String {
+    if response_hash.is_none() && cached_hash.is_some() {
+        "cached".to_owned()
+    } else {
+        status.to_owned()
+    }
+}
+
+fn external_boundary_records_for_network(
+    report: &CheckReport,
+    cache_records: &[CacheManifestRecord],
+) -> Vec<ExternalBoundaryRecord> {
     let mut records = Vec::new();
     for request in &report.semantic_program.net_requests {
+        let cached_hash =
+            network_cache_hit_hash(cache_records, "network_request", &request.binding);
+        let response_hash = request
+            .response_hash
+            .clone()
+            .or_else(|| cached_hash.map(ToOwned::to_owned));
+        let status = network_status_with_cache(
+            &request.status,
+            request.response_hash.as_deref(),
+            cached_hash,
+        );
         records.push(ExternalBoundaryRecord {
             kind: "network_request".to_owned(),
             binding: request.binding.clone(),
@@ -6965,16 +7093,32 @@ fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBo
             output_paths: Vec::new(),
             expected_output_count: 0,
             expected_output_status: "not_applicable".to_owned(),
-            response_hash: request.response_hash.clone(),
+            response_hash,
             expected_hash: request.expected_sha256.clone(),
-            stdout_hash: request.response_hash.clone().unwrap_or_default(),
+            stdout_hash: request
+                .response_hash
+                .as_deref()
+                .or(cached_hash)
+                .unwrap_or_default()
+                .to_owned(),
             stderr_hash: String::new(),
-            success: external_boundary_status_success(&request.status),
-            status: request.status.clone(),
+            success: external_boundary_status_success(&status),
+            status,
             line: request.line,
         });
     }
     for download in &report.semantic_program.net_downloads {
+        let cached_hash =
+            network_cache_hit_hash(cache_records, "network_download", &download.target_value);
+        let response_hash = download
+            .response_hash
+            .clone()
+            .or_else(|| cached_hash.map(ToOwned::to_owned));
+        let status = network_status_with_cache(
+            &download.status,
+            download.response_hash.as_deref(),
+            cached_hash,
+        );
         records.push(ExternalBoundaryRecord {
             kind: "network_download".to_owned(),
             binding: "download".to_owned(),
@@ -6991,13 +7135,18 @@ fn external_boundary_records_for_network(report: &CheckReport) -> Vec<ExternalBo
             timed_out: false,
             output_paths: vec![download.target_value.clone()],
             expected_output_count: 1,
-            expected_output_status: download.status.clone(),
-            response_hash: download.response_hash.clone(),
+            expected_output_status: status.clone(),
+            response_hash,
             expected_hash: download.expected_sha256.clone(),
-            stdout_hash: download.response_hash.clone().unwrap_or_default(),
+            stdout_hash: download
+                .response_hash
+                .as_deref()
+                .or(cached_hash)
+                .unwrap_or_default()
+                .to_owned(),
             stderr_hash: String::new(),
-            success: external_boundary_status_success(&download.status),
-            status: download.status.clone(),
+            success: external_boundary_status_success(&status),
+            status,
             line: download.line,
         });
     }
@@ -8780,7 +8929,7 @@ fn result_json(
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let structured_reads = structured_reads_json(runtime_data);
     let config_promotions = config_promotions_json(report);
-    let network_boundaries = network_boundaries_json(report);
+    let network_boundaries = network_boundaries_json(report, cache_records);
     let table_selections = table_selections_json(runtime_data, "      ");
     let table_transforms = table_transforms_json(runtime_data, "      ");
     let expectation_suites = expectation_suites_json(runtime_data, "      ");
@@ -14372,10 +14521,24 @@ fn config_promotions_json(report: &CheckReport) -> String {
     json
 }
 
-fn network_boundaries_json(report: &CheckReport) -> String {
+fn network_boundaries_json(report: &CheckReport, cache_records: &[CacheManifestRecord]) -> String {
     let mut json = String::new();
     let mut first = true;
     for request in &report.semantic_program.net_requests {
+        let cached_hash =
+            network_cache_hit_hash(cache_records, "network_request", &request.binding);
+        let response_hash = request.response_hash.as_deref().or(cached_hash);
+        let status = network_status_with_cache(
+            &request.status,
+            request.response_hash.as_deref(),
+            cached_hash,
+        );
+        let status_code = request.status_code.or_else(|| cached_hash.map(|_| 200));
+        let status_class = if request.response_hash.is_none() && cached_hash.is_some() {
+            "success"
+        } else {
+            request.status_class.as_str()
+        };
         if !first {
             json.push_str(",\n");
         }
@@ -14391,12 +14554,7 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             json_escape(&request.url_value)
         ));
         push_network_query_json(&mut json, &request.query, "        ");
-        push_optional_json_string(
-            &mut json,
-            "response_hash",
-            request.response_hash.as_deref(),
-            8,
-        );
+        push_optional_json_string(&mut json, "response_hash", response_hash, 8);
         push_optional_json_string(
             &mut json,
             "expected_sha256",
@@ -14411,7 +14569,7 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             request.body_size_limit_bytes,
             8,
         );
-        match request.status_code {
+        match status_code {
             Some(status_code) => {
                 json.push_str(&format!("        \"status_code\": {},\n", status_code))
             }
@@ -14419,16 +14577,30 @@ fn network_boundaries_json(report: &CheckReport) -> String {
         }
         json.push_str(&format!(
             "        \"status_class\": \"{}\",\n",
-            json_escape(&request.status_class)
+            json_escape(status_class)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&request.status)
+            json_escape(&status)
         ));
         json.push_str(&format!("        \"line\": {}\n", request.line));
         json.push_str("      }");
     }
     for download in &report.semantic_program.net_downloads {
+        let cached_hash =
+            network_cache_hit_hash(cache_records, "network_download", &download.target_value);
+        let response_hash = download.response_hash.as_deref().or(cached_hash);
+        let status = network_status_with_cache(
+            &download.status,
+            download.response_hash.as_deref(),
+            cached_hash,
+        );
+        let status_code = download.status_code.or_else(|| cached_hash.map(|_| 200));
+        let status_class = if download.response_hash.is_none() && cached_hash.is_some() {
+            "success"
+        } else {
+            download.status_class.as_str()
+        };
         if !first {
             json.push_str(",\n");
         }
@@ -14444,12 +14616,7 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             json_escape(&download.target_value)
         ));
         push_network_query_json(&mut json, &download.query, "        ");
-        push_optional_json_string(
-            &mut json,
-            "response_hash",
-            download.response_hash.as_deref(),
-            8,
-        );
+        push_optional_json_string(&mut json, "response_hash", response_hash, 8);
         push_optional_json_string(
             &mut json,
             "expected_sha256",
@@ -14464,7 +14631,7 @@ fn network_boundaries_json(report: &CheckReport) -> String {
             download.body_size_limit_bytes,
             8,
         );
-        match download.status_code {
+        match status_code {
             Some(status_code) => {
                 json.push_str(&format!("        \"status_code\": {},\n", status_code))
             }
@@ -14472,11 +14639,11 @@ fn network_boundaries_json(report: &CheckReport) -> String {
         }
         json.push_str(&format!(
             "        \"status_class\": \"{}\",\n",
-            json_escape(&download.status_class)
+            json_escape(status_class)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&status)
         ));
         json.push_str(&format!("        \"line\": {}\n", download.line));
         json.push_str("      }");
@@ -17627,8 +17794,18 @@ finally:
             .result_json
             .contains("\"left\": \"probability(Q < 7 kW)\""));
         assert!(output.result_json.contains("\"operator\": \"between\""));
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+        let validations = result_json
+            .pointer("/typed_payload/validations")
+            .and_then(Value::as_array)
+            .expect("validation payload");
         assert_eq!(
-            output.result_json.matches("\"status\": \"passed\"").count(),
+            validations
+                .iter()
+                .filter(|validation| {
+                    validation.get("status").and_then(Value::as_str) == Some("passed")
+                })
+                .count(),
             3
         );
         assert!(output.report_spec_json.contains("probability(Q < 7 kW)"));
@@ -19763,7 +19940,7 @@ finally:
             .contains("\"lookup_status\": \"miss\""));
         assert!(output
             .cache_manifest_json
-            .contains("\"status\": \"miss_fixture_available\""));
+            .contains("\"status\": \"miss_materialized\""));
         assert!(output.output_manifest_json.contains("\"network_requests\""));
         assert!(output.output_manifest_json.contains("\"downloads\""));
         assert!(output.output_manifest_json.contains("\"caches\""));
@@ -19783,6 +19960,39 @@ finally:
         assert!(output
             .review_json
             .contains("\"kind\": \"network_download\""));
+
+        fs::remove_file(source_dir.join("data").join("response.json")).expect("remove response");
+        fs::remove_file(source_dir.join("data").join("download.csv")).expect("remove download");
+        let cached_output =
+            run_file(&source_path, &build_root, &RunOptions::default()).expect("cached run");
+        let cached_result_json =
+            serde_json::from_str::<Value>(&cached_output.result_json).expect("cached result json");
+
+        assert_eq!(
+            cached_result_json
+                .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("cached")
+        );
+        assert_eq!(
+            cached_result_json
+                .pointer("/typed_payload/network_boundaries/1/status")
+                .and_then(Value::as_str),
+            Some("cached")
+        );
+        assert_eq!(
+            cached_result_json
+                .pointer("/typed_payload/network_boundaries/0/response_hash")
+                .and_then(Value::as_str),
+            Some("e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726")
+        );
+        assert!(cached_output
+            .cache_manifest_json
+            .contains("\"lookup_status\": \"hit\""));
+        assert!(cached_output
+            .cache_manifest_json
+            .contains("\"status\": \"hit\""));
+        assert!(cached_output.review_json.contains("\"status\": \"cached\""));
     }
 
     #[test]
