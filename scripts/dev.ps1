@@ -1681,7 +1681,18 @@ function Assert-VscodeExtensionContract {
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
     $Commands = @($Package.contributes.commands | ForEach-Object { $_.command })
-    foreach ($Required in @("englang.checkFile", "englang.runFile", "englang.openReport")) {
+    foreach ($Required in @(
+        "englang.checkFile",
+        "englang.runFile",
+        "englang.openReport",
+        "englang.openLastArtifact",
+        "englang.openReviewJson",
+        "englang.openOutputManifest",
+        "englang.openRunLog",
+        "englang.openRunPlan",
+        "englang.openProcessResults",
+        "englang.openCacheManifest"
+    )) {
         if ($Commands -notcontains $Required) {
             throw "VS Code extension missing command $Required"
         }
@@ -1698,6 +1709,9 @@ function Assert-VscodeExtensionContract {
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     if ($ExtensionSource.Contains("--entry") -or $ExtensionSource.Contains("runEntry")) {
         throw "VS Code extension run command must use top-level execution without entry flags"
+    }
+    if (-not $ExtensionSource.Contains("--save-artifacts")) {
+        throw "VS Code extension run command must save artifacts for review/open-artifact commands"
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"

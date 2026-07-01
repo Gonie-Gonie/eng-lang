@@ -93,6 +93,34 @@
       {
         "command": "englang.openReport",
         "title": "EngLang: Open Last Report"
+      },
+      {
+        "command": "englang.openLastArtifact",
+        "title": "EngLang: Open Last Run Artifact..."
+      },
+      {
+        "command": "englang.openReviewJson",
+        "title": "EngLang: Open Review JSON"
+      },
+      {
+        "command": "englang.openOutputManifest",
+        "title": "EngLang: Open Output Manifest"
+      },
+      {
+        "command": "englang.openRunLog",
+        "title": "EngLang: Open Run Log"
+      },
+      {
+        "command": "englang.openRunPlan",
+        "title": "EngLang: Open Run Plan"
+      },
+      {
+        "command": "englang.openProcessResults",
+        "title": "EngLang: Open Process Results"
+      },
+      {
+        "command": "englang.openCacheManifest",
+        "title": "EngLang: Open Cache Manifest"
       }
     ]
   }

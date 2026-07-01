@@ -17,7 +17,10 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - position-aware completion from `eng-lsp --completion-stdin`
 - snippets from `snippets/eng.json`
 - quick fixes for `:=` and stale `struct Args` migration diagnostics
-- commands to check, run, and open the latest generated report
+- commands to check, run with saved artifacts, open the latest generated report,
+  and inspect review/run artifacts such as `review.json`, `output_manifest.json`,
+  `run_log.json`, `run_plan.json`, `process_results.json`, and
+  `cache_manifest.json`
 
 ## Install From Portable Package
 
@@ -58,7 +61,9 @@ This is not a persistent LSP-client extension yet. The default `eng-cli`
 backend runs `eng.exe ide-check <file.eng>` on open/save and manual check. The
 optional `lsp-snapshot` backend runs `eng-lsp.exe --snapshot <file.eng>` for
 experimental diagnostics, hover metadata, and completion metadata, while
-run/report commands still use `eng.exe`.
+run/report/artifact commands still use `eng.exe`. `EngLang: Run Current File`
+passes `--save-artifacts`, so the generated `build/result` review artifacts are
+available to the open-artifact commands immediately after a successful run.
 
 Dirty buffers are checked after a short typing pause with
 `eng-lsp.exe --snapshot-stdin <file.eng>`, so Problems can update before the

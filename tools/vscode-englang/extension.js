@@ -9,6 +9,64 @@ const reviewCache = new Map();
 const changeTimers = new Map();
 let output;
 
+const LAST_RUN_ARTIFACTS = [
+  {
+    id: "report",
+    label: "Report HTML",
+    description: "build/result/report.html",
+    relativePath: ["build", "result", "report.html"],
+    external: true
+  },
+  {
+    id: "review",
+    label: "Review JSON",
+    description: "build/result/review.json",
+    relativePath: ["build", "result", "review.json"]
+  },
+  {
+    id: "outputManifest",
+    label: "Output Manifest",
+    description: "build/result/output_manifest.json",
+    relativePath: ["build", "result", "output_manifest.json"]
+  },
+  {
+    id: "runLog",
+    label: "Run Log",
+    description: "build/result/run_log.json",
+    relativePath: ["build", "result", "run_log.json"]
+  },
+  {
+    id: "runPlan",
+    label: "Run Plan",
+    description: "build/result/run_plan.json",
+    relativePath: ["build", "result", "run_plan.json"]
+  },
+  {
+    id: "runLock",
+    label: "Run Lock",
+    description: "build/result/run_lock.json",
+    relativePath: ["build", "result", "run_lock.json"]
+  },
+  {
+    id: "processResults",
+    label: "Process Results",
+    description: "build/result/process_results.json",
+    relativePath: ["build", "result", "process_results.json"]
+  },
+  {
+    id: "cacheManifest",
+    label: "Cache Manifest",
+    description: "build/result/cache_manifest.json",
+    relativePath: ["build", "result", "cache_manifest.json"]
+  },
+  {
+    id: "testResults",
+    label: "Test Results",
+    description: "build/result/test_results.json",
+    relativePath: ["build", "result", "test_results.json"]
+  }
+];
+
 const SEMANTIC_TOKEN_TYPES = [
   "namespace",
   "type",
@@ -73,7 +131,14 @@ function activate(context) {
     }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
-    vscode.commands.registerCommand("englang.openReport", openLastReport),
+    vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
+    vscode.commands.registerCommand("englang.openLastArtifact", openLastRunArtifactPicker),
+    vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
+    vscode.commands.registerCommand("englang.openOutputManifest", () => openLastRunArtifact("outputManifest")),
+    vscode.commands.registerCommand("englang.openRunLog", () => openLastRunArtifact("runLog")),
+    vscode.commands.registerCommand("englang.openRunPlan", () => openLastRunArtifact("runPlan")),
+    vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),
+    vscode.commands.registerCommand("englang.openCacheManifest", () => openLastRunArtifact("cacheManifest")),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider()),
     vscode.languages.registerCompletionItemProvider(
       LANGUAGE_ID,
@@ -287,7 +352,7 @@ async function runActiveFile(context) {
   output.appendLine(`run ${document.uri.fsPath}`);
   cp.execFile(
     runtime,
-    ["run", document.uri.fsPath],
+    ["run", document.uri.fsPath, "--save-artifacts"],
     { cwd, maxBuffer: 10 * 1024 * 1024 },
     (error, stdout, stderr) => {
       if (stdout) {
@@ -305,18 +370,43 @@ async function runActiveFile(context) {
   );
 }
 
-async function openLastReport() {
-  const folder = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-  if (!folder) {
+async function openLastRunArtifactPicker() {
+  const picked = await vscode.window.showQuickPick(
+    LAST_RUN_ARTIFACTS.map((artifact) => ({
+      label: artifact.label,
+      description: artifact.description,
+      artifact
+    })),
+    { placeHolder: "Open an artifact from build/result" }
+  );
+  if (picked) {
+    await openLastRunArtifact(picked.artifact.id);
+  }
+}
+
+async function openLastRunArtifact(artifactId) {
+  const artifact = LAST_RUN_ARTIFACTS.find((item) => item.id === artifactId);
+  if (!artifact) {
+    vscode.window.showWarningMessage(`Unknown EngLang artifact: ${artifactId}`);
+    return;
+  }
+  const root = currentWorkspaceRoot();
+  if (!root) {
     vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
     return;
   }
-  const reportPath = path.join(folder, "build", "result", "report.html");
-  if (!fs.existsSync(reportPath)) {
-    vscode.window.showWarningMessage("No build/result/report.html found yet.");
+  const artifactPath = path.join(root, ...artifact.relativePath);
+  if (!fs.existsSync(artifactPath)) {
+    vscode.window.showWarningMessage(`No ${artifact.description} found yet. Run the current file first.`);
     return;
   }
-  await vscode.env.openExternal(vscode.Uri.file(reportPath));
+  const uri = vscode.Uri.file(artifactPath);
+  if (artifact.external) {
+    await vscode.env.openExternal(uri);
+    return;
+  }
+  const document = await vscode.workspace.openTextDocument(uri);
+  await vscode.window.showTextDocument(document, { preview: false });
 }
 
 class EngSemanticTokensProvider {
@@ -804,6 +894,20 @@ function isEngDocument(document) {
 
 function workspaceRoot(document) {
   return vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath ?? path.dirname(document.uri.fsPath);
+}
+
+function currentWorkspaceRoot() {
+  const document = vscode.window.activeTextEditor?.document;
+  if (document) {
+    const folder = vscode.workspace.getWorkspaceFolder(document.uri);
+    if (folder) {
+      return folder.uri.fsPath;
+    }
+    if (isEngDocument(document)) {
+      return path.dirname(document.uri.fsPath);
+    }
+  }
+  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
 function diagnosticsBackend(document) {
