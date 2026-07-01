@@ -1878,6 +1878,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type")) {
         throw "VS Code extension must expose semantic token debug output"
     }
+    if (-not $ExtensionSource.Contains("registerDefinitionProvider") -or -not $ExtensionSource.Contains("EngDefinitionProvider") -or -not $ExtensionSource.Contains("definitionNameCandidates")) {
+        throw "VS Code extension must expose current-file definition lookup from LSP snapshot symbols"
+    }
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "E-SYNTAX-DECL-001",

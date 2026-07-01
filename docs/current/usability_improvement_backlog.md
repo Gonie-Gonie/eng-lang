@@ -549,6 +549,18 @@ Status: implemented after editor-token documentation review.
   EngLang-specific modifiers, and the `ide-check` parity gate with the VS Code
   extension.
 
+## Batch 46: VS Code Current-File Definition Provider
+
+Status: implemented after editor navigation review.
+
+- Added a VS Code definition provider backed by the unsaved-buffer
+  `eng-lsp --snapshot-stdin` document symbols.
+- Definition lookup now resolves current-file top-level and nested document
+  symbols such as schema fields, class fields, component ports, and object
+  members when the snapshot exposes them.
+- Updated extension docs and `ide-check` contract coverage so the provider does
+  not silently disappear.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

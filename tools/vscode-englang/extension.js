@@ -184,6 +184,10 @@ function activate(context) {
       LANGUAGE_ID,
       new EngDocumentSymbolProvider(context)
     ),
+    vscode.languages.registerDefinitionProvider(
+      LANGUAGE_ID,
+      new EngDefinitionProvider(context)
+    ),
     vscode.languages.registerFoldingRangeProvider(
       LANGUAGE_ID,
       new EngFoldingRangeProvider(context)
@@ -1563,6 +1567,38 @@ class EngDocumentSymbolProvider {
   }
 }
 
+class EngDefinitionProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideDefinition(document, position, cancellationToken) {
+    if (!isEngDocument(document)) {
+      return undefined;
+    }
+    const snapshot =
+      (await snapshotDocumentSource(document, this.context, cancellationToken)) ??
+      reviewCache.get(document.uri.fsPath);
+    if (!snapshot) {
+      return undefined;
+    }
+    reviewCache.set(document.uri.fsPath, snapshot);
+
+    const candidates = definitionNameCandidates(document, position);
+    for (const symbol of flattenSnapshotSymbols(snapshot.document_symbols ?? [])) {
+      if (!candidates.includes(symbol.name)) {
+        continue;
+      }
+      const range = vscodeRangeFromLsp(symbol.selectionRange) ?? vscodeRangeFromLsp(symbol.range);
+      if (!range) {
+        continue;
+      }
+      return new vscode.Location(document.uri, range);
+    }
+    return undefined;
+  }
+}
+
 class EngFoldingRangeProvider {
   constructor(context) {
     this.context = context;
@@ -1610,6 +1646,67 @@ function documentSymbolFromSnapshot(symbol) {
     }
   }
   return documentSymbol;
+}
+
+function flattenSnapshotSymbols(symbols) {
+  const flattened = [];
+  for (const symbol of symbols ?? []) {
+    if (symbol?.name) {
+      flattened.push(symbol);
+    }
+    flattened.push(...flattenSnapshotSymbols(symbol?.children ?? []));
+  }
+  return flattened;
+}
+
+function definitionNameCandidates(document, position) {
+  const line = document.lineAt(position.line).text;
+  const tokenRange = identifierPathRangeAt(line, position.character);
+  if (!tokenRange) {
+    return [];
+  }
+  const token = line.slice(tokenRange.start, tokenRange.end);
+  const parts = token.split(".").filter((part) => part.length > 0);
+  const currentPart = partAtCharacter(token, tokenRange.start, position.character);
+  return Array.from(
+    new Set([
+      token,
+      currentPart,
+      parts[parts.length - 1],
+      parts[0]
+    ].filter((part) => part && /^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(part)))
+  );
+}
+
+function identifierPathRangeAt(line, character) {
+  const isPathChar = (value) => /[A-Za-z0-9_.]/.test(value);
+  let start = Math.min(character, line.length);
+  while (start > 0 && isPathChar(line[start - 1])) {
+    start -= 1;
+  }
+  let end = Math.min(character, line.length);
+  while (end < line.length && isPathChar(line[end])) {
+    end += 1;
+  }
+  const text = line.slice(start, end).replace(/^\.+|\.+$/g, "");
+  if (!/^[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(text)) {
+    return undefined;
+  }
+  return { start, end };
+}
+
+function partAtCharacter(token, tokenStart, character) {
+  const relative = Math.max(0, Math.min(token.length, character - tokenStart));
+  let offset = 0;
+  for (const part of token.split(".")) {
+    const start = offset;
+    const end = offset + part.length;
+    if (relative >= start && relative <= end) {
+      return part;
+    }
+    offset = end + 1;
+  }
+  return undefined;
 }
 
 function foldingRangesFromSnapshot(snapshot) {
