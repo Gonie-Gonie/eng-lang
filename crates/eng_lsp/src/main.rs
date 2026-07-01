@@ -558,6 +558,7 @@ fn code_action_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Opti
         "E-EQ-BOOL-001" => {
             lsp_replacement_code_action(uri, text, diagnostic, "==", "eq", "Replace == with eq")
         }
+        "E-SCRIPT-001" => lsp_remove_script_wrapper_code_action(uri, text, diagnostic),
         _ => None,
     }
 }
@@ -598,15 +599,126 @@ fn lsp_replacement_code_action(
     }))
 }
 
+fn lsp_remove_script_wrapper_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let start_line = diagnostic
+        .pointer("/range/start/line")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())?;
+    let lines = text.lines().collect::<Vec<_>>();
+    let start_text = *lines.get(start_line)?;
+    if !is_script_wrapper_start(start_text) {
+        return None;
+    }
+    let end_line = matching_block_end_line(&lines, start_line)?;
+    if end_line <= start_line || lines.get(end_line)?.trim() != "}" {
+        return None;
+    }
+    let edits = json!([
+        {
+            "range": full_line_range(text, end_line),
+            "newText": ""
+        },
+        {
+            "range": full_line_range(text, start_line),
+            "newText": ""
+        }
+    ]);
+    Some(json!({
+        "title": "Promote script body to top-level workflow",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": workspace_edit_for_edits(uri, edits)
+    }))
+}
+
+fn is_script_wrapper_start(line: &str) -> bool {
+    let trimmed = line.trim();
+    if !trimmed.ends_with('{') {
+        return false;
+    }
+    let head = trimmed.trim_end_matches('{').trim();
+    if head == "script" {
+        return true;
+    }
+    let Some(name) = head.strip_prefix("script ") else {
+        return false;
+    };
+    is_identifier(name.trim())
+}
+
+fn is_identifier(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if first != '_' && !first.is_ascii_alphabetic() {
+        return false;
+    }
+    chars.all(|character| character == '_' || character.is_ascii_alphanumeric())
+}
+
+fn matching_block_end_line(lines: &[&str], start_line: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (line_number, line) in lines.iter().enumerate().skip(start_line) {
+        for character in strip_line_comment(line).chars() {
+            match character {
+                '{' => depth = depth.saturating_add(1),
+                '}' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        return Some(line_number);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+fn strip_line_comment(line: &str) -> &str {
+    line.split_once('#')
+        .map(|(head, _comment)| head)
+        .unwrap_or(line)
+}
+
+fn full_line_range(text: &str, line_number: usize) -> Value {
+    let lines = text.split('\n').collect::<Vec<_>>();
+    if line_number + 1 < lines.len() {
+        return json!({
+            "start": { "line": line_number, "character": 0 },
+            "end": { "line": line_number + 1, "character": 0 }
+        });
+    }
+    let line = lines
+        .get(line_number)
+        .copied()
+        .unwrap_or("")
+        .trim_end_matches('\r');
+    json!({
+        "start": { "line": line_number, "character": 0 },
+        "end": { "line": line_number, "character": utf16_len(line) }
+    })
+}
+
 fn single_change_workspace_edit(uri: &str, range: Value, new_text: &str) -> Value {
-    let mut changes = serde_json::Map::new();
-    changes.insert(
-        uri.to_owned(),
+    workspace_edit_for_edits(
+        uri,
         json!([{
             "range": range,
             "newText": new_text
         }]),
-    );
+    )
+}
+
+fn workspace_edit_for_edits(uri: &str, edits: Value) -> Value {
+    let mut changes = serde_json::Map::new();
+    changes.insert(uri.to_owned(), edits);
     json!({ "changes": changes })
 }
 

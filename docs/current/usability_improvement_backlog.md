@@ -888,6 +888,19 @@ Status: implemented after syntax-aware editor feature review.
 - Extended stdio tests, README, and `ide-check` contract coverage so formatting
   stays aligned across CLI, LSP, and VS Code.
 
+## Batch 73: LSP Script Wrapper Quick Fix
+
+Status: implemented after linter quick-fix parity review.
+
+- Added a persistent LSP `textDocument/codeAction` quick fix for
+  `E-SCRIPT-001`, matching the existing VS Code quick fix that promotes a safe
+  `script main { ... }` body to top-level workflow code.
+- Kept the action conservative by requiring a script wrapper start line, a
+  matching block end, and a standalone closing `}` before returning the
+  multi-edit WorkspaceEdit.
+- Extended stdio and `ide-check` coverage so persistent LSP clients retain this
+  migration path instead of depending on VS Code-only JavaScript logic.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

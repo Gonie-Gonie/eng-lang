@@ -2072,8 +2072,11 @@ function Assert-VscodeExtensionContract {
         "textDocument/codeAction",
         "code_actions_for_request",
         "lsp_replacement_code_action",
+        "lsp_remove_script_wrapper_code_action",
+        "matching_block_end_line",
         "E-SYNTAX-DECL-001",
         "E-STRUCT-ARGS-001",
+        "E-SCRIPT-001",
         "E-EQ-BOOL-001"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspCodeActionToken)) {

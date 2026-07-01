@@ -571,6 +571,10 @@ fn stdio_code_actions_offer_syntax_migrations() {
 
 Q := 2 kW
 
+script main {
+    legacy = 1
+}
+
 system RoomThermal {
     parameter C: HeatCapacity = 500 kJ/K
     state T: AbsoluteTemperature = 24 degC
@@ -626,7 +630,12 @@ system RoomThermal {
         .as_array()
         .expect("diagnostics should be an array")
         .clone();
-    for code in ["E-STRUCT-ARGS-001", "E-SYNTAX-DECL-001", "E-EQ-BOOL-001"] {
+    for code in [
+        "E-STRUCT-ARGS-001",
+        "E-SYNTAX-DECL-001",
+        "E-SCRIPT-001",
+        "E-EQ-BOOL-001",
+    ] {
         assert!(
             diagnostics
                 .iter()
@@ -661,6 +670,7 @@ system RoomThermal {
     assert_replacement_action(actions, &uri, "Replace struct Args with args", "args");
     assert_replacement_action(actions, &uri, "Replace := with =", "=");
     assert_replacement_action(actions, &uri, "Replace == with eq", "eq");
+    assert_script_wrapper_action(actions, &uri);
 
     write_message(
         &mut stdin,
@@ -1106,6 +1116,23 @@ fn assert_replacement_action(actions: &[Value], uri: &str, title: &str, new_text
         edits[0]["range"]["end"]["character"].is_number(),
         "code action {title} should include an end character"
     );
+}
+
+fn assert_script_wrapper_action(actions: &[Value], uri: &str) {
+    let title = "Promote script body to top-level workflow";
+    let action = actions
+        .iter()
+        .find(|action| action["title"] == title)
+        .unwrap_or_else(|| panic!("code actions should include {title}"));
+    assert_eq!(action["kind"], "quickfix");
+    assert_eq!(action["isPreferred"], true);
+    let edits = action["edit"]["changes"][uri]
+        .as_array()
+        .unwrap_or_else(|| panic!("code action {title} should edit {uri}"));
+    assert_eq!(edits.len(), 2);
+    assert!(edits.iter().all(|edit| edit["newText"] == ""));
+    assert_eq!(edits[0]["range"]["start"]["line"], 8);
+    assert_eq!(edits[1]["range"]["start"]["line"], 6);
 }
 
 fn write_message<W: Write>(writer: &mut W, value: Value) {
