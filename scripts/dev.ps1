@@ -2493,6 +2493,13 @@ function Invoke-IdeCheck {
         }
     }
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
+    $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"
+    foreach ($TokenType in $LspSemanticTypes) {
+        $TypeStyle = ".hl-$TokenType"
+        if (-not $IdeUiStyles.Contains($TypeStyle)) {
+            throw "Native IDE CSS missing semantic token type style $TypeStyle"
+        }
+    }
     $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
     foreach ($Modifier in $LspSemanticModifiers) {
         $ModifierStyle = ".hl-mod-$Modifier"

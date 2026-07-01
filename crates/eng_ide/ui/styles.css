@@ -603,6 +603,25 @@ button:hover {
   color: #8a4b0f;
 }
 
+.hl-variable {
+  color: #274060;
+}
+
+.hl-parameter {
+  color: #6b4e16;
+  font-style: italic;
+}
+
+.hl-modifier {
+  color: #525252;
+  font-weight: 650;
+}
+
+.hl-operator {
+  color: #5b21b6;
+  font-weight: 650;
+}
+
 .hl-comment {
   color: #7c8796;
   font-style: italic;

@@ -1674,6 +1674,17 @@ Status: implemented after reviewing native workflow syntax highlighting gaps.
   test so they keep the same property-option coloring as `expected_sha256`,
   `body_size_limit`, and `response_body_limit`.
 
+## Batch 138: Native IDE Semantic Overlay Type Coverage
+
+Status: implemented after comparing the native IDE overlay CSS with the LSP
+semantic token legend.
+
+- Added native IDE overlay styles for `variable`, `parameter`, `modifier`, and
+  `operator` semantic token types so those tokens no longer fall back to the
+  same base editor color.
+- Extended `ide-check` so every LSP semantic token type and modifier must have
+  a corresponding native IDE overlay CSS class before editor checks pass.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
