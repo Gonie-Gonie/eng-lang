@@ -460,6 +460,66 @@ fn snapshot_stdin_reads_unsaved_source() {
         .any(|token| token["type"] == "type"));
 }
 
+#[test]
+fn completion_stdin_returns_position_aware_items() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source = r#"schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+sensor = promote csv "missing.csv" as SensorData
+Q = sensor.T
+"#;
+    let line = source
+        .lines()
+        .position(|line| line.contains("sensor.T"))
+        .expect("source should contain a member completion line");
+    let character = source.lines().nth(line).unwrap().len();
+    let mut child = Command::new(server)
+        .arg("--completion-stdin")
+        .arg("completion.eng")
+        .arg(line.to_string())
+        .arg(character.to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp completion-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("completion-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "completion-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let payload: Value =
+        serde_json::from_slice(&output.stdout).expect("completion stdout should be JSON");
+    assert_eq!(payload["format"], "eng-lsp-snapshot-v1");
+    let completions = payload["completions"]
+        .as_array()
+        .expect("completions should be an array");
+    assert!(completions
+        .iter()
+        .any(|completion| completion["label"] == "T_supply"));
+    assert!(completions
+        .iter()
+        .any(|completion| completion["label"] == "T_return"));
+    assert!(!completions
+        .iter()
+        .any(|completion| completion["label"] == "HeatRate"));
+}
+
 fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()

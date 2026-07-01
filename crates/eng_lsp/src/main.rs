@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
     diagnostic_json, hover_json, semantic_legend, semantic_tokens_lsp_json, snapshot_for_path,
-    snapshot_for_source,
+    snapshot_for_source, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -22,6 +22,12 @@ fn main() -> std::process::ExitCode {
     }
     if args.first().map(String::as_str) == Some("--snapshot-check") {
         return command_snapshot_check(args.get(1));
+    }
+    if args.first().map(String::as_str) == Some("--completion") {
+        return command_completion(args.get(1), args.get(2), args.get(3));
+    }
+    if args.first().map(String::as_str) == Some("--completion-stdin") {
+        return command_completion_stdin(args.get(1), args.get(2), args.get(3));
     }
 
     match run_lsp() {
@@ -159,6 +165,68 @@ fn command_snapshot_check(path: Option<&String>) -> std::process::ExitCode {
             std::process::ExitCode::from(1)
         }
     }
+}
+
+fn command_completion(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --completion <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --completion <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    match completion_items_for_path_position(Path::new(path), line, character) {
+        Ok(items) => {
+            println!("{}", completion_payload_json(items));
+            std::process::ExitCode::SUCCESS
+        }
+        Err(error) => {
+            eprintln!("{error}");
+            std::process::ExitCode::from(1)
+        }
+    }
+}
+
+fn command_completion_stdin(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --completion-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --completion-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let items = completion_items_for_source_position(Path::new(path), &source, line, character);
+    println!("{}", completion_payload_json(items));
+    std::process::ExitCode::SUCCESS
+}
+
+fn parse_position(line: Option<&String>, character: Option<&String>) -> Option<(usize, usize)> {
+    Some((
+        line?.parse::<usize>().ok()?,
+        character?.parse::<usize>().ok()?,
+    ))
+}
+
+fn completion_payload_json(items: Vec<eng_lsp::LspCompletion>) -> Value {
+    json!({
+        "format": LSP_SNAPSHOT_FORMAT,
+        "completions": items.iter().map(completion_json).collect::<Vec<_>>()
+    })
 }
 
 fn run_lsp() -> io::Result<()> {

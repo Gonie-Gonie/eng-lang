@@ -58,211 +58,6 @@ const semanticLegend = new vscode.SemanticTokensLegend(
   SEMANTIC_TOKEN_MODIFIERS
 );
 
-const QUANTITIES = [
-  ["AbsoluteTemperature", "K", "Affine absolute thermodynamic temperature."],
-  ["TemperatureDelta", "K", "Temperature interval or difference."],
-  ["Length", "m", "Linear distance."],
-  ["Area", "m2", "Area."],
-  ["Volume", "m3", "Volume."],
-  ["Conductance", "W/K", "Thermal conductance."],
-  ["HeatCapacity", "J/K", "Lumped heat capacity."],
-  ["SpecificHeat", "J/kg/K", "Specific heat capacity."],
-  ["HeatRate", "W", "Thermal power or heat flow rate."],
-  ["ElectricPower", "W", "Electrical power."],
-  ["MechanicalPower", "W", "Mechanical shaft or fluid power."],
-  ["Energy", "J", "Energy, heat, or work quantity."],
-  ["Mass", "kg", "Mass."],
-  ["MassFlowRate", "kg/s", "Mass flow rate."],
-  ["Pressure", "Pa", "Pressure."],
-  ["Irradiance", "W/m2", "Power per unit area."],
-  ["PeopleDensity", "person/m2", "People per unit floor area."],
-  ["DimensionlessNumber", "1", "Plain dimensionless scalar."],
-  ["Ratio", "1", "Dimensionless ratio."],
-  ["ReynoldsNumber", "1", "Dimensionless Reynolds number."]
-];
-
-const UNITS = [
-  "K",
-  "degC",
-  "m",
-  "cm",
-  "mm",
-  "m2",
-  "m3",
-  "W",
-  "kW",
-  "J",
-  "kJ",
-  "MJ",
-  "Wh",
-  "kWh",
-  "W/K",
-  "J/K",
-  "kJ/K",
-  "J/kg/K",
-  "Pa",
-  "kPa",
-  "kg",
-  "kg/s",
-  "W/m2",
-  "person/m2",
-  "s",
-  "min",
-  "h",
-  "1"
-];
-
-const TYPES = [
-  ["Path", "Generic filesystem path."],
-  ["FilePath", "Generic file path."],
-  ["DirectoryPath", "Directory path."],
-  ["CsvFile", "CSV file path."],
-  ["TextFile", "UTF-8 text file path."],
-  ["JsonFile", "JSON file path."],
-  ["TomlFile", "TOML file path."],
-  ["Url", "HTTP or HTTPS URL."],
-  ["Secret[String]", "Redacted string value for credentials or tokens."],
-  ["Optional[T]", "Optional value that may be missing or none."],
-  ["Bool", "Boolean value."],
-  ["Int", "Integer value."],
-  ["Float", "Floating-point value."],
-  ["Number", "Dimensionless numeric value."],
-  ["String", "String value."],
-  ["Date", "Calendar date."],
-  ["DateTime", "Timestamp value."],
-  ["Duration", "Time duration."],
-  ["Table[T]", "Typed table value."],
-  ["TimeSeries[Time]", "Time-indexed series value."],
-  ["TimeSeries[T]", "Typed time-indexed series value."],
-  ["Prediction", "Prediction table row."],
-  ["ModelCard", "Model-card review artifact."],
-  ["ModelArtifact", "Trained model artifact."],
-  ["DbConnection", "SQLite connection handle."],
-  ["DbTableRef", "SQLite table reference."],
-  ["ProcessResult", "External command result metadata."],
-  ["Report", "Report artifact request metadata."]
-];
-
-const KEYWORDS = [
-  "schema",
-  "args",
-  "const",
-  "use",
-  "fn",
-  "if",
-  "import",
-  "script",
-  "struct",
-  "class",
-  "method",
-  "validate",
-  "system",
-  "domain",
-  "across",
-  "through",
-  "conservation",
-  "component",
-  "port",
-  "connect",
-  "package",
-  "version",
-  "state",
-  "parameter",
-  "input",
-  "equation",
-  "promote",
-  "from",
-  "as",
-  "read",
-  "text",
-  "json",
-  "toml",
-  "csv",
-  "policy",
-  "missing",
-  "constraints",
-  "between",
-  "is",
-  "none",
-  "null",
-  "and",
-  "or",
-  "not",
-  "in",
-  "into",
-  "true",
-  "false",
-  "interpolate",
-  "monotonic",
-  "where",
-  "with",
-  "run",
-  "command",
-  "render",
-  "template",
-  "open",
-  "sqlite",
-  "to",
-  "show",
-  "over",
-  "by",
-  "using",
-  "mode",
-  "append",
-  "insert",
-  "upsert",
-  "return",
-  "report",
-  "print",
-  "log",
-  "test",
-  "assert",
-  "golden",
-  "matches",
-  "within",
-  "export",
-  "write",
-  "copy",
-  "move",
-  "delete",
-  "plot",
-  "line",
-  "bar",
-  "histogram",
-  "check",
-  "coverage",
-  "sample",
-  "grid",
-  "random",
-  "lhs",
-  "uniform",
-  "select_first_row",
-  "filter",
-  "select",
-  "derive",
-  "sort",
-  "require_one",
-  "train_test_split",
-  "regression",
-  "mlp",
-  "evaluate",
-  "model_card",
-  "leakage_lint",
-  "predict",
-  "der",
-  "delay",
-  "eq",
-  "integrate",
-  "mean",
-  "min",
-  "max",
-  "median",
-  "std",
-  "normal",
-  "sum",
-  "duration_above"
-];
-
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
@@ -280,7 +75,14 @@ function activate(context) {
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
     vscode.commands.registerCommand("englang.openReport", openLastReport),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider()),
-    vscode.languages.registerCompletionItemProvider(LANGUAGE_ID, new EngCompletionProvider(), ":", " ", "["),
+    vscode.languages.registerCompletionItemProvider(
+      LANGUAGE_ID,
+      new EngCompletionProvider(context),
+      ":",
+      " ",
+      "[",
+      "."
+    ),
     vscode.languages.registerDocumentSemanticTokensProvider(
       LANGUAGE_ID,
       new EngSemanticTokensProvider(context),
@@ -578,6 +380,67 @@ function snapshotDocumentSource(document, context, cancellationToken) {
   });
 }
 
+function completionSnapshotForPosition(document, position, context, cancellationToken) {
+  return new Promise((resolve) => {
+    if (!isEngDocument(document)) {
+      resolve(undefined);
+      return;
+    }
+
+    const runtime = findLspRuntime(context, document);
+    const cwd = workspaceRoot(document);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const child = cp.execFile(
+      runtime,
+      [
+        "--completion-stdin",
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character)
+      ],
+      { cwd, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
+        }
+        if (error) {
+          output.appendLine(`completion snapshot failed: ${error.message}`);
+          finish(undefined);
+          return;
+        }
+        try {
+          const payload = JSON.parse(stdout);
+          if (Array.isArray(payload)) {
+            finish({ completions: payload });
+            return;
+          }
+          finish(payload);
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang completion snapshot: ${parseError.message}`);
+          finish(undefined);
+        }
+      }
+    );
+
+    cancellationToken?.onCancellationRequested(() => {
+      child.kill();
+      finish(undefined);
+    });
+
+    if (child.stdin) {
+      child.stdin.end(document.getText());
+    }
+  });
+}
+
 function semanticTokensFromSnapshot(snapshot) {
   const builder = new vscode.SemanticTokensBuilder(semanticLegend);
   const tokens = snapshot.semantic_tokens?.tokens ?? [];
@@ -606,6 +469,34 @@ function semanticModifierBits(modifiers) {
     }
   }
   return bits;
+}
+
+function completionKindFromLsp(kind) {
+  if (typeof kind === "number" && kind >= 1 && kind <= 25) {
+    return kind - 1;
+  }
+  switch (kind) {
+    case "method":
+      return vscode.CompletionItemKind.Method;
+    case "function":
+      return vscode.CompletionItemKind.Function;
+    case "variable":
+      return vscode.CompletionItemKind.Variable;
+    case "property":
+      return vscode.CompletionItemKind.Property;
+    case "class":
+      return vscode.CompletionItemKind.Class;
+    case "stdlib":
+      return vscode.CompletionItemKind.Module;
+    case "unit":
+      return vscode.CompletionItemKind.Unit;
+    case "value":
+      return vscode.CompletionItemKind.Value;
+    case "keyword":
+      return vscode.CompletionItemKind.Keyword;
+    default:
+      return vscode.CompletionItemKind.Text;
+  }
 }
 
 class EngHoverProvider {
@@ -652,50 +543,28 @@ class EngHoverProvider {
 }
 
 class EngCompletionProvider {
-  provideCompletionItems(document) {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideCompletionItems(document, position, cancellationToken) {
     const items = [];
     const seen = new Set();
-    const review = reviewCache.get(document.uri.fsPath);
+    const completionPayload =
+      (await completionSnapshotForPosition(document, position, this.context, cancellationToken)) ??
+      reviewCache.get(document.uri.fsPath);
 
-    for (const completion of review?.completions ?? []) {
-      const item = new vscode.CompletionItem(completion.label, completion.kind ?? vscode.CompletionItemKind.Text);
+    for (const completion of completionPayload?.completions ?? []) {
+      const item = new vscode.CompletionItem(
+        completion.label,
+        completionKindFromLsp(completion.kind)
+      );
       item.detail = completion.detail;
+      if (completion.documentation) {
+        item.documentation = completion.documentation;
+      }
       addCompletion(items, seen, item);
     }
-
-    for (const keyword of KEYWORDS) {
-      const item = new vscode.CompletionItem(keyword, vscode.CompletionItemKind.Keyword);
-      item.detail = "EngLang keyword";
-      addCompletion(items, seen, item);
-    }
-
-    for (const [quantity, canonicalUnit, description] of QUANTITIES) {
-      const item = new vscode.CompletionItem(quantity, vscode.CompletionItemKind.Class);
-      item.detail = `quantity kind, canonical unit ${canonicalUnit}`;
-      item.documentation = description;
-      addCompletion(items, seen, item);
-    }
-
-    for (const [typeName, description] of TYPES) {
-      const item = new vscode.CompletionItem(typeName, vscode.CompletionItemKind.Class);
-      item.detail = "EngLang type";
-      item.documentation = description;
-      addCompletion(items, seen, item);
-    }
-
-    for (const unit of UNITS) {
-      const item = new vscode.CompletionItem(unit, vscode.CompletionItemKind.Unit);
-      item.detail = "EngLang unit";
-      addCompletion(items, seen, item);
-    }
-
-    addCompletion(items, seen, snippet("schema csv", "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:heat}: HeatRate [kW]\n}", "Typed CSV schema"));
-    addCompletion(items, seen, snippet("args block", "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}", "Root CLI argument block"));
-    addCompletion(items, seen, snippet("print log", "print \"${1:case ready}\"\nlog info \"${2:Q = {Q: .2 kW}}\"", "Direct output plus structured log message"));
-    addCompletion(items, seen, snippet("run command", "${1:process_result} = run command \"${2:cmd}\"\nwith {\n    args = [\"${3:/C}\", \"${4:echo}\", \"${5:ok}\"]\n}", "Run an external command and capture a ProcessResult"));
-    addCompletion(items, seen, snippet("test block", "test \"${1:summary values}\" {\n    assert ${2:mean_Q} > ${3:0 kW}\n    assert ${4:E_coil} == ${5:1.26 kWh} within ${6:0.02 kWh}\n    golden \"${7:summary.csv}\" matches file(\"${8:golden/summary.csv}\")\n}", "Run unit-aware assertions and golden artifact checks"));
-    addCompletion(items, seen, snippet("system thermal", "system ${1:Room} {\n    state ${2:T}: AbsoluteTemperature = ${3:20 degC}\n    parameter ${4:C}: HeatCapacity = ${5:1200 kJ/K}\n    parameter ${6:UA}: Conductance = ${7:250 W/K}\n    input ${8:T_out}: AbsoluteTemperature = ${9:10 degC}\n    input ${10:Q_internal}: HeatRate = ${11:500 W}\n    equation energy_balance:\n        ${4:C} * der(${2:T}) eq ${6:UA} * (${8:T_out} - ${2:T}) + ${10:Q_internal}\n}", "First-order thermal system"));
-    addCompletion(items, seen, snippet("domain ports", "domain ${1:Thermal} package \"${2:eng.std.domains.thermal}\" version \"${3:0.1.0}\" {\n    across ${4:T}: AbsoluteTemperature [degC]\n    through ${5:Q}: HeatRate [kW]\n    conservation sum(${5:Q}) = 0\n}\n\ndomain ${6:Fluid}[${7:Medium M}] package \"${8:eng.std.domains.fluid}\" version \"${9:0.1.0}\" {\n    across ${10:height}: Length [m]\n    through ${11:m_dot}: MassFlowRate [kg/s]\n    conservation sum(${11:m_dot}) = 0\n}\n\ndomain ${12:MechanicalNode}[${13:Frame F}, ${14:Axis DOF}] package \"${15:eng.std.domains.mechanical}\" version \"${16:0.1.0}\" {\n    across ${17:x}: Length [m]\n    through ${18:P}: MechanicalPower [W]\n    conservation sum(${18:P}) = 0\n}\n\ncomponent ${19:RoomBoundary} {\n    port ${20:heat}: ${1:Thermal}\n}\n\ncomponent ${21:SupplyPipe} {\n    port ${22:inlet}: ${6:Fluid}[${23:Water}]\n    port ${24:outlet}: ${6:Fluid}[${23:Water}]\n}\n\ncomponent ${25:ShaftA} {\n    port ${26:shaft}: ${12:MechanicalNode}[${27:World}, ${28:X}]\n}\n\ncomponent ${29:ShaftB} {\n    port ${30:shaft}: ${12:MechanicalNode}[${27:World}, ${28:X}]\n}\n\nconnect ${21:SupplyPipe}.${22:inlet} -> ${21:SupplyPipe}.${24:outlet}\nconnect ${25:ShaftA}.${26:shaft} -> ${29:ShaftB}.${30:shaft}", "Domain package/version, generic ports, and connection"));
 
     return items;
   }
@@ -768,13 +637,6 @@ function addCompletion(items, seen, item) {
   }
   seen.add(label);
   items.push(item);
-}
-
-function snippet(label, body, detail) {
-  const item = new vscode.CompletionItem(label, vscode.CompletionItemKind.Snippet);
-  item.insertText = new vscode.SnippetString(body);
-  item.detail = detail;
-  return item;
 }
 
 function isEngDocument(document) {

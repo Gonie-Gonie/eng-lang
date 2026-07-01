@@ -14,7 +14,8 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
   variables, parameters, properties, quantities, units, reports, validations,
   and side-effect/external workflow boundaries
 - hover from compiler review metadata
-- public type, quantity, unit, keyword, and snippet completion
+- position-aware completion from `eng-lsp --completion-stdin`
+- snippets from `snippets/eng.json`
 - quick fixes for `:=` and stale `struct Args` migration diagnostics
 - commands to check, run, and open the latest generated report
 
@@ -68,3 +69,7 @@ Semantic highlighting uses the same snapshot-stdin path so unsaved edits receive
 role-aware token colors without waiting for a file save. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting.
+
+Completion requests call `eng-lsp.exe --completion-stdin <file.eng> <line>
+<character>` with the current unsaved buffer. JavaScript does not maintain a
+separate keyword, type, quantity, or unit table.
