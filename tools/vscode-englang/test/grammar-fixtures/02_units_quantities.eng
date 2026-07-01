@@ -1,0 +1,6 @@
+Q: HeatRate [kW] = 2.5 kW
+UA: Conductance [W/K] = 150 W/K
+cp: SpecificHeat [J/kg/K] = 4.18 kJ/K
+irradiance: Irradiance [W/m2] = 300 W/m2
+density: PeopleDensity [person/m2] = 0.08 person/m2
+elapsed: Duration [h] = 2 h

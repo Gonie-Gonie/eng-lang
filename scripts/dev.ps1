@@ -1604,6 +1604,16 @@ function Invoke-RunExample {
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $example "--save-artifacts"
 }
 
+function Invoke-VscodeBuildGrammar {
+    Set-DevEnvironment
+    & (Join-Path $RepoRoot "tools\vscode-englang\scripts\build-grammar.ps1") -ExtensionRoot (Join-Path $RepoRoot "tools\vscode-englang")
+}
+
+function Invoke-VscodeGrammarTest {
+    Set-DevEnvironment
+    & (Join-Path $RepoRoot "tools\vscode-englang\scripts\test-grammar.ps1") -ExtensionRoot (Join-Path $RepoRoot "tools\vscode-englang")
+}
+
 function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
@@ -1638,6 +1648,10 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $GrammarPath)) {
         throw "VS Code extension missing grammar at $GrammarPath"
     }
+    $GrammarSourcePath = Join-Path $ExtensionRoot "syntaxes\eng.tmLanguage.source.json"
+    if (-not (Test-Path $GrammarSourcePath)) {
+        throw "VS Code extension missing source grammar at $GrammarSourcePath"
+    }
     $GrammarSource = Get-Content -LiteralPath $GrammarPath -Raw
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
@@ -1650,6 +1664,8 @@ function Assert-VscodeExtensionContract {
             throw "VS Code grammar missing token $RequiredGrammarToken"
         }
     }
+    & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
+    & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
     $Commands = @($Package.contributes.commands | ForEach-Object { $_.command })
     foreach ($Required in @("englang.checkFile", "englang.runFile", "englang.openReport")) {
         if ($Commands -notcontains $Required) {
@@ -2651,6 +2667,8 @@ Usage:
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat grammar-docs   Generate the oodocs language grammar PDF
+  .\dev.bat vscode-build-grammar Regenerate VS Code TextMate grammar from source JSON
+  .\dev.bat vscode-grammar-test  Check VS Code TextMate grammar source, generated output, and token fixtures
   .\dev.bat ide-check      Validate the Tauri IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
@@ -2681,6 +2699,8 @@ switch ($Command) {
     "ci" { Invoke-Ci }
     "docs-check" { Invoke-DocsCheck }
     "grammar-docs" { Invoke-GrammarDocs }
+    "vscode-build-grammar" { Invoke-VscodeBuildGrammar }
+    "vscode-grammar-test" { Invoke-VscodeGrammarTest }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
     "jit-check" { Invoke-JitCheck }

@@ -1,0 +1,12 @@
+designs = sample lhs
+with {
+    count = 12
+    seed = 7
+    people_density = uniform(0.03 person/m2, 0.12 person/m2)
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+model = regression_table(designs, target=annual_electricity, features=[people_density, cooling_cop], test=0.25, seed=7)
+metrics = evaluate(model)
+card = model_card(model)
+predictions = predict model using designs

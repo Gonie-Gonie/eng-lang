@@ -1,0 +1,23 @@
+system RoomThermal {
+    state T: AbsoluteTemperature = 20 degC
+    parameter C: HeatCapacity = 1200 kJ/K
+    input Q_internal: HeatRate = 500 W
+    equation energy_balance:
+        C * der(T) eq Q_internal
+}
+
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component RoomBoundary {
+    port heat: Thermal
+}
+
+component AmbientBoundary {
+    port heat: Thermal
+}
+
+connect RoomBoundary.heat -> AmbientBoundary.heat

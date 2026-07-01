@@ -1,0 +1,107 @@
+[
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "comment.line.documentation.englang",
+    "text": "/// Core workflow fixture"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "comment.line.number-sign.englang",
+    "text": "# normal comment"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "schema SensorData"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "storage.type.block.englang",
+    "text": "args"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "promote"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "file"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"Q = {sensor.T_supply: .2 degC}\""
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.interpolation.englang",
+    "text": "{sensor.T_supply: .2 degC}"
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "support.type.englang",
+    "text": "SpecificHeat"
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "J/kg/K"
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.numeric.englang",
+    "text": "2.5"
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "render"
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "expected_outputs ="
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "append"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "system RoomThermal"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "eq"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.operator.englang",
+    "text": "->"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "punctuation.separator.englang",
+    "text": "{"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "lhs"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "uniform"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "using"
+  }
+]

@@ -73,3 +73,16 @@ highlighting.
 Completion requests call `eng-lsp.exe --completion-stdin <file.eng> <line>
 <character>` with the current unsaved buffer. JavaScript does not maintain a
 separate keyword, type, quantity, or unit table.
+
+## Grammar Maintenance
+
+The generated TextMate grammar lives at `syntaxes/eng.tmLanguage.json`. Edit
+`syntaxes/eng.tmLanguage.source.json`, then run:
+
+```bat
+.\dev.bat vscode-build-grammar
+.\dev.bat vscode-grammar-test
+```
+
+The grammar smoke writes token-check output under
+`build\editor-tests\textmate_tokens\grammar_smoke.json`.

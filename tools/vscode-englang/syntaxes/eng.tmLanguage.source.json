@@ -1,0 +1,151 @@
+{
+  "generatedPath": "eng.tmLanguage.json",
+  "grammar": {
+    "scopeName": "source.englang",
+    "name": "EngLang",
+    "patterns": [
+      { "include": "#comments" },
+      { "include": "#strings" },
+      { "include": "#declarations" },
+      { "include": "#blocks" },
+      { "include": "#keywords" },
+      { "include": "#operators" },
+      { "include": "#builtins" },
+      { "include": "#withOptions" },
+      { "include": "#constants" },
+      { "include": "#types" },
+      { "include": "#units" },
+      { "include": "#numbers" },
+      { "include": "#punctuation" }
+    ],
+    "repository": {
+      "comments": {
+        "patterns": [
+          {
+            "name": "comment.line.documentation.englang",
+            "match": "^\\s*///.*$"
+          },
+          {
+            "name": "comment.line.number-sign.englang",
+            "match": "#.*$"
+          }
+        ]
+      },
+      "strings": {
+        "patterns": [
+          {
+            "name": "string.quoted.double.englang",
+            "begin": "\"",
+            "end": "\"",
+            "patterns": [
+              {
+                "name": "constant.character.escape.englang",
+                "match": "\\\\."
+              },
+              {
+                "name": "variable.other.interpolation.englang",
+                "match": "\\{[A-Za-z_][A-Za-z0-9_\\.]*(:[^}]*)?\\}"
+              }
+            ]
+          }
+        ]
+      },
+      "declarations": {
+        "patterns": [
+          {
+            "name": "entity.name.type.declaration.englang",
+            "match": "\\b(schema|system|domain|component|class)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "captures": {
+              "1": { "name": "storage.type.declaration.englang" },
+              "2": { "name": "entity.name.type.englang" }
+            }
+          }
+        ]
+      },
+      "blocks": {
+        "patterns": [
+          {
+            "name": "storage.type.block.englang",
+            "match": "\\b(args|report|constraints|missing|test|with)\\b"
+          }
+        ]
+      },
+      "keywords": {
+        "patterns": [
+          {
+            "name": "keyword.control.workflow.englang",
+            "match": "\\b(use|const|promote|from|as|read|text|json|toml|csv|write|export|copy|move|delete|render|template|run|command|open|sqlite|to|print|log|show|plot|line|bar|histogram|return|assert|golden|matches|within|policy|package|version|port|connect|across|through|conservation|equation|input|parameter|state)\\b"
+          }
+        ]
+      },
+      "operators": {
+        "patterns": [
+          {
+            "name": "keyword.operator.word.englang",
+            "match": "\\b(eq|is|none|null|and|or|not|between|over|by|using|in|where|into)\\b"
+          },
+          {
+            "name": "keyword.operator.englang",
+            "match": "(->|==|!=|>=|<=|=|\\+|-|\\*|/|>|<)"
+          }
+        ]
+      },
+      "builtins": {
+        "patterns": [
+          {
+            "name": "support.function.builtin.englang",
+            "match": "\\b(file|dir|join|parent|stem|extension|exists|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|sample|uniform|normal|grid|random|lhs|train_test_split|regression|mlp|evaluate|model_card|leakage_lint|predict|mean|min|max|median|std|duration_above|integrate|der|delay|sum)\\b"
+          }
+        ]
+      },
+      "withOptions": {
+        "patterns": [
+          {
+            "name": "variable.parameter.property.englang",
+            "match": "\\b(args|expected_outputs|artifact_kind|tool_version|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column)\\b(?=\\s*=)"
+          }
+        ]
+      },
+      "constants": {
+        "patterns": [
+          {
+            "name": "constant.language.englang",
+            "match": "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|keep|empty|interpolate|monotonic|linear|passed|failed|succeeded|skipped)\\b"
+          }
+        ]
+      },
+      "types": {
+        "patterns": [
+          {
+            "name": "support.type.englang",
+            "match": "\\b(Report|ProcessResult|Table|TimeSeries|Prediction|ModelCard|ModelArtifact|DbConnection|DbTableRef|Path|FilePath|DirectoryPath|CsvFile|TextFile|JsonFile|TomlFile|Url|Secret|Optional|Bool|Int|Float|Number|String|Date|DateTime|Duration|DimensionlessNumber|AbsoluteTemperature|TemperatureDelta|Length|Area|Volume|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|Mass|MassFlowRate|Pressure|Irradiance|PeopleDensity|Ratio|ReynoldsNumber)\\b"
+          }
+        ]
+      },
+      "units": {
+        "patterns": [
+          {
+            "name": "constant.other.unit.englang",
+            "match": "\\b(degC|K|m|cm|mm|m2|m3|s|min|h|W|kW|J|kJ|MJ|Wh|kWh|Pa|kPa|kg|kg/s|W/K|J/K|kJ/K|J/kg/K|W/m2|person/m2)\\b"
+          }
+        ]
+      },
+      "numbers": {
+        "patterns": [
+          {
+            "name": "constant.numeric.englang",
+            "match": "\\b[0-9]+(\\.[0-9]+)?\\b"
+          }
+        ]
+      },
+      "punctuation": {
+        "patterns": [
+          {
+            "name": "punctuation.separator.englang",
+            "match": "[{}\\[\\](),.:]"
+          }
+        ]
+      }
+    }
+  }
+}
