@@ -6,6 +6,7 @@ The saved run should show:
 schema StationMap with two fixture rows
 filter/require_one/select_first_row station transform, resolved selected station_id, predicates, and row diagnostics
 schema WeatherApiRecord with two typed hourly records promoted from api_payload.records
+WeatherApiPayload contract validated from read json api_response.body
 generic DateTime coverage artifact with Gregorian-year expected count, missing interval, status, and max gap
 native http get boundary for api_response with args.api_url, resolved station query, fixture, pinned SHA-256, retry, timeout, and cache key
 network cache entry owned by network_request/api_response with region/year key parts

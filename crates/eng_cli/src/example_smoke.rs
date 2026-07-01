@@ -6395,6 +6395,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"network_boundaries\"")
                 || !output.result_json.contains("\"binding\": \"api_response\"")
                 || !output
+                    .result_json
+                    .contains("\"source_value\": \"api_response.body\"")
+                || !output
+                    .review_json
+                    .contains("\"expression\": \"read json api_response.body\"")
+                || !output
                     .cache_manifest_json
                     .contains("\"owner_kind\": \"network_request\"")
                 || !output

@@ -723,6 +723,7 @@ fn collect_raw_config_sources(
     arg_values: &[ArgValueInfo],
 ) -> HashMap<String, RawConfigSource> {
     let mut sources = HashMap::new();
+    let response_body_sources = response_body_fixture_sources(program, source_base, arg_values);
     for item in &program.items {
         let AstItem::FastBinding(binding) = item else {
             continue;
@@ -734,6 +735,17 @@ fn collect_raw_config_sources(
             continue;
         };
         if !matches!(format, "json" | "toml") {
+            continue;
+        }
+        if let Some(resolved_path) = response_body_sources.get(path_expression.trim()) {
+            sources.insert(
+                binding.name.clone(),
+                RawConfigSource {
+                    format: format.to_owned(),
+                    resolved_path: resolved_path.clone(),
+                    source_value: path_expression.trim().to_owned(),
+                },
+            );
             continue;
         }
         let Ok(source_value) = resolve_source_value(path_expression, arg_values) else {
@@ -749,6 +761,48 @@ fn collect_raw_config_sources(
         );
     }
     sources
+}
+
+pub(crate) fn response_body_fixture_sources(
+    program: &crate::parser::ParsedProgram,
+    source_base: Option<&Path>,
+    arg_values: &[ArgValueInfo],
+) -> HashMap<String, PathBuf> {
+    let mut sources = HashMap::new();
+    for item in &program.items {
+        let AstItem::FastBinding(binding) = item else {
+            continue;
+        };
+        if binding.context != ParseContext::TopLevel
+            || !binding.expression.trim().starts_with("http get ")
+        {
+            continue;
+        }
+        let Some(fixture_expression) = with_option_value(program, binding.line, "fixture") else {
+            continue;
+        };
+        let Ok(fixture_value) = resolve_source_value(fixture_expression, arg_values) else {
+            continue;
+        };
+        let resolved_path = resolve_source_path(source_base, &fixture_value);
+        sources.insert(format!("{}.body", binding.name), resolved_path.clone());
+        sources.insert(format!("{}.text", binding.name), resolved_path);
+    }
+    sources
+}
+
+fn with_option_value<'a>(
+    program: &'a crate::parser::ParsedProgram,
+    owner_line: usize,
+    key: &str,
+) -> Option<&'a str> {
+    program.items.iter().find_map(|item| {
+        let AstItem::WithOption(option) = item else {
+            return None;
+        };
+        (option.owner_line == Some(owner_line) && option.key == key)
+            .then_some(option.value.as_str())
+    })
 }
 
 fn resolve_source_value(

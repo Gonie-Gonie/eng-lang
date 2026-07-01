@@ -857,6 +857,8 @@ fn collect_environment_dependencies(
     program: &SemanticProgram,
 ) -> Vec<EnvironmentDependencyInfo> {
     let mut dependencies = Vec::new();
+    let response_body_sources =
+        schema::response_body_fixture_sources(parsed, source_base, &program.arg_values);
     for args_block in &program.args_blocks {
         for field in &args_block.fields {
             let Some(default_value) = &field.default_value else {
@@ -904,9 +906,12 @@ fn collect_environment_dependencies(
             });
             continue;
         }
-        if let Some(observation) =
-            evaluate_read_expression(&binding.expression, source_base, &program.arg_values)
-        {
+        if let Some(observation) = evaluate_read_expression(
+            &binding.expression,
+            source_base,
+            &program.arg_values,
+            &response_body_sources,
+        ) {
             dependencies.push(EnvironmentDependencyInfo {
                 name: binding.name.clone(),
                 kind: format!("filesystem_read_{}", observation.kind),
@@ -972,8 +977,25 @@ fn evaluate_read_expression(
     expression: &str,
     source_base: Option<&Path>,
     arg_values: &[ArgValueInfo],
+    response_body_sources: &HashMap<String, PathBuf>,
 ) -> Option<ReadObservation> {
     let (kind, path_expression) = semantic::read_only_io_expression(expression)?;
+    if let Some(path) = response_body_sources.get(path_expression.trim()) {
+        return match fs::read_to_string(path) {
+            Ok(source) => Some(ReadObservation {
+                kind: kind.to_owned(),
+                resolved_path: canonical_path_text(&path.display().to_string()),
+                source_hash: Some(hash_text(&source)),
+                status: "read".to_owned(),
+            }),
+            Err(_) => Some(ReadObservation {
+                kind: kind.to_owned(),
+                resolved_path: canonical_path_text(&path.display().to_string()),
+                source_hash: None,
+                status: "missing".to_owned(),
+            }),
+        };
+    }
     let path_text = evaluate_path_expression(path_expression, arg_values)?;
     let path = resolve_source_relative_path(&path_text, source_base);
     match fs::read_to_string(&path) {
@@ -12862,6 +12884,68 @@ system Envelope {
         assert!(review.contains("\"source\": \"payload\""));
         assert!(review.contains("\"resolved_path\""));
         assert!(review.contains("\"source_hash\": \""));
+    }
+
+    #[test]
+    fn promotes_fixture_backed_http_response_body_as_json_source() {
+        let root = env::temp_dir().join(format!(
+            "englang-http-body-json-source-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(
+            root.join("data").join("response.json"),
+            "{ \"station_id\": \"STN001\", \"records\": [{ \"time\": \"2024-01-01T00:00:00Z\", \"value\": 1.5 }] }\n",
+        )
+        .expect("response json");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"https://api.example.org/weather\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let dependency = report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .find(|dependency| dependency.name == "payload")
+            .expect("payload structured read");
+        assert_eq!(dependency.kind, "filesystem_read_json");
+        assert_eq!(dependency.expression, "read json response.body");
+        assert!(dependency.resolved_value.contains("response.json"));
+        assert!(dependency.source_hash.is_some());
+
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "contract")
+            .expect("config promotion");
+        assert_eq!(promotion.source_literal, "payload");
+        assert_eq!(promotion.source_value, "response.body");
+        assert_eq!(promotion.status, "validated");
+
+        let table_promotion = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "weather")
+            .expect("json records promotion");
+        assert_eq!(table_promotion.source_format, "json_records");
+        assert_eq!(
+            table_promotion.json_source_binding.as_deref(),
+            Some("payload")
+        );
+        assert_eq!(
+            table_promotion.json_records_field.as_deref(),
+            Some("records")
+        );
+        assert_eq!(table_promotion.row_count, 1);
     }
 
     #[test]

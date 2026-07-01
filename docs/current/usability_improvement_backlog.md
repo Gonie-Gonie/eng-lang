@@ -675,6 +675,20 @@ Status: implemented after keyword-highlighting drift review.
   against LSP keyword, workflow builtin, workflow option, and public type
   completion seed constants, catching future editor-color drift earlier.
 
+## Batch 56: Native HTTP Response JSON Promotion
+
+Status: implemented after workflow 1 native-dataflow review.
+
+- Workflow 01 now reads its typed API payload from `api_response.body` instead
+  of reading `args.api_fixture` directly after the network boundary.
+- Compiler schema analysis now treats fixture-backed `http get` response
+  bodies as structured JSON sources for `read json <response>.body`, enabling
+  config promotion and JSON-record table promotion to follow the native
+  network/cache boundary.
+- Added compiler and workflow contract coverage so `source_value` stays
+  `api_response.body`, review metadata records `read json api_response.body`,
+  and workflows 1-3 still run with `process_count = 0`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

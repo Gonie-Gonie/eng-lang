@@ -72,7 +72,7 @@ with {
     cache_key = ["weather", args.region, args.year]
 }
 api_payload_text = api_response.body
-api_payload = read json args.api_fixture
+api_payload = read json api_response.body
 api_contract = promote json api_payload as WeatherApiPayload
 weather = promote json records api_payload.records as WeatherApiRecord
 coverage = check coverage weather.time

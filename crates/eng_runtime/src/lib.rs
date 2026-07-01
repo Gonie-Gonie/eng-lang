@@ -15505,6 +15505,12 @@ mod tests {
             .contains("\"timeseries_coverage\""));
         assert!(weather_output
             .result_json
+            .contains("\"source_value\": \"api_response.body\""));
+        assert!(weather_output
+            .review_json
+            .contains("\"expression\": \"read json api_response.body\""));
+        assert!(weather_output
+            .result_json
             .contains("\"source_format\": \"json_records\""));
         assert!(weather_output
             .review_json
