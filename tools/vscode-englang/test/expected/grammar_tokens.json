@@ -277,6 +277,11 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "return"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.test.englang",
     "text": "test \"coil heat stays positive\"",
     "fullMatch": true
@@ -314,13 +319,30 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http get",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.external-boundary.englang",
     "text": "post"
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http post",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.external-boundary.englang",
     "text": "download"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "to"
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
@@ -453,6 +475,12 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.report.englang",
     "text": "distribution"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.report.unit-axis.englang",
+    "text": "unit y =",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",

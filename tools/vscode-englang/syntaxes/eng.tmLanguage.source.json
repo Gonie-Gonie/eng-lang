@@ -191,6 +191,23 @@
               "1": { "name": "support.function.builtin.englang" },
               "2": { "name": "support.function.builtin.englang" }
             }
+          },
+          {
+            "name": "meta.workflow.http-request.englang",
+            "match": "\\b(http)\\s+(get|post|put|patch|head|request|fetch)\\b",
+            "captures": {
+              "1": { "name": "keyword.control.external-boundary.englang" },
+              "2": { "name": "keyword.control.external-boundary.englang" }
+            }
+          },
+          {
+            "name": "meta.report.unit-axis.englang",
+            "match": "\\b(unit)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
+            "captures": {
+              "1": { "name": "variable.parameter.property.englang" },
+              "2": { "name": "variable.other.property.englang" },
+              "3": { "name": "keyword.operator.englang" }
+            }
           }
         ]
       },

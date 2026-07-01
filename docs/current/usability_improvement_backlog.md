@@ -503,6 +503,18 @@ Status: implemented after VS Code underline review.
 - Added JSON-level regression coverage for arithmetic and schema diagnostic
   ranges.
 
+## Batch 42: TextMate Workflow Phrase Coverage
+
+Status: implemented after syntax-highlighting consistency review.
+
+- Added phrase-aware TextMate scopes for `http get`/`http post` style request
+  boundaries so network request verbs remain grouped before semantic tokens
+  arrive.
+- Added a report option phrase scope for `unit y = ...`, which previously did
+  not get the same option-key treatment as normal `with { unit = ... }` keys.
+- Pinned `return`, `to`, HTTP request phrases, and report unit-axis syntax in
+  grammar smoke expectations.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
