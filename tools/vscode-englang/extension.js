@@ -208,6 +208,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openReviewPanel", () => openReviewPanel(context)),
     vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
     vscode.commands.registerCommand("englang.openLastArtifact", openLastRunArtifactPicker),
+    vscode.commands.registerCommand("englang.openGeneratedOutput", openGeneratedOutputArtifactPicker),
     vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
     vscode.commands.registerCommand("englang.openResultArtifact", () => openLastRunArtifact("result")),
     vscode.commands.registerCommand("englang.openReportSpec", () => openLastRunArtifact("reportSpec")),
@@ -1652,6 +1653,46 @@ async function openLastRunArtifactPicker() {
   }
 }
 
+async function openGeneratedOutputArtifactPicker() {
+  const root = currentWorkspaceRoot();
+  if (!root) {
+    vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
+    return;
+  }
+  const manifestPath = path.join(root, "build", "result", "output_manifest.json");
+  if (!fs.existsSync(manifestPath)) {
+    vscode.window.showWarningMessage("No build/result/output_manifest.json found yet. Run the current file first.");
+    return;
+  }
+
+  let manifest;
+  try {
+    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
+  } catch (error) {
+    vscode.window.showWarningMessage(`Could not read output_manifest.json: ${error.message}`);
+    return;
+  }
+
+  const artifacts = outputManifestArtifactItems(manifest, root);
+  if (artifacts.length === 0) {
+    vscode.window.showWarningMessage("The last output_manifest.json does not list any existing generated files.");
+    return;
+  }
+  const picked = await vscode.window.showQuickPick(artifacts, {
+    placeHolder: "Open a generated file from the last run"
+  });
+  if (!picked) {
+    return;
+  }
+  const uri = vscode.Uri.file(picked.filePath);
+  if (picked.external) {
+    await vscode.env.openExternal(uri);
+    return;
+  }
+  const document = await vscode.workspace.openTextDocument(uri);
+  await vscode.window.showTextDocument(document, { preview: false });
+}
+
 async function openLastRunArtifact(artifactId, sourceDocument = undefined) {
   const artifact = LAST_RUN_ARTIFACTS.find((item) => item.id === artifactId);
   if (!artifact) {
@@ -1675,6 +1716,81 @@ async function openLastRunArtifact(artifactId, sourceDocument = undefined) {
   }
   const document = await vscode.workspace.openTextDocument(uri);
   await vscode.window.showTextDocument(document, { preview: false });
+}
+
+function outputManifestArtifactItems(manifest, root) {
+  const outputDir = outputManifestOutputDir(manifest, root);
+  const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
+  const seen = new Set();
+  const items = [];
+  for (const artifact of artifacts) {
+    if (!artifact || typeof artifact !== "object") {
+      continue;
+    }
+    const manifestPath = String(artifact.path ?? "").trim();
+    if (!manifestPath) {
+      continue;
+    }
+    const filePath = resolveOutputManifestPath(manifestPath, outputDir, root);
+    if (!filePath || seen.has(filePath) || !fs.existsSync(filePath)) {
+      continue;
+    }
+    seen.add(filePath);
+    const kind = String(artifact.kind ?? "artifact");
+    const artifactClass = String(artifact.class ?? "").trim();
+    const status = String(artifact.status ?? "").trim();
+    items.push({
+      label: outputManifestArtifactLabel(kind),
+      description: relativeDisplayPath(root, filePath),
+      detail: [artifactClass, status].filter(Boolean).join(" | "),
+      filePath,
+      external: shouldOpenArtifactExternally(filePath)
+    });
+  }
+  return items.sort((left, right) => {
+    const pathOrder = left.description.localeCompare(right.description);
+    return pathOrder !== 0 ? pathOrder : left.label.localeCompare(right.label);
+  });
+}
+
+function outputManifestOutputDir(manifest, root) {
+  const outputDir = String(manifest?.output_dir ?? "").trim();
+  if (!outputDir) {
+    return path.join(root, "build", "result");
+  }
+  if (path.isAbsolute(outputDir)) {
+    return outputDir;
+  }
+  return path.join(root, outputDir);
+}
+
+function resolveOutputManifestPath(manifestPath, outputDir, root) {
+  if (path.isAbsolute(manifestPath)) {
+    return manifestPath;
+  }
+  const normalized = manifestPath.replaceAll("\\", "/");
+  if (normalized === "build" || normalized.startsWith("build/")) {
+    return path.join(root, ...normalized.split("/"));
+  }
+  return path.join(outputDir, ...normalized.split("/"));
+}
+
+function outputManifestArtifactLabel(kind) {
+  return kind
+    .split("_")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function relativeDisplayPath(root, filePath) {
+  const relative = path.relative(root, filePath);
+  return relative && !relative.startsWith("..") ? relative : filePath;
+}
+
+function shouldOpenArtifactExternally(filePath) {
+  const extension = path.extname(filePath).toLowerCase();
+  return extension === ".html" || extension === ".svg";
 }
 
 async function showSemanticTokensDebug(context) {

@@ -1818,6 +1818,7 @@ function Assert-VscodeExtensionContract {
         "englang.openReviewPanel",
         "englang.openReport",
         "englang.openLastArtifact",
+        "englang.openGeneratedOutput",
         "englang.openReviewJson",
         "englang.openResultArtifact",
         "englang.openReportSpec",
@@ -1843,6 +1844,7 @@ function Assert-VscodeExtensionContract {
         $CommandTitles[[string]$Command.command] = [string]$Command.title
     }
     foreach ($RequiredTitle in @(
+        @{ Command = "englang.openGeneratedOutput"; Text = "Last Generated Output" },
         @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Artifact" },
         @{ Command = "englang.openReportSpec"; Text = "Last Run Report Spec" },
         @{ Command = "englang.openOutputManifest"; Text = "Last Run Output Manifest" },

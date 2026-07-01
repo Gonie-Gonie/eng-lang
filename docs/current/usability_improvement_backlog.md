@@ -1464,6 +1464,20 @@ Status: implemented after VS Code artifact surface review.
 - Extended `ide-check` command/title coverage and the VS Code README artifact
   list so the editor surface mirrors the runtime artifact set.
 
+## Batch 121: Manifest-Based Output Picker
+
+Status: implemented after VS Code last-run output review.
+
+- Added `EngLang: Open Last Generated Output...`, which reads
+  `build/result/output_manifest.json` and lists the files actually recorded by
+  the last run instead of relying only on the fixed standard artifact list.
+- The picker resolves manifest paths against `build/result` or the workspace
+  build directory as appropriate, filters out missing files, and opens HTML/SVG
+  artifacts externally while keeping JSON, CSV, text, and `.engres` artifacts
+  in VS Code.
+- Extended `ide-check` command/title coverage and README docs so the new
+  manifest-driven artifact surface stays visible in local VS Code installs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

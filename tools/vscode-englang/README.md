@@ -99,6 +99,10 @@ available `build/result` outputs directly. `EngLang: Open Current File Review
 JSON` runs the same current-file review command and opens the normalized JSON
 directly, without requiring a prior run. `EngLang: Open Last Run Review JSON`
 opens the `build/result/review.json` artifact from the last saved run.
+`EngLang: Open Last Generated Output...` reads
+`build/result/output_manifest.json` and opens any existing file recorded by the
+last run, including generated CSV/text outputs and review artifacts that are not
+listed as fixed commands.
 
 Dirty buffers are checked after a short typing pause, so Problems can update
 before the file is saved. Set `englang.lintOnChange = false` to keep

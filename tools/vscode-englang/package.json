@@ -430,6 +430,10 @@
         "title": "EngLang: Open Last Run Artifact..."
       },
       {
+        "command": "englang.openGeneratedOutput",
+        "title": "EngLang: Open Last Generated Output..."
+      },
+      {
         "command": "englang.openReviewJson",
         "title": "EngLang: Open Last Run Review JSON"
       },
