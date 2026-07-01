@@ -332,8 +332,19 @@ function Invoke-WorkflowsTest {
         if ($WorkflowSource -match "(?im)\brun\s+command\b") {
             throw "Native workflow source must not use run command: $Workflow"
         }
-        if ($WorkflowSource -match "(?i)(\bpython(?:\.exe)?\b|\.py\b)") {
-            throw "Native workflow source must not call Python: $Workflow"
+        foreach ($PythonMarker in @(
+            "\bpython(?:\d+(?:\.\d+)*)?(?:\.exe)?\b",
+            "\.py\b",
+            "\bsubprocess\b",
+            "\bpandas\b",
+            "\bnumpy\b",
+            "\bmatplotlib\b",
+            "\bjupyter\b",
+            "\bnotebook\b"
+        )) {
+            if ($WorkflowSource -match "(?i)$PythonMarker") {
+                throw "Native workflow source must not contain Python/notebook marker $PythonMarker`: $Workflow"
+            }
         }
         if ($WorkflowSource -match "(?i)\bselect_first_row\s*\(") {
             throw "Native workflow source must use filter + require_one instead of legacy select_first_row: $Workflow"

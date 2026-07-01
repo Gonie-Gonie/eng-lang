@@ -6884,15 +6884,29 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         "examples/workflows/02_external_simulation_surrogate/main.eng",
         "examples/workflows/03_uncertain_sensor_report/main.eng",
     ];
+    let banned_fragments = [
+        ("run command", "external process adapter"),
+        ("python", "Python runtime dependency"),
+        (".py", "Python script path"),
+        ("subprocess", "Python/process adapter"),
+        ("pandas", "Python data-frame dependency"),
+        ("numpy", "Python numeric dependency"),
+        ("matplotlib", "Python plotting dependency"),
+        ("jupyter", "notebook workflow dependency"),
+        ("notebook", "notebook workflow dependency"),
+        ("select_first_row", "legacy seeded row selection helper"),
+    ];
     for source_path in workflow_sources {
         let Ok(source) = std::fs::read_to_string(source_path) else {
             eprintln!("failed to read native workflow source {source_path}");
             return false;
         };
         let lowered = source.to_ascii_lowercase();
-        for banned in ["python", "run command", "select_first_row"] {
+        for (banned, reason) in banned_fragments {
             if lowered.contains(banned) {
-                eprintln!("native workflow source {source_path} must not contain `{banned}`");
+                eprintln!(
+                    "native workflow source {source_path} must not contain `{banned}` ({reason})"
+                );
                 return false;
             }
         }

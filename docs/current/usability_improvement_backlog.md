@@ -1015,6 +1015,17 @@ Status: implemented after VS Code/LSP quick-fix bridge review.
 - Extended `ide-check` contract coverage so the LSP action bridge does not
   regress to coarse same-line matching.
 
+## Batch 84: Native Workflow Python/Process Guards
+
+Status: implemented after workflow 01/02/03 native-source audit.
+
+- Confirmed workflow examples 01, 02, and 03 do not call Python or `run command`
+  in their `.eng` sources and still have smoke coverage for `process_count = 0`.
+- Tightened Rust example smoke and PowerShell `workflows-test` source guards so
+  Python script paths, notebook/data-science library markers, subprocess
+  markers, process adapters, and legacy seeded row selection helpers are blocked
+  before native workflow examples can regress.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
