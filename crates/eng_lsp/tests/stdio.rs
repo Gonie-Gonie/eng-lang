@@ -395,59 +395,23 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(function_hover_text.contains("fn heat_loss"));
     assert!(function_hover_text.contains("-> HeatRate [W]"));
 
-    let local_function_source = r#"fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
-    return UA * dT
-}
-
-Q_wall = heat_loss(150 W/K, 8 K)
-"#;
-    let local_function_uri = file_uri(&repo_root().join("target/eng_lsp_local_function.eng"));
-    let heat_loss_definition_line = local_function_source
+    let thermal_source_path = repo_root()
+        .join("examples/official/07_functions_imports/thermal.eng")
+        .canonicalize()
+        .expect("thermal import example should exist");
+    let thermal_source =
+        std::fs::read_to_string(&thermal_source_path).expect("thermal import should be readable");
+    let thermal_uri = file_uri(&thermal_source_path);
+    let heat_loss_definition_line = thermal_source
         .lines()
         .position(|line| line.contains("fn heat_loss"))
-        .expect("local function source should define heat_loss");
-    let heat_loss_definition_char = local_function_source
+        .expect("thermal import should define heat_loss");
+    let heat_loss_definition_char = thermal_source
         .lines()
         .nth(heat_loss_definition_line)
         .unwrap()
         .find("heat_loss")
         .unwrap();
-    let local_heat_loss_line = local_function_source
-        .lines()
-        .position(|line| line.contains("Q_wall = heat_loss"))
-        .expect("local function source should call heat_loss");
-    let local_heat_loss_char = local_function_source
-        .lines()
-        .nth(local_heat_loss_line)
-        .unwrap()
-        .find("heat_loss")
-        .unwrap()
-        + "heat_loss".len();
-
-    write_message(
-        &mut stdin,
-        json!({
-            "jsonrpc": "2.0",
-            "method": "textDocument/didOpen",
-            "params": {
-                "textDocument": {
-                    "uri": local_function_uri,
-                    "languageId": "englang",
-                    "version": 1,
-                    "text": local_function_source
-                }
-            }
-        }),
-    );
-    let local_function_published = read_message(&mut stdout);
-    assert_eq!(
-        local_function_published["method"],
-        "textDocument/publishDiagnostics"
-    );
-    assert_eq!(
-        local_function_published["params"]["uri"],
-        local_function_uri
-    );
 
     write_message(
         &mut stdin,
@@ -456,14 +420,14 @@ Q_wall = heat_loss(150 W/K, 8 K)
             "id": 13,
             "method": "textDocument/definition",
             "params": {
-                "textDocument": { "uri": local_function_uri },
-                "position": { "line": local_heat_loss_line, "character": local_heat_loss_char }
+                "textDocument": { "uri": function_uri },
+                "position": { "line": heat_loss_line, "character": heat_loss_char }
             }
         }),
     );
     let function_definition = read_message(&mut stdout);
     assert_eq!(function_definition["id"], 13);
-    assert_eq!(function_definition["result"]["uri"], local_function_uri);
+    assert_eq!(function_definition["result"]["uri"], thermal_uri);
     assert_eq!(
         function_definition["result"]["range"]["start"]["line"],
         heat_loss_definition_line

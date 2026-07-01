@@ -573,6 +573,19 @@ Status: implemented after LSP navigation range review.
 - The stdio LSP regression test now pins both variable and function definition
   ranges so editor navigation cannot silently lose source precision.
 
+## Batch 48: Cross-File Import Definitions
+
+Status: implemented after imported function navigation review.
+
+- `textDocument/definition` now falls back from the current document to static
+  file imports such as `use "thermal.eng"` when the selected symbol is defined
+  in an imported file.
+- Definition lookup uses parsed AST definition nodes before computing source
+  ranges, avoiding accidental jumps to same-line usages that only contain the
+  same label.
+- The stdio LSP regression test now pins `main.eng` `heat_loss(...)` navigation
+  to the actual `thermal.eng` `fn heat_loss` source range.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -610,8 +623,8 @@ Status: implemented after LSP navigation range review.
 
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
-- Add cross-file go-to-definition for imported functions and module symbols
-  once snapshots expose definition URI/range metadata.
+- Broaden cross-file go-to-definition beyond static file imports once bundled
+  module symbols expose definition URI/range metadata.
 - Expand compiler-backed semantic token coverage for richer workflow step
   references after those source spans become first-class metadata.
 - Continue expanding snapshot coverage for grammar and completion vocabulary

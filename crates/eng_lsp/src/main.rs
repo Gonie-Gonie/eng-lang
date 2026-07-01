@@ -1,7 +1,8 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
+use eng_compiler::{parse_source, AstItem};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
     diagnostic_json, document_symbols_lsp_json, folding_ranges_lsp_json, hover_json,
@@ -488,17 +489,10 @@ fn definition_for_request(request: &Value, documents: &HashMap<String, String>) 
     let snapshot = snapshot_for_source(&path, &text);
     let symbol = symbol_at_position(&text, line_zero_based, character)?;
     let hover = hover_for_symbol(&snapshot.hovers, &symbol)?;
-    let definition_line = hover.line.saturating_sub(1);
-    let line_text = text.lines().nth(definition_line)?;
-    let label = hover.name.rsplit('.').next().unwrap_or(&hover.name);
-    let (start_character, end_character) = definition_character_range(line_text, label)?;
-    Some(json!({
-        "uri": uri,
-        "range": {
-            "start": { "line": definition_line, "character": start_character },
-            "end": { "line": definition_line, "character": end_character }
-        }
-    }))
+    let label = definition_label_for_hover_name(&hover.name);
+    let target = definition_target_in_source(uri, &text, &label, hover.line)
+        .or_else(|| imported_definition_target(&path, &text, &label, hover.line))?;
+    Some(definition_location_json(&target))
 }
 
 fn hover_for_symbol<'a>(
@@ -518,6 +512,29 @@ fn hover_for_symbol<'a>(
                     .is_some_and(|hover_label| hover_label == symbol_label)
             })
         })
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct DefinitionTarget {
+    uri: String,
+    line: usize,
+    start_character: usize,
+    end_character: usize,
+}
+
+fn definition_label_for_hover_name(name: &str) -> String {
+    let label = name.rsplit('.').next().unwrap_or(name);
+    label.strip_suffix("()").unwrap_or(label).to_owned()
+}
+
+fn definition_location_json(target: &DefinitionTarget) -> Value {
+    json!({
+        "uri": target.uri,
+        "range": {
+            "start": { "line": target.line, "character": target.start_character },
+            "end": { "line": target.line, "character": target.end_character }
+        }
+    })
 }
 
 fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<String> {
@@ -543,6 +560,154 @@ fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<Str
 
 fn is_symbol_byte(byte: u8) -> bool {
     byte == b'.' || byte == b'_' || byte.is_ascii_alphanumeric()
+}
+
+fn definition_target_in_source(
+    uri: &str,
+    source: &str,
+    label: &str,
+    preferred_line: usize,
+) -> Option<DefinitionTarget> {
+    let parsed = parse_source(source);
+    let mut first_line = None;
+    for item in &parsed.items {
+        let Some(line) = ast_definition_line_for_label(item, label) else {
+            continue;
+        };
+        first_line.get_or_insert(line);
+        if line == preferred_line {
+            return definition_target_on_line(uri, source, line, label);
+        }
+    }
+    first_line.and_then(|line| definition_target_on_line(uri, source, line, label))
+}
+
+fn imported_definition_target(
+    source_path: &Path,
+    source: &str,
+    label: &str,
+    preferred_line: usize,
+) -> Option<DefinitionTarget> {
+    let base_dir = source_path.parent()?;
+    let parsed = parse_source(source);
+    let mut visited = HashSet::new();
+    imported_definition_target_from_program(&parsed, base_dir, label, preferred_line, &mut visited)
+}
+
+fn imported_definition_target_from_program(
+    parsed: &eng_compiler::ParsedProgram,
+    base_dir: &Path,
+    label: &str,
+    preferred_line: usize,
+    visited: &mut HashSet<PathBuf>,
+) -> Option<DefinitionTarget> {
+    for item in &parsed.items {
+        let AstItem::Import(import) = item else {
+            continue;
+        };
+        if import.kind != "file" {
+            continue;
+        }
+        let Some(import_path) = resolve_static_import_path(base_dir, &import.target) else {
+            continue;
+        };
+        if !visited.insert(import_path.clone()) {
+            continue;
+        }
+        let Ok(imported_source) = std::fs::read_to_string(&import_path) else {
+            visited.remove(&import_path);
+            continue;
+        };
+        let imported_uri = file_uri_from_path(&import_path);
+        if let Some(target) =
+            definition_target_in_source(&imported_uri, &imported_source, label, preferred_line)
+        {
+            return Some(target);
+        }
+        let imported = parse_source(&imported_source);
+        if let Some(import_base_dir) = import_path.parent() {
+            if let Some(target) = imported_definition_target_from_program(
+                &imported,
+                import_base_dir,
+                label,
+                preferred_line,
+                visited,
+            ) {
+                return Some(target);
+            }
+        }
+        visited.remove(&import_path);
+    }
+    None
+}
+
+fn resolve_static_import_path(base_dir: &Path, target: &str) -> Option<PathBuf> {
+    let raw = Path::new(target);
+    let path = if raw.is_absolute() {
+        raw.to_path_buf()
+    } else {
+        base_dir.join(raw)
+    };
+    path.canonicalize()
+        .ok()
+        .or_else(|| path.exists().then_some(path))
+}
+
+fn file_uri_from_path(path: &Path) -> String {
+    let mut path = path.to_string_lossy().replace('\\', "/");
+    if path.as_bytes().get(1) == Some(&b':') {
+        path = format!("/{path}");
+    }
+    format!("file://{}", path.replace(' ', "%20"))
+}
+
+fn ast_definition_line_for_label(item: &AstItem, label: &str) -> Option<usize> {
+    match item {
+        AstItem::Function(function) if function.name == label => Some(function.span.line),
+        AstItem::Const(declaration) if declaration.name == label => Some(declaration.line),
+        AstItem::FastBinding(binding) if binding.name == label => Some(binding.line),
+        AstItem::ExplicitDecl(declaration) if declaration.name == label => Some(declaration.line),
+        AstItem::Schema(schema) if schema.name == label => Some(schema.span.line),
+        AstItem::Struct(structure) if structure.name == label => Some(structure.span.line),
+        AstItem::Class(class_info) if class_info.name == label => Some(class_info.span.line),
+        AstItem::ClassField(field) if field.name == label => Some(field.line),
+        AstItem::ClassMethod(method) if method.name == label => Some(method.line),
+        AstItem::ClassObject(object) if object.name == label => Some(object.line),
+        AstItem::ClassObjectCopy(object) if object.name == label => Some(object.line),
+        AstItem::ClassObjectField(field) if field.name == label => Some(field.line),
+        AstItem::Args(args) if args.name == label => Some(args.span.line),
+        AstItem::ArgsField(field) if field.name == label => Some(field.line),
+        AstItem::System(system) if system.name == label => Some(system.span.line),
+        AstItem::SystemVariable(variable) if variable.name == label => Some(variable.line),
+        AstItem::StateSpaceTypeBlock(block) if block.name == label => Some(block.line),
+        AstItem::StateSpaceTypeMember(member) if member.name == label => Some(member.line),
+        AstItem::StateSpaceVector(vector) if vector.name == label => Some(vector.line),
+        AstItem::Domain(domain) if domain.name == label => Some(domain.span.line),
+        AstItem::DomainVariable(variable) if variable.name == label => Some(variable.line),
+        AstItem::Component(component) if component.name == label => Some(component.span.line),
+        AstItem::Port(port) if port.name == label => Some(port.line),
+        AstItem::WhereBinding(binding) if binding.name == label => Some(binding.line),
+        AstItem::WithOption(option) if option.key == label => Some(option.line),
+        AstItem::Test(test) if test.name == label => Some(test.line),
+        _ => None,
+    }
+}
+
+fn definition_target_on_line(
+    uri: &str,
+    source: &str,
+    line_one_based: usize,
+    label: &str,
+) -> Option<DefinitionTarget> {
+    let line = line_one_based.saturating_sub(1);
+    let line_text = source.lines().nth(line)?;
+    let (start_character, end_character) = definition_character_range(line_text, label)?;
+    Some(DefinitionTarget {
+        uri: uri.to_owned(),
+        line,
+        start_character,
+        end_character,
+    })
 }
 
 fn definition_character_range(line_text: &str, label: &str) -> Option<(usize, usize)> {
