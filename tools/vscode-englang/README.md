@@ -127,6 +127,8 @@ so themes without EngLang-specific rules still receive stable color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting. Maintainer-facing scope and semantic-token mapping rules live in
 `docs/internal/editor/token_scopes.md`.
+`EngLang: Inspect Highlight Tokens` opens a JSON debug view with token counts
+and representative source-text samples by type and modifier.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set

@@ -2038,7 +2038,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $ExtensionSource.Contains("completion.lsp_kind")) {
         throw "VS Code extension must use generated completion seed metadata as the completion fallback"
     }
-    if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier")) {
+    if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier") -or -not $ExtensionSource.Contains("token_samples_by_type") -or -not $ExtensionSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"
     }
     foreach ($RequiredRiskDecorationToken in @(

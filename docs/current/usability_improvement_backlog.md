@@ -1576,6 +1576,16 @@ Status: implemented after Highlight panel usability review.
 - Extended `ide-check` contract coverage for the new highlight-token filter
   wiring.
 
+## Batch 130: VS Code Highlight Token Debug Samples
+
+Status: implemented after VS Code highlight-debug usability review.
+
+- Added `token_samples_by_type` and `token_samples_by_modifier` to
+  `EngLang: Inspect Highlight Tokens`, giving representative source text,
+  line, range, type, and modifiers for each semantic token group.
+- Updated the VS Code README and `ide-check` contract so token debug output
+  stays useful for auditing inconsistent highlighting.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

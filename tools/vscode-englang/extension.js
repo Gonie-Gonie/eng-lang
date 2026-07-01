@@ -1870,10 +1870,15 @@ async function showSemanticTokensDebug(context) {
   const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
   const tokenCounts = {};
   const modifierCounts = {};
+  const tokenSamplesByType = {};
+  const tokenSamplesByModifier = {};
   for (const token of semanticTokens.tokens ?? []) {
     tokenCounts[token.type] = (tokenCounts[token.type] ?? 0) + 1;
+    const sample = semanticTokenDebugSample(document, token);
+    addSemanticTokenDebugSample(tokenSamplesByType, token.type || "-", sample);
     for (const modifier of token.modifiers ?? []) {
       modifierCounts[modifier] = (modifierCounts[modifier] ?? 0) + 1;
+      addSemanticTokenDebugSample(tokenSamplesByModifier, modifier || "-", sample);
     }
   }
   const payload = {
@@ -1881,6 +1886,8 @@ async function showSemanticTokensDebug(context) {
     token_count: semanticTokens.tokens?.length ?? 0,
     token_counts_by_type: tokenCounts,
     token_counts_by_modifier: modifierCounts,
+    token_samples_by_type: tokenSamplesByType,
+    token_samples_by_modifier: tokenSamplesByModifier,
     semantic_tokens: semanticTokens
   };
   const debugDocument = await vscode.workspace.openTextDocument({
@@ -1888,6 +1895,30 @@ async function showSemanticTokensDebug(context) {
     content: JSON.stringify(payload, null, 2)
   });
   await vscode.window.showTextDocument(debugDocument, { preview: false });
+}
+
+function semanticTokenDebugSample(document, token) {
+  const line = Number(token?.line ?? -1);
+  const range = semanticTokenRange(document, token);
+  return {
+    text: range ? document.getText(range) : "",
+    line: Number.isFinite(line) && line >= 0 ? line + 1 : null,
+    start: token?.start ?? null,
+    length: token?.length ?? null,
+    type: token?.type || "-",
+    modifiers: token?.modifiers ?? []
+  };
+}
+
+function addSemanticTokenDebugSample(samplesByKey, key, sample) {
+  if (!key || !sample || !sample.text) {
+    return;
+  }
+  const samples = samplesByKey[key] ?? [];
+  if (samples.length < 8 && !samples.some((item) => item.text === sample.text && item.line === sample.line && item.start === sample.start)) {
+    samples.push(sample);
+  }
+  samplesByKey[key] = samples;
 }
 
 class EngSemanticTokensProvider {
