@@ -31,13 +31,11 @@ embedding compiler logic in JavaScript.
   annotation migrations, required file-mutation `with` options, invalid
   sampling seed values, and missing repro-profile sampling seeds
 - commands to check, run the current file or a bundled example with saved
-  artifacts, open a current-file review panel, open the current file review
-  JSON, open the latest generated report, and inspect review/run artifacts such
-  as `review.json`, `result.engres`, `report_spec.json`,
-  `output_manifest.json`, `run_log.json`, `static_run_plan.json`,
-  `run_plan.json`, `run_lock.json`, `process_results.json`,
-  `cache_manifest.json`, `test_results.json`, `plots/plot_spec.json`,
-  `plots/plot_manifest.json`, and `plots/timeseries.svg`
+  artifacts, open a current-file review panel, open current-file review data,
+  open the latest generated report, and inspect last-run review data, result
+  data, report data, output lists, run logs, run graphs, reproducibility locks,
+  external process results, cache records, test results, plot data, plot output
+  lists, and plot SVGs
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 

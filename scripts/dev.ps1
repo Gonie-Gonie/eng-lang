@@ -1859,18 +1859,18 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.reviewFile"; Text = "Current File Review Data" },
         @{ Command = "englang.openGeneratedOutput"; Text = "Last Generated Output" },
         @{ Command = "englang.openReviewJson"; Text = "Last Run Review Data" },
-        @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Artifact" },
-        @{ Command = "englang.openReportSpec"; Text = "Last Run Report Spec" },
+        @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Data" },
+        @{ Command = "englang.openReportSpec"; Text = "Last Run Report Data" },
         @{ Command = "englang.openOutputManifest"; Text = "Last Run Output List" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
-        @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Plan" },
-        @{ Command = "englang.openRunPlan"; Text = "Last Run Plan" },
-        @{ Command = "englang.openRunLock"; Text = "Last Run Lock" },
+        @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Graph" },
+        @{ Command = "englang.openRunPlan"; Text = "Last Run Graph" },
+        @{ Command = "englang.openRunLock"; Text = "Last Run Reproducibility Lock" },
         @{ Command = "englang.openProcessResults"; Text = "Last Run External Process Results" },
-        @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Manifest" },
+        @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Records" },
         @{ Command = "englang.openTestResults"; Text = "Last Run Test Results" },
-        @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Spec" },
-        @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Manifest" },
+        @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Data" },
+        @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Output List" },
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
@@ -1944,7 +1944,28 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
-    foreach ($ForbiddenCommandWording in @("Current File Review JSON", "Last Run Review JSON", "Last Run Output Manifest", "Last Run Process Results")) {
+    foreach ($ForbiddenCommandWording in @(
+        "Current File Review JSON",
+        "Last Run Review JSON",
+        "Last Run Output Manifest",
+        "Last Run Process Results",
+        "Last Run Result Artifact",
+        "Last Run Report Spec",
+        "Last Static Run Plan",
+        "Last Run Plan",
+        "Last Run Lock",
+        "Last Run Cache Manifest",
+        "Last Run Plot Spec",
+        "Last Run Plot Manifest",
+        "Result Artifact",
+        "Report Spec",
+        "Static Run Plan",
+        "Run Plan",
+        "Run Lock",
+        "Cache Manifest",
+        "Plot Spec",
+        "Plot Manifest"
+    )) {
         if ($PackageSource.Contains($ForbiddenCommandWording) -or $ExtensionSource.Contains($ForbiddenCommandWording)) {
             throw "VS Code command wording should use user-facing artifact names instead of '$ForbiddenCommandWording'"
         }

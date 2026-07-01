@@ -439,11 +439,11 @@
       },
       {
         "command": "englang.openResultArtifact",
-        "title": "EngLang: Open Last Run Result Artifact"
+        "title": "EngLang: Open Last Run Result Data"
       },
       {
         "command": "englang.openReportSpec",
-        "title": "EngLang: Open Last Run Report Spec"
+        "title": "EngLang: Open Last Run Report Data"
       },
       {
         "command": "englang.openOutputManifest",
@@ -455,15 +455,15 @@
       },
       {
         "command": "englang.openStaticRunPlan",
-        "title": "EngLang: Open Last Static Run Plan"
+        "title": "EngLang: Open Last Static Run Graph"
       },
       {
         "command": "englang.openRunPlan",
-        "title": "EngLang: Open Last Run Plan"
+        "title": "EngLang: Open Last Run Graph"
       },
       {
         "command": "englang.openRunLock",
-        "title": "EngLang: Open Last Run Lock"
+        "title": "EngLang: Open Last Run Reproducibility Lock"
       },
       {
         "command": "englang.openProcessResults",
@@ -471,7 +471,7 @@
       },
       {
         "command": "englang.openCacheManifest",
-        "title": "EngLang: Open Last Run Cache Manifest"
+        "title": "EngLang: Open Last Run Cache Records"
       },
       {
         "command": "englang.openTestResults",
@@ -479,11 +479,11 @@
       },
       {
         "command": "englang.openPlotSpec",
-        "title": "EngLang: Open Last Run Plot Spec"
+        "title": "EngLang: Open Last Run Plot Data"
       },
       {
         "command": "englang.openPlotManifest",
-        "title": "EngLang: Open Last Run Plot Manifest"
+        "title": "EngLang: Open Last Run Plot Output List"
       },
       {
         "command": "englang.openPlotSvg",

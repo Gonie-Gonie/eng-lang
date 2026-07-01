@@ -1596,6 +1596,20 @@ Status: implemented after caret-insight workflow review.
   text keeps the same selection behavior as the Highlight token table.
 - Extended `ide-check` contract coverage for the new caret-token action wiring.
 
+## Batch 132: VS Code Artifact Label Wording Cleanup
+
+Status: implemented after last-run artifact wording review.
+
+- Renamed user-visible VS Code artifact picker labels and command titles from
+  implementation-first names such as `Report Spec`, `Run Lock`,
+  `Cache Manifest`, and `Plot Manifest` to task-oriented names such as
+  `Report Data`, `Run Reproducibility Lock`, `Cache Records`, and
+  `Plot Output List`.
+- Kept command IDs and artifact paths stable while improving command-palette
+  and quick-pick wording.
+- Extended `ide-check` to reject the older internal artifact labels in package
+  and extension sources.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

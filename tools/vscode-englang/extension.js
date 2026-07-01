@@ -46,13 +46,13 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "result",
-    label: "Result Artifact",
+    label: "Result Data",
     description: "build/result/result.engres",
     relativePath: ["build", "result", "result.engres"]
   },
   {
     id: "reportSpec",
-    label: "Report Spec",
+    label: "Report Data",
     description: "build/result/report_spec.json",
     relativePath: ["build", "result", "report_spec.json"]
   },
@@ -70,19 +70,19 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "staticRunPlan",
-    label: "Static Run Plan",
+    label: "Static Run Graph",
     description: "build/result/static_run_plan.json",
     relativePath: ["build", "result", "static_run_plan.json"]
   },
   {
     id: "runPlan",
-    label: "Run Plan",
+    label: "Run Graph",
     description: "build/result/run_plan.json",
     relativePath: ["build", "result", "run_plan.json"]
   },
   {
     id: "runLock",
-    label: "Run Lock",
+    label: "Run Reproducibility Lock",
     description: "build/result/run_lock.json",
     relativePath: ["build", "result", "run_lock.json"]
   },
@@ -94,7 +94,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "cacheManifest",
-    label: "Cache Manifest",
+    label: "Cache Records",
     description: "build/result/cache_manifest.json",
     relativePath: ["build", "result", "cache_manifest.json"]
   },
@@ -106,13 +106,13 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "plotSpec",
-    label: "Plot Spec",
+    label: "Plot Data",
     description: "build/result/plots/plot_spec.json",
     relativePath: ["build", "result", "plots", "plot_spec.json"]
   },
   {
     id: "plotManifest",
-    label: "Plot Manifest",
+    label: "Plot Output List",
     description: "build/result/plots/plot_manifest.json",
     relativePath: ["build", "result", "plots", "plot_manifest.json"]
   },
