@@ -327,17 +327,30 @@ function Invoke-WorkflowsTest {
         "examples\workflows\02_external_simulation_surrogate\main.eng",
         "examples\workflows\03_uncertain_sensor_report\main.eng"
     )) {
+        $WorkflowSourcePath = Join-Path $RepoRoot $Workflow
+        $WorkflowSource = Get-Content -LiteralPath $WorkflowSourcePath -Raw
+        if ($WorkflowSource -match "(?im)\brun\s+command\b") {
+            throw "Native workflow source must not use run command: $Workflow"
+        }
+        if ($WorkflowSource -match "(?i)(\bpython(?:\.exe)?\b|\.py\b)") {
+            throw "Native workflow source must not call Python: $Workflow"
+        }
         Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $Workflow "--save-artifacts"
         $ProcessResultsPath = Join-Path $RepoRoot "build\result\process_results.json"
-        if (Test-Path -LiteralPath $ProcessResultsPath) {
-            $ProcessResults = Get-Content -LiteralPath $ProcessResultsPath -Raw | ConvertFrom-Json
-            $ProcessCount = 0
-            if ($null -ne $ProcessResults.process_count) {
-                $ProcessCount = [int]$ProcessResults.process_count
-            }
-            if ($ProcessCount -ne 0) {
-                throw "Native workflow smoke must not execute external processes: $Workflow"
-            }
+        if (-not (Test-Path -LiteralPath $ProcessResultsPath)) {
+            throw "Native workflow smoke must write process_results.json: $Workflow"
+        }
+        $ProcessResults = Get-Content -LiteralPath $ProcessResultsPath -Raw | ConvertFrom-Json
+        $ProcessCount = 0
+        if ($null -ne $ProcessResults.process_count) {
+            $ProcessCount = [int]$ProcessResults.process_count
+        }
+        $ProcessListCount = 0
+        if ($null -ne $ProcessResults.processes) {
+            $ProcessListCount = @($ProcessResults.processes).Count
+        }
+        if ($ProcessCount -ne 0 -or $ProcessListCount -ne 0) {
+            throw "Native workflow smoke must not execute external processes: $Workflow"
         }
     }
 }
