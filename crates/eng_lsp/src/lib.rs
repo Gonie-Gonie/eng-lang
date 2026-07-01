@@ -317,6 +317,17 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("tool_version", "external tool version"),
 ];
 
+const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("body", "fixture-backed HTTP response body text"),
+    ("text", "alias for fixture-backed HTTP response body text"),
+    ("status", "network boundary status"),
+    ("status_code", "HTTP status code"),
+    ("status_class", "HTTP status class"),
+    ("response_hash", "response SHA-256 hash"),
+    ("hash", "alias for response SHA-256 hash"),
+    ("url", "resolved request URL"),
+];
+
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
     let source = std::fs::read_to_string(path)?;
     let report = check_source(path, &source, &CheckOptions::default());
@@ -640,6 +651,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             &request.binding,
             "variable",
             &["declaration", "external"],
+        );
+        builder.push_member_fields(
+            &request.binding,
+            HTTP_RESPONSE_FIELD_COMPLETIONS,
+            &["external"],
         );
         builder.push_keywords_on_line(request.line, &["http", "get"], &["sideEffect", "external"]);
     }
@@ -1939,6 +1955,69 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
     }
 
+    fn push_member_fields(
+        &mut self,
+        receiver: &str,
+        fields: &[(&str, &str)],
+        receiver_modifiers: &[&str],
+    ) {
+        if receiver.trim().is_empty() {
+            return;
+        }
+        let needle = format!("{receiver}.");
+        for line_index in 0..self.lines.len() {
+            let line = self.lines[line_index];
+            for (range_start, range_end) in code_ranges(line) {
+                let mut search_start = range_start;
+                while search_start < range_end {
+                    let Some(relative) = line[search_start..range_end].find(&needle) else {
+                        break;
+                    };
+                    let receiver_start = search_start + relative;
+                    let receiver_end = receiver_start + receiver.len();
+                    let field_start = receiver_end + 1;
+                    search_start = field_start;
+                    if !member_receiver_boundary(line, receiver_start) {
+                        continue;
+                    }
+                    let bytes = line.as_bytes();
+                    if field_start >= range_end
+                        || field_start >= bytes.len()
+                        || !is_ident_start(bytes[field_start])
+                    {
+                        continue;
+                    }
+                    let mut field_end = field_start + 1;
+                    while field_end < range_end
+                        && field_end < bytes.len()
+                        && is_ident_byte(bytes[field_end])
+                    {
+                        field_end += 1;
+                    }
+                    let field = &line[field_start..field_end];
+                    if !fields.iter().any(|(candidate, _)| *candidate == field) {
+                        continue;
+                    }
+                    self.push_byte_range(
+                        line_index,
+                        receiver_start,
+                        receiver.len(),
+                        "variable",
+                        receiver_modifiers,
+                    );
+                    self.push_byte_range(
+                        line_index,
+                        field_start,
+                        field_end - field_start,
+                        "property",
+                        &[],
+                    );
+                    search_start = field_end;
+                }
+            }
+        }
+    }
+
     fn push_byte_range(
         &mut self,
         line: usize,
@@ -2090,6 +2169,14 @@ fn is_identifier_boundary(line: &str, start: usize, end: usize) -> bool {
         .and_then(|index| bytes.get(index).copied());
     let after = bytes.get(end).copied();
     before.is_none_or(|byte| !is_ident_byte(byte)) && after.is_none_or(|byte| !is_ident_byte(byte))
+}
+
+fn member_receiver_boundary(line: &str, start: usize) -> bool {
+    let bytes = line.as_bytes();
+    start
+        .checked_sub(1)
+        .and_then(|index| bytes.get(index).copied())
+        .is_none_or(|byte| !is_ident_byte(byte))
 }
 
 fn is_unit_boundary(line: &str, start: usize, end: usize) -> bool {
@@ -2537,6 +2624,17 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 binding.semantic_type.quantity_kind, binding.semantic_type.display_unit
             ),
         );
+        if binding.semantic_type.quantity_kind == "HttpResponse" {
+            for (field, detail) in HTTP_RESPONSE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
     }
 
     for schema in &report.semantic_program.schemas {
@@ -2750,6 +2848,18 @@ pub fn completion_items_at(
     }
 
     if let Some((receiver, prefix)) = member_completion_context(source, line, character) {
+        if report.semantic_program.typed_bindings.iter().any(|binding| {
+            binding.name == receiver && binding.semantic_type.quantity_kind == "HttpResponse"
+        }) {
+            let mut seen = BTreeSet::new();
+            let mut items = Vec::new();
+            for (field, detail) in HTTP_RESPONSE_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            return items;
+        }
         if let Some(schema_name) = report
             .semantic_program
             .csv_promotions
@@ -3291,6 +3401,40 @@ mod tests {
             .unwrap()
             .iter()
             .any(|symbol| symbol["name"] == "Q"));
+    }
+
+    #[test]
+    fn snapshot_exposes_http_response_member_fields() {
+        let source = "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\n";
+        let snapshot = snapshot_for_source(Path::new("net.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "response.body"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("response_text"))
+            .expect("response_text line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("net.eng"),
+            source,
+            line,
+            "response_text = response.".len(),
+        );
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "body"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "status_code"));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "property"
+                && source
+                    .lines()
+                    .nth(token.line)
+                    .is_some_and(|line| &line[token.start..token.start + token.length] == "body")
+        }));
     }
 
     #[test]
