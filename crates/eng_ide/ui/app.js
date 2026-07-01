@@ -983,14 +983,16 @@ function renderObjectsPanel() {
 }
 
 function renderModulesPanel() {
-  const supported = state.modules.filter((module) => String(module.status || "").startsWith("supported")).length;
-  const planned = state.modules.filter((module) => String(module.status || "").includes("planned")).length;
+  const native = state.modules.filter((module) => moduleStatusCategory(module) === "native").length;
+  const planned = state.modules.filter((module) => moduleStatusCategory(module) === "planned").length;
+  const internal = state.modules.filter((module) => moduleStatusCategory(module) === "internal").length;
   return `
     <div class="panel-title compact">Modules</div>
     <div class="badges">
       <span class="badge">Total ${state.modules.length}</span>
-      <span class="badge">Supported ${supported}</span>
+      <span class="badge">Native ${native}</span>
       <span class="badge">Planned ${planned}</span>
+      <span class="badge">Internal ${internal}</span>
     </div>
     <div class="scroll">${renderModules()}</div>
   `;
@@ -1183,7 +1185,7 @@ function renderModules() {
   const rows = state.modules.map((module) => `
     <tr>
       <td><strong>${escapeHtml(module.name || "-")}</strong></td>
-      <td>${escapeHtml(module.status || "-")}<div class="muted">${escapeHtml(module.backing || "-")}</div></td>
+      <td><strong>${escapeHtml(moduleStatusLabel(module))}</strong><div class="muted">${escapeHtml(moduleStatusDetail(module))}</div><div class="muted">${escapeHtml(module.status || "-")} / ${escapeHtml(module.backing || "-")}</div></td>
       <td>${escapeHtml(compactText(module.purpose || "-", 120))}</td>
       <td>${escapeHtml(Array.isArray(module.symbols) && module.symbols.length ? module.symbols.join("; ") : "-")}</td>
       <td>${escapeHtml(Array.isArray(module.artifacts) && module.artifacts.length ? module.artifacts.join("; ") : "-")}</td>
@@ -1195,6 +1197,54 @@ function renderModules() {
       <tbody>${rows || `<tr><td colspan="5" class="muted">No module registry entries.</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function moduleStatusCategory(module) {
+  const status = String(module.status || "");
+  if (status.startsWith("supported")) return "native";
+  if (status.includes("internal")) return "internal";
+  if (status.includes("planned")) return "planned";
+  return "unknown";
+}
+
+function moduleStatusLabel(module) {
+  if (module.statusLabel) return module.statusLabel;
+  switch (module.status) {
+    case "supported":
+      return "Supported";
+    case "supported_narrow":
+      return "Supported narrow";
+    case "supported_seed":
+      return "Native preview";
+    case "planned":
+      return "Planned";
+    case "internal_planned":
+      return "Internal planned";
+    case "internal":
+      return "Internal";
+    default:
+      return module.status || "-";
+  }
+}
+
+function moduleStatusDetail(module) {
+  if (module.statusDetail) return module.statusDetail;
+  switch (module.status) {
+    case "supported":
+      return "Public built-in surface supported by compiler/runtime.";
+    case "supported_narrow":
+      return "Supported for the listed syntax forms and review artifacts.";
+    case "supported_seed":
+      return "Native implementation exists for current workflow fixtures; broader API may still change.";
+    case "planned":
+      return "Documented target surface; not executable as a public module yet.";
+    case "internal_planned":
+      return "Internal design target, not a public stdlib contract.";
+    case "internal":
+      return "Internal compiler/runtime vocabulary, not a public stdlib contract.";
+    default:
+      return "-";
+  }
 }
 
 function renderReviewTimeAxes(timeAxes) {

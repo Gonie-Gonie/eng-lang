@@ -23,8 +23,42 @@ pub struct ModuleRegistryEntry {
 }
 
 impl ModuleRegistryEntry {
+    pub fn status_label(&self) -> &'static str {
+        module_status_label(&self.status)
+    }
+
+    pub fn status_detail(&self) -> &'static str {
+        module_status_detail(&self.status)
+    }
+
     pub fn completion_detail(&self) -> String {
-        format!("{}: {}", self.status, self.purpose)
+        format!("{}: {}", self.status_label(), self.purpose)
+    }
+}
+
+pub fn module_status_label(status: &str) -> &'static str {
+    match status {
+        "supported" => "Supported",
+        "supported_narrow" => "Supported narrow",
+        "supported_seed" => "Native preview",
+        "planned" => "Planned",
+        "internal_planned" => "Internal planned",
+        "internal" => "Internal",
+        _ => "Unknown",
+    }
+}
+
+pub fn module_status_detail(status: &str) -> &'static str {
+    match status {
+        "supported" => "Public built-in surface supported by compiler/runtime.",
+        "supported_narrow" => "Supported for the listed syntax forms and review artifacts.",
+        "supported_seed" => {
+            "Native implementation exists for current workflow fixtures; broader API may still change."
+        }
+        "planned" => "Documented target surface; not executable as a public module yet.",
+        "internal_planned" => "Internal design target, not a public stdlib contract.",
+        "internal" => "Internal compiler/runtime vocabulary, not a public stdlib contract.",
+        _ => "Unrecognized registry status.",
     }
 }
 
@@ -297,6 +331,11 @@ mod tests {
             .iter()
             .find(|module| module.name == "eng.net")
             .expect("eng.net should be registered");
+        assert_eq!(net_module.status_label(), "Native preview");
+        assert!(net_module
+            .completion_detail()
+            .starts_with("Native preview:"));
+        assert!(!net_module.completion_detail().contains("supported_seed"));
         assert!(net_module
             .diagnostics
             .iter()

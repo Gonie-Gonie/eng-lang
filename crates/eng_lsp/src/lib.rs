@@ -3241,10 +3241,10 @@ mod tests {
             );
         }
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.net" && completion.detail.contains("supported_seed")
+            completion.label == "eng.net" && completion.detail.contains("Native preview")
         }));
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.cache" && completion.detail.contains("supported_seed")
+            completion.label == "eng.cache" && completion.detail.contains("Native preview")
         }));
 
         let json = snapshot_json(&snapshot);

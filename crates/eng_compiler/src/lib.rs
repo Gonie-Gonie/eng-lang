@@ -5504,7 +5504,7 @@ fn review_semantic_hash(report: &CheckReport) -> String {
 fn review_section_digest(report: &CheckReport, section: &str) -> String {
     let program = &report.semantic_program;
     match section {
-        "workflow_modules" => format!("{:?}", review_workflow_module_entries()),
+        "workflow_modules" => review_workflow_module_digest(),
         "inputs" => format!(
             "{:?}|{:?}|{:?}",
             program.args_blocks, program.arg_values, program.environment_dependencies
@@ -5624,6 +5624,14 @@ fn push_review_workflow_modules_json(json: &mut String) {
             json_escape(&module.status)
         ));
         json.push_str(&format!(
+            "        \"status_label\": \"{}\",\n",
+            json_escape(module.status_label())
+        ));
+        json.push_str(&format!(
+            "        \"status_detail\": \"{}\",\n",
+            json_escape(module.status_detail())
+        ));
+        json.push_str(&format!(
             "        \"backing\": \"{}\",\n",
             json_escape(&module.backing)
         ));
@@ -5686,6 +5694,27 @@ fn review_workflow_module_entries() -> Vec<ModuleRegistryEntry> {
     bundled_module_registry()
         .map(|registry| registry.modules)
         .unwrap_or_default()
+}
+
+fn review_workflow_module_digest() -> String {
+    review_workflow_module_entries()
+        .iter()
+        .map(|module| {
+            format!(
+                "{}|{}|{}|{}|{}|{:?}|{:?}|{:?}|{:?}",
+                module.name,
+                module.status,
+                module.status_label(),
+                module.status_detail(),
+                module.backing,
+                module.artifacts,
+                module.diagnostics,
+                module.examples,
+                module.symbols
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
 }
 
 fn review_workflow_module_count() -> usize {
@@ -11729,6 +11758,20 @@ system Envelope {
             .and_then(serde_json::Value::as_array)
             .is_some_and(|modules| modules.iter().any(|module| {
                 module.get("name").and_then(serde_json::Value::as_str) == Some("eng.review")
+            })));
+        assert!(value
+            .pointer("/review_document/workflow_modules")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|modules| modules.iter().any(|module| {
+                module.get("name").and_then(serde_json::Value::as_str) == Some("eng.net")
+                    && module
+                        .get("status_label")
+                        .and_then(serde_json::Value::as_str)
+                        == Some("Native preview")
+                    && module
+                        .get("status_detail")
+                        .and_then(serde_json::Value::as_str)
+                        .is_some_and(|detail| detail.contains("current workflow fixtures"))
             })));
         assert!(value
             .pointer("/review_document/section_hashes/workflow_modules")

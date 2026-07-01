@@ -93,6 +93,8 @@ struct CompletionView {
 struct ModuleView {
     name: String,
     status: String,
+    status_label: String,
+    status_detail: String,
     backing: String,
     purpose: String,
     artifacts: Vec<String>,
@@ -1194,13 +1196,19 @@ fn module_browser_items() -> Vec<ModuleView> {
             registry
                 .modules
                 .into_iter()
-                .map(|module| ModuleView {
-                    name: module.name,
-                    status: module.status,
-                    backing: module.backing,
-                    purpose: module.purpose,
-                    artifacts: module.artifacts,
-                    symbols: module.symbols,
+                .map(|module| {
+                    let status_label = module.status_label().to_owned();
+                    let status_detail = module.status_detail().to_owned();
+                    ModuleView {
+                        name: module.name,
+                        status_label,
+                        status_detail,
+                        status: module.status,
+                        backing: module.backing,
+                        purpose: module.purpose,
+                        artifacts: module.artifacts,
+                        symbols: module.symbols,
+                    }
                 })
                 .collect()
         })
