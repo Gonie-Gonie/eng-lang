@@ -1371,6 +1371,18 @@ Status: implemented after completion/type highlighting review.
 - Verified the updated grammar smoke contract with 159 explicit token
   expectations plus public-type scope parity checks.
 
+## Batch 113: Workflow Option Scope Registry Parity Guard
+
+Status: implemented after completion/with-option highlighting review.
+
+- Extended the grammar smoke scope matcher so it can verify regexes that depend
+  on surrounding syntax, such as option keys followed by `=`.
+- Strengthened `variable.parameter.property.englang` coverage so every workflow
+  option exported through the LSP completion seed must be highlighted as a
+  with-block option key.
+- Added quantity-kind scope parity to the existing public-type guard so compiler
+  quantity completions and TextMate type highlighting cannot drift silently.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

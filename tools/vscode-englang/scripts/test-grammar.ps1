@@ -234,7 +234,8 @@ function Assert-ScopeMatchesLabels {
     param(
         [Parameter(Mandatory = $true)][string] $Scope,
         [Parameter(Mandatory = $true)][string[]] $Labels,
-        [Parameter(Mandatory = $true)][string] $Description
+        [Parameter(Mandatory = $true)][string] $Description,
+        [string] $Suffix = ""
     )
 
     if (-not $PatternsByScope.ContainsKey($Scope)) {
@@ -243,12 +244,13 @@ function Assert-ScopeMatchesLabels {
 
     foreach ($Label in $Labels) {
         $matched = $false
+        $sample = "$Label$Suffix"
         foreach ($pattern in $PatternsByScope[$Scope]) {
             $patternNode = $pattern.pattern
             if ($null -eq $patternNode.match) {
                 continue
             }
-            $match = [regex]::Match($Label, [string] $patternNode.match)
+            $match = [regex]::Match($sample, [string] $patternNode.match)
             if ($match.Success -and $match.Value -eq $Label) {
                 $matched = $true
                 break
@@ -278,8 +280,10 @@ Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $PublicType
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
+Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
 
 $Results = New-Object System.Collections.Generic.List[object]
 foreach ($case in $Expected) {
