@@ -4,7 +4,8 @@ use std::path::{Path, PathBuf};
 
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
-    diagnostic_json, hover_json, snapshot_for_path, snapshot_for_source,
+    diagnostic_json, hover_json, semantic_legend, semantic_tokens_lsp_json, snapshot_for_path,
+    snapshot_for_source,
 };
 use serde_json::{json, Value};
 
@@ -185,6 +186,7 @@ fn run_lsp() -> io::Result<()> {
 
         match method {
             "initialize" => {
+                let legend = semantic_legend();
                 write_response(
                     &mut output,
                     json!({
@@ -197,6 +199,14 @@ fn run_lsp() -> io::Result<()> {
                                 "definitionProvider": true,
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
+                                },
+                                "semanticTokensProvider": {
+                                    "legend": {
+                                        "tokenTypes": legend.token_types,
+                                        "tokenModifiers": legend.token_modifiers
+                                    },
+                                    "full": true,
+                                    "range": false
                                 }
                             },
                             "serverInfo": {
@@ -248,6 +258,15 @@ fn run_lsp() -> io::Result<()> {
                     json!({ "jsonrpc": "2.0", "id": id, "result": definition }),
                 )?;
             }
+            "textDocument/semanticTokens/full" => {
+                let tokens = semantic_tokens_for_request(&request, &documents)
+                    .map(|tokens| semantic_tokens_lsp_json(&tokens))
+                    .unwrap_or_else(|| json!({ "data": [] }));
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
+                )?;
+            }
             _ if id.is_some() => {
                 write_response(
                     &mut output,
@@ -284,6 +303,19 @@ fn publish_diagnostics<W: Write>(output: &mut W, uri: &str, text: &str) -> io::R
             }
         }),
     )
+}
+
+fn semantic_tokens_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+) -> Option<eng_lsp::LspSemanticTokens> {
+    let uri = request_uri(request)?;
+    let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+    let text = documents
+        .get(uri)
+        .cloned()
+        .or_else(|| std::fs::read_to_string(&path).ok())?;
+    Some(snapshot_for_source(&path, &text).semantic_tokens)
 }
 
 fn completions_for_request(

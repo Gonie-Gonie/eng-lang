@@ -3,6 +3,10 @@
   "name": "EngLang",
   "patterns": [
     {
+      "name": "comment.line.documentation.englang",
+      "match": "^\\s*///.*$"
+    },
+    {
       "name": "comment.line.number-sign.englang",
       "match": "#.*$"
     },

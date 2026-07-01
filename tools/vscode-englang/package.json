@@ -73,6 +73,11 @@
           "type": "boolean",
           "default": true,
           "description": "Update EngLang diagnostics for unsaved .eng buffers after a short typing pause using eng-lsp.exe."
+        },
+        "englang.semanticHighlighting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Use eng-lsp snapshot semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, and workflow boundaries."
         }
       }
     },

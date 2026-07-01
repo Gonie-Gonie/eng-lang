@@ -9,6 +9,55 @@ const reviewCache = new Map();
 const changeTimers = new Map();
 let output;
 
+const SEMANTIC_TOKEN_TYPES = [
+  "namespace",
+  "type",
+  "class",
+  "interface",
+  "parameter",
+  "variable",
+  "property",
+  "function",
+  "method",
+  "keyword",
+  "modifier",
+  "string",
+  "number",
+  "operator",
+  "comment"
+];
+
+const SEMANTIC_TOKEN_MODIFIERS = [
+  "declaration",
+  "definition",
+  "readonly",
+  "static",
+  "local",
+  "imported",
+  "defaultLibrary",
+  "deprecated",
+  "unit",
+  "quantity",
+  "axis",
+  "timeseries",
+  "uncertain",
+  "sideEffect",
+  "external",
+  "validation",
+  "report",
+  "planned",
+  "internal",
+  "riskHigh",
+  "riskMedium",
+  "state",
+  "input"
+];
+
+const semanticLegend = new vscode.SemanticTokensLegend(
+  SEMANTIC_TOKEN_TYPES,
+  SEMANTIC_TOKEN_MODIFIERS
+);
+
 const QUANTITIES = [
   ["AbsoluteTemperature", "K", "Affine absolute thermodynamic temperature."],
   ["TemperatureDelta", "K", "Temperature interval or difference."],
@@ -232,6 +281,11 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openReport", openLastReport),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider()),
     vscode.languages.registerCompletionItemProvider(LANGUAGE_ID, new EngCompletionProvider(), ":", " ", "["),
+    vscode.languages.registerDocumentSemanticTokensProvider(
+      LANGUAGE_ID,
+      new EngSemanticTokensProvider(context),
+      semanticLegend
+    ),
     vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
     })
@@ -453,6 +507,105 @@ async function openLastReport() {
     return;
   }
   await vscode.env.openExternal(vscode.Uri.file(reportPath));
+}
+
+class EngSemanticTokensProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideDocumentSemanticTokens(document, cancellationToken) {
+    if (!isEngDocument(document)) {
+      return new vscode.SemanticTokens(new Uint32Array());
+    }
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    if (!config.get("semanticHighlighting.enabled", true)) {
+      return new vscode.SemanticTokens(new Uint32Array());
+    }
+
+    const snapshot = await snapshotDocumentSource(document, this.context, cancellationToken);
+    if (!snapshot) {
+      return new vscode.SemanticTokens(new Uint32Array());
+    }
+    reviewCache.set(document.uri.fsPath, snapshot);
+    return semanticTokensFromSnapshot(snapshot);
+  }
+}
+
+function snapshotDocumentSource(document, context, cancellationToken) {
+  return new Promise((resolve) => {
+    const runtime = findLspRuntime(context, document);
+    const cwd = workspaceRoot(document);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const child = cp.execFile(
+      runtime,
+      ["--snapshot-stdin", document.uri.fsPath],
+      { cwd, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
+        }
+        if (error) {
+          output.appendLine(`semantic token snapshot failed: ${error.message}`);
+          finish(undefined);
+          return;
+        }
+        try {
+          finish(JSON.parse(stdout));
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang semantic token snapshot: ${parseError.message}`);
+          finish(undefined);
+        }
+      }
+    );
+
+    cancellationToken?.onCancellationRequested(() => {
+      child.kill();
+      finish(undefined);
+    });
+
+    if (child.stdin) {
+      child.stdin.end(document.getText());
+    }
+  });
+}
+
+function semanticTokensFromSnapshot(snapshot) {
+  const builder = new vscode.SemanticTokensBuilder(semanticLegend);
+  const tokens = snapshot.semantic_tokens?.tokens ?? [];
+  for (const token of tokens) {
+    const tokenType = SEMANTIC_TOKEN_TYPES.indexOf(token.type);
+    if (tokenType < 0 || token.length <= 0) {
+      continue;
+    }
+    builder.push(
+      token.line,
+      token.start,
+      token.length,
+      tokenType,
+      semanticModifierBits(token.modifiers ?? [])
+    );
+  }
+  return builder.build();
+}
+
+function semanticModifierBits(modifiers) {
+  let bits = 0;
+  for (const modifier of modifiers) {
+    const index = SEMANTIC_TOKEN_MODIFIERS.indexOf(modifier);
+    if (index >= 0) {
+      bits |= 1 << index;
+    }
+  }
+  return bits;
 }
 
 class EngHoverProvider {

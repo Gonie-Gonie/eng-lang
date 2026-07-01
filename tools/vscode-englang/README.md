@@ -10,6 +10,9 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - diagnostics from `eng ide-check`
 - optional diagnostics/completion/hover metadata from `eng-lsp --snapshot`
 - debounced unsaved-buffer diagnostics from `eng-lsp --snapshot-stdin`
+- semantic highlighting from `eng-lsp --snapshot-stdin`, covering roles such as
+  variables, parameters, properties, quantities, units, reports, validations,
+  and side-effect/external workflow boundaries
 - hover from compiler review metadata
 - public type, quantity, unit, keyword, and snippet completion
 - quick fixes for `:=` and stale `struct Args` migration diagnostics
@@ -60,3 +63,8 @@ Dirty buffers are checked after a short typing pause with
 `eng-lsp.exe --snapshot-stdin <file.eng>`, so Problems can update before the
 file is saved. Set `englang.lintOnChange = false` to keep diagnostics limited
 to open/save/manual checks.
+
+Semantic highlighting uses the same snapshot-stdin path so unsaved edits receive
+role-aware token colors without waiting for a file save. Set
+`englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
+highlighting.

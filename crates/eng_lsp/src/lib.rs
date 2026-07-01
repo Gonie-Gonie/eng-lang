@@ -2,8 +2,8 @@ use std::collections::BTreeSet;
 use std::path::Path;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, bundled_module_registry, check_file, check_source,
-    CheckOptions, CheckReport, ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, Severity,
+    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source, CheckOptions,
+    CheckReport, ClassFieldInfo, DomainTypeParameterInfo, FunctionInfo, Severity,
 };
 use serde_json::{json, Value};
 
@@ -14,6 +14,7 @@ pub struct LspSnapshot {
     pub diagnostics: Vec<LspDiagnostic>,
     pub completions: Vec<LspCompletion>,
     pub hovers: Vec<LspHover>,
+    pub semantic_tokens: LspSemanticTokens,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -42,6 +43,80 @@ pub struct LspHover {
     pub display_unit: String,
     pub status: Option<String>,
 }
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspSemanticTokens {
+    pub legend: LspSemanticLegend,
+    pub tokens: Vec<LspSemanticToken>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspSemanticLegend {
+    pub token_types: Vec<String>,
+    pub token_modifiers: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
+pub struct LspSemanticToken {
+    pub line: usize,
+    pub start: usize,
+    pub length: usize,
+    pub token_type: String,
+    pub modifiers: Vec<String>,
+}
+
+impl Default for LspSemanticTokens {
+    fn default() -> Self {
+        Self {
+            legend: semantic_legend(),
+            tokens: Vec::new(),
+        }
+    }
+}
+
+pub const SEMANTIC_TOKEN_TYPES: &[&str] = &[
+    "namespace",
+    "type",
+    "class",
+    "interface",
+    "parameter",
+    "variable",
+    "property",
+    "function",
+    "method",
+    "keyword",
+    "modifier",
+    "string",
+    "number",
+    "operator",
+    "comment",
+];
+
+pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
+    "declaration",
+    "definition",
+    "readonly",
+    "static",
+    "local",
+    "imported",
+    "defaultLibrary",
+    "deprecated",
+    "unit",
+    "quantity",
+    "axis",
+    "timeseries",
+    "uncertain",
+    "sideEffect",
+    "external",
+    "validation",
+    "report",
+    "planned",
+    "internal",
+    "riskHigh",
+    "riskMedium",
+    "state",
+    "input",
+];
 
 const COMPLETION_KEYWORDS: &[&str] = &[
     "across",
@@ -220,13 +295,14 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
-    let report = check_file(path, &CheckOptions::default())?;
-    Ok(snapshot_from_report(&report))
+    let source = std::fs::read_to_string(path)?;
+    let report = check_source(path, &source, &CheckOptions::default());
+    Ok(snapshot_from_report_with_source(&report, Some(&source)))
 }
 
 pub fn snapshot_for_source(path: &Path, source: &str) -> LspSnapshot {
     let report = check_source(path, source, &CheckOptions::default());
-    snapshot_from_report(&report)
+    snapshot_from_report_with_source(&report, Some(source))
 }
 
 pub fn completion_items_for_path_position(
@@ -251,6 +327,10 @@ pub fn completion_items_for_source_position(
 }
 
 pub fn snapshot_from_report(report: &CheckReport) -> LspSnapshot {
+    snapshot_from_report_with_source(report, None)
+}
+
+pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&str>) -> LspSnapshot {
     LspSnapshot {
         diagnostics: report
             .diagnostics
@@ -265,6 +345,9 @@ pub fn snapshot_from_report(report: &CheckReport) -> LspSnapshot {
             .collect(),
         completions: completion_items(report),
         hovers: hover_items(report),
+        semantic_tokens: source
+            .map(|source| semantic_tokens(report, source))
+            .unwrap_or_default(),
     }
 }
 
@@ -274,7 +357,816 @@ pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
         "diagnostics": snapshot.diagnostics.iter().map(diagnostic_json).collect::<Vec<_>>(),
         "completions": snapshot.completions.iter().map(completion_json).collect::<Vec<_>>(),
         "hovers": snapshot.hovers.iter().map(hover_json).collect::<Vec<_>>(),
+        "semantic_tokens": semantic_tokens_json(&snapshot.semantic_tokens),
     })
+}
+
+pub fn semantic_legend() -> LspSemanticLegend {
+    LspSemanticLegend {
+        token_types: SEMANTIC_TOKEN_TYPES
+            .iter()
+            .map(|token_type| (*token_type).to_owned())
+            .collect(),
+        token_modifiers: SEMANTIC_TOKEN_MODIFIERS
+            .iter()
+            .map(|modifier| (*modifier).to_owned())
+            .collect(),
+    }
+}
+
+pub fn semantic_tokens_json(tokens: &LspSemanticTokens) -> Value {
+    json!({
+        "legend": {
+            "token_types": tokens.legend.token_types,
+            "token_modifiers": tokens.legend.token_modifiers,
+        },
+        "tokens": tokens.tokens.iter().map(semantic_token_json).collect::<Vec<_>>(),
+    })
+}
+
+pub fn semantic_token_json(token: &LspSemanticToken) -> Value {
+    json!({
+        "line": token.line,
+        "start": token.start,
+        "length": token.length,
+        "type": token.token_type,
+        "modifiers": token.modifiers,
+    })
+}
+
+pub fn semantic_tokens_lsp_json(tokens: &LspSemanticTokens) -> Value {
+    let mut data = Vec::new();
+    let mut previous_line = 0usize;
+    let mut previous_start = 0usize;
+
+    for token in &tokens.tokens {
+        let Some(token_type_index) = semantic_token_type_index(&token.token_type) else {
+            continue;
+        };
+        let delta_line = token.line.saturating_sub(previous_line);
+        let delta_start = if delta_line == 0 {
+            token.start.saturating_sub(previous_start)
+        } else {
+            token.start
+        };
+        data.push(delta_line);
+        data.push(delta_start);
+        data.push(token.length);
+        data.push(token_type_index);
+        data.push(semantic_token_modifier_bits(&token.modifiers));
+        previous_line = token.line;
+        previous_start = token.start;
+    }
+
+    json!({ "data": data })
+}
+
+fn semantic_token_type_index(token_type: &str) -> Option<usize> {
+    SEMANTIC_TOKEN_TYPES
+        .iter()
+        .position(|candidate| *candidate == token_type)
+}
+
+fn semantic_token_modifier_bits(modifiers: &[String]) -> usize {
+    let mut bits = 0usize;
+    for modifier in modifiers {
+        if let Some(index) = SEMANTIC_TOKEN_MODIFIERS
+            .iter()
+            .position(|candidate| *candidate == modifier)
+        {
+            bits |= 1usize << index;
+        }
+    }
+    bits
+}
+
+fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
+    let mut builder = SemanticTokenBuilder::new(source);
+    builder.add_lexical_tokens();
+    let program = &report.semantic_program;
+
+    for import in &program.imports {
+        builder.push_on_line(
+            import.line,
+            &import.target,
+            "namespace",
+            &["declaration", "imported"],
+        );
+    }
+
+    for constant in &program.consts {
+        builder.push_on_line(
+            constant.line,
+            &constant.name,
+            "variable",
+            &["declaration", "readonly"],
+        );
+    }
+
+    for binding in &program.typed_bindings {
+        let modifiers = semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind);
+        builder.push_on_line(binding.line, &binding.name, "variable", &modifiers);
+    }
+
+    for hover in &program.hover_hints {
+        let mut modifiers = semantic_modifiers_for_quantity(&hover.quantity_kind);
+        if hover.detail.starts_with("importable const") {
+            modifiers.push("readonly");
+            modifiers.push("defaultLibrary");
+        }
+        builder.push_on_line(hover.line, &hover.name, "variable", &modifiers);
+    }
+
+    for function in &program.functions {
+        builder.push_on_line(
+            function.line,
+            &function.name,
+            "function",
+            &["declaration", "definition"],
+        );
+        for parameter in &function.parameters {
+            builder.push_on_line(
+                function.line,
+                &parameter.name,
+                "parameter",
+                &["declaration"],
+            );
+        }
+        for local in &function.locals {
+            builder.push_on_line(
+                local.line,
+                &local.name,
+                "variable",
+                &["declaration", "local"],
+            );
+        }
+    }
+
+    for schema in &program.schemas {
+        builder.push_on_line(schema.line, &schema.name, "class", &["declaration"]);
+        for column in &schema.columns {
+            builder.push_on_line(column.line, &column.name, "property", &["declaration"]);
+            builder.push_on_line(column.line, &column.type_name, "type", &["quantity"]);
+            if let Some(unit) = &column.unit {
+                builder.push_on_line(column.line, unit, "type", &["unit"]);
+            }
+        }
+    }
+
+    for promotion in &program.csv_promotions {
+        builder.push_on_line(
+            promotion.line,
+            &promotion.binding,
+            "variable",
+            &["declaration"],
+        );
+        builder.push_on_line(
+            promotion.line,
+            &promotion.schema_name,
+            "class",
+            &["defaultLibrary"],
+        );
+    }
+
+    for promotion in &program.config_promotions {
+        builder.push_on_line(
+            promotion.line,
+            &promotion.binding,
+            "variable",
+            &["declaration"],
+        );
+        builder.push_on_line(
+            promotion.line,
+            &promotion.schema_name,
+            "class",
+            &["defaultLibrary"],
+        );
+    }
+
+    for sample in &program.sample_generations {
+        builder.push_on_line(sample.line, &sample.binding, "variable", &["declaration"]);
+        for distribution in &sample.distributions {
+            let modifiers = semantic_modifiers_for_quantity(&distribution.quantity_kind);
+            builder.push_on_line(
+                distribution.line,
+                &distribution.name,
+                "property",
+                &modifiers,
+            );
+        }
+    }
+
+    for transform in &program.table_transforms {
+        builder.push_on_line(
+            transform.line,
+            &transform.binding,
+            "variable",
+            &["declaration"],
+        );
+    }
+
+    for request in &program.net_requests {
+        builder.push_on_line(
+            request.line,
+            &request.binding,
+            "variable",
+            &["declaration", "external"],
+        );
+        builder.push_keywords_on_line(request.line, &["http", "get"], &["sideEffect", "external"]);
+    }
+
+    for download in &program.net_downloads {
+        builder.push_keywords_on_line(download.line, &["download"], &["sideEffect", "external"]);
+    }
+
+    for axis in &program.axis_infos {
+        builder.push_on_line(axis.line, &axis.axis, "type", &["axis"]);
+    }
+
+    for uncertainty in &program.uncertainty_infos {
+        builder.push_on_line(
+            uncertainty.line,
+            &uncertainty.binding,
+            "variable",
+            &["declaration", "uncertain"],
+        );
+    }
+
+    for ml in &program.ml_infos {
+        builder.push_on_line(ml.line, &ml.binding, "variable", &["declaration"]);
+    }
+
+    for system in &program.systems {
+        builder.push_on_line(system.line, &system.name, "class", &["declaration"]);
+        for variable in &system.variables {
+            let modifiers = match variable.role.as_str() {
+                "state" => ["declaration", "state"].as_slice(),
+                "input" => ["declaration", "input"].as_slice(),
+                "parameter" => ["declaration", "readonly"].as_slice(),
+                _ => ["declaration"].as_slice(),
+            };
+            builder.push_on_line(variable.line, &variable.name, "variable", modifiers);
+        }
+    }
+
+    for vector in &program.state_space_vectors {
+        builder.push_on_line(vector.line, &vector.name, "variable", &["declaration"]);
+    }
+
+    for domain in &program.domains {
+        builder.push_on_line(domain.line, &domain.name, "interface", &["declaration"]);
+        for variable in &domain.variables {
+            builder.push_on_line(variable.line, &variable.name, "property", &["declaration"]);
+        }
+    }
+
+    for component in &program.components {
+        builder.push_on_line(component.line, &component.name, "class", &["declaration"]);
+        for port in &component.ports {
+            builder.push_on_line(port.line, &port.name, "property", &["declaration"]);
+            builder.push_on_line(
+                port.line,
+                &port.domain_name,
+                "interface",
+                &["defaultLibrary"],
+            );
+        }
+        for parameter in &component.parameters {
+            builder.push_on_line(
+                parameter.line,
+                &parameter.name,
+                "parameter",
+                &["declaration", "readonly"],
+            );
+        }
+        for input in &component.inputs {
+            builder.push_on_line(
+                input.line,
+                &input.name,
+                "parameter",
+                &["declaration", "input"],
+            );
+        }
+        for local in &component.local_expressions {
+            builder.push_on_line(
+                local.line,
+                &local.name,
+                "variable",
+                &["declaration", "local"],
+            );
+        }
+    }
+
+    for class_info in &program.classes {
+        builder.push_on_line(class_info.line, &class_info.name, "class", &["declaration"]);
+        for field in &class_info.fields {
+            builder.push_on_line(field.line, &field.name, "property", &["declaration"]);
+            builder.push_on_line(field.line, &field.type_name, "type", &["quantity"]);
+        }
+        for validation in &class_info.validations {
+            builder.push_keywords_on_line(validation.line, &["validate"], &["validation"]);
+        }
+        for method in &class_info.methods {
+            builder.push_on_line(method.line, &method.name, "method", &["declaration"]);
+        }
+    }
+
+    for object in &program.class_objects {
+        builder.push_on_line(object.line, &object.name, "variable", &["declaration"]);
+        builder.push_on_line(
+            object.line,
+            &object.class_name,
+            "class",
+            &["defaultLibrary"],
+        );
+        for field in &object.fields {
+            builder.push_on_line(field.line, &field.name, "property", &["declaration"]);
+        }
+        for validation in &object.validations {
+            builder.push_keywords_on_line(validation.line, &["validate"], &["validation"]);
+        }
+    }
+
+    for args_block in &program.args_blocks {
+        builder.push_keywords_on_line(args_block.line, &["args"], &["declaration"]);
+        for field in &args_block.fields {
+            builder.push_on_line(field.line, &field.name, "parameter", &["declaration"]);
+            builder.push_on_line(field.line, &field.type_name, "type", &[]);
+        }
+    }
+
+    for value in &program.arg_values {
+        builder.push_on_line(value.line, &value.name, "parameter", &["readonly"]);
+    }
+
+    for print in &program.prints {
+        builder.push_keywords_on_line(print.line, &["print", "log"], &["report"]);
+    }
+
+    for export in &program.csv_exports {
+        builder.push_on_line(export.line, &export.source, "variable", &["report"]);
+        for field in &export.fields {
+            builder.push_on_line(field.line, &field.name, "property", &["report"]);
+        }
+    }
+
+    for write in &program.writes {
+        builder.push_on_line(write.line, &write.expression, "variable", &["sideEffect"]);
+        builder.push_keywords_on_line(write.line, &["write"], &["sideEffect"]);
+    }
+
+    for operation in &program.file_operations {
+        builder.push_keywords_on_line(
+            operation.line,
+            &[operation.operation.as_str()],
+            &["sideEffect", "external"],
+        );
+    }
+
+    for process in &program.process_runs {
+        builder.push_on_line(
+            process.line,
+            &process.binding,
+            "variable",
+            &["declaration", "external"],
+        );
+        builder.push_keywords_on_line(
+            process.line,
+            &["run", "command"],
+            &["sideEffect", "external"],
+        );
+    }
+
+    for test in &program.tests {
+        builder.push_keywords_on_line(test.line, &["test"], &["validation"]);
+        for assert in &test.assertions {
+            builder.push_keywords_on_line(assert.line, &["assert"], &["validation"]);
+        }
+        for golden in &test.goldens {
+            builder.push_keywords_on_line(golden.line, &["golden"], &["validation"]);
+        }
+    }
+
+    for command in &program.command_styles {
+        builder.push_on_line(command.line, &command.verb, "function", &["defaultLibrary"]);
+    }
+
+    for suite in &program.expectation_suites {
+        builder.push_on_line(
+            suite.line,
+            &suite.binding,
+            "variable",
+            &["declaration", "validation"],
+        );
+        for expectation in &suite.expectations {
+            builder.push_keywords_on_line(expectation.line, &["check"], &["validation"]);
+        }
+    }
+
+    for block in &program.where_blocks {
+        builder.push_keywords_on_line(block.line, &["where"], &["local"]);
+        for binding in &block.bindings {
+            let modifiers = semantic_modifiers_for_quantity(&binding.quantity_kind);
+            let mut modifiers = modifiers;
+            modifiers.push("local");
+            builder.push_on_line(binding.line, &binding.name, "variable", &modifiers);
+        }
+    }
+
+    for block in &program.with_blocks {
+        builder.push_keywords_on_line(block.line, &["with"], &[]);
+        for option in &block.options {
+            builder.push_on_line(option.line, &option.key, "property", &[]);
+        }
+    }
+
+    builder.finish()
+}
+
+fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
+    let mut modifiers = Vec::new();
+    if quantity_kind.contains("TimeSeries") {
+        modifiers.push("timeseries");
+    }
+    if quantity_kind.contains("Uncertain") || quantity_kind.contains("Interval") {
+        modifiers.push("uncertain");
+    }
+    modifiers
+}
+
+struct SemanticTokenBuilder<'a> {
+    lines: Vec<&'a str>,
+    tokens: Vec<LspSemanticToken>,
+    seen: BTreeSet<(usize, usize, usize, String)>,
+}
+
+impl<'a> SemanticTokenBuilder<'a> {
+    fn new(source: &'a str) -> Self {
+        Self {
+            lines: source.lines().collect(),
+            tokens: Vec::new(),
+            seen: BTreeSet::new(),
+        }
+    }
+
+    fn finish(mut self) -> LspSemanticTokens {
+        self.tokens.sort();
+        LspSemanticTokens {
+            legend: semantic_legend(),
+            tokens: self.tokens,
+        }
+    }
+
+    fn add_lexical_tokens(&mut self) {
+        let quantity_names = all_quantity_completions()
+            .iter()
+            .map(|quantity| quantity.quantity_kind)
+            .collect::<BTreeSet<_>>();
+        let public_types = PUBLIC_TYPE_COMPLETIONS
+            .iter()
+            .map(|(type_name, _)| *type_name)
+            .collect::<BTreeSet<_>>();
+        let units = {
+            let mut units = all_unit_infos()
+                .iter()
+                .map(|unit| unit.symbol)
+                .collect::<Vec<_>>();
+            units.sort_by_key(|unit| std::cmp::Reverse(unit.len()));
+            units
+        };
+
+        for line_index in 0..self.lines.len() {
+            let line = self.lines[line_index];
+            if let Some(comment_start) = comment_start(line) {
+                self.push_byte_range(
+                    line_index,
+                    comment_start,
+                    line.len().saturating_sub(comment_start),
+                    "comment",
+                    &[],
+                );
+            }
+
+            for (start, end) in code_ranges(line) {
+                self.scan_word_tokens(line_index, start, end, &quantity_names, &public_types);
+                self.scan_unit_tokens(line_index, start, end, &units);
+                self.scan_number_tokens(line_index, start, end);
+            }
+        }
+    }
+
+    fn scan_word_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+        quantity_names: &BTreeSet<&str>,
+        public_types: &BTreeSet<&str>,
+    ) {
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        let mut index = start;
+        while index < end {
+            if index < bytes.len() && is_ident_start(bytes[index]) {
+                let token_start = index;
+                index += 1;
+                while index < end && index < bytes.len() && is_ident_byte(bytes[index]) {
+                    index += 1;
+                }
+                let token = &line[token_start..index];
+                if COMPLETION_KEYWORDS.contains(&token) {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "keyword",
+                        keyword_modifiers(token),
+                    );
+                } else if quantity_names.contains(token) {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "type",
+                        &["quantity"],
+                    );
+                } else if public_types.contains(token) {
+                    self.push_byte_range(line_index, token_start, index - token_start, "type", &[]);
+                }
+                continue;
+            }
+            index += 1;
+        }
+    }
+
+    fn scan_unit_tokens(&mut self, line_index: usize, start: usize, end: usize, units: &[&str]) {
+        let line = self.lines[line_index];
+        let mut occupied = Vec::<(usize, usize)>::new();
+        for unit in units {
+            let mut search_start = start;
+            while search_start < end {
+                let Some(relative) = line[search_start..end].find(unit) else {
+                    break;
+                };
+                let unit_start = search_start + relative;
+                let unit_end = unit_start + unit.len();
+                search_start = unit_end;
+                if !is_unit_boundary(line, unit_start, unit_end) {
+                    continue;
+                }
+                if occupied
+                    .iter()
+                    .any(|(left, right)| ranges_overlap(unit_start, unit_end, *left, *right))
+                {
+                    continue;
+                }
+                occupied.push((unit_start, unit_end));
+                self.push_byte_range(line_index, unit_start, unit.len(), "type", &["unit"]);
+            }
+        }
+    }
+
+    fn scan_number_tokens(&mut self, line_index: usize, start: usize, end: usize) {
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        let mut index = start;
+        while index < end {
+            if index < bytes.len() && bytes[index].is_ascii_digit() {
+                let token_start = index;
+                index += 1;
+                while index < end && index < bytes.len() && bytes[index].is_ascii_digit() {
+                    index += 1;
+                }
+                if index < end && index < bytes.len() && bytes[index] == b'.' {
+                    index += 1;
+                    while index < end && index < bytes.len() && bytes[index].is_ascii_digit() {
+                        index += 1;
+                    }
+                }
+                self.push_byte_range(line_index, token_start, index - token_start, "number", &[]);
+                continue;
+            }
+            index += 1;
+        }
+    }
+
+    fn push_keywords_on_line(
+        &mut self,
+        line_one_based: usize,
+        labels: &[&str],
+        modifiers: &[&str],
+    ) {
+        for label in labels {
+            self.push_on_line(line_one_based, label, "keyword", modifiers);
+        }
+    }
+
+    fn push_on_line(
+        &mut self,
+        line_one_based: usize,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if label.trim().is_empty() {
+            return;
+        }
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let candidates = token_candidates(label);
+        for candidate in candidates {
+            if let Some(start) = find_token_in_line(line, &candidate) {
+                self.push_byte_range(line_index, start, candidate.len(), token_type, modifiers);
+                return;
+            }
+        }
+    }
+
+    fn push_byte_range(
+        &mut self,
+        line: usize,
+        byte_start: usize,
+        byte_length: usize,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if byte_length == 0 || !SEMANTIC_TOKEN_TYPES.contains(&token_type) {
+            return;
+        }
+        let Some(line_text) = self.lines.get(line).copied() else {
+            return;
+        };
+        if byte_start >= line_text.len() || byte_start + byte_length > line_text.len() {
+            return;
+        }
+        let start = utf16_len(&line_text[..byte_start]);
+        let length = utf16_len(&line_text[byte_start..byte_start + byte_length]);
+        let key = (line, start, length, token_type.to_owned());
+        if !self.seen.insert(key) {
+            return;
+        }
+        self.tokens.push(LspSemanticToken {
+            line,
+            start,
+            length,
+            token_type: token_type.to_owned(),
+            modifiers: modifiers
+                .iter()
+                .filter(|modifier| SEMANTIC_TOKEN_MODIFIERS.contains(modifier))
+                .map(|modifier| (*modifier).to_owned())
+                .collect(),
+        });
+    }
+}
+
+fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
+    match keyword {
+        "run" | "command" | "write" | "export" | "copy" | "move" | "delete" | "open" | "sqlite"
+        | "http" | "download" => &["sideEffect", "external"],
+        "report" | "show" | "plot" | "print" | "log" => &["report"],
+        "validate" | "check" | "assert" | "golden" | "test" => &["validation"],
+        "script" | "struct" => &["deprecated"],
+        _ => &[],
+    }
+}
+
+fn token_candidates(label: &str) -> Vec<String> {
+    let trimmed = label.trim().trim_end_matches("()");
+    let mut candidates = Vec::new();
+    candidates.push(trimmed.to_owned());
+    if let Some(last) = trimmed.rsplit('.').next() {
+        if last != trimmed {
+            candidates.push(last.to_owned());
+        }
+    }
+    candidates
+}
+
+fn find_token_in_line(line: &str, token: &str) -> Option<usize> {
+    let mut search_start = 0usize;
+    while search_start <= line.len() {
+        let relative = line[search_start..].find(token)?;
+        let start = search_start + relative;
+        let end = start + token.len();
+        if is_identifier_boundary(line, start, end) || is_unit_boundary(line, start, end) {
+            return Some(start);
+        }
+        search_start = end;
+    }
+    None
+}
+
+fn code_ranges(line: &str) -> Vec<(usize, usize)> {
+    let bytes = line.as_bytes();
+    let mut ranges = Vec::new();
+    let mut start = 0usize;
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index..].starts_with(b"///") {
+            if start < index {
+                ranges.push((start, index));
+            }
+            return ranges;
+        }
+        if bytes[index] == b'#' {
+            if start < index {
+                ranges.push((start, index));
+            }
+            return ranges;
+        }
+        if bytes[index] == b'"' {
+            if start < index {
+                ranges.push((start, index));
+            }
+            index += 1;
+            while index < bytes.len() {
+                if bytes[index] == b'\\' {
+                    index += 2;
+                    continue;
+                }
+                if bytes[index] == b'"' {
+                    index += 1;
+                    break;
+                }
+                index += 1;
+            }
+            start = index;
+            continue;
+        }
+        index += 1;
+    }
+    if start < bytes.len() {
+        ranges.push((start, bytes.len()));
+    }
+    ranges
+}
+
+fn comment_start(line: &str) -> Option<usize> {
+    let mut in_string = false;
+    let bytes = line.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] == b'\\' && in_string {
+            index += 2;
+            continue;
+        }
+        if bytes[index] == b'"' {
+            in_string = !in_string;
+            index += 1;
+            continue;
+        }
+        if !in_string && bytes[index..].starts_with(b"///") {
+            return Some(index);
+        }
+        if !in_string && bytes[index] == b'#' {
+            return Some(index);
+        }
+        index += 1;
+    }
+    None
+}
+
+fn is_identifier_boundary(line: &str, start: usize, end: usize) -> bool {
+    let bytes = line.as_bytes();
+    let before = start
+        .checked_sub(1)
+        .and_then(|index| bytes.get(index).copied());
+    let after = bytes.get(end).copied();
+    before.is_none_or(|byte| !is_ident_byte(byte)) && after.is_none_or(|byte| !is_ident_byte(byte))
+}
+
+fn is_unit_boundary(line: &str, start: usize, end: usize) -> bool {
+    let bytes = line.as_bytes();
+    let before = start
+        .checked_sub(1)
+        .and_then(|index| bytes.get(index).copied());
+    let after = bytes.get(end).copied();
+    before.is_none_or(|byte| !is_unit_byte(byte)) && after.is_none_or(|byte| !is_unit_byte(byte))
+}
+
+fn is_unit_byte(byte: u8) -> bool {
+    byte == b'_' || byte == b'/' || byte == b'^' || byte.is_ascii_alphanumeric()
+}
+
+fn is_ident_start(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphabetic()
+}
+
+fn ranges_overlap(
+    left_start: usize,
+    left_end: usize,
+    right_start: usize,
+    right_end: usize,
+) -> bool {
+    left_start < right_end && right_start < left_end
+}
+
+fn utf16_len(value: &str) -> usize {
+    value.encode_utf16().count()
 }
 
 pub fn diagnostic_json(diagnostic: &LspDiagnostic) -> Value {
@@ -1339,7 +2231,7 @@ mod tests {
 
     #[test]
     fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
-        let source = "Q = 2 kW - 1\n}\n";
+        let source = "/// heat rate smoke\nQ: HeatRate [kW] = 2 kW - 1\n}\n";
         let snapshot = snapshot_for_source(Path::new("bad.eng"), source);
 
         assert!(snapshot
@@ -1405,6 +2297,27 @@ mod tests {
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);
         assert!(!json["diagnostics"].as_array().unwrap().is_empty());
+        assert!(snapshot
+            .semantic_tokens
+            .legend
+            .token_types
+            .iter()
+            .any(|token_type| token_type == "variable"));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "type" && token.modifiers.iter().any(|modifier| modifier == "unit")
+        }));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "type"
+                && token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "quantity")
+        }));
+        assert!(snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .any(|token| token.token_type == "comment"));
         let completion_json = json["completions"].as_array().unwrap();
         assert!(completion_json
             .iter()
@@ -1412,6 +2325,10 @@ mod tests {
         assert!(completion_json
             .iter()
             .any(|completion| { completion["label"] == "eng.path" && completion["kind"] == 9 }));
+        assert!(!json["semantic_tokens"]["tokens"]
+            .as_array()
+            .unwrap()
+            .is_empty());
     }
 
     #[test]

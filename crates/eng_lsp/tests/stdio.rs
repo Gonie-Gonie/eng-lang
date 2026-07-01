@@ -70,6 +70,17 @@ fn stdio_server_round_trips_core_lsp_requests() {
         initialize["result"]["capabilities"]["definitionProvider"],
         true
     );
+    assert_eq!(
+        initialize["result"]["capabilities"]["semanticTokensProvider"]["full"],
+        true
+    );
+    assert!(
+        initialize["result"]["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
+            .as_array()
+            .expect("semantic token types should be advertised")
+            .iter()
+            .any(|token_type| token_type == "variable")
+    );
 
     write_message(
         &mut stdin,
@@ -173,6 +184,27 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert_eq!(definition["id"], 5);
     assert_eq!(definition["result"]["uri"], uri);
     assert_eq!(definition["result"]["range"]["start"]["line"], q_coil_line);
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 10,
+            "method": "textDocument/semanticTokens/full",
+            "params": {
+                "textDocument": { "uri": uri }
+            }
+        }),
+    );
+    let semantic_tokens = read_message(&mut stdout);
+    assert_eq!(semantic_tokens["id"], 10);
+    assert!(
+        semantic_tokens["result"]["data"]
+            .as_array()
+            .expect("semantic tokens should be encoded as data")
+            .len()
+            > 5
+    );
 
     let class_source_path = repo_root()
         .join("examples/official/19_class_object/main.eng")
@@ -421,6 +453,11 @@ fn snapshot_stdin_reads_unsaved_source() {
         .expect("diagnostics should be an array")
         .iter()
         .any(|diagnostic| diagnostic["code"] == "E-DIM-ADD-002"));
+    assert!(snapshot["semantic_tokens"]["tokens"]
+        .as_array()
+        .expect("semantic token snapshot should contain token objects")
+        .iter()
+        .any(|token| token["type"] == "type"));
 }
 
 fn repo_root() -> PathBuf {
