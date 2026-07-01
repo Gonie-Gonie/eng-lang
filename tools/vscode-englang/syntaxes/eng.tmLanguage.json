@@ -24,10 +24,10 @@
                          "include":  "#operators"
                      },
                      {
-                         "include":  "#builtins"
+                         "include":  "#withOptions"
                      },
                      {
-                         "include":  "#withOptions"
+                         "include":  "#builtins"
                      },
                      {
                          "include":  "#constants"
@@ -181,8 +181,32 @@
                        "keywords":  {
                                         "patterns":  [
                                                          {
+                                                             "name":  "keyword.control.import.englang",
+                                                             "match":  "\\b(use|from|as)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "keyword.control.report.englang",
+                                                             "match":  "\\b(report|show|plot|line|bar|histogram|summarize|distribution)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "keyword.control.validation.englang",
+                                                             "match":  "\\b(validate|assert|golden|matches|within)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "keyword.control.side-effect.englang",
+                                                             "match":  "\\b(write|export|copy|move|delete|render|template|print|log)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "keyword.control.external-boundary.englang",
+                                                             "match":  "\\b(run|command|open|sqlite|http|get|download)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "keyword.control.solver.englang",
+                                                             "match":  "\\b(simulate|solve|connect|conservation|equation)\\b"
+                                                         },
+                                                         {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(use|const|promote|from|as|read|text|json|toml|csv|write|export|copy|move|delete|render|template|run|command|open|sqlite|http|get|download|to|print|log|show|plot|line|bar|histogram|return|assert|golden|matches|within|policy|package|version|port|connect|across|through|conservation|equation|input|parameter|state|if|else)\\b"
+                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|to|policy|package|version|port|across|through|input|parameter|state|return|if|else)\\b"
                                                          }
                                                      ]
                                     },
@@ -190,7 +214,7 @@
                                          "patterns":  [
                                                           {
                                                               "name":  "keyword.operator.word.englang",
-                                                              "match":  "\\b(eq|is|none|null|and|or|not|between|over|by|using|in|where|into)\\b"
+                                                              "match":  "\\b(eq|is|none|null|and|or|not|between|over|by|using|in|where|into|of|vs)\\b"
                                                           },
                                                           {
                                                               "name":  "keyword.operator.englang",
@@ -202,7 +226,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|min|max|median|std|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
+                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
                                                          }
                                                      ]
                                     },
@@ -210,7 +234,7 @@
                                            "patterns":  [
                                                             {
                                                                 "name":  "variable.parameter.property.englang",
-                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|values|output|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column)\\b(?=\\s*=)"
+                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|values|output|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|mean|std|error|samples|scale|offset|uncertainty|timestep|duration|solver|tolerance|atol|rtol|unit|title|split)\\b(?=\\s*=)"
                                                             }
                                                         ]
                                        },
@@ -218,7 +242,7 @@
                                          "patterns":  [
                                                           {
                                                               "name":  "constant.language.englang",
-                                                              "match":  "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|keep|empty|interpolate|monotonic|linear|passed|failed|succeeded|skipped)\\b"
+                                                              "match":  "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|keep|empty|interpolate|monotonic|linear|passed|failed|succeeded|skipped|fixed_step|rk4|adaptive_heun|fixed_point|newton|implicit_euler_dae|dynamic_component_explicit_euler|dynamic_component_semi_implicit_euler|dynamic_component_adaptive_heun|trapezoidal)\\b"
                                                           }
                                                       ]
                                      },
@@ -226,7 +250,7 @@
                                      "patterns":  [
                                                       {
                                                           "name":  "support.type.englang",
-                                                          "match":  "\\b(Report|ProcessResult|Table|TimeSeries|Prediction|ModelCard|ModelArtifact|DbConnection|DbTableRef|Path|FilePath|DirectoryPath|CsvFile|TextFile|JsonFile|TomlFile|Url|Secret|Optional|Bool|Int|Float|Number|String|Date|DateTime|Duration|DimensionlessNumber|AbsoluteTemperature|TemperatureDelta|Length|Area|Volume|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|Mass|MassFlowRate|Pressure|Irradiance|PeopleDensity|Ratio|ReynoldsNumber)\\b"
+                                                          "match":  "\\b(Report|ProcessResult|HttpResponse|CoverageResult|QualityResult|Table|TableRow|TimeSeries|Time|Prediction|ModelCard|ModelArtifact|CaseTable|DbConnection|DbTableRef|Path|FilePath|DirectoryPath|CsvFile|TextFile|JsonFile|TomlFile|Url|Secret|Optional|Bool|Int|Float|Number|String|Date|DateTime|Duration|DimensionlessNumber|AbsoluteTemperature|TemperatureDelta|Length|Area|Volume|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|Mass|MassFlowRate|Pressure|Irradiance|PeopleDensity|Ratio|ReynoldsNumber)\\b"
                                                       }
                                                   ]
                                  },
@@ -234,7 +258,7 @@
                                      "patterns":  [
                                                       {
                                                           "name":  "meta.quantity.literal.englang",
-                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J)(?![A-Za-z0-9_/])",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])",
                                                           "captures":  {
                                                                            "1":  {
                                                                                      "name":  "constant.other.unit.englang"
@@ -243,11 +267,11 @@
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c=\\[)(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J)(?=\\])"
+                                                          "match":  "(?\u003c=\\[)(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?=\\])"
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c![A-Za-z0-9_])(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J)(?![A-Za-z0-9_/])"
+                                                          "match":  "(?\u003c![A-Za-z0-9_])(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])"
                                                       }
                                                   ]
                                  },

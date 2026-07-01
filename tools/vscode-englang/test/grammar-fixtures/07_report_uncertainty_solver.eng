@@ -1,0 +1,32 @@
+args {
+    measured: CsvFile = file("data/measured_zone.csv")
+}
+
+schema MeasuredZoneData {
+    time: DateTime index
+    T_zone: TimeSeries[Time] of AbsoluteTemperature [degC]
+}
+
+T_supply_meas = measured(12 degC, std=0.2 K)
+Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)
+Q_probability = probability(Q_total_unc < 10 kW)
+
+sim = simulate RoomThermal
+with {
+    timestep = 10 min
+    duration = 30 min
+    solver = adaptive_heun
+    body_size_limit = 2 MB
+}
+
+validate Q_probability > 0.95
+
+report {
+    summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]
+    plot distribution(Q_coil_dist)
+    with {
+        unit y = kW
+        title = "Coil uncertainty"
+    }
+}
