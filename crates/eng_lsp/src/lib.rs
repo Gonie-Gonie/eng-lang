@@ -256,6 +256,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "sqlite",
     "state",
     "struct",
+    "summary",
     "summarize",
     "system",
     "template",
@@ -2644,8 +2645,9 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
         | "fetch" | "download" => &["sideEffect", "external"],
         "write" | "export" | "copy" | "move" | "delete" | "render" | "template" => &["sideEffect"],
-        "materialize" | "apply" | "collect" | "promote" | "records" | "cases" => &["workflowStep"],
-        "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize"
+        "materialize" | "apply" | "collect" | "promote" | "records" | "cases" | "text" | "csv"
+        | "json" | "toml" => &["workflowStep"],
+        "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "print" | "log" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within" => {
             &["validation"]
@@ -3224,6 +3226,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("read toml", "eng.io raw TOML read"),
         ("write text", "eng.io text output"),
         ("write json", "eng.io JSON output"),
+        ("export summary to csv", "eng.io one-row summary CSV export"),
         ("copy file", "eng.fs copy generated output"),
         ("move file", "eng.fs move generated output"),
         ("delete file", "eng.fs delete generated output"),
@@ -4590,6 +4593,13 @@ report {
     plot line T vs Time
 }
 
+payload = read json file("payload.json")
+settings = read toml file("settings.toml")
+export summary to csv "summary.csv" {
+    T as degC
+}
+write text "summary.txt", "ok"
+
 test "temperature stays bounded" {
     assert T matches T within 1 K
 }
@@ -4602,13 +4612,16 @@ response = http get url("https://example.org/weather")
         for label in ["simulate", "equation", "der"] {
             assert_semantic_token_modifier(&snapshot, source, label, "solver");
         }
-        for label in ["summarize", "distribution", "line"] {
+        for label in ["summarize", "summary", "distribution", "line"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
+        }
+        for label in ["csv", "json", "toml", "text"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for label in ["assert", "matches", "within"] {
             assert_semantic_token_modifier(&snapshot, source, label, "validation");
         }
-        for label in ["render", "template"] {
+        for label in ["export", "write", "render", "template"] {
             assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
         }
         for label in ["http", "get"] {

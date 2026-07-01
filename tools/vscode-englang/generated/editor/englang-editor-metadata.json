@@ -1035,6 +1035,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "summary",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "summarize",
                                 "lsp_kind":  14
                             },
@@ -1621,6 +1627,12 @@
                                 "lsp_kind":  9
                             },
                             {
+                                "detail":  "eng.io one-row summary CSV export",
+                                "kind":  "stdlib",
+                                "label":  "export summary to csv",
+                                "lsp_kind":  9
+                            },
+                            {
                                 "detail":  "eng.fs copy generated output",
                                 "kind":  "stdlib",
                                 "label":  "copy file",
@@ -1915,7 +1927,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  319,
+    "completion_seed_count":  321,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

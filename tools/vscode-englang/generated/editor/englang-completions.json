@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  319,
+    "completion_seed_count":  321,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -1037,6 +1037,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "summary",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "summarize",
                                 "lsp_kind":  14
                             },
@@ -1620,6 +1626,12 @@
                                 "detail":  "eng.io JSON output",
                                 "kind":  "stdlib",
                                 "label":  "write json",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.io one-row summary CSV export",
+                                "kind":  "stdlib",
+                                "label":  "export summary to csv",
                                 "lsp_kind":  9
                             },
                             {

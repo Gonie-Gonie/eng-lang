@@ -946,6 +946,17 @@ Status: implemented after VS Code grammar/LSP consistency review.
 - Extended grammar fixtures and smoke expectations to cover
   `confidence_band`, `write text`, and `export summary to csv`.
 
+## Batch 78: LSP Workflow Phrase Semantic Alignment
+
+Status: implemented after TextMate/LSP semantic overlay review.
+
+- Added `summary` to compiler-backed LSP keyword completions so
+  `export summary to csv` is not TextMate-only.
+- Marked `text`, `csv`, `json`, and `toml` workflow phrase tokens with the
+  `workflowStep` semantic modifier to match TextMate fallback highlighting.
+- Added `export summary to csv` to phrase completions and extended semantic
+  token tests for `summary`, `text`, `csv`, `json`, and `toml`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
