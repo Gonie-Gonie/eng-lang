@@ -15,6 +15,8 @@ pub struct LspSnapshot {
     pub completions: Vec<LspCompletion>,
     pub hovers: Vec<LspHover>,
     pub semantic_tokens: LspSemanticTokens,
+    pub document_symbols: Vec<LspDocumentSymbol>,
+    pub folding_ranges: Vec<LspFoldingRange>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -63,6 +65,27 @@ pub struct LspSemanticToken {
     pub length: usize,
     pub token_type: String,
     pub modifiers: Vec<String>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspDocumentSymbol {
+    pub name: String,
+    pub detail: String,
+    pub kind: u8,
+    pub line: usize,
+    pub character: usize,
+    pub end_line: usize,
+    pub end_character: usize,
+    pub selection_line: usize,
+    pub selection_character: usize,
+    pub children: Vec<LspDocumentSymbol>,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LspFoldingRange {
+    pub start_line: usize,
+    pub end_line: usize,
+    pub kind: Option<String>,
 }
 
 impl Default for LspSemanticTokens {
@@ -348,6 +371,10 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
         semantic_tokens: source
             .map(|source| semantic_tokens(report, source))
             .unwrap_or_default(),
+        document_symbols: source
+            .map(|source| document_symbols(report, source))
+            .unwrap_or_default(),
+        folding_ranges: source.map(folding_ranges).unwrap_or_default(),
     }
 }
 
@@ -358,6 +385,8 @@ pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
         "completions": snapshot.completions.iter().map(completion_json).collect::<Vec<_>>(),
         "hovers": snapshot.hovers.iter().map(hover_json).collect::<Vec<_>>(),
         "semantic_tokens": semantic_tokens_json(&snapshot.semantic_tokens),
+        "document_symbols": snapshot.document_symbols.iter().map(document_symbol_json).collect::<Vec<_>>(),
+        "folding_ranges": snapshot.folding_ranges.iter().map(folding_range_json).collect::<Vec<_>>(),
     })
 }
 
@@ -419,6 +448,46 @@ pub fn semantic_tokens_lsp_json(tokens: &LspSemanticTokens) -> Value {
     }
 
     json!({ "data": data })
+}
+
+pub fn document_symbols_lsp_json(symbols: &[LspDocumentSymbol]) -> Value {
+    json!(symbols.iter().map(document_symbol_json).collect::<Vec<_>>())
+}
+
+pub fn document_symbol_json(symbol: &LspDocumentSymbol) -> Value {
+    let selection_end = symbol.selection_character + utf16_len(&symbol.name);
+    json!({
+        "name": symbol.name,
+        "detail": symbol.detail,
+        "kind": symbol.kind,
+        "range": {
+            "start": { "line": symbol.line, "character": symbol.character },
+            "end": { "line": symbol.end_line, "character": symbol.end_character }
+        },
+        "selectionRange": {
+            "start": { "line": symbol.selection_line, "character": symbol.selection_character },
+            "end": { "line": symbol.selection_line, "character": selection_end }
+        },
+        "children": symbol.children.iter().map(document_symbol_json).collect::<Vec<_>>(),
+    })
+}
+
+pub fn folding_ranges_lsp_json(ranges: &[LspFoldingRange]) -> Value {
+    json!(ranges.iter().map(folding_range_json).collect::<Vec<_>>())
+}
+
+pub fn folding_range_json(range: &LspFoldingRange) -> Value {
+    match &range.kind {
+        Some(kind) => json!({
+            "startLine": range.start_line,
+            "endLine": range.end_line,
+            "kind": kind,
+        }),
+        None => json!({
+            "startLine": range.start_line,
+            "endLine": range.end_line,
+        }),
+    }
 }
 
 fn semantic_token_type_index(token_type: &str) -> Option<usize> {
@@ -781,6 +850,890 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     builder.finish()
+}
+
+const SYMBOL_KIND_MODULE: u8 = 2;
+const SYMBOL_KIND_CLASS: u8 = 5;
+const SYMBOL_KIND_METHOD: u8 = 6;
+const SYMBOL_KIND_PROPERTY: u8 = 7;
+const SYMBOL_KIND_INTERFACE: u8 = 11;
+const SYMBOL_KIND_FUNCTION: u8 = 12;
+const SYMBOL_KIND_VARIABLE: u8 = 13;
+const SYMBOL_KIND_CONSTANT: u8 = 14;
+const SYMBOL_KIND_OBJECT: u8 = 19;
+const SYMBOL_KIND_KEY: u8 = 20;
+const SYMBOL_KIND_STRUCT: u8 = 23;
+const SYMBOL_KIND_OPERATOR: u8 = 25;
+const SYMBOL_KIND_TYPE_PARAMETER: u8 = 26;
+
+fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol> {
+    let lines = source_lines(source);
+    let program = &report.semantic_program;
+    let mut symbols = Vec::new();
+    let mut seen = BTreeSet::<(usize, String)>::new();
+
+    for import in &program.imports {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            import.target.clone(),
+            format!("import {}", import.kind),
+            SYMBOL_KIND_MODULE,
+            import.line,
+            Vec::new(),
+        );
+    }
+
+    for constant in &program.consts {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            constant.name.clone(),
+            format!(
+                "const {} [{}]",
+                constant.quantity_kind, constant.display_unit
+            ),
+            SYMBOL_KIND_CONSTANT,
+            constant.line,
+            Vec::new(),
+        );
+    }
+
+    for function in &program.functions {
+        let mut children = function
+            .parameters
+            .iter()
+            .map(|parameter| {
+                make_document_symbol(
+                    &lines,
+                    parameter.name.clone(),
+                    format!(
+                        "parameter {} [{}]",
+                        parameter.quantity_kind, parameter.display_unit
+                    ),
+                    SYMBOL_KIND_TYPE_PARAMETER,
+                    function.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(function.locals.iter().map(|local| {
+            make_document_symbol(
+                &lines,
+                local.name.clone(),
+                "local".to_owned(),
+                SYMBOL_KIND_VARIABLE,
+                local.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            function.name.clone(),
+            format!(
+                "fn -> {} [{}]",
+                function.return_quantity_kind, function.return_display_unit
+            ),
+            SYMBOL_KIND_FUNCTION,
+            function.line,
+            children,
+        );
+    }
+
+    for schema in &program.schemas {
+        let children = schema
+            .columns
+            .iter()
+            .map(|column| {
+                make_document_symbol(
+                    &lines,
+                    column.name.clone(),
+                    match &column.unit {
+                        Some(unit) => format!("{} [{}]", column.type_name, unit),
+                        None => column.type_name.clone(),
+                    },
+                    SYMBOL_KIND_PROPERTY,
+                    column.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            schema.name.clone(),
+            "schema".to_owned(),
+            SYMBOL_KIND_STRUCT,
+            schema.line,
+            children,
+        );
+    }
+
+    for promotion in &program.csv_promotions {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            promotion.binding.clone(),
+            format!("csv as {}", promotion.schema_name),
+            SYMBOL_KIND_VARIABLE,
+            promotion.line,
+            Vec::new(),
+        );
+    }
+
+    for promotion in &program.config_promotions {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            promotion.binding.clone(),
+            format!("config as {}", promotion.schema_name),
+            SYMBOL_KIND_VARIABLE,
+            promotion.line,
+            Vec::new(),
+        );
+    }
+
+    for sample in &program.sample_generations {
+        let children = sample
+            .distributions
+            .iter()
+            .map(|distribution| {
+                make_document_symbol(
+                    &lines,
+                    distribution.name.clone(),
+                    format!(
+                        "{} distribution {} [{}]",
+                        distribution.kind, distribution.quantity_kind, distribution.display_unit
+                    ),
+                    SYMBOL_KIND_PROPERTY,
+                    distribution.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            sample.binding.clone(),
+            format!("sample {}", sample.method),
+            SYMBOL_KIND_VARIABLE,
+            sample.line,
+            children,
+        );
+    }
+
+    for transform in &program.table_transforms {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            transform.binding.clone(),
+            "table transform".to_owned(),
+            SYMBOL_KIND_VARIABLE,
+            transform.line,
+            Vec::new(),
+        );
+    }
+
+    for request in &program.net_requests {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            request.binding.clone(),
+            "http get".to_owned(),
+            SYMBOL_KIND_VARIABLE,
+            request.line,
+            Vec::new(),
+        );
+    }
+
+    for system in &program.systems {
+        let mut children = system
+            .variables
+            .iter()
+            .map(|variable| {
+                make_document_symbol(
+                    &lines,
+                    variable.name.clone(),
+                    format!(
+                        "{} {} [{}]",
+                        variable.role, variable.quantity_kind, variable.display_unit
+                    ),
+                    SYMBOL_KIND_VARIABLE,
+                    variable.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(system.equations.iter().map(|equation| {
+            make_document_symbol(
+                &lines,
+                equation.left.clone(),
+                format!("equation {}", equation.relation),
+                SYMBOL_KIND_OPERATOR,
+                equation.line,
+                Vec::new(),
+            )
+        }));
+        children.extend(system.residuals.iter().map(|residual| {
+            make_document_symbol(
+                &lines,
+                residual.name.clone(),
+                "residual".to_owned(),
+                SYMBOL_KIND_OPERATOR,
+                residual.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            system.name.clone(),
+            "system".to_owned(),
+            SYMBOL_KIND_CLASS,
+            system.line,
+            children,
+        );
+    }
+
+    for domain in &program.domains {
+        let mut children = domain
+            .variables
+            .iter()
+            .map(|variable| {
+                make_document_symbol(
+                    &lines,
+                    variable.name.clone(),
+                    format!(
+                        "{} {} [{}]",
+                        variable.role, variable.quantity_kind, variable.display_unit
+                    ),
+                    SYMBOL_KIND_PROPERTY,
+                    variable.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(domain.conservations.iter().map(|conservation| {
+            make_document_symbol(
+                &lines,
+                "conservation".to_owned(),
+                conservation.status.clone(),
+                SYMBOL_KIND_OPERATOR,
+                conservation.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            domain.name.clone(),
+            "domain".to_owned(),
+            SYMBOL_KIND_INTERFACE,
+            domain.line,
+            children,
+        );
+    }
+
+    for component in &program.components {
+        let mut children = component
+            .ports
+            .iter()
+            .map(|port| {
+                make_document_symbol(
+                    &lines,
+                    port.name.clone(),
+                    format!("port {}", port.domain),
+                    SYMBOL_KIND_PROPERTY,
+                    port.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(component.parameters.iter().map(|parameter| {
+            make_document_symbol(
+                &lines,
+                parameter.name.clone(),
+                format!(
+                    "parameter {} [{}]",
+                    parameter.quantity_kind, parameter.display_unit
+                ),
+                SYMBOL_KIND_TYPE_PARAMETER,
+                parameter.line,
+                Vec::new(),
+            )
+        }));
+        children.extend(component.inputs.iter().map(|input| {
+            make_document_symbol(
+                &lines,
+                input.name.clone(),
+                format!("input {} [{}]", input.quantity_kind, input.display_unit),
+                SYMBOL_KIND_TYPE_PARAMETER,
+                input.line,
+                Vec::new(),
+            )
+        }));
+        children.extend(component.local_expressions.iter().map(|local| {
+            make_document_symbol(
+                &lines,
+                local.name.clone(),
+                format!("local {} [{}]", local.quantity_kind, local.display_unit),
+                SYMBOL_KIND_VARIABLE,
+                local.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            component.name.clone(),
+            component
+                .template_name
+                .as_deref()
+                .map(|template| format!("component from {template}"))
+                .unwrap_or_else(|| "component".to_owned()),
+            SYMBOL_KIND_CLASS,
+            component.line,
+            children,
+        );
+    }
+
+    for assembly in &program.component_assemblies {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            assembly.name.clone(),
+            format!("assembly {}", assembly.status),
+            SYMBOL_KIND_OBJECT,
+            assembly.line,
+            Vec::new(),
+        );
+    }
+
+    for class_info in &program.classes {
+        let mut children = class_info
+            .fields
+            .iter()
+            .map(|field| {
+                make_document_symbol(
+                    &lines,
+                    field.name.clone(),
+                    format!("{} [{}]", field.quantity_kind, field.display_unit),
+                    SYMBOL_KIND_PROPERTY,
+                    field.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(class_info.validations.iter().map(|validation| {
+            make_document_symbol(
+                &lines,
+                "validate".to_owned(),
+                validation.status.clone(),
+                SYMBOL_KIND_OPERATOR,
+                validation.line,
+                Vec::new(),
+            )
+        }));
+        children.extend(class_info.methods.iter().map(|method| {
+            make_document_symbol(
+                &lines,
+                method.name.clone(),
+                format!(
+                    "method -> {} [{}]",
+                    method.return_quantity_kind, method.return_display_unit
+                ),
+                SYMBOL_KIND_METHOD,
+                method.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            class_info.name.clone(),
+            "class".to_owned(),
+            SYMBOL_KIND_CLASS,
+            class_info.line,
+            children,
+        );
+    }
+
+    for object in &program.class_objects {
+        let mut children = object
+            .fields
+            .iter()
+            .map(|field| {
+                make_document_symbol(
+                    &lines,
+                    field.name.clone(),
+                    format!("{} [{}]", field.quantity_kind, field.display_unit),
+                    SYMBOL_KIND_PROPERTY,
+                    field.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(object.validations.iter().map(|validation| {
+            make_document_symbol(
+                &lines,
+                "validate".to_owned(),
+                validation.status.clone(),
+                SYMBOL_KIND_OPERATOR,
+                validation.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            object.name.clone(),
+            format!("{} object", object.class_name),
+            SYMBOL_KIND_OBJECT,
+            object.line,
+            children,
+        );
+    }
+
+    for args_block in &program.args_blocks {
+        let children = args_block
+            .fields
+            .iter()
+            .map(|field| {
+                make_document_symbol(
+                    &lines,
+                    field.name.clone(),
+                    field.type_name.clone(),
+                    SYMBOL_KIND_TYPE_PARAMETER,
+                    field.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            args_block.name.clone(),
+            "args".to_owned(),
+            SYMBOL_KIND_STRUCT,
+            args_block.line,
+            children,
+        );
+    }
+
+    for export in &program.csv_exports {
+        let children = export
+            .fields
+            .iter()
+            .map(|field| {
+                make_document_symbol(
+                    &lines,
+                    field.name.clone(),
+                    format!("{} [{}]", field.quantity_kind, field.display_unit),
+                    SYMBOL_KIND_PROPERTY,
+                    field.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            export.source.clone(),
+            format!("export {}", export.format),
+            SYMBOL_KIND_OBJECT,
+            export.line,
+            children,
+        );
+    }
+
+    for process in &program.process_runs {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            process.binding.clone(),
+            "run command".to_owned(),
+            SYMBOL_KIND_VARIABLE,
+            process.line,
+            Vec::new(),
+        );
+    }
+
+    for test in &program.tests {
+        let mut children = test
+            .assertions
+            .iter()
+            .map(|assert| {
+                make_document_symbol(
+                    &lines,
+                    "assert".to_owned(),
+                    format!("{} {} {}", assert.left, assert.operator, assert.right),
+                    SYMBOL_KIND_OPERATOR,
+                    assert.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        children.extend(test.goldens.iter().map(|golden| {
+            make_document_symbol(
+                &lines,
+                golden.artifact.clone(),
+                "golden".to_owned(),
+                SYMBOL_KIND_KEY,
+                golden.line,
+                Vec::new(),
+            )
+        }));
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            test.name.clone(),
+            "test".to_owned(),
+            SYMBOL_KIND_FUNCTION,
+            test.line,
+            children,
+        );
+    }
+
+    for command in &program.command_styles {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            format!("{} {}", command.verb, command.target),
+            command.status.clone(),
+            SYMBOL_KIND_FUNCTION,
+            command.line,
+            Vec::new(),
+        );
+    }
+
+    for suite in &program.expectation_suites {
+        let children = suite
+            .expectations
+            .iter()
+            .map(|expectation| {
+                make_document_symbol(
+                    &lines,
+                    expectation.subject.clone(),
+                    expectation.kind.clone(),
+                    SYMBOL_KIND_KEY,
+                    expectation.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            suite.binding.clone(),
+            format!("expect {}", suite.target),
+            SYMBOL_KIND_OBJECT,
+            suite.line,
+            children,
+        );
+    }
+
+    for block in &program.where_blocks {
+        let children = block
+            .bindings
+            .iter()
+            .map(|binding| {
+                make_document_symbol(
+                    &lines,
+                    binding.name.clone(),
+                    format!("{} [{}]", binding.quantity_kind, binding.display_unit),
+                    SYMBOL_KIND_VARIABLE,
+                    binding.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            format!("where {}", block.line),
+            "where".to_owned(),
+            SYMBOL_KIND_OBJECT,
+            block.line,
+            children,
+        );
+    }
+
+    for block in &program.with_blocks {
+        let children = block
+            .options
+            .iter()
+            .map(|option| {
+                make_document_symbol(
+                    &lines,
+                    option.key.clone(),
+                    option.status.clone(),
+                    SYMBOL_KIND_KEY,
+                    option.line,
+                    Vec::new(),
+                )
+            })
+            .collect::<Vec<_>>();
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            format!("with {}", block.line),
+            "with".to_owned(),
+            SYMBOL_KIND_OBJECT,
+            block.line,
+            children,
+        );
+    }
+
+    mark_document_symbols_seen(&symbols, &mut seen);
+    for binding in &program.typed_bindings {
+        push_document_symbol(
+            &mut symbols,
+            &mut seen,
+            &lines,
+            binding.name.clone(),
+            format!(
+                "{} [{}]",
+                binding.semantic_type.quantity_kind, binding.semantic_type.display_unit
+            ),
+            SYMBOL_KIND_VARIABLE,
+            binding.line,
+            Vec::new(),
+        );
+    }
+
+    sort_document_symbols(&mut symbols);
+    symbols
+}
+
+fn folding_ranges(source: &str) -> Vec<LspFoldingRange> {
+    let lines = source_lines(source);
+    let mut stack = Vec::<usize>::new();
+    let mut ranges = Vec::<LspFoldingRange>::new();
+
+    for (line_index, line) in lines.iter().enumerate() {
+        for event in brace_events(line) {
+            match event {
+                '{' => stack.push(line_index),
+                '}' => {
+                    if let Some(start_line) = stack.pop() {
+                        if line_index > start_line {
+                            ranges.push(LspFoldingRange {
+                                start_line,
+                                end_line: line_index,
+                                kind: Some("region".to_owned()),
+                            });
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+
+    ranges.sort_by_key(|range| (range.start_line, range.end_line));
+    ranges.dedup_by(|right, left| {
+        right.start_line == left.start_line
+            && right.end_line == left.end_line
+            && right.kind == left.kind
+    });
+    ranges
+}
+
+fn push_document_symbol(
+    symbols: &mut Vec<LspDocumentSymbol>,
+    seen: &mut BTreeSet<(usize, String)>,
+    lines: &[&str],
+    name: String,
+    detail: String,
+    kind: u8,
+    line: usize,
+    children: Vec<LspDocumentSymbol>,
+) {
+    if line == 0 || !seen.insert((line, name.clone())) {
+        return;
+    }
+    symbols.push(make_document_symbol(
+        lines, name, detail, kind, line, children,
+    ));
+}
+
+fn mark_document_symbols_seen(symbols: &[LspDocumentSymbol], seen: &mut BTreeSet<(usize, String)>) {
+    for symbol in symbols {
+        seen.insert((symbol.line + 1, symbol.name.clone()));
+        mark_document_symbols_seen(&symbol.children, seen);
+    }
+}
+
+fn make_document_symbol(
+    lines: &[&str],
+    name: String,
+    detail: String,
+    kind: u8,
+    line_one_based: usize,
+    mut children: Vec<LspDocumentSymbol>,
+) -> LspDocumentSymbol {
+    sort_document_symbols(&mut children);
+    let line = line_index_from_one_based(lines, line_one_based);
+    let character = first_non_whitespace_utf16(lines[line]);
+    let selection_character = symbol_start_utf16(lines[line], &name).unwrap_or(character);
+    let mut end_line = block_end_line(lines, line).unwrap_or(line);
+    for child in &children {
+        if child.end_line > end_line {
+            end_line = child.end_line;
+        }
+    }
+    let end_character = line_end_character(lines, end_line);
+
+    LspDocumentSymbol {
+        name,
+        detail,
+        kind,
+        line,
+        character,
+        end_line,
+        end_character,
+        selection_line: line,
+        selection_character,
+        children,
+    }
+}
+
+fn sort_document_symbols(symbols: &mut [LspDocumentSymbol]) {
+    symbols.sort_by(|left, right| {
+        (left.line, left.character, &left.name).cmp(&(right.line, right.character, &right.name))
+    });
+    for symbol in symbols {
+        sort_document_symbols(&mut symbol.children);
+    }
+}
+
+fn source_lines(source: &str) -> Vec<&str> {
+    let mut lines = source.lines().collect::<Vec<_>>();
+    if lines.is_empty() {
+        lines.push("");
+    }
+    lines
+}
+
+fn line_index_from_one_based(lines: &[&str], line: usize) -> usize {
+    line.saturating_sub(1).min(lines.len().saturating_sub(1))
+}
+
+fn line_end_character(lines: &[&str], line: usize) -> usize {
+    lines.get(line).map(|line| utf16_len(line)).unwrap_or(0)
+}
+
+fn first_non_whitespace_utf16(line: &str) -> usize {
+    line.char_indices()
+        .find(|(_, character)| !character.is_whitespace())
+        .map(|(byte_index, _)| utf16_len(&line[..byte_index]))
+        .unwrap_or(0)
+}
+
+fn symbol_start_utf16(line: &str, name: &str) -> Option<usize> {
+    let byte_index = find_symbol_start(line, name)?;
+    Some(utf16_len(&line[..byte_index]))
+}
+
+fn find_symbol_start(line: &str, name: &str) -> Option<usize> {
+    if name.is_empty() {
+        return None;
+    }
+    let requires_identifier_boundary = name.as_bytes().iter().all(|byte| is_ident_byte(*byte));
+    let mut search_start = 0usize;
+    while search_start <= line.len() {
+        let Some(offset) = line[search_start..].find(name) else {
+            break;
+        };
+        let start = search_start + offset;
+        let end = start + name.len();
+        if !requires_identifier_boundary || is_identifier_boundary(line, start, end) {
+            return Some(start);
+        }
+        search_start = end;
+    }
+    None
+}
+
+fn block_end_line(lines: &[&str], start_line: usize) -> Option<usize> {
+    if !brace_events(lines.get(start_line)?)
+        .iter()
+        .any(|event| *event == '{')
+    {
+        return None;
+    }
+    let mut depth = 0usize;
+    let mut opened = false;
+    for (line_index, line) in lines.iter().enumerate().skip(start_line) {
+        for event in brace_events(line) {
+            match event {
+                '{' => {
+                    opened = true;
+                    depth += 1;
+                }
+                '}' if opened => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        return Some(line_index);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    opened.then(|| lines.len().saturating_sub(1))
+}
+
+fn brace_events(line: &str) -> Vec<char> {
+    let limit = comment_start(line).unwrap_or(line.len());
+    let bytes = line.as_bytes();
+    let mut events = Vec::new();
+    let mut in_string = false;
+    let mut index = 0usize;
+    while index < limit {
+        if bytes[index] == b'\\' && in_string {
+            index += 2;
+            continue;
+        }
+        if bytes[index] == b'"' {
+            in_string = !in_string;
+            index += 1;
+            continue;
+        }
+        if !in_string {
+            match bytes[index] {
+                b'{' => events.push('{'),
+                b'}' => events.push('}'),
+                _ => {}
+            }
+        }
+        index += 1;
+    }
+    events
 }
 
 fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
@@ -2318,6 +3271,10 @@ mod tests {
             .tokens
             .iter()
             .any(|token| token.token_type == "comment"));
+        assert!(snapshot
+            .document_symbols
+            .iter()
+            .any(|symbol| symbol.name == "Q" && symbol.kind == SYMBOL_KIND_VARIABLE));
         let completion_json = json["completions"].as_array().unwrap();
         assert!(completion_json
             .iter()
@@ -2329,6 +3286,11 @@ mod tests {
             .as_array()
             .unwrap()
             .is_empty());
+        assert!(json["document_symbols"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|symbol| symbol["name"] == "Q"));
     }
 
     #[test]
@@ -2375,6 +3337,24 @@ mod tests {
         assert!(hovers
             .iter()
             .any(|hover| hover["kind"] == "connection" && hover["status"] == "domain_compatible"));
+        assert!(snapshot.document_symbols.iter().any(|symbol| {
+            symbol.name == "Thermal"
+                && symbol.children.iter().any(|child| {
+                    child.name == "T"
+                        && child.kind == SYMBOL_KIND_PROPERTY
+                        && child.line == 1
+                        && child.end_line == 1
+                })
+        }));
+        assert!(snapshot
+            .folding_ranges
+            .iter()
+            .any(|range| range.start_line == 0 && range.end_line == 4));
+        assert!(json["folding_ranges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|range| range["startLine"] == 0 && range["endLine"] == 4));
     }
 
     #[test]

@@ -4,8 +4,9 @@ use std::path::{Path, PathBuf};
 
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
-    diagnostic_json, hover_json, semantic_legend, semantic_tokens_lsp_json, snapshot_for_path,
-    snapshot_for_source, LSP_SNAPSHOT_FORMAT,
+    diagnostic_json, document_symbols_lsp_json, folding_ranges_lsp_json, hover_json,
+    semantic_legend, semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
+    LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -265,6 +266,8 @@ fn run_lsp() -> io::Result<()> {
                                 "textDocumentSync": 1,
                                 "hoverProvider": true,
                                 "definitionProvider": true,
+                                "documentSymbolProvider": true,
+                                "foldingRangeProvider": true,
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
                                 },
@@ -335,6 +338,24 @@ fn run_lsp() -> io::Result<()> {
                     json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
                 )?;
             }
+            "textDocument/documentSymbol" => {
+                let symbols = snapshot_for_request(&request, &documents)
+                    .map(|snapshot| document_symbols_lsp_json(&snapshot.document_symbols))
+                    .unwrap_or_else(|| json!([]));
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": symbols }),
+                )?;
+            }
+            "textDocument/foldingRange" => {
+                let ranges = snapshot_for_request(&request, &documents)
+                    .map(|snapshot| folding_ranges_lsp_json(&snapshot.folding_ranges))
+                    .unwrap_or_else(|| json!([]));
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": ranges }),
+                )?;
+            }
             _ if id.is_some() => {
                 write_response(
                     &mut output,
@@ -377,13 +398,20 @@ fn semantic_tokens_for_request(
     request: &Value,
     documents: &HashMap<String, String>,
 ) -> Option<eng_lsp::LspSemanticTokens> {
+    Some(snapshot_for_request(request, documents)?.semantic_tokens)
+}
+
+fn snapshot_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+) -> Option<eng_lsp::LspSnapshot> {
     let uri = request_uri(request)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     let text = documents
         .get(uri)
         .cloned()
         .or_else(|| std::fs::read_to_string(&path).ok())?;
-    Some(snapshot_for_source(&path, &text).semantic_tokens)
+    Some(snapshot_for_source(&path, &text))
 }
 
 fn completions_for_request(

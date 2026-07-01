@@ -71,6 +71,14 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["documentSymbolProvider"],
+        true
+    );
+    assert_eq!(
+        initialize["result"]["capabilities"]["foldingRangeProvider"],
+        true
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["semanticTokensProvider"]["full"],
         true
     );
@@ -205,6 +213,43 @@ fn stdio_server_round_trips_core_lsp_requests() {
             .len()
             > 5
     );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 11,
+            "method": "textDocument/documentSymbol",
+            "params": {
+                "textDocument": { "uri": uri }
+            }
+        }),
+    );
+    let document_symbols = read_message(&mut stdout);
+    assert_eq!(document_symbols["id"], 11);
+    let symbols = document_symbols["result"]
+        .as_array()
+        .expect("document symbols should be an array");
+    assert!(document_symbols_contain(symbols, "SensorData"));
+    assert!(document_symbols_contain(symbols, "Q_coil"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 12,
+            "method": "textDocument/foldingRange",
+            "params": {
+                "textDocument": { "uri": uri }
+            }
+        }),
+    );
+    let folding_ranges = read_message(&mut stdout);
+    assert_eq!(folding_ranges["id"], 12);
+    assert!(!folding_ranges["result"]
+        .as_array()
+        .expect("folding ranges should be an array")
+        .is_empty());
 
     let class_source_path = repo_root()
         .join("examples/official/19_class_object/main.eng")
@@ -458,6 +503,15 @@ fn snapshot_stdin_reads_unsaved_source() {
         .expect("semantic token snapshot should contain token objects")
         .iter()
         .any(|token| token["type"] == "type"));
+    assert!(snapshot["document_symbols"]
+        .as_array()
+        .expect("snapshot should contain document symbols")
+        .iter()
+        .any(|symbol| symbol["name"] == "Q"));
+    assert!(snapshot["folding_ranges"]
+        .as_array()
+        .expect("snapshot should contain folding ranges")
+        .is_empty());
 }
 
 #[test]
@@ -534,6 +588,15 @@ fn file_uri(path: &Path) -> String {
         path = format!("/{path}");
     }
     format!("file://{}", path.replace(' ', "%20"))
+}
+
+fn document_symbols_contain(symbols: &[Value], name: &str) -> bool {
+    symbols.iter().any(|symbol| {
+        symbol["name"] == name
+            || symbol["children"]
+                .as_array()
+                .is_some_and(|children| document_symbols_contain(children, name))
+    })
 }
 
 fn write_message<W: Write>(writer: &mut W, value: Value) {

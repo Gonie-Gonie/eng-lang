@@ -88,6 +88,14 @@ function activate(context) {
       new EngSemanticTokensProvider(context),
       semanticLegend
     ),
+    vscode.languages.registerDocumentSymbolProvider(
+      LANGUAGE_ID,
+      new EngDocumentSymbolProvider(context)
+    ),
+    vscode.languages.registerFoldingRangeProvider(
+      LANGUAGE_ID,
+      new EngFoldingRangeProvider(context)
+    ),
     vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
     })
@@ -356,14 +364,14 @@ function snapshotDocumentSource(document, context, cancellationToken) {
           output.appendLine(stderr.trim());
         }
         if (error) {
-          output.appendLine(`semantic token snapshot failed: ${error.message}`);
+          output.appendLine(`LSP snapshot failed: ${error.message}`);
           finish(undefined);
           return;
         }
         try {
           finish(JSON.parse(stdout));
         } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang semantic token snapshot: ${parseError.message}`);
+          output.appendLine(`Unable to parse EngLang LSP snapshot: ${parseError.message}`);
           finish(undefined);
         }
       }
@@ -460,6 +468,108 @@ function semanticTokensFromSnapshot(snapshot) {
   return builder.build();
 }
 
+class EngDocumentSymbolProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideDocumentSymbols(document, cancellationToken) {
+    if (!isEngDocument(document)) {
+      return [];
+    }
+    const snapshot = await snapshotDocumentSource(document, this.context, cancellationToken);
+    if (!snapshot) {
+      return [];
+    }
+    reviewCache.set(document.uri.fsPath, snapshot);
+    return documentSymbolsFromSnapshot(snapshot);
+  }
+}
+
+class EngFoldingRangeProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideFoldingRanges(document, _context, cancellationToken) {
+    if (!isEngDocument(document)) {
+      return [];
+    }
+    const snapshot = await snapshotDocumentSource(document, this.context, cancellationToken);
+    if (!snapshot) {
+      return [];
+    }
+    reviewCache.set(document.uri.fsPath, snapshot);
+    return foldingRangesFromSnapshot(snapshot);
+  }
+}
+
+function documentSymbolsFromSnapshot(snapshot) {
+  return (snapshot.document_symbols ?? [])
+    .map(documentSymbolFromSnapshot)
+    .filter((symbol) => symbol !== undefined);
+}
+
+function documentSymbolFromSnapshot(symbol) {
+  if (!symbol?.name) {
+    return undefined;
+  }
+  const range = vscodeRangeFromLsp(symbol.range);
+  const selectionRange = vscodeRangeFromLsp(symbol.selectionRange) ?? range;
+  if (!range || !selectionRange) {
+    return undefined;
+  }
+  const documentSymbol = new vscode.DocumentSymbol(
+    symbol.name,
+    symbol.detail ?? "",
+    symbolKindFromLsp(symbol.kind),
+    range,
+    selectionRange
+  );
+  for (const child of symbol.children ?? []) {
+    const childSymbol = documentSymbolFromSnapshot(child);
+    if (childSymbol) {
+      documentSymbol.children.push(childSymbol);
+    }
+  }
+  return documentSymbol;
+}
+
+function foldingRangesFromSnapshot(snapshot) {
+  return (snapshot.folding_ranges ?? [])
+    .map(foldingRangeFromSnapshot)
+    .filter((range) => range !== undefined);
+}
+
+function foldingRangeFromSnapshot(range) {
+  const startLine = range?.startLine;
+  const endLine = range?.endLine;
+  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || endLine <= startLine) {
+    return undefined;
+  }
+  const kind = foldingRangeKindFromLsp(range.kind);
+  if (kind) {
+    return new vscode.FoldingRange(startLine, endLine, kind);
+  }
+  return new vscode.FoldingRange(startLine, endLine);
+}
+
+function vscodeRangeFromLsp(range) {
+  const startLine = range?.start?.line;
+  const startCharacter = range?.start?.character;
+  const endLine = range?.end?.line;
+  const endCharacter = range?.end?.character;
+  if (
+    !Number.isInteger(startLine) ||
+    !Number.isInteger(startCharacter) ||
+    !Number.isInteger(endLine) ||
+    !Number.isInteger(endCharacter)
+  ) {
+    return undefined;
+  }
+  return new vscode.Range(startLine, startCharacter, endLine, endCharacter);
+}
+
 function semanticModifierBits(modifiers) {
   let bits = 0;
   for (const modifier of modifiers) {
@@ -469,6 +579,55 @@ function semanticModifierBits(modifiers) {
     }
   }
   return bits;
+}
+
+function symbolKindFromLsp(kind) {
+  if (typeof kind === "number" && kind >= 1 && kind <= 26) {
+    return kind - 1;
+  }
+  switch (kind) {
+    case "module":
+      return vscode.SymbolKind.Module;
+    case "class":
+      return vscode.SymbolKind.Class;
+    case "method":
+      return vscode.SymbolKind.Method;
+    case "property":
+      return vscode.SymbolKind.Property;
+    case "interface":
+      return vscode.SymbolKind.Interface;
+    case "function":
+      return vscode.SymbolKind.Function;
+    case "variable":
+      return vscode.SymbolKind.Variable;
+    case "constant":
+      return vscode.SymbolKind.Constant;
+    case "object":
+      return vscode.SymbolKind.Object;
+    case "key":
+      return vscode.SymbolKind.Key;
+    case "struct":
+      return vscode.SymbolKind.Struct;
+    case "operator":
+      return vscode.SymbolKind.Operator;
+    case "typeParameter":
+      return vscode.SymbolKind.TypeParameter;
+    default:
+      return vscode.SymbolKind.Variable;
+  }
+}
+
+function foldingRangeKindFromLsp(kind) {
+  switch (kind) {
+    case "comment":
+      return vscode.FoldingRangeKind.Comment;
+    case "imports":
+      return vscode.FoldingRangeKind.Imports;
+    case "region":
+      return vscode.FoldingRangeKind.Region;
+    default:
+      return undefined;
+  }
 }
 
 function completionKindFromLsp(kind) {
