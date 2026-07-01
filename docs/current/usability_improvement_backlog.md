@@ -1516,6 +1516,18 @@ Status: implemented after Highlight panel review.
 - Extended `ide-check` contracts so both debug surfaces keep exposing the
   richer semantic-token inspection data.
 
+## Batch 125: Native IDE Semantic Modifier Style Coverage
+
+Status: implemented after Native IDE highlight consistency review.
+
+- Added explicit Native IDE highlight styles for every semantic token modifier
+  exposed by the LSP legend, including declaration, imported/default-library,
+  planned/internal, workflow state/input/model/DB/cache, and uncertainty
+  modifiers.
+- Extended `ide-check` to compare `SEMANTIC_TOKEN_MODIFIERS` from
+  `eng_lsp` against `.hl-mod-*` CSS classes, so future modifier additions
+  cannot silently render as plain text in the Native IDE highlight overlay.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

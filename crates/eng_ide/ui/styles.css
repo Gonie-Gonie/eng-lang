@@ -608,6 +608,40 @@ button:hover {
   font-style: italic;
 }
 
+.hl-mod-declaration,
+.hl-mod-definition {
+  font-weight: 700;
+}
+
+.hl-mod-readonly {
+  font-style: italic;
+}
+
+.hl-mod-static {
+  text-decoration: overline;
+  text-decoration-color: rgba(75, 85, 99, 0.55);
+  text-decoration-thickness: 1px;
+}
+
+.hl-mod-local {
+  color: #374151;
+}
+
+.hl-mod-imported {
+  color: #4338ca;
+}
+
+.hl-mod-defaultLibrary {
+  color: #0f766e;
+  font-weight: 620;
+}
+
+.hl-mod-deprecated {
+  color: #6b7280;
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
 .hl-mod-unit {
   color: #b45309;
 }
@@ -619,6 +653,14 @@ button:hover {
 .hl-mod-axis,
 .hl-mod-timeseries {
   color: #2563eb;
+}
+
+.hl-mod-uncertain {
+  color: #a16207;
+  text-decoration-line: underline;
+  text-decoration-style: wavy;
+  text-decoration-color: rgba(161, 98, 7, 0.55);
+  text-underline-offset: 2px;
 }
 
 .hl-mod-validation,
@@ -639,6 +681,19 @@ button:hover {
   text-underline-offset: 2px;
 }
 
+.hl-mod-planned {
+  color: #7c3aed;
+  text-decoration-line: underline;
+  text-decoration-style: dotted;
+  text-decoration-color: rgba(124, 58, 237, 0.7);
+  text-underline-offset: 2px;
+}
+
+.hl-mod-internal {
+  color: #475569;
+  background: rgba(71, 85, 105, 0.11);
+}
+
 .hl-mod-riskHigh {
   background: rgba(184, 44, 44, 0.14);
   box-shadow: inset 0 -2px 0 rgba(184, 44, 44, 0.45);
@@ -652,6 +707,29 @@ button:hover {
 .hl-mod-workflowStep {
   color: #0b6bcb;
   font-weight: 650;
+}
+
+.hl-mod-state {
+  color: #0f766e;
+  font-weight: 620;
+}
+
+.hl-mod-input {
+  color: #0369a1;
+  font-style: italic;
+}
+
+.hl-mod-model {
+  color: #9b2c6a;
+  font-weight: 620;
+}
+
+.hl-mod-db {
+  color: #6d4c0f;
+}
+
+.hl-mod-cache {
+  color: #166534;
 }
 
 .completion-popover {

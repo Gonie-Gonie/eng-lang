@@ -2277,6 +2277,7 @@ function Invoke-IdeCheck {
     $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
     $TauriUiAppPath = Join-Path $RepoRoot "crates\eng_ide\ui\app.js"
     $TauriUiStylesPath = Join-Path $RepoRoot "crates\eng_ide\ui\styles.css"
+    $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     if (-not (Test-Path $TauriConfigPath)) {
         throw "missing Tauri IDE config at $TauriConfigPath"
     }
@@ -2291,6 +2292,9 @@ function Invoke-IdeCheck {
     }
     if (-not (Test-Path $TauriUiStylesPath)) {
         throw "missing Tauri IDE frontend styles at $TauriUiStylesPath"
+    }
+    if (-not (Test-Path $LspSourcePath)) {
+        throw "missing LSP source at $LspSourcePath"
     }
     $IdeUiSource = Get-Content -LiteralPath $TauriUiAppPath -Raw
     foreach ($RequiredIdeToken in @(
@@ -2360,6 +2364,14 @@ function Invoke-IdeCheck {
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
+        }
+    }
+    $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
+    $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
+    foreach ($Modifier in $LspSemanticModifiers) {
+        $ModifierStyle = ".hl-mod-$Modifier"
+        if (-not $IdeUiStyles.Contains($ModifierStyle)) {
+            throw "Native IDE CSS missing semantic modifier style $ModifierStyle"
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
