@@ -590,8 +590,8 @@ function Convert-ModuleRegistryStatusLabel {
     switch ($Status) {
         "supported" { return "Supported" }
         "supported_narrow" { return "Supported narrow" }
-        "native_preview" { return "Native preview" }
-        "supported_seed" { return "Native preview" }
+        "native_preview" { return "Native workflow support" }
+        "supported_seed" { return "Native workflow support" }
         "planned" { return "Planned" }
         "internal_planned" { return "Internal planned" }
         "internal" { return "Internal" }

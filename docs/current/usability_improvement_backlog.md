@@ -97,15 +97,26 @@ Status: implemented after the execution-profile switch.
 - Extended `ide-check` contract coverage so setting enum descriptions do not
   disappear silently.
 
+## Batch 9: Workflow Module Status Wording
+
+Status: implemented after module status review.
+
+- Renamed the user-facing label for `native_preview` and `supported_seed`
+  registry entries from `Native preview` to `Native workflow support`.
+- Kept the machine-readable status keys stable while updating completion
+  details, ReviewDocument status labels, native IDE fallback labels, and the
+  generated workflow module docs table.
+- Updated status details to refer to executable workflow examples instead of
+  implementation fixtures.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
   `seed`, `hybrid`, `native target`, and `opaque boundary`.
 - Make workflow command examples consistent: prefer `eng.exe run <file.eng>
   --save-artifacts` where saved artifacts are discussed.
-- Review stdlib/module status words. Public docs should distinguish
-  `supported`, `supported narrow`, `internal`, and `planned` without making
-  users parse implementation history.
+- Continue reviewing stdlib/module status words where docs still expose
+  implementation history instead of current support scope.
 - Audit workflow helper names for readability, especially
   `select_first_row(...)`, `check coverage`, `predict <model> using <table>`,
   and DB write forms.

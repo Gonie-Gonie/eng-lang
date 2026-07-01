@@ -2,7 +2,7 @@
 # status: native_preview
 # purpose: HTTP/download boundaries with endpoint, cache, hash, fixture, and reproducibility policy.
 #
-# Native preview vocabulary:
+# Native workflow vocabulary:
 #   response = http get url("https://example.org/api")
 #   download url("https://example.org/file.csv") to file("build/raw/file.csv")
 #   with fixture = file("fixtures/response.json")

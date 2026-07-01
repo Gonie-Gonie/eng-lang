@@ -11767,11 +11767,11 @@ system Envelope {
                     && module
                         .get("status_label")
                         .and_then(serde_json::Value::as_str)
-                        == Some("Native preview")
+                        == Some("Native workflow support")
                     && module
                         .get("status_detail")
                         .and_then(serde_json::Value::as_str)
-                        .is_some_and(|detail| detail.contains("current workflow fixtures"))
+                        .is_some_and(|detail| detail.contains("current workflow examples"))
             })));
         assert!(value
             .pointer("/review_document/section_hashes/workflow_modules")

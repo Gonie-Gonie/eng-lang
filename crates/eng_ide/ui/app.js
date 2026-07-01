@@ -1214,8 +1214,10 @@ function moduleStatusLabel(module) {
       return "Supported";
     case "supported_narrow":
       return "Supported narrow";
+    case "native_preview":
+      return "Native workflow support";
     case "supported_seed":
-      return "Native preview";
+      return "Native workflow support";
     case "planned":
       return "Planned";
     case "internal_planned":
@@ -1234,8 +1236,10 @@ function moduleStatusDetail(module) {
       return "Public built-in surface supported by compiler/runtime.";
     case "supported_narrow":
       return "Supported for the listed syntax forms and review artifacts.";
+    case "native_preview":
+      return "Native implementation is available for current workflow examples; broader API may still change.";
     case "supported_seed":
-      return "Native implementation exists for current workflow fixtures; broader API may still change.";
+      return "Native implementation is available for current workflow examples; broader API may still change.";
     case "planned":
       return "Documented target surface; not executable as a public module yet.";
     case "internal_planned":

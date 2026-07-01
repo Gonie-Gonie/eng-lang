@@ -40,8 +40,8 @@ pub fn module_status_label(status: &str) -> &'static str {
     match status {
         "supported" => "Supported",
         "supported_narrow" => "Supported narrow",
-        "native_preview" => "Native preview",
-        "supported_seed" => "Native preview",
+        "native_preview" => "Native workflow support",
+        "supported_seed" => "Native workflow support",
         "planned" => "Planned",
         "internal_planned" => "Internal planned",
         "internal" => "Internal",
@@ -54,10 +54,10 @@ pub fn module_status_detail(status: &str) -> &'static str {
         "supported" => "Public built-in surface supported by compiler/runtime.",
         "supported_narrow" => "Supported for the listed syntax forms and review artifacts.",
         "native_preview" => {
-            "Native implementation exists for current workflow fixtures; broader API may still change."
+            "Native implementation is available for current workflow examples; broader API may still change."
         }
         "supported_seed" => {
-            "Native implementation exists for current workflow fixtures; broader API may still change."
+            "Native implementation is available for current workflow examples; broader API may still change."
         }
         "planned" => "Documented target surface; not executable as a public module yet.",
         "internal_planned" => "Internal design target, not a public stdlib contract.",
@@ -335,10 +335,10 @@ mod tests {
             .iter()
             .find(|module| module.name == "eng.net")
             .expect("eng.net should be registered");
-        assert_eq!(net_module.status_label(), "Native preview");
+        assert_eq!(net_module.status_label(), "Native workflow support");
         assert!(net_module
             .completion_detail()
-            .starts_with("Native preview:"));
+            .starts_with("Native workflow support:"));
         assert!(!net_module.completion_detail().contains("supported_seed"));
         assert!(!net_module.completion_detail().contains("native_preview"));
         assert!(net_module

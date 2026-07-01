@@ -3490,10 +3490,10 @@ mod tests {
             );
         }
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.net" && completion.detail.contains("Native preview")
+            completion.label == "eng.net" && completion.detail.contains("Native workflow support")
         }));
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.cache" && completion.detail.contains("Native preview")
+            completion.label == "eng.cache" && completion.detail.contains("Native workflow support")
         }));
 
         let json = snapshot_json(&snapshot);
