@@ -605,6 +605,21 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
+    "text": "fixture ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "cache ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "cache_key ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
     "text": "body_size_limit ="
   },
   {

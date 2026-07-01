@@ -1664,6 +1664,16 @@ Status: implemented after VS Code/LSP completion wording review.
   new completion details for `fixture`, `eng.net`, `eng.cache`, and
   `response.body`.
 
+## Batch 137: VS Code Network Option Grammar Coverage
+
+Status: implemented after reviewing native workflow syntax highlighting gaps.
+
+- Added HTTP workflow fixture coverage for `fixture`, `cache`, and `cache_key`
+  options inside an `http get ... with { ... }` block.
+- Pinned those public network/cache options in the VS Code grammar token smoke
+  test so they keep the same property-option coloring as `expected_sha256`,
+  `body_size_limit`, and `response_body_limit`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

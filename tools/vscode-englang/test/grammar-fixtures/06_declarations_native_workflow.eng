@@ -37,6 +37,9 @@ with {
     query = {
         key = api_key
     }
+    fixture = file("data/weather-response.json")
+    cache = true
+    cache_key = ["weather", "example"]
     expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     body_size_limit = 2 MB
     response_body_limit = 2 MB
