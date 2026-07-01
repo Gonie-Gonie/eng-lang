@@ -8797,7 +8797,7 @@ fn result_json(
     let render_manifests = template_render_records_json(template_render_records, "      ");
     let model_cards = model_cards_json(runtime_data, process_results);
     let model_specs = model_specs_json(runtime_data, process_results);
-    let prediction_manifests = prediction_manifests_json(process_results);
+    let prediction_manifests = prediction_manifests_json(runtime_data, process_results);
     let model_diagnostics = model_diagnostics_json(runtime_data, process_results);
 
     let mut timeseries_uncertainty_calculations = String::new();
@@ -8963,6 +8963,12 @@ fn result_json(
             json_escape(&artifact.kind)
         ));
         push_optional_json_string(&mut ml, "source", artifact.source.as_deref(), 8);
+        push_optional_json_string(
+            &mut ml,
+            "prediction_input",
+            artifact.prediction_input.as_deref(),
+            8,
+        );
         push_optional_json_string(&mut ml, "target", artifact.target.as_deref(), 8);
         push_optional_json_string(
             &mut ml,
@@ -10165,7 +10171,7 @@ fn runtime_review_json(
     json.push_str("\n  ],\n  \"model_specs\": [\n");
     json.push_str(&model_specs_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"prediction_manifests\": [\n");
-    json.push_str(&prediction_manifests_json(process_results));
+    json.push_str(&prediction_manifests_json(runtime_data, process_results));
     json.push_str("\n  ],\n  \"model_diagnostics\": [\n");
     json.push_str(&model_diagnostics_json(runtime_data, process_results));
     json.push_str("\n  ]\n}\n");
@@ -12750,15 +12756,35 @@ fn push_model_spec_json(
     json.push_str("      }");
 }
 
-fn prediction_manifests_json(process_results: &[ProcessExecutionRecord]) -> String {
+fn prediction_manifests_json(
+    runtime_data: &RuntimeData,
+    process_results: &[ProcessExecutionRecord],
+) -> String {
     let mut json = String::new();
-    for (index, record) in external_prediction_manifest_records(process_results)
+    let mut emitted = 0usize;
+    for artifact in runtime_data
+        .ml_artifacts
         .iter()
-        .enumerate()
+        .filter(|artifact| artifact.kind == "PredictionResult")
     {
-        if index > 0 {
+        let Some(table) = runtime_data
+            .tables
+            .iter()
+            .find(|table| table.binding == artifact.binding)
+        else {
+            continue;
+        };
+        if emitted > 0 {
             json.push_str(",\n");
         }
+        emitted += 1;
+        push_native_prediction_manifest_json(&mut json, artifact, table);
+    }
+    for record in external_prediction_manifest_records(process_results) {
+        if emitted > 0 {
+            json.push_str(",\n");
+        }
+        emitted += 1;
         json.push_str("      {\n");
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
@@ -12813,6 +12839,112 @@ fn prediction_manifests_json(process_results: &[ProcessExecutionRecord]) -> Stri
         json.push_str("      }");
     }
     json
+}
+
+fn push_native_prediction_manifest_json(
+    json: &mut String,
+    artifact: &RuntimeMlArtifact,
+    table: &runtime_data::RuntimeTable,
+) {
+    json.push_str("      {\n");
+    json.push_str(&format!(
+        "        \"binding\": \"{}\",\n",
+        json_escape(&artifact.binding)
+    ));
+    json.push_str(&format!(
+        "        \"manifest_path\": \"native:{}\",\n",
+        json_escape(&artifact.binding)
+    ));
+    json.push_str(&format!(
+        "        \"model\": \"{}\",\n",
+        json_escape(artifact.source.as_deref().unwrap_or("unknown"))
+    ));
+    push_manifest_file_json(json, "model_file", None, 8);
+    push_manifest_file_json(json, "sample_file", None, 8);
+    push_manifest_file_json(json, "output_file", None, 8);
+    json.push_str("        \"schema\": [");
+    push_json_string_array(
+        json,
+        &table
+            .columns
+            .iter()
+            .map(|column| column.name.clone())
+            .collect::<Vec<_>>(),
+    );
+    json.push_str("],\n");
+    json.push_str("        \"outputs\": [");
+    push_native_prediction_outputs_json(json, table);
+    json.push_str("],\n");
+    json.push_str("        \"case_ids\": [");
+    push_json_string_array(json, &native_prediction_case_ids(table));
+    json.push_str("],\n");
+    json.push_str(&format!("        \"row_count\": {},\n", table.row_count));
+    push_optional_json_string(
+        json,
+        "confidence_column",
+        native_prediction_confidence_column(table).as_deref(),
+        8,
+    );
+    json.push_str(&format!(
+        "        \"status\": \"{}\",\n",
+        json_escape(&artifact.status)
+    ));
+    json.push_str(&format!("        \"line\": {}\n", artifact.line));
+    json.push_str("      }");
+}
+
+fn push_native_prediction_outputs_json(json: &mut String, table: &runtime_data::RuntimeTable) {
+    let output_columns = table
+        .columns
+        .iter()
+        .filter(|column| !column.name.eq_ignore_ascii_case("case_id"))
+        .collect::<Vec<_>>();
+    for (index, column) in output_columns.iter().enumerate() {
+        if index > 0 {
+            json.push_str(", ");
+        }
+        json.push_str("{");
+        json.push_str(&format!(
+            "\"column\": {}, ",
+            optional_json_string_literal(Some(column.name.as_str()))
+        ));
+        json.push_str(&format!(
+            "\"quantity\": {}, ",
+            optional_json_string_literal(Some(column.type_name.as_str()))
+        ));
+        json.push_str(&format!(
+            "\"unit\": {}",
+            optional_json_string_literal(column.unit.as_deref())
+        ));
+        json.push_str("}");
+    }
+}
+
+fn native_prediction_case_ids(table: &runtime_data::RuntimeTable) -> Vec<String> {
+    let Some(column) = table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case("case_id"))
+    else {
+        return Vec::new();
+    };
+    match &column.values {
+        RuntimeValues::Text(values) => values.clone(),
+        RuntimeValues::Number(values) => values
+            .iter()
+            .map(|value| value.map(|value| value.to_string()).unwrap_or_default())
+            .collect(),
+    }
+}
+
+fn native_prediction_confidence_column(table: &runtime_data::RuntimeTable) -> Option<String> {
+    table.columns.iter().find_map(|column| {
+        column
+            .name
+            .to_ascii_lowercase()
+            .contains("confidence")
+            .then(|| column.name.clone())
+    })
 }
 
 fn model_diagnostics_json(
@@ -18627,6 +18759,164 @@ finally:
             .contains("\"model_artifact_hash\": \"model-hash\""));
         assert!(output.review_json.contains("\"model_specs\""));
         assert!(output.review_json.contains("\"prediction_manifests\""));
+    }
+
+    #[test]
+    fn run_file_predicts_native_model_into_table_and_sqlite() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-native-model-predict");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-native-model-predict-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("hvac_training.csv"),
+            concat!(
+                "time,T_supply,T_return,m_dot\n",
+                "2026-01-01T00:00:00Z,7.1,12.4,0.22\n",
+                "2026-01-01T00:05:00Z,7.4,12.6,0.23\n",
+                "2026-01-01T00:10:00Z,7.7,12.9,0.23\n",
+                "2026-01-01T00:15:00Z,7.9,13.3,0.24\n",
+                "2026-01-01T00:20:00Z,8.2,13.8,0.25\n",
+                "2026-01-01T00:25:00Z,8.5,14.0,0.26\n",
+                "2026-01-01T00:30:00Z,8.8,14.4,0.26\n",
+                "2026-01-01T00:35:00Z,9.1,14.7,0.27\n",
+            ),
+        )
+        .expect("training csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema HvacTrainingData {\n",
+                "    time: DateTime index\n",
+                "    T_supply: AbsoluteTemperature [degC]\n",
+                "    T_return: AbsoluteTemperature [degC]\n",
+                "    m_dot: MassFlowRate [kg/s]\n",
+                "}\n\n",
+                "sensor = promote csv file(\"data/hvac_training.csv\") as HvacTrainingData\n",
+                "cp = 4180 J/kg/K\n",
+                "Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\n",
+                "split = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.25, seed=7)\n",
+                "reg_model = regression(split, algorithm=linear)\n",
+                "new_samples = sample lhs\n",
+                "with {\n",
+                "    count = 3\n",
+                "    seed = 11\n",
+                "    T_supply = uniform(7 degC, 9 degC)\n",
+                "    T_return = uniform(12 degC, 15 degC)\n",
+                "    m_dot = uniform(0.2 kg/s, 0.3 kg/s)\n",
+                "}\n",
+                "predictions = predict reg_model using new_samples\n",
+                "db = open sqlite file(\"outputs/predictions.sqlite\")\n",
+                "write predictions to db.table(\"predictions\")\n",
+                "with {\n",
+                "    mode = append\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("native prediction run");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let manifest = result
+            .pointer("/typed_payload/prediction_manifests/0")
+            .expect("native prediction manifest");
+        assert_eq!(
+            manifest.get("binding").and_then(Value::as_str),
+            Some("predictions")
+        );
+        assert_eq!(
+            manifest.get("manifest_path").and_then(Value::as_str),
+            Some("native:predictions")
+        );
+        assert_eq!(
+            manifest.get("model").and_then(Value::as_str),
+            Some("reg_model")
+        );
+        assert_eq!(manifest.get("row_count").and_then(Value::as_u64), Some(3));
+        assert_eq!(
+            manifest.get("confidence_column").and_then(Value::as_str),
+            Some("confidence")
+        );
+        assert_eq!(
+            manifest
+                .pointer("/outputs/0/column")
+                .and_then(Value::as_str),
+            Some("predicted_q_coil")
+        );
+        assert_eq!(
+            manifest
+                .pointer("/outputs/0/quantity")
+                .and_then(Value::as_str),
+            Some("HeatRate")
+        );
+        assert_eq!(
+            manifest
+                .pointer("/outputs/1/column")
+                .and_then(Value::as_str),
+            Some("confidence")
+        );
+
+        let table_diagnostic = result
+            .pointer("/typed_payload/table_diagnostics")
+            .and_then(Value::as_array)
+            .and_then(|items| {
+                items
+                    .iter()
+                    .find(|item| item.get("binding").and_then(Value::as_str) == Some("predictions"))
+            })
+            .expect("prediction table diagnostic");
+        assert_eq!(
+            table_diagnostic.get("schema_name").and_then(Value::as_str),
+            Some("PredictionResult")
+        );
+        assert_eq!(
+            table_diagnostic.get("row_count").and_then(Value::as_u64),
+            Some(3)
+        );
+        let prediction_ml = result
+            .pointer("/typed_payload/ml")
+            .and_then(Value::as_array)
+            .and_then(|items| {
+                items.iter().find(|item| {
+                    item.get("kind").and_then(Value::as_str) == Some("PredictionResult")
+                })
+            })
+            .expect("prediction ml artifact");
+        assert_eq!(
+            prediction_ml
+                .get("prediction_input")
+                .and_then(Value::as_str),
+            Some("new_samples")
+        );
+        assert_eq!(
+            prediction_ml.get("status").and_then(Value::as_str),
+            Some("predicted")
+        );
+
+        let db_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("predictions.sqlite");
+        let row_count = sqlite_query_scalar(&db_path, "SELECT COUNT(*) FROM predictions")
+            .as_i64()
+            .expect("prediction row count");
+        assert_eq!(row_count, 3);
     }
 
     #[test]

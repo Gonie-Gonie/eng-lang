@@ -115,11 +115,11 @@ tests = ["cargo test -p eng_compiler review_json_exposes_normalized_review_docum
 [module."eng.model"]
 status = "supported_seed"
 backing = "compiler_runtime_builtin"
-purpose = "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, prediction-manifest, confidence, and hash review artifacts; public predict syntax is planned."
+purpose = "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts."
 artifacts = ["typed_payload.model_specs", "typed_payload.model_cards", "typed_payload.prediction_manifests", "typed_payload.model_diagnostics", "model_card", "model_metrics", "output_manifest"]
 diagnostics = ["E-MODEL-FEATURE-MISSING", "E-MODEL-TARGET-MISSING", "E-MODEL-CARD-MISSING", "W-MODEL-EXTRAPOLATION"]
 examples = ["examples/workflows/02_external_simulation_surrogate_hybrid", "examples/internal/05_data_driven_modeling"]
-tests = ["cargo test -p eng_runtime model"]
+tests = ["cargo test -p eng_compiler records_data_driven_modeling_metadata", "cargo test -p eng_runtime model", "cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite"]
 
 [module."eng.db"]
 status = "supported_seed"

@@ -34,8 +34,9 @@ share owner records across network, process, model, and case workflow surfaces,
 enforce observed cache hashes under the repro profile, and warn about stale
 cache entries. Native SQLite append/upsert write seeds now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
-status. Live network execution, cache replay, case runner, broad DB support,
-and public model syntax remain planned or internal until concrete
+status. Native `predict <model> using <table>` now materializes prediction
+tables and manifests. Live network execution, cache replay, case runner,
+broad DB support, and broader model train syntax remain planned or internal until concrete
 language/runtime/artifact slices land.
 
 ## Purpose
@@ -68,7 +69,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.case` | supported_seed | compiler_runtime_builtin | `typed_payload.case_tables`<br>`typed_payload.case_manifests`<br>`typed_payload.case_diagnostics`<br>`case_manifest`<br>`output_manifest` | `E-CASE-ID-DUPLICATE`<br>`E-CASE-DIR-COLLISION`<br>`E-CASE-OUTPUT-MISSING`<br>`E-CASE-STEP-FAILED`<br>`W-CASE-SKIPPED-CACHE` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime case_manifest` |
 | `eng.artifact` | supported_seed | compiler_runtime_builtin | `output_manifest`<br>`review.side_effects`<br>`artifact_registry` | `artifact_validation_failed` | `examples/workflows/01_weather_api_to_standard_file_hybrid`<br>`examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_runtime output_manifest` |
 | `eng.review` | supported_seed | compiler_runtime_builtin | `review` | `semantic_diff_changed`<br>`review_risk` | `eng review examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng` | `cargo test -p eng_compiler review_json_exposes_normalized_review_document`<br>`cargo test -p eng_cli review_semantic_diff_compares_workflow_modules` |
-| `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_specs`<br>`typed_payload.model_cards`<br>`typed_payload.prediction_manifests`<br>`typed_payload.model_diagnostics`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING`<br>`W-MODEL-EXTRAPOLATION` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model` |
+| `eng.model` | supported_seed | compiler_runtime_builtin | `typed_payload.model_specs`<br>`typed_payload.model_cards`<br>`typed_payload.prediction_manifests`<br>`typed_payload.model_diagnostics`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING`<br>`W-MODEL-EXTRAPOLATION` | `examples/workflows/02_external_simulation_surrogate_hybrid`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_compiler records_data_driven_modeling_metadata`<br>`cargo test -p eng_runtime model`<br>`cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite` |
 | `eng.db` | supported_seed | compiler_runtime_builtin | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`sqlite_database`<br>`review.external_boundaries` | `E-DB-CONNECT`<br>`E-DB-SCHEMA-MISMATCH`<br>`E-DB-KEY-MISSING`<br>`E-DB-TRANSACTION-FAILED`<br>`E-DB-SAFE-PROFILE`<br>`W-PROFILE-REPRO-DB` | `examples/workflows/02_external_simulation_surrogate_hybrid` | `cargo test -p eng_compiler lowers_native_db_write_seed`<br>`cargo test -p eng_runtime sqlite`<br>`cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write`<br>`cargo test -p eng_runtime run_file_repro_profile_records_native_db_write` |
 | `eng.config` | supported_narrow | compiler_runtime_builtin | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
 | `eng.net` | supported_seed | compiler_runtime_builtin | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO` | `examples/workflows/01_weather_api_to_standard_file_hybrid` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg` |
@@ -198,9 +199,11 @@ These fixtures show the review contract that `eng.case`, `eng.db`, and
 adds native SQLite append/upsert writes for typed tables, while broad DB engines
 and query APIs remain planned. The current `eng.model` seed makes external
 model cards, model specs, prediction manifests, and model diagnostics
-reviewable when they cross explicit process expected-output boundaries. Public
-train/predict syntax remains planned, and the internal `eng.ml` seed exposes
-matching model review artifacts without claiming a broad ML framework surface.
+reviewable when they cross explicit process expected-output boundaries, and
+native `predict <model> using <table>` materializes Table[Prediction] rows with
+case IDs, predicted target values, confidence, and prediction-manifest metadata.
+Broader model train syntax remains planned, and the internal `eng.ml` seed
+exposes matching model review artifacts without claiming a broad ML framework surface.
 
 ## Weather API To Standard File Pattern
 

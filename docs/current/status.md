@@ -179,10 +179,10 @@ is not mistaken for public module support.
     `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, model specs/cards in
     `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
-    prediction manifests in `typed_payload.prediction_manifests[]`, model
+    native predict-table records and prediction manifests in `typed_payload.prediction_manifests[]`, model
     diagnostics in `typed_payload.model_diagnostics[]`, and hybrid artifact fixtures
     for weather/case/model/prediction/DB manifest contracts; `Planned` native
-    net/cache/sample generators/case runner, broad DB support, and model public syntax.
+    net/cache/sample generators/case runner, broad DB support, and broader model train syntax.
   - Current hybrid DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
     DB table summaries. Current hybrid model evidence includes external

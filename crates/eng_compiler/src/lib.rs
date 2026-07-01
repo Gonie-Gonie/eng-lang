@@ -10449,12 +10449,12 @@ system Envelope {
     fn records_data_driven_modeling_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nmlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\nreg_eval = evaluate(reg_model, split=split)\nreg_card = model_card(reg_model)\nleakage = leakage_lint(split)\n",
+            "cp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nsplit = train_test_split(Q_coil, target=Q_coil, features=[T_supply, T_return, m_dot], test=0.5, seed=7)\nreg_model = regression(split, algorithm=linear)\nmlp_model = mlp(split, hidden=[4], epochs=20, seed=7)\nreg_eval = evaluate(reg_model, split=split)\nreg_card = model_card(reg_model)\nleakage = leakage_lint(split)\nnew_samples = sample lhs\nwith {\n    count = 3\n    seed = 11\n    T_supply = uniform(7 degC, 9 degC)\n    T_return = uniform(12 degC, 15 degC)\n    m_dot = uniform(0.2 kg/s, 0.3 kg/s)\n}\npredictions = predict reg_model using new_samples\n",
             &CheckOptions::default(),
         );
 
         assert!(!report.has_errors());
-        assert_eq!(report.semantic_program.ml_infos.len(), 6);
+        assert_eq!(report.semantic_program.ml_infos.len(), 7);
         assert_eq!(report.semantic_program.ml_infos[0].kind, "TrainTestSplit");
         assert_eq!(
             report.semantic_program.ml_infos[0].features,
@@ -10466,6 +10466,17 @@ system Envelope {
         );
         assert_eq!(report.semantic_program.ml_infos[2].kind, "MlpModel");
         assert_eq!(report.semantic_program.ml_infos[2].hidden_layers, vec![4]);
+        assert_eq!(report.semantic_program.ml_infos[6].kind, "PredictionResult");
+        assert_eq!(
+            report.semantic_program.ml_infos[6].source.as_deref(),
+            Some("reg_model")
+        );
+        assert_eq!(
+            report.semantic_program.ml_infos[6]
+                .prediction_input
+                .as_deref(),
+            Some("new_samples")
+        );
         assert_eq!(
             report
                 .semantic_program
@@ -10477,11 +10488,23 @@ system Envelope {
                 .quantity_kind,
             "Model[Regression]"
         );
+        assert_eq!(
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == "predictions")
+                .unwrap()
+                .semantic_type
+                .quantity_kind,
+            "Table[Prediction]"
+        );
 
         let review = review_json(&report);
         assert!(review.contains("\"ml_info\""));
         assert!(review.contains("\"Model[MLP]\""));
         assert!(review.contains("\"LeakageLint\""));
+        assert!(review.contains("\"PredictionResult\""));
     }
 
     #[test]

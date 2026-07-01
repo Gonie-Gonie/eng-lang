@@ -200,6 +200,9 @@ fn model_cache_parts(model: &MlInfo) -> Vec<String> {
     if let Some(source) = &model.source {
         parts.push(format!("source={source}"));
     }
+    if let Some(input) = &model.prediction_input {
+        parts.push(format!("prediction_input={input}"));
+    }
     if let Some(target) = &model.target {
         parts.push(format!("target={target}"));
     }

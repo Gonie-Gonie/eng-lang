@@ -7,6 +7,7 @@ pub struct MlInfo {
     pub binding: String,
     pub kind: String,
     pub source: Option<String>,
+    pub prediction_input: Option<String>,
     pub target: Option<String>,
     pub features: Vec<String>,
     pub algorithm: Option<String>,
@@ -33,16 +34,32 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
         "ModelCard"
     } else if lowered.starts_with("leakage_lint(") {
         "LeakageLint"
+    } else if predict_model_arguments(expression).is_some() {
+        "PredictionResult"
     } else {
         return None;
     };
+    let prediction_arguments = (kind == "PredictionResult")
+        .then(|| predict_model_arguments(expression))
+        .flatten();
+    let source = prediction_arguments
+        .as_ref()
+        .map(|(model, _)| model.clone())
+        .or_else(|| first_argument(expression));
 
     Some(MlInfo {
         binding: binding.name.clone(),
         kind: kind.to_owned(),
-        source: first_argument(expression),
-        target: named_value(expression, &["target"]),
-        features: list_value(expression, "features"),
+        source,
+        prediction_input: prediction_arguments.map(|(_, input)| input),
+        target: (kind != "PredictionResult")
+            .then(|| named_value(expression, &["target"]))
+            .flatten(),
+        features: if kind == "PredictionResult" {
+            Vec::new()
+        } else {
+            list_value(expression, "features")
+        },
         algorithm: named_value(expression, &["algorithm"]).or_else(|| default_algorithm(kind)),
         test_fraction: named_value(expression, &["test", "test_fraction"]),
         seed: named_value(expression, &["seed"]),
@@ -99,6 +116,8 @@ pub fn ml_semantic_type(expression: &str) -> Option<(String, String)> {
         Some(("ModelCard".to_owned(), "text".to_owned()))
     } else if lowered.starts_with("leakage_lint(") {
         Some(("LeakageLint".to_owned(), "lint".to_owned()))
+    } else if predict_model_arguments(expression).is_some() {
+        Some(("Table[Prediction]".to_owned(), "schema-defined".to_owned()))
     } else {
         None
     }
@@ -109,6 +128,7 @@ enum ExpectedMlSource {
     TimeSeries,
     TrainTestSplit,
     Model,
+    Table,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -146,6 +166,20 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             source: info.source.clone(),
             expected: ExpectedMlSource::Model,
         }],
+        "PredictionResult" => vec![
+            MlSourceRequirement {
+                call,
+                role: "model",
+                source: info.source.clone(),
+                expected: ExpectedMlSource::Model,
+            },
+            MlSourceRequirement {
+                call,
+                role: "input",
+                source: info.prediction_input.clone(),
+                expected: ExpectedMlSource::Table,
+            },
+        ],
         _ => Vec::new(),
     };
 
@@ -240,6 +274,9 @@ fn matches_expected_source(quantity_kind: &str, expected: ExpectedMlSource) -> b
         ExpectedMlSource::Model => {
             quantity_kind.starts_with("Model[") && quantity_kind.ends_with(']')
         }
+        ExpectedMlSource::Table => {
+            quantity_kind.starts_with("Table[") && quantity_kind.ends_with(']')
+        }
     }
 }
 
@@ -248,6 +285,7 @@ fn expected_source_label(expected: ExpectedMlSource) -> &'static str {
         ExpectedMlSource::TimeSeries => "TimeSeries",
         ExpectedMlSource::TrainTestSplit => "TrainTestSplit",
         ExpectedMlSource::Model => "Model[Regression] or Model[MLP]",
+        ExpectedMlSource::Table => "Table[...]",
     }
 }
 
@@ -261,6 +299,9 @@ fn expected_source_help(expected: ExpectedMlSource) -> &'static str {
         }
         ExpectedMlSource::Model => {
             "Create `reg_model = regression(split, ...)` or `mlp_model = mlp(split, ...)` first."
+        }
+        ExpectedMlSource::Table => {
+            "Promote or generate a table first, then pass it as `predict model using samples`."
         }
     }
 }
@@ -283,6 +324,8 @@ fn ml_call_name(expression: &str) -> &'static str {
         "model_card"
     } else if lowered.starts_with("leakage_lint(") {
         "leakage_lint"
+    } else if lowered.starts_with("predict ") {
+        "predict"
     } else {
         "ml"
     }
@@ -444,6 +487,25 @@ fn first_argument(expression: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty() && !value.contains('='))
         .map(str::to_owned)
+}
+
+fn predict_model_arguments(expression: &str) -> Option<(String, String)> {
+    let trimmed = expression.trim();
+    let mut parts = trimmed.splitn(2, char::is_whitespace);
+    let keyword = parts.next()?;
+    if !keyword.eq_ignore_ascii_case("predict") {
+        return None;
+    }
+    let rest = parts.next()?.trim();
+    let rest_lower = rest.to_ascii_lowercase();
+    let marker = " using ";
+    let using_index = rest_lower.find(marker)?;
+    let model = rest[..using_index].trim();
+    let input = rest[using_index + marker.len()..].trim();
+    if model.is_empty() || input.is_empty() {
+        return None;
+    }
+    Some((model.to_owned(), input.to_owned()))
 }
 
 fn is_identifier(value: &str) -> bool {

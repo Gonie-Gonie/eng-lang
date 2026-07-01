@@ -249,9 +249,11 @@ separate.
   through explicit process/write boundaries; deterministic grid/random/LHS
   sampling generator seeds now materialize `typed_payload.sample_tables[]`;
   `Supported seed` for native SQLite append/upsert writes with manifests,
-  schema diagnostics, transaction status, and DB file hashes; `Planned` for
+  schema diagnostics, transaction status, and DB file hashes; native
+  `predict <model> using <table>` materializes Table[Prediction] rows and
+  `typed_payload.prediction_manifests[]`; `Planned` for
   native network/cache execution, native case apply/collect syntax, broad DB
-  support, and model public train/predict syntax.
+  support, and broader model train syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.

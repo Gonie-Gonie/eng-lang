@@ -105,10 +105,13 @@ syntax:
   append, upsert with key, transaction rollback, schema mismatch diagnostics,
   safe-profile rejection, DB write manifests, SQLite database artifacts, DB
   file hashes before/after, and table records.
+- Native model predict tests cover `predict <model> using <table>`,
+  Table[Prediction] materialization, prediction-manifest metadata, confidence
+  columns, and writing prediction tables through the SQLite DB seed.
 
 Remaining gap: live `eng.net` execution plus `eng.cache` replay/invalidation
 policy and broader native `eng.sampling`, `eng.case`, `eng.db`, and
-`eng.model` module syntax remains planned. Fixture/cache-record evidence must
+`eng.model` training syntax remains planned. Fixture/cache-record evidence must
 stay labeled as composite workflow foundations, not full native module support.
 
 ## Checklist 9.4: Workflow Example Tests

@@ -1,5 +1,5 @@
 # module: eng.model
-# status: supported model-spec artifact seed; planned public predict syntax
+# status: supported model-spec artifact seed and native predict-table seed
 # purpose: model-card, prediction, metric, residual, and data-leakage review vocabulary for surrogate workflows.
 #
 # Current implementation:
@@ -12,10 +12,12 @@
 #   training/model hash, and residual metadata. Prediction manifests expose
 #   prediction schema, output quantity/unit, model/sample/output file hashes,
 #   case IDs, row count, and confidence column metadata.
+#   Native `predictions = predict model using samples` expressions materialize
+#   Table[Prediction] rows with case IDs, predicted target values, confidence,
+#   and typed_payload.prediction_manifests[] metadata.
 #
 # Planned helper vocabulary:
 #   train regression
-#   predict model using
 #   model_card
 #   residual_summary
 #

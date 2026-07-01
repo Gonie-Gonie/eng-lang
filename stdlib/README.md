@@ -56,7 +56,7 @@ APIs unless a status document says so.
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |
-| `eng.model` | Supported model-spec artifact seed; planned public predict syntax | ModelSpec, FeatureSpec, TargetSpec, model-card, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
+| `eng.model` | Supported model-spec and predict-table seed | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |

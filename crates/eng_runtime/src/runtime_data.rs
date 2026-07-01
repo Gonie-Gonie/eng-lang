@@ -1730,6 +1730,7 @@ pub struct RuntimeMlArtifact {
     pub binding: String,
     pub kind: String,
     pub source: Option<String>,
+    pub prediction_input: Option<String>,
     pub target: Option<String>,
     pub target_quantity: Option<String>,
     pub features: Vec<String>,
@@ -3102,6 +3103,11 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.uncertainties = materialize_uncertainties(report);
     data.numeric_values = materialize_numeric_values(report, &data.uncertainties);
     data.ml_artifacts = materialize_ml_artifacts(report, &data.time_series, &data.tables);
+    let prediction_tables = materialize_prediction_tables(&data.ml_artifacts, &data.tables);
+    if !prediction_tables.is_empty() {
+        data.tables.extend(prediction_tables);
+        data.table_diagnostics = materialize_table_diagnostics(&data.tables, &data.time_axes);
+    }
     data.metrics = materialize_metrics(report, &data.time_series, &data.time_alignments);
     data.validations = materialize_validations(
         report,
@@ -8469,6 +8475,7 @@ fn materialize_ml_artifact(
         "ModelMetrics" => materialize_metrics_artifact(info, prior),
         "LeakageLint" => materialize_leakage_artifact(info, prior),
         "ModelCard" => materialize_model_card_artifact(info, prior),
+        "PredictionResult" => materialize_prediction_artifact(info, prior, tables),
         _ => base_ml_artifact(info, "metadata"),
     }
 }
@@ -8661,6 +8668,68 @@ fn materialize_metrics_artifact(
     artifact
 }
 
+fn materialize_prediction_artifact(
+    info: &eng_compiler::MlInfo,
+    prior: &[RuntimeMlArtifact],
+    tables: &[RuntimeTable],
+) -> RuntimeMlArtifact {
+    let model = info
+        .source
+        .as_deref()
+        .and_then(|source| prior.iter().find(|artifact| artifact.binding == source));
+    let input_table = info
+        .prediction_input
+        .as_deref()
+        .and_then(|input| tables.iter().find(|table| table.binding == input));
+    let mut artifact = base_ml_artifact(info, "unavailable");
+    artifact.prediction_input = info.prediction_input.clone();
+
+    if let Some(model) = model {
+        artifact.target = model.target.clone();
+        artifact.target_quantity = model.target_quantity.clone();
+        artifact.features = model.features.clone();
+        artifact.algorithm = model.algorithm.clone();
+        artifact.test_fraction = model.test_fraction.clone();
+        artifact.seed = model.seed.clone();
+        artifact.hidden_layers = model.hidden_layers.clone();
+        artifact.epochs = model.epochs;
+        artifact.train_count = model.train_count;
+        artifact.test_count = input_table.map(|table| table.row_count);
+        artifact.rmse = model.rmse;
+        artifact.mae = model.mae;
+        artifact.r2 = model.r2;
+        artifact.leakage_status = model.leakage_status.clone();
+        artifact.leakage_findings = model.leakage_findings.clone();
+        artifact.coefficients = model.coefficients.clone();
+        artifact.intercept = model.intercept;
+        artifact.loss_history = model.loss_history.clone();
+        artifact.model_card = model.model_card.clone();
+        artifact.training_data_hash = model.training_data_hash.clone();
+        artifact.model_artifact_hash = model.model_artifact_hash.clone();
+        artifact.display_unit = model.display_unit.clone();
+        artifact.status =
+            prediction_artifact_status(model, input_table, info.prediction_input.as_deref());
+    }
+    artifact
+}
+
+fn prediction_artifact_status(
+    model: &RuntimeMlArtifact,
+    input_table: Option<&RuntimeTable>,
+    input_name: Option<&str>,
+) -> String {
+    if input_name.is_none() {
+        return "missing_input".to_owned();
+    }
+    if input_table.is_none() {
+        return "missing_input_table".to_owned();
+    }
+    if model.intercept.is_none() || model.coefficients.is_empty() || model.features.is_empty() {
+        return "missing_model_coefficients".to_owned();
+    }
+    "predicted".to_owned()
+}
+
 fn materialize_leakage_artifact(
     info: &eng_compiler::MlInfo,
     prior: &[RuntimeMlArtifact],
@@ -8732,6 +8801,7 @@ fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtif
         binding: info.binding.clone(),
         kind: info.kind.clone(),
         source: info.source.clone(),
+        prediction_input: info.prediction_input.clone(),
         target: info.target.clone(),
         target_quantity: None,
         features: info.features.clone(),
@@ -8760,6 +8830,183 @@ fn base_ml_artifact(info: &eng_compiler::MlInfo, status: &str) -> RuntimeMlArtif
         residual_points: Vec::new(),
         line: info.line,
     }
+}
+
+fn materialize_prediction_tables(
+    artifacts: &[RuntimeMlArtifact],
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTable> {
+    artifacts
+        .iter()
+        .filter(|artifact| artifact.kind == "PredictionResult")
+        .filter_map(|artifact| materialize_prediction_table(artifact, tables))
+        .collect()
+}
+
+fn materialize_prediction_table(
+    artifact: &RuntimeMlArtifact,
+    tables: &[RuntimeTable],
+) -> Option<RuntimeTable> {
+    let input_name = artifact.prediction_input.as_deref()?;
+    let input_table = tables.iter().find(|table| table.binding == input_name)?;
+    let row_count = input_table.row_count;
+    let predictions = prediction_values(artifact, input_table);
+    let missing_predictions = predictions.iter().filter(|value| value.is_none()).count();
+    let confidence_values = predictions
+        .iter()
+        .map(|value| value.map(|_| 1.0))
+        .collect::<Vec<_>>();
+    let confidence_missing = confidence_values
+        .iter()
+        .filter(|value| value.is_none())
+        .count();
+    let target_unit = prediction_target_unit(artifact);
+    let output_column = prediction_output_column_name(artifact.target.as_deref());
+    let case_ids = prediction_case_ids(input_table);
+    let mut columns = Vec::new();
+    columns.push(RuntimeColumn {
+        name: "case_id".to_owned(),
+        type_name: "String".to_owned(),
+        unit: None,
+        canonical_unit: None,
+        is_index: false,
+        values: RuntimeValues::Text(case_ids),
+        canonical_values: Vec::new(),
+        missing_count: 0,
+        conversion_failures: Vec::new(),
+    });
+    columns.push(RuntimeColumn {
+        name: output_column,
+        type_name: artifact
+            .target_quantity
+            .clone()
+            .unwrap_or_else(|| "Prediction".to_owned()),
+        unit: Some(target_unit.clone()),
+        canonical_unit: Some(target_unit),
+        is_index: false,
+        values: RuntimeValues::Number(predictions.clone()),
+        canonical_values: predictions,
+        missing_count: missing_predictions,
+        conversion_failures: Vec::new(),
+    });
+    columns.push(RuntimeColumn {
+        name: "confidence".to_owned(),
+        type_name: "Ratio".to_owned(),
+        unit: Some("1".to_owned()),
+        canonical_unit: Some("1".to_owned()),
+        is_index: false,
+        values: RuntimeValues::Number(confidence_values.clone()),
+        canonical_values: confidence_values,
+        missing_count: confidence_missing,
+        conversion_failures: Vec::new(),
+    });
+
+    Some(RuntimeTable {
+        binding: artifact.binding.clone(),
+        schema_name: "PredictionResult".to_owned(),
+        source: format!(
+            "predict {} using {}",
+            artifact.source.as_deref().unwrap_or("model"),
+            input_name
+        ),
+        source_hash: Some(prediction_table_source_hash(artifact, input_table)),
+        row_count,
+        columns,
+        parse_failures: Vec::new(),
+        line: artifact.line,
+    })
+}
+
+fn prediction_values(artifact: &RuntimeMlArtifact, input_table: &RuntimeTable) -> Vec<Option<f64>> {
+    let coefficients = artifact
+        .coefficients
+        .iter()
+        .map(|coefficient| (coefficient.feature.as_str(), coefficient.value))
+        .collect::<HashMap<_, _>>();
+    (0..input_table.row_count)
+        .map(|row_index| {
+            let mut value = artifact.intercept?;
+            for feature in &artifact.features {
+                let coefficient = coefficients.get(feature.as_str()).copied()?;
+                let column = input_table.column(feature)?;
+                value += coefficient * numeric_column_value(column, row_index)?;
+            }
+            Some(value)
+        })
+        .collect()
+}
+
+fn prediction_case_ids(input_table: &RuntimeTable) -> Vec<String> {
+    let case_column = input_table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case("case_id"));
+    let case_width = input_table.row_count.to_string().len().max(3);
+    (0..input_table.row_count)
+        .map(|row_index| {
+            case_column
+                .map(|column| table_cell_text(column, row_index))
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| format!("row_{:0case_width$}", row_index + 1))
+        })
+        .collect()
+}
+
+fn prediction_output_column_name(target: Option<&str>) -> String {
+    let raw = target.unwrap_or("value");
+    let sanitized = raw
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() {
+                character.to_ascii_lowercase()
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>()
+        .trim_matches('_')
+        .to_owned();
+    format!(
+        "predicted_{}",
+        if sanitized.is_empty() {
+            "value"
+        } else {
+            sanitized.as_str()
+        }
+    )
+}
+
+fn prediction_target_unit(artifact: &RuntimeMlArtifact) -> String {
+    if artifact.display_unit.trim().is_empty() {
+        "1".to_owned()
+    } else {
+        artifact.display_unit.clone()
+    }
+}
+
+fn prediction_table_source_hash(
+    artifact: &RuntimeMlArtifact,
+    input_table: &RuntimeTable,
+) -> String {
+    let mut payload = format!(
+        "prediction={}\nmodel={}\ninput={}\nmodel_hash={}\ninput_hash={}\n",
+        artifact.binding,
+        artifact.source.as_deref().unwrap_or(""),
+        input_table.binding,
+        artifact.model_artifact_hash.as_deref().unwrap_or(""),
+        input_table.source_hash.as_deref().unwrap_or("")
+    );
+    for row_index in 0..input_table.row_count {
+        payload.push_str(&format!("row={row_index}"));
+        for column in &input_table.columns {
+            payload.push('|');
+            payload.push_str(&column.name);
+            payload.push('=');
+            payload.push_str(&table_cell_text(column, row_index));
+        }
+        payload.push('\n');
+    }
+    stable_hash_text(&payload)
 }
 
 fn materialize_system_solutions(
