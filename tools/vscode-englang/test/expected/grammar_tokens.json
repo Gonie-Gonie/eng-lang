@@ -398,6 +398,18 @@
     "fullMatch": true
   },
   {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.format.englang",
+    "text": "W/m^2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.format.englang",
+    "text": "people/m2",
+    "fullMatch": true
+  },
+  {
     "fixture": "04_system_component.eng",
     "scope": "meta.declaration.system-member.englang",
     "text": "state T",

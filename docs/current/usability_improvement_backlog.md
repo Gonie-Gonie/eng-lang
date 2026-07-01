@@ -1335,6 +1335,18 @@ Status: implemented after workflow 01/02/03 native smoke review.
   no Python/process markers and their saved run contracts require
   `process_count = 0`.
 
+## Batch 110: Format Unit Grammar Parity
+
+Status: implemented after TextMate unit parity review.
+
+- Aligned string interpolation format-unit highlighting with normal unit
+  highlighting for `people/m2` and `W/m^2`.
+- Added grammar smoke fixture coverage so units used inside
+  `{value: .N unit}` format expressions do not silently fall back while the same
+  unit highlights elsewhere.
+- Regenerated the VS Code TextMate grammar from the source grammar and verified
+  the updated 149-token grammar smoke contract.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

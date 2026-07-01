@@ -74,7 +74,7 @@
                   },
                   {
                     "name": "constant.other.unit.format.englang",
-                    "match": "(?<![A-Za-z0-9_])(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])"
+                    "match": "(?<![A-Za-z0-9_])(J/kg/K|people/m2|person/m2|W/m\\^2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])"
                   }
                 ]
               }
