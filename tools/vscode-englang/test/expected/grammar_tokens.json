@@ -807,6 +807,76 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "tolerance ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "initial ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "solve"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "initial_derivative ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "initial_algebraic ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "inputs ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "jacobian ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "mass_matrix ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "max_iter ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "relaxation ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "residual_scale ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "residual_scales ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "variable_scales ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "algebraic_initialization ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "constant.language.englang",
     "text": "adaptive_heun",
     "fullMatch": true
@@ -909,5 +979,10 @@
     "scope": "meta.workflow.db-write.englang",
     "text": "write process_result to db.table",
     "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "overwrite ="
   }
 ]

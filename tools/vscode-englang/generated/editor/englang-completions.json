@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  325,
+    "completion_seed_count":  346,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -1155,6 +1155,12 @@
                                 "lsp_kind":  14
                             },
                             {
+                                "detail":  "solver algebraic initialization policy",
+                                "kind":  "property",
+                                "label":  "algebraic_initialization",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "model training option",
                                 "kind":  "property",
                                 "label":  "algorithm",
@@ -1233,6 +1239,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "solver or simulation duration",
+                                "kind":  "property",
+                                "label":  "duration",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "range end option",
                                 "kind":  "property",
                                 "label":  "end",
@@ -1281,9 +1293,57 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "solver initial value",
+                                "kind":  "property",
+                                "label":  "initial",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver initial algebraic value",
+                                "kind":  "property",
+                                "label":  "initial_algebraic",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver initial derivative value",
+                                "kind":  "property",
+                                "label":  "initial_derivative",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver input source",
+                                "kind":  "property",
+                                "label":  "inputs",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver Jacobian policy",
+                                "kind":  "property",
+                                "label":  "jacobian",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "database upsert key",
+                                "kind":  "property",
+                                "label":  "key",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver mass-matrix policy",
+                                "kind":  "property",
+                                "label":  "mass_matrix",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "maximum allowed gap option",
                                 "kind":  "property",
                                 "label":  "max_gap",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver maximum iteration count",
+                                "kind":  "property",
+                                "label":  "max_iter",
                                 "lsp_kind":  10
                             },
                             {
@@ -1311,6 +1371,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "output overwrite policy",
+                                "kind":  "property",
+                                "label":  "overwrite",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "HTTP query parameters",
                                 "kind":  "property",
                                 "label":  "query",
@@ -1320,6 +1386,24 @@
                                 "detail":  "filesystem recursion option",
                                 "kind":  "property",
                                 "label":  "recursive",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver relaxation factor",
+                                "kind":  "property",
+                                "label":  "relaxation",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver residual scale",
+                                "kind":  "property",
+                                "label":  "residual_scale",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver residual scale list",
+                                "kind":  "property",
+                                "label":  "residual_scales",
                                 "lsp_kind":  10
                             },
                             {
@@ -1347,6 +1431,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "uncertainty sample count",
+                                "kind":  "property",
+                                "label":  "samples",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "deterministic sampling seed",
                                 "kind":  "property",
                                 "label":  "seed",
@@ -1359,6 +1449,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "solver algorithm option",
+                                "kind":  "property",
+                                "label":  "solver",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "range start option",
                                 "kind":  "property",
                                 "label":  "start",
@@ -1368,6 +1464,12 @@
                                 "detail":  "case or validation status",
                                 "kind":  "property",
                                 "label":  "status",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "expected HTTP status code",
+                                "kind":  "property",
+                                "label":  "status_code",
                                 "lsp_kind":  10
                             },
                             {
@@ -1389,6 +1491,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "solver or simulation time step",
+                                "kind":  "property",
+                                "label":  "timestep",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "plot or report title",
                                 "kind":  "property",
                                 "label":  "title",
@@ -1401,15 +1509,33 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "solver convergence tolerance",
+                                "kind":  "property",
+                                "label":  "tolerance",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "display unit or plot axis option",
                                 "kind":  "property",
                                 "label":  "unit",
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "uncertainty propagation policy",
+                                "kind":  "property",
+                                "label":  "uncertainty",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "template value map",
                                 "kind":  "property",
                                 "label":  "values",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver variable scale list",
+                                "kind":  "property",
+                                "label":  "variable_scales",
                                 "lsp_kind":  10
                             },
                             {

@@ -1708,6 +1708,21 @@ grammar and LSP completion lists.
 - Marked `on_none`/`on_many` semantic tokens as validation-related and
   `sensor_std`/`confidence_band` as uncertainty-related for richer IDE panels.
 
+## Batch 141: Solver And Side-Effect Option Editor Coverage
+
+Status: implemented after comparing public solver/write options with editor
+grammar and LSP completion lists.
+
+- Added public solver options such as `initial_derivative`,
+  `initial_algebraic`, `mass_matrix`, `residual_scales`, and
+  `variable_scales` to LSP option completions and context-aware `solve` /
+  `simulate` with-block suggestions.
+- Added `overwrite` write-context suggestions and semantic modifiers for
+  solver, side-effect, and external HTTP option keys.
+- Added VS Code grammar fixture coverage for solver options so public option
+  keys no longer highlight inconsistently across `simulate`, `solve`, and
+  write-style workflow blocks.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

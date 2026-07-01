@@ -447,6 +447,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
+    (
+        "algebraic_initialization",
+        "solver algebraic initialization policy",
+    ),
     ("algorithm", "model training option"),
     ("allow_failure", "external command failure policy"),
     ("artifact_kind", "expected artifact kind"),
@@ -461,6 +465,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("confidence_band", "plot confidence-band source"),
     ("count", "sample count option"),
     ("cwd", "external command working directory"),
+    ("duration", "solver or simulation duration"),
     ("env", "external command environment"),
     ("end", "range end option"),
     ("expected_sha256", "expected SHA-256 hash"),
@@ -470,7 +475,15 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("fixture", "pinned offline response input"),
     ("headers", "HTTP request headers"),
     ("hidden", "MLP hidden layer option"),
+    ("initial", "solver initial value"),
+    ("initial_algebraic", "solver initial algebraic value"),
+    ("initial_derivative", "solver initial derivative value"),
+    ("inputs", "solver input source"),
+    ("jacobian", "solver Jacobian policy"),
+    ("key", "database upsert key"),
+    ("mass_matrix", "solver mass-matrix policy"),
     ("max_gap", "maximum allowed gap option"),
+    ("max_iter", "solver maximum iteration count"),
     ("method", "fill or transform method"),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
@@ -478,24 +491,35 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("on_none", "require_one no-row failure policy"),
     ("output", "generated output path"),
     ("output_root", "case output root directory"),
+    ("overwrite", "output overwrite policy"),
     ("query", "HTTP query parameters"),
     ("recursive", "filesystem recursion option"),
+    ("relaxation", "solver relaxation factor"),
+    ("residual_scale", "solver residual scale"),
+    ("residual_scales", "solver residual scale list"),
     ("resume", "case resume policy"),
     ("response_body_limit", "HTTP download body size limit"),
     ("retry", "external command retry policy"),
     ("return_column", "projection return column"),
+    ("samples", "uncertainty sample count"),
     ("seed", "deterministic sampling seed"),
     ("sensor_std", "TimeSeries sensor standard deviation"),
+    ("solver", "solver algorithm option"),
     ("start", "range start option"),
     ("status", "case or validation status"),
+    ("status_code", "expected HTTP status code"),
     ("step", "case workflow step"),
     ("test", "model train/test split option"),
     ("target", "model target column"),
     ("timeout", "external command timeout"),
+    ("timestep", "solver or simulation time step"),
     ("title", "plot or report title"),
     ("tool_version", "external tool version"),
+    ("tolerance", "solver convergence tolerance"),
     ("unit", "display unit or plot axis option"),
+    ("uncertainty", "uncertainty propagation policy"),
     ("values", "template value map"),
+    ("variable_scales", "solver variable scale list"),
     ("year", "calendar year option"),
 ];
 
@@ -1263,6 +1287,25 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 "step" => ["workflowStep"].as_slice(),
                 "on_none" | "on_many" => ["validation"].as_slice(),
                 "sensor_std" | "confidence_band" => ["uncertain"].as_slice(),
+                "solver"
+                | "timestep"
+                | "duration"
+                | "tolerance"
+                | "initial"
+                | "initial_derivative"
+                | "initial_algebraic"
+                | "algebraic_initialization"
+                | "jacobian"
+                | "mass_matrix"
+                | "max_iter"
+                | "relaxation"
+                | "residual_scale"
+                | "residual_scales"
+                | "variable_scales" => ["solver"].as_slice(),
+                "overwrite" | "mode" => ["sideEffect"].as_slice(),
+                "status_code" | "body_size_limit" | "response_body_limit" | "retry" | "timeout" => {
+                    ["external"].as_slice()
+                }
                 "algorithm" | "features" | "hidden" | "target" | "test" => ["model"].as_slice(),
                 _ => [].as_slice(),
             };
@@ -3852,6 +3895,36 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     if owner.contains("TimeSeries[") {
         return Some(&["sensor_std"]);
     }
+    if owner.starts_with("simulate ") {
+        return Some(&[
+            "timestep",
+            "duration",
+            "solver",
+            "tolerance",
+            "inputs",
+            "initial",
+        ]);
+    }
+    if owner.starts_with("solve ") || owner.contains("solve component_graph") {
+        return Some(&[
+            "solver",
+            "timestep",
+            "duration",
+            "initial",
+            "initial_derivative",
+            "initial_algebraic",
+            "algebraic_initialization",
+            "inputs",
+            "jacobian",
+            "mass_matrix",
+            "tolerance",
+            "max_iter",
+            "relaxation",
+            "residual_scale",
+            "residual_scales",
+            "variable_scales",
+        ]);
+    }
     if owner.contains("render template") {
         return Some(&[
             "values",
@@ -4763,6 +4836,14 @@ with {
     sensor_std = 0.2 kW
 }
 
+sim = simulate RoomThermal
+with {
+    timestep = 60 s
+    duration = 1 h
+    solver = adaptive_heun
+    tolerance = 0.001
+}
+
 report {
     plot Q_series over Time
     with {
@@ -4774,6 +4855,16 @@ cases = materialize sensor
 with {
     step = "prepare"
     output_root = dir("outputs/cases")
+}
+
+upload = http get url("https://example.org/weather")
+with {
+    status_code = 200
+}
+
+write text "outputs/out.txt", "ok"
+with {
+    overwrite = true
 }
 "#;
         let snapshot = snapshot_for_source(Path::new("roles.eng"), source);
@@ -4789,6 +4880,12 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "on_many", "validation");
         assert_semantic_token_modifier(&snapshot, source, "sensor_std", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "confidence_band", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "timestep", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "duration", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
+        assert_semantic_token_modifier(&snapshot, source, "overwrite", "sideEffect");
     }
 
     #[test]
@@ -5315,6 +5412,120 @@ with {
         assert!(completions
             .iter()
             .any(|completion| completion.label == "sensor_std"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_write_context() {
+        let source = r#"write text "out.txt", "ok"
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("write_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "overwrite"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "mode"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_simulate_context() {
+        let source = r#"simulate RoomThermal
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("simulate_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "timestep",
+            "duration",
+            "solver",
+            "tolerance",
+            "inputs",
+            "initial",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "simulate with-block completion should include {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_solve_context() {
+        let source = r#"solve component_graph
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("solve_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "initial",
+            "initial_derivative",
+            "initial_algebraic",
+            "algebraic_initialization",
+            "inputs",
+            "jacobian",
+            "mass_matrix",
+            "max_iter",
+            "relaxation",
+            "residual_scale",
+            "residual_scales",
+            "variable_scales",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "solve with-block completion should include {label}"
+            );
+        }
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));
