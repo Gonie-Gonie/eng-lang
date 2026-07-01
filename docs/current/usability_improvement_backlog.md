@@ -597,6 +597,19 @@ Status: implemented after compiler keyword/TextMate coverage review.
 - Regenerated the VS Code TextMate grammar and synced the grammar files into
   the installed local extension folder.
 
+## Batch 50: Workflow API Payload Contract
+
+Status: implemented after workflow 01 native-contract review.
+
+- Added `WeatherApiRecord` and `WeatherApiPayload` schemas to workflow 01 so
+  the API fixture JSON is validated through native `read json` +
+  `promote json ... as WeatherApiPayload`.
+- Verified the saved run records `api_contract` as a validated config
+  promotion and still has `process_results.json.process_count = 0`.
+- Remaining gap: direct JSON-record-to-TimeSeries/table materialization is
+  still separate from the current CSV weather table and should be implemented
+  as a native table promotion path, not as a Python adapter.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

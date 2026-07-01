@@ -30,6 +30,21 @@ schema WeatherHourly {
     }
 }
 
+schema WeatherApiRecord {
+    time: DateTime
+    dry_bulb_degC: AbsoluteTemperature [degC]
+    relative_humidity: Ratio [1]
+    wind_speed_mps: DimensionlessNumber [1]
+    global_horizontal_W_m2: Irradiance [W/m2]
+}
+
+schema WeatherApiPayload {
+    station_id: String
+    year: Int
+    timezone: String
+    records: Array[WeatherApiRecord]
+}
+
 args {
     year: Int = 2024
     region: String = "demo"
@@ -67,6 +82,8 @@ with {
     cache_key = ["weather", args.region, args.year]
 }
 api_payload_text = api_response.body
+api_payload = read json args.api_fixture
+api_contract = promote json api_payload as WeatherApiPayload
 coverage = check coverage weather.time
 with {
     expected_step = 1 h
@@ -96,6 +113,7 @@ print "Weather fixture region = {args.region}"
 print "Selected station = {selected_station_id}"
 print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
+print "API payload contract = WeatherApiPayload"
 log info "weather API fixture fetched through native network/cache boundary and standard artifact recorded"
 
 

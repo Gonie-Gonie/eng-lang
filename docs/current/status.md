@@ -173,7 +173,8 @@ is not mistaken for public module support.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
-    diagnostics, native network/cache fixture boundaries, native sample-table
+    diagnostics, native network/cache fixture boundaries, native JSON API
+    payload contract promotion in the weather workflow, native sample-table
     artifacts, native template-rendered case input artifacts, optional JSON/TOML
     config field policy, native SQLite append/upsert write records in
     `typed_payload.db_manifests[]`, output-manifest
