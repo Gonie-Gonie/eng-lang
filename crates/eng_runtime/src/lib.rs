@@ -15464,6 +15464,39 @@ mod tests {
         assert!(surrogate_output
             .result_json
             .contains("\"transaction_status\": \"committed\""));
+
+        let uncertainty_source = repo_root
+            .join("examples")
+            .join("workflows")
+            .join("03_uncertain_sensor_report")
+            .join("main.eng");
+        let uncertainty_build = repo_root
+            .join("build")
+            .join("runtime-workflow-modules-uncertain-sensor");
+        let _ = fs::remove_dir_all(&uncertainty_build);
+        let uncertainty_output = run_file(
+            &uncertainty_source,
+            &uncertainty_build,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("uncertain sensor workflow run");
+        assert_common_workflow_artifacts(&uncertainty_output);
+        assert_saved_artifact(
+            &uncertainty_output.process_results_path,
+            "process_results.json",
+        );
+        assert!(uncertainty_output
+            .process_results_json
+            .contains("\"process_count\": 0"));
+        assert!(uncertainty_output
+            .review_json
+            .contains("\"timeseries_uncertainty\""));
+        assert!(uncertainty_output
+            .plot_spec_json
+            .contains("\"confidence_band\""));
     }
 
     #[test]

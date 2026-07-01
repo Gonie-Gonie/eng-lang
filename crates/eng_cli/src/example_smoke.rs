@@ -6357,6 +6357,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"status\": \"propagated_sensor_std\"")
                 || !output.result_json.contains("\"status\": \"metadata_only\"")
+                || !output.process_results_json.contains("\"process_count\": 0")
                 || !output.plot_spec_json.contains("\"confidence_band\"")
                 || !output.plot_spec_json.contains("\"source\": \"sensor_std\"")
                 || !output.plot_svg.contains("data-confidence-band")
@@ -6365,7 +6366,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("Sensor heat-rate with uncertainty band")
             {
                 eprintln!(
-                    "expected uncertain sensor workflow to produce TimeSeries uncertainty review metadata and confidence-band plot artifacts"
+                    "expected uncertain sensor workflow to produce native TimeSeries uncertainty metadata, zero process executions, and confidence-band plot artifacts"
                 );
                 return ExitCode::from(2);
             }

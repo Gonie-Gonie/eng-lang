@@ -36,3 +36,11 @@ integrate total quantity
 render confidence-band plot
 record uncertainty review metadata
 ```
+
+Expected saved-run properties:
+
+```text
+process_results.json has process_count = 0
+review.json records timeseries_uncertainty metadata
+report_spec.json and plot_spec.json record the confidence-band plot request
+```

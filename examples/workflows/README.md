@@ -18,9 +18,9 @@ Current examples:
   typed sensor data -> uncertainty metadata -> confidence-band report artifact.
 ```
 
-The first two workflows should not call Python. Saved runs still write
-`process_results.json`, but its `process_count` is expected to be zero for
-these native workflows.
+All three workflows should not call Python or any external process. Saved runs
+still write `process_results.json`, but its `process_count` is expected to be
+zero for these native workflows.
 
 Run them from the repository root:
 
