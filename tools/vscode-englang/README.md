@@ -131,6 +131,11 @@ completion seed from `generated/editor/englang-editor-metadata.json`.
 `eng-lsp.exe --editor-metadata` exposes that completion seed and the
 semantic-token legend used by editor contract checks.
 
+Format Document uses `eng-lsp --format-stdin` on the current unsaved buffer, so
+VS Code and the command-line formatter share the compiler-owned formatting
+rules. JavaScript does not maintain a separate indentation or block-formatting
+implementation.
+
 Go-to-definition asks `eng-lsp --definition-stdin` about the current unsaved
 buffer, so static file imports can resolve to their imported source files. If
 live definition lookup is unavailable, the extension falls back to document

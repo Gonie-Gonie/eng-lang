@@ -873,6 +873,21 @@ Status: implemented after linter quick-fix protocol review.
   migration quick fixes that were previously available only in the VS Code
   extension layer.
 
+## Batch 72: Compiler-Owned Editor Formatting
+
+Status: implemented after syntax-aware editor feature review.
+
+- Added `eng-lsp --format-stdin <file.eng>` so editor integrations can format
+  the current unsaved buffer through the compiler-owned formatter.
+- Added persistent LSP `documentFormattingProvider` and
+  `textDocument/formatting`, returning a full-document `TextEdit` only when the
+  compiler formatter changes the source.
+- Added a VS Code document formatting provider that calls the same LSP stdin
+  bridge, avoiding a separate JavaScript indentation or block-formatting
+  implementation.
+- Extended stdio tests, README, and `ide-check` contract coverage so formatting
+  stays aligned across CLI, LSP, and VS Code.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

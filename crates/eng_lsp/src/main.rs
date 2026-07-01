@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use eng_compiler::{parse_source, AstItem};
+use eng_compiler::{format_source, parse_source, AstItem};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
     diagnostic_json, document_symbols_lsp_json, editor_metadata_json, folding_ranges_lsp_json,
@@ -27,6 +27,9 @@ fn main() -> std::process::ExitCode {
     }
     if args.first().map(String::as_str) == Some("--snapshot-check") {
         return command_snapshot_check(args.get(1));
+    }
+    if args.first().map(String::as_str) == Some("--format-stdin") {
+        return command_format_stdin(args.get(1));
     }
     if args.first().map(String::as_str) == Some("--completion") {
         return command_completion(args.get(1), args.get(2), args.get(3));
@@ -180,6 +183,28 @@ fn command_snapshot_check(path: Option<&String>) -> std::process::ExitCode {
     }
 }
 
+fn command_format_stdin(path: Option<&String>) -> std::process::ExitCode {
+    let Some(_path) = path else {
+        eprintln!("usage: eng-lsp --format-stdin <file.eng>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+    let result = format_source(&source);
+    println!(
+        "{}",
+        json!({
+            "format": LSP_SNAPSHOT_FORMAT,
+            "formatted": result.formatted,
+            "changed": result.changed
+        })
+    );
+    std::process::ExitCode::SUCCESS
+}
+
 fn command_completion(
     path: Option<&String>,
     line: Option<&String>,
@@ -316,6 +341,7 @@ fn run_lsp() -> io::Result<()> {
                                 "definitionProvider": true,
                                 "documentSymbolProvider": true,
                                 "foldingRangeProvider": true,
+                                "documentFormattingProvider": true,
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
                                 },
@@ -386,6 +412,13 @@ fn run_lsp() -> io::Result<()> {
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": actions }),
+                )?;
+            }
+            "textDocument/formatting" => {
+                let edits = formatting_edits_for_request(&request, &documents);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": edits }),
                 )?;
             }
             "textDocument/semanticTokens/full" => {
@@ -467,6 +500,26 @@ fn semantic_tokens_for_request(
     documents: &HashMap<String, String>,
 ) -> Option<eng_lsp::LspSemanticTokens> {
     Some(snapshot_for_request(request, documents)?.semantic_tokens)
+}
+
+fn formatting_edits_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+) -> Vec<Value> {
+    let Some(uri) = request_uri(request) else {
+        return Vec::new();
+    };
+    let Some(text) = document_text_for_uri(uri, documents) else {
+        return Vec::new();
+    };
+    let result = format_source(&text);
+    if !result.changed {
+        return Vec::new();
+    }
+    vec![json!({
+        "range": full_document_range(&text),
+        "newText": result.formatted
+    })]
 }
 
 fn code_actions_for_request(request: &Value, documents: &HashMap<String, String>) -> Vec<Value> {
@@ -563,6 +616,19 @@ fn document_text_for_uri(uri: &str, documents: &HashMap<String, String>) -> Opti
         .get(uri)
         .cloned()
         .or_else(|| std::fs::read_to_string(&path).ok())
+}
+
+fn full_document_range(text: &str) -> Value {
+    let mut lines = text.split('\n').collect::<Vec<_>>();
+    if lines.is_empty() {
+        lines.push("");
+    }
+    let end_line = lines.len().saturating_sub(1);
+    let end_text = lines.last().copied().unwrap_or("").trim_end_matches('\r');
+    json!({
+        "start": { "line": 0, "character": 0 },
+        "end": { "line": end_line, "character": utf16_len(end_text) }
+    })
 }
 
 fn semantic_tokens_range_for_request(

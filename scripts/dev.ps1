@@ -1983,6 +1983,18 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing live definition token $RequiredDefinitionToken"
         }
     }
+    foreach ($RequiredFormattingToken in @(
+        "registerDocumentFormattingEditProvider",
+        "EngFormattingProvider",
+        "formatDocumentSource",
+        "--format-stdin",
+        "fullDocumentRange",
+        "vscode.TextEdit.replace"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredFormattingToken)) {
+            throw "VS Code extension missing formatting token $RequiredFormattingToken"
+        }
+    }
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "E-SYNTAX-DECL-001",
@@ -2066,6 +2078,18 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $LspCliSource.Contains($RequiredLspCodeActionToken)) {
             throw "eng-lsp CLI missing code action protocol token $RequiredLspCodeActionToken"
+        }
+    }
+    foreach ($RequiredLspFormattingToken in @(
+        "--format-stdin",
+        "documentFormattingProvider",
+        "textDocument/formatting",
+        "formatting_edits_for_request",
+        "full_document_range",
+        "format_source"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspFormattingToken)) {
+            throw "eng-lsp CLI missing formatting protocol token $RequiredLspFormattingToken"
         }
     }
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json

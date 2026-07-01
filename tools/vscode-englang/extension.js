@@ -195,6 +195,10 @@ function activate(context) {
       LANGUAGE_ID,
       new EngFoldingRangeProvider(context)
     ),
+    vscode.languages.registerDocumentFormattingEditProvider(
+      LANGUAGE_ID,
+      new EngFormattingProvider(context)
+    ),
     vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
     })
@@ -1730,6 +1734,57 @@ function definitionSnapshotForPosition(document, position, context, cancellation
   });
 }
 
+function formatDocumentSource(document, context, cancellationToken) {
+  return new Promise((resolve) => {
+    if (!isEngDocument(document)) {
+      resolve(undefined);
+      return;
+    }
+
+    const runtime = findLspRuntime(context, document);
+    const cwd = workspaceRoot(document);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const child = cp.execFile(
+      runtime,
+      ["--format-stdin", document.uri.fsPath],
+      { cwd, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
+        }
+        if (error) {
+          output.appendLine(`formatting failed: ${error.message}`);
+          finish(undefined);
+          return;
+        }
+        try {
+          finish(JSON.parse(stdout));
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang formatting result: ${parseError.message}`);
+          finish(undefined);
+        }
+      }
+    );
+
+    cancellationToken?.onCancellationRequested(() => {
+      child.kill();
+      finish(undefined);
+    });
+
+    if (child.stdin) {
+      child.stdin.end(document.getText());
+    }
+  });
+}
+
 function semanticTokensFromSnapshot(snapshot) {
   const builder = new vscode.SemanticTokensBuilder(semanticLegend);
   const tokens = snapshot.semantic_tokens?.tokens ?? [];
@@ -1822,6 +1877,23 @@ class EngFoldingRangeProvider {
     }
     reviewCache.set(document.uri.fsPath, snapshot);
     return foldingRangesFromSnapshot(snapshot);
+  }
+}
+
+class EngFormattingProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideDocumentFormattingEdits(document, _options, cancellationToken) {
+    if (!isEngDocument(document)) {
+      return [];
+    }
+    const payload = await formatDocumentSource(document, this.context, cancellationToken);
+    if (!payload?.changed || typeof payload.formatted !== "string") {
+      return [];
+    }
+    return [vscode.TextEdit.replace(fullDocumentRange(document), payload.formatted)];
   }
 }
 
@@ -1967,6 +2039,14 @@ function vscodeRangeFromLsp(range) {
     return undefined;
   }
   return new vscode.Range(startLine, startCharacter, endLine, endCharacter);
+}
+
+function fullDocumentRange(document) {
+  if (document.lineCount === 0) {
+    return new vscode.Range(0, 0, 0, 0);
+  }
+  const lastLine = document.lineAt(document.lineCount - 1);
+  return new vscode.Range(0, 0, lastLine.lineNumber, lastLine.text.length);
 }
 
 function semanticModifierBits(modifiers) {

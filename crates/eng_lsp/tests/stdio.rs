@@ -85,6 +85,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["documentFormattingProvider"],
+        true
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["codeActionProvider"]["codeActionKinds"][0],
         "quickfix"
     );
@@ -683,6 +687,106 @@ system RoomThermal {
 }
 
 #[test]
+fn stdio_formatting_formats_unsaved_document() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root().join("build/editor-tests/formatting.eng");
+    let uri = file_uri(&source_path);
+    let source = "report {\nplot Q over Time\nwith {\ntitle = \"Q\"\n}\n}\n";
+    let expected = "report {\n    plot Q over Time\n    with {\n        title = \"Q\"\n    }\n}\n";
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {}
+        }),
+    );
+    let initialize = read_message(&mut stdout);
+    assert_eq!(
+        initialize["result"]["capabilities"]["documentFormattingProvider"],
+        true
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": source
+                }
+            }
+        }),
+    );
+    let published = read_message(&mut stdout);
+    assert_eq!(published["method"], "textDocument/publishDiagnostics");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/formatting",
+            "params": {
+                "textDocument": { "uri": uri },
+                "options": { "tabSize": 4, "insertSpaces": true }
+            }
+        }),
+    );
+    let formatting = read_message(&mut stdout);
+    assert_eq!(formatting["id"], 2);
+    let edits = formatting["result"]
+        .as_array()
+        .expect("formatting result should be an array");
+    assert_eq!(edits.len(), 1);
+    assert_eq!(edits[0]["newText"], expected);
+    assert_eq!(edits[0]["range"]["start"]["line"], 0);
+    assert_eq!(edits[0]["range"]["start"]["character"], 0);
+    assert_eq!(
+        edits[0]["range"]["end"]["line"].as_u64(),
+        Some((source.split('\n').count() - 1) as u64)
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "shutdown"
+        }),
+    );
+    let shutdown = read_message(&mut stdout);
+    assert_eq!(shutdown["id"], 3);
+    assert!(shutdown["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    let status = child.wait().expect("eng-lsp should exit");
+    assert!(status.success());
+}
+
+#[test]
 fn snapshot_stdin_reads_unsaved_source() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let mut child = Command::new(server)
@@ -730,6 +834,39 @@ fn snapshot_stdin_reads_unsaved_source() {
         .as_array()
         .expect("snapshot should contain folding ranges")
         .is_empty());
+}
+
+#[test]
+fn format_stdin_formats_unsaved_source() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source = "report {\nplot Q over Time\nwith {\ntitle = \"Q\"\n}\n}\n";
+    let expected = "report {\n    plot Q over Time\n    with {\n        title = \"Q\"\n    }\n}\n";
+    let mut child = Command::new(server)
+        .arg("--format-stdin")
+        .arg("unsaved_buffer.eng")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp format-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child.wait_with_output().expect("format-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "format-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let payload: Value =
+        serde_json::from_slice(&output.stdout).expect("format stdout should be JSON");
+    assert_eq!(payload["format"], "eng-lsp-snapshot-v1");
+    assert_eq!(payload["changed"], true);
+    assert_eq!(payload["formatted"], expected);
 }
 
 #[test]
