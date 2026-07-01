@@ -72,8 +72,9 @@ available to the open-artifact commands immediately after a successful run.
 inputs, symbols, schemas, units/quantities, time axes, derived values,
 diagnostics, external boundaries, side effects, table transforms, calculations,
 validations, caches, risks, and workflow modules. Line cells in the panel jump
-back to the matching source line. `EngLang: Open Current File Review JSON`
-runs the same current-file review command and opens the normalized JSON
+back to the matching source line, and the Last Run Artifacts section opens
+available `build/result` outputs directly. `EngLang: Open Current File Review
+JSON` runs the same current-file review command and opens the normalized JSON
 directly, without requiring a prior run. `EngLang: Open Last Run Review JSON`
 opens the `build/result/review.json` artifact from the last saved run.
 

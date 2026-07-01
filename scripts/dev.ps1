@@ -1745,6 +1745,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ExtensionSource.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }
+    if (-not $ExtensionSource.Contains("reviewPanelArtifacts") -or -not $ExtensionSource.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
+        throw "VS Code extension review panel must expose clickable last-run artifacts"
+    }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }

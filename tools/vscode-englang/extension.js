@@ -410,12 +410,18 @@ async function openReviewPanel(context) {
   panel.webview.html = renderReviewSummaryHtml(
     result.review,
     result.document.uri.fsPath,
-    reviewPanelNonce()
+    reviewPanelNonce(),
+    reviewPanelArtifacts(result.document)
   );
   panel.webview.onDidReceiveMessage((message) => {
     if (message?.type === "openSourceLine") {
       openSourceLine(result.document.uri, message.line).catch((error) => {
         output.appendLine(`Unable to open EngLang source line: ${error.message}`);
+      });
+    }
+    if (message?.type === "openArtifact") {
+      openLastRunArtifact(message.artifactId, result.document).catch((error) => {
+        output.appendLine(`Unable to open EngLang artifact: ${error.message}`);
       });
     }
   });
@@ -506,7 +512,7 @@ async function openSourceLine(uri, line) {
   editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
 }
 
-function renderReviewSummaryHtml(review, sourcePath, nonce) {
+function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) {
   const doc = normalizedReviewDocument(review);
   const contract = doc.root_contract || doc.rootContract || {};
   const diagnostics = firstReviewArray(doc, review, "diagnostics");
@@ -540,6 +546,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
     ["Derived values", derivedValues.length],
     ["Calculations", calculations.length],
     ["Caches", caches.length],
+    ["Artifacts", artifactLinks.filter((artifact) => artifact.exists).length],
     ["Table transforms", tableTransforms.length],
     ["Outputs", countOrContract(outputs, contract, "report_output_count", "reportOutputCount")],
     ["Validations", countOrContract(validations, contract, "validation_count", "validationCount")],
@@ -729,6 +736,19 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
     <div class="table-wrap">
       <table><tbody><tr><td><code>${escapeHtml(doc.semantic_hash || doc.semanticHash || "-")}</code></td></tr></tbody></table>
     </div>
+
+    <h2>Last Run Artifacts</h2>
+    ${renderReviewTable(
+      ["Artifact", "Path", "Status", "Action"],
+      artifactLinks,
+      "No artifact links are configured.",
+      (artifact) => `<tr>
+        <td><strong>${escapeHtml(artifact.label)}</strong></td>
+        <td><code>${escapeHtml(artifact.description)}</code></td>
+        <td>${statusPill(artifact.exists ? "available" : "missing")}</td>
+        <td>${artifact.exists ? `<button class="line-button" type="button" data-artifact-id="${escapeAttr(artifact.id)}" title="Open ${escapeAttr(artifact.label)}">Open</button>` : `<span class="muted">Run current file first</span>`}</td>
+      </tr>`
+    )}
 
     <h2>Inputs</h2>
     ${renderReviewTable(
@@ -978,6 +998,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
     (() => {
       const vscode = acquireVsCodeApi();
       document.addEventListener("click", (event) => {
+        const artifactTarget = event.target.closest("[data-artifact-id]");
+        if (artifactTarget) {
+          vscode.postMessage({
+            type: "openArtifact",
+            artifactId: artifactTarget.getAttribute("data-artifact-id")
+          });
+          return;
+        }
         const target = event.target.closest("[data-source-line]");
         if (!target) {
           return;
@@ -995,6 +1023,19 @@ function renderReviewSummaryHtml(review, sourcePath, nonce) {
 
 function reviewPanelNonce() {
   return crypto.randomBytes(16).toString("base64");
+}
+
+function reviewPanelArtifacts(document) {
+  const root = workspaceRoot(document);
+  return LAST_RUN_ARTIFACTS.map((artifact) => {
+    const artifactPath = path.join(root, ...artifact.relativePath);
+    return {
+      id: artifact.id,
+      label: artifact.label,
+      description: artifact.description,
+      exists: fs.existsSync(artifactPath)
+    };
+  });
 }
 
 function normalizedReviewDocument(review) {
@@ -1217,13 +1258,13 @@ async function openLastRunArtifactPicker() {
   }
 }
 
-async function openLastRunArtifact(artifactId) {
+async function openLastRunArtifact(artifactId, sourceDocument = undefined) {
   const artifact = LAST_RUN_ARTIFACTS.find((item) => item.id === artifactId);
   if (!artifact) {
     vscode.window.showWarningMessage(`Unknown EngLang artifact: ${artifactId}`);
     return;
   }
-  const root = currentWorkspaceRoot();
+  const root = sourceDocument ? workspaceRoot(sourceDocument) : currentWorkspaceRoot();
   if (!root) {
     vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
     return;
