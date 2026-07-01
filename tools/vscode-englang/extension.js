@@ -231,7 +231,10 @@ function activate(context) {
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
     vscode.commands.registerCommand("englang.openReport", openLastReport),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider()),
-    vscode.languages.registerCompletionItemProvider(LANGUAGE_ID, new EngCompletionProvider(), ":", " ", "[")
+    vscode.languages.registerCompletionItemProvider(LANGUAGE_ID, new EngCompletionProvider(), ":", " ", "["),
+    vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(), {
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+    })
   );
 
   for (const document of vscode.workspace.textDocuments) {
@@ -543,6 +546,66 @@ class EngCompletionProvider {
 
     return items;
   }
+}
+
+class EngCodeActionProvider {
+  provideCodeActions(document, _range, context) {
+    const actions = [];
+    for (const diagnostic of context.diagnostics) {
+      const code = diagnosticCode(diagnostic);
+      if (code === "E-SYNTAX-DECL-001") {
+        const action = replacementAction(
+          document,
+          diagnostic,
+          ":=",
+          "=",
+          "Replace := with ="
+        );
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
+      if (code === "E-STRUCT-ARGS-001") {
+        const action = replacementAction(
+          document,
+          diagnostic,
+          "struct Args",
+          "args",
+          "Replace struct Args with args"
+        );
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
+    }
+    return actions;
+  }
+}
+
+function diagnosticCode(diagnostic) {
+  if (typeof diagnostic.code === "string") {
+    return diagnostic.code;
+  }
+  return diagnostic.code?.value;
+}
+
+function replacementAction(document, diagnostic, search, replacement, title) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const index = line.text.indexOf(search);
+  if (index < 0) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, index, line.lineNumber, index + search.length),
+    replacement
+  );
+  return action;
 }
 
 function addCompletion(items, seen, item) {

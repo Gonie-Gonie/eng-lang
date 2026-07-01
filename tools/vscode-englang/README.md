@@ -12,6 +12,7 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - debounced unsaved-buffer diagnostics from `eng-lsp --snapshot-stdin`
 - hover from compiler review metadata
 - public type, quantity, unit, keyword, and snippet completion
+- quick fixes for `:=` and stale `struct Args` migration diagnostics
 - commands to check, run, and open the latest generated report
 
 ## Install From Portable Package

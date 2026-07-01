@@ -53,6 +53,17 @@ Status: implemented in the seventh cleanup batch.
 - Remove the historical policy pointer from the parser LLM load map so agents
   load the actual current policy pages first.
 
+## Batch 5: VS Code Migration Quick Fixes
+
+Status: implemented in the eighth cleanup batch.
+
+- Add a VS Code quick fix provider for common syntax migration diagnostics.
+- Offer direct edits for `E-SYNTAX-DECL-001` by replacing `:=` with `=`.
+- Offer direct edits for `E-STRUCT-ARGS-001` by replacing `struct Args` with
+  `args`.
+- Extend `ide-check` extension contract coverage so the quick fix provider does
+  not silently disappear.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -107,8 +118,8 @@ Status: implemented in the seventh cleanup batch.
 - Add semantic tokens from compiler metadata so symbols, quantities, units,
   functions, and module names can be colored like a mature language extension.
 - Add snapshot tests for the TextMate grammar and completion vocabulary.
-- Surface quick fixes for common diagnostics such as `:=`, missing units,
-  unsupported `script`, and stale `struct Args`.
+- Surface richer quick fixes for diagnostics that need semantic context, such
+  as missing units and unsupported `script` blocks.
 
 ## Docs Cleanup Candidates
 
