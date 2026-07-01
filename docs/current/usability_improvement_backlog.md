@@ -1075,6 +1075,17 @@ Status: implemented after VS Code review-panel source-jump audit.
 - Extended `ide-check` contract coverage for the VS Code normalized source-line
   tokens.
 
+## Batch 89: Native Workflow Phrase Highlighting
+
+Status: implemented after TextMate workflow fixture review.
+
+- Added phrase-aware TextMate scopes for `read json`/`read toml`/`read text`/
+  `read csv`, `open sqlite`, and `write <table> to db.table(...)` so native
+  workflow I/O and DB operations remain highlighted as coherent actions.
+- Extended grammar smoke expectations for workflow 01/02 constructs that
+  previously depended on generic keyword/operator scopes.
+- Regenerated the VS Code TextMate grammar from the readable source grammar.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

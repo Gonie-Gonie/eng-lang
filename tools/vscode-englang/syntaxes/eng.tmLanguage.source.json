@@ -182,6 +182,33 @@
             }
           },
           {
+            "name": "meta.workflow.read-structured.englang",
+            "match": "\\b(read)\\s+(json|toml|text|csv)\\b",
+            "captures": {
+              "1": { "name": "keyword.control.workflow.englang" },
+              "2": { "name": "keyword.control.workflow.englang" }
+            }
+          },
+          {
+            "name": "meta.workflow.open-sqlite.englang",
+            "match": "\\b(open)\\s+(sqlite)\\b",
+            "captures": {
+              "1": { "name": "keyword.control.external-boundary.englang" },
+              "2": { "name": "keyword.control.external-boundary.englang" }
+            }
+          },
+          {
+            "name": "meta.workflow.db-write.englang",
+            "match": "\\b(write)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
+            "captures": {
+              "1": { "name": "keyword.control.side-effect.englang" },
+              "2": { "name": "variable.other.local.englang" },
+              "3": { "name": "keyword.operator.word.englang" },
+              "4": { "name": "variable.other.local.englang" },
+              "5": { "name": "support.function.builtin.englang" }
+            }
+          },
+          {
             "name": "meta.workflow.materialize-cases.englang",
             "match": "\\b(materialize)\\s+(cases)\\b",
             "captures": {

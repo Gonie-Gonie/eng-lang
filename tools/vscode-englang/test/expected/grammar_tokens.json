@@ -612,5 +612,23 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "confidence_band ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.read-structured.englang",
+    "text": "read json",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.open-sqlite.englang",
+    "text": "open sqlite",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.db-write.englang",
+    "text": "write process_result to db.table",
+    "fullMatch": true
   }
 ]
