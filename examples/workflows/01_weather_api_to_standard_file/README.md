@@ -3,7 +3,7 @@
 This workflow demonstrates a native, domain-neutral API-to-artifact pattern:
 
 ```text
-station table -> selected station -> args-driven HTTP fixture/cache boundary ->
+station table -> selected station -> args-driven HTTP offline-response/cache boundary ->
 response body artifact -> API JSON schema contract -> JSON records weather table ->
 TimeSeries coverage -> generated text artifacts
 ```
@@ -11,8 +11,8 @@ TimeSeries coverage -> generated text artifacts
 The workflow uses:
 
 ```text
-eng.net       http get args.api_url with selected station query, fixture, pinned SHA-256, retry, timeout, cache key
-eng.cache     cache manifest and replayable fixture materialization from args-driven key parts
+eng.net       http get args.api_url with selected station query, pinned offline response, SHA-256, retry, timeout, cache key
+eng.cache     cache records and replayable response materialization from args-driven key parts
 eng.config    read/promote JSON validation from the native HTTP response body
 eng.table     station CSV promotion, JSON records table promotion, and filter/require_one row selection
 eng.timeseries coverage review for the hourly weather time axis

@@ -7,7 +7,7 @@ Current examples:
 
 ```text
 01_weather_api_to_standard_file
-  native network/cache fixture -> typed weather table -> coverage review ->
+  native network/cache offline response -> typed weather table -> coverage review ->
   generated standard weather artifact.
 
 02_external_simulation_surrogate

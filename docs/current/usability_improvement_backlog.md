@@ -1622,6 +1622,19 @@ Status: implemented after Native IDE inspector wording review.
 - Extended `ide-check` so those Native IDE panel labels and empty states cannot
   regress to implementation-first wording.
 
+## Batch 134: Workflow 01 Offline Response Wording Cleanup
+
+Status: implemented after workflow 01 native-workflow wording review.
+
+- Renamed workflow 01's public `api_fixture` argument to `api_response_file`
+  while keeping the native `http get ... with { fixture = ... }` offline
+  response hook intact.
+- Reworded workflow 01 prints, logs, README text, and expected review summary
+  from fixture-first descriptions to pinned offline API response descriptions.
+- Extended `workflows-test` so workflow 01 source/docs cannot reintroduce
+  `api_fixture`, `Weather fixture`, or generic network/cache fixture wording
+  while the existing Python/process guards remain in force.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

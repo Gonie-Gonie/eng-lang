@@ -349,6 +349,29 @@ function Invoke-WorkflowsTest {
         if ($WorkflowSource -match "(?i)\bselect_first_row\s*\(") {
             throw "Native workflow source must use filter + require_one instead of legacy select_first_row: $Workflow"
         }
+        if ($Workflow -like "*01_weather_api_to_standard_file*") {
+            $WorkflowPublicTextPaths = @(
+                $WorkflowSourcePath,
+                (Join-Path $RepoRoot "examples\workflows\01_weather_api_to_standard_file\README.md"),
+                (Join-Path $RepoRoot "examples\workflows\01_weather_api_to_standard_file\expected\review_summary.md"),
+                (Join-Path $RepoRoot "examples\workflows\README.md")
+            )
+            foreach ($WorkflowPublicTextPath in $WorkflowPublicTextPaths) {
+                $WorkflowPublicText = Get-Content -LiteralPath $WorkflowPublicTextPath -Raw
+                foreach ($ForbiddenWorkflowWording in @(
+                    "api_fixture",
+                    "Weather fixture",
+                    "fixture fetched",
+                    "network/cache fixture",
+                    "HTTP fixture",
+                    "schema StationMap with two fixture rows"
+                )) {
+                    if ($WorkflowPublicText.Contains($ForbiddenWorkflowWording)) {
+                        throw "Workflow 01 public wording should describe pinned offline responses instead of '$ForbiddenWorkflowWording': $WorkflowPublicTextPath"
+                    }
+                }
+            }
+        }
         Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $Workflow "--save-artifacts"
         $ProcessResultsPath = Join-Path $RepoRoot "build\result\process_results.json"
         if (-not (Test-Path -LiteralPath $ProcessResultsPath)) {
