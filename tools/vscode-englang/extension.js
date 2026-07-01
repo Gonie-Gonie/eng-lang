@@ -1847,6 +1847,9 @@ class EngCodeActionProvider {
       if (code === "W-QTY-AMBIG-001") {
         actions.push(...quantityAnnotationActions(document, diagnostic));
       }
+      if (typeof code === "string" && code.startsWith("E-DIM-ADD-")) {
+        actions.push(...missingUnitActions(document, diagnostic));
+      }
     }
     return actions;
   }
@@ -1924,6 +1927,64 @@ function ambiguousQuantityDetails(message) {
     unit: header[2],
     candidates: candidateList
   };
+}
+
+function missingUnitActions(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const unit = missingUnitHint(diagnostic.message, line.text);
+  if (!unit) {
+    return [];
+  }
+
+  return bareNumericRanges(line.text).map((range) => {
+    const literal = line.text.slice(range.start, range.end);
+    const action = new vscode.CodeAction(
+      `Add unit ${unit} to ${literal}`,
+      vscode.CodeActionKind.QuickFix
+    );
+    action.diagnostics = [diagnostic];
+    action.edit = new vscode.WorkspaceEdit();
+    action.edit.insert(document.uri, new vscode.Position(line.lineNumber, range.end), ` ${unit}`);
+    return action;
+  });
+}
+
+function missingUnitHint(message, lineText) {
+  const fromHelp =
+    /(?:such as|write)\s+`([^`]+)`/.exec(message)?.[1] ??
+    /unit such as\s+`([^`]+)`/.exec(message)?.[1];
+  if (isUnitHint(fromHelp)) {
+    return fromHelp;
+  }
+  return firstUnitOnLine(lineText);
+}
+
+function firstUnitOnLine(lineText) {
+  const unitLiteral = /\b\d+(?:\.\d+)?\s+([A-Za-z%][A-Za-z0-9/%]*)\b/.exec(lineText);
+  if (isUnitHint(unitLiteral?.[1])) {
+    return unitLiteral[1];
+  }
+  const bracketUnit = /\[([A-Za-z%][A-Za-z0-9/%]*)\]/.exec(lineText);
+  if (isUnitHint(bracketUnit?.[1])) {
+    return bracketUnit[1];
+  }
+  return undefined;
+}
+
+function isUnitHint(value) {
+  return typeof value === "string" && /^[A-Za-z%][A-Za-z0-9/%]*$/.test(value);
+}
+
+function bareNumericRanges(lineText) {
+  const ranges = [];
+  const pattern = /(^|[=+\-*/(,]\s*)(\d+(?:\.\d+)?)(?!\s*[A-Za-z_%])/g;
+  let match;
+  while ((match = pattern.exec(lineText)) !== null) {
+    const literalStart = match.index + match[1].length;
+    const literalEnd = literalStart + match[2].length;
+    ranges.push({ start: literalStart, end: literalEnd });
+  }
+  return ranges;
 }
 
 function escapeRegExp(text) {

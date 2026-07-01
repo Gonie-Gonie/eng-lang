@@ -401,6 +401,18 @@ Status: implemented after public command example review.
 - Left developer/reference examples unchanged where they intentionally contrast
   in-memory runs with saved artifact runs.
 
+## Batch 34: Missing Unit Quick Fix
+
+Status: implemented after VS Code linter quick-fix review.
+
+- Added a VS Code quick fix for `E-DIM-ADD-*` diagnostics that can safely insert
+  a missing unit suffix onto a bare numeric literal.
+- The fix uses explicit compiler help such as `kW` or `K` when present, then
+  falls back to a unit already visible on the diagnostic line.
+- Kept the edit narrow: it only inserts a suffix after numeric literals on the
+  diagnostic line, and it does not infer a unit when no stable hint exists.
+- Updated extension README wording and `ide-check` contract coverage.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -442,8 +454,7 @@ Status: implemented after public command example review.
   references after those source spans become first-class metadata.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
-- Surface richer quick fixes for diagnostics that need semantic context, such
-  as missing units.
+- Surface richer quick fixes for diagnostics that need broader semantic context.
 
 ## Docs Cleanup Candidates
 
