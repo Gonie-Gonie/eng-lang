@@ -1854,7 +1854,7 @@ function Assert-VscodeExtensionContract {
     $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
     foreach ($RequiredSemanticModifier in @(
         "unit", "quantity", "axis", "timeseries", "uncertain",
-        "sideEffect", "external", "validation", "report",
+        "sideEffect", "external", "validation", "report", "solver",
         "planned", "internal", "riskHigh", "riskMedium", "state", "input",
         "model", "db", "cache", "workflowStep"
     )) {
@@ -1869,7 +1869,9 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredTokenScope in @(
         "type.unit", "property.unit", "variable.quantity", "function.external",
         "method.sideEffect", "variable.validation", "variable.report",
-        "variable.state", "parameter.input", "variable.riskHigh",
+        "keyword.sideEffect", "keyword.external", "keyword.validation",
+        "keyword.report", "keyword.solver", "function.solver",
+        "keyword.deprecated", "variable.state", "parameter.input", "variable.riskHigh",
         "variable.riskMedium", "variable.model", "variable.db",
         "function.model", "function.defaultLibrary", "namespace.defaultLibrary",
         "namespace.internal", "variable.cache", "keyword.workflowStep",
@@ -2132,7 +2134,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "cursor-insight")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "cursor-insight")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }
@@ -2188,7 +2190,7 @@ function Invoke-LspCheck {
             throw "eng-lsp --editor-metadata missing completion seed $RequiredCompletion"
         }
     }
-    foreach ($RequiredModifier in @("workflowStep", "unit", "quantity")) {
+    foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver")) {
         if (@($EditorMetadata.semantic_token_legend.token_modifiers) -notcontains $RequiredModifier) {
             throw "eng-lsp --editor-metadata missing semantic token modifier $RequiredModifier"
         }

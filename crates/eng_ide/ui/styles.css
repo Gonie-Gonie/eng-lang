@@ -626,6 +626,11 @@ button:hover {
   color: #7c3aed;
 }
 
+.hl-mod-solver {
+  color: #0369a1;
+  font-weight: 620;
+}
+
 .hl-mod-sideEffect,
 .hl-mod-external {
   color: #b42318;

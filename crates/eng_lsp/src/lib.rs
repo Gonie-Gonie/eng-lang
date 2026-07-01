@@ -137,6 +137,7 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "external",
     "validation",
     "report",
+    "solver",
     "planned",
     "internal",
     "riskHigh",
@@ -176,6 +177,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "delete",
     "derive",
     "der",
+    "distribution",
     "domain",
     "download",
     "eq",
@@ -183,11 +185,13 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "evaluate",
     "export",
     "false",
+    "fetch",
     "filter",
     "fn",
     "from",
     "golden",
     "grid",
+    "head",
     "histogram",
     "get",
     "http",
@@ -221,18 +225,22 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "or",
     "over",
     "package",
+    "patch",
     "parameter",
     "plot",
     "policy",
     "port",
+    "post",
     "predict",
     "print",
     "promote",
+    "put",
     "random",
     "read",
     "records",
     "regression",
     "render",
+    "request",
     "report",
     "return",
     "run",
@@ -242,10 +250,13 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "select",
     "select_first_row",
     "show",
+    "simulate",
+    "solve",
     "sort",
     "sqlite",
     "state",
     "struct",
+    "summarize",
     "system",
     "template",
     "test",
@@ -2627,11 +2638,16 @@ impl<'a> SemanticTokenBuilder<'a> {
 fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "open" | "sqlite" => &["sideEffect", "external", "db"],
-        "run" | "command" | "write" | "export" | "copy" | "move" | "delete" | "http"
-        | "download" => &["sideEffect", "external"],
-        "materialize" | "apply" | "collect" => &["workflowStep"],
-        "report" | "show" | "plot" | "print" | "log" => &["report"],
-        "validate" | "check" | "assert" | "golden" | "test" => &["validation"],
+        "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
+        | "fetch" | "download" => &["sideEffect", "external"],
+        "write" | "export" | "copy" | "move" | "delete" | "render" | "template" => &["sideEffect"],
+        "materialize" | "apply" | "collect" | "promote" | "records" | "cases" => &["workflowStep"],
+        "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize"
+        | "distribution" | "print" | "log" => &["report"],
+        "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within" => {
+            &["validation"]
+        }
+        "simulate" | "solve" | "connect" | "conservation" | "equation" => &["solver"],
         "script" | "struct" => &["deprecated"],
         _ => &[],
     }
@@ -2645,6 +2661,7 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         }
         "train_test_split" | "regression" | "regression_table" | "train_regression" | "mlp"
         | "evaluate" | "model_card" | "leakage_lint" | "predict" => &["defaultLibrary", "model"],
+        "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
         "check" | "coverage" | "fill_missing" | "align" | "resample" | "rmse" => {
             &["defaultLibrary", "validation"]
         }
@@ -4544,6 +4561,53 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "step", "workflowStep");
+    }
+
+    #[test]
+    fn snapshot_marks_richer_keyword_semantic_modifiers() {
+        let source = r#"system RoomThermal {
+    state T: AbsoluteTemperature = 20 degC
+    equation balance:
+        der(T) eq 0 K/s
+}
+
+simulate RoomThermal
+with {
+    timestep = 60 s
+    duration = 1 h
+    solver = fixed_step
+}
+
+report {
+    summarize T
+    distribution T
+    plot line T vs Time
+}
+
+test "temperature stays bounded" {
+    assert T matches T within 1 K
+}
+
+render template file("report.md") to file("report.html")
+response = http get url("https://example.org/weather")
+"#;
+        let snapshot = snapshot_for_source(Path::new("keyword_modifiers.eng"), source);
+
+        for label in ["simulate", "equation", "der"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "solver");
+        }
+        for label in ["summarize", "distribution", "line"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "report");
+        }
+        for label in ["assert", "matches", "within"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "validation");
+        }
+        for label in ["render", "template"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
+        }
+        for label in ["http", "get"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "external");
+        }
     }
 
     #[test]

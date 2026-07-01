@@ -808,6 +808,19 @@ Status: implemented after VS Code hover parity review.
 - Extended `ide-check` and README coverage so live hover snapshot wiring,
   kind/status display, and namespace-aware matching stay documented.
 
+## Batch 67: Richer Keyword Semantic Highlighting
+
+Status: implemented after VS Code keyword-color consistency review.
+
+- Added a compiler-owned `solver` semantic-token modifier and mapped it through
+  generated editor metadata, VS Code fallback scopes, and the native IDE
+  highlight overlay.
+- Expanded LSP keyword modifiers so report, validation, side-effect, external,
+  workflow-step, deprecated, and solver keywords that TextMate already colors
+  also carry semantic modifiers.
+- Added LSP regression coverage and `ide-check` contract guards so semantic
+  keyword colors stay aligned with TextMate fallback scopes.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

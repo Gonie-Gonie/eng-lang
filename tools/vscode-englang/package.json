@@ -80,6 +80,10 @@
         "description": "Report, plot, summary, and rendered artifact symbols."
       },
       {
+        "id": "solver",
+        "description": "Solver, equation, conservation, and simulation symbols."
+      },
+      {
         "id": "planned",
         "description": "Planned workflow nodes or artifacts."
       },
@@ -185,6 +189,9 @@
           "function.sideEffect": [
             "keyword.control.side-effect.englang"
           ],
+          "keyword.sideEffect": [
+            "keyword.control.side-effect.englang"
+          ],
           "method.sideEffect": [
             "keyword.control.side-effect.englang"
           ],
@@ -195,12 +202,18 @@
           "function.external": [
             "keyword.control.external-boundary.englang"
           ],
+          "keyword.external": [
+            "keyword.control.external-boundary.englang"
+          ],
           "method.external": [
             "keyword.control.external-boundary.englang"
           ],
           "variable.external": [
             "keyword.control.external-boundary.englang",
             "variable.other.definition.englang"
+          ],
+          "keyword.validation": [
+            "keyword.control.validation.englang"
           ],
           "variable.validation": [
             "keyword.control.validation.englang",
@@ -214,6 +227,9 @@
             "support.function.builtin.englang",
             "keyword.control.validation.englang"
           ],
+          "keyword.report": [
+            "keyword.control.report.englang"
+          ],
           "variable.report": [
             "keyword.control.report.englang",
             "variable.other.definition.englang"
@@ -221,6 +237,20 @@
           "property.report": [
             "keyword.control.report.englang",
             "variable.other.property.englang"
+          ],
+          "function.solver": [
+            "keyword.control.solver.englang",
+            "support.function.builtin.englang"
+          ],
+          "keyword.solver": [
+            "keyword.control.solver.englang"
+          ],
+          "variable.solver": [
+            "keyword.control.solver.englang",
+            "variable.other.definition.englang"
+          ],
+          "keyword.deprecated": [
+            "keyword.control.deprecated.englang"
           ],
           "variable.state": [
             "storage.modifier.englang",
@@ -354,7 +384,7 @@
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Use compiler-backed semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, and workflow boundaries."
+          "description": "Use compiler-backed semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, solver terms, and workflow boundaries."
         },
         "englang.reviewRiskDecorations.enabled": {
           "type": "boolean",
