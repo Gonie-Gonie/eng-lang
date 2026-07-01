@@ -773,6 +773,18 @@ Status: implemented after native IDE highlight parity review.
 - Extended `ide-check` and Rust regression coverage so native IDE semantic
   token payloads, overlay wiring, and risk/unit highlight styles stay guarded.
 
+## Batch 64: Native IDE Completion Seed Source
+
+Status: implemented after native IDE completion source review.
+
+- Replaced native IDE hardcoded keyword/type/workflow completion constants with
+  the shared `eng_lsp` editor completion seed used by VS Code metadata.
+- Kept native IDE multi-line snippets for larger editing patterns while
+  deduplicating them by label against the LSP seed.
+- Extended `ide-check` and Rust regression coverage so native IDE completion
+  labels mirror the LSP seed and do not reintroduce duplicate completion
+  constants.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

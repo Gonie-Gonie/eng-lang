@@ -863,207 +863,11 @@ fn empty_semantic_tokens_view() -> Value {
     eng_lsp::semantic_tokens_json(&eng_lsp::LspSemanticTokens::default())
 }
 
-const BASE_COMPLETION_KEYWORDS: &[&str] = &[
-    "across",
-    "and",
-    "append",
-    "apply",
-    "args",
-    "as",
-    "assert",
-    "bar",
-    "between",
-    "by",
-    "cases",
-    "check",
-    "class",
-    "command",
-    "component",
-    "connect",
-    "const",
-    "constraints",
-    "conservation",
-    "collect",
-    "copy",
-    "coverage",
-    "csv",
-    "delete",
-    "derive",
-    "der",
-    "domain",
-    "eq",
-    "equation",
-    "evaluate",
-    "export",
-    "false",
-    "filter",
-    "fn",
-    "from",
-    "golden",
-    "grid",
-    "histogram",
-    "if",
-    "import",
-    "in",
-    "input",
-    "insert",
-    "integrate",
-    "interpolate",
-    "into",
-    "is",
-    "json",
-    "leakage_lint",
-    "lhs",
-    "line",
-    "log",
-    "matches",
-    "materialize",
-    "method",
-    "missing",
-    "mlp",
-    "mode",
-    "model_card",
-    "monotonic",
-    "move",
-    "none",
-    "not",
-    "null",
-    "open",
-    "or",
-    "over",
-    "package",
-    "parameter",
-    "plot",
-    "policy",
-    "port",
-    "predict",
-    "print",
-    "promote",
-    "random",
-    "read",
-    "regression",
-    "render",
-    "report",
-    "return",
-    "run",
-    "sample",
-    "schema",
-    "script",
-    "select",
-    "select_first_row",
-    "show",
-    "sort",
-    "sqlite",
-    "state",
-    "struct",
-    "system",
-    "template",
-    "test",
-    "text",
-    "through",
-    "to",
-    "toml",
-    "train_test_split",
-    "true",
-    "uniform",
-    "upsert",
-    "use",
-    "using",
-    "validate",
-    "version",
-    "where",
-    "with",
-    "within",
-    "write",
-];
-
-const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
-    ("Bool", "Boolean value"),
-    ("CsvFile", "CSV file path"),
-    ("Date", "Calendar date"),
-    ("DateTime", "Timestamp value"),
-    ("DbConnection", "SQLite connection handle"),
-    ("DbTableRef", "SQLite table reference"),
-    ("DirectoryPath", "Directory path"),
-    ("Duration", "Time duration"),
-    ("FilePath", "Generic file path"),
-    ("Float", "Floating-point value"),
-    ("Int", "Integer value"),
-    ("JsonFile", "JSON file path"),
-    ("ModelArtifact", "Trained model artifact"),
-    ("ModelCard", "Model-card review artifact"),
-    ("Number", "Dimensionless numeric value"),
-    ("Optional[T]", "Optional value"),
-    ("Path", "Filesystem path"),
-    ("Prediction", "Prediction table row"),
-    ("ProcessResult", "External command result metadata"),
-    ("Report", "Report artifact request metadata"),
-    ("Secret[String]", "Redacted string value"),
-    ("String", "String value"),
-    ("Table[T]", "Typed table value"),
-    ("TextFile", "UTF-8 text file path"),
-    ("TimeSeries[Time]", "Time-indexed series value"),
-    ("TimeSeries[T]", "Typed time-indexed series value"),
-    ("TomlFile", "TOML file path"),
-    ("Url", "HTTP or HTTPS URL"),
-];
-
-const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
-    ("apply", "eng.case apply a workflow step over rows"),
-    ("collect", "eng.case collect case results"),
-    ("coverage", "eng.timeseries coverage check"),
-    ("duration_above", "TimeSeries threshold duration"),
-    ("max", "TimeSeries maximum"),
-    ("mean", "TimeSeries mean"),
-    ("materialize", "eng.case materialize case inputs"),
-    ("median", "TimeSeries median"),
-    ("min", "TimeSeries minimum"),
-    ("normal", "normal distribution sampling helper"),
-    ("std", "TimeSeries standard deviation"),
-    ("sum", "domain conservation sum"),
-];
-
-const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
-    ("algorithm", "model training option"),
-    ("allow_failure", "external command failure policy"),
-    ("artifact_kind", "expected artifact kind"),
-    ("cache", "cache behavior option"),
-    ("cache_key", "cache identity option"),
-    ("case_id", "case identifier expression"),
-    ("count", "sample count option"),
-    ("cwd", "external command working directory"),
-    ("env", "external command environment"),
-    ("expected_outputs", "declared process outputs"),
-    ("features", "model feature columns"),
-    ("hidden", "MLP hidden layer option"),
-    ("method", "fill or transform method"),
-    ("output_root", "case output root directory"),
-    ("recursive", "filesystem recursion option"),
-    ("resume", "case resume policy"),
-    ("retry", "external command retry policy"),
-    ("return_column", "projection return column"),
-    ("seed", "deterministic sampling seed"),
-    ("status", "case or validation status"),
-    ("step", "case workflow step"),
-    ("target", "model target column"),
-    ("timeout", "external command timeout"),
-    ("tool_version", "external tool version"),
-];
-
 fn base_completion_items() -> Vec<CompletionView> {
-    let mut items = Vec::new();
-    for keyword in BASE_COMPLETION_KEYWORDS.iter().copied() {
-        push_base_completion(&mut items, keyword, keyword, "keyword", "keyword");
-    }
-    for (type_name, detail) in PUBLIC_TYPE_COMPLETIONS.iter().copied() {
-        push_base_completion(&mut items, type_name, type_name, detail, "type");
-    }
-    for (label, detail) in WORKFLOW_BUILTIN_COMPLETIONS.iter().copied() {
-        push_base_completion(&mut items, label, label, detail, "function");
-    }
-    for (label, detail) in WORKFLOW_OPTION_COMPLETIONS.iter().copied() {
-        push_base_completion(&mut items, label, label, detail, "property");
-    }
+    let mut items = eng_lsp::editor_completion_seed()
+        .into_iter()
+        .map(CompletionView::from_lsp)
+        .collect::<Vec<_>>();
     for snippet in [
         (
             "promote csv",
@@ -1091,157 +895,58 @@ fn base_completion_items() -> Vec<CompletionView> {
             "class declaration, validation, method, object literal, and copy-with",
         ),
     ] {
-        items.push(CompletionView {
+        push_native_completion(&mut items, CompletionView {
             label: snippet.0.to_owned(),
             insert: snippet.1.to_owned(),
             detail: snippet.2.to_owned(),
             kind: "snippet".to_owned(),
         });
     }
-    for module in bundled_module_registry()
-        .map(|registry| registry.modules)
-        .unwrap_or_default()
-    {
-        let detail = module.completion_detail();
-        items.push(CompletionView {
-            label: module.name.clone(),
-            insert: module.name.clone(),
-            detail,
-            kind: "stdlib".to_owned(),
-        });
-        for symbol in &module.symbols {
-            items.push(module_symbol_completion(&module.name, symbol));
-        }
-    }
-
-    for stdlib in [
-        ("read text", "read text args.input", "eng.io raw text read"),
-        ("read json", "read json args.config", "eng.io raw JSON read"),
-        ("read toml", "read toml args.config", "eng.io raw TOML read"),
-        (
-            "write text",
-            "write text \"outputs/log.txt\", text",
-            "eng.io text output",
-        ),
-        (
-            "write json",
-            "write json \"outputs/summary.json\", summary",
-            "eng.io JSON output",
-        ),
-        (
-            "copy file",
-            "copy file(\"data/template.txt\") to \"outputs/template.txt\"",
-            "eng.fs copy output",
-        ),
-        (
-            "move file",
-            "move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\"",
-            "eng.fs move output",
-        ),
-        (
-            "delete file",
-            "delete \"outputs/tmp.txt\"",
-            "eng.fs delete output",
-        ),
-        (
-            "run command",
-            "run command \"tool\"",
-            "eng.process command boundary",
-        ),
-        (
-            "promote json config",
-            "promote json file(\"workflow.json\") as WorkflowConfig",
-            "eng.config JSON file promotion",
-        ),
-        (
-            "promote toml config",
-            "promote toml file(\"workflow.toml\") as WorkflowConfig",
-            "eng.config TOML file promotion",
-        ),
-    ] {
-        items.push(CompletionView {
-            label: stdlib.0.to_owned(),
-            insert: stdlib.1.to_owned(),
-            detail: stdlib.2.to_owned(),
-            kind: "stdlib".to_owned(),
-        });
-    }
-    for quantity in all_quantity_completions() {
-        items.push(CompletionView {
-            label: quantity.quantity_kind.to_owned(),
-            insert: quantity.quantity_kind.to_owned(),
-            detail: format!("{} [{}]", quantity.description, quantity.canonical_unit),
-            kind: "quantity".to_owned(),
-        });
-    }
-    for unit in all_unit_infos() {
-        items.push(CompletionView {
-            label: unit.symbol.to_owned(),
-            insert: unit.symbol.to_owned(),
-            detail: format!("{} -> {}", unit.quantity_hint, unit.canonical_unit),
-            kind: "unit".to_owned(),
-        });
-    }
     items
 }
 
-fn push_base_completion(
-    items: &mut Vec<CompletionView>,
-    label: &str,
-    insert: &str,
-    detail: &str,
-    kind: &str,
-) {
-    if items.iter().any(|item| item.label == label) {
-        return;
-    }
-    items.push(CompletionView {
-        label: label.to_owned(),
-        insert: insert.to_owned(),
-        detail: detail.to_owned(),
-        kind: kind.to_owned(),
-    });
-}
-
-fn module_symbol_completion(module_name: &str, symbol: &str) -> CompletionView {
-    CompletionView {
-        label: module_symbol_label(symbol),
-        insert: module_symbol_insert(module_name, symbol),
-        detail: format!("{module_name} {symbol}"),
-        kind: "stdlib".to_owned(),
+impl CompletionView {
+    fn from_lsp(completion: eng_lsp::LspCompletion) -> Self {
+        let insert = native_insert_for_lsp_completion(&completion.label)
+            .unwrap_or_else(|| completion.label.clone());
+        Self {
+            insert,
+            label: completion.label,
+            detail: completion.detail,
+            kind: completion.kind,
+        }
     }
 }
 
-fn module_symbol_label(symbol: &str) -> String {
-    let name = module_symbol_name(symbol);
-    if name == "exists" {
-        "exists path".to_owned()
-    } else {
-        format!("{name}(...)")
-    }
+fn native_insert_for_lsp_completion(label: &str) -> Option<String> {
+    let insert = match label {
+        "file(...)" => "file(\"data/input.csv\")",
+        "dir(...)" => "dir(\"build/result\")",
+        "join(...)" => "join(args.output, \"summary.csv\")",
+        "parent(...)" => "parent(args.input)",
+        "stem(...)" => "stem(args.input)",
+        "extension(...)" => "extension(args.input)",
+        "exists path" => "exists args.input",
+        "read text" => "read text args.input",
+        "read json" => "read json args.config",
+        "read toml" => "read toml args.config",
+        "write text" => "write text \"outputs/log.txt\", text",
+        "write json" => "write json \"outputs/summary.json\", summary",
+        "copy file" => "copy file(\"data/template.txt\") to \"outputs/template.txt\"",
+        "move file" => "move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\"",
+        "delete file" => "delete \"outputs/tmp.txt\"",
+        "run command" => "run command \"tool\"",
+        "promote json config" => "promote json file(\"workflow.json\") as WorkflowConfig",
+        "promote toml config" => "promote toml file(\"workflow.toml\") as WorkflowConfig",
+        _ => return None,
+    };
+    Some(insert.to_owned())
 }
 
-fn module_symbol_insert(module_name: &str, symbol: &str) -> String {
-    let name = module_symbol_name(symbol);
-    match (module_name, name.as_str()) {
-        ("eng.path", "file") => "file(\"data/input.csv\")".to_owned(),
-        ("eng.path", "dir") => "dir(\"build/result\")".to_owned(),
-        ("eng.path", "join") => "join(args.output, \"summary.csv\")".to_owned(),
-        ("eng.path", "parent") => "parent(args.input)".to_owned(),
-        ("eng.path", "stem") => "stem(args.input)".to_owned(),
-        ("eng.path", "extension") => "extension(args.input)".to_owned(),
-        ("eng.path", "exists") => "exists args.input".to_owned(),
-        _ => name,
+fn push_native_completion(items: &mut Vec<CompletionView>, completion: CompletionView) {
+    if !items.iter().any(|item| item.label == completion.label) {
+        items.push(completion);
     }
-}
-
-fn module_symbol_name(symbol: &str) -> String {
-    symbol
-        .split_once('(')
-        .map(|(name, _)| name)
-        .unwrap_or(symbol)
-        .trim()
-        .to_owned()
 }
 
 fn module_browser_items() -> Vec<ModuleView> {
@@ -4089,6 +3794,7 @@ fn smoke() -> Result<(), String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::collections::BTreeSet;
     use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
@@ -4163,6 +3869,49 @@ mod tests {
                 .and_then(Value::as_array)
                 .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("unit")))
         }));
+    }
+
+    #[test]
+    fn native_ide_completion_seed_uses_lsp_editor_seed() {
+        let lsp_seed = eng_lsp::editor_completion_seed();
+        let completions = base_completion_items();
+        assert!(completions.len() >= lsp_seed.len());
+
+        let labels = completions
+            .iter()
+            .map(|completion| completion.label.as_str())
+            .collect::<BTreeSet<_>>();
+        assert_eq!(labels.len(), completions.len());
+        for required in ["promote json records", "eng.table", "HeatRate", "kW"] {
+            assert!(
+                labels.contains(required),
+                "native IDE completion seed should include LSP label {required}"
+            );
+        }
+        for completion in &lsp_seed {
+            assert!(
+                completions.iter().any(|item| item.label == completion.label
+                    && item.detail == completion.detail
+                    && item.kind == completion.kind),
+                "native IDE completion seed should mirror LSP completion {}",
+                completion.label
+            );
+        }
+        let snippet = completions
+            .iter()
+            .find(|completion| completion.label == "class object")
+            .expect("native IDE snippet");
+        assert!(snippet.insert.contains("validate"));
+        let read_text = completions
+            .iter()
+            .find(|completion| completion.label == "read text")
+            .expect("read text completion");
+        assert_eq!(read_text.insert, "read text args.input");
+        let file_helper = completions
+            .iter()
+            .find(|completion| completion.label == "file(...)")
+            .expect("file helper completion");
+        assert_eq!(file_helper.insert, "file(\"data/input.csv\")");
     }
 
     #[test]

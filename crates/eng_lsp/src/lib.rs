@@ -728,18 +728,22 @@ pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
 }
 
 pub fn editor_metadata_json() -> Value {
-    let report = check_source(
-        Path::new("editor-metadata.eng"),
-        "",
-        &CheckOptions::default(),
-    );
-    let completions = completion_items(&report);
+    let completions = editor_completion_seed();
     json!({
         "format": LSP_EDITOR_METADATA_FORMAT,
         "semantic_token_legend": semantic_legend_json(&semantic_legend()),
         "completion_seed_count": completions.len(),
         "completion_seed": completions.iter().map(editor_completion_json).collect::<Vec<_>>(),
     })
+}
+
+pub fn editor_completion_seed() -> Vec<LspCompletion> {
+    let report = check_source(
+        Path::new("editor-metadata.eng"),
+        "",
+        &CheckOptions::default(),
+    );
+    completion_items(&report)
 }
 
 pub fn semantic_legend_json(legend: &LspSemanticLegend) -> Value {

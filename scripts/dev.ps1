@@ -2119,9 +2119,14 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "semantic_tokens_view", "snapshot_from_report_with_source", "check_view_surfaces_lsp_semantic_tokens")) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "semantic_tokens_view", "snapshot_from_report_with_source", "editor_completion_seed", "CompletionView::from_lsp", "native_insert_for_lsp_completion", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
-            throw "Native IDE backend missing semantic token payload token $RequiredIdeBackendToken"
+            throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
+        }
+    }
+    foreach ($ForbiddenNativeIdeCompletionToken in @("BASE_COMPLETION_KEYWORDS", "PUBLIC_TYPE_COMPLETIONS", "WORKFLOW_BUILTIN_COMPLETIONS", "WORKFLOW_OPTION_COMPLETIONS")) {
+        if ($IdeMainSource.Contains($ForbiddenNativeIdeCompletionToken)) {
+            throw "Native IDE backend must use eng_lsp editor completion seed instead of $ForbiddenNativeIdeCompletionToken"
         }
     }
     $Node = Get-Command node -ErrorAction SilentlyContinue

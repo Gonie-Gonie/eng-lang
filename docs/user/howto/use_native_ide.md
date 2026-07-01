@@ -75,6 +75,8 @@ Editor
   state per tab and shows completion suggestions near the caret from current
   symbols, keywords, snippets, quantity kinds, units, and stdlib workflow
   module surfaces such as `eng.path`, `eng.io`, `eng.fs`, and `eng.process`.
+  The base completion vocabulary comes from the same LSP editor metadata used
+  by the VS Code extension, with only larger native IDE snippets added on top.
   Checked files use compiler-backed semantic tokens for colored keyword, unit,
   quantity, workflow, and review-risk highlighting. If the buffer has changed
   since the last check, the overlay falls back to plain text until Check or Run
