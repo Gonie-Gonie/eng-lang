@@ -1143,6 +1143,17 @@ Status: implemented after diagnostic API wording review.
 - Updated workflow module and CLI diagnostic references so the two conditions
   are no longer conflated.
 
+## Batch 95: Sampling Alias Highlighting
+
+Status: implemented after sampling grammar/semantic alias review.
+
+- Extended TextMate phrase coverage for compiler-supported `sample uniform`,
+  `sample latin_hypercube`, and `sample latin-hypercube` aliases.
+- Added `latin_hypercube` to the shared LSP editor vocabulary and generated
+  grammar builtin coverage.
+- Made `uniform` keep its uncertainty function role while also receiving the
+  `workflowStep` semantic modifier specifically in `sample uniform` context.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

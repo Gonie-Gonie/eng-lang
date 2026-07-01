@@ -309,6 +309,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "grid",
     "random",
     "lhs",
+    "latin_hypercube",
     "materialize",
     "apply",
     "collect",
@@ -404,6 +405,7 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("grid", "eng.sampling grid construction helper"),
     ("random", "eng.sampling random generator helper"),
     ("lhs", "eng.sampling Latin hypercube helper"),
+    ("latin_hypercube", "eng.sampling Latin hypercube helper"),
     ("materialize", "eng.case materialize case inputs"),
     ("apply", "eng.case apply a workflow step over rows"),
     ("collect", "eng.case collect case results"),
@@ -2371,7 +2373,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         token_start,
                         index - token_start,
                         "function",
-                        workflow_builtin_modifiers(token),
+                        workflow_builtin_modifiers_for_line(line, token, token_start),
                     );
                 } else if COMPLETION_KEYWORDS.contains(&token) {
                     self.push_byte_range(
@@ -2660,7 +2662,9 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
 
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
-        "sample" | "grid" | "random" | "lhs" => &["defaultLibrary", "workflowStep"],
+        "sample" | "grid" | "random" | "lhs" | "latin_hypercube" => {
+            &["defaultLibrary", "workflowStep"]
+        }
         "normal" | "uniform" => &["defaultLibrary", "uncertain"],
         "materialize" | "apply" | "collect" | "run_case" => &["defaultLibrary", "workflowStep"],
         "measured" | "interval" | "ensemble" | "propagate" | "probability" => {
@@ -2674,6 +2678,32 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         }
         _ => &["defaultLibrary"],
     }
+}
+
+fn workflow_builtin_modifiers_for_line(
+    line: &str,
+    keyword: &str,
+    token_start: usize,
+) -> &'static [&'static str] {
+    if keyword == "uniform"
+        && previous_identifier_before(line, token_start).is_some_and(|previous| previous == "sample")
+    {
+        return &["defaultLibrary", "uncertain", "workflowStep"];
+    }
+    workflow_builtin_modifiers(keyword)
+}
+
+fn previous_identifier_before(line: &str, token_start: usize) -> Option<&str> {
+    let bytes = line.as_bytes();
+    let mut index = token_start.min(bytes.len());
+    while index > 0 && bytes[index - 1].is_ascii_whitespace() {
+        index -= 1;
+    }
+    let end = index;
+    while index > 0 && is_ident_byte(bytes[index - 1]) {
+        index -= 1;
+    }
+    (index < end && is_ident_start(bytes[index])).then_some(&line[index..end])
 }
 
 fn token_candidates(label: &str) -> Vec<String> {
@@ -4640,6 +4670,20 @@ with {
     people_density = uniform(0.03 person/m2, 0.12 person/m2)
 }
 
+alias_designs = sample uniform
+with {
+    count = 2
+    seed = 11
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+latin_designs = sample latin_hypercube
+with {
+    count = 2
+    seed = 13
+    cooling_cop = uniform(2.5, 5.0)
+}
+
 case_row = require_one designs
 surrogate = regression_table(designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
 metrics = evaluate(surrogate)
@@ -4652,6 +4696,7 @@ predictions = predict surrogate using designs
             "sample",
             "lhs",
             "uniform",
+            "latin_hypercube",
             "require_one",
             "regression_table",
             "evaluate",
@@ -4664,7 +4709,7 @@ predictions = predict surrogate using designs
         for label in ["regression_table", "evaluate", "model_card", "predict"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
-        for label in ["sample", "lhs"] {
+        for label in ["sample", "lhs", "uniform", "latin_hypercube"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_semantic_token_modifier(&snapshot, source, "uniform", "uncertain");

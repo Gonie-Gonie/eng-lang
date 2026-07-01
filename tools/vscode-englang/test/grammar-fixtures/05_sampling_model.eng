@@ -1,4 +1,6 @@
 designs = sample lhs
+alias_designs = sample uniform
+latin_designs = sample latin_hypercube
 with {
     count = 12
     seed = 7

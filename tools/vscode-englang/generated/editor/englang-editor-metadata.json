@@ -343,6 +343,12 @@
                                 "lsp_kind":  3
                             },
                             {
+                                "detail":  "eng.sampling Latin hypercube helper",
+                                "kind":  "function",
+                                "label":  "latin_hypercube",
+                                "lsp_kind":  3
+                            },
+                            {
                                 "detail":  "eng.case materialize case inputs",
                                 "kind":  "function",
                                 "label":  "materialize",
@@ -1927,7 +1933,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  321,
+    "completion_seed_count":  322,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

@@ -170,8 +170,26 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sample-method.englang",
+    "text": "sample uniform",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sample-method.englang",
+    "text": "sample latin_hypercube",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "uniform"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "latin_hypercube",
+    "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
