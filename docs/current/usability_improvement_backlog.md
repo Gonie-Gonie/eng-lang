@@ -1383,6 +1383,16 @@ Status: implemented after completion/with-option highlighting review.
 - Added quantity-kind scope parity to the existing public-type guard so compiler
   quantity completions and TextMate type highlighting cannot drift silently.
 
+## Batch 114: Workflow Builtin Scope Registry Parity Guard
+
+Status: implemented after builtin highlighting review.
+
+- Strengthened grammar smoke so `support.function.builtin.englang` must match
+  every LSP workflow builtin keyword.
+- Closed the remaining TextMate test gap where a helper could remain in the LSP
+  completion/semantic token surface but lose builtin fallback coloring.
+- Verified the guard with the existing 159 explicit token expectations.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
