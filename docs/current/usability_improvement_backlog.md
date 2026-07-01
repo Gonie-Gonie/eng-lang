@@ -1224,6 +1224,19 @@ Status: implemented after bracket/punctuation highlighting review.
   punctuation coloring can become more theme-specific.
 - Updated the editor token-scope guide with the punctuation scope families.
 
+## Batch 102: Field And Binding Scope Split
+
+Status: implemented after variable/property highlighting review.
+
+- Split `name:` field declarations from `name = ...` runtime bindings in the
+  TextMate fallback grammar.
+- Moved workflow option-key matching before generic declarations so option keys
+  such as `args =` do not get claimed as runtime local definitions first.
+- Extended grammar smoke coverage for schema field captures and runtime binding
+  captures, including multiline capture matching for line-leading regexes.
+- Updated the editor token-scope guide with field/property/definition scope
+  intent.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

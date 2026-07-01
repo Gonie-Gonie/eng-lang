@@ -136,7 +136,7 @@ function Test-PatternMatchesText {
         if ($null -eq $patternText) {
             return $false
         }
-        foreach ($match in [regex]::Matches($FixtureText, $patternText)) {
+        foreach ($match in [regex]::Matches($FixtureText, $patternText, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
             if ($captureIndex -ge $match.Groups.Count) {
                 continue
             }

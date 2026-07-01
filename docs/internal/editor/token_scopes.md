@@ -59,7 +59,9 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `constant.other.unit*.englang` | Unit literals. |
 | `constant.language.englang` | Language constants and uncertainty/fallback words. |
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
-| `variable.other.property.englang` | General property paths and object fields. |
+| `meta.declaration.field.englang` | Field declarations written with `name:`. |
+| `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
+| `variable.other.definition.englang` | Runtime binding names written with `name = ...`. |
 | `meta.workflow.*.englang` | Phrase scopes for multi-token workflow operations. |
 | `meta.report.*.englang` | Report phrase scopes. |
 | `meta.quantity.literal.englang` | Unit-bearing numeric expressions. |

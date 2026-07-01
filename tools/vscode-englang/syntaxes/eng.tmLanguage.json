@@ -12,6 +12,9 @@
                          "include":  "#modules"
                      },
                      {
+                         "include":  "#withOptions"
+                     },
+                     {
                          "include":  "#declarations"
                      },
                      {
@@ -28,9 +31,6 @@
                      },
                      {
                          "include":  "#operators"
-                     },
-                     {
-                         "include":  "#withOptions"
                      },
                      {
                          "include":  "#builtins"
@@ -203,8 +203,17 @@
                                                                  "match":  "\\b(index)\\b"
                                                              },
                                                              {
+                                                                 "name":  "meta.declaration.field.englang",
+                                                                 "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
+                                                                 "captures":  {
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.property.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
                                                                  "name":  "meta.declaration.binding.englang",
-                                                                 "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*[:=])",
+                                                                 "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*=)",
                                                                  "captures":  {
                                                                                   "2":  {
                                                                                             "name":  "variable.other.definition.englang"

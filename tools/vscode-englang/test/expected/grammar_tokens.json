@@ -27,6 +27,17 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.declaration.field.englang",
+    "text": "time:"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "storage.type.block.englang",
     "text": "args {"
   },
@@ -44,6 +55,17 @@
     "fixture": "01_core_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "promote"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.declaration.binding.englang",
+    "text": "sensor ="
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.definition.englang",
+    "text": "sensor",
+    "fullMatch": true
   },
   {
     "fixture": "01_core_workflow.eng",
