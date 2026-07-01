@@ -88,6 +88,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         initialize["result"]["capabilities"]["semanticTokensProvider"]["full"],
         true
     );
+    assert_eq!(
+        initialize["result"]["capabilities"]["semanticTokensProvider"]["range"],
+        true
+    );
     assert!(
         initialize["result"]["capabilities"]["semanticTokensProvider"]["legend"]["tokenTypes"]
             .as_array()
@@ -220,13 +224,37 @@ fn stdio_server_round_trips_core_lsp_requests() {
     );
     let semantic_tokens = read_message(&mut stdout);
     assert_eq!(semantic_tokens["id"], 10);
-    assert!(
-        semantic_tokens["result"]["data"]
-            .as_array()
-            .expect("semantic tokens should be encoded as data")
-            .len()
-            > 5
+    let semantic_token_data = semantic_tokens["result"]["data"]
+        .as_array()
+        .expect("semantic tokens should be encoded as data");
+    assert!(semantic_token_data.len() > 5);
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 14,
+            "method": "textDocument/semanticTokens/range",
+            "params": {
+                "textDocument": { "uri": uri },
+                "range": {
+                    "start": { "line": q_coil_line, "character": 0 },
+                    "end": {
+                        "line": q_coil_line,
+                        "character": source.lines().nth(q_coil_line).unwrap().len()
+                    }
+                }
+            }
+        }),
     );
+    let range_semantic_tokens = read_message(&mut stdout);
+    assert_eq!(range_semantic_tokens["id"], 14);
+    let range_semantic_token_data = range_semantic_tokens["result"]["data"]
+        .as_array()
+        .expect("range semantic tokens should be encoded as data");
+    assert!(!range_semantic_token_data.is_empty());
+    assert_eq!(range_semantic_token_data.len() % 5, 0);
+    assert!(range_semantic_token_data.len() < semantic_token_data.len());
 
     write_message(
         &mut stdin,

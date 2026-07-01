@@ -848,6 +848,18 @@ Status: implemented after VS Code navigation review.
 - Added regression and `ide-check` coverage so the CLI bridge, VS Code provider,
   and documented definition behavior stay aligned.
 
+## Batch 70: LSP Semantic Token Range Requests
+
+Status: implemented after persistent LSP capability review.
+
+- Changed `eng-lsp` initialize capabilities to advertise
+  `semanticTokensProvider.range = true` alongside full semantic tokens.
+- Added a `textDocument/semanticTokens/range` handler that reuses compiler-owned
+  snapshot semantic tokens and filters them to the requested source range before
+  returning standard LSP delta-encoded token data.
+- Extended stdio and `ide-check` coverage so range semantic tokens, full tokens,
+  and the advertised LSP capability stay in sync.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

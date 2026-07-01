@@ -2044,6 +2044,17 @@ function Assert-VscodeExtensionContract {
             throw "eng-lsp CLI missing stdin definition token $RequiredLspDefinitionToken"
         }
     }
+    foreach ($RequiredLspSemanticToken in @(
+        '"range": true',
+        "textDocument/semanticTokens/full",
+        "textDocument/semanticTokens/range",
+        "semantic_tokens_range_for_request",
+        "semantic_token_intersects_range"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspSemanticToken)) {
+            throw "eng-lsp CLI missing semantic token protocol token $RequiredLspSemanticToken"
+        }
+    }
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
     $GeneratedCompletions = Get-Content -LiteralPath $CompletionsPath -Raw | ConvertFrom-Json
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {

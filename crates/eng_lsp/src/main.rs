@@ -325,7 +325,7 @@ fn run_lsp() -> io::Result<()> {
                                         "tokenModifiers": legend.token_modifiers
                                     },
                                     "full": true,
-                                    "range": false
+                                    "range": true
                                 }
                             },
                             "serverInfo": {
@@ -379,6 +379,15 @@ fn run_lsp() -> io::Result<()> {
             }
             "textDocument/semanticTokens/full" => {
                 let tokens = semantic_tokens_for_request(&request, &documents)
+                    .map(|tokens| semantic_tokens_lsp_json(&tokens))
+                    .unwrap_or_else(|| json!({ "data": [] }));
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": tokens }),
+                )?;
+            }
+            "textDocument/semanticTokens/range" => {
+                let tokens = semantic_tokens_range_for_request(&request, &documents)
                     .map(|tokens| semantic_tokens_lsp_json(&tokens))
                     .unwrap_or_else(|| json!({ "data": [] }));
                 write_response(
@@ -447,6 +456,38 @@ fn semantic_tokens_for_request(
     documents: &HashMap<String, String>,
 ) -> Option<eng_lsp::LspSemanticTokens> {
     Some(snapshot_for_request(request, documents)?.semantic_tokens)
+}
+
+fn semantic_tokens_range_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+) -> Option<eng_lsp::LspSemanticTokens> {
+    let mut tokens = semantic_tokens_for_request(request, documents)?;
+    let ((start_line, start_character), (end_line, end_character)) = request_range(request)?;
+    tokens.tokens.retain(|token| {
+        semantic_token_intersects_range(token, start_line, start_character, end_line, end_character)
+    });
+    Some(tokens)
+}
+
+fn semantic_token_intersects_range(
+    token: &eng_lsp::LspSemanticToken,
+    start_line: usize,
+    start_character: usize,
+    end_line: usize,
+    end_character: usize,
+) -> bool {
+    if token.line < start_line || token.line > end_line {
+        return false;
+    }
+    let token_end = token.start.saturating_add(token.length);
+    if token.line == start_line && token_end <= start_character {
+        return false;
+    }
+    if token.line == end_line && token.start >= end_character {
+        return false;
+    }
+    true
 }
 
 fn snapshot_for_request(
@@ -844,6 +885,26 @@ fn request_uri(request: &Value) -> Option<&str> {
     request
         .pointer("/params/textDocument/uri")
         .and_then(Value::as_str)
+}
+
+fn request_range(request: &Value) -> Option<((usize, usize), (usize, usize))> {
+    let start_line = request
+        .pointer("/params/range/start/line")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let start_character = request
+        .pointer("/params/range/start/character")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let end_line = request
+        .pointer("/params/range/end/line")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    let end_character = request
+        .pointer("/params/range/end/character")?
+        .as_u64()
+        .and_then(|value| usize::try_from(value).ok())?;
+    Some(((start_line, start_character), (end_line, end_character)))
 }
 
 fn path_from_uri(uri: &str) -> Option<PathBuf> {
