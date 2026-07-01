@@ -262,6 +262,80 @@ function Assert-ScopeMatchesLabels {
     }
 }
 
+function Test-PatternMatchesLabelInFixture {
+    param(
+        [Parameter(Mandatory = $true)][object] $Pattern,
+        [Parameter(Mandatory = $true)][string] $Label,
+        [Parameter(Mandatory = $true)][string] $FixtureText
+    )
+
+    $patternNode = $Pattern.pattern
+    $captureIndex = $Pattern.capture_index
+    $captureKind = [string] $Pattern.capture_kind
+
+    if ($null -ne $captureIndex) {
+        $patternText = $null
+        if ($captureKind -eq "begin" -and $null -ne $patternNode.begin) {
+            $patternText = [string] $patternNode.begin
+        } elseif ($captureKind -eq "end" -and $null -ne $patternNode.end) {
+            $patternText = [string] $patternNode.end
+        } elseif ($captureKind -eq "match" -and $null -ne $patternNode.match) {
+            $patternText = [string] $patternNode.match
+        }
+        if ($null -eq $patternText) {
+            return $false
+        }
+        foreach ($match in [regex]::Matches($FixtureText, $patternText, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+            if ($captureIndex -lt $match.Groups.Count -and $match.Groups[$captureIndex].Value -eq $Label) {
+                return $true
+            }
+        }
+        return $false
+    }
+
+    if ($null -ne $patternNode.match) {
+        foreach ($match in [regex]::Matches($FixtureText, [string] $patternNode.match, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+            if ($match.Value -eq $Label) {
+                return $true
+            }
+        }
+        $match = [regex]::Match($Label, [string] $patternNode.match)
+        return $match.Success -and $match.Value -eq $Label
+    }
+
+    return $false
+}
+
+function Assert-AnyScopeMatchesLabels {
+    param(
+        [Parameter(Mandatory = $true)][string[]] $Scopes,
+        [Parameter(Mandatory = $true)][string[]] $Labels,
+        [Parameter(Mandatory = $true)][string] $Description,
+        [Parameter(Mandatory = $true)][string] $FixtureText
+    )
+
+    foreach ($Label in $Labels) {
+        $matched = $false
+        foreach ($Scope in $Scopes) {
+            if (-not $PatternsByScope.ContainsKey($Scope)) {
+                continue
+            }
+            foreach ($pattern in $PatternsByScope[$Scope]) {
+                if (Test-PatternMatchesLabelInFixture -Pattern $pattern -Label $Label -FixtureText $FixtureText) {
+                    $matched = $true
+                    break
+                }
+            }
+            if ($matched) {
+                break
+            }
+        }
+        if (-not $matched) {
+            throw "TextMate grammar does not color $Description label $Label with an accepted fallback scope"
+        }
+    }
+}
+
 $CompletionKeywords = Read-RustStringSliceConst -Source $LspSource -Name "COMPLETION_KEYWORDS"
 $WorkflowBuiltins = Read-RustStringSliceConst -Source $LspSource -Name "WORKFLOW_BUILTIN_KEYWORDS"
 $WorkflowOptions = Read-RustTupleFirstStringsConst -Source $LspSource -Name "WORKFLOW_OPTION_COMPLETIONS"
@@ -279,6 +353,167 @@ Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowOp
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
+$CompletionKeywordFixture = @'
+use eng.path
+import eng.table
+from eng.std import symbol as alias
+
+schema GuardSchema {
+    index time: DateTime [iso8601]
+    value: HeatRate [kW]
+}
+
+class GuardClass {
+    method label() -> String = "guard"
+}
+
+fn guard_fn() -> HeatRate {
+    return 1 kW
+}
+
+system GuardSystem {
+    state T: AbsoluteTemperature [K]
+    input load: HeatRate [kW]
+    parameter C: HeatCapacity [J/K]
+    output Q: HeatRate [kW]
+    equation Q eq load
+}
+
+domain GuardDomain package "eng.std.domains.guard" version "0.1.0" {
+    across T: AbsoluteTemperature [K]
+    through q: HeatRate [W]
+    conservation sum(q) = 0 W
+}
+
+component GuardComponent {
+    port heat: GuardDomain
+}
+
+connect GuardComponent.heat -> GuardComponent.heat
+constraints {
+    validate Q within 1 kW
+}
+
+args {
+    input: CsvFile = file("data/input.csv")
+}
+
+missing {
+    method = interpolate
+}
+
+test "guard" {
+    assert true
+    golden file("expected.txt") matches file("actual.txt") within 1
+}
+
+with {
+    mode = append
+    policy = keep
+    missing = interpolate
+}
+
+records_table = promote json records payload.records as GuardSchema
+csv_table = promote csv args.input as GuardSchema
+raw_json = read json file("data/input.json")
+raw_toml = read toml file("data/input.toml")
+raw_text = read text file("data/input.txt")
+write text file("outputs/out.txt"), "ok"
+export summary to csv file("outputs/summary.csv")
+copy file("a.txt") to file("b.txt")
+move file("b.txt") to file("c.txt")
+delete file("c.txt")
+render template file("template.txt")
+run command "tool"
+http get url("https://example.org")
+http post url("https://example.org")
+http put url("https://example.org")
+http patch url("https://example.org")
+http head url("https://example.org")
+http request url("https://example.org")
+http fetch url("https://example.org")
+download url("https://example.org/file.csv") to file("outputs/file.csv")
+db = open sqlite file("outputs/run.sqlite")
+materialized = materialize cases csv_table
+case_results = apply run_case over materialized
+collected = collect results case_results
+samples = sample lhs
+uniform_samples = sample uniform
+split = train_test_split(Q, target=Q, features=[Q], test=0.25, seed=7)
+reg = regression(split)
+reg_table = regression_table(csv_table, target=Q, features=[value], test=0.25, seed=7)
+nn = mlp(split)
+metrics = evaluate(reg, split=split)
+card = model_card(reg)
+leakage = leakage_lint(split)
+predictions = predict reg using csv_table
+selected = select_first_row(csv_table)
+filtered = filter csv_table
+projected = select csv_table
+derived = derive csv_table column copy = value
+sorted = sort csv_table by value
+one = require_one filtered
+covered = check coverage one.time
+aligned = align Q to Time
+resampled = resample Q by 1 h
+filled = fill_missing Q
+meas = measured(1 kW, std=0.1 kW)
+span = interval(0 kW, 1 kW)
+ens = ensemble([1 kW, 2 kW])
+prop = propagate Q
+prob = probability Q > 0 kW
+avg = mean(Q)
+tw = time_weighted_mean(Q)
+lo = min(Q)
+hi = max(Q)
+mid = median(Q)
+sigma = std(Q)
+q90 = p90(Q)
+q95 = p95(Q)
+err = rmse(Q, Q)
+above = duration_above(Q, 1 kW)
+energy = integrate Q over Time
+rate = der(Q)
+lag = delay(Q, 1 h)
+total = sum(Q)
+
+report {
+    show Q
+    plot Q over Time line
+    plot Q over Time bar
+    plot Q over Time histogram
+    summarize Q
+    summary Q
+    distribution Q
+}
+
+simulate GuardSystem
+solve GuardSystem
+if true else false
+none null and or not between over by using in into is where of vs
+append insert upsert keep empty interpolate monotonic safe normal repro
+'@
+$KeywordFallbackScopes = @(
+    "keyword.control.import.englang",
+    "keyword.control.deprecated.englang",
+    "keyword.control.report.englang",
+    "keyword.control.validation.englang",
+    "keyword.control.side-effect.englang",
+    "keyword.control.external-boundary.englang",
+    "keyword.control.solver.englang",
+    "keyword.control.workflow.englang",
+    "keyword.operator.word.englang",
+    "constant.language.englang",
+    "storage.type.declaration.englang",
+    "storage.type.function.englang",
+    "storage.modifier.englang",
+    "storage.type.test.englang",
+    "storage.type.block.englang",
+    "storage.modifier.schema.englang",
+    "support.function.builtin.englang",
+    "variable.parameter.property.englang"
+)
+Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"

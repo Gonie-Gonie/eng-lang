@@ -1417,6 +1417,18 @@ Status: implemented after stdlib workflow registry review.
 - Added a compiler registry regression check so `eng.workflow` cannot drift
   back to `planned` while the runtime artifact surface remains implemented.
 
+## Batch 117: Completion Keyword Coloring Guard
+
+Status: implemented after VS Code keyword-highlight consistency review.
+
+- Strengthened the grammar smoke harness so every LSP completion keyword must
+  match an accepted TextMate fallback scope in representative source context.
+- Covered declaration keywords, block keywords, workflow phrases, operators,
+  constants, builtins, and with-block option words instead of only checking
+  that each label appears somewhere in the grammar source.
+- This closes the gap where a keyword could remain discoverable through LSP
+  completion but silently lose TextMate coloring.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
