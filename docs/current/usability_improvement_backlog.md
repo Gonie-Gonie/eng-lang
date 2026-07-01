@@ -1723,6 +1723,19 @@ grammar and LSP completion lists.
   keys no longer highlight inconsistently across `simulate`, `solve`, and
   write-style workflow blocks.
 
+## Batch 142: Legacy Table Helper Completion Cleanup
+
+Status: implemented after reviewing native workflow API wording exposure.
+
+- Removed the legacy `select_first_row(...)` helper from LSP/static editor
+  completions so new workflow authoring is guided toward `filter` +
+  `require_one`.
+- Kept legacy recognition for existing files, but marked `select_first_row`
+  semantic tokens as deprecated instead of presenting it as a current
+  `eng.table` helper.
+- Regenerated editor completion metadata so VS Code and the native IDE share
+  the same public completion surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

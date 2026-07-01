@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  346,
+    "completion_seed_count":  345,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -240,12 +240,6 @@
                                 "detail":  "HTTP or HTTPS URL constructor",
                                 "kind":  "function",
                                 "label":  "url",
-                                "lsp_kind":  3
-                            },
-                            {
-                                "detail":  "eng.table first-row selection helper",
-                                "kind":  "function",
-                                "label":  "select_first_row",
                                 "lsp_kind":  3
                             },
                             {

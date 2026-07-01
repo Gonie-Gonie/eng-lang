@@ -248,7 +248,6 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "schema",
     "script",
     "select",
-    "select_first_row",
     "show",
     "simulate",
     "solve",
@@ -388,7 +387,6 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("secret", "redacted secret constructor"),
     ("stem", "eng.path filename stem helper"),
     ("url", "HTTP or HTTPS URL constructor"),
-    ("select_first_row", "eng.table first-row selection helper"),
     ("filter", "eng.table row filter helper"),
     ("select", "eng.table column selection helper"),
     ("derive", "eng.table derived-column helper"),
@@ -2756,6 +2754,7 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         "check" | "coverage" | "fill_missing" | "align" | "resample" | "rmse" => {
             &["defaultLibrary", "validation"]
         }
+        "select_first_row" => &["defaultLibrary", "deprecated"],
         _ => &["defaultLibrary"],
     }
 }
@@ -5021,6 +5020,7 @@ surrogate = regression_table(designs, target=annual_electricity, features=[peopl
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
 predictions = predict surrogate using designs
+legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
 
@@ -5034,6 +5034,7 @@ predictions = predict surrogate using designs
             "evaluate",
             "model_card",
             "predict",
+            "select_first_row",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
             assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
@@ -5045,6 +5046,11 @@ predictions = predict surrogate using designs
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_semantic_token_modifier(&snapshot, source, "uniform", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "select_first_row", "deprecated");
+        assert!(!snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "select_first_row"));
     }
 
     #[test]
