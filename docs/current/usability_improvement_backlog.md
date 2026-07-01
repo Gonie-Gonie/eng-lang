@@ -1098,6 +1098,18 @@ Status: implemented after workflow 02 model/sampling fixture review.
 - Extended grammar smoke fixtures/expectations and regenerated the VS Code
   grammar.
 
+## Batch 91: Sampling Semantic Token Parity
+
+Status: implemented after LSP semantic-token review.
+
+- Marked `sample`, `lhs`, `grid`, and `random` semantic function tokens with
+  the `workflowStep` modifier so semantic highlighting matches the TextMate
+  sampling phrase scope.
+- Marked `normal` and `uniform` distribution helpers with the `uncertain`
+  modifier while keeping their default-library function role.
+- Extended LSP snapshot coverage so native IDE and VS Code semantic overlays
+  keep sampling/distribution colors in sync.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

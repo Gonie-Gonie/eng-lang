@@ -2660,6 +2660,8 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
 
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
+        "sample" | "grid" | "random" | "lhs" => &["defaultLibrary", "workflowStep"],
+        "normal" | "uniform" => &["defaultLibrary", "uncertain"],
         "materialize" | "apply" | "collect" | "run_case" => &["defaultLibrary", "workflowStep"],
         "measured" | "interval" | "ensemble" | "propagate" | "probability" => {
             &["defaultLibrary", "uncertain"]
@@ -4662,6 +4664,10 @@ predictions = predict surrogate using designs
         for label in ["regression_table", "evaluate", "model_card", "predict"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
+        for label in ["sample", "lhs"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        assert_semantic_token_modifier(&snapshot, source, "uniform", "uncertain");
     }
 
     #[test]
