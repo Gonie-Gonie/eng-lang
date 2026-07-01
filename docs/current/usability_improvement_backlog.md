@@ -83,11 +83,24 @@ Status: implemented after row-field runtime support.
   `station.station_id`.
 - Added LSP completion for `require_one` row fields based on the source schema.
 
+## Batch 8: VS Code Setting Wording
+
+Status: implemented after the execution-profile switch.
+
+- Added user-facing enum descriptions for `englang.diagnosticsBackend` so users
+  see stable CLI diagnostics vs editor-service snapshot diagnostics instead of
+  only internal setting values.
+- Added user-facing enum descriptions for `englang.executionProfile` covering
+  `normal`, `safe`, and `repro`.
+- Updated the VS Code extension README to lead with stable diagnostics and
+  editor-service diagnostics before naming the underlying commands.
+- Extended `ide-check` contract coverage so setting enum descriptions do not
+  disappear silently.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
-  `ide-check`, `lsp-snapshot`, `seed`, `hybrid`, `native target`, and
-  `opaque boundary`.
+  `seed`, `hybrid`, `native target`, and `opaque boundary`.
 - Make workflow command examples consistent: prefer `eng.exe run <file.eng>
   --save-artifacts` where saved artifacts are discussed.
 - Review stdlib/module status words. Public docs should distinguish

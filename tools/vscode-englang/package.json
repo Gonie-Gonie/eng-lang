@@ -62,7 +62,11 @@
             "eng-cli",
             "lsp-snapshot"
           ],
-          "description": "Diagnostics backend. eng-cli runs eng.exe ide-check for file diagnostics; lsp-snapshot runs eng-lsp.exe --snapshot for experimental diagnostics, hover, and completion metadata."
+          "enumDescriptions": [
+            "Stable CLI diagnostics for opened and saved files.",
+            "Editor-service snapshot diagnostics aligned with hover and completion metadata."
+          ],
+          "description": "Diagnostics source for the Problems panel. Use eng-cli for stable file diagnostics, or lsp-snapshot to try the editor-service snapshot path."
         },
         "englang.executionProfile": {
           "type": "string",
@@ -71,6 +75,11 @@
             "normal",
             "safe",
             "repro"
+          ],
+          "enumDescriptions": [
+            "Run declared effects and write the standard review artifacts.",
+            "Reject workflows with explicit write, export, process, file, or DB mutation effects.",
+            "Require reproducibility metadata for sampling, network, and cache boundaries."
           ],
           "description": "Execution profile used by EngLang: Run Current File. normal runs declared effects; safe rejects side effects; repro requires reproducibility metadata for sampling, network, and cache boundaries."
         },

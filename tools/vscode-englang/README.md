@@ -7,8 +7,9 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 
 - `.eng` language registration and syntax highlighting for workflow keywords,
   schema/types, units, built-in functions, with-block options, and literals
-- diagnostics from `eng ide-check`
-- optional diagnostics/completion/hover metadata from `eng-lsp --snapshot`
+- stable file diagnostics from the EngLang CLI checker
+- optional editor-service diagnostics/completion/hover metadata from
+  `eng-lsp --snapshot`
 - debounced unsaved-buffer diagnostics from `eng-lsp --snapshot-stdin`
 - semantic highlighting from `eng-lsp --snapshot-stdin`, covering roles such as
   variables, parameters, properties, quantities, units, reports, validations,
@@ -37,9 +38,9 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 5. Open a `.eng` file and run `EngLang: Check Current File`.
 
 The packaged VSIX contains `eng.exe` and experimental `eng-lsp.exe`, so no Rust
-setup is required for IDE preview diagnostics or LSP smoke checks. The default
-diagnostics backend still uses direct `eng.exe` commands. To exercise the
-snapshot path, set:
+setup is required for IDE preview diagnostics or editor-service smoke checks.
+The default diagnostics source still uses the stable CLI checker. To try the
+editor-service snapshot path, set:
 
 ```text
 englang.diagnosticsBackend = lsp-snapshot
@@ -63,10 +64,11 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 ## Current Scope
 
 This is not a persistent LSP-client extension yet. The default `eng-cli`
-backend runs `eng.exe ide-check <file.eng>` on open/save and manual check. The
-optional `lsp-snapshot` backend runs `eng-lsp.exe --snapshot <file.eng>` for
-experimental diagnostics, hover metadata, and completion metadata, while
-run/report/artifact commands still use `eng.exe`. `EngLang: Run Current File`
+diagnostics source runs the stable CLI checker on open/save and manual check.
+The optional `lsp-snapshot` source runs `eng-lsp.exe --snapshot <file.eng>` for
+experimental editor-service diagnostics, hover metadata, and completion
+metadata, while run/report/artifact commands still use `eng.exe`.
+`EngLang: Run Current File`
 passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact
 commands immediately after a successful run. Use `EngLang: Switch Execution

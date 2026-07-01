@@ -1780,11 +1780,17 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension diagnosticsBackend missing enum value $RequiredBackend"
         }
     }
+    if (@($Properties."englang.diagnosticsBackend".enumDescriptions).Count -lt 2) {
+        throw "VS Code extension diagnosticsBackend must include user-facing enum descriptions"
+    }
     $ProfileEnum = @($Properties."englang.executionProfile".enum)
     foreach ($RequiredProfile in @("normal", "safe", "repro")) {
         if ($ProfileEnum -notcontains $RequiredProfile) {
             throw "VS Code extension executionProfile missing enum value $RequiredProfile"
         }
+    }
+    if (@($Properties."englang.executionProfile".enumDescriptions).Count -lt 3) {
+        throw "VS Code extension executionProfile must include user-facing enum descriptions"
     }
 
     $Node = Get-Command node -ErrorAction SilentlyContinue
