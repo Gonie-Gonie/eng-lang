@@ -2354,11 +2354,15 @@ function Invoke-IdeCheck {
         "variable-source-line",
         "codeUnitToByteOffset",
         "Timestamp",
-        "Artifact Root"
+        "Artifact Root",
+        "External Process Results"
     )) {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
             throw "Native IDE UI missing contract token $RequiredIdeToken"
         }
+    }
+    if ($IdeUiSource.Contains('<div class="panel-title compact">Process Results</div>')) {
+        throw "Native IDE Effects panel must label process data as External Process Results"
     }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
         if (-not $IdeUiSource.Contains($RequiredModuleWordingToken)) {

@@ -1554,6 +1554,15 @@ Status: implemented after command-palette wording review.
 - Extended `ide-check` to reject the older wording in package and extension
   sources.
 
+## Batch 128: Native IDE Effects Wording Cleanup
+
+Status: implemented after Native IDE artifact wording review.
+
+- Renamed the Effects panel subprocess artifact subsection from `Process
+  Results` to `External Process Results`, matching the VS Code command surface
+  and making it clearer that native workflows can have zero external processes.
+- Extended `ide-check` so the old Native IDE panel title cannot return.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -3084,7 +3084,7 @@ function renderEffectsPanel() {
       ${renderArtifactRecords(artifacts)}
       <div class="panel-title compact">External Boundary Records</div>
       ${renderExternalBoundaryRecords(boundaries)}
-      <div class="panel-title compact">Process Results</div>
+      <div class="panel-title compact">External Process Results</div>
       ${renderProcessResults(processes)}
       ${rawJsonToggle("Raw effects JSON", { effects, processResults })}
     </div>
