@@ -1700,6 +1700,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
         "post", "check", "coverage", "sample", "lhs", "uniform",
+        "require_one", "regression_table", "support.namespace.module.englang",
         "materialize", "apply", "collect", "case_id", "output_root", "resume", "step",
         "run_case", "train_test_split", "regression", "predict", "model_card",
         "CsvFile", "JsonFile", "DirectoryPath", "DimensionlessNumber",
@@ -1760,7 +1761,9 @@ function Assert-VscodeExtensionContract {
         "method.sideEffect", "variable.validation", "variable.report",
         "variable.state", "parameter.input", "variable.riskHigh",
         "variable.riskMedium", "variable.model", "variable.db",
-        "variable.cache", "keyword.workflowStep"
+        "function.model", "function.defaultLibrary", "namespace.defaultLibrary",
+        "namespace.internal", "variable.cache", "keyword.workflowStep",
+        "function.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
         if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {

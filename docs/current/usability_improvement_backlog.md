@@ -375,6 +375,20 @@ Status: implemented after docs cleanup review.
 - Kept network fixture terminology where it describes an actual offline API
   boundary contract.
 
+## Batch 32: Built-In Helper Semantic Highlighting
+
+Status: implemented after VS Code highlighting review.
+
+- Made `eng-lsp` emit semantic `function` tokens for native workflow helper
+  names that TextMate already recognized, including `require_one`,
+  `regression_table`, `evaluate`, `model_card`, and `predict`.
+- Added role modifiers for built-in helper families, including model,
+  uncertainty, validation, and workflow-step helpers.
+- Added semantic namespace tokens and TextMate fallback scope coverage for
+  module/package names such as `eng.std.domains.thermal`.
+- Extended LSP unit tests, VS Code grammar fixtures, generated TextMate grammar,
+  README wording, and `ide-check` contract coverage.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -414,8 +428,8 @@ Status: implemented after docs cleanup review.
 
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
-- Expand compiler-backed semantic token coverage for module names and richer
-  workflow step references after those source spans become first-class metadata.
+- Expand compiler-backed semantic token coverage for richer workflow step
+  references after those source spans become first-class metadata.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need semantic context, such

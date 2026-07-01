@@ -160,9 +160,23 @@
             "entity.name.function.englang",
             "variable.other.property.englang"
           ],
+          "function.defaultLibrary": [
+            "support.function.builtin.englang"
+          ],
+          "namespace.defaultLibrary": [
+            "support.namespace.module.englang"
+          ],
+          "namespace.internal": [
+            "support.namespace.module.englang",
+            "comment.line.number-sign.englang"
+          ],
           "variable.uncertain": [
             "constant.language.englang",
             "variable.other.definition.englang"
+          ],
+          "function.uncertain": [
+            "support.function.builtin.englang",
+            "constant.language.englang"
           ],
           "property.uncertain": [
             "constant.language.englang",
@@ -196,6 +210,10 @@
             "keyword.control.validation.englang",
             "variable.other.property.englang"
           ],
+          "function.validation": [
+            "support.function.builtin.englang",
+            "keyword.control.validation.englang"
+          ],
           "variable.report": [
             "keyword.control.report.englang",
             "variable.other.definition.englang"
@@ -224,6 +242,10 @@
             "entity.name.function.englang",
             "variable.other.definition.englang"
           ],
+          "function.model": [
+            "support.function.builtin.englang",
+            "entity.name.function.englang"
+          ],
           "property.model": [
             "entity.name.function.englang",
             "variable.other.property.englang"
@@ -245,6 +267,10 @@
           ],
           "keyword.workflowStep": [
             "entity.name.function.workflow-step.englang"
+          ],
+          "function.workflowStep": [
+            "entity.name.function.workflow-step.englang",
+            "support.function.builtin.englang"
           ],
           "property.workflowStep": [
             "entity.name.function.workflow-step.englang",

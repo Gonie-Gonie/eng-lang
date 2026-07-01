@@ -12,8 +12,9 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
   `eng-lsp --snapshot`
 - debounced unsaved-buffer diagnostics from `eng-lsp --snapshot-stdin`
 - semantic highlighting from `eng-lsp --snapshot-stdin`, covering roles such as
-  variables, parameters, properties, quantities, units, reports, validations,
-  and side-effect/external workflow boundaries
+  variables, parameters, properties, built-in workflow helpers, module
+  namespaces, quantities, units, reports, validations, and side-effect/external
+  workflow boundaries
 - packaged semantic token modifier and TextMate fallback scope metadata so
   themes can color EngLang roles consistently
 - semantic token debug command that opens the current `eng-lsp --snapshot-stdin`
@@ -99,9 +100,9 @@ Semantic highlighting uses the same snapshot-stdin path so unsaved edits receive
 role-aware token colors without waiting for a file save. The extension declares
 EngLang-specific semantic token modifiers and TextMate fallback scopes for units,
 quantities, axes, time series, validation/report roles, side effects, external
-boundaries, inputs, state, model artifacts, DB/cache records, workflow steps,
-and review risks, so themes without EngLang-specific rules still receive stable
-color hints. Set
+boundaries, inputs, state, built-in workflow helper functions, module
+namespaces, model artifacts, DB/cache records, workflow steps, and review risks,
+so themes without EngLang-specific rules still receive stable color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting.
 

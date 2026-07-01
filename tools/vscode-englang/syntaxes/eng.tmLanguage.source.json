@@ -6,6 +6,7 @@
     "patterns": [
       { "include": "#comments" },
       { "include": "#strings" },
+      { "include": "#modules" },
       { "include": "#declarations" },
       { "include": "#members" },
       { "include": "#blocks" },
@@ -45,6 +46,10 @@
                 "match": "\\\\."
               },
               {
+                "name": "support.namespace.module.englang",
+                "match": "\\beng(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
                 "name": "meta.interpolation.englang",
                 "begin": "\\{",
                 "end": "\\}",
@@ -74,6 +79,14 @@
                 ]
               }
             ]
+          }
+        ]
+      },
+      "modules": {
+        "patterns": [
+          {
+            "name": "support.namespace.module.englang",
+            "match": "\\beng(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
           }
         ]
       },

@@ -263,6 +263,70 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "write",
 ];
 
+const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
+    "file",
+    "dir",
+    "join",
+    "parent",
+    "stem",
+    "extension",
+    "exists",
+    "url",
+    "secret",
+    "env",
+    "date",
+    "datetime",
+    "select_first_row",
+    "filter",
+    "select",
+    "derive",
+    "sort",
+    "require_one",
+    "check",
+    "coverage",
+    "fill_missing",
+    "align",
+    "resample",
+    "sample",
+    "uniform",
+    "normal",
+    "grid",
+    "random",
+    "lhs",
+    "materialize",
+    "apply",
+    "collect",
+    "run_case",
+    "measured",
+    "interval",
+    "ensemble",
+    "propagate",
+    "probability",
+    "train_test_split",
+    "regression",
+    "regression_table",
+    "train_regression",
+    "mlp",
+    "evaluate",
+    "model_card",
+    "leakage_lint",
+    "predict",
+    "mean",
+    "time_weighted_mean",
+    "min",
+    "max",
+    "median",
+    "std",
+    "p90",
+    "p95",
+    "rmse",
+    "duration_above",
+    "integrate",
+    "der",
+    "delay",
+    "sum",
+];
+
 const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("Bool", "Boolean value"),
     ("CsvFile", "CSV file path"),
@@ -752,6 +816,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for domain in &program.domains {
         builder.push_on_line(domain.line, &domain.name, "interface", &["declaration"]);
+        if let Some(package) = &domain.package {
+            builder.push_on_line(
+                domain.line,
+                package,
+                "namespace",
+                &["defaultLibrary", "internal"],
+            );
+        }
         for variable in &domain.variables {
             builder.push_on_line(variable.line, &variable.name, "property", &["declaration"]);
         }
@@ -2024,7 +2096,15 @@ impl<'a> SemanticTokenBuilder<'a> {
                     index += 1;
                 }
                 let token = &line[token_start..index];
-                if COMPLETION_KEYWORDS.contains(&token) {
+                if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "function",
+                        workflow_builtin_modifiers(token),
+                    );
+                } else if COMPLETION_KEYWORDS.contains(&token) {
                     self.push_byte_range(
                         line_index,
                         token_start,
@@ -2300,6 +2380,21 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "validate" | "check" | "assert" | "golden" | "test" => &["validation"],
         "script" | "struct" => &["deprecated"],
         _ => &[],
+    }
+}
+
+fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
+    match keyword {
+        "materialize" | "apply" | "collect" | "run_case" => &["defaultLibrary", "workflowStep"],
+        "measured" | "interval" | "ensemble" | "propagate" | "probability" => {
+            &["defaultLibrary", "uncertain"]
+        }
+        "train_test_split" | "regression" | "regression_table" | "train_regression" | "mlp"
+        | "evaluate" | "model_card" | "leakage_lint" | "predict" => &["defaultLibrary", "model"],
+        "check" | "coverage" | "fill_missing" | "align" | "resample" | "rmse" => {
+            &["defaultLibrary", "validation"]
+        }
+        _ => &["defaultLibrary"],
     }
 }
 
@@ -3645,6 +3740,23 @@ mod tests {
         );
     }
 
+    fn assert_semantic_token_type(
+        snapshot: &LspSnapshot,
+        source: &str,
+        label: &str,
+        token_type: &str,
+    ) {
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                source.lines().nth(token.line).is_some_and(|line| {
+                    line.get(token.start..token.start + token.length) == Some(label)
+                        && token.token_type == token_type
+                })
+            }),
+            "semantic token `{label}` should have type `{token_type}`"
+        );
+    }
+
     #[test]
     fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
         let source = "/// heat rate smoke\nQ: HeatRate [kW] = 2 kW - 1\n}\n";
@@ -3846,6 +3958,41 @@ with {
     }
 
     #[test]
+    fn snapshot_marks_native_workflow_builtins_as_semantic_functions() {
+        let source = r#"designs = sample lhs
+with {
+    count = 2
+    seed = 7
+    people_density = uniform(0.03 person/m2, 0.12 person/m2)
+}
+
+case_row = require_one designs
+surrogate = regression_table(designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
+metrics = evaluate(surrogate)
+card = model_card(surrogate)
+predictions = predict surrogate using designs
+"#;
+        let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
+
+        for label in [
+            "sample",
+            "lhs",
+            "uniform",
+            "require_one",
+            "regression_table",
+            "evaluate",
+            "model_card",
+            "predict",
+        ] {
+            assert_semantic_token_type(&snapshot, source, label, "function");
+            assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
+        }
+        for label in ["regression_table", "evaluate", "model_card", "predict"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "model");
+        }
+    }
+
+    #[test]
     fn snapshot_exposes_http_response_member_fields() {
         let source = "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\n";
         let snapshot = snapshot_for_source(Path::new("net.eng"), source);
@@ -3908,9 +4055,17 @@ with {
 
     #[test]
     fn snapshot_exposes_domain_component_hover_and_completion() {
-        let source = "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium M] {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\nconnect SupplyPipe.inlet -> SupplyPipe.outlet\n";
+        let source = "domain Thermal package \"eng.std.domains.thermal\" version \"0.1.0\" {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ndomain Fluid[Medium M] {\n    across height: Length [m]\n    through m_dot: MassFlowRate [kg/s]\n    conservation sum(m_dot) = 0\n}\n\ncomponent RoomBoundary {\n    port heat: Thermal\n}\n\ncomponent AmbientBoundary {\n    port heat: Thermal\n}\n\ncomponent SupplyPipe {\n    port inlet: Fluid[Water]\n    port outlet: Fluid[Water]\n}\n\nconnect RoomBoundary.heat -> AmbientBoundary.heat\nconnect SupplyPipe.inlet -> SupplyPipe.outlet\n";
         let snapshot = snapshot_for_source(Path::new("domain.eng"), source);
 
+        assert_semantic_token_type(&snapshot, source, "eng.std.domains.thermal", "namespace");
+        assert_semantic_token_modifier(
+            &snapshot,
+            source,
+            "eng.std.domains.thermal",
+            "defaultLibrary",
+        );
+        assert_semantic_token_modifier(&snapshot, source, "eng.std.domains.thermal", "internal");
         assert!(snapshot
             .hovers
             .iter()
