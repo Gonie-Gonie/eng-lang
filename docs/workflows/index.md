@@ -23,10 +23,10 @@ The examples repeat a small set of contracts:
 - report/review artifact
 - deterministic fixture mode for smoke runs
 
-These contracts are the seed for generic workflow modules such as eng.net,
+These contracts define the generic workflow module surface for eng.net,
 eng.cache, eng.case, eng.process, eng.db, eng.model, and eng.artifact. Domain
 adapters such as weather APIs, standard-file writers, external simulators, and
-surrogate trainers should remain layered above those generic modules.
+surrogate trainers stay layered above those generic modules.
 
 ## Run All Workflow Examples
 

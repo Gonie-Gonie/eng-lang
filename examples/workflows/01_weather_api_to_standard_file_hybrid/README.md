@@ -24,10 +24,10 @@ generated weather-quality summary artifact from CSV helper logic
 report/review artifact generation
 ```
 
-The Python tools in `tools/` show the opaque adapter boundary that future
-native modules should replace. They are deliberately generic fixture tools, not
-the final architecture, and they do not implement KMA or EPW as core language
-behavior.
+The Python tools in `tools/` show a reviewable external adapter boundary that
+native modules can replace later. They are deliberately generic fixture tools,
+not the final architecture, and they do not implement KMA or EPW as core
+language behavior.
 
 ## Native Module Replacement Map
 

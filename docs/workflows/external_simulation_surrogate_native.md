@@ -4,7 +4,7 @@ Purpose: document the native generic module pattern for sample-driven external
 simulation, case artifacts, model prediction, and DB writes without making any
 simulator or surrogate framework part of the core language.
 
-Source contract: this is the native target for the hybrid fixture at
+Source contract: this is the native module contract for the hybrid workflow at
 `examples/workflows/02_external_simulation_surrogate_hybrid/main.eng`.
 
 ## Domain-Neutral Pattern

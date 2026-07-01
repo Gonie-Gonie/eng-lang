@@ -47,16 +47,16 @@ APIs unless a status document says so.
 | `eng.plot` | Planned | PlotSpec-oriented helper vocabulary. |
 | `eng.report` | Planned | Report/review helper vocabulary. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
-| `eng.net` | Supported seed | Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries. |
-| `eng.cache` | Supported seed | Explicit cache keys, cache manifests, and hit/miss lookup artifacts; reuse/invalidation remains planned. |
-| `eng.quality` | Supported seed | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
-| `eng.template` | Supported seed | Native text template rendering for generated inputs and adapter boundaries. |
-| `eng.db` | Supported SQLite write seed | Native SQLite append/upsert writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
+| `eng.net` | Supported narrow scope | Offline/fixture HTTP GET and download boundary records with redacted query secrets and artifact summaries. |
+| `eng.cache` | Supported narrow scope | Explicit cache keys, cache manifests, and hit/miss lookup artifacts; reuse/invalidation remains planned. |
+| `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
+| `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
+| `eng.db` | Supported SQLite write scope | Native SQLite append/upsert writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |
-| `eng.model` | Supported model-spec and predict-table seed | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
+| `eng.model` | Supported model-spec and predict-table scope | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
@@ -65,9 +65,9 @@ APIs unless a status document says so.
 ## Module File Policy
 
 `stdlib/eng/*.eng` files currently define module boundaries. Each file must say
-whether its surface is a supported compiler/runtime built-in seed, planned pure
-`.eng` helper vocabulary, or internal vocabulary. A module file is not by
-itself a claim that the behavior is importable or production-ready.
+whether its surface is supported compiler/runtime behavior, planned pure `.eng`
+helper vocabulary, or internal vocabulary. A module file is not by itself a
+claim that the behavior is importable or production-ready.
 
 ## Building Vocabulary Rule
 

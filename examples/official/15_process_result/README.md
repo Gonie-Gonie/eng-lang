@@ -1,6 +1,6 @@
 # 15 Process Result
 
-This example exercises the external process seed that is now part of the
+This example exercises the external process surface that is now part of the
 supported side-effect surface.
 
 It demonstrates:

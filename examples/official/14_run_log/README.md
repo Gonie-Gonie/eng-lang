@@ -1,6 +1,6 @@
 # Official 14 - Run Log
 
-This example exercises the structured runtime message seed that is now part of
+This example exercises the structured runtime message surface that is now part of
 the supported side-effect surface.
 
 It demonstrates:

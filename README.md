@@ -118,10 +118,10 @@ target\debug\eng.exe view build\result\result.engres
 `eng-lsp.exe --smoke` remains available for internal snapshot/editor tooling.
 It is not a stable persistent editor-service contract.
 
-`eng run` lowers through bytecode v1 and the native VM seed. By default,
-result, review, report, run-log, process-results, test-results, PlotSpec, SVG,
-output manifest, and bytecode payloads are runtime objects in memory. Add
-`--save-artifacts` when you want the file set:
+`eng run` lowers through bytecode v1 and the native VM. By default, result,
+review, report, run-log, process-results, test-results, PlotSpec, SVG, output
+manifest, and bytecode payloads are runtime objects in memory. Add
+`--save-artifacts` when you want those reviewable files written to disk:
 
 ```text
 build/

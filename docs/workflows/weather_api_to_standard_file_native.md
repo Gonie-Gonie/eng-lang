@@ -4,7 +4,7 @@ Purpose: document the native generic module pattern for turning an API or
 fixture payload into a typed standard file without making any weather provider
 or file format part of the core language.
 
-Source contract: this is the native target for the hybrid fixture at
+Source contract: this is the native module contract for the hybrid workflow at
 `examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng`.
 
 ## Domain-Neutral Pattern

@@ -28,10 +28,10 @@ Because native loop/case helpers are still planned, `main.eng` expands three
 fixture cases explicitly. That keeps the case manifest and DB write contract
 reviewable without claiming a native parameter-sweep abstraction yet.
 
-The Python files in `tools/` are fake adapters. They document opaque process
-boundaries that future native modules should replace without turning EngLang
-into a solver wrapper or making EnergyPlus-like tooling part of the core
-language.
+The Python files in `tools/` are fake adapters. They document reviewable
+external process boundaries that native modules can replace later without
+turning EngLang into a solver wrapper or making EnergyPlus-like tooling part
+of the core language.
 
 ## Native Module Replacement Map
 

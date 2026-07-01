@@ -44,7 +44,7 @@ Open these first:
   generated run_log.json artifacts.
 
 15_process_result
-  External process seed with run command, ProcessResult, and generated
+  External process surface with run command, ProcessResult, and generated
   process_results.json artifacts.
 
 16_test_assert_golden
@@ -56,7 +56,7 @@ Open these first:
 
 ```text
 13_file_operations
-  Explicit copy/move/delete filesystem mutation seed, confirmation metadata,
+  Explicit copy/move/delete filesystem mutation surface, confirmation metadata,
   generated-output mutation boundaries, and output manifest records.
 
 19_class_object
