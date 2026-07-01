@@ -14,6 +14,9 @@ The current `main.eng` stays within supported and internal EngLang primitives:
 typed sensor CSV promotion
 TimeSeries heat-rate calculation
 pointwise measured standard-deviation metadata with `sensor_std`
+native mean/peak/integrated energy bindings
+native time-axis coverage check
+explicit sensor summary CSV and quality text artifacts
 summary statistics with duration threshold linkage
 PlotSpec confidence band request
 report/review artifact generation
@@ -34,6 +37,7 @@ attach explicit measurement uncertainty metadata
 summarize statistics and threshold duration
 integrate total quantity
 render confidence-band plot
+write native CSV/text summary artifacts
 record uncertainty review metadata
 ```
 
@@ -42,5 +46,7 @@ Expected saved-run properties:
 ```text
 process_results.json has process_count = 0
 review.json records timeseries_uncertainty metadata
+output_manifest.json records outputs/sensor_summary.csv and outputs/sensor_quality_summary.txt
+result.engres records the native coverage binding with status complete
 report_spec.json and plot_spec.json record the confidence-band plot request
 ```

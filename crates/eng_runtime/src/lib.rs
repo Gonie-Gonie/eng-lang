@@ -15734,8 +15734,33 @@ mod tests {
             .process_results_json
             .contains("\"process_count\": 0"));
         assert!(uncertainty_output
+            .output_manifest_json
+            .contains("outputs/sensor_summary.csv"));
+        assert!(uncertainty_output
+            .output_manifest_json
+            .contains("outputs/sensor_quality_summary.txt"));
+        assert!(uncertainty_output
+            .output_manifest_json
+            .contains("\"kind\": \"csv_export\""));
+        assert!(uncertainty_output
+            .output_manifest_json
+            .contains("\"kind\": \"write_text\""));
+        let uncertainty_summary_csv =
+            fs::read_to_string(&uncertainty_output.csv_export_paths[0]).expect("sensor summary");
+        assert!(uncertainty_summary_csv.contains("E_sensor [kWh]"));
+        assert!(uncertainty_summary_csv.contains("1.262,5.07,5.42"));
+        assert!(uncertainty_output
             .review_json
             .contains("\"timeseries_uncertainty\""));
+        assert!(uncertainty_output
+            .result_json
+            .contains("\"timeseries_coverage\""));
+        assert!(uncertainty_output
+            .result_json
+            .contains("\"binding\": \"coverage\""));
+        assert!(uncertainty_output
+            .result_json
+            .contains("\"status\": \"complete\""));
         assert!(uncertainty_output
             .plot_spec_json
             .contains("\"confidence_band\""));

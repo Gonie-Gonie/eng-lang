@@ -29,10 +29,32 @@ with {
     sensor_std = 0.2 kW
 }
 E_sensor = integrate(Q_sensor, over=Time)
+mean_Q_sensor = mean(Q_sensor, axis=Time)
+peak_Q_sensor = max(Q_sensor, axis=Time)
+coverage = check coverage sensor.time
+
+export summary to csv "outputs/sensor_summary.csv" {
+    E_sensor as kWh with ".3"
+    mean_Q_sensor as kW with ".2"
+    peak_Q_sensor as kW with ".2"
+}
+with {
+    overwrite = true
+}
+
+write text "outputs/sensor_quality_summary.txt", "rows={sensor.rows} coverage_status={coverage.status} missing={coverage.missing_count} mean={mean_Q_sensor: .2 kW} peak={peak_Q_sensor: .2 kW} uncertainty_std=0.2 kW"
+with {
+    overwrite = true
+}
 
 report {
     summarize Q_sensor by [mean, p95, duration_above(5 kW)]
     show E_sensor
+    show mean_Q_sensor
+    show peak_Q_sensor
+    show coverage.status
+    show coverage.actual_count
+    show coverage.missing_count
     plot Q_sensor over Time
     with {
         unit y = kW

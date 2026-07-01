@@ -15,7 +15,8 @@ Current examples:
   native prediction table -> SQLite writes.
 
 03_uncertain_sensor_report
-  typed sensor data -> uncertainty metadata -> confidence-band report artifact.
+  typed sensor data -> native coverage/summary bindings -> generated
+  CSV/text artifacts -> uncertainty metadata -> confidence-band report artifact.
 ```
 
 All three workflows should not call Python or any external process. Saved runs

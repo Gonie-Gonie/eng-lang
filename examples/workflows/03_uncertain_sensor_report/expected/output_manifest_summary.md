@@ -1,7 +1,13 @@
 # Output Manifest Summary
 
-The deterministic fixture writes no user-requested output files. Runtime
-artifacts are expected under the selected result directory:
+The native sensor workflow writes explicit user-requested outputs:
+
+```text
+outputs/sensor_summary.csv
+outputs/sensor_quality_summary.txt
+```
+
+Runtime review artifacts are also expected under the selected result directory:
 
 ```text
 result.engres

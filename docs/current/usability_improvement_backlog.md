@@ -923,6 +923,18 @@ Status: implemented after native surrogate workflow review.
 - Extended workflow smoke coverage so `workflow_summary.csv` cannot regress to
   the old fixed `12800.0,14.2,0.0` row while claiming native sampling.
 
+## Batch 76: Workflow 03 Native Output Artifacts
+
+Status: implemented after native uncertainty workflow review.
+
+- Added native mean, peak, integrated energy, and time-axis coverage bindings to
+  workflow 03.
+- Added `outputs/sensor_summary.csv` and `outputs/sensor_quality_summary.txt`
+  so the sensor workflow produces reviewable user output artifacts, not only
+  saved-run metadata.
+- Extended workflow smoke coverage to reject Python/external process helpers in
+  workflows 1-3 and to require workflow 03 CSV/text output manifest entries.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

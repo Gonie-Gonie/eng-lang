@@ -19,6 +19,8 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 - typed sensor CSV promotion
 - unit-aware TimeSeries heat-rate calculation
 - pointwise measured standard-deviation metadata
+- native mean, peak, integrated energy, and coverage bindings
+- explicit sensor summary CSV and quality text artifacts
 - summary statistics with threshold evidence
 - confidence-band plot request
 - report/review artifact generation
@@ -26,10 +28,11 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 ## What It Does Not Claim
 
 This is not broad uncertainty propagation, seeded Monte Carlo, or a stable
-public probabilistic programming API. It is a workflow-shaped fixture for
-reviewable measured uncertainty metadata.
+public probabilistic programming API. It is a native measured-uncertainty
+workflow that keeps uncertainty propagation deliberately narrow and reviewable.
 
 ## Review Points
 
 Inspect uncertainty metadata, confidence-band report output, TimeSeries
-statistics, and the example's expected review summary.
+statistics, coverage metadata, generated output artifacts, and the example's
+expected review summary.

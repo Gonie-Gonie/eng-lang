@@ -106,6 +106,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             println!("ok: {group} example {example}");
         }
     }
+    if !native_workflow_sources_avoid_external_processes() {
+        return ExitCode::from(2);
+    }
 
     if !review_examples_are_formatter_clean() {
         return ExitCode::from(2);
@@ -6358,6 +6361,21 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"status\": \"propagated_sensor_std\"")
                 || !output.result_json.contains("\"status\": \"metadata_only\"")
                 || !output.process_results_json.contains("\"process_count\": 0")
+                || !output.result_json.contains("\"timeseries_coverage\"")
+                || !output.result_json.contains("\"binding\": \"coverage\"")
+                || !output.result_json.contains("\"status\": \"complete\"")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/sensor_summary.csv")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/sensor_quality_summary.txt")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"csv_export\"")
+                || !output
+                    .output_manifest_json
+                    .contains("\"kind\": \"write_text\"")
                 || !output.plot_spec_json.contains("\"confidence_band\"")
                 || !output.plot_spec_json.contains("\"source\": \"sensor_std\"")
                 || !output.plot_svg.contains("data-confidence-band")
@@ -6858,6 +6876,28 @@ report {
         }
     }
     ExitCode::SUCCESS
+}
+
+fn native_workflow_sources_avoid_external_processes() -> bool {
+    let workflow_sources = [
+        "examples/workflows/01_weather_api_to_standard_file/main.eng",
+        "examples/workflows/02_external_simulation_surrogate/main.eng",
+        "examples/workflows/03_uncertain_sensor_report/main.eng",
+    ];
+    for source_path in workflow_sources {
+        let Ok(source) = std::fs::read_to_string(source_path) else {
+            eprintln!("failed to read native workflow source {source_path}");
+            return false;
+        };
+        let lowered = source.to_ascii_lowercase();
+        for banned in ["python", "run command", "select_first_row"] {
+            if lowered.contains(banned) {
+                eprintln!("native workflow source {source_path} must not contain `{banned}`");
+                return false;
+            }
+        }
+    }
+    true
 }
 
 fn review_examples_are_formatter_clean() -> bool {
