@@ -1,0 +1,23 @@
+# module: eng.workflow
+# status: native_preview
+# purpose: static and runtime workflow graph artifacts, run locks, rerun decisions, and workflow node status.
+#
+# Current implementation:
+#   top-level workflow execution emits static_run_plan.json, run_plan.json,
+#   run_lock.json, output_manifest.json, and run_log.json. The review document
+#   links workflow graph metadata back to the RunPlan artifact, and IDE/VS Code
+#   tooling can open the generated workflow artifacts directly.
+#
+# Planned helper vocabulary:
+#   workflow stage
+#   depends on
+#   rerun if changed
+#   workflow lock compare
+#
+# Review contract:
+#   source hash, execution profile, graph nodes/edges, node status, artifact
+#   hashes, input hash, rerun decision, and source spans.
+#
+# Non-goal:
+#   this module does not introduce a separate DAG language yet. Current
+#   workflow graphs are derived from executable top-level EngLang programs.

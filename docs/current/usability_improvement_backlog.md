@@ -1404,6 +1404,19 @@ Status: implemented after VS Code artifact command review.
 - Extended `ide-check` command/title coverage and README command-surface docs
   for the new artifact actions.
 
+## Batch 116: Workflow Module Status Alignment
+
+Status: implemented after stdlib workflow registry review.
+
+- Promoted `eng.workflow` from planned registry wording to native workflow
+  support because current runs already emit `static_run_plan.json`,
+  `run_plan.json`, `run_lock.json`, `output_manifest.json`, and `run_log.json`.
+- Added a `stdlib/eng/workflow.eng` boundary note so the module has the same
+  explicit current/planned/review contract shape as other native workflow
+  modules.
+- Added a compiler registry regression check so `eng.workflow` cannot drift
+  back to `planned` while the runtime artifact surface remains implemented.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

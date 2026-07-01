@@ -35,6 +35,7 @@ is still future work.
 | `eng.case` | CaseTable summaries, per-case manifests, collection status, scheduler hooks, cache hit/miss metadata, diagnostics, and process-output enrichment. |
 | `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
+| `eng.workflow` | Static/runtime RunPlan, run lock, dependency graph, rerun decisions, and workflow node status artifacts. |
 
 ## Planned And Internal Boundaries
 
@@ -52,7 +53,6 @@ APIs unless a status document says so.
 | `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
-| `eng.workflow` | Planned | RunPlan, run lock, dependency graph, rerun decisions, and workflow node status. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |

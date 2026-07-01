@@ -329,6 +329,12 @@ mod tests {
         assert!(registry
             .modules
             .iter()
+            .any(|module| module.name == "eng.workflow"
+                && module.status == "native_preview"
+                && module.backing == "compiler_runtime_builtin"));
+        assert!(registry
+            .modules
+            .iter()
             .any(|module| module.name == "eng.case" && !module.artifacts.is_empty()));
         let net_module = registry
             .modules

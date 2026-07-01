@@ -176,9 +176,9 @@ examples = ["examples/workflows/02_external_simulation_surrogate"]
 tests = ["cargo test -p eng_compiler render_template_command_lowers_with_template_contract", "cargo test -p eng_runtime template"]
 
 [module."eng.workflow"]
-status = "planned"
-backing = "none"
-purpose = "RunPlan, run lock, dependency graph, rerun decisions, and workflow node status."
+status = "native_preview"
+backing = "compiler_runtime_builtin"
+purpose = "Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links."
 artifacts = ["run_plan", "run_lock", "output_manifest", "run_log"]
 diagnostics = ["run_lock_changed", "artifact_hash_mismatch"]
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_external_simulation_surrogate"]

@@ -1597,7 +1597,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Planned: RunPlan, run lock, dependency graph, rerun decisions, and workflow node status.",
+                                "detail":  "Native workflow support: Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links.",
                                 "kind":  "stdlib",
                                 "label":  "eng.workflow",
                                 "lsp_kind":  9
