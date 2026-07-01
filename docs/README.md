@@ -30,6 +30,7 @@ index for the area you need.
 5. [Release workflow](release/release-workflow.md)
 6. [Current project status](current/status.md)
 7. [Feature maturity matrix](current/feature_maturity_matrix.md)
+8. [Usability improvement backlog](current/usability_improvement_backlog.md)
 
 ## I Am Working On Internal Tracks
 

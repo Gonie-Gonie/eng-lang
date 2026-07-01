@@ -62,7 +62,7 @@
             "eng-cli",
             "lsp-snapshot"
           ],
-          "description": "Diagnostics backend. eng-cli uses eng.exe ide-check; lsp-snapshot uses eng-lsp.exe --snapshot."
+          "description": "Diagnostics backend. eng-cli runs eng.exe ide-check for file diagnostics; lsp-snapshot runs eng-lsp.exe --snapshot for experimental diagnostics, hover, and completion metadata."
         },
         "englang.lintOnSave": {
           "type": "boolean",

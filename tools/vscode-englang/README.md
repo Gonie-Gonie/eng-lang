@@ -5,11 +5,12 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 
 ## Features
 
-- `.eng` language registration and syntax highlighting
+- `.eng` language registration and syntax highlighting for workflow keywords,
+  schema/types, units, built-in functions, with-block options, and literals
 - diagnostics from `eng ide-check`
 - optional diagnostics/completion/hover metadata from `eng-lsp --snapshot`
 - hover from compiler review metadata
-- quantity, unit, keyword, and snippet completion
+- public type, quantity, unit, keyword, and snippet completion
 - commands to check, run, and open the latest generated report
 
 ## Install From Portable Package
@@ -47,9 +48,10 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 ## Current Scope
 
-This is not a persistent LSP-client extension yet. Diagnostics are refreshed on
-open/save and manual check. The optional `lsp-snapshot` backend uses
-`eng-lsp.exe --snapshot` for diagnostics, hover metadata, and completion
-metadata, while run/report commands still use `eng.exe`. Unsaved buffer
-diagnostics are intentionally conservative because schema and CSV paths are
-resolved relative to real files.
+This is not a persistent LSP-client extension yet. The default `eng-cli`
+backend runs `eng.exe ide-check <file.eng>` on open/save and manual check. The
+optional `lsp-snapshot` backend runs `eng-lsp.exe --snapshot <file.eng>` for
+experimental diagnostics, hover metadata, and completion metadata, while
+run/report commands still use `eng.exe`. Unsaved buffer diagnostics are
+intentionally conservative because schema and CSV paths are resolved relative
+to real files.

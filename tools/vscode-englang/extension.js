@@ -11,6 +11,8 @@ const QUANTITIES = [
   ["AbsoluteTemperature", "K", "Affine absolute thermodynamic temperature."],
   ["TemperatureDelta", "K", "Temperature interval or difference."],
   ["Length", "m", "Linear distance."],
+  ["Area", "m2", "Area."],
+  ["Volume", "m3", "Volume."],
   ["Conductance", "W/K", "Thermal conductance."],
   ["HeatCapacity", "J/K", "Lumped heat capacity."],
   ["SpecificHeat", "J/kg/K", "Specific heat capacity."],
@@ -18,7 +20,12 @@ const QUANTITIES = [
   ["ElectricPower", "W", "Electrical power."],
   ["MechanicalPower", "W", "Mechanical shaft or fluid power."],
   ["Energy", "J", "Energy, heat, or work quantity."],
+  ["Mass", "kg", "Mass."],
   ["MassFlowRate", "kg/s", "Mass flow rate."],
+  ["Pressure", "Pa", "Pressure."],
+  ["Irradiance", "W/m2", "Power per unit area."],
+  ["PeopleDensity", "person/m2", "People per unit floor area."],
+  ["DimensionlessNumber", "1", "Plain dimensionless scalar."],
   ["Ratio", "1", "Dimensionless ratio."],
   ["ReynoldsNumber", "1", "Dimensionless Reynolds number."]
 ];
@@ -29,6 +36,8 @@ const UNITS = [
   "m",
   "cm",
   "mm",
+  "m2",
+  "m3",
   "W",
   "kW",
   "J",
@@ -40,11 +49,40 @@ const UNITS = [
   "J/K",
   "kJ/K",
   "J/kg/K",
+  "Pa",
+  "kPa",
+  "kg",
   "kg/s",
+  "W/m2",
+  "person/m2",
   "s",
   "min",
   "h",
   "1"
+];
+
+const TYPES = [
+  ["Path", "Generic filesystem path."],
+  ["FilePath", "Generic file path."],
+  ["DirectoryPath", "Directory path."],
+  ["CsvFile", "CSV file path."],
+  ["TextFile", "UTF-8 text file path."],
+  ["JsonFile", "JSON file path."],
+  ["TomlFile", "TOML file path."],
+  ["Url", "HTTP or HTTPS URL."],
+  ["Secret[String]", "Redacted string value for credentials or tokens."],
+  ["Optional[T]", "Optional value that may be missing or none."],
+  ["Bool", "Boolean value."],
+  ["Int", "Integer value."],
+  ["Float", "Floating-point value."],
+  ["Number", "Dimensionless numeric value."],
+  ["String", "String value."],
+  ["Date", "Calendar date."],
+  ["DateTime", "Timestamp value."],
+  ["Table[T]", "Typed table value."],
+  ["TimeSeries[T]", "Typed time-indexed series value."],
+  ["ProcessResult", "External command result metadata."],
+  ["Report", "Report artifact request metadata."]
 ];
 
 const KEYWORDS = [
@@ -68,12 +106,39 @@ const KEYWORDS = [
   "equation",
   "promote",
   "from",
+  "as",
+  "read",
+  "text",
+  "json",
+  "toml",
+  "csv",
   "policy",
   "missing",
+  "constraints",
+  "between",
+  "is",
+  "none",
+  "true",
+  "false",
+  "interpolate",
+  "monotonic",
   "where",
   "with",
   "run",
   "command",
+  "render",
+  "template",
+  "open",
+  "sqlite",
+  "to",
+  "show",
+  "over",
+  "by",
+  "using",
+  "mode",
+  "append",
+  "insert",
+  "upsert",
   "return",
   "print",
   "log",
@@ -91,6 +156,26 @@ const KEYWORDS = [
   "line",
   "bar",
   "histogram",
+  "check",
+  "coverage",
+  "sample",
+  "grid",
+  "random",
+  "lhs",
+  "uniform",
+  "select_first_row",
+  "filter",
+  "select",
+  "derive",
+  "sort",
+  "require_one",
+  "train_test_split",
+  "regression",
+  "mlp",
+  "evaluate",
+  "model_card",
+  "leakage_lint",
+  "predict",
   "der",
   "eq",
   "integrate",
@@ -344,6 +429,13 @@ class EngCompletionProvider {
     for (const [quantity, canonicalUnit, description] of QUANTITIES) {
       const item = new vscode.CompletionItem(quantity, vscode.CompletionItemKind.Class);
       item.detail = `quantity kind, canonical unit ${canonicalUnit}`;
+      item.documentation = description;
+      addCompletion(items, seen, item);
+    }
+
+    for (const [typeName, description] of TYPES) {
+      const item = new vscode.CompletionItem(typeName, vscode.CompletionItemKind.Class);
+      item.detail = "EngLang type";
       item.documentation = description;
       addCompletion(items, seen, item);
     }

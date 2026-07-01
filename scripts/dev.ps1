@@ -1630,6 +1630,26 @@ function Assert-VscodeExtensionContract {
     if ($Language.extensions -notcontains ".eng") {
         throw "VS Code extension must register .eng files"
     }
+    $Grammar = $Package.contributes.grammars | Select-Object -First 1
+    if ($Grammar.language -ne "englang") {
+        throw "VS Code extension grammar must target englang language id"
+    }
+    $GrammarPath = Join-Path $ExtensionRoot $Grammar.path
+    if (-not (Test-Path $GrammarPath)) {
+        throw "VS Code extension missing grammar at $GrammarPath"
+    }
+    $GrammarSource = Get-Content -LiteralPath $GrammarPath -Raw
+    foreach ($RequiredGrammarToken in @(
+        "read", "json", "toml", "render", "template", "open", "sqlite",
+        "check", "coverage", "sample", "lhs", "uniform",
+        "train_test_split", "regression", "predict", "model_card",
+        "CsvFile", "JsonFile", "DirectoryPath", "DimensionlessNumber",
+        "expected_outputs", "artifact_kind", "cache_key", "allow_failure"
+    )) {
+        if (-not $GrammarSource.Contains($RequiredGrammarToken)) {
+            throw "VS Code grammar missing token $RequiredGrammarToken"
+        }
+    }
     $Commands = @($Package.contributes.commands | ForEach-Object { $_.command })
     foreach ($Required in @("englang.checkFile", "englang.runFile", "englang.openReport")) {
         if ($Commands -notcontains $Required) {
