@@ -107,7 +107,7 @@ target\debug\eng.exe doctor
 target\debug\eng-ide.exe --smoke
 target\debug\eng.exe check examples\diagnostics\error_messages\unit_mismatch.eng --review
 target\debug\eng.exe entries examples\official\01_csv_plot\main.eng
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
 target\debug\eng.exe run examples\official\09_command_where_with\main.eng --save-artifacts
 target\debug\eng.exe run examples\official\16_test_assert_golden\main.eng --save-artifacts
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro

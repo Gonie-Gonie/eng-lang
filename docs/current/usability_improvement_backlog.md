@@ -389,12 +389,22 @@ Status: implemented after VS Code highlighting review.
 - Extended LSP unit tests, VS Code grammar fixtures, generated TextMate grammar,
   README wording, and `ide-check` contract coverage.
 
+## Batch 33: Saved Artifact Command Examples
+
+Status: implemented after public command example review.
+
+- Updated the root README current-command sequence so the CSV plot run matches
+  the immediately following `build\result\result.engres` view command.
+- Updated the official CSV plot example run commands to include
+  `--save-artifacts` because the example description highlights saved
+  PlotSpec, SVG, report, review, and result artifacts.
+- Left developer/reference examples unchanged where they intentionally contrast
+  in-memory runs with saved artifact runs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
   too internal as new workflow APIs move from planned to supported.
-- Make workflow command examples consistent: prefer `eng.exe run <file.eng>
-  --save-artifacts` where saved artifacts are discussed.
 - Continue reviewing stdlib/module status words where docs still expose
   implementation history instead of current support scope.
 - Audit workflow helper names for readability, especially

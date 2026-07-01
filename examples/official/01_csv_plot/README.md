@@ -20,8 +20,8 @@ This is the primary stable data/report example. It covers:
 Run from the repository root:
 
 ```bat
-target\debug\eng.exe run examples\official\01_csv_plot\main.eng
-target\debug\eng.exe run examples\official\01_csv_plot\histogram.eng
+target\debug\eng.exe run examples\official\01_csv_plot\main.eng --save-artifacts
+target\debug\eng.exe run examples\official\01_csv_plot\histogram.eng --save-artifacts
 target\debug\eng.exe build examples\official\01_csv_plot\main.eng --standalone --profile repro
 dist\main-standalone\run.bat --help
 ```
