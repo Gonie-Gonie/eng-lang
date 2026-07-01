@@ -2012,6 +2012,21 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing review risk decoration token $RequiredRiskDecorationToken"
         }
     }
+    foreach ($RequiredSemanticSymbolDecorationToken in @(
+        "createSemanticSymbolDecorationTypes",
+        "updateSemanticSymbolDecorations",
+        "semanticSymbolDecorationOptions",
+        "semanticTokenRange",
+        "semanticSymbolHoverMessage",
+        "semanticSymbolDecorations",
+        "underline dotted",
+        "internal",
+        "planned"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredSemanticSymbolDecorationToken)) {
+            throw "VS Code extension missing semantic symbol decoration token $RequiredSemanticSymbolDecorationToken"
+        }
+    }
     foreach ($RequiredDefinitionToken in @(
         "registerDefinitionProvider",
         "EngDefinitionProvider",

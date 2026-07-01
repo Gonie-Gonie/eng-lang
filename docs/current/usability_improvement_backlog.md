@@ -1306,6 +1306,21 @@ Status: implemented after side-effect decoration coverage review.
 - Updated the editor token-scope contract to note that side-effect operations
   can carry both `sideEffect` coloring and risk modifiers.
 
+## Batch 108: Internal Symbol Underline Decorations
+
+Status: implemented after planned/internal decoration review.
+
+- Added VS Code token-range dotted underline decorations for semantic tokens
+  carrying `internal` or `planned`, separate from line-level review-risk
+  markers.
+- Wired the decoration refresh into diagnostics, active-editor, semantic-token,
+  and semantic-token debug snapshot paths so bundled stdlib namespace internals
+  such as `eng.std.domains.*` remain visibly distinct.
+- Extended `ide-check` contract coverage for the new semantic symbol decoration
+  helpers.
+- Documented that `planned` still has no source-visible emission path today, but
+  will use the same underline decoration path when compiler/LSP emits it.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

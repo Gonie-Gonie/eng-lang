@@ -163,6 +163,11 @@ in sync with the generated legend. Important pairings:
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.internal` | Planned/internal symbol visibility. |
 
+VS Code also applies a token-range dotted underline decoration for semantic
+tokens carrying `planned` or `internal`. `planned` remains reserved until a
+source-visible planned symbol path exists; current coverage is primarily
+bundled stdlib namespace tokens such as `namespace.internal`.
+
 When a new semantic modifier is added, update all of these together:
 
 1. `crates/eng_lsp/src/lib.rs`

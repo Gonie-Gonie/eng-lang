@@ -28,6 +28,7 @@ const snapshotPromiseCache = new Map();
 const changeTimers = new Map();
 let output;
 let reviewRiskDecorations;
+let semanticSymbolDecorations;
 
 const LAST_RUN_ARTIFACTS = [
   {
@@ -127,10 +128,13 @@ function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   reviewRiskDecorations = createReviewRiskDecorationTypes();
+  semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
   context.subscriptions.push(output, diagnostics);
   context.subscriptions.push(
     reviewRiskDecorations.high,
-    reviewRiskDecorations.medium
+    reviewRiskDecorations.medium,
+    semanticSymbolDecorations.internal,
+    semanticSymbolDecorations.planned
   );
 
   context.subscriptions.push(
@@ -147,13 +151,16 @@ function activate(context) {
       clearSnapshotCache(document);
       diagnostics.delete(document.uri);
       updateReviewRiskDecorations(document, undefined);
+      updateSemanticSymbolDecorations(document, undefined);
     }),
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (editor && isEngDocument(editor.document)) {
+        const cached = reviewCache.get(editor.document.uri.fsPath);
         updateReviewRiskDecorations(
           editor.document,
-          reviewCache.get(editor.document.uri.fsPath)
+          cached
         );
+        updateSemanticSymbolDecorations(editor.document, cached);
       }
     }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
@@ -230,6 +237,19 @@ function createReviewRiskDecorationTypes() {
       borderColor: new vscode.ThemeColor("editorWarning.foreground"),
       overviewRulerColor: new vscode.ThemeColor("editorWarning.foreground"),
       overviewRulerLane: vscode.OverviewRulerLane.Right
+    })
+  };
+}
+
+function createSemanticSymbolDecorationTypes() {
+  return {
+    internal: vscode.window.createTextEditorDecorationType({
+      textDecoration: "underline dotted",
+      opacity: "0.85"
+    }),
+    planned: vscode.window.createTextEditorDecorationType({
+      textDecoration: "underline dotted",
+      opacity: "0.75"
     })
   };
 }
@@ -350,12 +370,14 @@ function finishDocumentCheck(document, diagnostics, backend, documentVersion, er
       )
     ]);
     updateReviewRiskDecorations(document, undefined);
+    updateSemanticSymbolDecorations(document, undefined);
     return;
   }
 
   reviewCache.set(document.uri.fsPath, review);
   diagnostics.set(document.uri, toDiagnostics(document, review));
   updateReviewRiskDecorations(document, review);
+  updateSemanticSymbolDecorations(document, review);
   const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
   const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
   output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
@@ -388,12 +410,92 @@ function updateReviewRiskDecorations(document, review) {
 function refreshVisibleReviewRiskDecorations() {
   for (const editor of vscode.window.visibleTextEditors) {
     if (isEngDocument(editor.document)) {
+      const cached = reviewCache.get(editor.document.uri.fsPath);
       updateReviewRiskDecorations(
         editor.document,
-        reviewCache.get(editor.document.uri.fsPath)
+        cached
       );
+      updateSemanticSymbolDecorations(editor.document, cached);
     }
   }
+}
+
+function updateSemanticSymbolDecorations(document, snapshot) {
+  if (!semanticSymbolDecorations || !isEngDocument(document)) {
+    return;
+  }
+  const editors = vscode.window.visibleTextEditors.filter(
+    (editor) => editor.document.uri.toString() === document.uri.toString()
+  );
+  if (editors.length === 0) {
+    return;
+  }
+  const decorations = semanticSymbolDecorationOptions(document, snapshot);
+  for (const editor of editors) {
+    editor.setDecorations(semanticSymbolDecorations.internal, decorations.internal);
+    editor.setDecorations(semanticSymbolDecorations.planned, decorations.planned);
+  }
+}
+
+function semanticSymbolDecorationOptions(document, snapshot) {
+  const internal = [];
+  const planned = [];
+  for (const token of snapshot?.semantic_tokens?.tokens ?? snapshot?.semanticTokens?.tokens ?? []) {
+    const modifiers = token.modifiers ?? [];
+    const isInternal = modifiers.includes("internal");
+    const isPlanned = modifiers.includes("planned");
+    if (!isInternal && !isPlanned) {
+      continue;
+    }
+    const range = semanticTokenRange(document, token);
+    if (!range) {
+      continue;
+    }
+    const option = {
+      range,
+      hoverMessage: semanticSymbolHoverMessage(isPlanned ? "planned" : "internal")
+    };
+    if (isPlanned) {
+      planned.push(option);
+    } else {
+      internal.push(option);
+    }
+  }
+  return { internal, planned };
+}
+
+function semanticTokenRange(document, token) {
+  const line = Number(token.line);
+  const start = Number(token.start);
+  const length = Number(token.length);
+  if (
+    !Number.isFinite(line) ||
+    !Number.isFinite(start) ||
+    !Number.isFinite(length) ||
+    line < 0 ||
+    line >= document.lineCount ||
+    start < 0 ||
+    length <= 0
+  ) {
+    return undefined;
+  }
+  const textLine = document.lineAt(line);
+  if (start >= textLine.text.length) {
+    return undefined;
+  }
+  const end = Math.min(textLine.text.length, start + length);
+  return new vscode.Range(line, start, line, Math.max(start + 1, end));
+}
+
+function semanticSymbolHoverMessage(kind) {
+  const markdown = new vscode.MarkdownString();
+  markdown.isTrusted = false;
+  if (kind === "planned") {
+    markdown.appendMarkdown("**EngLang planned symbol**\n\nThis symbol is reserved for a planned workflow surface.");
+  } else {
+    markdown.appendMarkdown("**EngLang internal symbol**\n\nThis symbol belongs to an internal runtime or bundled stdlib boundary.");
+  }
+  return markdown;
 }
 
 function reviewRiskDecorationOptions(document, review) {
@@ -1542,6 +1644,7 @@ async function showSemanticTokensDebug(context) {
     return;
   }
   reviewCache.set(document.uri.fsPath, snapshot);
+  updateSemanticSymbolDecorations(document, snapshot);
   const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
   const tokenCounts = {};
   for (const token of semanticTokens.tokens ?? []) {
@@ -1579,6 +1682,7 @@ class EngSemanticTokensProvider {
       return new vscode.SemanticTokens(new Uint32Array());
     }
     reviewCache.set(document.uri.fsPath, snapshot);
+    updateSemanticSymbolDecorations(document, snapshot);
     return semanticTokensFromSnapshot(snapshot);
   }
 }
