@@ -2030,10 +2030,17 @@ fn push_direct_uncertainty_comparison_diagnostic(
     if !left_uncertain && !right_uncertain {
         return false;
     }
+    let (uncertain_expression, compared_expression) = if right_uncertain && !left_uncertain {
+        (right, left)
+    } else {
+        (left, right)
+    };
     diagnostics.push(Diagnostic::error(
         "E-UNC-DIRECT-COMPARE",
         line,
-        &format!("{context} compares uncertain value directly: `{left}` vs `{right}`."),
+        &format!(
+            "{context} compares uncertain value directly: `{uncertain_expression}` vs `{compared_expression}`."
+        ),
         Some("Use an explicit uncertainty statistic such as `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)`."),
     ));
     true
@@ -9295,12 +9302,16 @@ fn component_local_equations(
             let unknown_signals =
                 unknown_component_equation_signals(&local_expression, &signal_refs);
             if !unknown_signals.is_empty() {
+                let unknown_signal_labels = unknown_signals
+                    .iter()
+                    .map(|signal| format!("`{signal}`"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
                 diagnostics.push(Diagnostic::error(
                     "E-COMPONENT-EQUATION-SIGNAL-001",
                     local.line,
                     &format!(
-                        "Component equation `{expression}` references unknown signal(s): {}.",
-                        unknown_signals.join(", ")
+                        "Component equation references unknown signal(s) {unknown_signal_labels} in `{expression}`."
                     ),
                     Some("Use declared component port signals such as `heat.T` or `heat.Q`."),
                 ));
@@ -9639,8 +9650,8 @@ fn component_equation_literal_rhs(
             "E-COMPONENT-EQUATION-SIGNAL-001",
             local.line,
             &format!(
-                "Component equation `{}` references unconnected signal `{}`.",
-                local.expression, left
+                "Component equation references unconnected signal `{left}` in `{}`.",
+                local.expression
             ),
             Some("Connect the port before solving a component-local equation over that signal."),
         ));
@@ -9731,7 +9742,7 @@ fn unknown_component_equation_signals(
     expression: &str,
     signal_refs: &[ComponentSignalRef],
 ) -> Vec<String> {
-    expression
+    let mut signals = expression
         .split(|character: char| {
             !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
         })
@@ -9745,7 +9756,9 @@ fn unknown_component_equation_signals(
         .map(str::to_owned)
         .collect::<HashSet<_>>()
         .into_iter()
-        .collect()
+        .collect::<Vec<_>>();
+    signals.sort();
+    signals
 }
 
 fn numeric_units_in_component_expression(expression: &str) -> Vec<String> {

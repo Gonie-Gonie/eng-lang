@@ -4302,6 +4302,35 @@ mod tests {
         );
     }
 
+    fn assert_first_diagnostic_underlines(source: &str, code: &str, expected_text: &str) {
+        let snapshot = snapshot_for_source(Path::new("diagnostic_ranges.eng"), source);
+        let json = snapshot_json(&snapshot);
+        let diagnostic = json["diagnostics"]
+            .as_array()
+            .and_then(|diagnostics| {
+                diagnostics
+                    .iter()
+                    .find(|diagnostic| diagnostic["code"] == code)
+            })
+            .unwrap_or_else(|| panic!("diagnostic {code} should be present"));
+        let line_index = diagnostic["range"]["start"]["line"]
+            .as_u64()
+            .expect("diagnostic should have a start line") as usize;
+        let start = diagnostic["range"]["start"]["character"]
+            .as_u64()
+            .expect("diagnostic should have a start character") as usize;
+        let end = diagnostic["range"]["end"]["character"]
+            .as_u64()
+            .expect("diagnostic should have an end character") as usize;
+        let line = source.lines().nth(line_index).expect("diagnostic line");
+
+        assert_eq!(
+            line.get(start..end),
+            Some(expected_text),
+            "diagnostic {code} should underline `{expected_text}` on `{line}`"
+        );
+    }
+
     #[test]
     fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
         let source = "/// heat rate smoke\nQ: HeatRate [kW] = 2 kW - 1\n}\n";
@@ -4534,6 +4563,55 @@ mod tests {
             diagnostic["range"]["end"]["character"].as_u64(),
             Some((equals_character + 1) as u64)
         );
+    }
+
+    #[test]
+    fn diagnostic_json_pins_editor_underline_targets() {
+        let component_unknown_signal = r#"domain Thermal {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+
+component Source {
+    port heat: Thermal
+    heat.unknown eq 0 kW
+}
+
+component Sink {
+    port heat: Thermal
+}
+
+connect Source.heat -> Sink.heat
+"#;
+        let where_local_escape = "E = integrate Q_local over Time\nwhere {\n    Q_local = Q_late\n    Q_late = 1 kW\n}\nprint \"local={Q_local: .2 kW}\"\n";
+
+        for (code, source, expected_text) in [
+            ("E-DIM-ADD-002", "Q: HeatRate [kW] = 2 kW - 1\n", "-"),
+            (
+                "E-COMPONENT-EQUATION-SIGNAL-001",
+                component_unknown_signal,
+                "heat.unknown",
+            ),
+            ("E-NAME-LOCAL-001", where_local_escape, "Q_local"),
+            (
+                "E-SCRIPT-001",
+                "script main(args: Args) -> Report {\n    L = 1 m\n}\n",
+                "script",
+            ),
+            (
+                "E-STRUCT-ARGS-001",
+                "struct Args {\n    input: String = \"sensor.csv\"\n}\n",
+                "struct Args",
+            ),
+            (
+                "E-UNC-DIRECT-COMPARE",
+                "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\nvalidate 10 kW < Q\n",
+                "Q",
+            ),
+        ] {
+            assert_first_diagnostic_underlines(source, code, expected_text);
+        }
     }
 
     #[test]

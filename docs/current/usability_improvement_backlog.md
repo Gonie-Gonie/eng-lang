@@ -1273,6 +1273,22 @@ Status: implemented after deprecated/internal/planned modifier review.
   source emission to land with LSP regression coverage and VS Code fallback
   mapping in the same change.
 
+## Batch 106: Diagnostic Underline Range Pins
+
+Status: implemented after diagnostic underline review.
+
+- Added LSP JSON range regression coverage for unit mismatch, component unknown
+  signal, where-local escape, unsupported `script`/`struct Args`, and direct
+  uncertain comparison diagnostics.
+- Reworded component-equation signal diagnostics so the unknown or unconnected
+  signal is the first backticked source token, letting VS Code underline the
+  actionable symbol instead of the whole equation.
+- Reordered `E-UNC-DIRECT-COMPARE` message payloads so the uncertain expression
+  is the first backticked token even when it appears on the right side of the
+  comparison.
+- Sorted unknown component-equation signal labels for deterministic diagnostic
+  wording and stable editor snapshots.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
