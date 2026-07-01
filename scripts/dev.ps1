@@ -1830,7 +1830,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -1846,6 +1846,10 @@ function Assert-VscodeExtensionContract {
     $SemanticDescription = [string]$Properties."englang.semanticHighlighting.enabled".description
     if ($SemanticDescription -match "eng-lsp|snapshot") {
         throw "VS Code semanticHighlighting description must avoid editor-service implementation details"
+    }
+    $RiskDecorationDescription = [string]$Properties."englang.reviewRiskDecorations.enabled".description
+    if ($RiskDecorationDescription -notmatch "review risks") {
+        throw "VS Code reviewRiskDecorations setting must describe review-risk markers"
     }
     $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
     foreach ($RequiredSemanticModifier in @(
@@ -1929,6 +1933,22 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type")) {
         throw "VS Code extension must expose semantic token debug output"
+    }
+    foreach ($RequiredRiskDecorationToken in @(
+        "createReviewRiskDecorationTypes",
+        "updateReviewRiskDecorations",
+        "reviewRiskDecorationOptions",
+        "setReviewRiskDecorationLine",
+        "englang.reviewRiskDecorations.enabled",
+        "riskHigh",
+        "riskMedium",
+        "editorError.foreground",
+        "editorWarning.foreground",
+        "OverviewRulerLane.Right"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredRiskDecorationToken)) {
+            throw "VS Code extension missing review risk decoration token $RequiredRiskDecorationToken"
+        }
     }
     if (-not $ExtensionSource.Contains("registerDefinitionProvider") -or -not $ExtensionSource.Contains("EngDefinitionProvider") -or -not $ExtensionSource.Contains("definitionNameCandidates")) {
         throw "VS Code extension must expose current-file definition lookup from LSP snapshot symbols"

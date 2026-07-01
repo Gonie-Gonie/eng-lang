@@ -26,6 +26,7 @@ const EXECUTION_PROFILES = [
 const reviewCache = new Map();
 const changeTimers = new Map();
 let output;
+let reviewRiskDecorations;
 
 const LAST_RUN_ARTIFACTS = [
   {
@@ -124,15 +125,34 @@ function loadEditorMetadata() {
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
+  reviewRiskDecorations = createReviewRiskDecorationTypes();
   context.subscriptions.push(output, diagnostics);
+  context.subscriptions.push(
+    reviewRiskDecorations.high,
+    reviewRiskDecorations.medium
+  );
 
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => maybeCheck(document, diagnostics, context)),
     vscode.workspace.onDidChangeTextDocument((event) => scheduleChangedCheck(event.document, diagnostics, context)),
     vscode.workspace.onDidSaveTextDocument((document) => maybeCheck(document, diagnostics, context)),
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (event.affectsConfiguration("englang.reviewRiskDecorations.enabled")) {
+        refreshVisibleReviewRiskDecorations();
+      }
+    }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       clearPendingCheck(document);
       diagnostics.delete(document.uri);
+      updateReviewRiskDecorations(document, undefined);
+    }),
+    vscode.window.onDidChangeActiveTextEditor((editor) => {
+      if (editor && isEngDocument(editor.document)) {
+        updateReviewRiskDecorations(
+          editor.document,
+          reviewCache.get(editor.document.uri.fsPath)
+        );
+      }
     }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
@@ -186,6 +206,27 @@ function activate(context) {
 }
 
 function deactivate() {}
+
+function createReviewRiskDecorationTypes() {
+  return {
+    high: vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      borderWidth: "0 0 0 2px",
+      borderStyle: "solid",
+      borderColor: new vscode.ThemeColor("editorError.foreground"),
+      overviewRulerColor: new vscode.ThemeColor("editorError.foreground"),
+      overviewRulerLane: vscode.OverviewRulerLane.Right
+    }),
+    medium: vscode.window.createTextEditorDecorationType({
+      isWholeLine: true,
+      borderWidth: "0 0 0 2px",
+      borderStyle: "solid",
+      borderColor: new vscode.ThemeColor("editorWarning.foreground"),
+      overviewRulerColor: new vscode.ThemeColor("editorWarning.foreground"),
+      overviewRulerLane: vscode.OverviewRulerLane.Right
+    })
+  };
+}
 
 function maybeCheck(document, diagnostics, context) {
   if (!isEngDocument(document)) {
@@ -301,14 +342,134 @@ function finishDocumentCheck(document, diagnostics, backend, documentVersion, er
         vscode.DiagnosticSeverity.Error
       )
     ]);
+    updateReviewRiskDecorations(document, undefined);
     return;
   }
 
   reviewCache.set(document.uri.fsPath, review);
   diagnostics.set(document.uri, toDiagnostics(document, review));
+  updateReviewRiskDecorations(document, review);
   const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
   const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
   output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
+}
+
+function updateReviewRiskDecorations(document, review) {
+  if (!reviewRiskDecorations || !isEngDocument(document)) {
+    return;
+  }
+  const editors = vscode.window.visibleTextEditors.filter(
+    (editor) => editor.document.uri.toString() === document.uri.toString()
+  );
+  if (editors.length === 0) {
+    return;
+  }
+  const config = vscode.workspace.getConfiguration("englang", document.uri);
+  const decorations = config.get("reviewRiskDecorations.enabled", true)
+    ? reviewRiskDecorationOptions(document, review)
+    : { high: [], medium: [] };
+  for (const editor of editors) {
+    editor.setDecorations(reviewRiskDecorations.high, decorations.high);
+    editor.setDecorations(reviewRiskDecorations.medium, decorations.medium);
+  }
+}
+
+function refreshVisibleReviewRiskDecorations() {
+  for (const editor of vscode.window.visibleTextEditors) {
+    if (isEngDocument(editor.document)) {
+      updateReviewRiskDecorations(
+        editor.document,
+        reviewCache.get(editor.document.uri.fsPath)
+      );
+    }
+  }
+}
+
+function reviewRiskDecorationOptions(document, review) {
+  const doc = normalizedReviewDocument(review);
+  const records = [
+    ...firstReviewArray(doc, review, "risks"),
+    ...firstReviewArray(doc, review, "fallbacks")
+  ];
+  const byLine = new Map();
+  for (const record of records) {
+    const lineNumber = reviewRiskLineNumber(record);
+    setReviewRiskDecorationLine(byLine, document, lineNumber, reviewRiskLevel(record), record);
+  }
+  for (const token of review?.semantic_tokens?.tokens ?? review?.semanticTokens?.tokens ?? []) {
+    const modifiers = token.modifiers ?? [];
+    let level = "";
+    if (modifiers.includes("riskHigh")) {
+      level = "high";
+    } else if (modifiers.includes("riskMedium")) {
+      level = "medium";
+    }
+    setReviewRiskDecorationLine(byLine, document, Number(token.line) + 1, level, {
+      category: "semantic token",
+      summary: `Compiler semantic metadata marked this line as ${level} review risk.`
+    });
+  }
+
+  const high = [];
+  const medium = [];
+  for (const [lineNumber, item] of byLine.entries()) {
+    const option = {
+      range: fullLineRange(document, lineNumber - 1),
+      hoverMessage: reviewRiskHoverMessage(item.level, item.record)
+    };
+    if (item.level === "high") {
+      high.push(option);
+    } else {
+      medium.push(option);
+    }
+  }
+  return { high, medium };
+}
+
+function setReviewRiskDecorationLine(byLine, document, lineNumber, level, record) {
+  if (!Number.isFinite(lineNumber) || lineNumber < 1 || lineNumber > document.lineCount) {
+    return;
+  }
+  if (level !== "high" && level !== "medium") {
+    return;
+  }
+  const safeLine = Math.trunc(lineNumber);
+  const existing = byLine.get(safeLine);
+  if (existing?.level === "high" && level === "medium") {
+    return;
+  }
+  byLine.set(safeLine, { level, record });
+}
+
+function reviewRiskLineNumber(record) {
+  const raw = record?.line ?? record?.source_line ?? record?.sourceLine;
+  const lineNumber = Number(raw);
+  return Number.isFinite(lineNumber) ? Math.trunc(lineNumber) : NaN;
+}
+
+function reviewRiskLevel(record) {
+  return String(record?.level ?? record?.risk_level ?? record?.riskLevel ?? "").toLowerCase();
+}
+
+function reviewRiskHoverMessage(level, record) {
+  const title = level === "high" ? "High review risk" : "Medium review risk";
+  const summary =
+    reviewValue(record, "summary", "summary", "") ||
+    reviewValue(record, "assumption", "assumption", "") ||
+    reviewValue(record, "reason", "reason", "") ||
+    reviewValue(record, "method", "method", "");
+  const category =
+    reviewValue(record, "category", "category", "") ||
+    reviewValue(record, "kind", "kind", "") ||
+    "review";
+  const markdown = new vscode.MarkdownString();
+  markdown.isTrusted = false;
+  markdown.appendMarkdown(`**EngLang ${title}**\n\n`);
+  markdown.appendMarkdown(`Category: \`${category}\``);
+  if (summary) {
+    markdown.appendMarkdown(`\n\n${summary}`);
+  }
+  return markdown;
 }
 
 function toDiagnostics(document, review) {

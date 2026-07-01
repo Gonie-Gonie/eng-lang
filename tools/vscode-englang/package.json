@@ -355,6 +355,11 @@
           "type": "boolean",
           "default": true,
           "description": "Use compiler-backed semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, and workflow boundaries."
+        },
+        "englang.reviewRiskDecorations.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show subtle editor line markers and overview-ruler marks for high and medium EngLang review risks."
         }
       }
     },

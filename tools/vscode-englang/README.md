@@ -18,6 +18,7 @@ embedding compiler logic in JavaScript.
   workflow boundaries
 - packaged semantic token modifier and TextMate fallback scope metadata so
   themes can color EngLang roles consistently
+- subtle review-risk line and overview-ruler markers for high and medium risks
 - highlight-token inspection command that opens the current token payload as JSON
   for theme/highlighting inspection
 - hover from compiler review metadata
@@ -108,6 +109,11 @@ namespaces, model artifacts, DB/cache records, workflow steps, and review risks,
 so themes without EngLang-specific rules still receive stable color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting.
+
+Review-risk decorations add a subtle left border and overview-ruler mark for
+high and medium review risks without changing source text. Set
+`englang.reviewRiskDecorations.enabled = false` to hide those markers while
+keeping diagnostics and semantic highlighting enabled.
 
 Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.

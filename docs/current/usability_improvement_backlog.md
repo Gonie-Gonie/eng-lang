@@ -750,6 +750,18 @@ Status: implemented after native workflow contract recheck.
   docs describe records, contracts, and narrow evidence instead of
   implementation seeds or generic fixtures.
 
+## Batch 62: VS Code Review Risk Decorations
+
+Status: implemented after review/risk visibility review.
+
+- Added high/medium review-risk editor decorations that render as a subtle
+  left border plus overview-ruler mark using existing compiler review risk
+  records and semantic-token risk modifiers.
+- Added `englang.reviewRiskDecorations.enabled` so users can hide those markers
+  without disabling diagnostics or semantic highlighting.
+- Extended `ide-check` so VS Code risk-decoration wiring and user-facing
+  setting text stay covered.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
