@@ -245,14 +245,14 @@ separate.
   prediction manifests in `typed_payload.prediction_manifests[]`, model diagnostics
   in `typed_payload.model_diagnostics[]`, DateTime-indexed
   `typed_payload.timeseries_coverage[]` records including explicit Gregorian-year coverage checks, `typed_payload.timeseries_quality[]` coverage/fill summaries, `typed_payload.expectation_suites[]` lightweight expectation-suite records, `typed_payload.quality_results[]` common quality records for TimeSeries, validation, schema-constraint, and expectation-suite results with row/field failure details, report-facing `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]` alignment/resampling hooks, and time-axis coverage artifacts;
-  hybrid fixtures now emit weather, case, model-card, prediction-manifest, and DB side-effect artifacts
-  through explicit process/write boundaries; deterministic grid/random/LHS
-  sampling generator seeds now materialize `typed_payload.sample_tables[]`;
-  `Supported seed` for native SQLite append/upsert writes with manifests,
-  schema diagnostics, transaction status, and DB file hashes; native
-  `predict <model> using <table>` materializes Table[Prediction] rows and
-  `typed_payload.prediction_manifests[]`; `Planned` for
-  native network/cache execution, native case apply/collect syntax, broad DB
+  native workflow examples now emit weather, template-rendered case input,
+  model-card, prediction-manifest, and DB side-effect artifacts without external
+  process adapters; deterministic grid/random/LHS sampling materializes
+  `typed_payload.sample_tables[]`; native SQLite append/upsert writes include
+  manifests, schema diagnostics, transaction status, and DB file hashes; native
+  `regression_table` and `predict <model> using <table>` materialize
+  Table[Prediction] rows and `typed_payload.prediction_manifests[]`; `Planned`
+  for live network execution, native case apply/collect syntax, broad DB
   support, and broader model train syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
@@ -272,11 +272,11 @@ separate.
   data-quality diagnostics for invalid sample rows, IDE table transform
   inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
-  The external simulation hybrid now records three enriched native case manifests, collected
-  result rows, surrogate model specs/cards, prediction manifests with output
-  quantity/unit, confidence-column metadata, and hashes, and DB write manifests
-  with schema diagnostics, table records, and transaction status as reviewable
-  fixture artifacts.
+  The external simulation surrogate workflow now records native sample rows,
+  template-rendered case inputs, surrogate model specs/cards, prediction
+  manifests with output quantity/unit and confidence-column metadata, and DB
+  write manifests with schema diagnostics, table records, and transaction
+  status as reviewable native artifacts.
 - Not included: live HTTP execution and broader cache invalidation/reuse API,
   general table derived-value execution/fill transforms,
   native case apply/collect syntax and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF

@@ -1,44 +1,34 @@
 # Composite Workflow Examples
 
-This directory contains workflow-shaped examples that combine current EngLang
-primitives with explicit adapter boundaries. They are not first-user core
-examples and they are not domain-specific product claims.
+This directory contains executable native workflow examples. They combine
+generic EngLang workflow modules rather than domain-specific adapters.
 
-The examples demonstrate reusable patterns:
-
-```text
-typed input boundary
-explicit external boundary
-generated artifact and hash path
-report/review artifact
-fixture mode for deterministic smoke runs
-```
-
-Current hybrid examples:
+Current examples:
 
 ```text
-01_weather_api_to_standard_file_hybrid
-  API data -> typed schema -> quality/coverage review -> standard artifact.
+01_weather_api_to_standard_file
+  native network/cache fixture -> typed weather table -> coverage review ->
+  generated standard weather artifact.
 
-02_external_simulation_surrogate_hybrid
-  sample table -> explicit cases -> external runs -> typed results ->
-  model-card/prediction artifacts -> DB side-effect manifest.
+02_external_simulation_surrogate
+  native LHS samples -> native template renders -> table-based regression ->
+  native prediction table -> SQLite writes.
 
 03_uncertain_sensor_report
   typed sensor data -> uncertainty metadata -> confidence-band report artifact.
 ```
 
-Native workflow module contracts are documented separately:
+The first two workflows should not call Python. Saved runs still write
+`process_results.json`, but its `process_count` is expected to be zero for
+these native workflows.
+
+Run them from the repository root:
 
 ```text
-docs/workflows/weather_api_to_standard_file_native.md
-  generic request/cache/table/coverage/artifact workflow contract.
-
-docs/workflows/external_simulation_surrogate_native.md
-  generic sample/case/process/model/prediction/DB workflow contract.
+target\debug\eng.exe run examples\workflows\01_weather_api_to_standard_file\main.eng --save-artifacts
+target\debug\eng.exe run examples\workflows\02_external_simulation_surrogate\main.eng --save-artifacts
+target\debug\eng.exe run examples\workflows\03_uncertain_sensor_report\main.eng --save-artifacts
 ```
 
-The hybrid examples are executable fixture pipelines. The native docs describe
-the generic module contracts those fixtures are being reduced into. Domain
-adapters such as weather APIs, EPW writers, and EnergyPlus-like tools should
-remain layered above those generic modules.
+Domain adapters such as KMA, EPW, EnergyPlus, CFD, FEM, or vendor DB/ML tools
+should remain thin layers above these generic modules.

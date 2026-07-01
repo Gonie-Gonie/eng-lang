@@ -3,7 +3,6 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
-use std::io::Write;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -4494,61 +4493,241 @@ fn execute_sqlite_write_payload(
     key: &[String],
     transaction_policy: &str,
 ) -> Result<(), RuntimeError> {
-    let payload =
-        sqlite_write_payload_json(db_path, table_name, table, mode, key, transaction_policy);
-    run_python_sqlite_script(SQLITE_WRITE_SCRIPT, &payload).map(|_| ())
-}
+    let mut connection = sqlite_open_or_create(db_path)?;
+    connection.execute("BEGIN").map_err(|error| {
+        invalid_input(&format!(
+            "E-DB-TRANSACTION-FAILED: failed to begin SQLite transaction for `{table_name}`: {error}"
+        ))
+    })?;
 
-fn sqlite_write_payload_json(
-    db_path: &Path,
-    table_name: &str,
-    table: &runtime_data::RuntimeTable,
-    mode: &str,
-    key: &[String],
-    transaction_policy: &str,
-) -> String {
-    let columns = table
+    let mut definitions = table
         .columns
         .iter()
         .map(|column| {
-            json!({
-                "name": column.name,
-                "sqlite_type": sqlite_column_type(column),
-                "type_name": column.type_name,
-                "quantity_kind": column.type_name,
-                "unit": column.unit,
-                "canonical_unit": column.canonical_unit,
-                "is_index": column.is_index,
-            })
+            format!(
+                "{} {}",
+                sqlite_quote_identifier(&column.name),
+                sqlite_column_type(column)
+            )
         })
         .collect::<Vec<_>>();
-    let rows = (0..table.row_count)
-        .map(|row_index| Value::Array(sqlite_row_json_values(table, row_index)))
+    if !key.is_empty() {
+        definitions.push(format!(
+            "PRIMARY KEY ({})",
+            key.iter()
+                .map(|column| sqlite_quote_identifier(column))
+                .collect::<Vec<_>>()
+                .join(", ")
+        ));
+    }
+    connection
+        .execute(&format!(
+            "CREATE TABLE IF NOT EXISTS {} ({})",
+            sqlite_quote_identifier(table_name),
+            definitions.join(", ")
+        ))
+        .map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-TRANSACTION-FAILED: failed to create SQLite table `{table_name}`: {error}"
+            ))
+        })?;
+    connection
+        .execute(
+            "CREATE TABLE IF NOT EXISTS \"_eng_schema_metadata\" (db_table TEXT NOT NULL, column_name TEXT NOT NULL, type_name TEXT NOT NULL, quantity_kind TEXT, unit TEXT, canonical_unit TEXT, is_index INTEGER NOT NULL, PRIMARY KEY (db_table, column_name))",
+        )
+        .map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-TRANSACTION-FAILED: failed to create SQLite schema metadata table: {error}"
+            ))
+        })?;
+    connection
+        .execute(&format!(
+            "DELETE FROM \"_eng_schema_metadata\" WHERE db_table = {}",
+            sqlite_literal(&GraphiteSqlValue::Text(table_name.to_owned()))
+        ))
+        .map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-TRANSACTION-FAILED: failed to clear SQLite schema metadata for `{table_name}`: {error}"
+            ))
+        })?;
+    for column in &table.columns {
+        let values = [
+            GraphiteSqlValue::Text(table_name.to_owned()),
+            GraphiteSqlValue::Text(column.name.clone()),
+            GraphiteSqlValue::Text(column.type_name.clone()),
+            GraphiteSqlValue::Text(column.type_name.clone()),
+            sqlite_value_text(column.unit.as_ref()),
+            sqlite_value_text(column.canonical_unit.as_ref()),
+            GraphiteSqlValue::Integer(if column.is_index { 1 } else { 0 }),
+        ];
+        connection
+            .execute(&format!(
+                "INSERT INTO \"_eng_schema_metadata\" (db_table, column_name, type_name, quantity_kind, unit, canonical_unit, is_index) VALUES ({})",
+                sqlite_values_clause(&values)
+            ))
+            .map_err(|error| {
+                invalid_input(&format!(
+                    "E-DB-TRANSACTION-FAILED: failed to write SQLite schema metadata for `{}`: {error}",
+                    column.name
+                ))
+            })?;
+    }
+
+    let column_names = table
+        .columns
+        .iter()
+        .map(|column| column.name.clone())
         .collect::<Vec<_>>();
-    serde_json::to_string(&json!({
-        "database": db_path.display().to_string(),
-        "table": table_name,
-        "mode": mode,
-        "key": key,
-        "transaction": transaction_policy,
-        "columns": columns,
-        "rows": rows,
-    }))
-    .expect("serialize SQLite write payload")
+    let quoted_columns = column_names
+        .iter()
+        .map(|column| sqlite_quote_identifier(column))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let insert_prefix = format!(
+        "INSERT INTO {} ({quoted_columns}) VALUES",
+        sqlite_quote_identifier(table_name)
+    );
+    let mut upsert_clause = String::new();
+    if mode == "upsert" && !key.is_empty() {
+        let assignments = column_names
+            .iter()
+            .filter(|column| !key.iter().any(|key_column| key_column == *column))
+            .map(|column| {
+                format!(
+                    "{} = excluded.{}",
+                    sqlite_quote_identifier(column),
+                    sqlite_quote_identifier(column)
+                )
+            })
+            .collect::<Vec<_>>();
+        upsert_clause = format!(
+            " ON CONFLICT ({}) DO {}",
+            key.iter()
+                .map(|column| sqlite_quote_identifier(column))
+                .collect::<Vec<_>>()
+                .join(", "),
+            if assignments.is_empty() {
+                "NOTHING".to_owned()
+            } else {
+                format!("UPDATE SET {}", assignments.join(", "))
+            }
+        );
+    }
+    for row_index in 0..table.row_count {
+        let values = sqlite_row_values(table, row_index);
+        connection
+            .execute(&format!(
+                "{insert_prefix} ({}){upsert_clause}",
+                sqlite_values_clause(&values)
+            ))
+            .map_err(|error| {
+                invalid_input(&format!(
+                    "E-DB-TRANSACTION-FAILED: failed to write SQLite row {} into `{table_name}`: {error}",
+                    row_index + 1
+                ))
+            })?;
+    }
+
+    if transaction_policy == "rollback" {
+        connection.execute("ROLLBACK").map(|_| ()).map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-TRANSACTION-FAILED: failed to roll back SQLite transaction for `{table_name}`: {error}"
+            ))
+        })
+    } else {
+        connection.execute("COMMIT").map(|_| ()).map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-TRANSACTION-FAILED: failed to commit SQLite transaction for `{table_name}`: {error}"
+            ))
+        })
+    }
 }
 
 fn sqlite_table_columns(db_path: &Path, table_name: &str) -> Result<Vec<String>, RuntimeError> {
-    let payload = serde_json::to_string(&json!({
-        "database": db_path.display().to_string(),
-        "table": table_name,
-    }))
-    .expect("serialize SQLite table inspection payload");
-    let output = run_python_sqlite_script(SQLITE_TABLE_COLUMNS_SCRIPT, &payload)?;
-    serde_json::from_str(output.trim()).map_err(|error| {
+    let connection = sqlite_open_existing(db_path)?;
+    let sql = format!("PRAGMA table_info({})", sqlite_quote_identifier(table_name));
+    let result = connection.query(&sql).map_err(|error| {
         invalid_input(&format!(
-            "E-DB-SCHEMA-MISMATCH: failed to parse SQLite table inspection result for `{table_name}`: {error}"
+            "E-DB-SCHEMA-MISMATCH: failed to inspect SQLite table `{table_name}`: {error}"
+        ))
+    })?;
+    let mut columns = Vec::new();
+    for row in result.rows {
+        if let Some(GraphiteSqlValue::Text(column_name)) = row.get(1) {
+            columns.push(column_name.clone());
+        }
+    }
+    Ok(columns)
+}
+
+type GraphiteSqlConnection = graphitesql::Connection;
+type GraphiteSqlValue = graphitesql::Value;
+
+fn sqlite_open_or_create(db_path: &Path) -> Result<GraphiteSqlConnection, RuntimeError> {
+    if db_path.exists() {
+        sqlite_open_existing(db_path)
+    } else {
+        let path = db_path.to_string_lossy();
+        GraphiteSqlConnection::create(path.as_ref()).map_err(|error| {
+            invalid_input(&format!(
+                "E-DB-CONNECT: failed to create SQLite database `{}`: {error}",
+                db_path.display()
+            ))
+        })
+    }
+}
+
+fn sqlite_open_existing(db_path: &Path) -> Result<GraphiteSqlConnection, RuntimeError> {
+    let path = db_path.to_string_lossy();
+    GraphiteSqlConnection::open(path.as_ref()).map_err(|error| {
+        invalid_input(&format!(
+            "E-DB-CONNECT: failed to open SQLite database `{}`: {error}",
+            db_path.display()
         ))
     })
+}
+
+fn sqlite_quote_identifier(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
+fn sqlite_literal(value: &GraphiteSqlValue) -> String {
+    match value {
+        GraphiteSqlValue::Null => "NULL".to_owned(),
+        GraphiteSqlValue::Integer(value) => value.to_string(),
+        GraphiteSqlValue::Real(value) if value.is_finite() => value.to_string(),
+        GraphiteSqlValue::Real(_) => "NULL".to_owned(),
+        GraphiteSqlValue::Text(value) => format!("'{}'", value.replace('\'', "''")),
+        GraphiteSqlValue::Blob(bytes) => {
+            let mut literal = String::from("X'");
+            for byte in bytes {
+                literal.push_str(&format!("{byte:02x}"));
+            }
+            literal.push('\'');
+            literal
+        }
+    }
+}
+
+fn sqlite_values_clause(values: &[GraphiteSqlValue]) -> String {
+    values
+        .iter()
+        .map(sqlite_literal)
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn sqlite_value_text(value: Option<&String>) -> GraphiteSqlValue {
+    value
+        .cloned()
+        .map(GraphiteSqlValue::Text)
+        .unwrap_or(GraphiteSqlValue::Null)
+}
+
+fn sqlite_value_number(value: Option<f64>) -> GraphiteSqlValue {
+    value
+        .map(GraphiteSqlValue::Real)
+        .unwrap_or(GraphiteSqlValue::Null)
 }
 
 fn sqlite_column_type(column: &runtime_data::RuntimeColumn) -> &'static str {
@@ -4558,201 +4737,21 @@ fn sqlite_column_type(column: &runtime_data::RuntimeColumn) -> &'static str {
     }
 }
 
-fn sqlite_row_json_values(table: &runtime_data::RuntimeTable, row_index: usize) -> Vec<Value> {
+fn sqlite_row_values(
+    table: &runtime_data::RuntimeTable,
+    row_index: usize,
+) -> Vec<GraphiteSqlValue> {
     table
         .columns
         .iter()
         .map(|column| match &column.values {
-            RuntimeValues::Text(values) => values
-                .get(row_index)
-                .cloned()
-                .map(Value::String)
-                .unwrap_or(Value::Null),
-            RuntimeValues::Number(values) => values
-                .get(row_index)
-                .and_then(|value| *value)
-                .map(Value::from)
-                .unwrap_or(Value::Null),
+            RuntimeValues::Text(values) => sqlite_value_text(values.get(row_index)),
+            RuntimeValues::Number(values) => {
+                sqlite_value_number(values.get(row_index).and_then(|value| *value))
+            }
         })
         .collect()
 }
-
-fn run_python_sqlite_script(script: &str, input: &str) -> Result<String, RuntimeError> {
-    let candidates: &[(&str, &[&str])] = &[("python", &[]), ("python3", &[]), ("py", &["-3"])];
-    let mut spawn_errors = Vec::new();
-    let mut execution_errors = Vec::new();
-    for (program, prefix_args) in candidates {
-        let mut command = Command::new(program);
-        command
-            .args(*prefix_args)
-            .arg("-c")
-            .arg(script)
-            .stdin(Stdio::piped())
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped());
-        let mut child = match command.spawn() {
-            Ok(child) => child,
-            Err(error) => {
-                spawn_errors.push(format!("{program}: {error}"));
-                continue;
-            }
-        };
-        if let Some(stdin) = child.stdin.as_mut() {
-            stdin.write_all(input.as_bytes()).map_err(|error| {
-                invalid_input(&format!(
-                    "E-DB-TRANSACTION-FAILED: failed to send SQLite payload to Python: {error}"
-                ))
-            })?;
-        }
-        let output = child.wait_with_output().map_err(|error| {
-            invalid_input(&format!(
-                "E-DB-TRANSACTION-FAILED: failed to wait for Python SQLite helper: {error}"
-            ))
-        })?;
-        if output.status.success() {
-            return Ok(String::from_utf8_lossy(&output.stdout).to_string());
-        }
-        let stderr = String::from_utf8_lossy(&output.stderr);
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        execution_errors.push(format!(
-            "{}{}: {}{}",
-            program,
-            if prefix_args.is_empty() { "" } else { " -3" },
-            stderr.trim(),
-            if stdout.trim().is_empty() {
-                String::new()
-            } else {
-                format!(" ({})", stdout.trim())
-            }
-        ));
-    }
-    if !execution_errors.is_empty() {
-        return Err(invalid_input(&format!(
-            "E-DB-TRANSACTION-FAILED: Python SQLite helper failed: {}",
-            execution_errors.join("; ")
-        )));
-    }
-    Err(invalid_input(&format!(
-        "E-DB-CONNECT: Python 3 with sqlite3 is required for SQLite DB writes ({})",
-        spawn_errors.join("; ")
-    )))
-}
-
-const SQLITE_TABLE_COLUMNS_SCRIPT: &str = r#"
-import json
-import sqlite3
-import sys
-
-payload = json.load(sys.stdin)
-
-def quote_identifier(value):
-    return '"' + str(value).replace('"', '""') + '"'
-
-connection = sqlite3.connect(payload["database"])
-try:
-    rows = connection.execute(
-        "PRAGMA table_info(" + quote_identifier(payload["table"]) + ")"
-    ).fetchall()
-    print(json.dumps([row[1] for row in rows]))
-finally:
-    connection.close()
-"#;
-
-const SQLITE_WRITE_SCRIPT: &str = r#"
-import json
-import sqlite3
-import sys
-
-payload = json.load(sys.stdin)
-
-def quote_identifier(value):
-    return '"' + str(value).replace('"', '""') + '"'
-
-def column_definition(column):
-    return quote_identifier(column["name"]) + " " + column["sqlite_type"]
-
-connection = sqlite3.connect(payload["database"])
-try:
-    connection.execute("BEGIN")
-    definitions = [column_definition(column) for column in payload["columns"]]
-    key = payload["key"]
-    if key:
-        definitions.append(
-            "PRIMARY KEY (" + ", ".join(quote_identifier(column) for column in key) + ")"
-        )
-    connection.execute(
-        "CREATE TABLE IF NOT EXISTS "
-        + quote_identifier(payload["table"])
-        + " ("
-        + ", ".join(definitions)
-        + ")"
-    )
-    connection.execute(
-        "CREATE TABLE IF NOT EXISTS \"_eng_schema_metadata\" ("
-        "db_table TEXT NOT NULL, "
-        "column_name TEXT NOT NULL, "
-        "type_name TEXT NOT NULL, "
-        "quantity_kind TEXT, "
-        "unit TEXT, "
-        "canonical_unit TEXT, "
-        "is_index INTEGER NOT NULL, "
-        "PRIMARY KEY (db_table, column_name))"
-    )
-    connection.execute(
-        "DELETE FROM \"_eng_schema_metadata\" WHERE db_table = ?",
-        [payload["table"]],
-    )
-    for column in payload["columns"]:
-        connection.execute(
-            "INSERT INTO \"_eng_schema_metadata\" "
-            "(db_table, column_name, type_name, quantity_kind, unit, canonical_unit, is_index) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?)",
-            [
-                payload["table"],
-                column["name"],
-                column["type_name"],
-                column["quantity_kind"],
-                column.get("unit"),
-                column.get("canonical_unit"),
-                1 if column.get("is_index") else 0,
-            ],
-        )
-    column_names = [column["name"] for column in payload["columns"]]
-    quoted_columns = ", ".join(quote_identifier(column) for column in column_names)
-    placeholders = ", ".join("?" for _ in column_names)
-    sql = (
-        "INSERT INTO "
-        + quote_identifier(payload["table"])
-        + " ("
-        + quoted_columns
-        + ") VALUES ("
-        + placeholders
-        + ")"
-    )
-    if payload["mode"] == "upsert" and key:
-        assignments = [
-            quote_identifier(column)
-            + " = excluded."
-            + quote_identifier(column)
-            for column in column_names
-            if column not in key
-        ]
-        sql += " ON CONFLICT (" + ", ".join(quote_identifier(column) for column in key) + ") DO "
-        sql += "NOTHING" if not assignments else "UPDATE SET " + ", ".join(assignments)
-    for row in payload["rows"]:
-        connection.execute(sql, row)
-    if payload["transaction"] == "rollback":
-        connection.rollback()
-    else:
-        connection.commit()
-    print(json.dumps({"status": "ok"}))
-except Exception:
-    connection.rollback()
-    raise
-finally:
-    connection.close()
-"#;
-
 fn hash_file_if_exists(path: &Path) -> Option<String> {
     fs::read(path).ok().map(|bytes| hash_bytes(&bytes))
 }
@@ -15132,23 +15131,27 @@ mod tests {
     }
 
     fn sqlite_execute(db_path: &Path, statements: &[&str]) {
-        let payload = serde_json::to_string(&json!({
-            "database": db_path.display().to_string(),
-            "statements": statements,
-        }))
-        .expect("sqlite execute payload");
-        run_python_sqlite_script(SQLITE_TEST_EXECUTE_SCRIPT, &payload).expect("sqlite execute");
+        let mut connection = sqlite_open_or_create(db_path).expect("sqlite open");
+        for statement in statements {
+            connection.execute_batch(statement).expect("sqlite execute");
+        }
     }
 
     fn sqlite_query_scalar(db_path: &Path, sql: &str) -> Value {
-        let payload = serde_json::to_string(&json!({
-            "database": db_path.display().to_string(),
-            "sql": sql,
-        }))
-        .expect("sqlite query payload");
-        let output =
-            run_python_sqlite_script(SQLITE_TEST_QUERY_SCRIPT, &payload).expect("sqlite query");
-        serde_json::from_str(output.trim()).expect("sqlite query json")
+        let connection = sqlite_open_existing(db_path).expect("sqlite open");
+        let result = connection.query(sql).expect("sqlite query");
+        let Some(row) = result.rows.first() else {
+            return Value::Null;
+        };
+        match row.first() {
+            Some(GraphiteSqlValue::Null) | None => Value::Null,
+            Some(GraphiteSqlValue::Integer(value)) => json!(value),
+            Some(GraphiteSqlValue::Real(value)) => json!(value),
+            Some(GraphiteSqlValue::Text(value)) => Value::String(value.clone()),
+            Some(GraphiteSqlValue::Blob(value)) => {
+                Value::String(format!("blob:{} bytes", value.len()))
+            }
+        }
     }
 
     fn assert_saved_artifact(path: &Path, label: &str) {
@@ -15177,7 +15180,7 @@ mod tests {
         let weather_source = repo_root
             .join("examples")
             .join("workflows")
-            .join("01_weather_api_to_standard_file_hybrid")
+            .join("01_weather_api_to_standard_file")
             .join("main.eng");
         let weather_build = repo_root
             .join("build")
@@ -15196,6 +15199,15 @@ mod tests {
         assert_saved_artifact(&weather_output.process_results_path, "process_results.json");
         assert_saved_artifact(&weather_output.cache_manifest_path, "cache_manifest.json");
         assert!(weather_output
+            .process_results_json
+            .contains("\"process_count\": 0"));
+        assert!(weather_output
+            .result_json
+            .contains("\"network_boundaries\""));
+        assert!(weather_output
+            .cache_manifest_json
+            .contains("\"owner_kind\": \"network_request\""));
+        assert!(weather_output
             .output_manifest_json
             .contains("outputs/standard_weather_file.txt"));
         assert!(weather_output
@@ -15206,7 +15218,7 @@ mod tests {
         let surrogate_dir = repo_root
             .join("examples")
             .join("workflows")
-            .join("02_external_simulation_surrogate_hybrid");
+            .join("02_external_simulation_surrogate");
         let surrogate_source = surrogate_dir.join("main.eng");
         let surrogate_build = repo_root
             .join("build")
@@ -15226,57 +15238,28 @@ mod tests {
             &surrogate_output.process_results_path,
             "process_results.json",
         );
-        assert_saved_artifact(
-            &surrogate_dir
-                .join("outputs")
-                .join("case_001")
-                .join("case_manifest.json"),
-            "case_manifest.json",
-        );
-        assert_saved_artifact(
-            &surrogate_dir.join("outputs").join("model_card.json"),
-            "model_card.json",
-        );
-        assert_saved_artifact(
-            &surrogate_dir.join("outputs").join("db_write_manifest.json"),
-            "db_write_manifest.json",
-        );
-        assert!(surrogate_output.result_json.contains("\"case_manifests\""));
-        assert!(surrogate_output.result_json.contains("\"model_cards\""));
-        assert!(surrogate_output.result_json.contains("\"db_manifests\""));
+        assert!(surrogate_output
+            .process_results_json
+            .contains("\"process_count\": 0"));
         assert!(surrogate_output
             .output_manifest_json
-            .contains("outputs/prediction_manifest.json"));
+            .contains("outputs/case_001/input.txt"));
+        assert!(surrogate_output
+            .output_manifest_json
+            .contains("outputs/workflow_summary.csv"));
+        assert!(surrogate_output.result_json.contains("\"case_manifests\""));
+        assert!(surrogate_output.result_json.contains("\"model_cards\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"kind\": \"RegressionModel\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"schema_name\": \"PredictionResult\""));
+        assert!(surrogate_output.result_json.contains("\"db_manifests\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"transaction_status\": \"committed\""));
     }
-
-    const SQLITE_TEST_EXECUTE_SCRIPT: &str = r#"
-import json
-import sqlite3
-import sys
-
-payload = json.load(sys.stdin)
-connection = sqlite3.connect(payload["database"])
-try:
-    for statement in payload["statements"]:
-        connection.execute(statement)
-    connection.commit()
-finally:
-    connection.close()
-"#;
-
-    const SQLITE_TEST_QUERY_SCRIPT: &str = r#"
-import json
-import sqlite3
-import sys
-
-payload = json.load(sys.stdin)
-connection = sqlite3.connect(payload["database"])
-try:
-    row = connection.execute(payload["sql"]).fetchone()
-    print(json.dumps(None if row is None else row[0]))
-finally:
-    connection.close()
-"#;
 
     #[test]
     fn run_file_prints_and_writes_explicit_summary_csv_export() {
@@ -17610,8 +17593,8 @@ finally:
                 "  \"case_dir\": \"outputs/case_001\",\n",
                 "  \"generated_input_file\": {\"path\": \"outputs/case_001/input.txt\", \"sha256\": \"input-hash\", \"bytes\": 8},\n",
                 "  \"processes\": [\n",
-                "    {\"name\": \"patch_input\", \"command\": \"python tools/patch_input.py\", \"status\": \"success\"},\n",
-                "    {\"name\": \"external_simulation\", \"command\": \"python tools/run_external_sim.py\", \"status\": \"success\"}\n",
+                "    {\"name\": \"patch_input\", \"command\": \"tool patch-input\", \"status\": \"success\"},\n",
+                "    {\"name\": \"external_simulation\", \"command\": \"tool run-simulation\", \"status\": \"success\"}\n",
                 "  ],\n",
                 "  \"result_files\": [{\"path\": \"outputs/case_001/result.json\", \"sha256\": \"result-hash\", \"bytes\": 28}],\n",
                 "  \"metrics\": {\"annual_electricity_kwh\": 42.5, \"peak_cooling_kw\": 7.25},\n",
@@ -17689,7 +17672,7 @@ finally:
             .contains("\"name\": \"external_simulation\""));
         assert!(output
             .result_json
-            .contains("\"command\": \"python tools/run_external_sim.py\""));
+            .contains("\"command\": \"tool run-simulation\""));
         assert!(output
             .result_json
             .contains("\"result_files\": [\"outputs/case_001/result.json\"]"));

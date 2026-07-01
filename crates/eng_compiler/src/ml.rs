@@ -24,6 +24,8 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
     let lowered = expression.to_ascii_lowercase();
     let kind = if lowered.starts_with("train_test_split(") {
         "TrainTestSplit"
+    } else if is_table_regression_expression(expression) {
+        "RegressionModel"
     } else if lowered.starts_with("regression(") {
         "RegressionModel"
     } else if lowered.starts_with("mlp(") || lowered.starts_with("ann(") {
@@ -45,6 +47,7 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
     let source = prediction_arguments
         .as_ref()
         .map(|(model, _)| model.clone())
+        .or_else(|| table_regression_source(expression))
         .or_else(|| first_argument(expression));
 
     Some(MlInfo {
@@ -106,7 +109,7 @@ pub fn ml_semantic_type(expression: &str) -> Option<(String, String)> {
     let lowered = expression.trim().to_ascii_lowercase();
     if lowered.starts_with("train_test_split(") {
         Some(("TrainTestSplit".to_owned(), "split".to_owned()))
-    } else if lowered.starts_with("regression(") {
+    } else if is_table_regression_expression(expression) || lowered.starts_with("regression(") {
         Some(("Model[Regression]".to_owned(), "model".to_owned()))
     } else if lowered.starts_with("mlp(") || lowered.starts_with("ann(") {
         Some(("Model[MLP]".to_owned(), "model".to_owned()))
@@ -148,6 +151,14 @@ fn source_requirements(info: &MlInfo) -> Vec<MlSourceRequirement> {
             source: info.source.clone(),
             expected: ExpectedMlSource::TimeSeries,
         }],
+        "RegressionModel" if is_table_regression_expression(&info.expression) => {
+            vec![MlSourceRequirement {
+                call,
+                role: "table",
+                source: info.source.clone(),
+                expected: ExpectedMlSource::Table,
+            }]
+        }
         "RegressionModel" | "MlpModel" | "LeakageLint" => vec![MlSourceRequirement {
             call,
             role: "split",
@@ -301,7 +312,7 @@ fn expected_source_help(expected: ExpectedMlSource) -> &'static str {
             "Create `reg_model = regression(split, ...)` or `mlp_model = mlp(split, ...)` first."
         }
         ExpectedMlSource::Table => {
-            "Promote or generate a table first, then pass it as `predict model using samples`."
+            "Promote or generate a table first, then pass it as `predict model using samples` or `regression_table(table, ...)`."
         }
     }
 }
@@ -310,6 +321,8 @@ fn ml_call_name(expression: &str) -> &'static str {
     let lowered = expression.trim_start().to_ascii_lowercase();
     if lowered.starts_with("train_test_split(") {
         "train_test_split"
+    } else if is_table_regression_expression(expression) {
+        "regression_table"
     } else if lowered.starts_with("regression(") {
         "regression"
     } else if lowered.starts_with("mlp(") {
@@ -382,6 +395,47 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
 }
 
 fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
+    if is_table_regression_expression(&info.expression) {
+        if info
+            .target
+            .as_deref()
+            .filter(|target| is_identifier(target))
+            .is_none()
+        {
+            diagnostics.push(Diagnostic::error(
+                "E-ML-ARGS-001",
+                info.line,
+                "`regression_table` requires `target=<column>`.",
+                Some("Pass the target table column, for example `target=annual_electricity`."),
+            ));
+        }
+        if info.features.is_empty() {
+            diagnostics.push(Diagnostic::error(
+                "E-ML-ARGS-001",
+                info.line,
+                "`regression_table` requires `features=[...]`.",
+                Some("List feature columns such as `features=[people_density, cooling_cop]`."),
+            ));
+        } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
+            diagnostics.push(Diagnostic::error(
+                "E-ML-ARGS-001",
+                info.line,
+                &format!("Feature `{feature}` is not a valid identifier."),
+                Some("Use bare table column names in `features=[...]`."),
+            ));
+        }
+        if let Some(value) = info.test_fraction.as_deref() {
+            if parse_test_fraction(value).is_none() {
+                diagnostics.push(Diagnostic::error(
+                    "E-ML-ARGS-002",
+                    info.line,
+                    &format!("`test={value}` is not a valid held-out fraction."),
+                    Some("Use a value between 0 and 1, or a percentage such as `20%`."),
+                ));
+            }
+        }
+        validate_optional_integer(&info.expression, "seed", info.line, diagnostics);
+    }
     if let Some(algorithm) = named_value(&info.expression, &["algorithm"]) {
         if algorithm != "linear" {
             diagnostics.push(Diagnostic::error(
@@ -487,6 +541,17 @@ fn first_argument(expression: &str) -> Option<String> {
         .map(str::trim)
         .filter(|value| !value.is_empty() && !value.contains('='))
         .map(str::to_owned)
+}
+
+fn is_table_regression_expression(expression: &str) -> bool {
+    let lowered = expression.trim_start().to_ascii_lowercase();
+    lowered.starts_with("regression_table(") || lowered.starts_with("train_regression(")
+}
+
+fn table_regression_source(expression: &str) -> Option<String> {
+    is_table_regression_expression(expression)
+        .then(|| first_argument(expression))
+        .flatten()
 }
 
 fn predict_model_arguments(expression: &str) -> Option<(String, String)> {

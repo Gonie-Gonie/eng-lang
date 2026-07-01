@@ -11,6 +11,7 @@ eng_report = { path = "../eng_report" }
 serde_json = "1"
 sha2 = "0.10"
 toml = "0.8"
+graphitesql = { version = "0.0.13", default-features = false, features = ["std"] }
 
 [lib]
 path = "src/lib.rs"

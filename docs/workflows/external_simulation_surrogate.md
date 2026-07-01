@@ -1,36 +1,28 @@
 # External Simulation Surrogate
 
-Source example: examples/workflows/02_external_simulation_surrogate_hybrid/main.eng
+Source example: `examples/workflows/02_external_simulation_surrogate/main.eng`
 
-This workflow demonstrates a general adapter pattern:
+This workflow demonstrates a native surrogate pattern:
 
 ```text
-sample table -> input variants -> external runs -> typed results -> surrogate -> predictions -> database/report
+LHS training samples -> LHS prediction samples -> rendered case inputs -> regression_table -> predict -> SQLite
 ```
 
-## Run
+Run:
 
 ```bat
-eng.exe run examples/workflows/02_external_simulation_surrogate_hybrid/main.eng --save-artifacts
+eng.exe run examples/workflows/02_external_simulation_surrogate/main.eng --save-artifacts
 ```
 
-## What It Proves
+What it proves:
 
-- typed sample table promotion
-- explicit case directories and manifests
-- external simulator process boundaries
-- typed result and prediction table promotion
-- model artifact, metrics artifact, and model-card generation
-- database side-effect manifest as a reviewable boundary
+- deterministic native `sample lhs` tables for training and prediction inputs
+- native template rendering for case input files
+- native table-based `regression_table(...)` model training
+- native `predict surrogate_model using designs` prediction table materialization
+- native SQLite writes to `simulation_results` and `predictions`
+- `process_results.json` has `process_count = 0`
 
-## What It Does Not Claim
-
-This is not EnergyPlus-specific and does not claim native parameter sweeps,
-native surrogate training, or production database writes. The included tools
-are fixture adapters that document the contract.
-
-## Review Points
-
-Inspect case manifests, process statuses, result collection manifest, model
-card, prediction manifest, database side-effect manifest, and scalar report
-summary.
+This is not an EnergyPlus, CFD, FEM, Modelica, or vendor ML framework adapter
+in core. Real simulator or trainer adapters should layer above the same typed
+table, model-card, prediction-manifest, DB-manifest, and artifact contracts.

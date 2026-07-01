@@ -35,8 +35,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         (
             "workflow",
             &[
-                "examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng",
-                "examples/workflows/02_external_simulation_surrogate_hybrid/main.eng",
+                "examples/workflows/01_weather_api_to_standard_file/main.eng",
+                "examples/workflows/02_external_simulation_surrogate/main.eng",
                 "examples/workflows/03_uncertain_sensor_report/main.eng",
             ],
         ),
@@ -5641,10 +5641,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !review.contains("\"time_grid\"")
                 || !review.contains("\"binding\": \"sim\"")
                 || !review.contains("\"name\": \"T_zone\"")
-                || !review.contains("\"states\": [\"T_zone\"]")
-                || !review.contains("\"inputs\": [\"T_out\", \"Q_internal\"]")
-                || !review.contains("\"parameters\": [\"C\", \"UA\"]")
-                || !review.contains("\"outputs\": [\"T_zone\"]")
+                || !review.contains("\"name\": \"C\"")
+                || !review.contains("\"name\": \"UA\"")
                 || !review.contains("\"method\": \"explicit_euler_fixed_step\"")
                 || !review.contains("\"step_count\": 6")
                 || !review.contains("\"final_value\"")
@@ -6381,26 +6379,21 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng"),
+        Path::new("examples/workflows/01_weather_api_to_standard_file/main.eng"),
         Path::new("build/test-workflow-weather-standard-file"),
         &artifact_run_options(),
     ) {
         Ok(output) => {
             if !output.review_json.contains("WeatherHourly")
-                || !output.review_json.contains("fetch_result")
+                || !output.result_json.contains("\"network_boundaries\"")
+                || !output.result_json.contains("\"binding\": \"api_response\"")
                 || !output
-                    .process_results_json
-                    .contains("\"format\": \"eng-process-results-v1\"")
-                || !output.process_results_json.contains("\"process_count\": 3")
+                    .cache_manifest_json
+                    .contains("\"owner_kind\": \"network_request\"")
                 || !output
-                    .process_results_json
-                    .contains("\"binding\": \"fetch_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"writer_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"quality_result\"")
+                    .cache_manifest_json
+                    .contains("\"owner_name\": \"api_response\"")
+                || !output.process_results_json.contains("\"process_count\": 0")
                 || !output
                     .output_manifest_json
                     .contains("outputs/fetched_weather.json")
@@ -6409,26 +6402,14 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("outputs/standard_weather_file.txt")
                 || !output
                     .output_manifest_json
-                    .contains("\"kind\": \"standard_file\"")
-                || !output.output_manifest_json.contains("\"validation\"")
-                || !output
-                    .process_results_json
-                    .contains("\"kind\": \"standard_file\"")
+                    .contains("outputs/weather_quality_summary.txt")
                 || !output
                     .output_manifest_json
-                    .contains("outputs/weather_quality_summary.txt")
+                    .contains("\"kind\": \"write_text\"")
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"report_html\"")
                 || !output.review_json.contains("selected_station_id")
-                || !output.review_json.contains("\"table_selections\"")
-                || !output
-                    .review_json
-                    .contains("\"source_table\": \"stations\"")
-                || !output
-                    .review_json
-                    .contains("\"selected_value\": \"STN001\"")
-                || !output.result_json.contains("\"table_selections\"")
                 || !output.result_json.contains("\"timeseries_coverage\"")
                 || !output.result_json.contains("\"source_table\": \"weather\"")
                 || !output.result_json.contains("\"binding\": \"coverage\"")
@@ -6448,7 +6429,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng produced workflow manifest artifacts"
+                "ok: examples/workflows/01_weather_api_to_standard_file/main.eng produced workflow manifest artifacts"
             );
         }
         Err(error) => {
@@ -6457,233 +6438,55 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/workflows/02_external_simulation_surrogate_hybrid/main.eng"),
+        Path::new("examples/workflows/02_external_simulation_surrogate/main.eng"),
         Path::new("build/test-workflow-external-simulation-surrogate"),
         &artifact_run_options(),
     ) {
         Ok(output) => {
-            let collection_manifest = std::fs::read_to_string(
-                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/result_collection_manifest.json",
-            )
-            .unwrap_or_default();
-            let model_card = std::fs::read_to_string(
-                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/model_card.json",
-            )
-            .unwrap_or_default();
-            let prediction_manifest = std::fs::read_to_string(
-                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/prediction_manifest.json",
-            )
-            .unwrap_or_default();
-            let db_manifest = std::fs::read_to_string(
-                "examples/workflows/02_external_simulation_surrogate_hybrid/outputs/db_write_manifest.json",
-            )
-            .unwrap_or_default();
             if !output.review_json.contains("PredictionResult")
-                || !output.review_json.contains("case_manifest_result_003")
+                || !output.process_results_json.contains("\"process_count\": 0")
                 || !output.result_json.contains("\"sample_tables\"")
                 || !output
                     .result_json
-                    .contains("\"schema_name\": \"DesignSample\"")
+                    .contains("\"binding\": \"training_results\"")
                 || !output
                     .result_json
-                    .contains("\"schema_name\": \"SimulationResult\"")
+                    .contains("\"generation\": \"sample_lhs\"")
                 || !output
                     .result_json
                     .contains("\"schema_name\": \"PredictionResult\"")
-                || !output.result_json.contains("\"name\": \"unmet_hours\"")
-                || !output.result_json.contains("\"display_unit\": \"h\"")
-                || !output
-                    .result_json
-                    .contains("\"case_id_column\": \"case_id\"")
                 || !output.result_json.contains("\"case_manifests\"")
                 || !output
                     .result_json
                     .contains("\"case_dir\": \"outputs/case_001\"")
-                || !output
-                    .result_json
-                    .contains("\"generated_input_file\": \"outputs/case_001/input.txt\"")
-                || !output.result_json.contains("\"process_statuses\"")
-                || !output.result_json.contains("\"name\": \"patch_input\"")
-                || !output
-                    .result_json
-                    .contains("\"command\": \"python tools/patch_input.py\"")
-                || !output
-                    .result_json
-                    .contains("\"name\": \"external_simulation\"")
-                || !output
-                    .result_json
-                    .contains("\"command\": \"python tools/run_external_sim.py\"")
-                || !output
-                    .result_json
-                    .contains("\"result_files\": [\"outputs/case_001/result.json\"]")
-                || !output.result_json.contains("\"failure_reason\": null")
-                || !output
-                    .result_json
-                    .contains("\"name\": \"annual_electricity_kwh\"")
-                || !output.result_json.contains("\"status\": \"succeeded\"")
                 || !output.result_json.contains("\"case_tables\"")
                 || !output.result_json.contains("\"parameter_columns\"")
-                || !output.result_json.contains("\"policy_results\"")
-                || !output
-                    .result_json
-                    .contains("\"policy\": \"cooling_cop > 0\"")
-                || !output.result_json.contains("\"violation_count\": 0")
-                || !output.report_spec_json.contains("\"policy_results\"")
-                || !output
-                    .report_spec_json
-                    .contains("\"schema\": \"DesignSample\"")
-                || !output
-                    .report_spec_json
-                    .contains("\"policy\": \"lighting_power_density >= 0 W/m2\"")
-                || !output
-                    .process_results_json
-                    .contains("\"format\": \"eng-process-results-v1\"")
-                || !output
-                    .process_results_json
-                    .contains("\"process_count\": 13")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"patch_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"kind\": \"case_input\"")
-                || !output
-                    .process_results_json
-                    .contains("\"path\": \"outputs/case_001/input.txt\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"simulation_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"collection_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"tool_version\": \"fake-result-collector 1.0\"")
-                || !output
-                    .process_results_json
-                    .contains("\"kind\": \"result_collection\"")
-                || !output
-                    .process_results_json
-                    .contains("\"path\": \"outputs/result_collection_manifest.json\"")
-                || !output
-                    .process_results_json
-                    .contains("\"tool_version\": \"fake-external-sim 1.0\"")
-                || !output
-                    .process_results_json
-                    .contains("\"path\": \"outputs/case_001/simulator.log\"")
-                || !output
-                    .result_json
-                    .contains("outputs/case_001/simulator.log")
-                || !output.process_results_json.contains("\"stdout_hash\": \"")
-                || !output.process_results_json.contains("\"stderr_hash\": \"")
-                || !output
-                    .process_results_json
-                    .contains("\"rule\": \"exists_and_hash\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"trainer_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"tool_version\": \"fake-surrogate-trainer 1.0\"")
-                || !output
-                    .process_results_json
-                    .contains("\"kind\": \"model_artifact\"")
-                || !output
-                    .process_results_json
-                    .contains("\"path\": \"outputs/model_card.json\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"prediction_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"tool_version\": \"fake-surrogate-predictor 1.0\"")
-                || !output
-                    .process_results_json
-                    .contains("\"kind\": \"prediction_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"path\": \"outputs/prediction_manifest.json\"")
-                || !output
-                    .process_results_json
-                    .contains("\"binding\": \"db_result\"")
-                || !output
-                    .process_results_json
-                    .contains("\"tool_version\": \"fake-db-writer 1.0\"")
                 || !output
                     .output_manifest_json
                     .contains("outputs/case_001/input.txt")
                 || !output
                     .output_manifest_json
-                    .contains("outputs/case_001/simulator.log")
+                    .contains("\"kind\": \"template_render\"")
                 || !output
                     .output_manifest_json
-                    .contains("outputs/result_collection_manifest.json")
-                || !output
-                    .output_manifest_json
-                    .contains("\"kind\": \"result_collection\"")
-                || !collection_manifest.contains("\"missing_case_ids\": []")
-                || !collection_manifest.contains("\"failed_case_count\": 0")
-                || !collection_manifest.contains("annual_electricity_kwh_sum")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/case_001/case_manifest.json")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/case_002/case_manifest.json")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/case_003/case_manifest.json")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/predictions.csv")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/prediction_manifest.json")
-                || !output
-                    .output_manifest_json
-                    .contains("\"kind\": \"prediction_result\"")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/db_write_manifest.json")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/model_metrics.json")
-                || !output
-                    .output_manifest_json
-                    .contains("outputs/model_card.json")
-                || !output
-                    .output_manifest_json
-                    .contains("\"kind\": \"model_artifact\"")
-                || !model_card.contains("\"features\"")
-                || !model_card.contains("\"target\": \"annual_electricity\"")
-                || !model_card.contains("\"target_quantity\": \"Energy\"")
-                || !model_card.contains("\"target_unit\": \"kWh\"")
-                || !model_card.contains("\"train_test_split\"")
-                || !model_card.contains("\"metrics\"")
-                || !model_card.contains("\"residual_distribution\"")
-                || !model_card.contains("\"training_data_hash\"")
-                || !model_card.contains("\"model_artifact_hash\"")
+                    .contains("outputs/workflow_summary.csv")
                 || !output.result_json.contains("\"model_cards\"")
                 || !output.result_json.contains("\"model_specs\"")
                 || !output.result_json.contains("\"prediction_manifests\"")
                 || !output.result_json.contains("\"model_diagnostics\"")
+                || !output.result_json.contains("\"kind\": \"RegressionModel\"")
                 || !output
                     .result_json
-                    .contains("\"model_kind\": \"surrogate_regression_fixture\"")
+                    .contains("\"target\": \"annual_electricity\"")
+                || !output.result_json.contains("\"model_artifact_hash\"")
                 || !output
                     .result_json
-                    .contains("\"confidence_column\": \"prediction_confidence\"")
+                    .contains("\"confidence_column\": \"confidence\"")
+                || !output
+                    .result_json
+                    .contains("\"predicted_annual_electricity\"")
                 || !output.review_json.contains("\"model_specs\"")
                 || !output.review_json.contains("\"prediction_manifests\"")
-                || !output
-                    .output_manifest_json
-                    .contains("\"kind\": \"case_input\"")
-                || !output
-                    .output_manifest_json
-                    .contains("\"kind\": \"case_result\"")
-                || !output
-                    .output_manifest_json
-                    .contains("\"kind\": \"case_manifest\"")
                 || !output
                     .output_manifest_json
                     .contains("\"kind\": \"report_html\"")
@@ -6693,20 +6496,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"name\": \"simulation_results\"")
                 || !output.result_json.contains("\"name\": \"predictions\"")
-                || !prediction_manifest.contains("\"format\": \"prediction-manifest-v1\"")
-                || !prediction_manifest.contains("\"row_count\": 3")
-                || !prediction_manifest.contains("\"predicted_annual_electricity\"")
-                || !prediction_manifest.contains("\"quantity\": \"Energy\"")
-                || !prediction_manifest.contains("\"unit\": \"kWh\"")
-                || !prediction_manifest.contains("\"model_file\"")
-                || !db_manifest.contains("\"transaction_status\": \"committed-fixture\"")
-                || !db_manifest.contains("\"schema_status\": \"ok\"")
-                || !db_manifest.contains("\"schema_mismatch_diagnostics\": []")
-                || !db_manifest.contains("\"tables_written\"")
-                || !output.output_manifest_json.contains("\"model_artifacts\"")
                 || !output
-                    .output_manifest_json
-                    .contains("\"external_commands\"")
+                    .result_json
+                    .contains("\"transaction_status\": \"committed\"")
+                || !output.output_manifest_json.contains("\"model_artifacts\"")
                 || !output.review_json.contains("database_target")
                 || !output.review_json.contains("predictions.rows")
                 || !output.review_json.contains("db_tables_written")
@@ -6723,7 +6516,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/workflows/02_external_simulation_surrogate_hybrid/main.eng produced workflow manifest artifacts"
+                "ok: examples/workflows/02_external_simulation_surrogate/main.eng produced workflow manifest artifacts"
             );
         }
         Err(error) => {

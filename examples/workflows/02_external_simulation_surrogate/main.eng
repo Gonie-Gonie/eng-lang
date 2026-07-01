@@ -1,0 +1,105 @@
+args {
+    database_target: String = "outputs/surrogate_results.sqlite"
+    output: DirectoryPath = dir("outputs")
+}
+
+training_results = sample lhs
+with {
+    count = 8
+    seed = 42
+    people_density = uniform(0.030 person/m2, 0.120 person/m2)
+    lighting_power_density = uniform(5 W/m2, 15 W/m2)
+    equipment_power_density = uniform(3 W/m2, 20 W/m2)
+    cooling_cop = uniform(2.5, 5.0)
+    annual_electricity = uniform(11000 kWh, 15000 kWh)
+    annual_cooling = uniform(3800 kWh, 5400 kWh)
+    peak_cooling = uniform(11 kW, 17 kW)
+    unmet_hours = uniform(0 h, 2 h)
+}
+
+designs = sample lhs
+with {
+    count = 3
+    seed = 84
+    people_density = uniform(0.035 person/m2, 0.105 person/m2)
+    lighting_power_density = uniform(6 W/m2, 14 W/m2)
+    equipment_power_density = uniform(4 W/m2, 18 W/m2)
+    cooling_cop = uniform(2.8, 4.8)
+}
+
+surrogate_model = regression_table(training_results, target=annual_electricity, features=[people_density, lighting_power_density, equipment_power_density, cooling_cop], test=0.25, seed=7)
+model_card_summary = model_card(surrogate_model)
+model_metrics = evaluate(surrogate_model)
+predictions = predict surrogate_model using designs
+
+case_001_input = render template file("model/base_model_placeholder.txt")
+with {
+    values = { case_id = "case_001", annual_electricity = 11800 kWh, peak_cooling = 12.8 kW }
+    output = "outputs/case_001/input.txt"
+    missing = error
+    overwrite = true
+}
+
+case_002_input = render template file("model/base_model_placeholder.txt")
+with {
+    values = { case_id = "case_002", annual_electricity = 12800 kWh, peak_cooling = 14.2 kW }
+    output = "outputs/case_002/input.txt"
+    missing = error
+    overwrite = true
+}
+
+case_003_input = render template file("model/base_model_placeholder.txt")
+with {
+    values = { case_id = "case_003", annual_electricity = 13950 kWh, peak_cooling = 15.6 kW }
+    output = "outputs/case_003/input.txt"
+    missing = error
+    overwrite = true
+}
+
+native_case_status = "case inputs rendered natively from declared surrogate cases"
+native_model_status = "training samples, regression model, predictions, and DB writes materialized natively"
+db = open sqlite file("outputs/surrogate_results.sqlite")
+write training_results to db.table("simulation_results")
+with {
+    mode = append
+}
+
+write predictions to db.table("predictions")
+with {
+    mode = append
+}
+
+annual_electricity = 12800 kWh
+peak_cooling = 14.2 kW
+unmet_hours = 0 h
+db_tables_written = "simulation_results,predictions"
+
+print "Design samples = {designs.rows}"
+print "Training result samples = {training_results.rows}"
+print "Predictions = {predictions.rows}"
+log info "surrogate workflow uses native sampling/template/model/predict/db records"
+
+export summary to csv "outputs/workflow_summary.csv" {
+    annual_electricity as kWh with ".1"
+    peak_cooling as kW with ".1"
+    unmet_hours as h with ".1"
+}
+with {
+    overwrite = true
+}
+
+
+report {
+    show designs.rows
+    show training_results.rows
+    show predictions.rows
+    show native_case_status
+    show native_model_status
+    show model_card_summary
+    show model_metrics
+    show db_tables_written
+    show annual_electricity
+    show peak_cooling
+    show unmet_hours
+    show args.database_target
+}

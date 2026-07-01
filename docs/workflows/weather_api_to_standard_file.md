@@ -1,35 +1,28 @@
 # Weather API To Standard File
 
-Source example: examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng
+Source example: `examples/workflows/01_weather_api_to_standard_file/main.eng`
 
-This workflow demonstrates a general adapter pattern:
+This workflow demonstrates a native API-to-artifact pattern:
 
 ```text
-API data -> typed schema -> quality check -> fallback/imputation -> standard artifact -> report
+station map -> station selection -> http fixture/cache -> typed weather table -> coverage -> text artifacts
 ```
 
-## Run
+Run:
 
 ```bat
-eng.exe run examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng --save-artifacts
+eng.exe run examples/workflows/01_weather_api_to_standard_file/main.eng --save-artifacts
 ```
 
-## What It Proves
+What it proves:
 
-- station-map CSV promotion
-- typed hourly-weather CSV promotion
-- fixture JSON read with source hash provenance
-- explicit process boundaries for fetch and standard-file writing
-- generated standard-file and quality-summary artifacts
-- report/review artifact generation
+- native `http get` with fixture, pinned SHA-256, retry, timeout, and cache key
+- station-map CSV promotion and reviewable `select_first_row(...)`
+- typed hourly-weather CSV promotion and TimeSeries coverage records
+- generated `fetched_weather.json`, `standard_weather_file.txt`, and
+  `weather_quality_summary.txt` through native `write text`
+- `process_results.json` has `process_count = 0`
 
-## What It Does Not Claim
-
-This is not KMA, EPW, or building-energy behavior in the core language.
-Weather-specific adapters should live above generic data, cache, process,
-artifact, and report modules.
-
-## Review Points
-
-Inspect selected station evidence, source hashes, coverage status,
-quality-summary output, standard-file path, and review/report artifacts.
+This is not a KMA, EPW, or building-energy adapter in core. Provider-specific
+weather and standard-file adapters should layer above `eng.net`, `eng.cache`,
+`eng.table`, `eng.timeseries`, and `eng.artifact`.

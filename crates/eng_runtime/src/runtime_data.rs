@@ -19191,10 +19191,13 @@ fn ml_dataset(
     series: &[RuntimeTimeSeries],
     tables: &[RuntimeTable],
 ) -> Result<MlDataset, Vec<String>> {
-    let source_series = series
-        .iter()
-        .find(|series| series.name == source_name)
-        .ok_or_else(|| vec![format!("missing_source_series:{source_name}")])?;
+    let Some(source_series) = series.iter().find(|series| series.name == source_name) else {
+        let table = tables
+            .iter()
+            .find(|table| table.binding == source_name)
+            .ok_or_else(|| vec![format!("missing_source_series_or_table:{source_name}")])?;
+        return table_ml_dataset(table, target_name, features);
+    };
     let target_name = target_name.unwrap_or(source_name);
     let target_series = series
         .iter()
@@ -19258,6 +19261,73 @@ fn ml_dataset(
         target_name: target_name.to_owned(),
         target_quantity: target_series.quantity_kind.clone(),
         display_unit: target_series.display_unit.clone(),
+        rows,
+    })
+}
+
+fn table_ml_dataset(
+    table: &RuntimeTable,
+    target_name: Option<&str>,
+    features: &[String],
+) -> Result<MlDataset, Vec<String>> {
+    let target_name = target_name.ok_or_else(|| vec!["missing_target".to_owned()])?;
+    let target_column = table
+        .column(target_name)
+        .ok_or_else(|| vec![format!("missing_target:{target_name}")])?;
+    if !matches!(&target_column.values, RuntimeValues::Number(_)) {
+        return Err(vec![format!("non_numeric_target:{target_name}")]);
+    }
+    if features.is_empty() {
+        return Err(vec!["missing_features".to_owned()]);
+    }
+
+    let mut feature_columns = Vec::new();
+    let mut findings = Vec::new();
+    for feature in features {
+        match table.column(feature) {
+            Some(column) if matches!(&column.values, RuntimeValues::Number(_)) => {
+                feature_columns.push(column);
+            }
+            Some(_) => findings.push(format!("non_numeric_feature:{feature}")),
+            None => findings.push(format!("missing_feature:{feature}")),
+        }
+    }
+    if !findings.is_empty() {
+        return Err(findings);
+    }
+
+    let mut rows = Vec::new();
+    for index in 0..table.row_count {
+        let Some(target) = numeric_column_value(target_column, index) else {
+            continue;
+        };
+        let mut feature_values = Vec::with_capacity(feature_columns.len());
+        let mut complete = true;
+        for column in &feature_columns {
+            match numeric_column_value(column, index) {
+                Some(value) => feature_values.push(value),
+                None => {
+                    complete = false;
+                    break;
+                }
+            }
+        }
+        if complete {
+            rows.push(MlRow {
+                features: feature_values,
+                target,
+            });
+        }
+    }
+    if rows.len() < 2 {
+        return Err(vec![format!("insufficient_complete_rows:{}", rows.len())]);
+    }
+
+    Ok(MlDataset {
+        feature_names: features.to_vec(),
+        target_name: target_name.to_owned(),
+        target_quantity: target_column.type_name.clone(),
+        display_unit: target_column.unit.clone().unwrap_or_else(|| "1".to_owned()),
         rows,
     })
 }

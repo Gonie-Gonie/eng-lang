@@ -97,7 +97,7 @@ syntax:
   and `outputs/model_card.json`; runtime review payloads adapt model cards into
   `typed_payload.model_specs[]`, `typed_payload.model_cards[]`, and
   `typed_payload.model_diagnostics[]`.
-- `examples/workflows/02_external_simulation_surrogate_hybrid/main.eng`
+- `examples/workflows/02_external_simulation_surrogate/main.eng`
   also covers prediction-manifest adaptation into
   `typed_payload.prediction_manifests[]`, including output quantity/unit,
   case IDs, row counts, hashes, and confidence-column metadata.
@@ -118,10 +118,11 @@ stay labeled as composite workflow foundations, not full native module support.
 
 Current coverage:
 
-- `examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng`
+- `examples/workflows/01_weather_api_to_standard_file/main.eng`
   runs in fixture mode without a real network call.
-- `examples/workflows/02_external_simulation_surrogate_hybrid/main.eng`
-  runs with fake external simulator/trainer/predictor/DB tools.
+- `examples/workflows/02_external_simulation_surrogate/main.eng`
+  runs native sampling, template rendering, regression, prediction, and DB writes
+  with zero external process adapters.
 - `eng test examples` asserts that both workflows produce review,
   output-manifest, process, report, and typed result artifacts.
 - These examples are intentionally covered by workflow smoke rather than public

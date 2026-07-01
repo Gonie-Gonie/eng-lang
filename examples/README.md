@@ -68,19 +68,18 @@ official/19_class_object
 
 ## Composite Workflow Examples
 
-`examples/workflows` contains hybrid workflow skeletons that demonstrate
-generic adapter boundaries. They are not first-user public package examples and
-they are not domain-specific product claims.
+`examples/workflows` contains native composite workflow examples. They are not
+first-user public package examples and they are not domain-specific product
+claims.
 
 ```text
-workflows/01_weather_api_to_standard_file_hybrid
-  API data, typed station-map schema, fixture read, explicit process boundary,
-  generated standard text artifact, and review/report path.
+workflows/01_weather_api_to_standard_file
+  Native network/cache fixture boundary, typed station-map and hourly-weather
+  tables, generated standard text artifact, and review/report path.
 
-workflows/02_external_simulation_surrogate_hybrid
-  Design sample table, typed result and prediction tables, explicit per-case
-  process boundaries, case manifests, model-card/metrics artifacts, generated
-  workflow summary, and DB side-effect manifest.
+workflows/02_external_simulation_surrogate
+  Native LHS samples, template-rendered case inputs, table-based regression,
+  native prediction table, generated workflow summary, and SQLite DB manifests.
 
 workflows/03_uncertain_sensor_report
   Typed sensor data, pointwise measured uncertainty metadata, duration summary,

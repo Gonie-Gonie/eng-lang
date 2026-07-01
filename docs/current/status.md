@@ -173,33 +173,35 @@ is not mistaken for public module support.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
-    diagnostics, promoted sample-table artifacts, promoted case manifests
-    enriched from process outputs, optional JSON/TOML config field policy,
-    native SQLite append/upsert write seed records in
+    diagnostics, native network/cache fixture boundaries, native sample-table
+    artifacts, native template-rendered case input artifacts, optional JSON/TOML
+    config field policy, native SQLite append/upsert write records in
     `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, model specs/cards in
     `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
     native predict-table records and prediction manifests in `typed_payload.prediction_manifests[]`, model
-    diagnostics in `typed_payload.model_diagnostics[]`, and hybrid artifact fixtures
-    for weather/case/model/prediction/DB manifest contracts; `Planned` native
-    net/cache/sample generators/case runner, broad DB support, and broader model train syntax.
-  - Current hybrid DB evidence includes schema diagnostics, transaction status,
+    diagnostics in `typed_payload.model_diagnostics[]`, and native workflow
+    artifact evidence for weather/case/model/prediction/DB manifest contracts;
+    `Planned` live network execution, broader cache invalidation/reuse APIs,
+    native case runner, broad DB support, and broader model train syntax.
+  - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
-    DB table summaries. Current hybrid model evidence includes external
-    model-card adaptation, ModelSpec/FeatureSpec/TargetSpec summaries,
+    DB table summaries. Current native model evidence includes
+    `regression_table`, `model_card`, `evaluate`, `predict ... using ...`,
+    ModelSpec/FeatureSpec/TargetSpec summaries,
     prediction schema/output metadata, confidence-column metadata, and hashes.
   - Keep domain adapters layered above generic module contracts and avoid
-    treating hybrid fixtures as native module support.
+    treating domain-specific adapters as core language identity.
 
 ## Planned Tracks
 
 - General table derived-value execution, fill transforms, and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Native composite workflow modules beyond the current network/cache/sampling
-  and SQLite write seeds: live network execution, broader cache
-  invalidation/reuse APIs, native case runner, broad database support, and
-  public model train/predict workflows.
+- Native composite workflow modules beyond the current network/cache fixture,
+  sampling, table-regression, prediction, template, and SQLite write support:
+  live network execution, broader cache invalidation/reuse APIs, native case
+  runner, broad database support, and public model train/predict workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.

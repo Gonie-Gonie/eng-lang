@@ -5856,6 +5856,8 @@ fn is_builtin_function(name: &str) -> bool {
             | "distribution"
             | "train_test_split"
             | "regression"
+            | "regression_table"
+            | "train_regression"
             | "mlp"
             | "evaluate"
             | "model_card"

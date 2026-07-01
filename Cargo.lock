@@ -763,6 +763,7 @@ version = "0.1.0"
 dependencies = [
  "eng_compiler",
  "eng_report",
+ "graphitesql",
  "serde_json",
  "sha2",
  "toml 0.8.2",
@@ -1191,6 +1192,12 @@ dependencies = [
  "libc",
  "system-deps",
 ]
+
+[[package]]
+name = "graphitesql"
+version = "0.0.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "71616cffe43d3b94339cf72eab2788309bb1f6c610094ce7855438975a004d36"
 
 [[package]]
 name = "gtk"

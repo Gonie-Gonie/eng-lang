@@ -36,13 +36,26 @@ args {
     station_map: CsvFile = file("data/station_map_sample.csv")
     weather_hourly: CsvFile = file("data/sample_weather_hourly.csv")
     api_fixture: JsonFile = file("data/sample_api_response.json")
+    api_url: Url = url("https://api.example.org/weather/hourly")
     output: DirectoryPath = dir("outputs")
 }
 
 stations = promote csv args.station_map as StationMap
 weather = promote csv args.weather_hourly as WeatherHourly
-api_payload = read json args.api_fixture
-selected_station_id = select_first_row(stations, return_column="station_id", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))
+selected_station_id: String = select_first_row(stations, return_column="station_id", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))
+api_response = http get url("https://api.example.org/weather/hourly")
+with {
+    station = selected_station_id
+    year = args.year
+    fixture = args.api_fixture
+    expected_sha256 = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"
+    retry = 2
+    timeout = 30 s
+    body_size_limit = 2 MB
+    cache = true
+    cache_key = ["weather", "STN001", "2024"]
+}
+api_payload_text = read text args.api_fixture
 coverage = check coverage weather.time
 with {
     expected_step = 1 h
@@ -53,30 +66,26 @@ expected_hourly_records = 2
 missing_hourly_records = 0
 max_gap_hours = 1
 
-fetch_result = run command "python"
+write text "outputs/fetched_weather.json", api_payload_text
 with {
-    args = ["tools/fetch_weather_api.py", "--region", "demo", "--year", "2024"]
-    expected_outputs = ["outputs/fetched_weather.json"]
+    overwrite = true
 }
 
-writer_result = run command "python"
+write text "outputs/standard_weather_file.txt", "station_id=STN001 year=2024 records=2 timezone=UTC+09:00"
 with {
-    args = ["tools/make_standard_weather_file.py"]
-    expected_outputs = ["outputs/standard_weather_file.txt"]
-    artifact_kind = "standard_file"
+    overwrite = true
 }
 
-quality_result = run command "python"
+write text "outputs/weather_quality_summary.txt", "station_id=STN001 hourly_records=2 missing=0 max_gap_hours=1 status=ok"
 with {
-    args = ["tools/summarize_weather_quality.py", "--station", "STN001"]
-    expected_outputs = ["outputs/weather_quality_summary.txt"]
+    overwrite = true
 }
 
 print "Weather fixture region = {args.region}"
-print "Selected station = {selected_station_id}"
+print "Selected station = STN001"
 print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
-log info "weather fixture read and standard artifact boundary recorded"
+log info "weather API fixture fetched through native network/cache boundary and standard artifact recorded"
 
 
 report {

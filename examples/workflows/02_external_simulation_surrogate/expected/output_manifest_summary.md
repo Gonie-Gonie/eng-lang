@@ -1,0 +1,25 @@
+# Expected Output Manifest Summary
+
+The saved run should include:
+
+```text
+outputs/case_001/input.txt
+outputs/case_001/input.txt.render_manifest.json
+outputs/case_002/input.txt
+outputs/case_002/input.txt.render_manifest.json
+outputs/case_003/input.txt
+outputs/case_003/input.txt.render_manifest.json
+outputs/surrogate_results.sqlite
+outputs/surrogate_results.sqlite.db_write_manifest.json
+outputs/workflow_summary.csv
+```
+
+The per-case inputs should be classified as `template_render` generated files.
+The SQLite database and DB write manifest should be classified as `db_write`.
+Native model, model-card, metric, and prediction records are represented in the
+output manifest's `model_artifacts` section as `model://...` artifacts rather
+than as files produced by an external process. `process_results.json` should
+show `process_count = 0`.
+
+The manifest should also include normal EngLang runtime artifacts when the
+example is run with `--save-artifacts`.

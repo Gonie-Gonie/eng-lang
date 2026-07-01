@@ -31,8 +31,8 @@ surrogate trainers stay layered above those generic modules.
 ## Run All Workflow Examples
 
 ```bat
-eng.exe run examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng --save-artifacts
-eng.exe run examples/workflows/02_external_simulation_surrogate_hybrid/main.eng --save-artifacts
+eng.exe run examples/workflows/01_weather_api_to_standard_file/main.eng --save-artifacts
+eng.exe run examples/workflows/02_external_simulation_surrogate/main.eng --save-artifacts
 eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifacts
 ```
 

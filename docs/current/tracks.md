@@ -135,16 +135,16 @@ and next cleanup action.
   language identity.
 - Public scope: supported side-effect primitives and workflow skeletons only.
 - Main internal: weather API to standard file and external simulation surrogate
-  hybrid examples define target contracts for future generic modules, including
+  native examples define contracts for generic modules, including
   promoted table diagnostics, deterministic promoted-table row selection,
   filter/select/derive/sort/require_one/join table transform records,
-  promoted sample-table summaries, promoted case manifests enriched from
-  process outputs, time-axis coverage summaries, explicit generic TimeSeries coverage artifacts, process-generated case
-  manifests, generic output-manifest artifact registry records, typed
-  model specs/cards with target contracts and hashes, prediction manifests with
-  output quantity/unit, confidence-column metadata, and model/sample hashes, and
-  native SQLite DB side-effect manifests with schema diagnostics, transaction
-  status, DB file hashes before/after, and table write records.
+  native sample-table summaries, template-rendered case input artifacts,
+  time-axis coverage summaries, explicit generic TimeSeries coverage artifacts,
+  generic output-manifest artifact registry records, typed model specs/cards
+  with target contracts and hashes, prediction manifests with output
+  quantity/unit and confidence-column metadata, and native SQLite DB
+  side-effect manifests with schema diagnostics, transaction status, DB file
+  hashes before/after, and table write records.
 - Next cleanup: grow `eng.net`, `eng.cache`, `eng.table`, `eng.sampling`,
   `eng.case`, `eng.db`, and `eng.model` from generic workflow evidence.
 

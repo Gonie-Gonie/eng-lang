@@ -304,7 +304,7 @@ mod tests {
         assert!(net_module
             .examples
             .iter()
-            .any(|example| example == "examples/workflows/01_weather_api_to_standard_file_hybrid"));
+            .any(|example| example == "examples/workflows/01_weather_api_to_standard_file"));
         assert!(net_module
             .tests
             .iter()
