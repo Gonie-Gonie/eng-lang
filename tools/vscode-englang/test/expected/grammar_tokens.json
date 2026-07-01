@@ -21,6 +21,11 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "constant.language.format.englang",
+    "text": "[iso8601]"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "promote"
   },
@@ -378,6 +383,12 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.type.englang",
     "text": "Time"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "storage.modifier.schema.englang",
+    "text": "index",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",

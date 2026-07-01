@@ -515,6 +515,16 @@ Status: implemented after syntax-highlighting consistency review.
 - Pinned `return`, `to`, HTTP request phrases, and report unit-axis syntax in
   grammar smoke expectations.
 
+## Batch 43: Schema Modifier Highlighting
+
+Status: implemented after schema fixture highlighting review.
+
+- Added a TextMate scope for the schema `index` modifier so time/index columns
+  do not appear as plain identifiers before semantic highlighting arrives.
+- Added bracketed DateTime format marker highlighting for `[iso8601]`,
+  `[unix]`, `[epoch]`, and `[utc]`.
+- Pinned schema modifier and format marker coverage in grammar smoke fixtures.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
