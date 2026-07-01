@@ -159,8 +159,57 @@
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "punctuation.separator.englang",
-    "text": "{"
+    "scope": "punctuation.section.block.begin.englang",
+    "text": "{",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "punctuation.section.block.end.englang",
+    "text": "}",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.section.brackets.begin.englang",
+    "text": "[",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.section.brackets.end.englang",
+    "text": "]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "punctuation.section.parens.begin.englang",
+    "text": "(",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "punctuation.section.parens.end.englang",
+    "text": ")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.separator.comma.englang",
+    "text": ",",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "punctuation.separator.colon.englang",
+    "text": ":",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "punctuation.accessor.dot.englang",
+    "text": ".",
+    "fullMatch": true
   },
   {
     "fixture": "04_system_component.eng",

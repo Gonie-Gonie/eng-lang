@@ -1214,6 +1214,16 @@ Status: implemented after args/report block highlighting review.
   keywords do not collide with option keys such as `args =`.
 - Updated the editor token-scope guide to document block opener scope intent.
 
+## Batch 101: Punctuation Scope Split
+
+Status: implemented after bracket/punctuation highlighting review.
+
+- Split the old catch-all punctuation scope into block, bracket, parenthesis,
+  comma, colon, and accessor-dot scopes.
+- Added grammar smoke coverage for each punctuation family so bracket and
+  punctuation coloring can become more theme-specific.
+- Updated the editor token-scope guide with the punctuation scope families.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

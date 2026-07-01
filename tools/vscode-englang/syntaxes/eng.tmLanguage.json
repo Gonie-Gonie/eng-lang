@@ -544,8 +544,40 @@
                        "punctuation":  {
                                            "patterns":  [
                                                             {
-                                                                "name":  "punctuation.separator.englang",
-                                                                "match":  "[{}\\[\\](),.:]"
+                                                                "name":  "punctuation.section.block.begin.englang",
+                                                                "match":  "\\{"
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.section.block.end.englang",
+                                                                "match":  "\\}"
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.section.brackets.begin.englang",
+                                                                "match":  "\\["
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.section.brackets.end.englang",
+                                                                "match":  "\\]"
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.section.parens.begin.englang",
+                                                                "match":  "\\("
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.section.parens.end.englang",
+                                                                "match":  "\\)"
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.separator.comma.englang",
+                                                                "match":  ","
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.separator.colon.englang",
+                                                                "match":  ":"
+                                                            },
+                                                            {
+                                                                "name":  "punctuation.accessor.dot.englang",
+                                                                "match":  "\\."
                                                             }
                                                         ]
                                        }
