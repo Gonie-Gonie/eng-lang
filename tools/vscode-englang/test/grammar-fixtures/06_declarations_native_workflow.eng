@@ -24,6 +24,12 @@ with {
 response_text = response.body
 response_hash = response.response_hash
 
+submitted = http post api_url
+with {
+    body = response_text
+    status_code = 201
+}
+
 download url("https://example.org/file.csv") to file("outputs/file.csv")
 with {
     cache = true

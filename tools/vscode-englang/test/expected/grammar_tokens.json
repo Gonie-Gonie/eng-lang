@@ -145,6 +145,12 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.materialize-cases.englang",
+    "text": "materialize cases",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "variable.parameter.property.englang",
     "text": "output_root ="
   },
@@ -165,6 +171,18 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.apply-step.englang",
+    "text": "apply run_case over",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "run_case",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "variable.parameter.property.englang",
     "text": "step ="
   },
@@ -172,6 +190,12 @@
     "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "collect"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.collect-results.englang",
+    "text": "collect results",
+    "fullMatch": true
   },
   {
     "fixture": "02_units_quantities.eng",
@@ -255,6 +279,11 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.external-boundary.englang",
+    "text": "post"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
     "text": "download"
   },
   {
@@ -266,6 +295,16 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
     "text": "body_size_limit ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "body ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "status_code ="
   },
   {
     "fixture": "06_declarations_native_workflow.eng",

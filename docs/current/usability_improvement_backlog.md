@@ -144,6 +144,21 @@ Status: implemented after native IDE usability review.
 - Extended `ide-check` contract coverage for native IDE UI script/style files
   so the run history and path-link helpers do not disappear silently.
 
+## Batch 13: VS Code Workflow Phrase Highlighting
+
+Status: implemented after VS Code highlighting review.
+
+- Added phrase-aware TextMate scopes for `materialize cases`,
+  `apply <step> over`, `collect results`, and `check coverage` so workflow
+  nouns and step names are not left as plain identifiers.
+- Expanded external-boundary highlighting for HTTP verbs such as `post`,
+  `put`, `patch`, `head`, `request`, and `fetch`.
+- Added public workflow artifact/status vocabulary such as `OutputManifest`,
+  `CacheManifest`, `metadata_ready`, cache hit/miss states, and DB/path option
+  keys to the grammar.
+- Extended grammar fixtures, expected token checks, and `ide-check` contract
+  coverage for the new highlighting surface.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -192,7 +207,8 @@ Status: implemented after native IDE usability review.
   protocol surface is stable.
 - Add semantic tokens from compiler metadata so symbols, quantities, units,
   functions, and module names can be colored like a mature language extension.
-- Add snapshot tests for the TextMate grammar and completion vocabulary.
+- Continue expanding snapshot coverage for grammar and completion vocabulary
+  as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need semantic context, such
   as missing units and unsupported `script` blocks.
 

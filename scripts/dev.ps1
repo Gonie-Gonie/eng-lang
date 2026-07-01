@@ -1699,11 +1699,12 @@ function Assert-VscodeExtensionContract {
     $GrammarSource = Get-Content -LiteralPath $GrammarPath -Raw
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
-        "check", "coverage", "sample", "lhs", "uniform",
+        "post", "check", "coverage", "sample", "lhs", "uniform",
         "materialize", "apply", "collect", "case_id", "output_root", "resume", "step",
-        "train_test_split", "regression", "predict", "model_card",
+        "run_case", "train_test_split", "regression", "predict", "model_card",
         "CsvFile", "JsonFile", "DirectoryPath", "DimensionlessNumber",
-        "expected_outputs", "artifact_kind", "cache_key", "allow_failure"
+        "expected_outputs", "artifact_kind", "cache_key", "allow_failure",
+        "OutputManifest", "metadata_ready", "database"
     )) {
         if (-not $GrammarSource.Contains($RequiredGrammarToken)) {
             throw "VS Code grammar missing token $RequiredGrammarToken"
