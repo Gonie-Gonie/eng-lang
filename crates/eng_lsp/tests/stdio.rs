@@ -736,6 +736,12 @@ with {
     seed = later
     x = uniform(0, 1)
 }
+
+missing_seed_samples = sample random
+with {
+    count = 2
+    x = uniform(0, 1)
+}
 "#;
 
     let mut child = Command::new(server)
@@ -779,7 +785,7 @@ with {
     );
     let published = read_message(&mut stdout);
     assert_eq!(published["method"], "textDocument/publishDiagnostics");
-    let diagnostics = published["params"]["diagnostics"]
+    let mut diagnostics = published["params"]["diagnostics"]
         .as_array()
         .expect("diagnostics should be an array")
         .clone();
@@ -804,6 +810,24 @@ with {
             "diagnostics should include {code}"
         );
     }
+    let missing_seed_line = source
+        .lines()
+        .position(|line| line.starts_with("missing_seed_samples"))
+        .expect("source should include missing seed sample");
+    let missing_seed_line_len = source
+        .lines()
+        .nth(missing_seed_line)
+        .expect("missing seed line should exist")
+        .len();
+    diagnostics.push(json!({
+        "range": {
+            "start": { "line": missing_seed_line, "character": 0 },
+            "end": { "line": missing_seed_line, "character": missing_seed_line_len }
+        },
+        "severity": 1,
+        "code": "E-SAMPLING-SEED-MISSING",
+        "message": "repro profile requires sample `missing_seed_samples` to declare `seed`"
+    }));
 
     write_message(
         &mut stdin,
@@ -870,6 +894,7 @@ with {
         "true",
     );
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
+    assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
 
     write_message(
         &mut stdin,

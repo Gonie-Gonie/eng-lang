@@ -1137,9 +1137,8 @@ Status: implemented after diagnostic API wording review.
 
 - Split invalid sampling seed values into `E-SAMPLING-SEED-INVALID` while
   keeping `E-SAMPLING-SEED-MISSING` for repro-profile samples that omit a seed.
-- Kept LSP and VS Code quick-fix matching compatible with both codes, while the
-  option-value replacement path is now documented against the invalid-seed
-  diagnostic.
+- Kept invalid seed values on the option-value replacement quick-fix path while
+  reserving missing seed diagnostics for a broader insertion quick fix.
 - Updated workflow module and CLI diagnostic references so the two conditions
   are no longer conflated.
 
@@ -1155,6 +1154,17 @@ Status: implemented after sampling grammar/semantic alias review.
   `workflowStep` semantic modifier specifically in `sample uniform` context.
 - Pinned both underscore and hyphen Latin-hypercube aliases in TextMate grammar
   smoke coverage.
+
+## Batch 96: Missing Sampling Seed Quick Fix
+
+Status: implemented after repro-profile quick-fix review.
+
+- Added LSP and VS Code fallback quick fixes that insert `seed = 42` for
+  `E-SAMPLING-SEED-MISSING` diagnostics on sample-generation owner lines.
+- Kept `E-SAMPLING-SEED-INVALID` on the option-value replacement path so
+  invalid option lines still rewrite only the bad value.
+- Extended code-action regression coverage with a synthetic repro-profile
+  diagnostic and updated the VS Code README quick-fix surface.
 
 ## API And Wording Cleanup Candidates
 

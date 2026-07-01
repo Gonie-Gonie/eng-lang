@@ -2431,6 +2431,13 @@ function localCodeActions(document, context) {
           actions.push(action);
         }
       }
+      if (code === "E-SAMPLING-SEED-MISSING") {
+        const action = sampleSeedMissingAction(document, diagnostic);
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
       const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
       if (optionAction) {
         optionAction.isPreferred = true;
@@ -2762,7 +2769,6 @@ function optionQuickFix(code) {
         label: "Allow process failure"
       };
     case "E-SAMPLING-SEED-INVALID":
-    case "E-SAMPLING-SEED-MISSING":
       return { optionNames: ["seed"], value: "42", label: "Set sample seed" };
     default:
       return undefined;
@@ -2842,6 +2848,50 @@ function booleanWithOptionsAction(document, diagnostic, optionNames) {
     );
   }
   return action;
+}
+
+function sampleSeedMissingAction(document, diagnostic) {
+  const lineNumber = diagnostic.range.start.line;
+  if (lineNumber < 0 || lineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const ownerLine = document.lineAt(lineNumber);
+  if (!isSampleGenerationOwnerLine(ownerLine.text)) {
+    return undefined;
+  }
+  const attachedBlock = attachedWithBlock(document, lineNumber);
+  if (attachedBlock && withBlockContainsOption(document, attachedBlock, "seed")) {
+    return undefined;
+  }
+
+  const action = new vscode.CodeAction("Add sample seed: seed = 42", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  if (attachedBlock) {
+    action.edit.insert(
+      document.uri,
+      new vscode.Position(attachedBlock.endLine, 0),
+      `${attachedBlock.indent}    seed = 42${documentNewline(document)}`
+    );
+  } else {
+    const indent = lineIndent(ownerLine.text);
+    action.edit.insert(
+      document.uri,
+      ownerLine.range.end,
+      `${documentNewline(document)}${indent}with {${documentNewline(document)}${indent}    seed = 42${documentNewline(document)}${indent}}`
+    );
+  }
+  return action;
+}
+
+function isSampleGenerationOwnerLine(text) {
+  const code = stripLineComment(text).trim();
+  const equalsIndex = code.indexOf("=");
+  if (equalsIndex < 0) {
+    return false;
+  }
+  const expression = code.slice(equalsIndex + 1).trim().toLowerCase();
+  return /^sample\s+(grid|random|uniform|lhs|latin_hypercube|latin-hypercube)$/.test(expression);
 }
 
 function attachedWithBlock(document, ownerLineNumber) {

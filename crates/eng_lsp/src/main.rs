@@ -627,6 +627,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-FS-DELETE-001" => {
             optional_code_action(lsp_recursive_delete_code_action(uri, text, diagnostic))
         }
+        "E-SAMPLING-SEED-MISSING" => {
+            optional_code_action(lsp_sampling_seed_missing_code_action(uri, text, diagnostic))
+        }
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
             text,
@@ -1036,6 +1039,65 @@ fn lsp_boolean_with_options_code_action(
     }))
 }
 
+fn lsp_sampling_seed_missing_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    let owner_line = lines.get(line_number).copied().unwrap_or("");
+    if !is_sample_generation_owner_line(owner_line) {
+        return None;
+    }
+    let attached_block = attached_with_block(&lines, line_number);
+    if attached_block
+        .as_ref()
+        .is_some_and(|block| with_block_contains_option(&lines, block, "seed"))
+    {
+        return None;
+    }
+
+    let newline = document_newline(text);
+    let (range, new_text) = if let Some(block) = attached_block {
+        (
+            zero_width_range(block.end_line, 0),
+            format!("{}    seed = 42{}", block.indent, newline),
+        )
+    } else {
+        let indent = line_indent(owner_line);
+        let character = utf16_len(owner_line);
+        (
+            zero_width_range(line_number, character),
+            format!("{newline}{indent}with {{{newline}{indent}    seed = 42{newline}{indent}}}"),
+        )
+    };
+
+    Some(json!({
+        "title": "Add sample seed: seed = 42",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, range, &new_text)
+    }))
+}
+
+fn is_sample_generation_owner_line(line: &str) -> bool {
+    let code = strip_line_comment(line).trim();
+    let Some((_name, expression)) = code.split_once('=') else {
+        return false;
+    };
+    matches!(
+        expression.trim().to_ascii_lowercase().as_str(),
+        "sample grid"
+            | "sample random"
+            | "sample uniform"
+            | "sample lhs"
+            | "sample latin_hypercube"
+            | "sample latin-hypercube"
+    )
+}
+
 struct AttachedBlock {
     start_line: usize,
     end_line: usize,
@@ -1107,7 +1169,7 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "true",
             label: "Allow process failure",
         }),
-        "E-SAMPLING-SEED-INVALID" | "E-SAMPLING-SEED-MISSING" => Some(OptionQuickFix {
+        "E-SAMPLING-SEED-INVALID" => Some(OptionQuickFix {
             option_names: &["seed"],
             value: "42",
             label: "Set sample seed",

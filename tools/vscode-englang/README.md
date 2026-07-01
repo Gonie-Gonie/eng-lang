@@ -28,8 +28,8 @@ embedding compiler logic in JavaScript.
 - quick fixes for `:=`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
   missing-unit suffix fixes for unit arithmetic diagnostics, schema column
-  annotation migrations, required file-mutation `with` options, and invalid
-  sampling seed values
+  annotation migrations, required file-mutation `with` options, invalid
+  sampling seed values, and missing repro-profile sampling seeds
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open the current file review
   JSON, open the latest generated report, and inspect review/run artifacts such
