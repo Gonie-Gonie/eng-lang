@@ -1086,6 +1086,18 @@ Status: implemented after TextMate workflow fixture review.
   previously depended on generic keyword/operator scopes.
 - Regenerated the VS Code TextMate grammar from the readable source grammar.
 
+## Batch 90: Native Sampling/Predict Phrase Highlighting
+
+Status: implemented after workflow 02 model/sampling fixture review.
+
+- Added phrase-aware TextMate scope coverage for `sample lhs`, `sample grid`,
+  and `sample random`.
+- Generalized `predict <model> using` highlighting so model variables such as
+  `surrogate_model` are scoped as workflow-local operands instead of requiring
+  the literal word `model`.
+- Extended grammar smoke fixtures/expectations and regenerated the VS Code
+  grammar.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

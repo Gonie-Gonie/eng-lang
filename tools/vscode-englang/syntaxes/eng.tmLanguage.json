@@ -299,6 +299,18 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.sample-method.englang",
+                                                                    "match":  "\\b(sample)\\s+(lhs|grid|random)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.materialize-cases.englang",
                                                                     "match":  "\\b(materialize)\\s+(cases)\\b",
                                                                     "captures":  {
@@ -324,13 +336,13 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.predict-model.englang",
-                                                                    "match":  "\\b(predict)\\s+(model)\\s+(using)\\b",
+                                                                    "match":  "\\b(predict)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(using)\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            },
                                                                                      "3":  {
                                                                                                "name":  "keyword.operator.word.englang"

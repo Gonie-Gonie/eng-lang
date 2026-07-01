@@ -10,6 +10,7 @@ model = regression_table(designs, target=annual_electricity, features=[people_de
 metrics = evaluate(model)
 card = model_card(model)
 predictions = predict model using designs
+surrogate_predictions = predict surrogate_model using designs
 first_design = require_one designs
 
 cases = materialize cases designs
