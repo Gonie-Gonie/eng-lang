@@ -1736,6 +1736,18 @@ Status: implemented after reviewing native workflow API wording exposure.
 - Regenerated editor completion metadata so VS Code and the native IDE share
   the same public completion surface.
 
+## Batch 143: Eng Test Workflow Discovery Guard
+
+Status: implemented after comparing `dev.bat workflows-test` with `eng test`.
+
+- Changed `eng test` workflow example checks to discover
+  `examples/workflows/*/main.eng` instead of keeping a second hard-coded
+  workflow list.
+- Reused the same discovered workflow list for the native source guard that
+  rejects Python markers, `run command`, and legacy `select_first_row(...)`.
+- Kept the minimum count check so the existing workflow 01/02/03 smoke surface
+  cannot silently disappear.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

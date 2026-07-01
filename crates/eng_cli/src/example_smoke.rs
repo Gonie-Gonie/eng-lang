@@ -14,7 +14,22 @@ use crate::jit_bench::{
 use crate::print_diagnostics;
 
 pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
-    let example_groups: [(&str, &[&str]); 5] = [
+    let workflow_examples = match workflow_main_sources() {
+        Ok(examples) if examples.len() >= 3 => examples,
+        Ok(examples) => {
+            eprintln!(
+                "expected at least workflow 01/02/03 main.eng files, found {}",
+                examples.len()
+            );
+            return ExitCode::from(2);
+        }
+        Err(error) => {
+            eprintln!("failed to enumerate workflow examples: {error}");
+            return ExitCode::from(2);
+        }
+    };
+
+    let example_groups: [(&str, &[&str]); 4] = [
         (
             "official",
             &[
@@ -30,14 +45,6 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 "examples/official/15_process_result/main.eng",
                 "examples/official/16_test_assert_golden/main.eng",
                 "examples/official/19_class_object/main.eng",
-            ],
-        ),
-        (
-            "workflow",
-            &[
-                "examples/workflows/01_weather_api_to_standard_file/main.eng",
-                "examples/workflows/02_external_simulation_surrogate/main.eng",
-                "examples/workflows/03_uncertain_sensor_report/main.eng",
             ],
         ),
         (
@@ -105,6 +112,20 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             }
             println!("ok: {group} example {example}");
         }
+    }
+    for example in &workflow_examples {
+        let report = match check_file(example, &CheckOptions::default()) {
+            Ok(report) => report,
+            Err(error) => {
+                eprintln!("{}: {error}", example.display());
+                return ExitCode::from(1);
+            }
+        };
+        if report.has_errors() {
+            print_diagnostics(&report);
+            return ExitCode::from(2);
+        }
+        println!("ok: workflow example {}", example.display());
     }
     if !native_workflow_sources_avoid_external_processes() {
         return ExitCode::from(2);
@@ -6879,11 +6900,20 @@ report {
 }
 
 fn native_workflow_sources_avoid_external_processes() -> bool {
-    let workflow_sources = [
-        "examples/workflows/01_weather_api_to_standard_file/main.eng",
-        "examples/workflows/02_external_simulation_surrogate/main.eng",
-        "examples/workflows/03_uncertain_sensor_report/main.eng",
-    ];
+    let workflow_sources = match workflow_main_sources() {
+        Ok(sources) if sources.len() >= 3 => sources,
+        Ok(sources) => {
+            eprintln!(
+                "expected at least workflow 01/02/03 main.eng files, found {}",
+                sources.len()
+            );
+            return false;
+        }
+        Err(error) => {
+            eprintln!("failed to enumerate native workflow sources: {error}");
+            return false;
+        }
+    };
     let banned_fragments = [
         ("run command", "external process adapter"),
         ("python", "Python runtime dependency"),
@@ -6897,21 +6927,41 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         ("select_first_row", "legacy seeded row selection helper"),
     ];
     for source_path in workflow_sources {
-        let Ok(source) = std::fs::read_to_string(source_path) else {
-            eprintln!("failed to read native workflow source {source_path}");
+        let Ok(source) = std::fs::read_to_string(&source_path) else {
+            eprintln!(
+                "failed to read native workflow source {}",
+                source_path.display()
+            );
             return false;
         };
         let lowered = source.to_ascii_lowercase();
         for (banned, reason) in banned_fragments {
             if lowered.contains(banned) {
                 eprintln!(
-                    "native workflow source {source_path} must not contain `{banned}` ({reason})"
+                    "native workflow source {} must not contain `{banned}` ({reason})",
+                    source_path.display()
                 );
                 return false;
             }
         }
     }
     true
+}
+
+fn workflow_main_sources() -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut sources = Vec::new();
+    for entry in std::fs::read_dir("examples/workflows")? {
+        let path = entry?.path();
+        if !path.is_dir() {
+            continue;
+        }
+        let main = path.join("main.eng");
+        if main.is_file() {
+            sources.push(main);
+        }
+    }
+    sources.sort();
+    Ok(sources)
 }
 
 fn review_examples_are_formatter_clean() -> bool {
