@@ -139,6 +139,41 @@
     "text": "using"
   },
   {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "materialize"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "output_root ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "case_id ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "resume ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "apply"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "step ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "collect"
+  },
+  {
     "fixture": "02_units_quantities.eng",
     "scope": "constant.other.unit.englang",
     "text": "W/m2",

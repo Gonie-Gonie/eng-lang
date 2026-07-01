@@ -255,7 +255,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
+                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|materialize|apply|collect|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
                                                          }
                                                      ]
                                     },
@@ -263,7 +263,7 @@
                                            "patterns":  [
                                                             {
                                                                 "name":  "variable.parameter.property.englang",
-                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|values|output|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|mean|std|error|samples|scale|offset|uncertainty|timestep|duration|solver|tolerance|atol|rtol|unit|title|split)\\b(?=\\s*=)"
+                                                                "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|expected_outputs|artifact_kind|tool_version|values|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_key|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|mean|std|error|samples|scale|offset|uncertainty|timestep|duration|solver|tolerance|atol|rtol|unit|title|split)\\b(?=\\s*=)"
                                                             }
                                                         ]
                                        },
@@ -271,7 +271,7 @@
                                          "patterns":  [
                                                           {
                                                               "name":  "constant.language.englang",
-                                                              "match":  "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|keep|empty|interpolate|monotonic|linear|passed|failed|succeeded|skipped|fixed_step|rk4|adaptive_heun|fixed_point|newton|implicit_euler_dae|dynamic_component_explicit_euler|dynamic_component_semi_implicit_euler|dynamic_component_adaptive_heun|trapezoidal)\\b"
+                                                              "match":  "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|keep|empty|interpolate|monotonic|linear|pending|running|passed|failed|succeeded|skipped|fixed_step|rk4|adaptive_heun|fixed_point|newton|implicit_euler_dae|dynamic_component_explicit_euler|dynamic_component_semi_implicit_euler|dynamic_component_adaptive_heun|trapezoidal)\\b"
                                                           }
                                                       ]
                                      },

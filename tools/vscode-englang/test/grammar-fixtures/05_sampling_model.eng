@@ -10,3 +10,17 @@ model = regression_table(designs, target=annual_electricity, features=[people_de
 metrics = evaluate(model)
 card = model_card(model)
 predictions = predict model using designs
+
+cases = materialize cases designs
+with {
+    output_root = "outputs"
+    case_id = case_id
+    resume = true
+}
+
+case_results = apply run_case over designs
+with {
+    step = run_case
+}
+
+collected = collect results case_results

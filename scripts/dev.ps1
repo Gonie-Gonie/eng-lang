@@ -1700,6 +1700,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
         "check", "coverage", "sample", "lhs", "uniform",
+        "materialize", "apply", "collect", "case_id", "output_root", "resume", "step",
         "train_test_split", "regression", "predict", "model_card",
         "CsvFile", "JsonFile", "DirectoryPath", "DimensionlessNumber",
         "expected_outputs", "artifact_kind", "cache_key", "allow_failure"
