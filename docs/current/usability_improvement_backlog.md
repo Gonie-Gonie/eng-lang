@@ -159,6 +159,17 @@ Status: implemented after VS Code highlighting review.
 - Extended grammar fixtures, expected token checks, and `ide-check` contract
   coverage for the new highlighting surface.
 
+## Batch 14: Native IDE Workflow Node Drawer
+
+Status: implemented after workflow inspector review.
+
+- Added click selection to native IDE workflow DAG cards.
+- Added a node detail drawer with rerun decision, prior hash, risk category,
+  source-line link, outputs, and incoming/outgoing edges.
+- Kept raw node JSON behind a closed advanced toggle so the primary workflow
+  view stays summary-first.
+- Extended `ide-check` contract coverage for the workflow node drawer UI.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -196,7 +207,6 @@ Status: implemented after VS Code highlighting review.
   command produces it.
 - Keep problem filtering by severity/code and source-line jump targets covered
   as part of native IDE regression checks.
-- Add a workflow graph node detail drawer for process/cache/model/DB/case nodes.
 - Group raw JSON inspectors behind advanced toggles so first-run users see the
   reviewable summary first.
 - Add source span breadcrumbs in case/model/DB/network panels.

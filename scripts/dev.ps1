@@ -1844,6 +1844,8 @@ function Invoke-IdeCheck {
         "renderRunHistory",
         "openPathButton",
         "renderOutputPathList",
+        "selectedWorkflowNodeId",
+        "renderWorkflowNodeDetail",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
         "data-open-path",

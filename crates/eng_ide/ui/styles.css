@@ -777,6 +777,12 @@ button:hover {
   min-width: 0;
   display: grid;
   gap: 5px;
+  cursor: pointer;
+}
+
+.workflow-node.selected {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
 .workflow-node.risk-low {
@@ -814,6 +820,66 @@ button:hover {
   gap: 8px;
   color: var(--muted);
   font-size: 11px;
+}
+
+.workflow-node-detail {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  background: #f9fbfe;
+}
+
+.workflow-detail-head {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: start;
+}
+
+.workflow-detail-head strong {
+  overflow-wrap: anywhere;
+}
+
+.workflow-detail-head span {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.compact-table th {
+  width: 96px;
+}
+
+.compact-table tbody th {
+  position: static;
+  background: #fff;
+  color: var(--muted);
+}
+
+.raw-json-toggle {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+}
+
+.raw-json-toggle summary {
+  cursor: pointer;
+  padding: 7px 9px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.raw-json-toggle pre {
+  margin: 0;
+  padding: 9px;
+  border-top: 1px solid var(--border);
+  overflow: auto;
+  font: 11px Consolas, "Cascadia Mono", monospace;
+  color: #344054;
 }
 
 .link-button {

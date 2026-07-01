@@ -33,6 +33,7 @@ const state = {
   problemCode: "all",
   sideTab: "variables",
   selectedVariable: null,
+  selectedWorkflowNodeId: null,
   status: "Starting"
 };
 
@@ -330,6 +331,13 @@ function bind() {
       render();
     };
   });
+  document.querySelectorAll("[data-workflow-node-id]").forEach((node) => {
+    node.onclick = (event) => {
+      if (event.target.closest("[data-source-line]")) return;
+      state.selectedWorkflowNodeId = node.dataset.workflowNodeId;
+      render();
+    };
+  });
   const openPlotArtifact = byId("openPlotArtifact");
   if (openPlotArtifact) openPlotArtifact.onclick = () => openArtifact("plot");
   document.querySelectorAll("[data-open-artifact-kind]").forEach((button) => {
@@ -395,6 +403,7 @@ async function openFile(path) {
     state.completionItems = [];
     state.plotSpec = null;
     state.reportTitle = "";
+    state.selectedWorkflowNodeId = null;
     state.status = `Loaded ${file.path}`;
     const check = await call("ide_check", { path: state.currentPath, source: state.source });
     state.check = check;
@@ -1133,6 +1142,7 @@ function renderWorkflowPanel() {
   const nodes = Array.isArray(graph.nodes) ? graph.nodes : [];
   const edges = Array.isArray(graph.edges) ? graph.edges : [];
   const decision = plan.rerun_decision || plan.rerunDecision || {};
+  const selectedNode = selectedWorkflowNode(nodes);
   return `
     <div class="panel-title compact">Workflow</div>
     <div class="badges">
@@ -1146,7 +1156,9 @@ function renderWorkflowPanel() {
     </div>
     <div class="scroll">
       <div class="panel-title compact">DAG</div>
-      ${renderWorkflowDag(nodes, edges)}
+      ${renderWorkflowDag(nodes, edges, selectedNode?.id)}
+      <div class="panel-title compact">Node Detail</div>
+      ${renderWorkflowNodeDetail(selectedNode, edges)}
       <div class="panel-title compact">Nodes</div>
       ${renderWorkflowNodes(nodes)}
       <div class="panel-title compact">Edges</div>
@@ -2452,7 +2464,7 @@ function renderComponentGraph() {
   `;
 }
 
-function renderWorkflowDag(nodes, edges) {
+function renderWorkflowDag(nodes, edges, selectedId = "") {
   if (!nodes.length) {
     return `<div class="empty-state">Run a workflow to populate run_plan.json.</div>`;
   }
@@ -2464,8 +2476,9 @@ function renderWorkflowDag(nodes, edges) {
   });
   const nodeHtml = nodes.map((node) => {
     const risk = String(node.risk || "low").toLowerCase();
+    const selected = node.id === selectedId ? " selected" : "";
     return `
-      <div class="workflow-node risk-${escapeAttr(risk)}">
+      <div class="workflow-node risk-${escapeAttr(risk)}${selected}" data-workflow-node-id="${escapeAttr(node.id || "")}">
         <div class="workflow-node-head">
           <strong>${escapeHtml(node.label || node.id || "-")}</strong>
           <span>${escapeHtml(node.status || "-")}</span>
@@ -2480,6 +2493,108 @@ function renderWorkflowDag(nodes, edges) {
     `;
   }).join("");
   return `<div class="workflow-graph">${nodeHtml}</div>`;
+}
+
+function selectedWorkflowNode(nodes) {
+  if (!nodes.length) return null;
+  return nodes.find((node) => node.id === state.selectedWorkflowNodeId) || nodes[0];
+}
+
+function renderWorkflowNodeDetail(node, edges) {
+  if (!node) {
+    return `<div class="empty-state">Select a workflow node to inspect its rerun decision, outputs, and edges.</div>`;
+  }
+  const decision = node.rerun_decision || node.rerunDecision || {};
+  const incoming = edges.filter((edge) => edge.to === node.id);
+  const outgoing = edges.filter((edge) => edge.from === node.id);
+  return `
+    <div class="workflow-node-detail">
+      <div class="workflow-detail-head">
+        <strong>${escapeHtml(node.label || node.id || "-")}</strong>
+        <span>${escapeHtml(node.status || "-")}</span>
+      </div>
+      <div class="badges">
+        <span class="badge">Kind ${escapeHtml(node.kind || "-")}</span>
+        <span class="badge">Phase ${escapeHtml(node.phase || "-")}</span>
+        <span class="badge">Risk ${escapeHtml(node.risk || "-")}</span>
+        <span class="badge">Source ${sourceLineButton(node)}</span>
+      </div>
+      <table class="var-table compact-table">
+        <tbody>
+          <tr><th>ID</th><td><code>${escapeHtml(node.id || "-")}</code></td></tr>
+          <tr><th>Rerun</th><td>${escapeHtml(decision.decision || "-")}<div class="muted">${escapeHtml(decision.reason || "-")}</div></td></tr>
+          <tr><th>Prior Hash</th><td><code>${escapeHtml(decision.prior_input_hash || decision.priorInputHash || "-")}</code></td></tr>
+          <tr><th>Risk Category</th><td>${escapeHtml(node.risk_category || node.riskCategory || "-")}<div class="muted">${escapeHtml(node.risk_severity || node.riskSeverity || "-")}</div></td></tr>
+          <tr><th>Edges</th><td>in ${incoming.length} / out ${outgoing.length}</td></tr>
+        </tbody>
+      </table>
+      <div class="panel-title compact">Outputs</div>
+      ${renderWorkflowNodeOutputs(node.outputs)}
+      <div class="panel-title compact">Edges</div>
+      ${renderWorkflowNodeEdges(incoming, outgoing)}
+      <details class="raw-json-toggle">
+        <summary>Raw node JSON</summary>
+        <pre>${escapeHtml(JSON.stringify(node, null, 2))}</pre>
+      </details>
+    </div>
+  `;
+}
+
+function renderWorkflowNodeOutputs(outputs) {
+  if (!Array.isArray(outputs) || !outputs.length) {
+    return `<div class="empty-state">This node has no recorded outputs.</div>`;
+  }
+  const rows = outputs.map((output) => {
+    const details = workflowOutputDetail(output);
+    return `
+      <tr>
+        <td>${escapeHtml(output.kind || "-")}</td>
+        <td>${openPathButton(output.path, 82)}</td>
+        <td><code>${escapeHtml(output.hash || "-")}</code></td>
+        <td>${escapeHtml(details)}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Kind</th><th>Path</th><th>Hash</th><th>Details</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+
+function workflowOutputDetail(output) {
+  if (!output || typeof output !== "object") return "-";
+  const parts = [];
+  for (const [key, value] of Object.entries(output)) {
+    if (["kind", "path", "hash"].includes(key)) continue;
+    if (value === null || value === undefined || value === "") continue;
+    const text = Array.isArray(value)
+      ? value.join(", ")
+      : (typeof value === "object" ? JSON.stringify(value) : String(value));
+    parts.push(`${key}=${text}`);
+  }
+  return compactText(parts.join("; ") || "-", 120);
+}
+
+function renderWorkflowNodeEdges(incoming, outgoing) {
+  const rows = [
+    ...incoming.map((edge) => ({ ...edge, direction: "in" })),
+    ...outgoing.map((edge) => ({ ...edge, direction: "out" }))
+  ].map((edge) => `
+    <tr>
+      <td>${escapeHtml(edge.direction)}</td>
+      <td><code>${escapeHtml(edge.from || "-")}</code></td>
+      <td><code>${escapeHtml(edge.to || "-")}</code></td>
+      <td>${escapeHtml(edge.kind || "-")}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="artifact-table">
+      <thead><tr><th>Dir</th><th>From</th><th>To</th><th>Kind</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">No node edges.</td></tr>`}</tbody>
+    </table>
+  `;
 }
 
 function renderWorkflowNodes(nodes) {
