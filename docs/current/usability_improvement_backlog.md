@@ -1110,6 +1110,17 @@ Status: implemented after LSP semantic-token review.
 - Extended LSP snapshot coverage so native IDE and VS Code semantic overlays
   keep sampling/distribution colors in sync.
 
+## Batch 92: Sampling Seed Quick Fix
+
+Status: implemented after VS Code/LSP linter quick-fix review.
+
+- Added an LSP-owned quick fix for `E-SAMPLING-SEED-MISSING` diagnostics that
+  rewrites invalid `seed` option values to `seed = 42`.
+- Mirrored the same quick fix in the VS Code local fallback for cases where the
+  LSP code-action bridge is unavailable.
+- Extended stdio and stdin code-action regression coverage and updated the
+  extension README quick-fix surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
