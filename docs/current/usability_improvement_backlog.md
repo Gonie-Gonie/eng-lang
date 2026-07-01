@@ -1441,6 +1441,17 @@ Status: implemented after workflow module status cleanup.
 - Made the uncertain sensor workflow doc state the same zero-process contract
   as workflows 01 and 02.
 
+## Batch 119: Static Run Plan Artifact Command
+
+Status: implemented after VS Code workflow artifact command review.
+
+- Added `build/result/static_run_plan.json` to the VS Code last-run artifact
+  picker.
+- Added the direct `EngLang: Open Last Static Run Plan` command so users can
+  inspect the pre-execution workflow graph without going through the picker.
+- Extended the VS Code extension contract check and README artifact list so the
+  static plan command stays aligned with the promoted `eng.workflow` surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

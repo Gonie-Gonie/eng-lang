@@ -57,6 +57,12 @@ const LAST_RUN_ARTIFACTS = [
     relativePath: ["build", "result", "run_log.json"]
   },
   {
+    id: "staticRunPlan",
+    label: "Static Run Plan",
+    description: "build/result/static_run_plan.json",
+    relativePath: ["build", "result", "static_run_plan.json"]
+  },
+  {
     id: "runPlan",
     label: "Run Plan",
     description: "build/result/run_plan.json",
@@ -174,6 +180,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
     vscode.commands.registerCommand("englang.openOutputManifest", () => openLastRunArtifact("outputManifest")),
     vscode.commands.registerCommand("englang.openRunLog", () => openLastRunArtifact("runLog")),
+    vscode.commands.registerCommand("englang.openStaticRunPlan", () => openLastRunArtifact("staticRunPlan")),
     vscode.commands.registerCommand("englang.openRunPlan", () => openLastRunArtifact("runPlan")),
     vscode.commands.registerCommand("englang.openRunLock", () => openLastRunArtifact("runLock")),
     vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),

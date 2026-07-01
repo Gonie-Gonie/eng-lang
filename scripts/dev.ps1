@@ -1821,6 +1821,7 @@ function Assert-VscodeExtensionContract {
         "englang.openReviewJson",
         "englang.openOutputManifest",
         "englang.openRunLog",
+        "englang.openStaticRunPlan",
         "englang.openRunPlan",
         "englang.openRunLock",
         "englang.openProcessResults",
@@ -1839,6 +1840,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredTitle in @(
         @{ Command = "englang.openOutputManifest"; Text = "Last Run Output Manifest" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
+        @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Plan" },
         @{ Command = "englang.openRunPlan"; Text = "Last Run Plan" },
         @{ Command = "englang.openRunLock"; Text = "Last Run Lock" },
         @{ Command = "englang.openProcessResults"; Text = "Last Run Process Results" },

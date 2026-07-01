@@ -442,6 +442,10 @@
         "title": "EngLang: Open Last Run Log"
       },
       {
+        "command": "englang.openStaticRunPlan",
+        "title": "EngLang: Open Last Static Run Plan"
+      },
+      {
         "command": "englang.openRunPlan",
         "title": "EngLang: Open Last Run Plan"
       },

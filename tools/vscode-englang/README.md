@@ -33,9 +33,9 @@ embedding compiler logic in JavaScript.
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open the current file review
   JSON, open the latest generated report, and inspect review/run artifacts such
-  as `review.json`, `output_manifest.json`, `run_log.json`, `run_plan.json`,
-  `run_lock.json`, `process_results.json`, `cache_manifest.json`, and
-  `test_results.json`
+  as `review.json`, `output_manifest.json`, `run_log.json`,
+  `static_run_plan.json`, `run_plan.json`, `run_lock.json`,
+  `process_results.json`, `cache_manifest.json`, and `test_results.json`
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
