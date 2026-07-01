@@ -1,5 +1,5 @@
 # module: eng.case
-# status: supported-case-table-and-manifest-seed; planned native apply syntax
+# status: native case-table and manifest support; planned native apply syntax
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
@@ -19,7 +19,7 @@
 #   collisions, missing outputs, failed steps, and cache skips.
 #
 # Native apply/run/collect syntax and automatic case directory execution remain
-# planned. Workflow examples still expand fixture cases explicitly while
+# planned. Workflow examples still select and render cases explicitly while
 # exposing the same reviewable CaseTable and CaseManifest contract.
 #
 # Current CaseManifest fields:

@@ -1,6 +1,6 @@
 # module: eng.ml
 # status: internal
-# purpose: compiler/runtime-recognized data-driven modeling seeds, model-card contracts, and review artifacts.
+# purpose: compiler/runtime-recognized data-driven modeling forms, model-card contracts, and review artifacts.
 #
 # v1.2 implements these forms as compiler/runtime-recognized fast bindings:
 #
@@ -20,6 +20,6 @@
 # Import/package execution is a later milestone.
 #
 # Relationship to eng.model:
-#   eng.ml records the current internal training/evaluation syntax seeds.
+#   eng.ml records the current internal training/evaluation forms.
 #   eng.model is the public model-card, native predict-table, and surrogate
-#   workflow boundary seed.
+#   workflow boundary.

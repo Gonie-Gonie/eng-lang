@@ -1,9 +1,9 @@
 # module: eng.model
-# status: supported model-spec artifact seed and native predict-table seed
+# status: native model-card and predict-table records
 # purpose: model-card, prediction, metric, residual, and data-leakage review vocabulary for surrogate workflows.
 #
 # Current implementation:
-#   internal data-driven modeling seeds are compiler/runtime-recognized and
+#   internal data-driven modeling forms are compiler/runtime-recognized and
 #   documented separately in eng.ml. Runtime artifacts expose typed_payload.ml,
 #   typed_payload.model_specs[], typed_payload.model_cards[],
 #   typed_payload.prediction_manifests[], and typed_payload.model_diagnostics[].

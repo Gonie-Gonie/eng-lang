@@ -278,7 +278,7 @@ pub fn unit_derivation(
                 steps.push(format!("affine offset {}", offset));
             }
         } else {
-            steps.push(format!("{unit} has no registered conversion seed"));
+            steps.push(format!("{unit} has no registered conversion rule"));
         }
     } else {
         steps.push("no source unit literal found in current expression".to_owned());

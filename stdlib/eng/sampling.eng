@@ -1,5 +1,5 @@
 # module: eng.sampling
-# status: supported-deterministic-generator-seed
+# status: native workflow support
 # purpose: deterministic sample tables and design sweeps with units, constraints, seed policy, and reviewable metadata.
 #
 # Current implementation:

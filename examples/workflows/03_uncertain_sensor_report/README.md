@@ -19,8 +19,8 @@ PlotSpec confidence band request
 report/review artifact generation
 ```
 
-This example is intentionally a workflow-shaped uncertainty fixture, not a
-public claim that arbitrary probabilistic TimeSeries propagation is stable.
+This example is intentionally narrow workflow evidence for uncertainty review,
+not a public claim that arbitrary probabilistic TimeSeries propagation is stable.
 Future `eng.timeseries`, `eng.validate`, and `eng.report` modules should make
 the same contract native while keeping domain-specific sensor models layered
 above the generic workflow modules.

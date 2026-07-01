@@ -153,7 +153,7 @@ conversion_failures
 
 `values` preserve the CSV source/display unit used by the current runtime
 calculation path. `canonical_values` record each numeric cell converted into
-the quantity's canonical unit when a registered conversion seed exists.
+the quantity's canonical unit when a registered conversion rule exists.
 Unsupported source units are recorded in `conversion_failures` with row,
 column, value, source unit, target unit, and message fields.
 

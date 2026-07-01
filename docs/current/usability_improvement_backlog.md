@@ -738,6 +738,18 @@ Status: implemented after settings and command wording review.
 - Renamed the semantic-token debug command title to "Inspect Highlight Tokens"
   and extended `ide-check` to guard these wording choices.
 
+## Batch 61: Workflow Module Seed Wording Cleanup
+
+Status: implemented after native workflow contract recheck.
+
+- Verified `dev.bat workflows-test` still proves workflows 01, 02, and 03 run
+  without Python or external process execution and keep `process_count = 0`.
+- Renamed compiler tests and module-registry entries that described implemented
+  DB writes and expectation-suite records as seeds.
+- Reworded stdlib boundary notes and workflow 03 documentation so user-facing
+  docs describe records, contracts, and narrow evidence instead of
+  implementation seeds or generic fixtures.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

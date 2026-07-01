@@ -128,7 +128,7 @@ purpose = "Native SQLite append/upsert writes with typed schema mapping, DB mani
 artifacts = ["typed_payload.db_manifests", "db_write_manifest", "sqlite_database", "review.external_boundaries"]
 diagnostics = ["E-DB-CONNECT", "E-DB-SCHEMA-MISMATCH", "E-DB-KEY-MISSING", "E-DB-TRANSACTION-FAILED", "E-DB-SAFE-PROFILE", "W-PROFILE-REPRO-DB"]
 examples = ["examples/workflows/02_external_simulation_surrogate"]
-tests = ["cargo test -p eng_compiler lowers_native_db_write_seed", "cargo test -p eng_runtime sqlite", "cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write", "cargo test -p eng_runtime run_file_repro_profile_records_native_db_write"]
+tests = ["cargo test -p eng_compiler lowers_native_db_write_records", "cargo test -p eng_runtime sqlite", "cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write", "cargo test -p eng_runtime run_file_repro_profile_records_native_db_write"]
 
 [module."eng.config"]
 status = "supported_narrow"
@@ -164,7 +164,7 @@ purpose = "Common quality result projection for validations, schema constraints,
 artifacts = ["typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
 diagnostics = ["E-TABLE-SCHEMA-MISMATCH", "W-FALLBACK-USED"]
 examples = ["examples/diagnostics/data_quality"]
-tests = ["cargo test -p eng_compiler lowers_expectation_suite_seed", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
+tests = ["cargo test -p eng_compiler lowers_expectation_suite_records", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
 
 [module."eng.template"]
 status = "native_preview"

@@ -10182,7 +10182,7 @@ system Envelope {
     }
 
     #[test]
-    fn lowers_expectation_suite_seed() {
+    fn lowers_expectation_suite_records() {
         let source = concat!(
             "expect weather {\n",
             "    time is continuous with { step = 1 h }\n",
@@ -12467,7 +12467,7 @@ system Envelope {
     }
 
     #[test]
-    fn lowers_native_db_write_seed() {
+    fn lowers_native_db_write_records() {
         let root = env::temp_dir().join(format!("englang-db-write-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("data")).expect("data dir");
