@@ -1347,6 +1347,18 @@ Status: implemented after TextMate unit parity review.
 - Regenerated the VS Code TextMate grammar from the source grammar and verified
   the updated 149-token grammar smoke contract.
 
+## Batch 111: Unit Scope Registry Parity Guard
+
+Status: implemented after grammar smoke coverage review.
+
+- Strengthened the VS Code grammar smoke harness so `constant.other.unit.englang`
+  and `constant.other.unit.format.englang` must both match every ASCII compiler
+  unit symbol from `crates/eng_compiler/src/units.rs`.
+- Closed the test gap that allowed a unit to exist in the normal unit regex but
+  be absent from the format-string unit regex.
+- Verified the updated grammar smoke contract still passes with 149 explicit
+  token expectations plus registry-scope parity checks.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

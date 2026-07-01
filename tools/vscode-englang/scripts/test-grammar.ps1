@@ -230,6 +230,36 @@ function Assert-GrammarSourceContainsLabels {
     }
 }
 
+function Assert-ScopeMatchesLabels {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string[]] $Labels,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    if (-not $PatternsByScope.ContainsKey($Scope)) {
+        throw "grammar does not define scope $Scope"
+    }
+
+    foreach ($Label in $Labels) {
+        $matched = $false
+        foreach ($pattern in $PatternsByScope[$Scope]) {
+            $patternNode = $pattern.pattern
+            if ($null -eq $patternNode.match) {
+                continue
+            }
+            $match = [regex]::Match($Label, [string] $patternNode.match)
+            if ($match.Success -and $match.Value -eq $Label) {
+                $matched = $true
+                break
+            }
+        }
+        if (-not $matched) {
+            throw "TextMate scope $Scope does not match $Description label $Label"
+        }
+    }
+}
+
 $CompletionKeywords = Read-RustStringSliceConst -Source $LspSource -Name "COMPLETION_KEYWORDS"
 $WorkflowBuiltins = Read-RustStringSliceConst -Source $LspSource -Name "WORKFLOW_BUILTIN_KEYWORDS"
 $WorkflowOptions = Read-RustTupleFirstStringsConst -Source $LspSource -Name "WORKFLOW_OPTION_COMPLETIONS"
@@ -247,6 +277,8 @@ Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowOp
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
+Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 
 $Results = New-Object System.Collections.Generic.List[object]
 foreach ($case in $Expected) {
