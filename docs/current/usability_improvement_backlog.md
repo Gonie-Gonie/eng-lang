@@ -363,6 +363,18 @@ Status: implemented after native IDE module inspector review.
 - Extended `ide-check` contract coverage for module filter state, handlers, and
   styles.
 
+## Batch 31: Public User Docs Fixture Wording
+
+Status: implemented after docs cleanup review.
+
+- Reworded user-facing uncertainty and composite workflow docs to describe
+  scoped workflow examples and deterministic offline inputs instead of generic
+  fixtures.
+- Reworded the user guide so advanced/internal examples are clearly
+  inspection-only or repository regression examples, not supported tutorials.
+- Kept network fixture terminology where it describes an actual offline API
+  boundary contract.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

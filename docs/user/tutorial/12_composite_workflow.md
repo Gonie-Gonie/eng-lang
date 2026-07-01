@@ -30,7 +30,7 @@ Composite workflows repeat the same generic contracts:
 - explicit network, cache, file, DB, and artifact boundary records
 - generated artifacts with path and hash evidence
 - review/report output
-- deterministic fixture/native execution for smoke tests
+- deterministic offline inputs and native execution for smoke tests
 - no hidden Python or `run command` adapter step
 
 Current native modules such as `eng.net`, `eng.cache`, `eng.sampling`,

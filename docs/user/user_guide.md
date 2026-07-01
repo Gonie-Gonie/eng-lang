@@ -47,7 +47,7 @@ Examples:
 
 - `examples/official/`: package smoke examples. Start with the core workflow
   examples listed below.
-- Advanced solver, compatibility, diagnostic, and internal regression fixtures
+- Advanced solver, compatibility, diagnostic, and internal regression examples
   remain in the source repository. They are not bundled as portable package
   tutorials.
 
@@ -98,7 +98,7 @@ Additional review examples:
   validation, object summaries, and IDE/LSP metadata.
 
 Solver-heavy examples under `examples/advanced_solver` are advanced smoke
-fixtures. They are useful for inspecting typed TimeSeries and solver artifacts,
+examples. They are useful for inspecting typed TimeSeries and solver artifacts,
 but they are not a broad solver platform claim and should not be the first
 walkthrough.
 
@@ -234,8 +234,8 @@ unless current documentation marks them stable or supported for a narrow scope:
 
 Internal examples, including system/solver examples, remain in the portable
 package because `eng-ide.exe --smoke`, internal LSP smoke, diagnostics, and
-regression checks use them. Treat those files as inspection fixtures, not as
-supported user tutorials.
+regression checks use them. Treat those files as inspection-only examples, not
+as supported user tutorials.
 
 ## Troubleshooting
 

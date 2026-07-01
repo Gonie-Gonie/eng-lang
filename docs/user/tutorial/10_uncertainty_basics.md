@@ -6,7 +6,7 @@ Understand the current uncertainty track without overstating public support.
 
 ## What You Will Build
 
-Use the workflow-shaped fixture:
+Use the scoped workflow example:
 
 ```bat
 eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifacts
@@ -15,7 +15,7 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 ## Expected Artifacts
 
 The run should produce a report, review artifact, and uncertainty-related
-metadata for the supported fixture.
+metadata for the supported example.
 
 ## Explanation
 
@@ -32,7 +32,7 @@ post-processing.
 
 - Assuming every deterministic TimeSeries operation automatically propagates
   uncertainty.
-- Treating an internal fixture as a stable public API.
+- Treating an internal regression example as a stable public API.
 - Reporting a confidence band without recording where the uncertainty came
   from.
 
