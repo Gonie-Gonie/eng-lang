@@ -64,6 +64,15 @@ Status: implemented in the eighth cleanup batch.
 - Extend `ide-check` extension contract coverage so the quick fix provider does
   not silently disappear.
 
+## Batch 6: Workflow Docs De-Duplication
+
+Status: implemented after the native workflow module pass.
+
+- Removed duplicate `*_native.md` workflow pages after the native workflow
+  examples became the default documented examples.
+- Merged the expected review-surface lists into the primary workflow pages.
+- Simplified `docs/workflows/index.md` so each executable workflow appears once.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

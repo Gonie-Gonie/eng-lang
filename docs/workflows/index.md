@@ -8,9 +8,7 @@ domain-specific product claims.
 Current examples:
 
 - [Weather API to standard file](weather_api_to_standard_file.md)
-- [Native weather API to standard file contract](weather_api_to_standard_file_native.md)
 - [External simulation surrogate](external_simulation_surrogate.md)
-- [Native external simulation surrogate contract](external_simulation_surrogate_native.md)
 - [Uncertain sensor report](uncertain_sensor_report.md)
 
 ## Shared Contract

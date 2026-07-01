@@ -23,6 +23,14 @@ What it proves:
   `weather_quality_summary.txt` through native `write text`
 - `process_results.json` has `process_count = 0`
 
+Expected review surfaces:
+
+- `typed_payload.network_boundaries[]`
+- `cache_manifest.json`
+- `typed_payload.table_selections[]`
+- `typed_payload.timeseries_coverage[]`
+- `output_manifest.json` write-text artifact records
+
 This is not a KMA, EPW, or building-energy adapter in core. Provider-specific
 weather and standard-file adapters should layer above `eng.net`, `eng.cache`,
 `eng.table`, `eng.timeseries`, and `eng.artifact`.
