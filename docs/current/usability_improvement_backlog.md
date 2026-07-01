@@ -462,6 +462,18 @@ Status: implemented after editor language-configuration review.
 - Extended `ide-check` extension contract coverage so doc-comment continuation
   cannot silently disappear from the packaged extension.
 
+## Batch 39: File Mutation Quick Fixes
+
+Status: implemented after VS Code linter quick-fix review.
+
+- Added VS Code quick fixes for `E-FS-CONFIRM-001` and `E-FS-DELETE-001`.
+- The fixes add `with { confirm = true }` for unconfirmed `move`/`delete`
+  statements and add `recursive = true` plus `confirm = true` for directory
+  deletes when needed.
+- The edit reuses an attached multiline `with` block when one exists, avoiding
+  duplicate options and keeping filesystem mutation policy visible in source.
+- Extended extension README wording and `ide-check` quick-fix contract coverage.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

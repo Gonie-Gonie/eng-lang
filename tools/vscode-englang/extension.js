@@ -1857,6 +1857,20 @@ class EngCodeActionProvider {
           actions.push(action);
         }
       }
+      if (code === "E-FS-CONFIRM-001") {
+        const action = fileMutationConfirmAction(document, diagnostic);
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
+      if (code === "E-FS-DELETE-001") {
+        const action = recursiveDeleteAction(document, diagnostic);
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
     }
     return actions;
   }
@@ -2039,6 +2053,99 @@ function schemaAnnotationDetails(message) {
 
 function sourceLineContainsUnit(lineText, unit) {
   return new RegExp(`\\b${escapeRegExp(unit)}\\b`).test(lineText);
+}
+
+function fileMutationConfirmAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  if (!/^\s*(move|delete)\b/.test(line.text)) {
+    return undefined;
+  }
+  return booleanWithOptionsAction(document, diagnostic, ["confirm"]);
+}
+
+function recursiveDeleteAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  if (!/^\s*delete\s+dir\(/.test(line.text)) {
+    return undefined;
+  }
+  return booleanWithOptionsAction(document, diagnostic, ["recursive", "confirm"]);
+}
+
+function booleanWithOptionsAction(document, diagnostic, optionNames) {
+  const lineNumber = diagnostic.range.start.line;
+  const attachedBlock = attachedWithBlock(document, lineNumber);
+  const missingOptions = optionNames.filter(
+    (optionName) => !attachedBlock || !withBlockContainsOption(document, attachedBlock, optionName)
+  );
+  if (missingOptions.length === 0) {
+    return undefined;
+  }
+
+  const title =
+    missingOptions.length === 1
+      ? `Add ${missingOptions[0]} = true`
+      : `Add ${missingOptions.join(" = true and ")} = true`;
+  const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  if (attachedBlock) {
+    const insertion = missingOptions
+      .map((optionName) => `${attachedBlock.indent}    ${optionName} = true`)
+      .join(documentNewline(document));
+    action.edit.insert(
+      document.uri,
+      new vscode.Position(attachedBlock.endLine, 0),
+      `${insertion}${documentNewline(document)}`
+    );
+  } else {
+    const indent = lineIndent(document.lineAt(lineNumber).text);
+    const optionLines = missingOptions
+      .map((optionName) => `${indent}    ${optionName} = true`)
+      .join(documentNewline(document));
+    action.edit.insert(
+      document.uri,
+      document.lineAt(lineNumber).range.end,
+      `${documentNewline(document)}${indent}with {${documentNewline(document)}${optionLines}${documentNewline(document)}${indent}}`
+    );
+  }
+  return action;
+}
+
+function attachedWithBlock(document, ownerLineNumber) {
+  let lineNumber = ownerLineNumber + 1;
+  while (lineNumber < document.lineCount && document.lineAt(lineNumber).text.trim() === "") {
+    lineNumber += 1;
+  }
+  if (lineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const line = document.lineAt(lineNumber);
+  if (!/^\s*with\s*\{\s*$/.test(line.text)) {
+    return undefined;
+  }
+  const endLine = findMatchingBlockEnd(document, lineNumber);
+  if (endLine === undefined || endLine <= lineNumber) {
+    return undefined;
+  }
+  return { startLine: lineNumber, endLine, indent: lineIndent(line.text) };
+}
+
+function withBlockContainsOption(document, block, optionName) {
+  const pattern = new RegExp(`^\\s*${escapeRegExp(optionName)}\\s*=`);
+  for (let lineNumber = block.startLine + 1; lineNumber < block.endLine; lineNumber += 1) {
+    if (pattern.test(stripLineComment(document.lineAt(lineNumber).text))) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function documentNewline(document) {
+  return document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n";
+}
+
+function lineIndent(text) {
+  return /^(\s*)/.exec(text)?.[1] ?? "";
 }
 
 function escapeRegExp(text) {
