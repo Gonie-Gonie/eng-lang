@@ -260,6 +260,8 @@ pub fn is_net_control_option(key: &str) -> bool {
         "query"
             | "retry"
             | "cache"
+            | "cache_dir"
+            | "cache_key"
             | "expected_sha256"
             | "timeout"
             | "fixture"
@@ -441,8 +443,12 @@ fn resolve_value(value: &str, arg_values: &[ArgValueInfo]) -> Option<String> {
         return arg_values
             .iter()
             .find(|arg| arg.name == arg_name)
-            .map(|arg| arg.value.clone());
+            .map(|arg| resolve_literal_value(&arg.value).unwrap_or_else(|| arg.value.clone()));
     }
+    resolve_literal_value(trimmed)
+}
+
+fn resolve_literal_value(trimmed: &str) -> Option<String> {
     if let Some(value) = strip_call_string_arg(trimmed, "url") {
         return Some(value);
     }

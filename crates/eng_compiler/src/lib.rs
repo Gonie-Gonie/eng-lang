@@ -13053,7 +13053,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
+            "args {\n    api_url: Url = url(\"https://api.example.org/hourly\")\n    station_id: String = \"108\"\n    year: Int = 2026\n}\n\nresponse = http get args.api_url\nwith {\n    query = {\n    station = args.station_id\n    year = args.year\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", args.station_id, args.year]\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -13065,6 +13065,8 @@ system Envelope {
         assert_eq!(report.semantic_program.cache_records.len(), 2);
         let request = &report.semantic_program.net_requests[0];
         assert_eq!(request.method, "GET");
+        assert_eq!(request.url_literal, "args.api_url");
+        assert_eq!(request.url_value, "https://api.example.org/hourly");
         assert_eq!(request.status, "fixture");
         assert_eq!(request.retry, Some(2));
         assert_eq!(request.timeout.as_deref(), Some("30 s"));
@@ -13081,9 +13083,18 @@ system Envelope {
         assert_eq!(request.status_code, Some(200));
         assert_eq!(request.status_class, "success");
         assert!(request.response_hash.is_some());
+        assert!(request
+            .query
+            .iter()
+            .any(|param| param.key == "station" && param.value == "108" && !param.redacted));
+        assert!(request
+            .query
+            .iter()
+            .any(|param| param.key == "year" && param.value == "2026" && !param.redacted));
         assert!(request.query.iter().any(|param| param.key == "serviceKey"
             && param.value == "<redacted>"
             && param.redacted));
+        assert!(!request.query.iter().any(|param| param.key == "cache_key"));
         let cache_record = &report.semantic_program.cache_records[0];
         assert_eq!(cache_record.owner_kind, "network_request");
         assert_eq!(cache_record.cache_dir, "cache");

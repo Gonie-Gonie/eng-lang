@@ -5,7 +5,7 @@ Source example: `examples/workflows/01_weather_api_to_standard_file/main.eng`
 This workflow demonstrates a native API-to-artifact pattern:
 
 ```text
-station map -> station selection -> http fixture/cache -> typed weather table -> coverage -> text artifacts
+station map -> station selection -> args-driven http fixture/cache -> typed weather table -> coverage -> text artifacts
 ```
 
 Run:
@@ -16,8 +16,10 @@ eng.exe run examples/workflows/01_weather_api_to_standard_file/main.eng --save-a
 
 What it proves:
 
-- native `http get` with fixture, pinned SHA-256, retry, timeout, and cache key
-- station-map CSV promotion and reviewable `filter`/`require_one`
+- native `http get args.api_url` with resolved selected-station query, fixture,
+  pinned SHA-256, retry, timeout, and cache key
+- station-map CSV promotion and reviewable `filter`/`require_one` plus
+  `select_first_row`
 - typed hourly-weather CSV promotion and TimeSeries coverage records
 - generated `fetched_weather.json`, `standard_weather_file.txt`, and
   `weather_quality_summary.txt` through native `write text`

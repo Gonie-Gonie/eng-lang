@@ -9133,7 +9133,7 @@ fn result_json(
     let table_diagnostics = table_diagnostics_json(runtime_data);
     let structured_reads = structured_reads_json(runtime_data);
     let config_promotions = config_promotions_json(report);
-    let network_boundaries = network_boundaries_json(report, cache_records);
+    let network_boundaries = network_boundaries_json(report, cache_records, runtime_data);
     let table_selections = table_selections_json(runtime_data, "      ");
     let table_transforms = table_transforms_json(runtime_data, "      ");
     let expectation_suites = expectation_suites_json(runtime_data, "      ");
@@ -14725,7 +14725,11 @@ fn config_promotions_json(report: &CheckReport) -> String {
     json
 }
 
-fn network_boundaries_json(report: &CheckReport, cache_records: &[CacheManifestRecord]) -> String {
+fn network_boundaries_json(
+    report: &CheckReport,
+    cache_records: &[CacheManifestRecord],
+    runtime_data: &RuntimeData,
+) -> String {
     let mut json = String::new();
     let mut first = true;
     for request in &report.semantic_program.net_requests {
@@ -14757,7 +14761,7 @@ fn network_boundaries_json(report: &CheckReport, cache_records: &[CacheManifestR
             "        \"url\": \"{}\",\n",
             json_escape(&request.url_value)
         ));
-        push_network_query_json(&mut json, &request.query, "        ");
+        push_network_query_json(&mut json, &request.query, runtime_data, "        ");
         push_optional_json_string(&mut json, "response_hash", response_hash, 8);
         push_optional_json_string(
             &mut json,
@@ -14819,7 +14823,7 @@ fn network_boundaries_json(report: &CheckReport, cache_records: &[CacheManifestR
             "        \"target\": \"{}\",\n",
             json_escape(&download.target_value)
         ));
-        push_network_query_json(&mut json, &download.query, "        ");
+        push_network_query_json(&mut json, &download.query, runtime_data, "        ");
         push_optional_json_string(&mut json, "response_hash", response_hash, 8);
         push_optional_json_string(
             &mut json,
@@ -14855,20 +14859,56 @@ fn network_boundaries_json(report: &CheckReport, cache_records: &[CacheManifestR
     json
 }
 
-fn push_network_query_json(json: &mut String, query: &[eng_compiler::NetQueryParam], indent: &str) {
+fn push_network_query_json(
+    json: &mut String,
+    query: &[eng_compiler::NetQueryParam],
+    runtime_data: &RuntimeData,
+    indent: &str,
+) {
     json.push_str(&format!("{indent}\"query\": [\n"));
     for (index, param) in query.iter().enumerate() {
         if index > 0 {
             json.push_str(",\n");
         }
+        let value = resolved_network_query_value(param, runtime_data);
         json.push_str(&format!(
             "{indent}  {{ \"key\": \"{}\", \"value\": \"{}\", \"redacted\": {} }}",
             json_escape(&param.key),
-            json_escape(&param.value),
+            json_escape(&value),
             param.redacted
         ));
     }
     json.push_str(&format!("\n{indent}],\n"));
+}
+
+fn resolved_network_query_value(
+    param: &eng_compiler::NetQueryParam,
+    runtime_data: &RuntimeData,
+) -> String {
+    if param.redacted {
+        return param.value.clone();
+    }
+    runtime_data
+        .table_selections
+        .iter()
+        .find(|selection| selection.binding == param.value)
+        .and_then(|selection| selection.selected_value.clone())
+        .or_else(|| {
+            runtime_data
+                .numeric_values
+                .iter()
+                .find(|numeric| numeric.binding == param.value)
+                .and_then(|numeric| {
+                    numeric
+                        .value
+                        .map(|value| format_number_with_precision(value, None))
+                        .or_else(|| {
+                            (!numeric.representation.trim().is_empty())
+                                .then(|| numeric.representation.clone())
+                        })
+                })
+        })
+        .unwrap_or_else(|| param.value.clone())
 }
 
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
@@ -15409,6 +15449,15 @@ mod tests {
         assert!(weather_output
             .result_json
             .contains("\"network_boundaries\""));
+        assert!(weather_output
+            .result_json
+            .contains("\"url\": \"https://api.example.org/weather/hourly\""));
+        assert!(weather_output
+            .result_json
+            .contains("{ \"key\": \"station\", \"value\": \"STN001\", \"redacted\": false }"));
+        assert!(weather_output
+            .cache_manifest_json
+            .contains("\"cache_key_parts\": [\"weather\", \"demo\", \"2024\""));
         assert!(weather_output
             .cache_manifest_json
             .contains("\"owner_kind\": \"network_request\""));

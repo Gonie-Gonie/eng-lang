@@ -438,6 +438,19 @@ Status: implemented after LSP completion vocabulary review.
 - Added LSP snapshot assertions for helper kind/detail parity across table,
   sampling, model, and timeseries helpers.
 
+## Batch 37: Workflow 01 Network Value Resolution
+
+Status: implemented after native workflow source review.
+
+- Changed workflow 01 to call `http get args.api_url` instead of hardcoding the
+  endpoint beside an unused URL arg.
+- Routed the weather API cache key through stable `args.region` and `args.year`
+  parts instead of fixed demo literals.
+- Added runtime network-boundary query resolution so non-redacted query values
+  can use native runtime selections such as `selected_station_id -> STN001`.
+- Extended compiler and runtime workflow tests to pin args-driven URL/cache
+  behavior and resolved station query artifacts.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
