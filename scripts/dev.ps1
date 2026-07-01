@@ -1777,7 +1777,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type")) {
         throw "VS Code extension must expose semantic token debug output"
     }
-    if (-not $ExtensionSource.Contains("registerCodeActionsProvider") -or -not $ExtensionSource.Contains("E-SYNTAX-DECL-001") -or -not $ExtensionSource.Contains("E-STRUCT-ARGS-001")) {
+    if (-not $ExtensionSource.Contains("registerCodeActionsProvider") -or -not $ExtensionSource.Contains("E-SYNTAX-DECL-001") -or -not $ExtensionSource.Contains("E-STRUCT-ARGS-001") -or -not $ExtensionSource.Contains("E-SCRIPT-001") -or -not $ExtensionSource.Contains("removeScriptWrapperAction")) {
         throw "VS Code extension must expose quick fixes for common syntax migration diagnostics"
     }
     $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)

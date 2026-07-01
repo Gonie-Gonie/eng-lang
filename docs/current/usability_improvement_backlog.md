@@ -184,6 +184,18 @@ Status: implemented after public wording audit.
 - Left deterministic sampling `seed` vocabulary intact where it is part of the
   user-facing reproducibility API.
 
+## Batch 16: VS Code Script Migration Quick Fix
+
+Status: implemented after VS Code linter review.
+
+- Added a VS Code quick fix for `E-SCRIPT-001` that removes a safe
+  `script ... {` wrapper and its matching standalone closing brace, promoting
+  the body to the top-level workflow.
+- Kept the action conservative: it is offered only when the wrapper line and
+  matching closing brace are unambiguous.
+- Updated the extension README and `ide-check` contract coverage so the quick
+  fix does not disappear silently.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -234,7 +246,7 @@ Status: implemented after public wording audit.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need semantic context, such
-  as missing units and unsupported `script` blocks.
+  as missing units.
 
 ## Docs Cleanup Candidates
 

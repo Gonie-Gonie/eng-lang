@@ -1833,6 +1833,13 @@ class EngCodeActionProvider {
           actions.push(action);
         }
       }
+      if (code === "E-SCRIPT-001") {
+        const action = removeScriptWrapperAction(document, diagnostic);
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
     }
     return actions;
   }
@@ -1860,6 +1867,66 @@ function replacementAction(document, diagnostic, search, replacement, title) {
     replacement
   );
   return action;
+}
+
+function removeScriptWrapperAction(document, diagnostic) {
+  const startLineNumber = diagnostic.range.start.line;
+  if (startLineNumber < 0 || startLineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const startLine = document.lineAt(startLineNumber);
+  if (!/^\s*script(?:\s+[A-Za-z_][A-Za-z0-9_]*)?\s*\{\s*$/.test(startLine.text)) {
+    return undefined;
+  }
+  const endLineNumber = findMatchingBlockEnd(document, startLineNumber);
+  if (endLineNumber === undefined || endLineNumber <= startLineNumber) {
+    return undefined;
+  }
+  const endLine = document.lineAt(endLineNumber);
+  if (endLine.text.trim() !== "}") {
+    return undefined;
+  }
+
+  const action = new vscode.CodeAction(
+    "Promote script body to top-level workflow",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.delete(document.uri, fullLineRange(document, endLineNumber));
+  action.edit.delete(document.uri, fullLineRange(document, startLineNumber));
+  return action;
+}
+
+function findMatchingBlockEnd(document, startLineNumber) {
+  let depth = 0;
+  for (let lineNumber = startLineNumber; lineNumber < document.lineCount; lineNumber += 1) {
+    const text = stripLineComment(document.lineAt(lineNumber).text);
+    for (const char of text) {
+      if (char === "{") {
+        depth += 1;
+      } else if (char === "}") {
+        depth -= 1;
+        if (depth === 0) {
+          return lineNumber;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+function stripLineComment(text) {
+  const index = text.indexOf("#");
+  return index >= 0 ? text.slice(0, index) : text;
+}
+
+function fullLineRange(document, lineNumber) {
+  const line = document.lineAt(lineNumber);
+  if (lineNumber + 1 < document.lineCount) {
+    return new vscode.Range(lineNumber, 0, lineNumber + 1, 0);
+  }
+  return new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
 }
 
 function addCompletion(items, seen, item) {
