@@ -538,29 +538,66 @@ fn code_actions_for_request(request: &Value, documents: &HashMap<String, String>
 
     diagnostics
         .iter()
-        .filter_map(|diagnostic| code_action_for_diagnostic(uri, &text, diagnostic))
+        .flat_map(|diagnostic| code_actions_for_diagnostic(uri, &text, diagnostic))
         .collect()
 }
 
-fn code_action_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
-    match diagnostic_code(diagnostic)? {
-        "E-SYNTAX-DECL-001" => {
-            lsp_replacement_code_action(uri, text, diagnostic, ":=", "=", "Replace := with =")
-        }
-        "E-STRUCT-ARGS-001" => lsp_replacement_code_action(
+fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {
+    let Some(code) = diagnostic_code(diagnostic) else {
+        return Vec::new();
+    };
+    match code {
+        "E-SYNTAX-DECL-001" => optional_code_action(lsp_replacement_code_action(
+            uri,
+            text,
+            diagnostic,
+            ":=",
+            "=",
+            "Replace := with =",
+        )),
+        "E-STRUCT-ARGS-001" => optional_code_action(lsp_replacement_code_action(
             uri,
             text,
             diagnostic,
             "struct Args",
             "args",
             "Replace struct Args with args",
-        ),
-        "E-EQ-BOOL-001" => {
-            lsp_replacement_code_action(uri, text, diagnostic, "==", "eq", "Replace == with eq")
+        )),
+        "E-EQ-BOOL-001" => optional_code_action(lsp_replacement_code_action(
+            uri,
+            text,
+            diagnostic,
+            "==",
+            "eq",
+            "Replace == with eq",
+        )),
+        "E-SCRIPT-001" => {
+            optional_code_action(lsp_remove_script_wrapper_code_action(uri, text, diagnostic))
         }
-        "E-SCRIPT-001" => lsp_remove_script_wrapper_code_action(uri, text, diagnostic),
-        _ => None,
+        "W-QTY-AMBIG-001" => lsp_quantity_annotation_code_actions(uri, text, diagnostic),
+        code if code.starts_with("E-DIM-ADD-") => {
+            lsp_missing_unit_code_actions(uri, text, diagnostic)
+        }
+        "E-PUBLIC-ANNOTATION-001" => {
+            optional_code_action(lsp_schema_annotation_code_action(uri, text, diagnostic))
+        }
+        "E-FS-CONFIRM-001" => {
+            optional_code_action(lsp_file_mutation_confirm_code_action(uri, text, diagnostic))
+        }
+        "E-FS-DELETE-001" => {
+            optional_code_action(lsp_recursive_delete_code_action(uri, text, diagnostic))
+        }
+        code => optional_code_action(lsp_option_value_replacement_code_action(
+            uri,
+            text,
+            diagnostic,
+            option_quick_fix(code),
+        )),
     }
+}
+
+fn optional_code_action(action: Option<Value>) -> Vec<Value> {
+    action.into_iter().collect()
 }
 
 fn diagnostic_code(diagnostic: &Value) -> Option<&str> {
@@ -568,6 +605,20 @@ fn diagnostic_code(diagnostic: &Value) -> Option<&str> {
         .get("code")
         .and_then(Value::as_str)
         .or_else(|| diagnostic.pointer("/code/value").and_then(Value::as_str))
+}
+
+fn diagnostic_message(diagnostic: &Value) -> &str {
+    diagnostic
+        .get("message")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+}
+
+fn diagnostic_line(diagnostic: &Value) -> Option<usize> {
+    diagnostic
+        .pointer("/range/start/line")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())
 }
 
 fn lsp_replacement_code_action(
@@ -597,6 +648,585 @@ fn lsp_replacement_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, replacement)
     }))
+}
+
+fn lsp_quantity_annotation_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {
+    let Some(details) = ambiguous_quantity_details(diagnostic_message(diagnostic)) else {
+        return Vec::new();
+    };
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let Some((start_byte, end_byte)) = assignment_head_byte_range(line, &details.name) else {
+        return Vec::new();
+    };
+    let range = line_byte_range(line_number, line, start_byte, end_byte);
+    details
+        .candidates
+        .into_iter()
+        .map(|candidate| {
+            json!({
+                "title": format!("Annotate {} as {} [{}]", details.name, candidate, details.unit),
+                "kind": "quickfix",
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    range.clone(),
+                    &format!("{}: {} [{}] =", details.name, candidate, details.unit)
+                )
+            })
+        })
+        .collect()
+}
+
+struct AmbiguousQuantityDetails {
+    name: String,
+    unit: String,
+    candidates: Vec<String>,
+}
+
+fn ambiguous_quantity_details(message: &str) -> Option<AmbiguousQuantityDetails> {
+    let name = first_backtick_payload(message)?.to_owned();
+    let after_unit = message.split_once(" has unit ")?.1;
+    let unit = after_unit
+        .split(|character: char| character == ',' || character.is_whitespace())
+        .next()
+        .filter(|value| is_unit_hint(value))?
+        .to_owned();
+    let after_candidates = message.split_once("Candidate quantity kinds:")?.1;
+    let candidates_text = after_candidates
+        .split('.')
+        .next()
+        .unwrap_or(after_candidates);
+    let candidates = candidates_text
+        .split(',')
+        .map(str::trim)
+        .filter(|candidate| is_identifier(candidate))
+        .map(str::to_owned)
+        .collect::<Vec<_>>();
+    if candidates.is_empty() {
+        return None;
+    }
+    Some(AmbiguousQuantityDetails {
+        name,
+        unit,
+        candidates,
+    })
+}
+
+fn lsp_missing_unit_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let Some(unit) = missing_unit_hint(diagnostic_message(diagnostic), line) else {
+        return Vec::new();
+    };
+    bare_numeric_ranges(line)
+        .into_iter()
+        .map(|(start_byte, end_byte)| {
+            let literal = &line[start_byte..end_byte];
+            let character = utf16_len(&line[..end_byte]);
+            let range = json!({
+                "start": { "line": line_number, "character": character },
+                "end": { "line": line_number, "character": character }
+            });
+            json!({
+                "title": format!("Add unit {unit} to {literal}"),
+                "kind": "quickfix",
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(uri, range, &format!(" {unit}"))
+            })
+        })
+        .collect()
+}
+
+fn missing_unit_hint(message: &str, line: &str) -> Option<String> {
+    for payload in backtick_payloads(message) {
+        if is_unit_hint(payload) {
+            return Some(payload.to_owned());
+        }
+    }
+    first_unit_on_line(line)
+}
+
+fn first_unit_on_line(line: &str) -> Option<String> {
+    let bytes = line.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index].is_ascii_digit() {
+            while index < bytes.len() && (bytes[index].is_ascii_digit() || bytes[index] == b'.') {
+                index += 1;
+            }
+            let mut unit_start = index;
+            while unit_start < bytes.len() && bytes[unit_start].is_ascii_whitespace() {
+                unit_start += 1;
+            }
+            let mut unit_end = unit_start;
+            while unit_end < bytes.len()
+                && (bytes[unit_end].is_ascii_alphanumeric()
+                    || matches!(bytes[unit_end], b'%' | b'/' | b'_'))
+            {
+                unit_end += 1;
+            }
+            if unit_end > unit_start {
+                let unit = &line[unit_start..unit_end];
+                if is_unit_hint(unit) {
+                    return Some(unit.to_owned());
+                }
+            }
+        } else {
+            index += 1;
+        }
+    }
+    if let Some(open) = line.find('[') {
+        if let Some(close) = line[open + 1..].find(']') {
+            let unit = line[open + 1..open + 1 + close].trim();
+            if is_unit_hint(unit) {
+                return Some(unit.to_owned());
+            }
+        }
+    }
+    None
+}
+
+fn is_unit_hint(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '%')
+        && chars.all(|character| {
+            character.is_ascii_alphanumeric()
+                || matches!(character, '%' | '/' | '_' | '^' | '(' | ')' | '*')
+        })
+}
+
+fn bare_numeric_ranges(line: &str) -> Vec<(usize, usize)> {
+    let bytes = line.as_bytes();
+    let mut ranges = Vec::new();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if !bytes[index].is_ascii_digit() {
+            index += 1;
+            continue;
+        }
+        if index > 0 {
+            let previous = bytes[index - 1];
+            if previous.is_ascii_alphanumeric() || previous == b'_' || previous == b'.' {
+                index += 1;
+                continue;
+            }
+        }
+        let previous_non_space = line[..index]
+            .chars()
+            .rev()
+            .find(|character| !character.is_whitespace());
+        if !matches!(
+            previous_non_space,
+            None | Some('=')
+                | Some('+')
+                | Some('-')
+                | Some('*')
+                | Some('/')
+                | Some('(')
+                | Some(',')
+        ) {
+            index += 1;
+            continue;
+        }
+        let start = index;
+        while index < bytes.len() && bytes[index].is_ascii_digit() {
+            index += 1;
+        }
+        if index < bytes.len() && bytes[index] == b'.' {
+            let decimal = index + 1;
+            if decimal < bytes.len() && bytes[decimal].is_ascii_digit() {
+                index += 1;
+                while index < bytes.len() && bytes[index].is_ascii_digit() {
+                    index += 1;
+                }
+            }
+        }
+        let end = index;
+        let mut lookahead = end;
+        while lookahead < bytes.len() && bytes[lookahead].is_ascii_whitespace() {
+            lookahead += 1;
+        }
+        if lookahead < bytes.len()
+            && (bytes[lookahead].is_ascii_alphabetic()
+                || bytes[lookahead] == b'_'
+                || bytes[lookahead] == b'%')
+        {
+            continue;
+        }
+        ranges.push((start, end));
+    }
+    ranges
+}
+
+fn lsp_schema_annotation_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let annotation = schema_annotation_from_message(diagnostic_message(diagnostic))?;
+    let name = annotation.split_once(':')?.0.trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let indent = line_indent(line);
+    let rest = &line[indent.len()..];
+    if !rest.starts_with(name) || !rest[name.len()..].trim_start().starts_with('=') {
+        return None;
+    }
+    if let Some(unit) = bracket_payload(&annotation) {
+        if !line.contains(unit) {
+            return None;
+        }
+    }
+    Some(json!({
+        "title": format!("Convert {name} to schema column annotation"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            full_line_same_line_range(line_number, line),
+            &format!("{indent}{annotation}")
+        )
+    }))
+}
+
+fn schema_annotation_from_message(message: &str) -> Option<String> {
+    let marker = "Write `";
+    let start = message.find(marker)? + marker.len();
+    let end = message[start..].find('`')? + start;
+    Some(
+        message[start..end]
+            .replace(char::is_whitespace, " ")
+            .trim()
+            .to_owned(),
+    )
+}
+
+fn lsp_file_mutation_confirm_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with("move ") && !trimmed.starts_with("delete ") {
+        return None;
+    }
+    lsp_boolean_with_options_code_action(uri, text, diagnostic, &["confirm"])
+}
+
+fn lsp_recursive_delete_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    if !line.trim_start().starts_with("delete dir(") {
+        return None;
+    }
+    lsp_boolean_with_options_code_action(uri, text, diagnostic, &["recursive", "confirm"])
+}
+
+fn lsp_boolean_with_options_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+    option_names: &[&str],
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    let attached_block = attached_with_block(&lines, line_number);
+    let missing_options = option_names
+        .iter()
+        .copied()
+        .filter(|option_name| {
+            attached_block
+                .as_ref()
+                .is_none_or(|block| !with_block_contains_option(&lines, block, option_name))
+        })
+        .collect::<Vec<_>>();
+    if missing_options.is_empty() {
+        return None;
+    }
+    let title = if missing_options.len() == 1 {
+        format!("Add {} = true", missing_options[0])
+    } else {
+        format!("Add {} = true", missing_options.join(" = true and "))
+    };
+    let newline = document_newline(text);
+    let (range, new_text) = if let Some(block) = attached_block {
+        let insertion = missing_options
+            .iter()
+            .map(|option_name| format!("{}    {} = true", block.indent, option_name))
+            .collect::<Vec<_>>()
+            .join(newline);
+        (
+            zero_width_range(block.end_line, 0),
+            format!("{insertion}{newline}"),
+        )
+    } else {
+        let line = lines.get(line_number).copied().unwrap_or("");
+        let indent = line_indent(line);
+        let option_lines = missing_options
+            .iter()
+            .map(|option_name| format!("{indent}    {option_name} = true"))
+            .collect::<Vec<_>>()
+            .join(newline);
+        let character = utf16_len(line);
+        (
+            zero_width_range(line_number, character),
+            format!("{newline}{indent}with {{{newline}{option_lines}{newline}{indent}}}"),
+        )
+    };
+    Some(json!({
+        "title": title,
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, range, &new_text)
+    }))
+}
+
+struct AttachedBlock {
+    start_line: usize,
+    end_line: usize,
+    indent: String,
+}
+
+fn attached_with_block(lines: &[&str], owner_line_number: usize) -> Option<AttachedBlock> {
+    let mut line_number = owner_line_number + 1;
+    while line_number < lines.len() && lines[line_number].trim().is_empty() {
+        line_number += 1;
+    }
+    let line = *lines.get(line_number)?;
+    if line.trim() != "with {" {
+        return None;
+    }
+    let end_line = matching_block_end_line(lines, line_number)?;
+    if end_line <= line_number {
+        return None;
+    }
+    Some(AttachedBlock {
+        start_line: line_number,
+        end_line,
+        indent: line_indent(line).to_owned(),
+    })
+}
+
+fn with_block_contains_option(lines: &[&str], block: &AttachedBlock, option_name: &str) -> bool {
+    for line in lines.iter().take(block.end_line).skip(block.start_line + 1) {
+        let trimmed = strip_line_comment(line).trim_start();
+        if let Some(rest) = trimmed.strip_prefix(option_name) {
+            if rest.trim_start().starts_with('=') {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+struct OptionQuickFix {
+    option_names: &'static [&'static str],
+    value: &'static str,
+    label: &'static str,
+}
+
+fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
+    match code {
+        "E-NET-RETRY-POLICY" | "E-PROCESS-RETRY-POLICY" => Some(OptionQuickFix {
+            option_names: &["retry"],
+            value: "0",
+            label: "Disable retries",
+        }),
+        "E-NET-TIMEOUT" => Some(OptionQuickFix {
+            option_names: &["timeout"],
+            value: "30 s",
+            label: "Set timeout to 30 s",
+        }),
+        "E-PROCESS-TIMEOUT" => Some(OptionQuickFix {
+            option_names: &["timeout"],
+            value: "10 s",
+            label: "Set timeout to 10 s",
+        }),
+        "E-NET-BODY-SIZE-LIMIT" => Some(OptionQuickFix {
+            option_names: &["body_size_limit", "response_body_limit"],
+            value: "10 MB",
+            label: "Set response body limit to 10 MB",
+        }),
+        "E-PROCESS-ALLOW-FAILURE" => Some(OptionQuickFix {
+            option_names: &["allow_failure"],
+            value: "true",
+            label: "Allow process failure",
+        }),
+        _ => None,
+    }
+}
+
+fn lsp_option_value_replacement_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+    fix: Option<OptionQuickFix>,
+) -> Option<Value> {
+    let fix = fix?;
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let assignment = option_assignment_range(line, fix.option_names)?;
+    let option_label = if fix.option_names.len() == 1 {
+        fix.option_names[0]
+    } else {
+        &assignment.option_name
+    };
+    Some(json!({
+        "title": format!("{}: {} = {}", fix.label, option_label, fix.value),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, assignment.value_start, assignment.value_end),
+            fix.value
+        )
+    }))
+}
+
+struct OptionAssignmentRange {
+    option_name: String,
+    value_start: usize,
+    value_end: usize,
+}
+
+fn option_assignment_range(line: &str, option_names: &[&str]) -> Option<OptionAssignmentRange> {
+    let indent_len = line_indent(line).len();
+    let rest = &line[indent_len..];
+    for option_name in option_names {
+        let Some(after_name) = rest.strip_prefix(option_name) else {
+            continue;
+        };
+        if !after_name
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_whitespace() || character == '=')
+        {
+            continue;
+        }
+        let equals_offset = after_name.find('=')?;
+        if !after_name[..equals_offset].trim().is_empty() {
+            continue;
+        }
+        let raw_value_start = indent_len + option_name.len() + equals_offset + 1;
+        let value_start = raw_value_start
+            + line[raw_value_start..]
+                .chars()
+                .take_while(|character| character.is_whitespace())
+                .map(char::len_utf8)
+                .sum::<usize>();
+        let comment_start = line[value_start..]
+            .find('#')
+            .map(|offset| value_start + offset)
+            .unwrap_or(line.len());
+        let value_end = value_start + line[value_start..comment_start].trim_end().len();
+        return Some(OptionAssignmentRange {
+            option_name: (*option_name).to_owned(),
+            value_start,
+            value_end,
+        });
+    }
+    None
+}
+
+fn assignment_head_byte_range(line: &str, name: &str) -> Option<(usize, usize)> {
+    let start = line_indent(line).len();
+    let rest = &line[start..];
+    let after_name = rest.strip_prefix(name)?;
+    let equals_offset = after_name.find('=')?;
+    if !after_name[..equals_offset].trim().is_empty() {
+        return None;
+    }
+    Some((start, start + name.len() + equals_offset + 1))
+}
+
+fn line_byte_range(line_number: usize, line: &str, start_byte: usize, end_byte: usize) -> Value {
+    json!({
+        "start": {
+            "line": line_number,
+            "character": utf16_len(&line[..start_byte])
+        },
+        "end": {
+            "line": line_number,
+            "character": utf16_len(&line[..end_byte])
+        }
+    })
+}
+
+fn full_line_same_line_range(line_number: usize, line: &str) -> Value {
+    json!({
+        "start": { "line": line_number, "character": 0 },
+        "end": { "line": line_number, "character": utf16_len(line) }
+    })
+}
+
+fn zero_width_range(line_number: usize, character: usize) -> Value {
+    json!({
+        "start": { "line": line_number, "character": character },
+        "end": { "line": line_number, "character": character }
+    })
+}
+
+fn line_indent(line: &str) -> &str {
+    let end = line
+        .char_indices()
+        .find_map(|(index, character)| (!character.is_whitespace()).then_some(index))
+        .unwrap_or(line.len());
+    &line[..end]
+}
+
+fn document_newline(text: &str) -> &'static str {
+    if text.contains("\r\n") {
+        "\r\n"
+    } else {
+        "\n"
+    }
+}
+
+fn split_lines_preserve_logical(text: &str) -> Vec<&str> {
+    text.split('\n')
+        .map(|line| line.trim_end_matches('\r'))
+        .collect()
+}
+
+fn first_backtick_payload(text: &str) -> Option<&str> {
+    backtick_payloads(text).into_iter().next()
+}
+
+fn backtick_payloads(text: &str) -> Vec<&str> {
+    let mut payloads = Vec::new();
+    let mut rest = text;
+    while let Some(open) = rest.find('`') {
+        let after_open = &rest[open + 1..];
+        let Some(close) = after_open.find('`') else {
+            break;
+        };
+        payloads.push(&after_open[..close]);
+        rest = &after_open[close + 1..];
+    }
+    payloads
+}
+
+fn bracket_payload(text: &str) -> Option<&str> {
+    let open = text.find('[')?;
+    let after_open = &text[open + 1..];
+    let close = after_open.find(']')?;
+    Some(after_open[..close].trim())
 }
 
 fn lsp_remove_script_wrapper_code_action(

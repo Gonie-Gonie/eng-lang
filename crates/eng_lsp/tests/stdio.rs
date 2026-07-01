@@ -697,6 +697,196 @@ system RoomThermal {
 }
 
 #[test]
+fn stdio_code_actions_offer_linter_quick_fixes() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root().join("build/editor-tests/code_action_linter_fixes.eng");
+    let uri = file_uri(&source_path);
+    let source = r#"power = 10 kW
+Q_total = 10 + 2 kW
+
+schema SensorData {
+    m_dot = 1 kg/s
+}
+
+move "a.txt" to "b.txt"
+delete dir("old")
+
+response = http get url("https://example.org/data.json")
+with {
+    retry = many
+    timeout = never
+    body_size_limit = unlimited
+}
+
+download url("https://example.org/file.csv") to file("build/raw/file.csv")
+with {
+    response_body_limit = 0 B
+}
+
+process_result = run command "cmd"
+with {
+    timeout = never
+    retry = many
+    allow_failure = sometimes
+}
+"#;
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {}
+        }),
+    );
+    let initialize = read_message(&mut stdout);
+    assert_eq!(
+        initialize["result"]["capabilities"]["codeActionProvider"]["codeActionKinds"][0],
+        "quickfix"
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": source
+                }
+            }
+        }),
+    );
+    let published = read_message(&mut stdout);
+    assert_eq!(published["method"], "textDocument/publishDiagnostics");
+    let diagnostics = published["params"]["diagnostics"]
+        .as_array()
+        .expect("diagnostics should be an array")
+        .clone();
+    for code in [
+        "W-QTY-AMBIG-001",
+        "E-DIM-ADD-002",
+        "E-PUBLIC-ANNOTATION-001",
+        "E-FS-CONFIRM-001",
+        "E-FS-DELETE-001",
+        "E-NET-RETRY-POLICY",
+        "E-NET-TIMEOUT",
+        "E-NET-BODY-SIZE-LIMIT",
+        "E-PROCESS-TIMEOUT",
+        "E-PROCESS-RETRY-POLICY",
+        "E-PROCESS-ALLOW-FAILURE",
+    ] {
+        assert!(
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == code),
+            "diagnostics should include {code}"
+        );
+    }
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "textDocument/codeAction",
+            "params": {
+                "textDocument": { "uri": uri },
+                "range": {
+                    "start": { "line": 0, "character": 0 },
+                    "end": { "line": source.lines().count(), "character": 0 }
+                },
+                "context": {
+                    "diagnostics": diagnostics
+                }
+            }
+        }),
+    );
+    let code_actions = read_message(&mut stdout);
+    assert_eq!(code_actions["id"], 2);
+    let actions = code_actions["result"]
+        .as_array()
+        .expect("code action result should be an array");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Annotate power as HeatRate [kW]",
+        "power: HeatRate [kW] =",
+    );
+    assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Convert m_dot to schema column annotation",
+        "    m_dot: MassFlowRate [kg/s]",
+    );
+    assert_action_edit_contains(actions, &uri, "Add confirm = true", "confirm = true");
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Add recursive = true and confirm = true",
+        "recursive = true",
+    );
+    assert_action_edit(actions, &uri, "Disable retries: retry = 0", "0");
+    assert_action_edit(actions, &uri, "Set timeout to 30 s: timeout = 30 s", "30 s");
+    assert_action_edit(actions, &uri, "Set timeout to 10 s: timeout = 10 s", "10 s");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set response body limit to 10 MB: body_size_limit = 10 MB",
+        "10 MB",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set response body limit to 10 MB: response_body_limit = 10 MB",
+        "10 MB",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Allow process failure: allow_failure = true",
+        "true",
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "shutdown"
+        }),
+    );
+    let shutdown = read_message(&mut stdout);
+    assert_eq!(shutdown["id"], 3);
+    assert!(shutdown["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    let status = child.wait().expect("eng-lsp should exit");
+    assert!(status.success());
+}
+
+#[test]
 fn stdio_formatting_formats_unsaved_document() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/formatting.eng");
@@ -1116,6 +1306,38 @@ fn assert_replacement_action(actions: &[Value], uri: &str, title: &str, new_text
         edits[0]["range"]["end"]["character"].is_number(),
         "code action {title} should include an end character"
     );
+}
+
+fn assert_action_edit(actions: &[Value], uri: &str, title: &str, new_text: &str) {
+    let action = actions
+        .iter()
+        .find(|action| {
+            action["title"] == title
+                && action["edit"]["changes"][uri]
+                    .as_array()
+                    .is_some_and(|edits| edits.iter().any(|edit| edit["newText"] == new_text))
+        })
+        .unwrap_or_else(|| panic!("code actions should include {title} editing to {new_text}"));
+    assert_eq!(action["kind"], "quickfix");
+}
+
+fn assert_action_edit_contains(actions: &[Value], uri: &str, title: &str, text: &str) {
+    let action = actions
+        .iter()
+        .find(|action| {
+            action["title"] == title
+                && action["edit"]["changes"][uri]
+                    .as_array()
+                    .is_some_and(|edits| {
+                        edits.iter().any(|edit| {
+                            edit["newText"]
+                                .as_str()
+                                .is_some_and(|new_text| new_text.contains(text))
+                        })
+                    })
+        })
+        .unwrap_or_else(|| panic!("code actions should include {title} containing {text}"));
+    assert_eq!(action["kind"], "quickfix");
 }
 
 fn assert_script_wrapper_action(actions: &[Value], uri: &str) {

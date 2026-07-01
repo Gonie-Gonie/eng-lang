@@ -969,6 +969,19 @@ Status: implemented after VS Code live-editor performance review.
 - Keep shared snapshot subprocesses independent from individual provider
   cancellation so one canceled request does not poison other editor features.
 
+## Batch 80: LSP Linter Quick Fix Parity
+
+Status: implemented after VS Code-only quick-fix parity review.
+
+- Added persistent LSP `textDocument/codeAction` quick fixes for ambiguous
+  quantity annotations, missing unit hints, schema-column annotation migration,
+  filesystem confirmation/recursive-delete options, and invalid net/process
+  option values.
+- Kept the edits line-based and conservative, matching the existing VS Code
+  quick-fix behavior without adding JavaScript-only linter semantics.
+- Extended stdio and `ide-check` coverage so non-VS Code LSP clients receive
+  the same common linter repair actions.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -2092,11 +2092,24 @@ function Assert-VscodeExtensionContract {
         "code_actions_for_request",
         "lsp_replacement_code_action",
         "lsp_remove_script_wrapper_code_action",
+        "lsp_quantity_annotation_code_actions",
+        "lsp_missing_unit_code_actions",
+        "lsp_schema_annotation_code_action",
+        "lsp_file_mutation_confirm_code_action",
+        "lsp_recursive_delete_code_action",
+        "lsp_option_value_replacement_code_action",
         "matching_block_end_line",
         "E-SYNTAX-DECL-001",
         "E-STRUCT-ARGS-001",
         "E-SCRIPT-001",
-        "E-EQ-BOOL-001"
+        "E-EQ-BOOL-001",
+        "W-QTY-AMBIG-001",
+        "E-DIM-ADD-",
+        "E-PUBLIC-ANNOTATION-001",
+        "E-FS-CONFIRM-001",
+        "E-FS-DELETE-001",
+        "E-NET-RETRY-POLICY",
+        "E-PROCESS-ALLOW-FAILURE"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspCodeActionToken)) {
             throw "eng-lsp CLI missing code action protocol token $RequiredLspCodeActionToken"
