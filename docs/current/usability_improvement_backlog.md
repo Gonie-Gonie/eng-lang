@@ -625,6 +625,18 @@ Status: implemented after workflow 01 native-table review.
   now asserts `source:json_records:weather` and absence of
   `sample_weather_hourly.csv` in the result.
 
+## Batch 52: JSON Records Promotion Highlighting
+
+Status: implemented after syntax-highlighting TODO review.
+
+- Added a TextMate workflow phrase for `promote json records` so the new native
+  JSON-record table syntax is highlighted as a coherent workflow construct
+  instead of leaving `records` as an uncolored identifier.
+- Added `records` to the workflow keyword group and pinned
+  `payload.records` property-path coverage in the grammar fixture.
+- Regenerated the VS Code grammar, synced the local installed extension
+  grammar, and verified `vscode-grammar-test`, `lsp-check`, and `ide-check`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
