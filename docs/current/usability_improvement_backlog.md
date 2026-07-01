@@ -1166,6 +1166,19 @@ Status: implemented after repro-profile quick-fix review.
 - Extended code-action regression coverage with a synthetic repro-profile
   diagnostic and updated the VS Code README quick-fix surface.
 
+## Batch 97: Editor Token Scope Guide
+
+Status: implemented after syntax-highlighting TODO review.
+
+- Added `docs/internal/editor/token_scopes.md` as the maintainer-facing contract
+  for TextMate scope naming, semantic-token modifiers, VS Code fallback
+  mappings, and update commands.
+- Linked the VS Code extension README to the new guide so highlighting and
+  semantic-token drift has a discoverable maintenance path.
+- Confirmed the current workflow 01/02/03 examples have no Python, `.py`, or
+  `run command` usage and that `eng test examples` enforces this through the
+  native workflow source scan.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
