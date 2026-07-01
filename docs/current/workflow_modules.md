@@ -164,8 +164,9 @@ should follow the same artifact pattern.
 
 ## Native Artifact Evidence
 
-The current workflow examples are executable native workflow fixtures. They are
-not domain-adapter claims.
+The workflow programs under `examples/workflows/` are executable native
+workflows. They declare native data, network/cache, model, DB, artifact, and
+review records directly; they are not domain-adapter claims.
 
 `examples/workflows/01_weather_api_to_standard_file` records:
 

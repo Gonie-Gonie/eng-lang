@@ -18,8 +18,9 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 ## Expected Artifacts
 
 Each run should produce review evidence and workflow-specific generated
-artifacts. The current workflow examples do not call Python or external
-processes; `process_results.json` should report `process_count = 0`.
+artifacts. The workflow programs under `examples/workflows/` do not call Python
+or external processes; `process_results.json` should report
+`process_count = 0`.
 
 ## Explanation
 

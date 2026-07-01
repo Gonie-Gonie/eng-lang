@@ -323,10 +323,22 @@ Status: implemented after VS Code highlighting review.
 - Added LSP snapshot coverage for model cache records, DB write boundaries, and
   workflow step tokens.
 
+## Batch 28: Native Workflow Support Wording
+
+Status: implemented after API wording review.
+
+- Replaced module status details that framed native workflow support around
+  examples with direct wording for implemented runtime paths, listed workflow
+  commands/artifacts, and diagnostics for unsupported combinations.
+- Updated native IDE fallback wording so the Modules inspector matches compiler
+  registry status details.
+- Changed workflow module docs to call the current examples executable native
+  workflow programs, not fixtures.
+
 ## API And Wording Cleanup Candidates
 
-- Review public command names and setting text for terms that are too internal:
-  `hybrid`, `native target`, and `opaque boundary`.
+- Continue reviewing public command names and setting text for terms that are
+  too internal as new workflow APIs move from planned to supported.
 - Make workflow command examples consistent: prefer `eng.exe run <file.eng>
   --save-artifacts` where saved artifacts are discussed.
 - Continue reviewing stdlib/module status words where docs still expose

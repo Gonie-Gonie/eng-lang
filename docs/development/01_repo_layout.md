@@ -25,7 +25,7 @@ Current public release layout:
 |   `-- llm/            compact load maps for future agent work
 |-- examples/
 |   |-- official/       release-facing examples and manual user-test paths
-|   |-- workflows/      composite workflow fixtures
+|   |-- workflows/      composite native workflow programs
 |   |-- internal/       implementation fixtures outside the public contract
 |   |-- compat/         older focused regression examples
 |   `-- diagnostics/    expected diagnostics and data-quality fixtures

@@ -70,7 +70,7 @@ Avoid combining:
 ## Milestone Gap Audit
 
 After a public release is tagged, compare the implemented behavior
-against the master plan and write down seed-only areas before moving on.
+against the master plan and write down not-yet-supported areas before moving on.
 
 The audit should classify each item as:
 

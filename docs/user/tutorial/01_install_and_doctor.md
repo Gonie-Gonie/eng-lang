@@ -29,7 +29,8 @@ cargo run -p eng_cli -- test examples
 ## Expected Artifacts
 
 doctor should report package readiness. test examples should run the official
-examples and workflow fixtures that define the supported public scope.
+examples and composite native workflow programs that define the supported
+public scope.
 
 ## Explanation
 

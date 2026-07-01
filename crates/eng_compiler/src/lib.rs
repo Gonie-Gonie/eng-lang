@@ -11771,7 +11771,7 @@ system Envelope {
                     && module
                         .get("status_detail")
                         .and_then(serde_json::Value::as_str)
-                        .is_some_and(|detail| detail.contains("current workflow examples"))
+                        .is_some_and(|detail| detail.contains("listed workflow commands"))
             })));
         assert!(value
             .pointer("/review_document/section_hashes/workflow_modules")

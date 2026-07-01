@@ -1444,9 +1444,9 @@ function moduleStatusDetail(module) {
     case "supported_narrow":
       return "Supported for the listed syntax forms and review artifacts.";
     case "native_preview":
-      return "Native implementation is available for current workflow examples; broader API may still change.";
+      return "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics.";
     case "supported_seed":
-      return "Native implementation is available for current workflow examples; broader API may still change.";
+      return "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics.";
     case "planned":
       return "Documented target surface; not executable as a public module yet.";
     case "internal_planned":

@@ -54,10 +54,10 @@ pub fn module_status_detail(status: &str) -> &'static str {
         "supported" => "Public built-in surface supported by compiler/runtime.",
         "supported_narrow" => "Supported for the listed syntax forms and review artifacts.",
         "native_preview" => {
-            "Native implementation is available for current workflow examples; broader API may still change."
+            "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics."
         }
         "supported_seed" => {
-            "Native implementation is available for current workflow examples; broader API may still change."
+            "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics."
         }
         "planned" => "Documented target surface; not executable as a public module yet.",
         "internal_planned" => "Internal design target, not a public stdlib contract.",
