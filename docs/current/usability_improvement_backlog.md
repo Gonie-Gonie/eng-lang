@@ -451,6 +451,17 @@ Status: implemented after native workflow source review.
 - Extended compiler and runtime workflow tests to pin args-driven URL/cache
   behavior and resolved station query artifacts.
 
+## Batch 38: VS Code Doc Comment Continuation
+
+Status: implemented after editor language-configuration review.
+
+- Added a VS Code `onEnterRules` language configuration entry so `///`
+  documentation comments continue automatically on Enter.
+- Kept `#` as the normal line-comment toggle while treating `///` as a doc
+  comment editing affordance instead of the default toggle style.
+- Extended `ide-check` extension contract coverage so doc-comment continuation
+  cannot silently disappear from the packaged extension.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

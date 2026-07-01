@@ -1696,6 +1696,20 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $GrammarSourcePath)) {
         throw "VS Code extension missing source grammar at $GrammarSourcePath"
     }
+    $LanguageConfigurationPath = Join-Path $ExtensionRoot "language-configuration.json"
+    if (-not (Test-Path $LanguageConfigurationPath)) {
+        throw "VS Code extension missing language configuration at $LanguageConfigurationPath"
+    }
+    $LanguageConfiguration = Get-Content -LiteralPath $LanguageConfigurationPath -Raw | ConvertFrom-Json
+    if ($LanguageConfiguration.comments.lineComment -ne "#") {
+        throw "VS Code extension language configuration must keep # as line comment"
+    }
+    $DocCommentEnterRule = @($LanguageConfiguration.onEnterRules) | Where-Object {
+        $_.beforeText -eq "^\s*///.*$" -and $_.action.appendText -eq "/// "
+    } | Select-Object -First 1
+    if ($null -eq $DocCommentEnterRule) {
+        throw "VS Code extension language configuration must continue /// doc comments on Enter"
+    }
     $GrammarSource = Get-Content -LiteralPath $GrammarPath -Raw
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
