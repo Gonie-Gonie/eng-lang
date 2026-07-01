@@ -109,10 +109,20 @@ Status: implemented after module status review.
 - Updated status details to refer to executable workflow examples instead of
   implementation fixtures.
 
+## Batch 10: Public Reference Seed Wording
+
+Status: implemented after reference-doc wording audit.
+
+- Replaced implementation-stage uses of `seed` in public reference docs with
+  support-scope wording such as native runtime plan, package import metadata,
+  table transforms, and native workflow support.
+- Left deterministic sampling/reproducibility `seed` wording intact where it is
+  part of the user-facing language.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
-  `seed`, `hybrid`, `native target`, and `opaque boundary`.
+  `hybrid`, `native target`, and `opaque boundary`.
 - Make workflow command examples consistent: prefer `eng.exe run <file.eng>
   --save-artifacts` where saved artifacts are discussed.
 - Continue reviewing stdlib/module status words where docs still expose

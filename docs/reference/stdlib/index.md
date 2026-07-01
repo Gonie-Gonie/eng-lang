@@ -1,6 +1,6 @@
 # Standard Library Reference
 
-Status: skeleton.
+Status: early index.
 
 This directory is the target for generated and hand-written standard library
 reference material.
@@ -19,7 +19,7 @@ Planned modules:
 - eng.plot
 - eng.report
 - eng.timeseries
-- supported seed: eng.net, eng.cache, eng.db, eng.model
+- native workflow support: eng.net, eng.cache, eng.db, eng.model
 
 Generated stdlib reference should come from static metadata extraction, not from
 executing EngLang workflows.

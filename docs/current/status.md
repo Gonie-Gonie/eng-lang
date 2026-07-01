@@ -217,7 +217,7 @@ is not mistaken for public module support.
 | `eng_cli` | CLI commands, package/release smoke paths, user-facing execution |
 | `eng_compiler` | Lexer, parser, AST, semantic checks, units, quantities, bytecode metadata |
 | `eng_jit` | Internal hot-kernel detection and numeric lowering-plan metadata |
-| `eng_runtime` | Runtime execution, VM seed, CSV/data policies, `.engres` output |
+| `eng_runtime` | Runtime execution, VM, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
 | `eng_ide` | Tauri/WebView tester IDE and package smoke UI checks |
 | `eng_lsp` | Internal editor-service smoke and snapshot paths |

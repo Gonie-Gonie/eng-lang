@@ -66,7 +66,7 @@ The compiler reads the source in order and builds:
 |---|---|
 | Parsed program | Lines, tokens, AST items, source spans, block context |
 | Semantic model | Typed bindings, schemas, functions, diagnostics, review metadata |
-| Bytecode | Native runtime seed for the top-level workflow |
+| Bytecode | Native runtime plan for the top-level workflow |
 | Runtime data | Tables, TimeSeries, integrations, statistics, outputs |
 | Report artifacts | `result.engres`, `review.json`, `report_spec.json`, `run_log.json`, `process_results.json`, `test_results.json`, PlotSpec, SVG, HTML |
 
@@ -173,7 +173,7 @@ The current top-level declaration families are:
 | Form | Example | Notes |
 |---|---|---|
 | File import | `use "thermal.eng"` | Imports functions and importable constants |
-| Package import seed | `import package.name` | Declared metadata path, not full package manager |
+| Package import metadata | `import package.name` | Declared metadata path, not full package manager |
 | Args block | `args { input: CsvFile = file("data.csv") }` | Root CLI argument schema |
 | Const declaration | `const cp: SpecificHeatCapacity = 4180 J/kg/K` | Importable when pure |
 | Explicit declaration | `E: Energy [J] = 3600 J` | Public type and display unit boundary |
@@ -397,7 +397,7 @@ Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
 This produces `TimeSeries[Time] of HeatRate` metadata and runtime values when
 the source table has a DateTime index and the required numeric columns.
 
-Schema-aware table transform seeds are supported for filtering promoted tables
+Schema-aware table transforms are supported for filtering promoted tables
 and requiring exactly one row:
 
 ```eng partial
@@ -596,10 +596,10 @@ Supported command-style verbs in the current release:
 | `mean` | TimeSeries mean | `mean(Q, axis=Time)` |
 | `max` | TimeSeries maximum | `max(Q, axis=Time)` |
 | `min` | TimeSeries minimum | `min(Q, axis=Time)` |
-| `duration` | Duration style metadata seed | `duration(T, above=...)` |
+| `duration` | Duration-style report metadata | `duration(T, above=...)` |
 | `plot` | Report plot request | `plot(Q, over=Time)` metadata |
-| `show` | Report/display request seed | `show(value)` metadata |
-| `validate` | Validation request seed | `validate(target)` metadata |
+| `show` | Report/display request metadata | `show(value)` metadata |
+| `validate` | Validation request metadata | `validate(target)` metadata |
 | `rmse` | Measured-vs-simulated metric | `rmse(left, right)` metadata |
 
 Command clauses recognized by the parser:
@@ -1360,7 +1360,7 @@ system Room {
 }
 ```
 
-The supported measured-vs-simulated simulation seed binds a system simulation
+The supported measured-vs-simulated simulation path binds a system simulation
 to a value and attaches options with `with`:
 
 ```eng partial
@@ -1859,7 +1859,7 @@ The current guide intentionally does not promise:
 | Broad filesystem mutation outside generated outputs | Deferred |
 | Full process sandboxing | Explicit process records and profile basics exist; sandbox isolation is deferred |
 | Project-wide test discovery/runner | Local source-file test blocks exist; workspace discovery is deferred |
-| Full package/module system | File imports and metadata seeds only |
+| Full package/module system | File imports and declared metadata only |
 | General nonlinear/DAE/behavior/broad adaptive/multi-domain solving | Deferred beyond supported one-state thermal fixed/adaptive path, supported two-state source-equation fixed-step path, narrow component residual Newton/implicit-Euler DAE smokes, narrow unitful temperature explicit-Euler source behavior RHS smokes, constrained Thermal/Fluid[Water] pressure/flow algebraic residual smoke, and internal fixed-step/continuous `adaptive_heun` state-space paths |
 | Full artifact schema evolution policy | Stable-core schemas exist; broader future-track schemas may grow |
 

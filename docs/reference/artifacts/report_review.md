@@ -108,13 +108,13 @@ solver-plan metadata. It also records `domain_count`,
 `solver_preview` field for domain/component graphs. A graph with
 Thermal, `Fluid[Water]`, and `MechanicalNode[World, X]` connection sets reports
 `solver_preview.status = multi_domain_preview`, plus explicit future-solver
-seed statuses for nonlinear residuals, DAE splitting, delay/history buffers,
+limitation statuses for nonlinear residuals, DAE splitting, delay/history buffers,
 Predictor behavior, and external behavior adapters.
 The `multi_domain_preview` value is a legacy-named Internal metadata label, not
 a supported multi-domain solve claim.
-Delay calls currently report a runtime-buffer seed status, Predictor calls
-report a contract-wrapper seed status, and external adapter expressions report
-an external-wrapper seed status. The narrow unitful temperature explicit-Euler source behavior RHS
+Delay calls currently report a runtime-buffer status, Predictor calls report a
+contract-wrapper status, and external adapter expressions report an
+external-wrapper status. The narrow unitful temperature explicit-Euler source behavior RHS
 examples update those behavior-node rows to integrated statuses in
 report-spec/HTML after runtime evaluation. This is still not a full
 component-solver behavior graph integration.
@@ -149,7 +149,7 @@ artifacts plus per-step behavior graph diagnostics.
 `examples/advanced_solver/32_small_thermal_fluid_loop` covers the constrained
 Thermal/Fluid[Water] pressure/flow algebraic residual path and records generated
 Thermal and Fluid connection equations, pipe component equations, solved
-pressure/flow variables, residual norm, and largest-residual artifacts. It uses the public `Pressure [Pa]` quantity with a fixed pipe pressure-drop seed.
+pressure/flow variables, residual norm, and largest-residual artifacts. It uses the public `Pressure [Pa]` quantity with a fixed pipe pressure-drop relation.
 The runtime residual evaluator accepts solver-provided residual scale overrides
 and tolerance values; component artifacts currently use the default
 unit/quantity scale policy unless a solver path supplies explicit overrides.
@@ -270,7 +270,7 @@ adaptive source-equation workflow with TimeSeries input materialization.
 
 For the domain/component connection-constraint check, `result.engres` also records
 `typed_payload.component_solutions`. Each entry includes the assembly name,
-status, method, residual norm, convergence status, solved linear or zero-seed
+status, method, residual norm, convergence status, solved linear or zero-default
 variable values, residual evaluations, nullable `failure_code`/`failure_reason`
 aliases, dynamic trajectory/timestep diagnostic adapters where present,
 equation/unknown counts for internal dynamic assembly bridge artifacts, and any
@@ -282,7 +282,7 @@ beside the runtime-updated `assembly_summary[].solver_result` detail. Tooling
 should treat `multi_domain_preview` as a reviewable plan plus homogeneous
 constraint residual check, not as a production multi-domain physical solve. The
 official Thermal/Fluid[Water] example is a constrained square algebraic
-pressure/flow solve with a fixed pressure-drop seed; it is still not a production hydraulic network simulator.
+pressure/flow solve with a fixed pressure-drop relation; it is still not a production hydraulic network simulator.
 
 ## `output_manifest.json`
 
@@ -324,7 +324,7 @@ message.
 
 Use it when a tool needs to show exactly which files a run produced without
 guessing from the directory layout. The `artifact_registry` section normalizes
-source files, generated files, external command boundaries, network/cache seed
+source files, generated files, external command boundaries, network/cache
 records, DB writes, model artifacts, and named test records for review tools.
 
 ## `run_log.json`

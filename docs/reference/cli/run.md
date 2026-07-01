@@ -1,6 +1,6 @@
 # `eng run` Reference
 
-`eng run` executes one file's top-level workflow through bytecode and the native VM seed.
+`eng run` executes one file's top-level workflow through bytecode and the native VM.
 By default it keeps result, review, report, run-log, process-results,
 test-results, PlotSpec, SVG, output manifest, and bytecode payloads as runtime
 objects and does not write ordinary artifacts.
@@ -144,7 +144,7 @@ build\result\output_manifest.json
 
 ## Explicit File Operations
 
-`copy`, `move`, and `delete` provide a small filesystem mutation seed. The
+`copy`, `move`, and `delete` provide a small filesystem mutation surface. The
 current runtime keeps generated-output mutations under `build\result`.
 
 ```eng partial

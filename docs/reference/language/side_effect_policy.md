@@ -30,7 +30,7 @@ what was read, and what external state influenced the result.
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
 | Template render | `render template file("base.txt")` | Explicit output required; rendered file and render manifest stay under `build/result` |
-| File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete seed implemented under explicit output boundaries; broader operations planned |
+| File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete are implemented under explicit output boundaries; broader operations planned |
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
 | Test checks | `test { assert ...; golden ... }` | Runtime verification plus structured `test_results.json` metadata |

@@ -398,7 +398,7 @@ include hover `kind`/`status` metadata and completion labels such as
 
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]`
 
-Runs the file's top-level workflow through bytecode v1 and the native VM seed.
+Runs the file's top-level workflow through bytecode v1 and the native VM.
 By default, result/review/report/run-log/process-results/test-results/plot/
 output-manifest payloads remain runtime objects in memory. `--save-artifacts`
 writes those objects to disk.
@@ -455,7 +455,7 @@ for skipped non-square or overdetermined graphs. `review.json` and
 `report_spec.json` also include `assembly_summary.domain_plans` and
 `assembly_summary.solver_preview` so tools can identify `multi_domain_preview`
 graphs and the explicit
-nonlinear/DAE/delay/Predictor/adapter seed statuses. This is not a production
+nonlinear/DAE/delay/Predictor/adapter limitation statuses. This is not a production
 multi-domain solver claim.
 
 `--open-report` implies `--save-artifacts` and attempts to open the generated
