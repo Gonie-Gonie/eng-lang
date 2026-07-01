@@ -1153,6 +1153,8 @@ Status: implemented after sampling grammar/semantic alias review.
   grammar builtin coverage.
 - Made `uniform` keep its uncertainty function role while also receiving the
   `workflowStep` semantic modifier specifically in `sample uniform` context.
+- Pinned both underscore and hyphen Latin-hypercube aliases in TextMate grammar
+  smoke coverage.
 
 ## API And Wording Cleanup Candidates
 

@@ -182,6 +182,12 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sample-method.englang",
+    "text": "sample latin-hypercube",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "uniform"
   },
