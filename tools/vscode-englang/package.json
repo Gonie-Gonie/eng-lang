@@ -170,6 +170,9 @@
           "namespace.defaultLibrary": [
             "support.namespace.module.englang"
           ],
+          "namespace.imported": [
+            "support.namespace.module.englang"
+          ],
           "namespace.internal": [
             "support.namespace.module.englang",
             "comment.line.number-sign.englang"

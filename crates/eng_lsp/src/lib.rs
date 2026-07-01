@@ -4664,7 +4664,9 @@ response = http get url("https://example.org/weather")
 
     #[test]
     fn snapshot_marks_core_symbol_roles_as_semantic_tokens() {
-        let source = r#"const cp_water: SpecificHeat [J/kg/K] = 4180 J/kg/K
+        let source = r#"import eng.table
+
+const cp_water: SpecificHeat [J/kg/K] = 4180 J/kg/K
 
 schema SensorData {
     time: DateTime [iso8601]
@@ -4684,6 +4686,9 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
 "#;
         let snapshot = snapshot_for_source(Path::new("core_symbol_roles.eng"), source);
 
+        assert_semantic_token_type(&snapshot, source, "eng.table", "namespace");
+        assert_semantic_token_modifier(&snapshot, source, "eng.table", "imported");
+        assert_semantic_token_modifier(&snapshot, source, "eng.table", "declaration");
         assert_semantic_token_type(&snapshot, source, "cp_water", "variable");
         assert_semantic_token_modifier(&snapshot, source, "cp_water", "readonly");
         assert_semantic_token_modifier(&snapshot, source, "cp_water", "declaration");

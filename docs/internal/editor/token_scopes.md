@@ -121,6 +121,7 @@ Core semantic role expectations:
 
 | Source role | Semantic token |
 | --- | --- |
+| `use`/`import` namespace | `namespace` with `declaration` and `imported`. |
 | `const` name | `variable` with `declaration` and `readonly`. |
 | Schema name | `class` with `declaration`. |
 | Schema/class/component field | `property` with `declaration`. |
@@ -141,6 +142,7 @@ in sync with the generated legend. Important pairings:
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
 | `variable.timeseries`, `property.timeseries` | TimeSeries value emphasis. |
 | `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in functions and modules. |
+| `namespace.imported` | User-imported module namespaces. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |
 | `function.external`, `keyword.external`, `variable.external` | External boundaries and bindings. |
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |

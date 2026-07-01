@@ -1892,7 +1892,7 @@ function Assert-VscodeExtensionContract {
         "keyword.deprecated", "variable.state", "parameter.input", "variable.riskHigh",
         "variable.riskMedium", "variable.model", "variable.db",
         "function.model", "function.defaultLibrary", "namespace.defaultLibrary",
-        "namespace.internal", "variable.cache", "keyword.workflowStep",
+        "namespace.imported", "namespace.internal", "variable.cache", "keyword.workflowStep",
         "function.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]

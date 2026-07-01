@@ -1248,6 +1248,18 @@ Status: implemented after LSP semantic role review.
   guide so TextMate fallback scopes and compiler-backed semantic tokens stay
   aligned.
 
+## Batch 104: Imported Namespace Semantic Fallback
+
+Status: implemented after imported-symbol highlighting review.
+
+- Added a VS Code semantic fallback mapping for `namespace.imported` so imported
+  EngLang module namespaces keep a stable scope even when a theme does not
+  define imported namespace colors directly.
+- Extended `ide-check` to require the `namespace.imported` fallback mapping.
+- Added LSP snapshot regression coverage for `import eng.table` as a namespace
+  token with `declaration` and `imported` modifiers.
+- Updated the editor token-scope guide with the imported namespace contract.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
