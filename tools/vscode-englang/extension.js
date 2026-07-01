@@ -24,6 +24,7 @@ const EXECUTION_PROFILES = [
   }
 ];
 const reviewCache = new Map();
+const snapshotPromiseCache = new Map();
 const changeTimers = new Map();
 let output;
 let reviewRiskDecorations;
@@ -143,6 +144,7 @@ function activate(context) {
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       clearPendingCheck(document);
+      clearSnapshotCache(document);
       diagnostics.delete(document.uri);
       updateReviewRiskDecorations(document, undefined);
     }),
@@ -251,6 +253,7 @@ function scheduleChangedCheck(document, diagnostics, context) {
   if (!isEngDocument(document)) {
     return;
   }
+  clearSnapshotCache(document);
   const config = vscode.workspace.getConfiguration("englang", document.uri);
   if (!config.get("lintOnChange", true)) {
     return;
@@ -356,6 +359,10 @@ function finishDocumentCheck(document, diagnostics, backend, documentVersion, er
   const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
   const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
   output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
+}
+
+function clearSnapshotCache(document) {
+  snapshotPromiseCache.delete(snapshotCacheKey(document));
 }
 
 function updateReviewRiskDecorations(document, review) {
@@ -1572,15 +1579,27 @@ class EngSemanticTokensProvider {
 }
 
 function snapshotDocumentSource(document, context, cancellationToken) {
-  return new Promise((resolve) => {
+  const key = snapshotCacheKey(document);
+  const cached = snapshotPromiseCache.get(key);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = new Promise((resolve) => {
     const runtime = findLspRuntime(context, document);
     const cwd = workspaceRoot(document);
+    const documentVersion = document.version;
     let settled = false;
     const finish = (value) => {
       if (settled) {
         return;
       }
       settled = true;
+      if (document.version !== documentVersion) {
+        snapshotPromiseCache.delete(key);
+        resolve(undefined);
+        return;
+      }
       resolve(value);
     };
 
@@ -1606,15 +1625,21 @@ function snapshotDocumentSource(document, context, cancellationToken) {
       }
     );
 
-    cancellationToken?.onCancellationRequested(() => {
-      child.kill();
-      finish(undefined);
-    });
-
     if (child.stdin) {
       child.stdin.end(document.getText());
     }
   });
+  snapshotPromiseCache.set(key, promise);
+  promise.finally(() => {
+    if (snapshotPromiseCache.get(key) === promise) {
+      snapshotPromiseCache.delete(key);
+    }
+  });
+  return promise;
+}
+
+function snapshotCacheKey(document) {
+  return `${document.uri.toString()}@${document.version}`;
 }
 
 function completionSnapshotForPosition(document, position, context, cancellationToken) {

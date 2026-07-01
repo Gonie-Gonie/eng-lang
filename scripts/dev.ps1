@@ -1931,6 +1931,22 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
+    foreach ($RequiredSnapshotReuseToken in @(
+        "const snapshotPromiseCache = new Map();",
+        "const cached = snapshotPromiseCache.get(key);",
+        "snapshotPromiseCache.set(key, promise);",
+        "promise.finally(() =>",
+        "function snapshotCacheKey(document)",
+        "document.version !== documentVersion",
+        "snapshotPromiseCache.delete(key)"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredSnapshotReuseToken)) {
+            throw "VS Code extension missing shared LSP snapshot reuse token $RequiredSnapshotReuseToken"
+        }
+    }
+    if (([regex]::Matches($ExtensionSource, [regex]::Escape("clearSnapshotCache(document)"))).Count -lt 3) {
+        throw "VS Code extension must clear shared LSP snapshot cache on document changes and close"
+    }
     foreach ($RequiredHoverToken in @(
         "new EngHoverProvider(context)",
         "async provideHover",

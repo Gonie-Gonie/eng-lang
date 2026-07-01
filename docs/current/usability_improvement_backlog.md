@@ -957,6 +957,18 @@ Status: implemented after TextMate/LSP semantic overlay review.
 - Added `export summary to csv` to phrase completions and extended semantic
   token tests for `summary`, `text`, `csv`, `json`, and `toml`.
 
+## Batch 79: VS Code Shared Snapshot Reuse
+
+Status: implemented after VS Code live-editor performance review.
+
+- Added per-document-version snapshot promise reuse in the VS Code extension so
+  semantic tokens, symbols, folding, hover, definition fallback, and token
+  debug do not spawn duplicate `eng-lsp --snapshot-stdin` processes for the
+  same buffer.
+- Clear cached snapshot promises on document changes and close.
+- Keep shared snapshot subprocesses independent from individual provider
+  cancellation so one canceled request does not poison other editor features.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
