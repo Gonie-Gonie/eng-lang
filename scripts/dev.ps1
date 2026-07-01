@@ -1735,10 +1735,43 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
+    }
+    $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
+    foreach ($RequiredSemanticModifier in @(
+        "unit", "quantity", "axis", "timeseries", "uncertain",
+        "sideEffect", "external", "validation", "report",
+        "planned", "internal", "riskHigh", "riskMedium", "state", "input"
+    )) {
+        if ($SemanticModifiers -notcontains $RequiredSemanticModifier) {
+            throw "VS Code extension missing semantic token modifier $RequiredSemanticModifier"
+        }
+    }
+    $SemanticScopeRule = @($Package.contributes.semanticTokenScopes | Where-Object { $_.language -eq "englang" }) | Select-Object -First 1
+    if ($null -eq $SemanticScopeRule) {
+        throw "VS Code extension missing englang semantic token scope mappings"
+    }
+    foreach ($RequiredTokenScope in @(
+        "type.unit", "property.unit", "variable.quantity", "function.external",
+        "method.sideEffect", "variable.validation", "variable.report",
+        "variable.state", "parameter.input", "variable.riskHigh",
+        "variable.riskMedium"
+    )) {
+        $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
+        if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {
+            throw "VS Code extension missing semantic token scope mapping $RequiredTokenScope"
+        }
+    }
+    $ConfigurationDefaults = $Package.contributes.configurationDefaults
+    if ($null -eq $ConfigurationDefaults) {
+        throw "VS Code extension missing configurationDefaults contribution"
+    }
+    $EngLangDefaultsProperty = $ConfigurationDefaults.PSObject.Properties["[englang]"]
+    if ($null -eq $EngLangDefaultsProperty -or $EngLangDefaultsProperty.Value."editor.semanticHighlighting.enabled" -ne $true) {
+        throw "VS Code extension must enable editor.semanticHighlighting.enabled by default for englang"
     }
     if ($null -ne $Properties."englang.runEntry") {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"

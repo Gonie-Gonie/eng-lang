@@ -42,6 +42,192 @@
         "path": "./snippets/eng.json"
       }
     ],
+    "semanticTokenModifiers": [
+      {
+        "id": "unit",
+        "description": "Unit symbols and unit-typed values."
+      },
+      {
+        "id": "quantity",
+        "description": "Quantity values and quantity-typed symbols."
+      },
+      {
+        "id": "axis",
+        "description": "Time axes and aligned axis metadata."
+      },
+      {
+        "id": "timeseries",
+        "description": "Time series values and related accessors."
+      },
+      {
+        "id": "uncertain",
+        "description": "Measured, interval, ensemble, or propagated uncertainty symbols."
+      },
+      {
+        "id": "sideEffect",
+        "description": "Workflow operations that declare or perform side effects."
+      },
+      {
+        "id": "external",
+        "description": "External boundaries such as files, commands, HTTP, and DB access."
+      },
+      {
+        "id": "validation",
+        "description": "Validation, assertion, golden, and coverage symbols."
+      },
+      {
+        "id": "report",
+        "description": "Report, plot, summary, and rendered artifact symbols."
+      },
+      {
+        "id": "planned",
+        "description": "Planned workflow nodes or artifacts."
+      },
+      {
+        "id": "internal",
+        "description": "Internal runtime, package, or implementation symbols."
+      },
+      {
+        "id": "riskHigh",
+        "description": "High-risk symbols reported by compiler review metadata."
+      },
+      {
+        "id": "riskMedium",
+        "description": "Medium-risk symbols reported by compiler review metadata."
+      },
+      {
+        "id": "state",
+        "description": "State declarations and state-like workflow data."
+      },
+      {
+        "id": "input",
+        "description": "Input declarations, parameters, and input-like workflow data."
+      }
+    ],
+    "semanticTokenScopes": [
+      {
+        "language": "englang",
+        "scopes": {
+          "type.unit": [
+            "constant.other.unit.englang",
+            "support.type.englang"
+          ],
+          "property.unit": [
+            "constant.other.unit.englang",
+            "variable.other.property.englang"
+          ],
+          "variable.quantity": [
+            "variable.other.definition.englang",
+            "support.type.englang"
+          ],
+          "property.quantity": [
+            "variable.other.property.englang",
+            "support.type.englang"
+          ],
+          "parameter.quantity": [
+            "variable.parameter.property.englang",
+            "support.type.englang"
+          ],
+          "variable.axis": [
+            "entity.name.function.workflow-step.englang",
+            "variable.other.definition.englang"
+          ],
+          "property.axis": [
+            "entity.name.function.workflow-step.englang",
+            "variable.other.property.englang"
+          ],
+          "variable.timeseries": [
+            "entity.name.function.englang",
+            "variable.other.definition.englang"
+          ],
+          "property.timeseries": [
+            "entity.name.function.englang",
+            "variable.other.property.englang"
+          ],
+          "variable.uncertain": [
+            "constant.language.englang",
+            "variable.other.definition.englang"
+          ],
+          "property.uncertain": [
+            "constant.language.englang",
+            "variable.other.property.englang"
+          ],
+          "function.sideEffect": [
+            "keyword.control.side-effect.englang"
+          ],
+          "method.sideEffect": [
+            "keyword.control.side-effect.englang"
+          ],
+          "variable.sideEffect": [
+            "keyword.control.side-effect.englang",
+            "variable.other.definition.englang"
+          ],
+          "function.external": [
+            "keyword.control.external-boundary.englang"
+          ],
+          "method.external": [
+            "keyword.control.external-boundary.englang"
+          ],
+          "variable.external": [
+            "keyword.control.external-boundary.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.validation": [
+            "keyword.control.validation.englang",
+            "variable.other.definition.englang"
+          ],
+          "property.validation": [
+            "keyword.control.validation.englang",
+            "variable.other.property.englang"
+          ],
+          "variable.report": [
+            "keyword.control.report.englang",
+            "variable.other.definition.englang"
+          ],
+          "property.report": [
+            "keyword.control.report.englang",
+            "variable.other.property.englang"
+          ],
+          "variable.state": [
+            "storage.modifier.englang",
+            "variable.other.definition.englang"
+          ],
+          "property.state": [
+            "storage.modifier.englang",
+            "variable.other.property.englang"
+          ],
+          "variable.input": [
+            "storage.modifier.englang",
+            "variable.other.definition.englang"
+          ],
+          "parameter.input": [
+            "variable.parameter.property.englang",
+            "storage.modifier.englang"
+          ],
+          "variable.riskHigh": [
+            "invalid.deprecated.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.riskMedium": [
+            "markup.warning.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.planned": [
+            "comment.line.number-sign.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.internal": [
+            "comment.line.number-sign.englang",
+            "variable.other.definition.englang"
+          ]
+        }
+      }
+    ],
+    "configurationDefaults": {
+      "[englang]": {
+        "editor.semanticHighlighting.enabled": true
+      }
+    },
     "configuration": {
       "title": "EngLang",
       "properties": {

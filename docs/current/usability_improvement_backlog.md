@@ -229,6 +229,19 @@ Status: implemented after raw inspector review.
 - Extended native IDE UI contract coverage in `ide-check` for the shared raw
   JSON toggle and compact object summary helpers.
 
+## Batch 20: VS Code Semantic Token Manifest
+
+Status: implemented after semantic highlighting review.
+
+- Declared EngLang-specific VS Code semantic token modifiers for units,
+  quantities, axes, time series, uncertainty, workflow boundaries, inputs,
+  state, reports, validations, and review risks.
+- Added TextMate fallback scope mappings so themes that do not define EngLang
+  semantic rules still receive stable color hints.
+- Enabled VS Code semantic highlighting by default for `[englang]` files.
+- Extended `ide-check` contract coverage for semantic token modifiers, fallback
+  scopes, and language default settings.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -269,8 +282,8 @@ Status: implemented after raw inspector review.
 
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
-- Add semantic tokens from compiler metadata so symbols, quantities, units,
-  functions, and module names can be colored like a mature language extension.
+- Expand compiler-backed semantic token coverage where review metadata still
+  lacks roles for module names, workflow step references, or richer symbols.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need semantic context, such
