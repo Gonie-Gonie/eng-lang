@@ -320,6 +320,46 @@ function Invoke-WorkflowsTest {
         Write-Host "Cargo not found. Run .\dev.bat setup."
         exit 1
     }
+    $CliRunSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_cli\src\main.rs") -Raw
+    $CliRunDocs = Get-Content -LiteralPath (Join-Path $RepoRoot "docs\reference\cli\run.md") -Raw
+    foreach ($RequiredCliRunLabel in @(
+        "result data",
+        "review data",
+        "static run graph",
+        "run graph",
+        "reproducibility lock",
+        "run log",
+        "external process results",
+        "cache records",
+        "test results",
+        "report data",
+        "plot svg",
+        "plot data",
+        "plot output list",
+        "output list",
+        "report html"
+    )) {
+        if (-not $CliRunSource.Contains($RequiredCliRunLabel) -or -not $CliRunDocs.Contains($RequiredCliRunLabel)) {
+            throw "CLI run output and docs must expose user-facing artifact label '$RequiredCliRunLabel'"
+        }
+    }
+    foreach ($ForbiddenCliRunLabel in @(
+        "staticplan:",
+        "runplan:",
+        "runlock:",
+        "runlog:",
+        "reportspec:",
+        "plotspec:",
+        "plotmanifest:",
+        "process:  ",
+        "cache:    ",
+        "tests:    ",
+        "outputs:  "
+    )) {
+        if ($CliRunSource.Contains($ForbiddenCliRunLabel) -or $CliRunDocs.Contains($ForbiddenCliRunLabel)) {
+            throw "CLI run output should use user-facing artifact labels instead of '$ForbiddenCliRunLabel'"
+        }
+    }
     Invoke-Native $cargo "test" "-p" "eng_compiler" "workflow_modules"
     Invoke-Native $cargo "test" "-p" "eng_runtime" "workflow_modules"
     foreach ($Workflow in @(

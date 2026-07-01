@@ -1,15 +1,16 @@
 # `eng run` Reference
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM.
-By default it keeps result, review, report, run-log, process-results,
-test-results, PlotSpec, SVG, output manifest, and bytecode payloads as runtime
-objects and does not write ordinary artifacts.
+By default it keeps result data, review data, report data, report HTML, run log,
+external process results, test results, plot data, plot SVG, plot output list,
+output list, and bytecode payloads as runtime objects and does not write
+ordinary artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
 `copy/move/delete` statements are user-requested artifacts and write or mutate
 under `build\result`. Explicit `run command` statements always execute during
-the run and are captured in the process-results payload. Named `test` blocks run
-after generated artifacts are available and are captured in the test-results
-payload.
+the run and are captured in the external process results payload. Named `test`
+blocks run after generated artifacts are available and are captured in the test
+results payload.
 
 ## Basic Run
 
@@ -22,17 +23,21 @@ Output:
 ```text
 run: ok
 artifacts: in memory
-result:   1234 bytes
-review:   5678 bytes
-reportspec: 2345 bytes
-runlog:   456 bytes
-process:  321 bytes
-tests:    234 bytes
-plot:     3456 bytes
-plotspec: 4567 bytes
-plotmanifest: 678 bytes
-outputs:  234 bytes
-report:   7890 bytes
+result data:               1234 bytes
+review data:               5678 bytes
+static run graph:          345 bytes
+run graph:                 456 bytes
+reproducibility lock:      567 bytes
+run log:                   456 bytes
+external process results:  321 bytes
+cache records:             234 bytes
+test results:              234 bytes
+report data:               2345 bytes
+plot svg:                  3456 bytes
+plot data:                 4567 bytes
+plot output list:          678 bytes
+output list:               234 bytes
+report html:               7890 bytes
 use --save-artifacts to write build\result files
 ```
 
@@ -198,7 +203,7 @@ with {
 The CLI reports the saved process artifact:
 
 ```text
-process:  build\result\process_results.json
+external process results:  build\result\process_results.json
 ```
 
 Saved runs write:
@@ -258,7 +263,7 @@ test "summary values" {
 The CLI reports the saved test artifact:
 
 ```text
-tests:    build\result\test_results.json
+test results:              build\result\test_results.json
 ```
 
 Saved runs write:

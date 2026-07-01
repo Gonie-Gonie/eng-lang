@@ -503,40 +503,43 @@ fn command_run(args: Vec<String>) -> ExitCode {
             }
             if output.artifacts_saved {
                 println!("artifacts: saved");
-                println!("bytecode: {}", output.bytecode_path.display());
-                println!("result:   {}", output.result_path.display());
-                println!("review:   {}", output.review_path.display());
-                println!("staticplan: {}", output.static_run_plan_path.display());
-                println!("runplan:  {}", output.run_plan_path.display());
-                println!("runlock:  {}", output.run_lock_path.display());
-                println!("runlog:   {}", output.run_log_path.display());
-                println!("process:  {}", output.process_results_path.display());
-                println!("cache:    {}", output.cache_manifest_path.display());
-                println!("tests:    {}", output.test_results_path.display());
-                println!("reportspec: {}", output.report_spec_path.display());
-                println!("plot:     {}", output.plot_path.display());
-                println!("plotspec: {}", output.plot_spec_path.display());
-                println!("plotmanifest: {}", output.plot_manifest_path.display());
-                println!("outputs:  {}", output.output_manifest_path.display());
-                println!("report:   {}", output.report_path.display());
+                print_run_artifact_path("bytecode", &output.bytecode_path);
+                print_run_artifact_path("result data", &output.result_path);
+                print_run_artifact_path("review data", &output.review_path);
+                print_run_artifact_path("static run graph", &output.static_run_plan_path);
+                print_run_artifact_path("run graph", &output.run_plan_path);
+                print_run_artifact_path("reproducibility lock", &output.run_lock_path);
+                print_run_artifact_path("run log", &output.run_log_path);
+                print_run_artifact_path("external process results", &output.process_results_path);
+                print_run_artifact_path("cache records", &output.cache_manifest_path);
+                print_run_artifact_path("test results", &output.test_results_path);
+                print_run_artifact_path("report data", &output.report_spec_path);
+                print_run_artifact_path("plot svg", &output.plot_path);
+                print_run_artifact_path("plot data", &output.plot_spec_path);
+                print_run_artifact_path("plot output list", &output.plot_manifest_path);
+                print_run_artifact_path("output list", &output.output_manifest_path);
+                print_run_artifact_path("report html", &output.report_path);
             } else {
                 println!("run: ok");
                 println!("artifacts: in memory");
-                println!("result:   {} bytes", output.result_json.len());
-                println!("review:   {} bytes", output.review_json.len());
-                println!("staticplan: {} bytes", output.static_run_plan_json.len());
-                println!("runplan:  {} bytes", output.run_plan_json.len());
-                println!("runlock:  {} bytes", output.run_lock_json.len());
-                println!("runlog:   {} bytes", output.run_log_json.len());
-                println!("process:  {} bytes", output.process_results_json.len());
-                println!("cache:    {} bytes", output.cache_manifest_json.len());
-                println!("tests:    {} bytes", output.test_results_json.len());
-                println!("reportspec: {} bytes", output.report_spec_json.len());
-                println!("plot:     {} bytes", output.plot_svg.len());
-                println!("plotspec: {} bytes", output.plot_spec_json.len());
-                println!("plotmanifest: {} bytes", output.plot_manifest_json.len());
-                println!("outputs:  {} bytes", output.output_manifest_json.len());
-                println!("report:   {} bytes", output.report_html.len());
+                print_run_artifact_bytes("result data", output.result_json.len());
+                print_run_artifact_bytes("review data", output.review_json.len());
+                print_run_artifact_bytes("static run graph", output.static_run_plan_json.len());
+                print_run_artifact_bytes("run graph", output.run_plan_json.len());
+                print_run_artifact_bytes("reproducibility lock", output.run_lock_json.len());
+                print_run_artifact_bytes("run log", output.run_log_json.len());
+                print_run_artifact_bytes(
+                    "external process results",
+                    output.process_results_json.len(),
+                );
+                print_run_artifact_bytes("cache records", output.cache_manifest_json.len());
+                print_run_artifact_bytes("test results", output.test_results_json.len());
+                print_run_artifact_bytes("report data", output.report_spec_json.len());
+                print_run_artifact_bytes("plot svg", output.plot_svg.len());
+                print_run_artifact_bytes("plot data", output.plot_spec_json.len());
+                print_run_artifact_bytes("plot output list", output.plot_manifest_json.len());
+                print_run_artifact_bytes("output list", output.output_manifest_json.len());
+                print_run_artifact_bytes("report html", output.report_html.len());
                 println!("use --save-artifacts to write build\\result files");
             }
             for path in &output.csv_export_paths {
@@ -571,6 +574,18 @@ fn command_run(args: Vec<String>) -> ExitCode {
             ExitCode::from(1)
         }
     }
+}
+
+fn print_run_artifact_path(label: &str, path: &Path) {
+    print_run_artifact_value(label, &path.display().to_string());
+}
+
+fn print_run_artifact_bytes(label: &str, byte_count: usize) {
+    print_run_artifact_value(label, &format!("{byte_count} bytes"));
+}
+
+fn print_run_artifact_value(label: &str, value: &str) {
+    println!("{:<27} {}", format!("{label}:"), value);
 }
 
 #[derive(Clone, Debug, Default)]

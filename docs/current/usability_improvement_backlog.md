@@ -1635,6 +1635,21 @@ Status: implemented after workflow 01 native-workflow wording review.
   `api_fixture`, `Weather fixture`, or generic network/cache fixture wording
   while the existing Python/process guards remain in force.
 
+## Batch 135: CLI Run Artifact Label Cleanup
+
+Status: implemented after CLI saved-artifact output wording review.
+
+- Replaced `eng run` artifact summary labels such as `reportspec`,
+  `staticplan`, `runplan`, `runlock`, `process`, `cache`, `plotspec`, and
+  `plotmanifest` with task-oriented labels such as `report data`,
+  `static run graph`, `run graph`, `reproducibility lock`,
+  `external process results`, `cache records`, `plot data`, and
+  `plot output list`.
+- Kept artifact file paths and file names stable while making saved and
+  in-memory CLI summaries match the VS Code and Native IDE wording.
+- Updated the `eng run` reference page and extended `workflows-test` so the
+  old CLI summary labels cannot return.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
