@@ -475,9 +475,12 @@ schemas
 csv_promotions
 ```
 
-Runtime `eng run` artifacts may add `table_selections[]` to `review.json`.
-Each entry records the selected binding, source table, return column, filters,
-matched row count, selected row values, status, reason, and source line.
+Runtime `eng run` artifacts may add `table_selections[]` and
+`table_transforms[]` to `review.json`. Legacy selection entries record the
+selected binding, source table, return column, filters, matched row count,
+selected row values, status, reason, and source line. Transform entries record
+schema-aware filter/select/derive/sort/require_one/join evidence, including row
+counts, predicates, join keys, row diagnostics, status, and reason.
 
 `review.json` is produced by `eng check --review` and by saved `eng run`
 artifacts. The `plot_manifest` section declares the runtime plot manifest

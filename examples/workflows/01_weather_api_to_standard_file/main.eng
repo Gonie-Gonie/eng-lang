@@ -42,7 +42,18 @@ args {
 
 stations = promote csv args.station_map as StationMap
 weather = promote csv args.weather_hourly as WeatherHourly
-selected_station_id: String = select_first_row(stations, return_column="station_id", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))
+candidates = filter stations
+where {
+    region == args.region
+    valid_from <= date(args.year, 1, 1)
+    valid_to is none or valid_to >= date(args.year, 12, 31)
+}
+station = require_one candidates
+with {
+    on_none = error "No station for region/year"
+    on_many = error "Multiple stations for region/year"
+}
+selected_station_id: String = station.station_id
 api_response = http get url("https://api.example.org/weather/hourly")
 with {
     station = selected_station_id
@@ -91,6 +102,8 @@ log info "weather API fixture fetched through native network/cache boundary and 
 report {
     show selected_station_id
     show stations.rows
+    show candidates
+    show station
     show hourly_records
     show missing_hourly_records
     show max_gap_hours

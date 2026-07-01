@@ -73,6 +73,16 @@ Status: implemented after the native workflow module pass.
 - Merged the expected review-surface lists into the primary workflow pages.
 - Simplified `docs/workflows/index.md` so each executable workflow appears once.
 
+## Batch 7: Workflow 01 Native Table Transform
+
+Status: implemented after row-field runtime support.
+
+- Replaced the workflow 01 `select_first_row(...)` station lookup with
+  `filter` + `require_one`.
+- Added runtime evaluation for `require_one` row fields such as
+  `station.station_id`.
+- Added LSP completion for `require_one` row fields based on the source schema.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

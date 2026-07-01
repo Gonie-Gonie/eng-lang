@@ -770,8 +770,8 @@ low/medium/high risk, shared risk category, and risk severity.
 
 ## Promoted Table Selection And Transform Metadata
 
-`select_first_row(...)` is a narrow `eng.table` seed for deterministic row
-selection over promoted CSV tables. Runtime artifacts record it in:
+Legacy `select_first_row(...)` records deterministic row selection over
+promoted CSV tables in:
 
 ```text
 review.json                 table_selections
@@ -779,14 +779,14 @@ result.engres               typed_payload.table_selections
 report.html                 selected binding values when shown in report blocks
 ```
 
-Each selection entry records the source table, return column, filters, matched
-row count, selected row values, status, reason, and source line.
+Each legacy selection entry records the source table, return column, filters,
+matched row count, selected row values, status, reason, and source line.
 
 `filter <table>` with a `where { ... }` predicate block,
 `select <table> columns a, b`, `derive <table> column name = expression`,
 `sort <table> by column`, `require_one <source>`, and
 `join <left> with <right>` with an `on { left.key == right.key }` block now
-add schema-aware transform records:
+are the preferred table workflow surface and add schema-aware transform records:
 
 ```text
 review.json.review_document table_transforms

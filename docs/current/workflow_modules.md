@@ -171,7 +171,7 @@ not domain-adapter claims.
 
 ```text
 typed station and hourly weather schemas
-reviewable station row selection from promoted station map
+reviewable filter/require_one station transform from promoted station map
 explicit API fixture boundary
 native network/cache record for the API fixture
 explicit generic DateTime coverage check

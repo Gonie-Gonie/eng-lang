@@ -17,7 +17,7 @@ eng.exe run examples/workflows/01_weather_api_to_standard_file/main.eng --save-a
 What it proves:
 
 - native `http get` with fixture, pinned SHA-256, retry, timeout, and cache key
-- station-map CSV promotion and reviewable `select_first_row(...)`
+- station-map CSV promotion and reviewable `filter`/`require_one`
 - typed hourly-weather CSV promotion and TimeSeries coverage records
 - generated `fetched_weather.json`, `standard_weather_file.txt`, and
   `weather_quality_summary.txt` through native `write text`
@@ -27,7 +27,7 @@ Expected review surfaces:
 
 - `typed_payload.network_boundaries[]`
 - `cache_manifest.json`
-- `typed_payload.table_selections[]`
+- `typed_payload.table_transforms[]`
 - `typed_payload.timeseries_coverage[]`
 - `output_manifest.json` write-text artifact records
 

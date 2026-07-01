@@ -10146,10 +10146,10 @@ fn analyze_explicit_decl(
         declaration.line,
     ));
     if declaration.context == ParseContext::TopLevel
-        && declaration
-            .expression
-            .as_deref()
-            .is_some_and(|expression| expression.trim_start().starts_with("select_first_row("))
+        && declaration.expression.as_deref().is_some_and(|expression| {
+            expression.trim_start().starts_with("select_first_row(")
+                || is_simple_member_expression(expression)
+        })
     {
         inferred_declarations.push(InferredDeclaration {
             name: declaration.name.clone(),
@@ -10159,6 +10159,13 @@ fn analyze_explicit_decl(
             line: declaration.line,
         });
     }
+}
+
+fn is_simple_member_expression(expression: &str) -> bool {
+    let Some((receiver, field)) = expression.trim().split_once('.') else {
+        return false;
+    };
+    is_identifier(receiver.trim()) && is_identifier(field.trim())
 }
 
 fn analyze_system_variable(

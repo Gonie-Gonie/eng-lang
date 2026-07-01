@@ -5,14 +5,15 @@
 # Current implementation:
 #   typed CSV promotion, source-hash provenance, row/column diagnostics,
 #   parse/conversion counts, and time-axis coverage summaries are supported
-#   through compiler/runtime built-ins for current examples. Deterministic
-#   select_first_row(...) selection over promoted tables is supported as a
-#   narrow artifact seed. Schema-aware `filter <table>` with `where { ... }`
+#   through compiler/runtime built-ins for current examples. Schema-aware
+#   `filter <table>` with `where { ... }`
 #   predicates, including Date/DateTime literal comparison,
 #   `select <table> columns a, b`,
 #   `derive <table> column name = expression`, `sort <table> by column`,
 #   `require_one <filtered_table>`, and `join <left> with <right>` plus
 #   `on { left.key == right.key }` are supported as transform record seeds.
+#   The legacy `select_first_row(...)` helper remains available for older
+#   examples, but new workflows should use filter/require_one transforms.
 #   These appear in result.engres as
 #   typed_payload.table_diagnostics[], typed_payload.table_selections[], and
 #   typed_payload.table_transforms[] with row_diagnostics[] records.

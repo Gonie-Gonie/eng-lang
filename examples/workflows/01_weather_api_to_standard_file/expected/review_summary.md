@@ -4,7 +4,7 @@ The saved run should show:
 
 ```text
 schema StationMap with two fixture rows
-selected station row, selected station_id, filters, and selection reason
+filter/require_one station transform, selected station_id, predicates, and row diagnostics
 schema WeatherHourly with two typed hourly fixture rows
 generic DateTime coverage artifact with Gregorian-year expected count, missing interval, status, and max gap
 native http get boundary for api_response with fixture, pinned SHA-256, retry, timeout, and cache key

@@ -29,7 +29,7 @@ use runtime_data::{
     materialize_runtime_data, RuntimeCaseDiagnostic, RuntimeCaseManifest, RuntimeCaseMetric,
     RuntimeCaseProcessStatus, RuntimeCaseTable, RuntimeComponentResidualEvaluation, RuntimeData,
     RuntimeMlArtifact, RuntimeNumericUncertaintyPayload, RuntimeNumericValue,
-    RuntimeStatisticValue, RuntimeTimeSeries, RuntimeValues,
+    RuntimeStatisticValue, RuntimeTable, RuntimeTimeSeries, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
 
@@ -7776,6 +7776,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_network_response_field_expression(expression, report) {
         return Some(value);
     }
+    if let Some(value) = evaluate_table_row_field_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_runtime_exists_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
@@ -8071,6 +8074,65 @@ fn evaluate_network_response_field_expression(
         "url" => Some(RuntimeFormatValue::Text(request.url_value.clone())),
         _ => None,
     }
+}
+
+fn evaluate_table_row_field_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let transform = runtime_data.table_transforms.iter().find(|transform| {
+        transform.binding == binding.trim()
+            && transform.operation == "require_one"
+            && transform.status == "selected"
+            && transform.output_row_count == 1
+    })?;
+    let row_index = transform.matched_row_indices.first()?.checked_sub(1)?;
+    let table = runtime_table_for_transform_source(runtime_data, &transform.source_table, 0)?;
+    let column = table
+        .columns
+        .iter()
+        .find(|column| column.name == field.trim())?;
+    match &column.values {
+        RuntimeValues::Text(values) => values.get(row_index).cloned().map(RuntimeFormatValue::Text),
+        RuntimeValues::Number(values) => {
+            values
+                .get(row_index)
+                .copied()
+                .flatten()
+                .map(|value| RuntimeFormatValue::Number {
+                    value,
+                    quantity_kind: column.type_name.clone(),
+                    unit: column
+                        .unit
+                        .clone()
+                        .or_else(|| column.canonical_unit.clone())
+                        .unwrap_or_default(),
+                })
+        }
+    }
+}
+
+fn runtime_table_for_transform_source<'a>(
+    runtime_data: &'a RuntimeData,
+    source: &str,
+    depth: usize,
+) -> Option<&'a RuntimeTable> {
+    if depth > 16 {
+        return None;
+    }
+    if let Some(table) = runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == source.trim())
+    {
+        return Some(table);
+    }
+    let transform = runtime_data
+        .table_transforms
+        .iter()
+        .find(|transform| transform.binding == source.trim())?;
+    runtime_table_for_transform_source(runtime_data, &transform.source_table, depth + 1)
 }
 
 fn evaluate_runtime_exists_expression(expression: &str, report: &CheckReport) -> Option<String> {
@@ -17015,9 +17077,15 @@ mod tests {
                 "    on_none = error \"No station for region/year\"\n",
                 "    on_many = error \"Multiple stations for region/year\"\n",
                 "}\n",
+                "selected_station_id: String = station.station_id\n",
+                "write text \"summary.txt\", \"station={selected_station_id}\"\n",
+                "with {\n",
+                "    overwrite = true\n",
+                "}\n",
                 "report {\n",
                 "    show candidates\n",
                 "    show station\n",
+                "    show selected_station_id\n",
                 "}\n",
             ),
             &build_root,
@@ -17051,6 +17119,9 @@ mod tests {
         assert!(output.review_json.contains("\"table_transforms\""));
         assert!(output.review_json.contains("\"row_diagnostics\""));
         assert!(output.review_json.contains("\"table_transform_count\": 2"));
+        let summary =
+            fs::read_to_string(build_root.join("result").join("summary.txt")).expect("summary txt");
+        assert_eq!(summary, "station=STN001");
         assert!(!virtual_path.exists());
     }
 

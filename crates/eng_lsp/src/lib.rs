@@ -2662,6 +2662,32 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "TableRow" {
+            if let Some(schema_name) = table_row_schema_name(report, &binding.name) {
+                if let Some(schema) = report
+                    .semantic_program
+                    .schemas
+                    .iter()
+                    .find(|schema| schema.name == schema_name)
+                {
+                    for column in &schema.columns {
+                        push_completion(
+                            &mut items,
+                            &mut seen,
+                            &format!("{}.{}", binding.name, column.name),
+                            "property",
+                            &format!(
+                                "{} [{}] from {}: {}",
+                                column.type_name,
+                                column.unit.as_deref().unwrap_or("schema-defined"),
+                                binding.name,
+                                schema.name
+                            ),
+                        );
+                    }
+                }
+            }
+        }
     }
 
     for schema in &report.semantic_program.schemas {
@@ -2839,6 +2865,45 @@ fn module_symbol_label(symbol: &str) -> String {
     }
 }
 
+fn table_row_schema_name<'a>(report: &'a CheckReport, receiver: &str) -> Option<&'a str> {
+    let transform = report
+        .semantic_program
+        .table_transforms
+        .iter()
+        .find(|transform| transform.binding == receiver && transform.operation == "require_one")?;
+    transform
+        .schema_name
+        .as_deref()
+        .or_else(|| table_transform_source_schema_name(report, &transform.source_table, 0))
+}
+
+fn table_transform_source_schema_name<'a>(
+    report: &'a CheckReport,
+    source: &str,
+    depth: usize,
+) -> Option<&'a str> {
+    if depth > 16 {
+        return None;
+    }
+    if let Some(promotion) = report
+        .semantic_program
+        .csv_promotions
+        .iter()
+        .find(|promotion| promotion.binding == source)
+    {
+        return Some(promotion.schema_name.as_str());
+    }
+    let transform = report
+        .semantic_program
+        .table_transforms
+        .iter()
+        .find(|transform| transform.binding == source)?;
+    transform
+        .schema_name
+        .as_deref()
+        .or_else(|| table_transform_source_schema_name(report, &transform.source_table, depth + 1))
+}
+
 pub fn completion_items_at(
     report: &CheckReport,
     source: &str,
@@ -2891,6 +2956,35 @@ pub fn completion_items_at(
                 }
             }
             return items;
+        }
+        if let Some(schema_name) = table_row_schema_name(report, &receiver) {
+            if let Some(schema) = report
+                .semantic_program
+                .schemas
+                .iter()
+                .find(|schema| schema.name == schema_name)
+            {
+                let mut seen = BTreeSet::new();
+                let mut items = Vec::new();
+                for column in &schema.columns {
+                    if prefix.is_empty() || column.name.starts_with(&prefix) {
+                        push_completion(
+                            &mut items,
+                            &mut seen,
+                            &column.name,
+                            "property",
+                            &format!(
+                                "{} [{}] from {}: {}",
+                                column.type_name,
+                                column.unit.as_deref().unwrap_or("schema-defined"),
+                                receiver,
+                                schema.name
+                            ),
+                        );
+                    }
+                }
+                return items;
+            }
         }
         if let Some(schema_name) = report
             .semantic_program
@@ -3480,6 +3574,33 @@ mod tests {
                     .nth(token.line)
                     .is_some_and(|line| &line[token.start..token.start + token.length] == "body")
         }));
+    }
+
+    #[test]
+    fn table_row_member_completion_uses_require_one_schema() {
+        let source = "schema StationMap {\n    region: String\n    station_id: String\n    latitude: DimensionlessNumber [1]\n}\n\nstations = promote csv file(\"data/stations.csv\") as StationMap\ncandidates = filter stations\nwhere {\n    region == \"demo\"\n}\nstation = require_one candidates\nselected_station_id: String = station.\n";
+        let snapshot = snapshot_for_source(Path::new("table_row.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "station.station_id"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("selected_station_id"))
+            .expect("selected_station_id line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("table_row.eng"),
+            source,
+            line,
+            "selected_station_id: String = station.".len(),
+        );
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "station_id"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "latitude"));
     }
 
     #[test]
