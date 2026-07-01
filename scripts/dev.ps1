@@ -527,11 +527,12 @@ function Test-ModuleRegistryDocs {
     $generatedTable.Add("| Module | Status | Backing | Artifacts | Diagnostics | Examples | Tests |") | Out-Null
     $generatedTable.Add("|---|---|---|---|---|---|---|") | Out-Null
     foreach ($entry in $RegistryEntries) {
+        $status = Convert-ModuleRegistryStatusLabel $entry.status
         $artifacts = Convert-ModuleRegistryTableCell $entry.artifacts
         $diagnostics = Convert-ModuleRegistryTableCell $entry.diagnostics
         $examples = Convert-ModuleRegistryTableCell $entry.examples
         $tests = Convert-ModuleRegistryTableCell $entry.tests
-        $generatedTable.Add("| ``$($entry.name)`` | $($entry.status) | $($entry.backing) | $artifacts | $diagnostics | $examples | $tests |") | Out-Null
+        $generatedTable.Add("| ``$($entry.name)`` | $status | $($entry.backing) | $artifacts | $diagnostics | $examples | $tests |") | Out-Null
     }
     $expectedBlock = ($generatedTable.ToArray() -join "`n").Trim()
     $startMarker = "<!-- module-registry-table:start -->"
@@ -553,6 +554,19 @@ function Test-ModuleRegistryDocs {
     }
 
     Write-Host "Module registry docs check passed. Checked $($RegistryModules.Count) module(s)."
+}
+
+function Convert-ModuleRegistryStatusLabel {
+    param([string] $Status)
+    switch ($Status) {
+        "supported" { return "Supported" }
+        "supported_narrow" { return "Supported narrow" }
+        "supported_seed" { return "Native preview" }
+        "planned" { return "Planned" }
+        "internal_planned" { return "Internal planned" }
+        "internal" { return "Internal" }
+        default { return $Status }
+    }
 }
 
 function Convert-ModuleRegistryTableCell {
