@@ -1739,6 +1739,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("openReviewPanel") -or -not $ExtensionSource.Contains("createWebviewPanel") -or -not $ExtensionSource.Contains("renderReviewSummaryHtml")) {
         throw "VS Code extension must expose a current-file review summary panel"
     }
+    if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ExtensionSource.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
+        throw "VS Code extension review panel must support source-line navigation"
+    }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }

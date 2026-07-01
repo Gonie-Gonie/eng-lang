@@ -1,4 +1,5 @@
 const cp = require("child_process");
+const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
@@ -402,11 +403,22 @@ async function openReviewPanel(context) {
     "EngLang Review",
     vscode.ViewColumn.Beside,
     {
-      enableScripts: false,
+      enableScripts: true,
       retainContextWhenHidden: true
     }
   );
-  panel.webview.html = renderReviewSummaryHtml(result.review, result.document.uri.fsPath);
+  panel.webview.html = renderReviewSummaryHtml(
+    result.review,
+    result.document.uri.fsPath,
+    reviewPanelNonce()
+  );
+  panel.webview.onDidReceiveMessage((message) => {
+    if (message?.type === "openSourceLine") {
+      openSourceLine(result.document.uri, message.line).catch((error) => {
+        output.appendLine(`Unable to open EngLang source line: ${error.message}`);
+      });
+    }
+  });
   announceReviewResult(
     result,
     "EngLang review panel opened.",
@@ -471,7 +483,30 @@ function announceReviewResult(result, successMessage, warningMessage) {
   vscode.window.showInformationMessage(successMessage);
 }
 
-function renderReviewSummaryHtml(review, sourcePath) {
+async function openSourceLine(uri, line) {
+  const lineNumber = Number(line);
+  if (!Number.isFinite(lineNumber) || lineNumber < 1) {
+    return;
+  }
+  const document = await vscode.workspace.openTextDocument(uri);
+  const editor = await vscode.window.showTextDocument(document, {
+    preview: false,
+    viewColumn: vscode.ViewColumn.One
+  });
+  const targetLine = Math.min(Math.max(0, Math.trunc(lineNumber) - 1), document.lineCount - 1);
+  const textLine = document.lineAt(targetLine);
+  const position = new vscode.Position(targetLine, 0);
+  const range = new vscode.Range(
+    targetLine,
+    0,
+    targetLine,
+    Math.max(1, textLine.text.length)
+  );
+  editor.selection = new vscode.Selection(position, position);
+  editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+}
+
+function renderReviewSummaryHtml(review, sourcePath, nonce) {
   const doc = normalizedReviewDocument(review);
   const contract = doc.root_contract || doc.rootContract || {};
   const diagnostics = firstReviewArray(doc, review, "diagnostics");
@@ -514,7 +549,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'nonce-${escapeAttr(nonce)}';">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>EngLang Review</title>
   <style>
@@ -645,6 +680,25 @@ function renderReviewSummaryHtml(review, sourcePath) {
       color: var(--vscode-descriptionForeground);
       font-size: 12px;
     }
+    .line-button {
+      display: inline-flex;
+      align-items: center;
+      min-height: 20px;
+      padding: 0 6px;
+      border: 1px solid var(--vscode-button-border, transparent);
+      border-radius: 4px;
+      color: var(--vscode-textLink-foreground);
+      background: transparent;
+      font: inherit;
+      cursor: pointer;
+    }
+    .line-button:hover,
+    .line-button:focus {
+      color: var(--vscode-textLink-activeForeground);
+      background: var(--vscode-list-hoverBackground);
+      outline: 1px solid var(--vscode-focusBorder);
+      outline-offset: 1px;
+    }
   </style>
 </head>
 <body>
@@ -676,7 +730,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       diagnostics,
       "No diagnostics.",
       (diagnostic) => `<tr>
-        <td>${escapeHtml(lineValue(diagnostic))}</td>
+        <td>${sourceLineCell(diagnostic)}</td>
         <td>${statusPill(severityName(diagnostic.severity))}</td>
         <td><code>${escapeHtml(reviewValue(diagnostic, "code"))}</code></td>
         <td>${escapeHtml(compactText(reviewValue(diagnostic, "message"), 180))}${diagnostic.help ? `<div class="muted">${escapeHtml(compactText(diagnostic.help, 180))}</div>` : ""}</td>
@@ -689,7 +743,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       boundaries,
       "No external boundaries.",
       (boundary) => `<tr>
-        <td>${escapeHtml(lineValue(boundary))}</td>
+        <td>${sourceLineCell(boundary)}</td>
         <td><strong>${escapeHtml(reviewValue(boundary, "name", "kind"))}</strong><div class="muted">${escapeHtml(reviewValue(boundary, "kind"))}</div></td>
         <td><code>${escapeHtml(compactText(reviewValue(boundary, "target"), 120))}</code></td>
         <td>${statusPill(reviewValue(boundary, "status"))}<div class="muted">${escapeHtml(boundary.status_class || boundary.statusClass || "")} ${escapeHtml(boundary.status_code ?? boundary.statusCode ?? "")}</div></td>
@@ -704,7 +758,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       sideEffects,
       "No side effects.",
       (effect) => `<tr>
-        <td>${escapeHtml(lineValue(effect))}</td>
+        <td>${sourceLineCell(effect)}</td>
         <td><strong>${escapeHtml(reviewValue(effect, "kind"))}</strong></td>
         <td><code>${escapeHtml(compactText(reviewValue(effect, "target", "path"), 120))}</code></td>
         <td>${statusPill(reviewValue(effect, "status"))}</td>
@@ -718,7 +772,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       tableTransforms,
       "No table transforms.",
       (transform) => `<tr>
-        <td>${escapeHtml(lineValue(transform))}</td>
+        <td>${sourceLineCell(transform)}</td>
         <td><strong>${escapeHtml(reviewValue(transform, "binding"))}</strong><div class="muted">${escapeHtml(reviewValue(transform, "schema_name", "schemaName"))}</div></td>
         <td>${escapeHtml(reviewValue(transform, "operation"))}</td>
         <td>${escapeHtml(reviewValue(transform, "source_table", "sourceTable"))}</td>
@@ -733,7 +787,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       calculations,
       "No calculations.",
       (calculation) => `<tr>
-        <td>${escapeHtml(lineValue(calculation))}</td>
+        <td>${sourceLineCell(calculation)}</td>
         <td><strong>${escapeHtml(reviewValue(calculation, "name"))}</strong><div class="muted">${escapeHtml(reviewValue(calculation, "kind"))}</div></td>
         <td><code>${escapeHtml(compactText(reviewValue(calculation, "expression"), 130))}</code></td>
         <td>${escapeHtml(reviewList(reviewArray(calculation, "input_symbols", "inputSymbols"), 100))}</td>
@@ -747,7 +801,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       outputs,
       "No report outputs.",
       (outputItem) => `<tr>
-        <td>${escapeHtml(lineValue(outputItem))}</td>
+        <td>${sourceLineCell(outputItem)}</td>
         <td><strong>${escapeHtml(reviewValue(outputItem, "kind"))}</strong></td>
         <td>${escapeHtml(reviewValue(outputItem, "source"))}</td>
         <td>${escapeHtml(reviewValue(outputItem, "quantity_kind", "quantityKind"))}</td>
@@ -761,7 +815,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       validations,
       "No validations.",
       (validation) => `<tr>
-        <td>${escapeHtml(lineValue(validation))}</td>
+        <td>${sourceLineCell(validation)}</td>
         <td><strong>${escapeHtml(reviewValue(validation, "target", "name"))}</strong></td>
         <td>${escapeHtml(reviewValue(validation, "kind", "category"))}</td>
         <td>${statusPill(reviewValue(validation, "status"))}</td>
@@ -775,7 +829,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       fallbacks,
       "No fallbacks.",
       (fallback) => `<tr>
-        <td>${escapeHtml(lineValue(fallback))}</td>
+        <td>${sourceLineCell(fallback)}</td>
         <td><strong>${escapeHtml(reviewValue(fallback, "kind"))}</strong></td>
         <td>${escapeHtml(reviewValue(fallback, "target"))}</td>
         <td>${escapeHtml(reviewValue(fallback, "method"))}</td>
@@ -790,7 +844,7 @@ function renderReviewSummaryHtml(review, sourcePath) {
       risks,
       "No review risks.",
       (risk) => `<tr>
-        <td>${escapeHtml(lineValue(risk))}</td>
+        <td>${sourceLineCell(risk)}</td>
         <td><strong>${escapeHtml(reviewValue(risk, "category"))}</strong></td>
         <td>${statusPill(reviewValue(risk, "level"))}</td>
         <td>${escapeHtml(reviewValue(risk, "severity"))}</td>
@@ -814,8 +868,27 @@ function renderReviewSummaryHtml(review, sourcePath) {
       </tr>`
     )}
   </main>
+  <script nonce="${escapeAttr(nonce)}">
+    (() => {
+      const vscode = acquireVsCodeApi();
+      document.addEventListener("click", (event) => {
+        const target = event.target.closest("[data-source-line]");
+        if (!target) {
+          return;
+        }
+        const line = Number(target.getAttribute("data-source-line"));
+        if (Number.isFinite(line) && line > 0) {
+          vscode.postMessage({ type: "openSourceLine", line });
+        }
+      });
+    })();
+  </script>
 </body>
 </html>`;
+}
+
+function reviewPanelNonce() {
+  return crypto.randomBytes(16).toString("base64");
 }
 
 function normalizedReviewDocument(review) {
@@ -855,6 +928,16 @@ function countOrContract(items, contract, snakeKey, camelKey) {
 
 function lineValue(item) {
   return item?.line ?? item?.source_line ?? item?.sourceLine ?? "-";
+}
+
+function sourceLineCell(item) {
+  const line = lineValue(item);
+  const lineNumber = Number(line);
+  if (!Number.isFinite(lineNumber) || lineNumber < 1) {
+    return escapeHtml(line);
+  }
+  const safeLine = Math.trunc(lineNumber);
+  return `<button class="line-button" type="button" data-source-line="${escapeAttr(safeLine)}" title="Open source line ${escapeAttr(safeLine)}">L${escapeHtml(safeLine)}</button>`;
 }
 
 function reviewList(value, limit = 120) {
@@ -973,6 +1056,10 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function escapeAttr(value) {
+  return escapeHtml(value);
 }
 
 async function openLastRunArtifactPicker() {
