@@ -298,6 +298,17 @@ Status: implemented after VS Code linter review.
   only when the warning line has the expected simple binding shape.
 - Extended `ide-check` contract coverage for the quantity quick-fix provider.
 
+## Batch 26: Native IDE Problems Filtering
+
+Status: implemented after native IDE Problems panel review.
+
+- Added a Problems text filter that searches severity, code, message, help, and
+  line labels alongside the existing severity and diagnostic-code filters.
+- Made problem rows clickable source-line jump targets while keeping explicit
+  `L<n>` source buttons.
+- Extended `ide-check` contract coverage for problem query state, row source
+  jump hooks, and Problems panel styles.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -331,8 +342,7 @@ Status: implemented after VS Code linter review.
 
 ## Native IDE Usability Candidates
 
-- Keep problem filtering by severity/code and source-line jump targets covered
-  as part of native IDE regression checks.
+- Continue reviewing inspector workflows for dense, repeated debugging tasks.
 
 ## VS Code Linter And Highlighting Candidates
 

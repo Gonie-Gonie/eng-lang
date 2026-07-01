@@ -986,6 +986,23 @@ button:hover {
   max-width: 210px;
 }
 
+.problem-query {
+  width: min(260px, 28vw);
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 8px;
+  color: var(--text);
+}
+
+.problem-row {
+  cursor: pointer;
+}
+
+.problem-row:hover td {
+  background: var(--panel);
+}
+
 .segmented {
   display: inline-flex;
   align-items: center;

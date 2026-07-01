@@ -31,6 +31,7 @@ const state = {
   bottomTab: "terminal",
   problemSeverity: "all",
   problemCode: "all",
+  problemQuery: "",
   sideTab: "variables",
   selectedVariable: null,
   selectedWorkflowNodeId: null,
@@ -316,9 +317,29 @@ function bind() {
     clearProblemFilters.onclick = () => {
       state.problemSeverity = "all";
       state.problemCode = "all";
+      state.problemQuery = "";
       render();
     };
   }
+  const problemQueryInput = byId("problemQueryInput");
+  if (problemQueryInput) {
+    problemQueryInput.oninput = (event) => {
+      const cursor = event.target.selectionStart ?? event.target.value.length;
+      state.problemQuery = event.target.value;
+      render();
+      const nextInput = byId("problemQueryInput");
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.setSelectionRange(cursor, cursor);
+      }
+    };
+  }
+  document.querySelectorAll("[data-problem-line]").forEach((row) => {
+    row.onclick = (event) => {
+      if (event.target.closest("button")) return;
+      selectSourceLine(Number(row.dataset.problemLine || 0));
+    };
+  });
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.onclick = () => {
       state.sideTab = tab.dataset.sideTab;
@@ -3785,7 +3806,7 @@ function renderProblems() {
   const activeCode = codes.includes(state.problemCode) ? state.problemCode : "all";
   const filtered = filteredProblems(activeCode);
   const rows = filtered.map((diag) => `
-    <tr>
+    <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" title="Jump to source line ${escapeAttr(diag.line || "-")}">
       <td class="${diag.severity === "error" ? "error" : "warning"}">${escapeHtml(diag.severity)}</td>
       <td>${sourceLineButton(diag)}</td>
       <td><code>${escapeHtml(diag.code)}</code></td>
@@ -3806,6 +3827,7 @@ function renderProblems() {
           <option value="all">All codes</option>
           ${codes.map((code) => `<option value="${escapeAttr(code)}" ${activeCode === code ? "selected" : ""}>${escapeHtml(code)}</option>`).join("")}
         </select>
+        <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter text" title="Filter by code, message, help, or line" />
         <button id="clearProblemFilters">Clear</button>
         <span class="muted">${filtered.length} of ${diagnostics.length}</span>
       </div>
@@ -3820,10 +3842,19 @@ function renderProblems() {
 }
 
 function filteredProblems(activeCode = state.problemCode) {
+  const query = state.problemQuery.trim().toLowerCase();
   return (state.check.diagnostics || []).filter((diag) => {
     const severityMatches = state.problemSeverity === "all" || diag.severity === state.problemSeverity;
     const codeMatches = activeCode === "all" || diag.code === activeCode;
-    return severityMatches && codeMatches;
+    const queryMatches = !query || [
+      diag.severity,
+      diag.code,
+      diag.message,
+      diag.help,
+      `line ${diag.line}`,
+      `l${diag.line}`
+    ].some((value) => String(value || "").toLowerCase().includes(query));
+    return severityMatches && codeMatches && queryMatches;
   });
 }
 
