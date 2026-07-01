@@ -1586,6 +1586,16 @@ Status: implemented after VS Code highlight-debug usability review.
 - Updated the VS Code README and `ide-check` contract so token debug output
   stays useful for auditing inconsistent highlighting.
 
+## Batch 131: Native IDE Caret Token Actions
+
+Status: implemented after caret-insight workflow review.
+
+- Added caret insight actions for the current semantic token: `Select` chooses
+  the exact token source range and `Highlight` opens the Highlight panel.
+- Reused the existing byte-aware token range selection path, so multibyte source
+  text keeps the same selection behavior as the Highlight token table.
+- Extended `ide-check` contract coverage for the new caret-token action wiring.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -464,6 +464,12 @@ function bind() {
       Number(button.dataset.sourceTokenLength || 0)
     );
   });
+  document.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
+    button.onclick = () => {
+      state.sideTab = "highlight";
+      render();
+    };
+  });
   const terminalInput = byId("terminalInput");
   if (terminalInput) {
     terminalInput.focus();
@@ -3880,6 +3886,25 @@ function updateCursorInsight() {
   const target = byId("cursorInsight");
   if (!target) return;
   target.outerHTML = `<span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>`;
+  bindCursorInsightActions();
+}
+
+function bindCursorInsightActions() {
+  const target = byId("cursorInsight");
+  if (!target) return;
+  target.querySelectorAll("[data-source-token-line]").forEach((button) => {
+    button.onclick = () => selectSourceTokenRange(
+      Number(button.dataset.sourceTokenLine || 0),
+      Number(button.dataset.sourceTokenStart || 0),
+      Number(button.dataset.sourceTokenLength || 0)
+    );
+  });
+  target.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
+    button.onclick = () => {
+      state.sideTab = "highlight";
+      render();
+    };
+  });
 }
 
 function renderCursorInsight() {
@@ -3902,7 +3927,17 @@ function renderCursorInsight() {
     parts.push("plain");
   }
   const title = hover ? hoverTitle(hover) : parts.join(" / ");
-  return `<span title="${escapeAttr(title)}">${escapeHtml(parts.join(" · "))}</span>`;
+  return `
+    <span title="${escapeAttr(title)}">${escapeHtml(parts.join(" / "))}</span>
+    ${token ? renderCursorInsightActions(token) : ""}
+  `;
+}
+
+function renderCursorInsightActions(token) {
+  return `
+    ${sourceTokenButton(token, "Select")}
+    <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
+  `;
 }
 
 function editorCursorPosition(source, offset) {
@@ -4223,15 +4258,15 @@ function sourceLineValue(item) {
     ?? item?.line;
 }
 
-function sourceTokenButton(token) {
+function sourceTokenButton(token, label = null) {
   const line = Number(token?.line ?? -1) + 1;
   const start = Number(token?.start ?? -1);
   const length = Number(token?.length ?? 0);
   if (!Number.isFinite(line) || !Number.isFinite(start) || !Number.isFinite(length) || line <= 0 || start < 0 || length <= 0) {
     return "-";
   }
-  const label = `L${line}`;
-  return `<button class="link-button token-range-button" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="Select token range">${escapeHtml(label)}</button>`;
+  const buttonLabel = label || `L${line}`;
+  return `<button class="link-button token-range-button" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="Select token range">${escapeHtml(buttonLabel)}</button>`;
 }
 
 function sourceBreadcrumbs(label, items) {
