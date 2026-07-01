@@ -16,7 +16,8 @@ const state = {
   runDir: "",
   source: "",
   dirty: false,
-  check: { diagnostics: [], symbols: [], status: "" },
+  check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] } },
+  highlightSource: "",
   variables: [],
   args: [],
   artifacts: [],
@@ -86,6 +87,24 @@ async function call(cmd, args = {}) {
   return await invoke(cmd, args);
 }
 
+function applyCheck(check, source = state.source) {
+  state.check = normalizeCheck(check);
+  state.highlightSource = String(source ?? "");
+}
+
+function normalizeCheck(check) {
+  const semanticTokens = check?.semanticTokens ?? check?.semantic_tokens ?? { legend: {}, tokens: [] };
+  return {
+    diagnostics: Array.isArray(check?.diagnostics) ? check.diagnostics : [],
+    symbols: Array.isArray(check?.symbols) ? check.symbols : [],
+    status: check?.status || "",
+    semanticTokens: {
+      legend: semanticTokens.legend || {},
+      tokens: Array.isArray(semanticTokens.tokens) ? semanticTokens.tokens : []
+    }
+  };
+}
+
 async function boot() {
   try {
     const data = await call("ide_bootstrap");
@@ -98,7 +117,7 @@ async function boot() {
     state.runDir = data.currentDir || directoryOf(data.current.path);
     state.source = data.current.source;
     state.tabs = [{ path: state.currentPath, source: state.source, dirty: false }];
-    state.check = data.check;
+    applyCheck(data.check, state.source);
     state.terminalEntries = [
       { kind: "info", text: `Workspace ${data.root}` },
       { kind: "info", text: `Loaded ${state.currentPath}` }
@@ -125,7 +144,8 @@ function render() {
         <span>${lineCount(state.source)} lines</span>
       </div>
       <div class="editor-shell">
-        <textarea id="editor" class="editor" spellcheck="false">${escapeHtml(state.source)}</textarea>
+        <pre id="editorHighlight" class="editor-highlight" aria-hidden="true">${renderHighlightedSource()}</pre>
+        <textarea id="editor" class="editor" spellcheck="false" wrap="off">${escapeHtml(state.source)}</textarea>
         <div id="completionOverlay" class="completion-popover hidden"></div>
       </div>
     </main>
@@ -147,6 +167,7 @@ function render() {
   `;
   bind();
   bindGlobalEvents();
+  syncEditorHighlightScroll();
   if (state.sideTab === "plot" && state.plotSpec) drawPlot("sidePlotCanvas");
 }
 
@@ -238,6 +259,7 @@ function icon(name) {
 function bind() {
   const editor = byId("editor");
   editor.addEventListener("keydown", handleEditorKeyDown);
+  editor.addEventListener("scroll", syncEditorHighlightScroll);
   editor.addEventListener("keyup", (event) => {
     if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) return;
     updateCompletionOverlay();
@@ -249,6 +271,7 @@ function bind() {
     rememberCurrentTab();
     state.status = "Modified";
     renderTabLabels();
+    updateEditorHighlight();
     updateCompletionOverlay();
   });
   byId("checkBtn").onclick = checkCurrent;
@@ -456,7 +479,7 @@ async function openFile(path) {
     state.selectedWorkflowNodeId = null;
     state.status = `Loaded ${file.path}`;
     const check = await call("ide_check", { path: state.currentPath, source: state.source });
-    state.check = check;
+    applyCheck(check, state.source);
     render();
   } catch (error) {
     state.status = String(error);
@@ -488,7 +511,8 @@ async function saveCurrent() {
 async function checkCurrent() {
   try {
     rememberCurrentTab();
-    state.check = await call("ide_check", { path: state.currentPath, source: state.source });
+    const check = await call("ide_check", { path: state.currentPath, source: state.source });
+    applyCheck(check, state.source);
     state.status = `Checked: ${state.check.status}`;
     state.bottomTab = errorCount() ? "problems" : state.bottomTab;
     render();
@@ -553,7 +577,10 @@ async function sendTerminalCommand(command) {
       runDir: state.runDir,
       profile: state.profile
     });
-    applyRun(result, { mergeRuntime: command.toLowerCase() !== "run" });
+    applyRun(result, {
+      mergeRuntime: command.toLowerCase() !== "run",
+      checkSource: terminalCommandUsesCurrentFile(command) ? state.source : ""
+    });
     appendRunResult(result, runHistoryContext(command));
     state.status = result.ok ? "Terminal command complete" : "Terminal diagnostics";
   } catch (error) {
@@ -591,7 +618,7 @@ async function openWorkspacePath(path) {
 }
 
 function applyRun(result, options = {}) {
-  state.check = result.check ?? state.check;
+  if (result.check) applyCheck(result.check, options.checkSource ?? state.source);
   if (result.runtimeUpdated) {
     state.variables = options.mergeRuntime
       ? mergeRuntimeRows(state.variables, result.variables ?? [])
@@ -605,6 +632,11 @@ function applyRun(result, options = {}) {
     state.reportTitle = result.reportTitle ?? "";
     if (state.plotSpec) state.sideTab = "plot";
   }
+}
+
+function terminalCommandUsesCurrentFile(command) {
+  const lower = String(command || "").trim().toLowerCase();
+  return lower === "check" || lower === "run";
 }
 
 function appendRunResult(result, context = {}) {
@@ -793,7 +825,8 @@ async function switchTab(path) {
   state.reportTitle = "";
   state.status = `Loaded ${tab.path}`;
   try {
-    state.check = await call("ide_check", { path: state.currentPath, source: state.source });
+    const check = await call("ide_check", { path: state.currentPath, source: state.source });
+    applyCheck(check, state.source);
   } catch (error) {
     state.status = String(error);
   }
@@ -826,7 +859,7 @@ function closeTab(path) {
   state.reportTitle = "";
   call("ide_check", { path: state.currentPath, source: state.source })
     .then((check) => {
-      state.check = check;
+      applyCheck(check, state.source);
       state.status = `Loaded ${state.currentPath}`;
       render();
     })
@@ -851,6 +884,7 @@ function renderSidePanel() {
         ${sideTabButton("reads", "Reads")}
         ${sideTabButton("plot", "Plot")}
         ${sideTabButton("checks", "Checks")}
+        ${sideTabButton("highlight", "Highlight")}
         ${sideTabButton("quality", "Quality")}
         ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("objects", "Obj")}
@@ -882,6 +916,7 @@ function renderSideBody() {
   if (state.sideTab === "tables") return renderTablesPanel();
   if (state.sideTab === "reads") return renderReadsPanel();
   if (state.sideTab === "checks") return renderChecksPanel();
+  if (state.sideTab === "highlight") return renderHighlightPanel();
   if (state.sideTab === "quality") return renderQualityPanel();
   if (state.sideTab === "kernels") return renderKernelPanel();
   if (state.sideTab === "objects") return renderObjectsPanel();
@@ -1076,6 +1111,72 @@ function renderChecksPanel() {
       <div class="panel-title compact">System Dependency Graph</div>
       ${renderSystemDependencyGraph()}
     </div>
+  `;
+}
+
+function renderHighlightPanel() {
+  const semantic = semanticTokenPayload();
+  const legend = semantic.legend || {};
+  const tokens = Array.isArray(semantic.tokens) ? semantic.tokens : [];
+  const typeCounts = countSemanticTokens(tokens, (token) => token.type || "-");
+  const modifierCounts = countSemanticTokens(tokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
+  const tokenCurrent = state.source === state.highlightSource;
+  return `
+    <div class="panel-title compact">Highlight Tokens</div>
+    <div class="badges">
+      <span class="badge">Tokens ${tokens.length}</span>
+      <span class="badge">Types ${arrayOrEmpty(legend.token_types || legend.tokenTypes).length}</span>
+      <span class="badge">Modifiers ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
+      <span class="badge ${tokenCurrent ? "" : "warn"}">${tokenCurrent ? "Current" : "Check needed"}</span>
+    </div>
+    <div class="scroll highlight-panel">
+      <div class="panel-title compact">Token Types</div>
+      ${renderSemanticLegendTable(arrayOrEmpty(legend.token_types || legend.tokenTypes), typeCounts, "type")}
+      <div class="panel-title compact">Modifiers</div>
+      ${renderSemanticLegendTable(arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers), modifierCounts, "modifier")}
+      <div class="panel-title compact">Current File Tokens</div>
+      ${renderSemanticTokenRows(tokens)}
+      ${rawJsonToggle("Raw semantic token JSON", semantic)}
+    </div>
+  `;
+}
+
+function renderSemanticLegendTable(items, counts, kind) {
+  const rows = items.map((item) => `
+    <tr>
+      <td><span class="token-chip token-${escapeAttr(kind)}">${escapeHtml(item)}</span></td>
+      <td>${escapeHtml(String(counts.get(item) || 0))}</td>
+    </tr>
+  `).join("");
+  return `
+    <table class="var-table semantic-legend-table">
+      <thead><tr><th>${escapeHtml(kind === "type" ? "Type" : "Modifier")}</th><th>Count</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="2" class="muted">No semantic legend entries.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderSemanticTokenRows(tokens) {
+  const rows = tokens.slice(0, 120).map((token) => {
+    const line = Number(token.line ?? 0) + 1;
+    const start = Number(token.start ?? 0);
+    const length = Number(token.length ?? 0);
+    const modifiers = arrayOrEmpty(token.modifiers);
+    return `
+      <tr>
+        <td>${sourceLineButton({ line })}<div class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</div></td>
+        <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
+        <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
+      </tr>
+    `;
+  }).join("");
+  const hidden = tokens.length > 120 ? `<div class="empty-state">Showing first 120 of ${escapeHtml(String(tokens.length))} tokens.</div>` : "";
+  return `
+    <table class="var-table semantic-token-table">
+      <thead><tr><th>Range</th><th>Type</th><th>Modifiers</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="3" class="muted">No semantic tokens for the current check.</td></tr>`}</tbody>
+    </table>
+    ${hidden}
   `;
 }
 
@@ -3659,6 +3760,7 @@ function insertCompletion(item) {
   state.dirty = true;
   rememberCurrentTab();
   renderTabLabels();
+  updateEditorHighlight();
   hideCompletions();
   editor.focus();
 }
@@ -3673,6 +3775,120 @@ function caretOverlayPosition(editor) {
   const left = Math.max(8, Math.min(editor.clientWidth - 280, 12 + column * charWidth - editor.scrollLeft));
   const top = Math.max(8, Math.min(editor.clientHeight - 210, 12 + (line + 1) * lineHeight - editor.scrollTop));
   return { left, top };
+}
+
+function updateEditorHighlight() {
+  const highlight = byId("editorHighlight");
+  if (!highlight) return;
+  highlight.innerHTML = renderHighlightedSource();
+  syncEditorHighlightScroll();
+}
+
+function syncEditorHighlightScroll() {
+  const editor = byId("editor");
+  const highlight = byId("editorHighlight");
+  if (!editor || !highlight) return;
+  highlight.scrollTop = editor.scrollTop;
+  highlight.scrollLeft = editor.scrollLeft;
+}
+
+function renderHighlightedSource() {
+  if (state.source !== state.highlightSource) {
+    return escapeHtml(state.source || "\n");
+  }
+  const tokensByLine = semanticTokensByLine(semanticTokenPayload().tokens || []);
+  const lines = String(state.source ?? "").split(/\r\n|\r|\n/);
+  return lines.map((line, index) => renderHighlightedLine(line, tokensByLine.get(index) || [])).join("\n") || "\n";
+}
+
+function renderHighlightedLine(line, tokens) {
+  if (!tokens.length) return escapeHtml(line);
+  const ranges = tokens
+    .map((token) => semanticTokenRange(line, token))
+    .filter(Boolean)
+    .sort((left, right) => left.start - right.start || right.end - left.end);
+  let cursor = 0;
+  let html = "";
+  for (const range of ranges) {
+    if (range.start < cursor || range.end <= range.start) continue;
+    html += escapeHtml(line.slice(cursor, range.start));
+    html += `<span class="${escapeAttr(semanticTokenClass(range.token))}">${escapeHtml(line.slice(range.start, range.end))}</span>`;
+    cursor = range.end;
+  }
+  html += escapeHtml(line.slice(cursor));
+  return html;
+}
+
+function semanticTokensByLine(tokens) {
+  const map = new Map();
+  for (const token of Array.isArray(tokens) ? tokens : []) {
+    const line = Number(token.line);
+    if (!Number.isFinite(line) || line < 0) continue;
+    if (!map.has(line)) map.set(line, []);
+    map.get(line).push(token);
+  }
+  return map;
+}
+
+function semanticTokenRange(line, token) {
+  const startByte = Number(token.start ?? 0);
+  const lengthBytes = Number(token.length ?? 0);
+  if (!Number.isFinite(startByte) || !Number.isFinite(lengthBytes) || lengthBytes <= 0) {
+    return null;
+  }
+  const start = byteOffsetToCodeUnit(line, startByte);
+  const end = byteOffsetToCodeUnit(line, startByte + lengthBytes);
+  return { start, end, token };
+}
+
+function byteOffsetToCodeUnit(text, byteOffset) {
+  let bytes = 0;
+  for (let index = 0; index < text.length; index += 1) {
+    const codePoint = text.codePointAt(index);
+    const char = String.fromCodePoint(codePoint);
+    const charBytes = utf8ByteLength(char);
+    if (bytes + charBytes > byteOffset) return index;
+    bytes += charBytes;
+    if (codePoint > 0xffff) index += 1;
+  }
+  return text.length;
+}
+
+function utf8ByteLength(value) {
+  const codePoint = value.codePointAt(0) || 0;
+  if (codePoint <= 0x7f) return 1;
+  if (codePoint <= 0x7ff) return 2;
+  if (codePoint <= 0xffff) return 3;
+  return 4;
+}
+
+function semanticTokenClass(token) {
+  const classes = [`hl-token`, `hl-${safeCssToken(token.type || "plain")}`];
+  for (const modifier of arrayOrEmpty(token.modifiers)) {
+    classes.push(`hl-mod-${safeCssToken(modifier)}`);
+  }
+  return classes.join(" ");
+}
+
+function safeCssToken(value) {
+  return String(value || "plain").replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
+function semanticTokenPayload() {
+  return state.check?.semanticTokens ?? state.check?.semantic_tokens ?? { legend: {}, tokens: [] };
+}
+
+function arrayOrEmpty(value) {
+  return Array.isArray(value) ? value : [];
+}
+
+function countSemanticTokens(items, keyFn) {
+  const counts = new Map();
+  for (const item of items || []) {
+    const key = keyFn(item);
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
 }
 
 function renderTree(nodes, depth) {

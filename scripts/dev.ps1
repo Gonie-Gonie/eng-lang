@@ -2053,11 +2053,15 @@ function Invoke-IdeCheck {
     }
 
     $TauriConfigPath = Join-Path $RepoRoot "crates\eng_ide\tauri.conf.json"
+    $TauriMainPath = Join-Path $RepoRoot "crates\eng_ide\src\main.rs"
     $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
     $TauriUiAppPath = Join-Path $RepoRoot "crates\eng_ide\ui\app.js"
     $TauriUiStylesPath = Join-Path $RepoRoot "crates\eng_ide\ui\styles.css"
     if (-not (Test-Path $TauriConfigPath)) {
         throw "missing Tauri IDE config at $TauriConfigPath"
+    }
+    if (-not (Test-Path $TauriMainPath)) {
+        throw "missing Tauri IDE backend at $TauriMainPath"
     }
     if (-not (Test-Path $TauriUiIndexPath)) {
         throw "missing Tauri IDE static frontend at $TauriUiIndexPath"
@@ -2095,17 +2099,29 @@ function Invoke-IdeCheck {
         "data-open-file-path",
         "data-open-path",
         "ide_open_path",
+        "editorHighlight",
+        "renderHighlightedSource",
+        "renderHighlightPanel",
+        "semanticTokenPayload",
+        "semanticTokens",
+        "byteOffsetToCodeUnit",
         "Timestamp",
         "Artifact Root"
     )) {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
-            throw "Native IDE UI missing run history token $RequiredIdeToken"
+            throw "Native IDE UI missing contract token $RequiredIdeToken"
         }
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-riskHigh", "semantic-token-table", "token-chip")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
-            throw "Native IDE UI missing run history style $RequiredIdeStyle"
+            throw "Native IDE UI missing contract style $RequiredIdeStyle"
+        }
+    }
+    $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "semantic_tokens_view", "snapshot_from_report_with_source", "check_view_surfaces_lsp_semantic_tokens")) {
+        if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
+            throw "Native IDE backend missing semantic token payload token $RequiredIdeBackendToken"
         }
     }
     $Node = Get-Command node -ErrorAction SilentlyContinue

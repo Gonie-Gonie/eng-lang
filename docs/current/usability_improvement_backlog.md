@@ -762,6 +762,17 @@ Status: implemented after review/risk visibility review.
 - Extended `ide-check` so VS Code risk-decoration wiring and user-facing
   setting text stay covered.
 
+## Batch 63: Native IDE Semantic Highlight Overlay
+
+Status: implemented after native IDE highlight parity review.
+
+- Connected native IDE check results to the same `eng_lsp` semantic-token
+  snapshot used by VS Code editor metadata.
+- Added a token-colored editor overlay and a Highlight sidebar tab that exposes
+  the current semantic-token legend, type/modifier counts, and token ranges.
+- Extended `ide-check` and Rust regression coverage so native IDE semantic
+  token payloads, overlay wiring, and risk/unit highlight styles stay guarded.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -793,6 +804,8 @@ Status: implemented after review/risk visibility review.
 
 ## Native IDE Usability Candidates
 
+- Add hover/inline source range details to the native editor overlay once the
+  textarea-backed editor can show them without fighting text selection.
 - Continue reviewing inspector workflows for dense, repeated debugging tasks.
 
 ## VS Code Linter And Highlighting Candidates

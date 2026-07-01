@@ -75,17 +75,23 @@ Editor
   state per tab and shows completion suggestions near the caret from current
   symbols, keywords, snippets, quantity kinds, units, and stdlib workflow
   module surfaces such as `eng.path`, `eng.io`, `eng.fs`, and `eng.process`.
+  Checked files use compiler-backed semantic tokens for colored keyword, unit,
+  quantity, workflow, and review-risk highlighting. If the buffer has changed
+  since the last check, the overlay falls back to plain text until Check or Run
+  refreshes token ranges.
 
 Right Sidebar
-  Vars, Schema, Time, Plot, Checks, Artifacts, and Run tabs are the primary
-  review path. After a successful run, source symbols, runtime variables, Args
-  values, schema summaries, unit conversions, TimeSeries ranges/statistics,
-  metrics, validations, uncertainty summaries/propagation metadata, time
-  alignments, artifact paths, and JSON artifact outlines are summarized in
-  tables. The Net tab summarizes network boundaries, network events, cache
-  events, hashes, and cache keys for workflows that use `eng.net` or
-  `eng.cache`. Uncertain scalar bindings also appear in the variable view with
-  their representation and summary values.
+  Vars, Schema, Time, Plot, Checks, Highlight, Artifacts, and Run tabs are the
+  primary review path. After a successful run, source symbols, runtime
+  variables, Args values, schema summaries, unit conversions, TimeSeries
+  ranges/statistics, metrics, validations, uncertainty summaries/propagation
+  metadata, time alignments, artifact paths, and JSON artifact outlines are
+  summarized in tables. The Highlight tab shows the semantic-token legend,
+  token type/modifier counts, and source ranges from the current check. The Net
+  tab summarizes network boundaries, network events, cache events, hashes, and
+  cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
+  bindings also appear in the variable view with their representation and
+  summary values.
 
 Advanced panels
   Assembly, dependency, residual, component graph, system, and solver result

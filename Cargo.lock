@@ -726,6 +726,7 @@ name = "eng_ide"
 version = "0.1.0"
 dependencies = [
  "eng_compiler",
+ "eng_lsp",
  "eng_runtime",
  "serde",
  "serde_json",

@@ -55,6 +55,7 @@ struct CheckView {
     diagnostics: Vec<DiagnosticView>,
     symbols: Vec<SymbolView>,
     status: String,
+    semantic_tokens: Value,
 }
 
 #[derive(Clone, Serialize)]
@@ -448,6 +449,7 @@ fn ide_terminal(
                 diagnostics: Vec::new(),
                 symbols: Vec::new(),
                 status: "ok".to_owned(),
+                semantic_tokens: empty_semantic_tokens_view(),
             },
             variables: Vec::new(),
             args: Vec::new(),
@@ -624,6 +626,7 @@ impl RunView {
                 diagnostics: Vec::new(),
                 symbols: Vec::new(),
                 status: "ok".to_owned(),
+                semantic_tokens: empty_semantic_tokens_view(),
             },
             variables: Vec::new(),
             args: Vec::new(),
@@ -708,7 +711,7 @@ fn run_source_file(
             })
         }
         Err(RuntimeError::Compile(report)) => {
-            let check = check_view_from_report(&report);
+            let check = check_view_from_report(&report, None);
             Ok(RunView {
                 ok: false,
                 runtime_updated: false,
@@ -776,7 +779,7 @@ fn run_virtual_source_file(
             })
         }
         Err(RuntimeError::Compile(report)) => {
-            let check = check_view_from_report(&report);
+            let check = check_view_from_report(&report, None);
             Ok(RunView {
                 ok: false,
                 runtime_updated: false,
@@ -796,10 +799,10 @@ fn run_virtual_source_file(
 
 fn check_view(path: &Path, source: &str) -> CheckView {
     let report = check_source(path, source, &CheckOptions::default());
-    check_view_from_report(&report)
+    check_view_from_report(&report, Some(source))
 }
 
-fn check_view_from_report(report: &CheckReport) -> CheckView {
+fn check_view_from_report(report: &CheckReport, source: Option<&str>) -> CheckView {
     let diagnostics: Vec<DiagnosticView> = report
         .diagnostics
         .iter()
@@ -844,7 +847,20 @@ fn check_view_from_report(report: &CheckReport) -> CheckView {
         diagnostics,
         symbols,
         status: format!("{errors} error(s), {warnings} warning(s)"),
+        semantic_tokens: semantic_tokens_view(report, source),
     }
+}
+
+fn semantic_tokens_view(report: &CheckReport, source: Option<&str>) -> Value {
+    let Some(source) = source else {
+        return empty_semantic_tokens_view();
+    };
+    let snapshot = eng_lsp::snapshot_from_report_with_source(report, Some(source));
+    eng_lsp::semantic_tokens_json(&snapshot.semantic_tokens)
+}
+
+fn empty_semantic_tokens_view() -> Value {
+    eng_lsp::semantic_tokens_json(&eng_lsp::LspSemanticTokens::default())
 }
 
 const BASE_COMPLETION_KEYWORDS: &[&str] = &[
@@ -2554,6 +2570,7 @@ fn terminal_command_error(command: &str) -> Option<CheckView> {
         }],
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
+        semantic_tokens: empty_semantic_tokens_view(),
     })
 }
 
@@ -2576,6 +2593,7 @@ fn terminal_unrecognized_command_error(command: &str, run_dir: &Path) -> Option<
         }],
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
+        semantic_tokens: empty_semantic_tokens_view(),
     })
 }
 
@@ -4107,6 +4125,44 @@ mod tests {
             terminal_unrecognized_command_error("unknown_command", Path::new(".")).expect("error");
         assert_eq!(check.diagnostics[0].code, "E-IDE-TERMINAL-SYNTAX");
         assert!(check.diagnostics[0].message.contains("not recognized"));
+    }
+
+    #[test]
+    fn check_view_surfaces_lsp_semantic_tokens() {
+        let root = workspace_root();
+        let path = root
+            .join("examples")
+            .join("official")
+            .join("01_csv_plot")
+            .join("main.eng");
+        let source = read_utf8(&path).expect("example source");
+        let check = check_view(&path, &source);
+        let legend_modifiers = check
+            .semantic_tokens
+            .pointer("/legend/token_modifiers")
+            .and_then(Value::as_array)
+            .expect("semantic token modifiers");
+        assert!(legend_modifiers
+            .iter()
+            .any(|modifier| modifier.as_str() == Some("unit")));
+        assert!(legend_modifiers
+            .iter()
+            .any(|modifier| modifier.as_str() == Some("riskHigh")));
+
+        let tokens = check
+            .semantic_tokens
+            .get("tokens")
+            .and_then(Value::as_array)
+            .expect("semantic tokens");
+        assert!(tokens
+            .iter()
+            .any(|token| { token.get("type").and_then(Value::as_str) == Some("keyword") }));
+        assert!(tokens.iter().any(|token| {
+            token
+                .get("modifiers")
+                .and_then(Value::as_array)
+                .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("unit")))
+        }));
     }
 
     #[test]
