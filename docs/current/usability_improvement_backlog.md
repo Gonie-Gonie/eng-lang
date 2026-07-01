@@ -130,6 +130,20 @@ Status: implemented after VS Code command review.
 - Extended `ide-check` contract coverage so the command and official/workflow
   example discovery stay wired.
 
+## Batch 12: Native IDE Run History And Artifact Links
+
+Status: implemented after native IDE usability review.
+
+- Added a workspace-persistent native IDE run history list with timestamp,
+  profile, source file, status, and artifact root.
+- Added direct native IDE path opening for workspace-relative files/folders,
+  including unsaved in-memory run artifacts by saving the latest artifact set
+  before opening the requested path.
+- Made artifact, outline, structured read, config promotion, case, model, DB,
+  cache, and process-output path rows clickable from the relevant inspectors.
+- Extended `ide-check` contract coverage for native IDE UI script/style files
+  so the run history and path-link helpers do not disappear silently.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -163,13 +177,10 @@ Status: implemented after VS Code command review.
 
 ## Native IDE Usability Candidates
 
-- Add a persistent run history list with timestamp, profile, source file,
-  status, and artifact root.
-- Make output manifest and artifact rows open files directly from every
-  relevant inspector.
 - Add panel-level empty states that say which artifact is missing and which
   command produces it.
-- Add problem filtering by severity/code and source-line jump targets.
+- Keep problem filtering by severity/code and source-line jump targets covered
+  as part of native IDE regression checks.
 - Add a workflow graph node detail drawer for process/cache/model/DB/case nodes.
 - Group raw JSON inspectors behind advanced toggles so first-run users see the
   reviewable summary first.

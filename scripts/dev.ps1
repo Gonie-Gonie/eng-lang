@@ -1841,6 +1841,8 @@ function Invoke-IdeCheck {
         "runHistory",
         "recordRunHistory",
         "renderRunHistory",
+        "openPathButton",
+        "renderOutputPathList",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
         "data-open-path",

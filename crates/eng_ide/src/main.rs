@@ -589,9 +589,20 @@ fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String,
 }
 
 #[tauri::command]
-fn ide_open_path(path: String) -> Result<String, String> {
+fn ide_open_path(path: String, state: State<'_, IdeState>) -> Result<String, String> {
     let root = workspace_root();
     let path = resolve_path(&root, &path);
+    if !path.exists() {
+        let mut guard = state
+            .last_output
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if let Some(output) = guard.as_mut() {
+            if !output.artifacts_saved {
+                output.save_artifacts()?;
+            }
+        }
+    }
     if !path.exists() {
         return Err(format!(
             "Path does not exist: {}",

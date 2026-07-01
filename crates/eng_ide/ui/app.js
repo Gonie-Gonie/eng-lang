@@ -1551,7 +1551,7 @@ function renderArtifacts() {
           <tr>
             <td>${escapeHtml(artifact.kind)}</td>
             <td>${escapeHtml(artifact.status)}</td>
-            <td><button class="link-button" data-open-artifact-kind="${escapeAttr(artifact.kind)}"><code>${escapeHtml(artifact.path)}</code></button></td>
+            <td>${openPathButton(artifact.path, 90)}</td>
           </tr>
         `).join("")}
       </tbody>
@@ -1571,7 +1571,7 @@ function renderStructuredReads(reads) {
       <tr>
         <td><strong>${escapeHtml(read.binding || "-")}</strong><div class="muted">${sourceLineButton(read)}</div></td>
         <td>${escapeHtml(read.kind || "-")}</td>
-        <td><code>${escapeHtml(compactText(read.path || "-", 72))}</code></td>
+        <td>${openPathButton(read.path, 72)}</td>
         <td>${escapeHtml(status)}${error}</td>
         <td>${escapeHtml(shape)}</td>
         <td><code>${escapeHtml(compactText(read.source_hash || read.sourceHash || "-", 64))}</code></td>
@@ -1603,7 +1603,7 @@ function renderConfigPromotions(configs) {
       <tr>
         <td><strong>${escapeHtml(config.binding || "-")}</strong><div class="muted">${sourceLineButton(config)}</div></td>
         <td>${escapeHtml(config.format || "-")}<div class="muted">${escapeHtml(config.schema_name || config.schemaName || "-")}</div></td>
-        <td><code>${escapeHtml(compactText(config.source || config.source_literal || config.sourceLiteral || "-", 64))}</code><div class="muted">${escapeHtml(compactText(config.resolved_path || config.resolvedPath || "-", 72))}</div></td>
+        <td><code>${escapeHtml(compactText(config.source || config.source_literal || config.sourceLiteral || "-", 64))}</code><div class="muted">${openPathButton(config.resolved_path || config.resolvedPath, 72)}</div></td>
         <td>${escapeHtml(config.status || "-")}<div class="muted">fields ${escapeHtml(fieldCount)}</div></td>
         <td>${escapeHtml(compactText(policy, 80))}</td>
         <td><code>${escapeHtml(compactText(config.source_hash || config.sourceHash || "-", 64))}</code></td>
@@ -2600,7 +2600,7 @@ function renderArtifactOutlines() {
   const rows = inspectorRows("artifactOutlines").map((artifact) => `
     <tr>
       <td><button class="link-button" data-open-artifact-kind="${escapeAttr(artifact.kind)}"><strong>${escapeHtml(artifact.kind || "-")}</strong></button><div class="muted">${escapeHtml(artifact.status || "-")}</div></td>
-      <td><code>${escapeHtml(artifact.path || "-")}</code></td>
+      <td>${openPathButton(artifact.path, 90)}</td>
       <td>${escapeHtml((artifact.sections || []).map((section) => `${section.name}: ${section.summary}`).join("; "))}</td>
     </tr>
   `).join("");
@@ -2814,7 +2814,7 @@ function renderCaseManifests(manifests) {
     <tr>
       <td><strong>${escapeHtml(manifest.case_id || manifest.caseId || "-")}</strong><div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
       <td>${escapeHtml(manifest.sample_table || manifest.sampleTable || "-")}<div class="muted">row ${escapeHtml(manifest.sample_row_number ?? manifest.sampleRowNumber ?? "-")}</div></td>
-      <td><code>${escapeHtml(compactText(manifest.case_dir || manifest.caseDir || "-", 80))}</code><div class="muted">${escapeHtml(compactText(manifest.generated_input_file || manifest.generatedInputFile || "-", 80))}</div></td>
+      <td>${openPathStack([manifest.case_dir || manifest.caseDir, manifest.generated_input_file || manifest.generatedInputFile], 80)}</td>
       <td>${escapeHtml(caseProcessSummary(manifest))}</td>
       <td>${escapeHtml(caseOutputSummary(manifest))}</td>
       <td>${escapeHtml(compactText(manifest.failure_reason || manifest.failureReason || "-", 90))}</td>
@@ -2915,7 +2915,7 @@ function renderModelCards(cards) {
         <td>${escapeHtml(card.model_kind || card.modelKind || "-")}<div class="muted">${escapeHtml(card.status || "-")}</div></td>
         <td>${escapeHtml(card.target || "-")}<div class="muted">${escapeHtml(card.target_quantity || card.targetQuantity || "-")} ${escapeHtml(card.target_unit || card.targetUnit || "")}</div></td>
         <td>${metricCell(metrics.rmse)} / ${metricCell(metrics.mae)} / ${metricCell(metrics.r2)}</td>
-        <td>${escapeHtml(card.residual_plot || card.residualPlot || "-")}<div class="muted">points ${escapeHtml(card.residual_point_count ?? card.residualPointCount ?? 0)}</div></td>
+        <td>${openPathButton(card.residual_plot || card.residualPlot, 82)}<div class="muted">points ${escapeHtml(card.residual_point_count ?? card.residualPointCount ?? 0)}</div></td>
         <td><code>${escapeHtml(compactText(card.model_artifact_hash || card.modelArtifactHash || "-", 70))}</code></td>
       </tr>
     `;
@@ -2957,7 +2957,7 @@ function renderPredictionManifests(manifests) {
     <tr>
       <td><strong>${escapeHtml(manifest.binding || "-")}</strong><div class="muted">${sourceLineButton(manifest)}</div></td>
       <td>${escapeHtml(manifest.model || "-")}<div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
-      <td><code>${escapeHtml(compactText(manifest.manifest_path || manifest.manifestPath || "-", 80))}</code><div class="muted">${escapeHtml(compactText(manifestFilePath(manifest.output_file || manifest.outputFile), 80))}</div></td>
+      <td>${openPathStack([manifest.manifest_path || manifest.manifestPath, manifestFilePath(manifest.output_file || manifest.outputFile)], 80)}</td>
       <td>${escapeHtml(manifest.row_count ?? manifest.rowCount ?? "-")}<div class="muted">cases ${escapeHtml(Array.isArray(manifest.case_ids || manifest.caseIds) ? (manifest.case_ids || manifest.caseIds).length : 0)}</div></td>
       <td>${escapeHtml(predictionOutputSummary(manifest.outputs))}</td>
       <td>${escapeHtml(manifest.confidence_column || manifest.confidenceColumn || "-")}</td>
@@ -3009,7 +3009,7 @@ function renderDbManifests(manifests) {
       return [`
         <tr>
           <td><strong>${escapeHtml(manifest.binding || "-")}</strong><div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
-          <td><code>${escapeHtml(compactText(manifest.database || manifest.manifest_path || manifest.manifestPath || "-", 80))}</code></td>
+          <td>${openPathButton(manifest.database || manifest.manifest_path || manifest.manifestPath, 80)}</td>
           <td>${escapeHtml(manifest.transaction_status || manifest.transactionStatus || "-")}<div class="muted">${escapeHtml(manifest.schema_status || manifest.schemaStatus || "-")}</div></td>
           <td>-</td>
           <td>-</td>
@@ -3021,7 +3021,7 @@ function renderDbManifests(manifests) {
     return tables.map((table) => `
       <tr>
         <td><strong>${escapeHtml(manifest.binding || "-")}</strong><div class="muted">${escapeHtml(manifest.status || "-")}</div></td>
-        <td><code>${escapeHtml(compactText(manifest.database || manifest.manifest_path || manifest.manifestPath || "-", 80))}</code></td>
+        <td>${openPathButton(manifest.database || manifest.manifest_path || manifest.manifestPath, 80)}</td>
         <td>${escapeHtml(manifest.transaction_status || manifest.transactionStatus || "-")}<div class="muted">${escapeHtml(manifest.schema_status || manifest.schemaStatus || "-")}</div></td>
         <td><strong>${escapeHtml(table.name || "-")}</strong><div class="muted">${escapeHtml(table.mode || "-")}</div></td>
         <td>${escapeHtml(table.row_count ?? table.rowCount ?? "-")}</td>
@@ -3048,7 +3048,7 @@ function renderDbRegistry(records) {
   const rows = records.map((record) => `
     <tr>
       <td><strong>${escapeHtml(record.binding || "-")}</strong><div class="muted">${escapeHtml(record.status || "-")}</div></td>
-      <td><code>${escapeHtml(compactText(record.database || record.manifest_path || record.manifestPath || "-", 90))}</code></td>
+      <td>${openPathButton(record.database || record.manifest_path || record.manifestPath, 90)}</td>
       <td>${escapeHtml(record.transaction_status || record.transactionStatus || "-")}</td>
       <td>${escapeHtml(record.table_count ?? record.tableCount ?? "-")}</td>
       <td><code>${escapeHtml(compactText(record.hash || "-", 70))}</code></td>
@@ -3088,7 +3088,7 @@ function renderCacheEvents(events, caches) {
       <td><strong>${escapeHtml(event.owner_kind || event.ownerKind || "-")}</strong><div class="muted">${escapeHtml(event.owner_name || event.ownerName || "-")}</div></td>
       <td>${escapeHtml(event.status || "-")}</td>
       <td><code>${escapeHtml(compactText(event.cache_key || event.cacheKey || event.cache_key_hash || event.cacheKeyHash || "-", 80))}</code></td>
-      <td><code>${escapeHtml(compactText(event.cache_path || event.cachePath || event.cache_dir || event.cacheDir || "-", 90))}</code></td>
+      <td>${openPathButton(event.cache_path || event.cachePath || event.cache_dir || event.cacheDir, 90)}</td>
       <td>${sourceLineButton(event)}</td>
     </tr>
   `).join("");
@@ -3105,7 +3105,7 @@ function renderArtifactRecords(artifacts) {
     <tr>
       <td><strong>${escapeHtml(artifact.kind || "-")}</strong></td>
       <td>${escapeHtml(artifact.class || "-")}</td>
-      <td><code>${escapeHtml(artifact.path || "-")}</code></td>
+      <td>${openPathButton(artifact.path, 90)}</td>
       <td>${escapeHtml(artifact.status || "-")}</td>
       <td><code>${escapeHtml(artifact.hash || "-")}</code></td>
     </tr>
@@ -3156,16 +3156,13 @@ function renderProcessResults(processes) {
     const outputs = Array.isArray(process.expected_outputs)
       ? process.expected_outputs
       : (Array.isArray(process.expectedOutputs) ? process.expectedOutputs : []);
-    const outputText = outputs.length
-      ? outputs.map((output) => `${output.path || "-"}:${output.status || "-"}`).join("; ")
-      : "-";
     return `
       <tr>
         <td><strong>${escapeHtml(process.binding || "-")}</strong><div class="muted">${sourceLineButton(process)}</div></td>
         <td><code>${escapeHtml([process.command, ...(process.args || [])].filter(Boolean).join(" "))}</code><div class="muted">${escapeHtml(process.cwd || "-")}</div></td>
         <td>${escapeHtml(process.status || "-")}<div class="muted">exit ${escapeHtml(process.exit_code ?? process.exitCode ?? "-")}</div><div class="muted">${escapeHtml(process.expected_output_status || process.expectedOutputStatus || "-")}</div></td>
         <td><code>${escapeHtml(compactText(process.stdout_hash || process.stdoutHash || "-", 70))}</code><div class="muted"><code>${escapeHtml(compactText(process.stderr_hash || process.stderrHash || "-", 70))}</code></div></td>
-        <td>${escapeHtml(compactText(outputText, 110))}</td>
+        <td>${renderOutputPathList(outputs, 70)}</td>
       </tr>
     `;
   }).join("");
@@ -3440,6 +3437,37 @@ function sourceLineButton(item) {
   const line = item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line;
   if (!line) return "-";
   return `<button class="link-button" data-source-line="${escapeAttr(line)}">L${escapeHtml(line)}</button>`;
+}
+
+function openPathButton(path, limit = 80) {
+  const text = String(path ?? "").trim();
+  if (!text || text === "-") return `<code>-</code>`;
+  return `
+    <button class="link-button" data-open-path="${escapeAttr(text)}">
+      <code title="${escapeAttr(text)}">${escapeHtml(compactText(text, limit))}</code>
+    </button>
+  `;
+}
+
+function openPathStack(paths, limit = 80) {
+  const rows = paths
+    .map((path) => String(path ?? "").trim())
+    .filter((path) => path && path !== "-");
+  if (!rows.length) return `<code>-</code>`;
+  return rows.map((path, index) => {
+    const content = openPathButton(path, limit);
+    return index === 0 ? content : `<div class="muted">${content}</div>`;
+  }).join("");
+}
+
+function renderOutputPathList(outputs, limit = 80) {
+  if (!Array.isArray(outputs) || !outputs.length) return "-";
+  return outputs.map((output) => {
+    const path = typeof output === "string" ? output : output?.path;
+    const status = typeof output === "object" ? (output?.status || "-") : "";
+    const statusText = status ? `<span class="muted"> ${escapeHtml(status)}</span>` : "";
+    return `<div>${openPathButton(path, limit)}${statusText}</div>`;
+  }).join("");
 }
 
 function metricCell(value) {
