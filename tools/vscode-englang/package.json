@@ -121,6 +121,10 @@
       {
         "command": "englang.openCacheManifest",
         "title": "EngLang: Open Cache Manifest"
+      },
+      {
+        "command": "englang.showSemanticTokensDebug",
+        "title": "EngLang: Show Semantic Tokens Debug"
       }
     ]
   }

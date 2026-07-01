@@ -139,6 +139,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openRunPlan", () => openLastRunArtifact("runPlan")),
     vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),
     vscode.commands.registerCommand("englang.openCacheManifest", () => openLastRunArtifact("cacheManifest")),
+    vscode.commands.registerCommand("englang.showSemanticTokensDebug", () => showSemanticTokensDebug(context)),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider()),
     vscode.languages.registerCompletionItemProvider(
       LANGUAGE_ID,
@@ -407,6 +408,36 @@ async function openLastRunArtifact(artifactId) {
   }
   const document = await vscode.workspace.openTextDocument(uri);
   await vscode.window.showTextDocument(document, { preview: false });
+}
+
+async function showSemanticTokensDebug(context) {
+  const document = vscode.window.activeTextEditor?.document;
+  if (!document || !isEngDocument(document)) {
+    vscode.window.showWarningMessage("Open an EngLang .eng file first.");
+    return;
+  }
+  const snapshot = await snapshotDocumentSource(document, context);
+  if (!snapshot) {
+    vscode.window.showWarningMessage("No semantic token snapshot is available. See the EngLang output panel.");
+    return;
+  }
+  reviewCache.set(document.uri.fsPath, snapshot);
+  const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
+  const tokenCounts = {};
+  for (const token of semanticTokens.tokens ?? []) {
+    tokenCounts[token.type] = (tokenCounts[token.type] ?? 0) + 1;
+  }
+  const payload = {
+    source: document.uri.fsPath,
+    token_count: semanticTokens.tokens?.length ?? 0,
+    token_counts_by_type: tokenCounts,
+    semantic_tokens: semanticTokens
+  };
+  const debugDocument = await vscode.workspace.openTextDocument({
+    language: "json",
+    content: JSON.stringify(payload, null, 2)
+  });
+  await vscode.window.showTextDocument(debugDocument, { preview: false });
 }
 
 class EngSemanticTokensProvider {

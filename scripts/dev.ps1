@@ -1691,7 +1691,8 @@ function Assert-VscodeExtensionContract {
         "englang.openRunLog",
         "englang.openRunPlan",
         "englang.openProcessResults",
-        "englang.openCacheManifest"
+        "englang.openCacheManifest",
+        "englang.showSemanticTokensDebug"
     )) {
         if ($Commands -notcontains $Required) {
             throw "VS Code extension missing command $Required"
@@ -1715,6 +1716,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
+    }
+    if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type")) {
+        throw "VS Code extension must expose semantic token debug output"
     }
     if (-not $ExtensionSource.Contains("registerCodeActionsProvider") -or -not $ExtensionSource.Contains("E-SYNTAX-DECL-001") -or -not $ExtensionSource.Contains("E-STRUCT-ARGS-001")) {
         throw "VS Code extension must expose quick fixes for common syntax migration diagnostics"

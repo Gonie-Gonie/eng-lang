@@ -13,6 +13,8 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - semantic highlighting from `eng-lsp --snapshot-stdin`, covering roles such as
   variables, parameters, properties, quantities, units, reports, validations,
   and side-effect/external workflow boundaries
+- semantic token debug command that opens the current `eng-lsp --snapshot-stdin`
+  token payload as JSON for theme/highlighting inspection
 - hover from compiler review metadata
 - position-aware completion from `eng-lsp --completion-stdin`
 - snippets from `snippets/eng.json`
