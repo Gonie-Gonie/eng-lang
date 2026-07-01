@@ -88,6 +88,7 @@ const LAST_RUN_ARTIFACTS = [
 const editorMetadata = loadEditorMetadata();
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
+const COMPLETION_SEED = editorMetadata.completionSeed;
 
 const semanticLegend = new vscode.SemanticTokensLegend(
   SEMANTIC_TOKEN_TYPES,
@@ -105,12 +106,18 @@ function loadEditorMetadata() {
   const legend = metadata.semantic_token_legend ?? {};
   const semanticTokenTypes = legend.token_types;
   const semanticTokenModifiers = legend.token_modifiers;
-  if (!Array.isArray(semanticTokenTypes) || !Array.isArray(semanticTokenModifiers)) {
+  const completionSeed = metadata.completion_seed;
+  if (
+    !Array.isArray(semanticTokenTypes) ||
+    !Array.isArray(semanticTokenModifiers) ||
+    !Array.isArray(completionSeed)
+  ) {
     throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
   }
   return {
     semanticTokenTypes,
-    semanticTokenModifiers
+    semanticTokenModifiers,
+    completionSeed
   };
 }
 
@@ -1863,10 +1870,11 @@ class EngCompletionProvider {
       (await completionSnapshotForPosition(document, position, this.context, cancellationToken)) ??
       reviewCache.get(document.uri.fsPath);
 
-    for (const completion of completionPayload?.completions ?? []) {
+    const completions = completionPayload?.completions ?? COMPLETION_SEED;
+    for (const completion of completions) {
       const item = new vscode.CompletionItem(
         completion.label,
-        completionKindFromLsp(completion.kind)
+        completionKindFromLsp(completion.lsp_kind ?? completion.kind)
       );
       item.detail = completion.detail;
       if (completion.documentation) {

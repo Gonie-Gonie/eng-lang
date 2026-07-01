@@ -700,6 +700,19 @@ Status: implemented after extension source-of-truth review.
 - `ide-check` verifies the generated metadata is in sync with LSP constants
   and that the extension does not reintroduce hardcoded semantic legend arrays.
 
+## Batch 58: Generated VS Code Completion Fallback
+
+Status: implemented after extension completion source-of-truth review.
+
+- The VS Code completion provider now uses live `eng-lsp --completion-stdin`
+  results first and falls back to the generated editor metadata completion seed
+  when no live/review-cache completion payload is available.
+- The fallback uses generated LSP completion kind IDs instead of a JavaScript
+  keyword/type/unit table, keeping extension vocabulary tied to LSP metadata.
+- `ide-check` now verifies the generated completion seed mirror, required
+  workflow/data completion labels, `lsp_kind` presence, and extension fallback
+  wiring.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -1895,6 +1895,9 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
     }
+    if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $ExtensionSource.Contains("completion.lsp_kind")) {
+        throw "VS Code extension must use generated completion seed metadata as the completion fallback"
+    }
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type")) {
         throw "VS Code extension must expose semantic token debug output"
     }
@@ -1943,8 +1946,27 @@ function Assert-VscodeExtensionContract {
 
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
+    $GeneratedCompletions = Get-Content -LiteralPath $CompletionsPath -Raw | ConvertFrom-Json
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
         throw "generated VS Code editor metadata returned unexpected format $($EditorMetadata.format)"
+    }
+    if ($GeneratedCompletions.format -ne "eng-lsp-editor-metadata-v1") {
+        throw "generated VS Code completions returned unexpected format $($GeneratedCompletions.format)"
+    }
+    $MetadataCompletionLabels = @($EditorMetadata.completion_seed | ForEach-Object { $_.label })
+    $GeneratedCompletionLabels = @($GeneratedCompletions.completion_seed | ForEach-Object { $_.label })
+    Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $GeneratedCompletionLabels -Description "VS Code generated completion seed labels"
+    if ($MetadataCompletionLabels.Count -lt 100) {
+        throw "generated VS Code completion seed is unexpectedly small: $($MetadataCompletionLabels.Count)"
+    }
+    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table")) {
+        $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
+        if ($null -eq $Completion) {
+            throw "generated VS Code editor metadata missing completion seed $RequiredCompletion"
+        }
+        if ($null -eq $Completion.lsp_kind) {
+            throw "generated VS Code editor metadata completion seed $RequiredCompletion missing lsp_kind"
+        }
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)
     $GeneratedSemanticModifiers = @($EditorMetadata.semantic_token_legend.token_modifiers)

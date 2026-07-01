@@ -114,9 +114,11 @@ highlighting.
 
 Completion requests call `eng-lsp.exe --completion-stdin <file.eng> <line>
 <character>` with the current unsaved buffer. JavaScript does not maintain a
-separate keyword, type, quantity, or unit table. `eng-lsp.exe
---editor-metadata` exposes the completion seed and semantic-token legend used
-by editor contract checks.
+separate keyword, type, quantity, or unit table. If the LSP completion request
+is unavailable, the extension falls back to the generated completion seed from
+`generated/editor/englang-editor-metadata.json`. `eng-lsp.exe
+--editor-metadata` exposes that completion seed and the semantic-token legend
+used by editor contract checks.
 
 Go-to-definition uses the current unsaved-buffer snapshot document symbols and
 stays within the current file. It resolves top-level symbols and nested document
@@ -140,8 +142,9 @@ The grammar smoke writes token-check output under
 
 The extension loads its semantic-token legend from
 `generated/editor/englang-editor-metadata.json`, generated from
-`eng-lsp --editor-metadata`. Regenerate it after LSP completion or semantic
-legend changes:
+`eng-lsp --editor-metadata`. The same metadata file also provides the static
+completion fallback used when live LSP completion is unavailable. Regenerate it
+after LSP completion or semantic legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata
