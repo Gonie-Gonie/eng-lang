@@ -30,8 +30,9 @@ Expected review surfaces:
 - `cache_manifest.json`
 - `typed_payload.table_transforms[]`
 - `typed_payload.timeseries_coverage[]`
+- `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
 - `output_manifest.json` write-text artifact records
 
 This is not a KMA, EPW, or building-energy adapter in core. Provider-specific
 weather and standard-file adapters should layer above `eng.net`, `eng.cache`,
-`eng.table`, `eng.timeseries`, and `eng.artifact`.
+`eng.table`, `eng.timeseries`, `eng.workflow`, and `eng.artifact`.

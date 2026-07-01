@@ -22,16 +22,17 @@ The examples repeat a small set of contracts:
 - typed input boundary
 - explicit network, file, DB, cache, and artifact boundary records
 - generated artifact and hash path
+- static/runtime workflow plan and run-lock artifacts
 - report/review artifact
 - deterministic fixture/native execution for smoke runs
 - zero `run command` or Python process execution
 
 These contracts define the generic workflow module surface for `eng.net`,
 `eng.cache`, `eng.sampling`, `eng.case`, `eng.template`, `eng.db`,
-`eng.model`, and `eng.artifact`. Domain adapters such as weather APIs,
-standard-file writers, external simulators, and surrogate trainers stay layered
-above those generic modules instead of being hidden Python/process steps inside
-the workflow examples.
+`eng.model`, `eng.workflow`, and `eng.artifact`. Domain adapters such as
+weather APIs, standard-file writers, external simulators, and surrogate
+trainers stay layered above those generic modules instead of being hidden
+Python/process steps inside the workflow examples.
 
 ## Run All Workflow Examples
 

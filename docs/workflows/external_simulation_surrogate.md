@@ -32,9 +32,11 @@ Expected review surfaces:
 - `typed_payload.model_cards[]`
 - `typed_payload.prediction_manifests[]`
 - `typed_payload.db_manifests[]`
+- `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
 - `output_manifest.json` records for rendered inputs, summary export, DB, model
   artifacts, and report artifacts
 
 This is not an EnergyPlus, CFD, FEM, Modelica, or vendor ML framework adapter
 in core. Real simulator or trainer adapters should layer above the same typed
-table, model-card, prediction-manifest, DB-manifest, and artifact contracts.
+table, model-card, prediction-manifest, DB-manifest, workflow, and artifact
+contracts.

@@ -1429,6 +1429,18 @@ Status: implemented after VS Code keyword-highlight consistency review.
 - This closes the gap where a keyword could remain discoverable through LSP
   completion but silently lose TextMate coloring.
 
+## Batch 118: Workflow Artifact Docs Alignment
+
+Status: implemented after workflow module status cleanup.
+
+- Updated user-facing workflow docs to list `static_run_plan.json`,
+  `run_plan.json`, and `run_lock.json` as expected native workflow artifacts.
+- Added `eng.workflow` to the shared workflow contract in the composite
+  workflow guide so the promoted module status is visible outside the registry
+  table.
+- Made the uncertain sensor workflow doc state the same zero-process contract
+  as workflows 01 and 02.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
