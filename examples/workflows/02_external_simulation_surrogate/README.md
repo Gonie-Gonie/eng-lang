@@ -29,10 +29,11 @@ typed_payload.db_manifests records committed writes to simulation_results and pr
 output_manifest.json records rendered case inputs and workflow_summary.csv
 ```
 
-The generated training table is synthetic fixture data produced by EngLang's
-native sampler. Domain adapters can replace that source with real simulator
-results later, but they should still enter EngLang through typed tables,
-model cards, prediction manifests, and explicit side-effect records.
+The generated training table is produced by EngLang's native sampler and then
+selected through native table transforms for case input rendering. Domain
+adapters can replace that source with real simulator results later, but they
+should still enter EngLang through typed tables, model cards, prediction
+manifests, and explicit side-effect records.
 
 Run:
 

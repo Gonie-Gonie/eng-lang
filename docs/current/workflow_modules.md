@@ -44,8 +44,8 @@ internal until concrete language/runtime/artifact slices land.
 ## Purpose
 
 Composite engineering workflows often look domain-specific from the outside:
-weather API to standard weather file, simulation input patching, external
-solver runs, surrogate training, database writes, and report generation.
+weather API to standard weather file, case input generation, optional external
+solver integration, surrogate training, database writes, and report generation.
 
 The core language should not become a weather, EPW, KMA, EnergyPlus, CFD, FEM,
 or database-specific product. It should provide the generic workflow modules
@@ -196,7 +196,7 @@ output_manifest.json entries for rendered inputs, workflow_summary.csv, model ar
 process_results.json with process_count = 0
 ```
 
-These fixtures show the review contract that `eng.net`, `eng.cache`,
+These workflow programs show the review contract that `eng.net`, `eng.cache`,
 `eng.sampling`, `eng.template`, `eng.case`, `eng.db`, and `eng.model` preserve
 without depending on Python workflow adapters. External simulators and domain
 adapters can still be layered through `eng.process`, but workflows 01 and 02 do

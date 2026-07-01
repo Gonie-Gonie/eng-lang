@@ -32,25 +32,43 @@ model_card_summary = model_card(surrogate_model)
 model_metrics = evaluate(surrogate_model)
 predictions = predict surrogate_model using designs
 
-case_001_input = render template file("model/base_model_placeholder.txt")
+case_001_rows = filter training_results
+where {
+    case_id == "case_001"
+}
+case_001 = require_one case_001_rows
+
+case_002_rows = filter training_results
+where {
+    case_id == "case_002"
+}
+case_002 = require_one case_002_rows
+
+case_003_rows = filter training_results
+where {
+    case_id == "case_003"
+}
+case_003 = require_one case_003_rows
+
+case_001_input = render template file("model/native_case_template.txt")
 with {
-    values = { case_id = "case_001", annual_electricity = 11800 kWh, peak_cooling = 12.8 kW }
+    values = { case_id = case_001.case_id, annual_electricity = case_001.annual_electricity, peak_cooling = case_001.peak_cooling }
     output = "outputs/case_001/input.txt"
     missing = error
     overwrite = true
 }
 
-case_002_input = render template file("model/base_model_placeholder.txt")
+case_002_input = render template file("model/native_case_template.txt")
 with {
-    values = { case_id = "case_002", annual_electricity = 12800 kWh, peak_cooling = 14.2 kW }
+    values = { case_id = case_002.case_id, annual_electricity = case_002.annual_electricity, peak_cooling = case_002.peak_cooling }
     output = "outputs/case_002/input.txt"
     missing = error
     overwrite = true
 }
 
-case_003_input = render template file("model/base_model_placeholder.txt")
+case_003_input = render template file("model/native_case_template.txt")
 with {
-    values = { case_id = "case_003", annual_electricity = 13950 kWh, peak_cooling = 15.6 kW }
+    values = { case_id = case_003.case_id, annual_electricity = case_003.annual_electricity, peak_cooling = case_003.peak_cooling }
     output = "outputs/case_003/input.txt"
     missing = error
     overwrite = true

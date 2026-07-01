@@ -335,6 +335,20 @@ Status: implemented after API wording review.
 - Changed workflow module docs to call the current examples executable native
   workflow programs, not fixtures.
 
+## Batch 29: Workflow 02 Native Case Row Rendering
+
+Status: implemented after native workflow completeness review.
+
+- Changed workflow 02 case input rendering to select rows from the generated
+  `training_results` sample table through native `filter` and `require_one`
+  transforms before rendering templates.
+- Renamed the case input template away from placeholder wording and updated its
+  text to describe native typed case rendering.
+- Removed unused static sample CSV files that were no longer part of the
+  workflow execution path.
+- Updated workflow module and expected-summary docs to describe selected sample
+  rows and workflow programs instead of fixtures.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
