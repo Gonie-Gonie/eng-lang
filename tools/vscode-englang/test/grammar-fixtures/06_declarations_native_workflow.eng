@@ -21,6 +21,17 @@ test "coil heat stays positive" {
 api_url: Url = url("https://example.org/weather")
 api_key: Secret[String] = secret env("WEATHER_API_KEY")
 
+schema WorkflowArtifactRefs {
+    db: DbConnection
+    table: DbTableRef
+    model_card: ModelCard
+    model_artifact: ModelArtifact
+    predictions: Table[T]
+    maybe_output: Optional[DirectoryPath]
+    heat_series: TimeSeries[Time]
+    process: ProcessResult
+}
+
 response = http get api_url
 with {
     query = {

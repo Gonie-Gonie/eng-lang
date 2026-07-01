@@ -650,6 +650,66 @@
     "text": "payload.records"
   },
   {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "Url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "Secret",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "DbConnection",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "DbTableRef",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "ModelCard",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "ModelArtifact",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "Table",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "Optional",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "TimeSeries",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "ProcessResult",
+    "fullMatch": true
+  },
+  {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.type.englang",
     "text": "Time"

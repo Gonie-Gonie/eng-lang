@@ -1359,6 +1359,18 @@ Status: implemented after grammar smoke coverage review.
 - Verified the updated grammar smoke contract still passes with 149 explicit
   token expectations plus registry-scope parity checks.
 
+## Batch 112: Public Type Scope Registry Parity Guard
+
+Status: implemented after completion/type highlighting review.
+
+- Strengthened the VS Code grammar smoke harness so `support.type.englang` must
+  match every base public type exported through the LSP completion seed.
+- Added explicit grammar fixture coverage for workflow-facing public types such
+  as `Url`, `Secret`, `DbConnection`, `DbTableRef`, `ModelCard`,
+  `ModelArtifact`, `Table`, `Optional`, `TimeSeries`, and `ProcessResult`.
+- Verified the updated grammar smoke contract with 159 explicit token
+  expectations plus public-type scope parity checks.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
