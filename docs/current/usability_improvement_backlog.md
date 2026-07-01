@@ -1237,6 +1237,17 @@ Status: implemented after variable/property highlighting review.
 - Updated the editor token-scope guide with field/property/definition scope
   intent.
 
+## Batch 103: Core Semantic Role Regression Pins
+
+Status: implemented after LSP semantic role review.
+
+- Added LSP snapshot regression coverage for core symbol roles: `const`
+  readonly variables, schema fields as properties, `args` fields as parameters,
+  function parameters, and function-local bindings.
+- Documented the core semantic role expectations in the editor token-scope
+  guide so TextMate fallback scopes and compiler-backed semantic tokens stay
+  aligned.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

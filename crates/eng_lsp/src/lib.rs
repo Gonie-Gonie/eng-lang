@@ -2686,7 +2686,8 @@ fn workflow_builtin_modifiers_for_line(
     token_start: usize,
 ) -> &'static [&'static str] {
     if keyword == "uniform"
-        && previous_identifier_before(line, token_start).is_some_and(|previous| previous == "sample")
+        && previous_identifier_before(line, token_start)
+            .is_some_and(|previous| previous == "sample")
     {
         return &["defaultLibrary", "uncertain", "workflowStep"];
     }
@@ -4659,6 +4660,43 @@ response = http get url("https://example.org/weather")
         for label in ["http", "get"] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
+    }
+
+    #[test]
+    fn snapshot_marks_core_symbol_roles_as_semantic_tokens() {
+        let source = r#"const cp_water: SpecificHeat [J/kg/K] = 4180 J/kg/K
+
+schema SensorData {
+    time: DateTime [iso8601]
+    T_supply: AbsoluteTemperature [degC]
+}
+
+args {
+    input: CsvFile = file("data/sensor.csv")
+}
+
+sensor = 1 kg/s
+
+fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
+    Q = m_dot * cp_water * dT
+    return Q
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("core_symbol_roles.eng"), source);
+
+        assert_semantic_token_type(&snapshot, source, "cp_water", "variable");
+        assert_semantic_token_modifier(&snapshot, source, "cp_water", "readonly");
+        assert_semantic_token_modifier(&snapshot, source, "cp_water", "declaration");
+        assert_semantic_token_type(&snapshot, source, "SensorData", "class");
+        assert_semantic_token_type(&snapshot, source, "time", "property");
+        assert_semantic_token_modifier(&snapshot, source, "time", "declaration");
+        assert_semantic_token_type(&snapshot, source, "input", "parameter");
+        assert_semantic_token_modifier(&snapshot, source, "input", "declaration");
+        assert_semantic_token_type(&snapshot, source, "sensor", "variable");
+        assert_semantic_token_type(&snapshot, source, "m_dot", "parameter");
+        assert_semantic_token_modifier(&snapshot, source, "m_dot", "declaration");
+        assert_semantic_token_type(&snapshot, source, "Q", "variable");
+        assert_semantic_token_modifier(&snapshot, source, "Q", "local");
     }
 
     #[test]

@@ -117,6 +117,17 @@ Modifier meanings:
 | `cache` | Cache declarations, keys, and cache-backed workflow records. |
 | `workflowStep` | Case orchestration, sampling, prediction, and workflow-step symbols. |
 
+Core semantic role expectations:
+
+| Source role | Semantic token |
+| --- | --- |
+| `const` name | `variable` with `declaration` and `readonly`. |
+| Schema name | `class` with `declaration`. |
+| Schema/class/component field | `property` with `declaration`. |
+| `args` field | `parameter` with `declaration`. |
+| Function parameter | `parameter` with `declaration`. |
+| Function-local binding | `variable` with `local`. |
+
 ## VS Code Fallback Mapping
 
 VS Code maps semantic tokens to TextMate fallback scopes in
