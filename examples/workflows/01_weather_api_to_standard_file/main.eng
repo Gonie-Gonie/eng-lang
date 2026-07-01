@@ -53,15 +53,15 @@ where {
     valid_from <= date(args.year, 1, 1)
     valid_to is none or valid_to >= date(args.year, 12, 31)
 }
-selected_station_id: String = select_first_row(stations, return_column="station_id", region=args.region, start=date(args.year, 1, 1), end=date(args.year, 12, 31))
 station = require_one candidates
 with {
     on_none = error "No station for region/year"
     on_many = error "Multiple stations for region/year"
 }
+selected_station_id: String = station.station_id
 api_response = http get args.api_url
 with {
-    station = selected_station_id
+    station = station.station_id
     year = args.year
     fixture = args.api_fixture
     expected_sha256 = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"

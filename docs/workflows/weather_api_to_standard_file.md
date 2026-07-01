@@ -18,9 +18,8 @@ What it proves:
 
 - native `http get args.api_url` with resolved selected-station query, fixture,
   pinned SHA-256, retry, timeout, and cache key
-- station-map CSV promotion and reviewable `filter`/`require_one` plus
-  `select_first_row`
-- typed hourly-weather CSV promotion and TimeSeries coverage records
+- station-map CSV promotion and reviewable `filter`/`require_one` row selection
+- typed API JSON-record table promotion and TimeSeries coverage records
 - generated `fetched_weather.json`, `standard_weather_file.txt`, and
   `weather_quality_summary.txt` through native `write text`
 - `process_results.json` has `process_count = 0`

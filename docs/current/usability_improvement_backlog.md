@@ -901,15 +901,25 @@ Status: implemented after linter quick-fix parity review.
 - Extended stdio and `ide-check` coverage so persistent LSP clients retain this
   migration path instead of depending on VS Code-only JavaScript logic.
 
+## Batch 74: Workflow 01 Native Row Selection Cleanup
+
+Status: implemented after native workflow API review.
+
+- Removed the legacy `select_first_row(...)` station lookup from workflow 01.
+- Routed the API query through the `filter` + `require_one` row object via
+  `station.station_id`, keeping `selected_station_id` only as a report-friendly
+  alias.
+- Added a `workflows-test` guard so native workflow examples cannot reintroduce
+  the legacy table helper while claiming native row selection.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
   too internal as new workflow APIs move from planned to supported.
 - Continue reviewing stdlib/module status words where docs still expose
   implementation history instead of current support scope.
-- Audit workflow helper names for readability, especially
-  `select_first_row(...)`, `check coverage`, `predict <model> using <table>`,
-  and DB write forms.
+- Audit workflow helper names for readability, especially `check coverage`,
+  `predict <model> using <table>`, and DB write forms.
 - Keep CLI errors and setting descriptions action-oriented: what happened, why
   it matters, and the next valid command.
 

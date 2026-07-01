@@ -10322,7 +10322,9 @@ fn runtime_review_json(
 ) -> String {
     let enriched_boundaries =
         enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
-    let enriched_side_effects = enrich_runtime_review_side_effects(&enriched_boundaries, artifacts);
+    let enriched_queries =
+        enrich_runtime_review_network_queries(&enriched_boundaries, runtime_data);
+    let enriched_side_effects = enrich_runtime_review_side_effects(&enriched_queries, artifacts);
     let enriched_caches = enrich_runtime_review_caches(&enriched_side_effects, cache_records);
     let runtime_fallbacks = timeseries_review_fallback_records(runtime_data);
     let enriched_review =
@@ -10565,6 +10567,73 @@ fn runtime_review_json(
     json.push_str(&model_diagnostics_json(runtime_data, process_results));
     json.push_str("\n  ]\n}\n");
     json
+}
+
+fn enrich_runtime_review_network_queries(base_review: &str, runtime_data: &RuntimeData) -> String {
+    let Ok(mut review) = serde_json::from_str::<Value>(base_review) else {
+        return base_review.to_owned();
+    };
+    let mut changed = false;
+    resolve_review_query_arrays(&mut review, runtime_data, &mut changed);
+    if !changed {
+        return base_review.to_owned();
+    }
+    serde_json::to_string_pretty(&review)
+        .map(|mut json| {
+            json.push('\n');
+            json
+        })
+        .unwrap_or_else(|_| base_review.to_owned())
+}
+
+fn resolve_review_query_arrays(value: &mut Value, runtime_data: &RuntimeData, changed: &mut bool) {
+    match value {
+        Value::Object(object) => {
+            if let Some(query) = object.get_mut("query").and_then(Value::as_array_mut) {
+                for item in query {
+                    let Some(item_object) = item.as_object_mut() else {
+                        continue;
+                    };
+                    let key = item_object
+                        .get("key")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned();
+                    let value_text = item_object
+                        .get("value")
+                        .and_then(Value::as_str)
+                        .unwrap_or("")
+                        .to_owned();
+                    let redacted = item_object
+                        .get("redacted")
+                        .and_then(Value::as_bool)
+                        .unwrap_or(false);
+                    if key.is_empty() || value_text.is_empty() {
+                        continue;
+                    }
+                    let param = eng_compiler::NetQueryParam {
+                        key,
+                        value: value_text.clone(),
+                        redacted,
+                    };
+                    let resolved = resolved_network_query_value(&param, runtime_data);
+                    if resolved != value_text {
+                        item_object.insert("value".to_owned(), Value::String(resolved));
+                        *changed = true;
+                    }
+                }
+            }
+            for child in object.values_mut() {
+                resolve_review_query_arrays(child, runtime_data, changed);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                resolve_review_query_arrays(item, runtime_data, changed);
+            }
+        }
+        _ => {}
+    }
 }
 
 fn enrich_runtime_review_boundaries(
@@ -14944,7 +15013,58 @@ fn resolved_network_query_value(
                         })
                 })
         })
+        .or_else(|| resolved_runtime_member_value(&param.value, runtime_data))
         .unwrap_or_else(|| param.value.clone())
+}
+
+fn resolved_runtime_member_value(expression: &str, runtime_data: &RuntimeData) -> Option<String> {
+    let (owner, member) = expression.trim().split_once('.')?;
+    if owner.trim().is_empty() || member.trim().is_empty() || member.contains('.') {
+        return None;
+    }
+    let transform = runtime_data.table_transforms.iter().find(|transform| {
+        transform.binding == owner.trim()
+            && transform.operation == "require_one"
+            && transform.status == "selected"
+    })?;
+    let row_index = transform.matched_row_indices.first()?.checked_sub(1)?;
+    let table = table_for_transform_source(&transform.source_table, runtime_data)?;
+    let column = table
+        .columns
+        .iter()
+        .find(|column| column.name == member.trim())?;
+    runtime_table_cell_text(column, row_index)
+}
+
+fn table_for_transform_source<'a>(
+    source_table: &str,
+    runtime_data: &'a RuntimeData,
+) -> Option<&'a RuntimeTable> {
+    if let Some(table) = runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == source_table)
+    {
+        return Some(table);
+    }
+    let source_transform = runtime_data
+        .table_transforms
+        .iter()
+        .find(|transform| transform.binding == source_table)?;
+    table_for_transform_source(&source_transform.source_table, runtime_data)
+}
+
+fn runtime_table_cell_text(
+    column: &runtime_data::RuntimeColumn,
+    row_index: usize,
+) -> Option<String> {
+    match &column.values {
+        RuntimeValues::Text(values) => values.get(row_index).cloned(),
+        RuntimeValues::Number(values) => values
+            .get(row_index)
+            .and_then(|value| *value)
+            .map(|value| format_number_with_precision(value, None)),
+    }
 }
 
 fn table_diagnostics_json(runtime_data: &RuntimeData) -> String {
@@ -15491,6 +15611,15 @@ mod tests {
         assert!(weather_output
             .result_json
             .contains("{ \"key\": \"station\", \"value\": \"STN001\", \"redacted\": false }"));
+        assert!(!weather_output.result_json.contains("station.station_id"));
+        let weather_review_json =
+            serde_json::from_str::<Value>(&weather_output.review_json).expect("weather review");
+        assert_eq!(
+            weather_review_json
+                .pointer("/net_requests/0/query/0/value")
+                .and_then(Value::as_str),
+            Some("STN001")
+        );
         assert!(weather_output
             .cache_manifest_json
             .contains("\"cache_key_parts\": [\"weather\", \"demo\", \"2024\""));

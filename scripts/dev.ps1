@@ -335,6 +335,9 @@ function Invoke-WorkflowsTest {
         if ($WorkflowSource -match "(?i)(\bpython(?:\.exe)?\b|\.py\b)") {
             throw "Native workflow source must not call Python: $Workflow"
         }
+        if ($WorkflowSource -match "(?i)\bselect_first_row\s*\(") {
+            throw "Native workflow source must use filter + require_one instead of legacy select_first_row: $Workflow"
+        }
         Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $Workflow "--save-artifacts"
         $ProcessResultsPath = Join-Path $RepoRoot "build\result\process_results.json"
         if (-not (Test-Path -LiteralPath $ProcessResultsPath)) {

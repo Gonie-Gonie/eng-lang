@@ -14,7 +14,7 @@ The workflow uses:
 eng.net       http get args.api_url with selected station query, fixture, pinned SHA-256, retry, timeout, cache key
 eng.cache     cache manifest and replayable fixture materialization from args-driven key parts
 eng.config    read/promote JSON validation from the native HTTP response body
-eng.table     station CSV promotion, JSON records table promotion, filter/require_one, and select_first_row
+eng.table     station CSV promotion, JSON records table promotion, and filter/require_one row selection
 eng.timeseries coverage review for the hourly weather time axis
 eng.artifact  write text artifacts with hashes and output manifest entries
 ```
@@ -24,7 +24,7 @@ Expected saved-run properties:
 ```text
 process_results.json has process_count = 0
 cache_manifest.json records the api_response network cache key from region/year args
-result.engres records the resolved network query station value
+result.engres records the resolved network query station value from station.station_id
 result.engres typed_payload.config_promotions validates WeatherApiPayload from api_response.body
 result.engres provenance.data_hashes records weather as source_format = json_records
 output_manifest.json records fetched_weather.json, standard_weather_file.txt,

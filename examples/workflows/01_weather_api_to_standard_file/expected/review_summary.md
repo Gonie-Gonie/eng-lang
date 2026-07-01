@@ -4,7 +4,7 @@ The saved run should show:
 
 ```text
 schema StationMap with two fixture rows
-filter/require_one/select_first_row station transform, resolved selected station_id, predicates, and row diagnostics
+filter/require_one station transform, resolved selected station_id from station.station_id, predicates, and row diagnostics
 schema WeatherApiRecord with two typed hourly records promoted from api_payload.records
 WeatherApiPayload contract validated from read json api_response.body
 generic DateTime coverage artifact with Gregorian-year expected count, missing interval, status, and max gap

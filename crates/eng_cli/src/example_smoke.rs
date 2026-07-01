@@ -6406,6 +6406,9 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .cache_manifest_json
                     .contains("\"owner_name\": \"api_response\"")
+                || output
+                    .result_json
+                    .contains("{ \"key\": \"station\", \"value\": \"station.station_id\"")
                 || !output.process_results_json.contains("\"process_count\": 0")
                 || !output
                     .output_manifest_json
