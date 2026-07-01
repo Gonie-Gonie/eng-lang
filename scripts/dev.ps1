@@ -1822,11 +1822,51 @@ function Invoke-IdeCheck {
 
     $TauriConfigPath = Join-Path $RepoRoot "crates\eng_ide\tauri.conf.json"
     $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
+    $TauriUiAppPath = Join-Path $RepoRoot "crates\eng_ide\ui\app.js"
+    $TauriUiStylesPath = Join-Path $RepoRoot "crates\eng_ide\ui\styles.css"
     if (-not (Test-Path $TauriConfigPath)) {
         throw "missing Tauri IDE config at $TauriConfigPath"
     }
     if (-not (Test-Path $TauriUiIndexPath)) {
         throw "missing Tauri IDE static frontend at $TauriUiIndexPath"
+    }
+    if (-not (Test-Path $TauriUiAppPath)) {
+        throw "missing Tauri IDE frontend script at $TauriUiAppPath"
+    }
+    if (-not (Test-Path $TauriUiStylesPath)) {
+        throw "missing Tauri IDE frontend styles at $TauriUiStylesPath"
+    }
+    $IdeUiSource = Get-Content -LiteralPath $TauriUiAppPath -Raw
+    foreach ($RequiredIdeToken in @(
+        "runHistory",
+        "recordRunHistory",
+        "renderRunHistory",
+        "RUN_HISTORY_STORAGE_PREFIX",
+        "data-open-file-path",
+        "data-open-path",
+        "ide_open_path",
+        "Timestamp",
+        "Artifact Root"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
+            throw "Native IDE UI missing run history token $RequiredIdeToken"
+        }
+    }
+    $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked")) {
+        if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
+            throw "Native IDE UI missing run history style $RequiredIdeStyle"
+        }
+    }
+    $Node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -ne $Node) {
+        try {
+            Invoke-Native $Node.Source "--check" $TauriUiAppPath
+        } catch {
+            Write-Host "Node found but not executable; skipped IDE app.js syntax check. $($_.Exception.Message)"
+        }
+    } else {
+        Write-Host "Node not found; skipped IDE app.js syntax check."
     }
     Invoke-Native $cargo "check" "-p" "eng_ide"
     Invoke-Native $cargo "run" "-p" "eng_ide" "--" "--smoke"

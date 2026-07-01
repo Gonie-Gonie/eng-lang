@@ -588,6 +588,21 @@ fn ide_open_artifact(kind: String, state: State<'_, IdeState>) -> Result<String,
     Ok(relative)
 }
 
+#[tauri::command]
+fn ide_open_path(path: String) -> Result<String, String> {
+    let root = workspace_root();
+    let path = resolve_path(&root, &path);
+    if !path.exists() {
+        return Err(format!(
+            "Path does not exist: {}",
+            relative_to(&root, &path)
+        ));
+    }
+    let relative = relative_to(&root, &path);
+    open_path(&path);
+    Ok(relative)
+}
+
 impl RunView {
     fn message(text: impl Into<String>) -> Self {
         Self {
@@ -627,6 +642,7 @@ fn main() {
             ide_check,
             ide_run,
             ide_terminal,
+            ide_open_path,
             ide_open_artifact
         ])
         .run(tauri::generate_context!())

@@ -715,6 +715,52 @@ button:hover {
   padding: 0 10px 10px;
 }
 
+.run-history {
+  border-top: 1px solid var(--border);
+}
+
+.run-history-table th,
+.run-history-table td {
+  min-width: 82px;
+}
+
+.run-history-table th:first-child,
+.run-history-table td:first-child {
+  min-width: 118px;
+}
+
+.run-history-table code {
+  font-size: 11px;
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  border-radius: 3px;
+  padding: 2px 6px;
+  background: #eef2f7;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.status-pill.completed {
+  background: #e9f7ef;
+  color: var(--ok);
+}
+
+.status-pill.blocked {
+  background: #fff1f1;
+  color: var(--error);
+}
+
+.status-pill.checked {
+  background: #fff8e8;
+  color: var(--warning);
+}
+
 .workflow-graph {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));

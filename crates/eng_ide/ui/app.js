@@ -1,5 +1,7 @@
 const invoke = window.__TAURI__?.core?.invoke;
 const listen = window.__TAURI__?.event?.listen;
+const RUN_HISTORY_LIMIT = 40;
+const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
 
 const state = {
   root: "",
@@ -22,6 +24,7 @@ const state = {
   reportTitle: "",
   inspectors: emptyInspectors(),
   profile: "normal",
+  runHistory: [],
   terminalEntries: [{ kind: "info", text: "Ready." }],
   terminalCommands: [],
   terminalHistoryIndex: null,
@@ -86,6 +89,7 @@ async function boot() {
     state.fileTree = data.fileTree;
     state.completions = data.completions ?? [];
     state.modules = data.modules ?? [];
+    state.runHistory = loadRunHistory(data.root);
     state.currentPath = data.current.path;
     state.runDir = data.currentDir || directoryOf(data.current.path);
     state.source = data.current.source;
@@ -331,6 +335,12 @@ function bind() {
   document.querySelectorAll("[data-open-artifact-kind]").forEach((button) => {
     button.onclick = () => openArtifact(button.dataset.openArtifactKind);
   });
+  document.querySelectorAll("[data-open-file-path]").forEach((button) => {
+    button.onclick = () => openFile(button.dataset.openFilePath);
+  });
+  document.querySelectorAll("[data-open-path]").forEach((button) => {
+    button.onclick = () => openWorkspacePath(button.dataset.openPath);
+  });
   document.querySelectorAll("[data-source-line]").forEach((button) => {
     button.onclick = () => selectSourceLine(Number(button.dataset.sourceLine || 0));
   });
@@ -436,7 +446,7 @@ async function runCurrent() {
     appendTerminal("command", `${terminalPrompt()}run ${fileName(state.currentPath)}`);
     const result = await call("ide_run", { path: state.currentPath, source: state.source, profile: state.profile });
     applyRun(result, { mergeRuntime: false });
-    appendRunResult(result);
+    appendRunResult(result, runHistoryContext("run"));
     state.status = result.ok ? "Run complete" : "Run blocked";
     state.bottomTab = "terminal";
     state.dirty = false;
@@ -485,7 +495,7 @@ async function sendTerminalCommand(command) {
       profile: state.profile
     });
     applyRun(result, { mergeRuntime: command.toLowerCase() !== "run" });
-    appendRunResult(result);
+    appendRunResult(result, runHistoryContext(command));
     state.status = result.ok ? "Terminal command complete" : "Terminal diagnostics";
   } catch (error) {
     appendTerminal("error", String(error));
@@ -500,6 +510,19 @@ async function openArtifact(kind) {
     const opened = await call("ide_open_artifact", { kind });
     appendTerminal("info", `Opened ${opened}`);
     state.status = `Opened ${kind}`;
+    render();
+  } catch (error) {
+    state.status = String(error);
+    appendTerminal("error", String(error));
+    render();
+  }
+}
+
+async function openWorkspacePath(path) {
+  try {
+    const opened = await call("ide_open_path", { path });
+    appendTerminal("info", `Opened ${opened}`);
+    state.status = `Opened ${opened}`;
     render();
   } catch (error) {
     state.status = String(error);
@@ -525,10 +548,83 @@ function applyRun(result, options = {}) {
   }
 }
 
-function appendRunResult(result) {
+function appendRunResult(result, context = {}) {
   const text = (result.terminal || "").trim();
   if (text) appendTerminal(result.ok ? "stdout" : "error", text);
   if (!result.ok) state.bottomTab = "problems";
+  recordRunHistory(result, context);
+}
+
+function runHistoryContext(command) {
+  return {
+    command,
+    profile: state.profile,
+    sourcePath: state.currentPath,
+    runDir: state.runDir
+  };
+}
+
+function recordRunHistory(result, context = {}) {
+  const artifactRoot = artifactRootForRun(result) || context.runDir || state.runDir || ".";
+  const artifactKinds = (result.artifacts ?? [])
+    .map((artifact) => artifact.kind)
+    .filter(Boolean)
+    .slice(0, 8);
+  const entry = {
+    timestamp: new Date().toLocaleString(),
+    command: context.command || "run",
+    profile: context.profile || state.profile || "normal",
+    status: runHistoryStatus(result),
+    sourcePath: context.sourcePath || state.currentPath || "-",
+    artifactRoot,
+    reportTitle: result.reportTitle || state.reportTitle || "",
+    artifactKinds
+  };
+  state.runHistory.unshift(entry);
+  if (state.runHistory.length > RUN_HISTORY_LIMIT) {
+    state.runHistory.splice(RUN_HISTORY_LIMIT);
+  }
+  saveRunHistory();
+}
+
+function runHistoryStatus(result) {
+  if (!result.ok) return "blocked";
+  if (result.runtimeUpdated) return "completed";
+  return "checked";
+}
+
+function artifactRootForRun(result) {
+  const artifacts = result.artifacts ?? [];
+  const preferred = artifacts.find((artifact) => artifact.kind === "output_manifest")
+    || artifacts.find((artifact) => artifact.kind === "report")
+    || artifacts[0];
+  return preferred?.path ? directoryOf(preferred.path) : "";
+}
+
+function loadRunHistory(root) {
+  try {
+    const raw = window.localStorage?.getItem(runHistoryStorageKey(root));
+    const rows = raw ? JSON.parse(raw) : [];
+    return Array.isArray(rows) ? rows.slice(0, RUN_HISTORY_LIMIT) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveRunHistory() {
+  if (!state.root) return;
+  try {
+    window.localStorage?.setItem(
+      runHistoryStorageKey(state.root),
+      JSON.stringify(state.runHistory.slice(0, RUN_HISTORY_LIMIT))
+    );
+  } catch {
+    // History is a convenience feature; storage errors should not block editing.
+  }
+}
+
+function runHistoryStorageKey(root) {
+  return `${RUN_HISTORY_STORAGE_PREFIX}${normalizePath(root || "workspace")}`;
 }
 
 function appendTerminal(kind, text) {
@@ -788,6 +884,39 @@ function renderRunPanel() {
       <button data-open-artifact-kind="report">Open Report</button>
       <button data-open-artifact-kind="output_folder">Open Output</button>
     </div>
+    <div class="panel-title compact">Run History</div>
+    <div class="scroll run-history">${renderRunHistory()}</div>
+  `;
+}
+
+function renderRunHistory() {
+  if (!state.runHistory.length) {
+    return `<div class="empty-state">Run a file to build execution history.</div>`;
+  }
+  return `
+    <table class="artifact-table run-history-table">
+      <thead><tr><th>Timestamp</th><th>Profile</th><th>Status</th><th>Source</th><th>Artifact Root</th></tr></thead>
+      <tbody>
+        ${state.runHistory.map((entry) => `
+          <tr>
+            <td>${escapeHtml(entry.timestamp || "-")}<div class="muted">${escapeHtml(compactText(entry.command || "run", 42))}</div></td>
+            <td><code>${escapeHtml(entry.profile || "-")}</code></td>
+            <td><span class="status-pill ${escapeAttr(entry.status || "")}">${escapeHtml(entry.status || "-")}</span></td>
+            <td>
+              <button class="link-button" data-open-file-path="${escapeAttr(entry.sourcePath || "-")}">
+                <code title="${escapeAttr(entry.sourcePath || "-")}">${escapeHtml(compactPath(entry.sourcePath || "-"))}</code>
+              </button>
+            </td>
+            <td>
+              <button class="link-button" data-open-path="${escapeAttr(entry.artifactRoot || "-")}">
+                <code title="${escapeAttr(entry.artifactRoot || "-")}">${escapeHtml(compactPath(entry.artifactRoot || "-"))}</code>
+              </button>
+              ${entry.reportTitle ? `<div class="muted">${escapeHtml(compactText(entry.reportTitle, 56))}</div>` : ""}
+            </td>
+          </tr>
+        `).join("")}
+      </tbody>
+    </table>
   `;
 }
 
