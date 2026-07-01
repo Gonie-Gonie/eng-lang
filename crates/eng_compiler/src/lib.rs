@@ -9837,6 +9837,25 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_invalid_write_text_interpolation() {
+        let report = check_source(
+            "bad.eng",
+            "Q = 10 kW\nwrite text \"summary.txt\", \"Q={Q: .2 m} missing={missing_value}\"\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WRITE-FMT-003"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WRITE-FMT-004"));
+    }
+
+    #[test]
     fn rejects_invalid_log_levels() {
         let report = check_source(
             "bad.eng",

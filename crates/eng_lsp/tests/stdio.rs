@@ -1151,6 +1151,46 @@ fn snapshot_stdin_reads_unsaved_source() {
 }
 
 #[test]
+fn snapshot_stdin_reports_write_text_interpolation_diagnostics() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source = "Q = 2 kW\nwrite text \"summary.txt\", \"Q={Q: .2 m} missing={missing_value}\"\n";
+    let mut child = Command::new(server)
+        .arg("--snapshot-stdin")
+        .arg("unsaved_write_text.eng")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp snapshot-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("snapshot-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "snapshot-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let snapshot: Value =
+        serde_json::from_slice(&output.stdout).expect("snapshot stdout should be JSON");
+    let diagnostics = snapshot["diagnostics"]
+        .as_array()
+        .expect("diagnostics should be an array");
+    assert!(diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "E-WRITE-FMT-003"));
+    assert!(diagnostics
+        .iter()
+        .any(|diagnostic| diagnostic["code"] == "E-WRITE-FMT-004"));
+}
+
+#[test]
 fn format_stdin_formats_unsaved_source() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source = "report {\nplot Q over Time\nwith {\ntitle = \"Q\"\n}\n}\n";

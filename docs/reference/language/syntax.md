@@ -1721,6 +1721,8 @@ generation.
 | `E-EXPORT-CSV-003` | CSV export expression cannot be resolved | Bind/export a supported scalar |
 | `E-EXPORT-CSV-004` | CSV export requested incompatible unit | Fix the export unit |
 | `E-WRITE-003` | Write expression cannot be resolved | Bind/write a supported expression |
+| `E-WRITE-FMT-003` | `write text` interpolation requested incompatible unit | Fix the interpolation unit |
+| `E-WRITE-FMT-004` | `write text` interpolation expression cannot be resolved | Bind the value or fix the placeholder |
 | `E-FS-CONFIRM-001` | Move/delete missing confirmation | Add `with { confirm = true }` |
 | `E-FS-DELETE-001` | Directory delete missing recursive option | Add `recursive = true` and `confirm = true` |
 | `E-PROCESS-BINDING-001` | `run command` has no binding | Write `result = run command "tool"` |

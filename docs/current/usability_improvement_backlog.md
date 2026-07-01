@@ -1179,6 +1179,17 @@ Status: implemented after syntax-highlighting TODO review.
   `run command` usage and that `eng test examples` enforces this through the
   native workflow source scan.
 
+## Batch 98: Write Text Interpolation Diagnostics
+
+Status: implemented after string-interpolation TODO review.
+
+- Added compiler/LSP diagnostics for invalid `write text` string interpolation
+  placeholders, matching the existing `print`/`log` semantic checks.
+- Split the user-facing codes as `E-WRITE-FMT-*` so text-output interpolation
+  errors are not reported as print-format errors.
+- Added compiler regression coverage for unresolved placeholders and
+  incompatible requested units in `write text` templates.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

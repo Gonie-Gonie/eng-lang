@@ -3288,6 +3288,7 @@ fn analyze_print_decl(
         print.line,
         typed_bindings,
         functions,
+        PRINT_FORMAT_DIAGNOSTICS,
         diagnostics,
     );
     prints.push(PrintInfo {
@@ -3391,6 +3392,18 @@ fn analyze_write_decl(
         ));
         return None;
     }
+    if write.format == "text" {
+        if let Some(template) = string_literal_content(&write.expression) {
+            analyze_format_fields(
+                template,
+                write.line,
+                typed_bindings,
+                functions,
+                WRITE_TEXT_FORMAT_DIAGNOSTICS,
+                diagnostics,
+            );
+        }
+    }
     let semantic_type = resolve_write_expression_type(&write.expression, typed_bindings, functions)
         .or_else(|| {
             diagnostics.push(unknown_format_expression_diagnostic(
@@ -3408,6 +3421,13 @@ fn analyze_write_decl(
         display_unit: semantic_type.display_unit,
         line: write.line,
     })
+}
+
+fn string_literal_content(expression: &str) -> Option<&str> {
+    expression
+        .trim()
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
 }
 
 fn analyze_db_write_decl(
@@ -5409,6 +5429,7 @@ fn analyze_format_fields(
     line: usize,
     typed_bindings: &[TypedBinding],
     functions: &[FunctionInfo],
+    context: FormatDiagnosticContext,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> Vec<FormatExpressionInfo> {
     let mut fields = Vec::new();
@@ -5417,9 +5438,12 @@ fn analyze_format_fields(
         let start = cursor + open;
         let Some(close_offset) = template[start + 1..].find('}') else {
             diagnostics.push(Diagnostic::error(
-                "E-PRINT-FMT-001",
+                context.unterminated_code,
                 line,
-                "Print template has an unterminated `{...}` interpolation.",
+                &format!(
+                    "{} has an unterminated `{{...}}` interpolation.",
+                    context.template_label
+                ),
                 Some("Close the interpolation with `}`."),
             ));
             break;
@@ -5428,9 +5452,9 @@ fn analyze_format_fields(
         let inside = template[start + 1..close].trim();
         if inside.is_empty() {
             diagnostics.push(Diagnostic::error(
-                "E-PRINT-FMT-002",
+                context.empty_code,
                 line,
-                "Print interpolation is empty.",
+                &format!("{} is empty.", context.interpolation_label),
                 Some("Put an expression inside `{...}`."),
             ));
             cursor = close + 1;
@@ -5447,7 +5471,7 @@ fn analyze_format_fields(
                     &semantic_type.quantity_kind,
                     unit,
                     line,
-                    "E-PRINT-FMT-003",
+                    context.unit_code,
                     diagnostics,
                 );
             }
@@ -5463,13 +5487,41 @@ fn analyze_format_fields(
             diagnostics.push(unknown_format_expression_diagnostic(
                 expression,
                 line,
-                "E-PRINT-FMT-004",
+                context.unknown_code,
             ));
         }
         cursor = close + 1;
     }
     fields
 }
+
+#[derive(Clone, Copy)]
+struct FormatDiagnosticContext {
+    template_label: &'static str,
+    interpolation_label: &'static str,
+    unterminated_code: &'static str,
+    empty_code: &'static str,
+    unit_code: &'static str,
+    unknown_code: &'static str,
+}
+
+const PRINT_FORMAT_DIAGNOSTICS: FormatDiagnosticContext = FormatDiagnosticContext {
+    template_label: "Print template",
+    interpolation_label: "Print interpolation",
+    unterminated_code: "E-PRINT-FMT-001",
+    empty_code: "E-PRINT-FMT-002",
+    unit_code: "E-PRINT-FMT-003",
+    unknown_code: "E-PRINT-FMT-004",
+};
+
+const WRITE_TEXT_FORMAT_DIAGNOSTICS: FormatDiagnosticContext = FormatDiagnosticContext {
+    template_label: "Text write template",
+    interpolation_label: "Text write interpolation",
+    unterminated_code: "E-WRITE-FMT-001",
+    empty_code: "E-WRITE-FMT-002",
+    unit_code: "E-WRITE-FMT-003",
+    unknown_code: "E-WRITE-FMT-004",
+};
 
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 struct ParsedFormatSpec {
