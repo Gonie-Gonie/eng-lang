@@ -1840,6 +1840,9 @@ class EngCodeActionProvider {
           actions.push(action);
         }
       }
+      if (code === "W-QTY-AMBIG-001") {
+        actions.push(...quantityAnnotationActions(document, diagnostic));
+      }
     }
     return actions;
   }
@@ -1867,6 +1870,60 @@ function replacementAction(document, diagnostic, search, replacement, title) {
     replacement
   );
   return action;
+}
+
+function quantityAnnotationActions(document, diagnostic) {
+  const details = ambiguousQuantityDetails(diagnostic.message);
+  if (!details) {
+    return [];
+  }
+
+  const line = document.lineAt(diagnostic.range.start.line);
+  const assignment = new RegExp(`^(\\s*)(${escapeRegExp(details.name)})(\\s*=)`).exec(line.text);
+  if (!assignment) {
+    return [];
+  }
+
+  const startCharacter = assignment[1].length;
+  const endCharacter = startCharacter + assignment[2].length + assignment[3].length;
+  return details.candidates.map((candidate) => {
+    const action = new vscode.CodeAction(
+      `Annotate ${details.name} as ${candidate} [${details.unit}]`,
+      vscode.CodeActionKind.QuickFix
+    );
+    action.diagnostics = [diagnostic];
+    action.edit = new vscode.WorkspaceEdit();
+    action.edit.replace(
+      document.uri,
+      new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, endCharacter),
+      `${details.name}: ${candidate} [${details.unit}] =`
+    );
+    return action;
+  });
+}
+
+function ambiguousQuantityDetails(message) {
+  const header = /`([^`]+)` has unit ([^,\s]+), but quantity kind is ambiguous\./.exec(message);
+  const candidates = /Candidate quantity kinds:\s*([^.]+)\./.exec(message);
+  if (!header || !candidates) {
+    return undefined;
+  }
+  const candidateList = candidates[1]
+    .split(",")
+    .map((candidate) => candidate.trim())
+    .filter((candidate) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(candidate));
+  if (candidateList.length === 0) {
+    return undefined;
+  }
+  return {
+    name: header[1],
+    unit: header[2],
+    candidates: candidateList
+  };
+}
+
+function escapeRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function removeScriptWrapperAction(document, diagnostic) {

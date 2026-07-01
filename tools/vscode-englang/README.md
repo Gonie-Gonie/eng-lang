@@ -21,8 +21,8 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - hover from compiler review metadata
 - position-aware completion from `eng-lsp --completion-stdin`
 - snippets from `snippets/eng.json`
-- quick fixes for `:=`, stale `struct Args`, and removable `script` wrapper
-  migration diagnostics
+- quick fixes for `:=`, stale `struct Args`, removable `script` wrapper
+  migration diagnostics, and ambiguous unit-to-quantity annotations
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open the current file review
   JSON, open the latest generated report, and inspect review/run artifacts such

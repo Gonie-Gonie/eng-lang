@@ -287,6 +287,17 @@ Status: implemented after snippet wording review.
 - Updated the locally installed VS Code extension snippet file so completions
   use the same wording after reload.
 
+## Batch 25: VS Code Ambiguous Quantity Quick Fix
+
+Status: implemented after VS Code linter review.
+
+- Added quick fixes for `W-QTY-AMBIG-001` diagnostics.
+- Each candidate quantity kind gets its own action, so the editor does not pick
+  a physical meaning for the user.
+- The quick fix rewrites `name = ...` to `name: QuantityKind [unit] = ...`
+  only when the warning line has the expected simple binding shape.
+- Extended `ide-check` contract coverage for the quantity quick-fix provider.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
