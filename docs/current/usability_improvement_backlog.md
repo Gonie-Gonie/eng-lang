@@ -17,6 +17,18 @@ Status: implemented in the first cleanup batch.
 - Add `ide-check` contract coverage for important grammar tokens so keyword
   highlighting does not silently regress.
 
+## Batch 2: Completion Vocabulary Parity
+
+Status: implemented in the third cleanup batch.
+
+- Align LSP snapshot completion with the public workflow vocabulary used by the
+  VS Code grammar and fallback completion provider.
+- Add LSP and native IDE completion entries for public path/config/data/model/DB
+  types, workflow option keys, and common TimeSeries/domain built-ins.
+- Extend LSP tests so key workflow tokens such as `render`, `open`,
+  `expected_outputs`, `cache_key`, `predict`, and public file/path types stay in
+  the completion surface.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

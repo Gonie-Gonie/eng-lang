@@ -818,19 +818,195 @@ fn check_view_from_report(report: &CheckReport) -> CheckView {
     }
 }
 
+const BASE_COMPLETION_KEYWORDS: &[&str] = &[
+    "across",
+    "and",
+    "append",
+    "args",
+    "as",
+    "assert",
+    "bar",
+    "between",
+    "by",
+    "check",
+    "class",
+    "command",
+    "component",
+    "connect",
+    "const",
+    "constraints",
+    "conservation",
+    "copy",
+    "coverage",
+    "csv",
+    "delete",
+    "derive",
+    "der",
+    "domain",
+    "eq",
+    "equation",
+    "evaluate",
+    "export",
+    "false",
+    "filter",
+    "fn",
+    "from",
+    "golden",
+    "grid",
+    "histogram",
+    "if",
+    "import",
+    "in",
+    "input",
+    "insert",
+    "integrate",
+    "interpolate",
+    "into",
+    "is",
+    "json",
+    "leakage_lint",
+    "lhs",
+    "line",
+    "log",
+    "matches",
+    "method",
+    "missing",
+    "mlp",
+    "mode",
+    "model_card",
+    "monotonic",
+    "move",
+    "none",
+    "not",
+    "null",
+    "open",
+    "or",
+    "over",
+    "package",
+    "parameter",
+    "plot",
+    "policy",
+    "port",
+    "predict",
+    "print",
+    "promote",
+    "random",
+    "read",
+    "regression",
+    "render",
+    "report",
+    "return",
+    "run",
+    "sample",
+    "schema",
+    "script",
+    "select",
+    "select_first_row",
+    "show",
+    "sort",
+    "sqlite",
+    "state",
+    "struct",
+    "system",
+    "template",
+    "test",
+    "text",
+    "through",
+    "to",
+    "toml",
+    "train_test_split",
+    "true",
+    "uniform",
+    "upsert",
+    "use",
+    "using",
+    "validate",
+    "version",
+    "where",
+    "with",
+    "within",
+    "write",
+];
+
+const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
+    ("Bool", "Boolean value"),
+    ("CsvFile", "CSV file path"),
+    ("Date", "Calendar date"),
+    ("DateTime", "Timestamp value"),
+    ("DbConnection", "SQLite connection handle"),
+    ("DbTableRef", "SQLite table reference"),
+    ("DirectoryPath", "Directory path"),
+    ("Duration", "Time duration"),
+    ("FilePath", "Generic file path"),
+    ("Float", "Floating-point value"),
+    ("Int", "Integer value"),
+    ("JsonFile", "JSON file path"),
+    ("ModelArtifact", "Trained model artifact"),
+    ("ModelCard", "Model-card review artifact"),
+    ("Number", "Dimensionless numeric value"),
+    ("Optional[T]", "Optional value"),
+    ("Path", "Filesystem path"),
+    ("Prediction", "Prediction table row"),
+    ("ProcessResult", "External command result metadata"),
+    ("Report", "Report artifact request metadata"),
+    ("Secret[String]", "Redacted string value"),
+    ("String", "String value"),
+    ("Table[T]", "Typed table value"),
+    ("TextFile", "UTF-8 text file path"),
+    ("TimeSeries[Time]", "Time-indexed series value"),
+    ("TimeSeries[T]", "Typed time-indexed series value"),
+    ("TomlFile", "TOML file path"),
+    ("Url", "HTTP or HTTPS URL"),
+];
+
+const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
+    ("coverage", "eng.timeseries coverage check"),
+    ("duration_above", "TimeSeries threshold duration"),
+    ("max", "TimeSeries maximum"),
+    ("mean", "TimeSeries mean"),
+    ("median", "TimeSeries median"),
+    ("min", "TimeSeries minimum"),
+    ("normal", "normal distribution sampling helper"),
+    ("std", "TimeSeries standard deviation"),
+    ("sum", "domain conservation sum"),
+];
+
+const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
+    ("algorithm", "model training option"),
+    ("allow_failure", "external command failure policy"),
+    ("artifact_kind", "expected artifact kind"),
+    ("cache", "cache behavior option"),
+    ("cache_key", "cache identity option"),
+    ("count", "sample count option"),
+    ("cwd", "external command working directory"),
+    ("env", "external command environment"),
+    ("expected_outputs", "declared process outputs"),
+    ("features", "model feature columns"),
+    ("hidden", "MLP hidden layer option"),
+    ("method", "fill or transform method"),
+    ("recursive", "filesystem recursion option"),
+    ("retry", "external command retry policy"),
+    ("return_column", "projection return column"),
+    ("seed", "deterministic sampling seed"),
+    ("status", "case or validation status"),
+    ("target", "model target column"),
+    ("timeout", "external command timeout"),
+    ("tool_version", "external tool version"),
+];
+
 fn base_completion_items() -> Vec<CompletionView> {
     let mut items = Vec::new();
-    for keyword in [
-        "args", "class", "const", "export", "fn", "if", "import", "log", "method", "plot", "print",
-        "promote", "read", "report", "return", "schema", "system", "test", "validate", "where",
-        "with", "write",
-    ] {
-        items.push(CompletionView {
-            label: keyword.to_owned(),
-            insert: keyword.to_owned(),
-            detail: "keyword".to_owned(),
-            kind: "keyword".to_owned(),
-        });
+    for keyword in BASE_COMPLETION_KEYWORDS.iter().copied() {
+        push_base_completion(&mut items, keyword, keyword, "keyword", "keyword");
+    }
+    for (type_name, detail) in PUBLIC_TYPE_COMPLETIONS.iter().copied() {
+        push_base_completion(&mut items, type_name, type_name, detail, "type");
+    }
+    for (label, detail) in WORKFLOW_BUILTIN_COMPLETIONS.iter().copied() {
+        push_base_completion(&mut items, label, label, detail, "function");
+    }
+    for (label, detail) in WORKFLOW_OPTION_COMPLETIONS.iter().copied() {
+        push_base_completion(&mut items, label, label, detail, "property");
     }
     for snippet in [
         (
@@ -951,6 +1127,24 @@ fn base_completion_items() -> Vec<CompletionView> {
         });
     }
     items
+}
+
+fn push_base_completion(
+    items: &mut Vec<CompletionView>,
+    label: &str,
+    insert: &str,
+    detail: &str,
+    kind: &str,
+) {
+    if items.iter().any(|item| item.label == label) {
+        return;
+    }
+    items.push(CompletionView {
+        label: label.to_owned(),
+        insert: insert.to_owned(),
+        detail: detail.to_owned(),
+        kind: kind.to_owned(),
+    });
 }
 
 fn module_symbol_completion(module_name: &str, symbol: &str) -> CompletionView {

@@ -43,6 +43,182 @@ pub struct LspHover {
     pub status: Option<String>,
 }
 
+const COMPLETION_KEYWORDS: &[&str] = &[
+    "across",
+    "and",
+    "append",
+    "args",
+    "as",
+    "assert",
+    "bar",
+    "between",
+    "by",
+    "check",
+    "class",
+    "command",
+    "component",
+    "connect",
+    "const",
+    "constraints",
+    "conservation",
+    "copy",
+    "coverage",
+    "csv",
+    "delete",
+    "derive",
+    "der",
+    "domain",
+    "eq",
+    "equation",
+    "evaluate",
+    "export",
+    "false",
+    "filter",
+    "fn",
+    "from",
+    "golden",
+    "grid",
+    "histogram",
+    "if",
+    "import",
+    "input",
+    "insert",
+    "integrate",
+    "interpolate",
+    "in",
+    "into",
+    "is",
+    "json",
+    "leakage_lint",
+    "lhs",
+    "line",
+    "log",
+    "matches",
+    "method",
+    "missing",
+    "mlp",
+    "mode",
+    "model_card",
+    "monotonic",
+    "move",
+    "not",
+    "none",
+    "null",
+    "open",
+    "or",
+    "over",
+    "package",
+    "parameter",
+    "plot",
+    "policy",
+    "port",
+    "predict",
+    "print",
+    "promote",
+    "random",
+    "read",
+    "regression",
+    "render",
+    "report",
+    "return",
+    "run",
+    "sample",
+    "schema",
+    "script",
+    "select",
+    "select_first_row",
+    "show",
+    "sort",
+    "sqlite",
+    "state",
+    "struct",
+    "system",
+    "template",
+    "test",
+    "text",
+    "through",
+    "to",
+    "toml",
+    "train_test_split",
+    "true",
+    "uniform",
+    "upsert",
+    "use",
+    "using",
+    "validate",
+    "version",
+    "where",
+    "with",
+    "within",
+    "write",
+];
+
+const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
+    ("Bool", "Boolean value"),
+    ("CsvFile", "CSV file path"),
+    ("Date", "Calendar date"),
+    ("DateTime", "Timestamp value"),
+    ("DbConnection", "SQLite connection handle"),
+    ("DbTableRef", "SQLite table reference"),
+    ("DirectoryPath", "Directory path"),
+    ("Duration", "Time duration"),
+    ("FilePath", "Generic file path"),
+    ("Float", "Floating-point value"),
+    ("Int", "Integer value"),
+    ("JsonFile", "JSON file path"),
+    ("ModelArtifact", "Trained model artifact"),
+    ("ModelCard", "Model-card review artifact"),
+    ("Number", "Dimensionless numeric value"),
+    ("Optional[T]", "Optional value"),
+    ("Path", "Filesystem path"),
+    ("Prediction", "Prediction table row"),
+    ("ProcessResult", "External command result metadata"),
+    ("Report", "Report artifact request metadata"),
+    ("Secret[String]", "Redacted string value"),
+    ("String", "String value"),
+    ("Table[T]", "Typed table value"),
+    ("TextFile", "UTF-8 text file path"),
+    ("TimeSeries[Time]", "Time-indexed series value"),
+    ("TimeSeries[T]", "Typed time-indexed series value"),
+    ("TomlFile", "TOML file path"),
+    ("Url", "HTTP or HTTPS URL"),
+];
+
+const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
+    ("coverage", "eng.timeseries coverage check"),
+    ("duration_above", "TimeSeries threshold duration"),
+    ("max", "TimeSeries maximum"),
+    ("mean", "TimeSeries mean"),
+    ("median", "TimeSeries median"),
+    ("min", "TimeSeries minimum"),
+    ("normal", "normal distribution sampling helper"),
+    ("std", "TimeSeries standard deviation"),
+    ("sum", "domain conservation sum"),
+];
+
+const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
+    ("algorithm", "model training option"),
+    ("allow_failure", "external command failure policy"),
+    ("artifact_kind", "expected artifact kind"),
+    ("cache", "cache behavior option"),
+    ("cache_key", "cache identity option"),
+    ("count", "sample count option"),
+    ("cwd", "external command working directory"),
+    ("env", "external command environment"),
+    ("expected_outputs", "declared process outputs"),
+    ("features", "model feature columns"),
+    ("hidden", "MLP hidden layer option"),
+    ("method", "fill or transform method"),
+    ("recursive", "filesystem recursion option"),
+    ("retry", "external command retry policy"),
+    ("return_column", "projection return column"),
+    ("seed", "deterministic sampling seed"),
+    ("status", "case or validation status"),
+    ("target", "model target column"),
+    ("timeout", "external command timeout"),
+    ("tool_version", "external tool version"),
+];
+
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
     let report = check_file(path, &CheckOptions::default())?;
     Ok(snapshot_from_report(&report))
@@ -451,39 +627,20 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     let mut seen = BTreeSet::new();
     let mut items = Vec::new();
 
-    for keyword in [
-        "schema",
-        "script",
-        "struct",
-        "system",
-        "domain",
-        "across",
-        "through",
-        "conservation",
-        "component",
-        "class",
-        "method",
-        "validate",
-        "port",
-        "connect",
-        "package",
-        "version",
-        "state",
-        "parameter",
-        "input",
-        "equation",
-        "promote",
-        "return",
-        "plot",
-        "integrate",
-        "train_test_split",
-        "regression",
-        "mlp",
-        "evaluate",
-        "model_card",
-        "leakage_lint",
-    ] {
+    for keyword in COMPLETION_KEYWORDS.iter().copied() {
         push_completion(&mut items, &mut seen, keyword, "keyword", "EngLang keyword");
+    }
+
+    for (type_name, detail) in PUBLIC_TYPE_COMPLETIONS.iter().copied() {
+        push_completion(&mut items, &mut seen, type_name, "class", detail);
+    }
+
+    for (label, detail) in WORKFLOW_BUILTIN_COMPLETIONS.iter().copied() {
+        push_completion(&mut items, &mut seen, label, "function", detail);
+    }
+
+    for (label, detail) in WORKFLOW_OPTION_COMPLETIONS.iter().copied() {
+        push_completion(&mut items, &mut seen, label, "property", detail);
     }
 
     for module in bundled_module_registry()
@@ -928,7 +1085,9 @@ fn completion_kind(kind: &str) -> u8 {
         "class" => 7,
         "function" => 3,
         "method" => 2,
-        "unit" => 3,
+        "stdlib" => 9,
+        "unit" => 11,
+        "value" => 12,
         _ => 1,
     }
 }
@@ -1207,6 +1366,35 @@ mod tests {
             .completions
             .iter()
             .any(|completion| completion.label == "eng.process"));
+        for required in [
+            "CsvFile",
+            "DirectoryPath",
+            "JsonFile",
+            "TimeSeries[Time]",
+            "ProcessResult",
+            "render",
+            "template",
+            "open",
+            "sqlite",
+            "predict",
+            "check",
+            "coverage",
+            "expected_outputs",
+            "artifact_kind",
+            "allow_failure",
+            "cache_key",
+            "mean",
+            "min",
+            "sum",
+        ] {
+            assert!(
+                snapshot
+                    .completions
+                    .iter()
+                    .any(|completion| completion.label == required),
+                "LSP completion should include {required}"
+            );
+        }
         assert!(snapshot.completions.iter().any(|completion| {
             completion.label == "eng.net" && completion.detail.contains("supported_seed")
         }));
@@ -1217,6 +1405,13 @@ mod tests {
         let json = snapshot_json(&snapshot);
         assert_eq!(json["format"], LSP_SNAPSHOT_FORMAT);
         assert!(!json["diagnostics"].as_array().unwrap().is_empty());
+        let completion_json = json["completions"].as_array().unwrap();
+        assert!(completion_json
+            .iter()
+            .any(|completion| { completion["label"] == "kW" && completion["kind"] == 11 }));
+        assert!(completion_json
+            .iter()
+            .any(|completion| { completion["label"] == "eng.path" && completion["kind"] == 9 }));
     }
 
     #[test]
