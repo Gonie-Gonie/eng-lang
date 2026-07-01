@@ -1713,6 +1713,7 @@ function Assert-VscodeExtensionContract {
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
+    $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
     $SemanticLegendPath = Join-Path $ExtensionRoot "generated\editor\englang-semantic-legend.json"
     $CompletionsPath = Join-Path $ExtensionRoot "generated\editor\englang-completions.json"
@@ -1725,6 +1726,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing eng_lsp source at $LspSourcePath"
+    }
+    if (-not (Test-Path $LspCliSourcePath)) {
+        throw "missing eng_lsp CLI source at $LspCliSourcePath"
     }
     foreach ($RequiredMetadataPath in @($EditorMetadataPath, $SemanticLegendPath, $CompletionsPath)) {
         if (-not (Test-Path $RequiredMetadataPath)) {
@@ -1966,8 +1970,18 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing review risk decoration token $RequiredRiskDecorationToken"
         }
     }
-    if (-not $ExtensionSource.Contains("registerDefinitionProvider") -or -not $ExtensionSource.Contains("EngDefinitionProvider") -or -not $ExtensionSource.Contains("definitionNameCandidates")) {
-        throw "VS Code extension must expose current-file definition lookup from LSP snapshot symbols"
+    foreach ($RequiredDefinitionToken in @(
+        "registerDefinitionProvider",
+        "EngDefinitionProvider",
+        "definitionSnapshotForPosition",
+        "--definition-stdin",
+        "definitionLocationFromLsp",
+        "vscode.Uri.parse",
+        "definitionNameCandidates"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredDefinitionToken)) {
+            throw "VS Code extension missing live definition token $RequiredDefinitionToken"
+        }
     }
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
@@ -2019,6 +2033,17 @@ function Assert-VscodeExtensionContract {
     }
 
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
+    $LspCliSource = Get-Content -LiteralPath $LspCliSourcePath -Raw
+    foreach ($RequiredLspDefinitionToken in @(
+        "--definition-stdin",
+        "command_definition_stdin",
+        "definition_for_request",
+        "imported_definition_target"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspDefinitionToken)) {
+            throw "eng-lsp CLI missing stdin definition token $RequiredLspDefinitionToken"
+        }
+    }
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
     $GeneratedCompletions = Get-Content -LiteralPath $CompletionsPath -Raw | ConvertFrom-Json
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {

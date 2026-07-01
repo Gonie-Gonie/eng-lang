@@ -833,6 +833,21 @@ Status: implemented after VS Code linter quick-fix review.
 - Extended README and `ide-check` contract coverage so option-value quick fixes
   remain part of the editor surface.
 
+## Batch 69: VS Code Cross-File Definition Bridge
+
+Status: implemented after VS Code navigation review.
+
+- Added `eng-lsp --definition-stdin <file.eng> <line> <character>` so editor
+  integrations can resolve definitions from the current unsaved buffer while
+  reusing the existing LSP static file import resolver.
+- Updated the VS Code definition provider to ask the LSP bridge first, allowing
+  static file imports to jump to imported source files, with current-buffer
+  document-symbol fallback retained when live lookup is unavailable.
+- Normalized Windows verbatim paths in LSP file URIs so imported definitions
+  produce VS Code-friendly `file:///C:/...` locations.
+- Added regression and `ide-check` coverage so the CLI bridge, VS Code provider,
+  and documented definition behavior stay aligned.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -131,10 +131,11 @@ completion seed from `generated/editor/englang-editor-metadata.json`.
 `eng-lsp.exe --editor-metadata` exposes that completion seed and the
 semantic-token legend used by editor contract checks.
 
-Go-to-definition uses document symbols from the current unsaved buffer and stays
-within the current file. It resolves top-level symbols and nested document
-symbols such as schema fields, class fields, component ports, and object
-members when those symbols are available.
+Go-to-definition asks `eng-lsp --definition-stdin` about the current unsaved
+buffer, so static file imports can resolve to their imported source files. If
+live definition lookup is unavailable, the extension falls back to document
+symbols from the current buffer for top-level symbols and nested symbols such as
+schema fields, class fields, component ports, and object members.
 
 ## Grammar Maintenance
 

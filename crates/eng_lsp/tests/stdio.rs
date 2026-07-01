@@ -575,6 +575,90 @@ fn snapshot_stdin_reads_unsaved_source() {
 }
 
 #[test]
+fn definition_stdin_follows_static_imports() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root()
+        .join("examples/official/07_functions_imports/main.eng")
+        .canonicalize()
+        .expect("function example source should exist");
+    let source = std::fs::read_to_string(&source_path).expect("source should be readable");
+    let heat_loss_line = source
+        .lines()
+        .position(|line| line.contains("Q_wall = heat_loss"))
+        .expect("source should call heat_loss");
+    let heat_loss_char = source
+        .lines()
+        .nth(heat_loss_line)
+        .expect("source line should exist")
+        .find("heat_loss")
+        .expect("source line should contain heat_loss")
+        + "heat_loss".len();
+
+    let mut child = Command::new(server)
+        .arg("--definition-stdin")
+        .arg(&source_path)
+        .arg(heat_loss_line.to_string())
+        .arg(heat_loss_char.to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp definition-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("definition-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "definition-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let definition: Value =
+        serde_json::from_slice(&output.stdout).expect("definition stdout should be JSON");
+    let thermal_path = repo_root()
+        .join("examples/official/07_functions_imports/thermal.eng")
+        .canonicalize()
+        .expect("imported source should exist");
+    let thermal_uri = file_uri(&thermal_path);
+    let thermal_source =
+        std::fs::read_to_string(&thermal_path).expect("imported source should be readable");
+    let heat_loss_definition_line = thermal_source
+        .lines()
+        .position(|line| line.contains("fn heat_loss"))
+        .expect("imported source should define heat_loss");
+    let heat_loss_definition_char = thermal_source
+        .lines()
+        .nth(heat_loss_definition_line)
+        .expect("definition line should exist")
+        .find("heat_loss")
+        .expect("definition line should contain heat_loss");
+
+    assert_eq!(definition["uri"], thermal_uri);
+    let definition_uri = definition["uri"]
+        .as_str()
+        .expect("definition URI should be a string");
+    assert!(!definition_uri.contains("/?/"));
+    assert_eq!(
+        definition["range"]["start"]["line"],
+        heat_loss_definition_line
+    );
+    assert_eq!(
+        definition["range"]["start"]["character"],
+        heat_loss_definition_char
+    );
+    assert_eq!(
+        definition["range"]["end"]["character"],
+        heat_loss_definition_char + "heat_loss".len()
+    );
+}
+
+#[test]
 fn editor_metadata_cli_exports_editor_contract() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let output = Command::new(server)
@@ -687,6 +771,11 @@ fn repo_root() -> PathBuf {
 
 fn file_uri(path: &Path) -> String {
     let mut path = path.to_string_lossy().replace('\\', "/");
+    if let Some(stripped) = path.strip_prefix("//?/UNC/") {
+        path = format!("//{stripped}");
+    } else if let Some(stripped) = path.strip_prefix("//?/") {
+        path = stripped.to_owned();
+    }
     if path.as_bytes().get(1) == Some(&b':') {
         path = format!("/{path}");
     }

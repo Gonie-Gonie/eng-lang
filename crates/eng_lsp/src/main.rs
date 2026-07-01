@@ -34,6 +34,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--completion-stdin") {
         return command_completion_stdin(args.get(1), args.get(2), args.get(3));
     }
+    if args.first().map(String::as_str) == Some("--definition-stdin") {
+        return command_definition_stdin(args.get(1), args.get(2), args.get(3));
+    }
 
     match run_lsp() {
         Ok(()) => std::process::ExitCode::SUCCESS,
@@ -222,6 +225,42 @@ fn command_completion_stdin(
     }
     let items = completion_items_for_source_position(Path::new(path), &source, line, character);
     println!("{}", completion_payload_json(items));
+    std::process::ExitCode::SUCCESS
+}
+
+fn command_definition_stdin(
+    path: Option<&String>,
+    line: Option<&String>,
+    character: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(path) = path else {
+        eprintln!("usage: eng-lsp --definition-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let Some((line, character)) = parse_position(line, character) else {
+        eprintln!("usage: eng-lsp --definition-stdin <file.eng> <line> <character>");
+        return std::process::ExitCode::from(2);
+    };
+    let mut source = String::new();
+    if let Err(error) = std::io::stdin().read_to_string(&mut source) {
+        eprintln!("failed to read EngLang source from stdin: {error}");
+        return std::process::ExitCode::from(1);
+    }
+
+    let path = Path::new(path);
+    let uri = file_uri_from_path(path);
+    let request = json!({
+        "params": {
+            "textDocument": { "uri": uri },
+            "position": { "line": line, "character": character }
+        }
+    });
+    let mut documents = HashMap::new();
+    documents.insert(uri, source);
+    println!(
+        "{}",
+        definition_for_request(&request, &documents).unwrap_or(Value::Null)
+    );
     std::process::ExitCode::SUCCESS
 }
 
@@ -663,6 +702,11 @@ fn resolve_static_import_path(base_dir: &Path, target: &str) -> Option<PathBuf> 
 
 fn file_uri_from_path(path: &Path) -> String {
     let mut path = path.to_string_lossy().replace('\\', "/");
+    if let Some(stripped) = path.strip_prefix("//?/UNC/") {
+        path = format!("//{stripped}");
+    } else if let Some(stripped) = path.strip_prefix("//?/") {
+        path = stripped.to_owned();
+    }
     if path.as_bytes().get(1) == Some(&b':') {
         path = format!("/{path}");
     }

@@ -1674,6 +1674,62 @@ function completionSnapshotForPosition(document, position, context, cancellation
   });
 }
 
+function definitionSnapshotForPosition(document, position, context, cancellationToken) {
+  return new Promise((resolve) => {
+    if (!isEngDocument(document)) {
+      resolve(undefined);
+      return;
+    }
+
+    const runtime = findLspRuntime(context, document);
+    const cwd = workspaceRoot(document);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const child = cp.execFile(
+      runtime,
+      [
+        "--definition-stdin",
+        document.uri.fsPath,
+        String(position.line),
+        String(position.character)
+      ],
+      { cwd, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
+        }
+        if (error) {
+          output.appendLine(`definition lookup failed: ${error.message}`);
+          finish(undefined);
+          return;
+        }
+        try {
+          finish(JSON.parse(stdout));
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang definition lookup: ${parseError.message}`);
+          finish(undefined);
+        }
+      }
+    );
+
+    cancellationToken?.onCancellationRequested(() => {
+      child.kill();
+      finish(undefined);
+    });
+
+    if (child.stdin) {
+      child.stdin.end(document.getText());
+    }
+  });
+}
+
 function semanticTokensFromSnapshot(snapshot) {
   const builder = new vscode.SemanticTokensBuilder(semanticLegend);
   const tokens = snapshot.semantic_tokens?.tokens ?? [];
@@ -1720,6 +1776,14 @@ class EngDefinitionProvider {
     if (!isEngDocument(document)) {
       return undefined;
     }
+    const liveDefinition = definitionLocationFromLsp(
+      await definitionSnapshotForPosition(document, position, this.context, cancellationToken),
+      document.uri
+    );
+    if (liveDefinition) {
+      return liveDefinition;
+    }
+
     const snapshot =
       (await snapshotDocumentSource(document, this.context, cancellationToken)) ??
       reviewCache.get(document.uri.fsPath);
@@ -1758,6 +1822,23 @@ class EngFoldingRangeProvider {
     }
     reviewCache.set(document.uri.fsPath, snapshot);
     return foldingRangesFromSnapshot(snapshot);
+  }
+}
+
+function definitionLocationFromLsp(payload, fallbackUri) {
+  if (!payload || Array.isArray(payload)) {
+    return undefined;
+  }
+  const range = vscodeRangeFromLsp(payload.range);
+  if (!range) {
+    return undefined;
+  }
+  try {
+    const uri = payload.uri ? vscode.Uri.parse(payload.uri) : fallbackUri;
+    return new vscode.Location(uri, range);
+  } catch (error) {
+    output.appendLine(`Unable to parse EngLang definition URI: ${error.message}`);
+    return undefined;
   }
 }
 
