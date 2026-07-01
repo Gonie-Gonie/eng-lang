@@ -1900,6 +1900,10 @@ function Invoke-IdeCheck {
         "problemQuery",
         "problemQueryInput",
         "filteredProblems",
+        "moduleCategory",
+        "moduleQueryInput",
+        "filteredModules",
+        "data-module-category",
         "data-problem-line",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
@@ -1913,7 +1917,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing run history style $RequiredIdeStyle"
         }

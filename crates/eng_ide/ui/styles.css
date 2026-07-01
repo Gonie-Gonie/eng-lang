@@ -995,6 +995,23 @@ button:hover {
   color: var(--text);
 }
 
+.module-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 4px 0 8px;
+}
+
+.module-query {
+  width: min(260px, 26vw);
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 8px;
+  color: var(--text);
+}
+
 .problem-row {
   cursor: pointer;
 }

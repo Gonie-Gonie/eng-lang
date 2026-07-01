@@ -32,6 +32,8 @@ const state = {
   problemSeverity: "all",
   problemCode: "all",
   problemQuery: "",
+  moduleCategory: "all",
+  moduleQuery: "",
   sideTab: "variables",
   selectedVariable: null,
   selectedWorkflowNodeId: null,
@@ -340,6 +342,33 @@ function bind() {
       selectSourceLine(Number(row.dataset.problemLine || 0));
     };
   });
+  document.querySelectorAll("[data-module-category]").forEach((button) => {
+    button.onclick = () => {
+      state.moduleCategory = button.dataset.moduleCategory;
+      render();
+    };
+  });
+  const clearModuleFilters = byId("clearModuleFilters");
+  if (clearModuleFilters) {
+    clearModuleFilters.onclick = () => {
+      state.moduleCategory = "all";
+      state.moduleQuery = "";
+      render();
+    };
+  }
+  const moduleQueryInput = byId("moduleQueryInput");
+  if (moduleQueryInput) {
+    moduleQueryInput.oninput = (event) => {
+      const cursor = event.target.selectionStart ?? event.target.value.length;
+      state.moduleQuery = event.target.value;
+      render();
+      const nextInput = byId("moduleQueryInput");
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.setSelectionRange(cursor, cursor);
+      }
+    };
+  }
   document.querySelectorAll("[data-side-tab]").forEach((tab) => {
     tab.onclick = () => {
       state.sideTab = tab.dataset.sideTab;
@@ -1179,6 +1208,7 @@ function renderModulesPanel() {
   const native = state.modules.filter((module) => moduleStatusCategory(module) === "native").length;
   const planned = state.modules.filter((module) => moduleStatusCategory(module) === "planned").length;
   const internal = state.modules.filter((module) => moduleStatusCategory(module) === "internal").length;
+  const filtered = filteredModules();
   return `
     <div class="panel-title compact">Modules</div>
     <div class="badges">
@@ -1187,7 +1217,19 @@ function renderModulesPanel() {
       <span class="badge">Planned ${planned}</span>
       <span class="badge">Internal ${internal}</span>
     </div>
-    <div class="scroll">${renderModules()}</div>
+    <div class="module-toolbar">
+      <div class="segmented">
+        ${["all", "native", "planned", "internal"].map((category) => `
+          <button class="${state.moduleCategory === category ? "active" : ""}" data-module-category="${escapeAttr(category)}">
+            ${escapeHtml(moduleCategoryLabel(category))}
+          </button>
+        `).join("")}
+      </div>
+      <input id="moduleQueryInput" class="module-query" value="${escapeAttr(state.moduleQuery)}" placeholder="Filter modules" title="Filter by name, status, purpose, symbols, artifacts, examples, or diagnostics" />
+      <button id="clearModuleFilters">Clear</button>
+      <span class="muted">${filtered.length} of ${state.modules.length}</span>
+    </div>
+    <div class="scroll">${renderModules(filtered)}</div>
   `;
 }
 
@@ -1388,8 +1430,8 @@ function renderReviewSchemas(schemas) {
   `;
 }
 
-function renderModules() {
-  const rows = state.modules.map((module) => `
+function renderModules(modules = filteredModules()) {
+  const rows = modules.map((module) => `
     <tr>
       <td><strong>${escapeHtml(module.name || "-")}</strong></td>
       <td><strong>${escapeHtml(moduleStatusLabel(module))}</strong><div class="muted">${escapeHtml(moduleStatusDetail(module))}</div><div class="muted">${escapeHtml(module.status || "-")} / ${escapeHtml(module.backing || "-")}</div></td>
@@ -1401,13 +1443,52 @@ function renderModules() {
   return `
     <table class="var-table">
       <thead><tr><th>Module</th><th>Status</th><th>Purpose</th><th>Symbols</th><th>Artifacts</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No module registry entries.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">${state.modules.length ? "No modules match the active filters." : "No module registry entries."}</td></tr>`}</tbody>
     </table>
   `;
 }
 
+function filteredModules() {
+  const query = state.moduleQuery.trim().toLowerCase();
+  return state.modules.filter((module) => {
+    const categoryMatches = state.moduleCategory === "all" || moduleStatusCategory(module) === state.moduleCategory;
+    const queryMatches = !query || moduleSearchText(module).includes(query);
+    return categoryMatches && queryMatches;
+  });
+}
+
+function moduleSearchText(module) {
+  return [
+    module.name,
+    module.status,
+    module.backing,
+    moduleStatusLabel(module),
+    moduleStatusDetail(module),
+    module.purpose,
+    ...(Array.isArray(module.symbols) ? module.symbols : []),
+    ...(Array.isArray(module.artifacts) ? module.artifacts : []),
+    ...(Array.isArray(module.diagnostics) ? module.diagnostics : []),
+    ...(Array.isArray(module.examples) ? module.examples : []),
+    ...(Array.isArray(module.tests) ? module.tests : [])
+  ].filter(Boolean).join(" ").toLowerCase();
+}
+
+function moduleCategoryLabel(category) {
+  switch (category) {
+    case "native":
+      return "Native";
+    case "planned":
+      return "Planned";
+    case "internal":
+      return "Internal";
+    default:
+      return "All";
+  }
+}
+
 function moduleStatusCategory(module) {
   const status = String(module.status || "");
+  if (status === "native_preview" || status === "supported_seed") return "native";
   if (status.startsWith("supported")) return "native";
   if (status.includes("internal")) return "internal";
   if (status.includes("planned")) return "planned";

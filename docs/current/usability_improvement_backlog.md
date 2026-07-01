@@ -349,6 +349,20 @@ Status: implemented after native workflow completeness review.
 - Updated workflow module and expected-summary docs to describe selected sample
   rows and workflow programs instead of fixtures.
 
+## Batch 30: Native IDE Module Filtering
+
+Status: implemented after native IDE module inspector review.
+
+- Added Native/Planned/Internal segmented filters and text search to the
+  Modules inspector.
+- Included module names, status text, purpose, symbols, artifacts, diagnostics,
+  examples, and tests in the module search text.
+- Counted `native_preview` and `supported_seed` registry entries as native in
+  the native IDE category view while keeping the machine-readable status keys
+  unchanged.
+- Extended `ide-check` contract coverage for module filter state, handlers, and
+  styles.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
