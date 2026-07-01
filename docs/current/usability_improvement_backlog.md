@@ -689,6 +689,17 @@ Status: implemented after workflow 1 native-dataflow review.
   `api_response.body`, review metadata records `read json api_response.body`,
   and workflows 1-3 still run with `process_count = 0`.
 
+## Batch 57: Generated VS Code Editor Metadata
+
+Status: implemented after extension source-of-truth review.
+
+- Added a VS Code editor metadata generator that writes package-local
+  `generated/editor` JSON from `eng-lsp --editor-metadata`.
+- The VS Code extension now loads its semantic-token legend from generated
+  metadata instead of hardcoded JavaScript arrays.
+- `ide-check` verifies the generated metadata is in sync with LSP constants
+  and that the extension does not reintroduce hardcoded semantic legend arrays.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

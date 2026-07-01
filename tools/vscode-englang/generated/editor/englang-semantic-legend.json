@@ -1,0 +1,51 @@
+{
+    "format":  "eng-lsp-editor-metadata-v1",
+    "semantic_token_legend":  {
+                                  "token_modifiers":  [
+                                                          "declaration",
+                                                          "definition",
+                                                          "readonly",
+                                                          "static",
+                                                          "local",
+                                                          "imported",
+                                                          "defaultLibrary",
+                                                          "deprecated",
+                                                          "unit",
+                                                          "quantity",
+                                                          "axis",
+                                                          "timeseries",
+                                                          "uncertain",
+                                                          "sideEffect",
+                                                          "external",
+                                                          "validation",
+                                                          "report",
+                                                          "planned",
+                                                          "internal",
+                                                          "riskHigh",
+                                                          "riskMedium",
+                                                          "state",
+                                                          "input",
+                                                          "model",
+                                                          "db",
+                                                          "cache",
+                                                          "workflowStep"
+                                                      ],
+                                  "token_types":  [
+                                                      "namespace",
+                                                      "type",
+                                                      "class",
+                                                      "interface",
+                                                      "parameter",
+                                                      "variable",
+                                                      "property",
+                                                      "function",
+                                                      "method",
+                                                      "keyword",
+                                                      "modifier",
+                                                      "string",
+                                                      "number",
+                                                      "operator",
+                                                      "comment"
+                                                  ]
+                              }
+}

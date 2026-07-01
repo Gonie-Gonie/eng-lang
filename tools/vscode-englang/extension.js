@@ -85,58 +85,34 @@ const LAST_RUN_ARTIFACTS = [
   }
 ];
 
-const SEMANTIC_TOKEN_TYPES = [
-  "namespace",
-  "type",
-  "class",
-  "interface",
-  "parameter",
-  "variable",
-  "property",
-  "function",
-  "method",
-  "keyword",
-  "modifier",
-  "string",
-  "number",
-  "operator",
-  "comment"
-];
-
-const SEMANTIC_TOKEN_MODIFIERS = [
-  "declaration",
-  "definition",
-  "readonly",
-  "static",
-  "local",
-  "imported",
-  "defaultLibrary",
-  "deprecated",
-  "unit",
-  "quantity",
-  "axis",
-  "timeseries",
-  "uncertain",
-  "sideEffect",
-  "external",
-  "validation",
-  "report",
-  "planned",
-  "internal",
-  "riskHigh",
-  "riskMedium",
-  "state",
-  "input",
-  "model",
-  "db",
-  "cache",
-  "workflowStep"
-];
+const editorMetadata = loadEditorMetadata();
+const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
+const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 
 const semanticLegend = new vscode.SemanticTokensLegend(
   SEMANTIC_TOKEN_TYPES,
   SEMANTIC_TOKEN_MODIFIERS
 );
+
+function loadEditorMetadata() {
+  const metadataPath = path.join(
+    __dirname,
+    "generated",
+    "editor",
+    "englang-editor-metadata.json"
+  );
+  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
+  const legend = metadata.semantic_token_legend ?? {};
+  const semanticTokenTypes = legend.token_types;
+  const semanticTokenModifiers = legend.token_modifiers;
+  if (!Array.isArray(semanticTokenTypes) || !Array.isArray(semanticTokenModifiers)) {
+    throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
+  }
+  return {
+    semanticTokenTypes,
+    semanticTokenModifiers
+  };
+}
 
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");

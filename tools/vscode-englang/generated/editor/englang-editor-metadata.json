@@ -1,0 +1,1890 @@
+{
+    "completion_seed":  [
+                            {
+                                "detail":  "Boolean value",
+                                "kind":  "class",
+                                "label":  "Bool",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "CSV file path",
+                                "kind":  "class",
+                                "label":  "CsvFile",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Calendar date",
+                                "kind":  "class",
+                                "label":  "Date",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Timestamp value",
+                                "kind":  "class",
+                                "label":  "DateTime",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "SQLite connection handle",
+                                "kind":  "class",
+                                "label":  "DbConnection",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "SQLite table reference",
+                                "kind":  "class",
+                                "label":  "DbTableRef",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Directory path",
+                                "kind":  "class",
+                                "label":  "DirectoryPath",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Time duration",
+                                "kind":  "class",
+                                "label":  "Duration",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Generic file path",
+                                "kind":  "class",
+                                "label":  "FilePath",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Floating-point value",
+                                "kind":  "class",
+                                "label":  "Float",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Integer value",
+                                "kind":  "class",
+                                "label":  "Int",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "JSON file path",
+                                "kind":  "class",
+                                "label":  "JsonFile",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Trained model artifact",
+                                "kind":  "class",
+                                "label":  "ModelArtifact",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Model-card review artifact",
+                                "kind":  "class",
+                                "label":  "ModelCard",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Dimensionless numeric value",
+                                "kind":  "class",
+                                "label":  "Number",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Optional value",
+                                "kind":  "class",
+                                "label":  "Optional[T]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Filesystem path",
+                                "kind":  "class",
+                                "label":  "Path",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Prediction table row",
+                                "kind":  "class",
+                                "label":  "Prediction",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "External command result metadata",
+                                "kind":  "class",
+                                "label":  "ProcessResult",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Report artifact request metadata",
+                                "kind":  "class",
+                                "label":  "Report",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Redacted string value",
+                                "kind":  "class",
+                                "label":  "Secret[String]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "String value",
+                                "kind":  "class",
+                                "label":  "String",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Typed table value",
+                                "kind":  "class",
+                                "label":  "Table[T]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "UTF-8 text file path",
+                                "kind":  "class",
+                                "label":  "TextFile",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Time-indexed series value",
+                                "kind":  "class",
+                                "label":  "TimeSeries[Time]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Typed time-indexed series value",
+                                "kind":  "class",
+                                "label":  "TimeSeries[T]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "TOML file path",
+                                "kind":  "class",
+                                "label":  "TomlFile",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "HTTP or HTTPS URL",
+                                "kind":  "class",
+                                "label":  "Url",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "calendar date constructor",
+                                "kind":  "function",
+                                "label":  "date",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "timestamp constructor",
+                                "kind":  "function",
+                                "label":  "datetime",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path directory path helper",
+                                "kind":  "function",
+                                "label":  "dir",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "environment variable lookup",
+                                "kind":  "function",
+                                "label":  "env",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path existence check",
+                                "kind":  "function",
+                                "label":  "exists",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path extension helper",
+                                "kind":  "function",
+                                "label":  "extension",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path file path helper",
+                                "kind":  "function",
+                                "label":  "file",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path join helper",
+                                "kind":  "function",
+                                "label":  "join",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path parent directory helper",
+                                "kind":  "function",
+                                "label":  "parent",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "redacted secret constructor",
+                                "kind":  "function",
+                                "label":  "secret",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.path filename stem helper",
+                                "kind":  "function",
+                                "label":  "stem",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "HTTP or HTTPS URL constructor",
+                                "kind":  "function",
+                                "label":  "url",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table first-row selection helper",
+                                "kind":  "function",
+                                "label":  "select_first_row",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table row filter helper",
+                                "kind":  "function",
+                                "label":  "filter",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table column selection helper",
+                                "kind":  "function",
+                                "label":  "select",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table derived-column helper",
+                                "kind":  "function",
+                                "label":  "derive",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table sort helper",
+                                "kind":  "function",
+                                "label":  "sort",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table single-row assertion helper",
+                                "kind":  "function",
+                                "label":  "require_one",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.table validation helper",
+                                "kind":  "function",
+                                "label":  "check",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries coverage check",
+                                "kind":  "function",
+                                "label":  "coverage",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries missing-value fill helper",
+                                "kind":  "function",
+                                "label":  "fill_missing",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries alignment helper",
+                                "kind":  "function",
+                                "label":  "align",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries resampling helper",
+                                "kind":  "function",
+                                "label":  "resample",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.sampling sample set helper",
+                                "kind":  "function",
+                                "label":  "sample",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.sampling uniform distribution helper",
+                                "kind":  "function",
+                                "label":  "uniform",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.sampling normal distribution helper",
+                                "kind":  "function",
+                                "label":  "normal",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.sampling grid construction helper",
+                                "kind":  "function",
+                                "label":  "grid",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.sampling random generator helper",
+                                "kind":  "function",
+                                "label":  "random",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.sampling Latin hypercube helper",
+                                "kind":  "function",
+                                "label":  "lhs",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.case materialize case inputs",
+                                "kind":  "function",
+                                "label":  "materialize",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.case apply a workflow step over rows",
+                                "kind":  "function",
+                                "label":  "apply",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.case collect case results",
+                                "kind":  "function",
+                                "label":  "collect",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.case single-case execution helper",
+                                "kind":  "function",
+                                "label":  "run_case",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.uncertainty measured value helper",
+                                "kind":  "function",
+                                "label":  "measured",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.uncertainty interval helper",
+                                "kind":  "function",
+                                "label":  "interval",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.uncertainty ensemble helper",
+                                "kind":  "function",
+                                "label":  "ensemble",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.uncertainty propagation helper",
+                                "kind":  "function",
+                                "label":  "propagate",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.uncertainty probability helper",
+                                "kind":  "function",
+                                "label":  "probability",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model train/test split helper",
+                                "kind":  "function",
+                                "label":  "train_test_split",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model regression training helper",
+                                "kind":  "function",
+                                "label":  "regression",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model regression result table helper",
+                                "kind":  "function",
+                                "label":  "regression_table",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model explicit regression training helper",
+                                "kind":  "function",
+                                "label":  "train_regression",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model neural network training helper",
+                                "kind":  "function",
+                                "label":  "mlp",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model evaluation helper",
+                                "kind":  "function",
+                                "label":  "evaluate",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model model-card artifact helper",
+                                "kind":  "function",
+                                "label":  "model_card",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model leakage lint helper",
+                                "kind":  "function",
+                                "label":  "leakage_lint",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.model prediction helper",
+                                "kind":  "function",
+                                "label":  "predict",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries mean",
+                                "kind":  "function",
+                                "label":  "mean",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries time-weighted mean",
+                                "kind":  "function",
+                                "label":  "time_weighted_mean",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries minimum",
+                                "kind":  "function",
+                                "label":  "min",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries maximum",
+                                "kind":  "function",
+                                "label":  "max",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries median",
+                                "kind":  "function",
+                                "label":  "median",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries standard deviation",
+                                "kind":  "function",
+                                "label":  "std",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries 90th percentile",
+                                "kind":  "function",
+                                "label":  "p90",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries 95th percentile",
+                                "kind":  "function",
+                                "label":  "p95",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries root mean square error",
+                                "kind":  "function",
+                                "label":  "rmse",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries threshold duration",
+                                "kind":  "function",
+                                "label":  "duration_above",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries integration helper",
+                                "kind":  "function",
+                                "label":  "integrate",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries derivative helper",
+                                "kind":  "function",
+                                "label":  "der",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "eng.timeseries delay helper",
+                                "kind":  "function",
+                                "label":  "delay",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "domain conservation sum",
+                                "kind":  "function",
+                                "label":  "sum",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "across",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "and",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "append",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "args",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "as",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "assert",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "bar",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "between",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "by",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "cases",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "class",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "command",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "component",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "connect",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "const",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "constraints",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "conservation",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "copy",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "csv",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "delete",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "domain",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "download",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "eq",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "equation",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "export",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "false",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "fn",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "from",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "golden",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "histogram",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "get",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "http",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "if",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "import",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "input",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "insert",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "interpolate",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "in",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "into",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "is",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "json",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "line",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "log",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "matches",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "method",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "missing",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "mode",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "monotonic",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "move",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "not",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "none",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "null",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "open",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "or",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "over",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "package",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "parameter",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "plot",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "policy",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "port",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "print",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "promote",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "read",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "records",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "render",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "report",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "return",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "run",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "schema",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "script",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "show",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "sqlite",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "state",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "struct",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "system",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "template",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "test",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "text",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "through",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "to",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "toml",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "true",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "upsert",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "use",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "using",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "validate",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "version",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "where",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "with",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "within",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "write",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "model training option",
+                                "kind":  "property",
+                                "label":  "algorithm",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "external command failure policy",
+                                "kind":  "property",
+                                "label":  "allow_failure",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "expected artifact kind",
+                                "kind":  "property",
+                                "label":  "artifact_kind",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "HTTP request body option",
+                                "kind":  "property",
+                                "label":  "body",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "HTTP response body size limit",
+                                "kind":  "property",
+                                "label":  "body_size_limit",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "cache behavior option",
+                                "kind":  "property",
+                                "label":  "cache",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "cache storage directory option",
+                                "kind":  "property",
+                                "label":  "cache_dir",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "cache identity option",
+                                "kind":  "property",
+                                "label":  "cache_key",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "case identifier expression",
+                                "kind":  "property",
+                                "label":  "case_id",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "explicit filesystem mutation confirmation",
+                                "kind":  "property",
+                                "label":  "confirm",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "sample count option",
+                                "kind":  "property",
+                                "label":  "count",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "external command working directory",
+                                "kind":  "property",
+                                "label":  "cwd",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "range end option",
+                                "kind":  "property",
+                                "label":  "end",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "expected SHA-256 hash",
+                                "kind":  "property",
+                                "label":  "expected_sha256",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "declared process outputs",
+                                "kind":  "property",
+                                "label":  "expected_outputs",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "expected TimeSeries step",
+                                "kind":  "property",
+                                "label":  "expected_step",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "model feature columns",
+                                "kind":  "property",
+                                "label":  "features",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "offline fixture input",
+                                "kind":  "property",
+                                "label":  "fixture",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "HTTP request headers",
+                                "kind":  "property",
+                                "label":  "headers",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "MLP hidden layer option",
+                                "kind":  "property",
+                                "label":  "hidden",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "maximum allowed gap option",
+                                "kind":  "property",
+                                "label":  "max_gap",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "generated output path",
+                                "kind":  "property",
+                                "label":  "output",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "case output root directory",
+                                "kind":  "property",
+                                "label":  "output_root",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "HTTP query parameters",
+                                "kind":  "property",
+                                "label":  "query",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "filesystem recursion option",
+                                "kind":  "property",
+                                "label":  "recursive",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "case resume policy",
+                                "kind":  "property",
+                                "label":  "resume",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "HTTP download body size limit",
+                                "kind":  "property",
+                                "label":  "response_body_limit",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "external command retry policy",
+                                "kind":  "property",
+                                "label":  "retry",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "projection return column",
+                                "kind":  "property",
+                                "label":  "return_column",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "deterministic sampling seed",
+                                "kind":  "property",
+                                "label":  "seed",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "range start option",
+                                "kind":  "property",
+                                "label":  "start",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "case or validation status",
+                                "kind":  "property",
+                                "label":  "status",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "case workflow step",
+                                "kind":  "property",
+                                "label":  "step",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "model target column",
+                                "kind":  "property",
+                                "label":  "target",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "external command timeout",
+                                "kind":  "property",
+                                "label":  "timeout",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "external tool version",
+                                "kind":  "property",
+                                "label":  "tool_version",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "template value map",
+                                "kind":  "property",
+                                "label":  "values",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "calendar year option",
+                                "kind":  "property",
+                                "label":  "year",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "Native workflow support: Generated artifact kinds, hashes, manifests, validation records, and report/review links.",
+                                "kind":  "stdlib",
+                                "label":  "eng.artifact",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Planned: Building, zone, and construction object vocabulary before domain simulation adapters.",
+                                "kind":  "stdlib",
+                                "label":  "eng.building",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Explicit cache keys, network fixture cache materialization/replay, hit/miss records, stale cache diagnostics, cache manifests, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned.",
+                                "kind":  "stdlib",
+                                "label":  "eng.cache",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata.",
+                                "kind":  "stdlib",
+                                "label":  "eng.case",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported narrow: Typed JSON/TOML file promotion with nested object/list schema validation, optional/default field policy, source hashes, and config summaries.",
+                                "kind":  "stdlib",
+                                "label":  "eng.config",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Native SQLite append/upsert writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records.",
+                                "kind":  "stdlib",
+                                "label":  "eng.db",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported narrow: Explicit generated-output copy, move, and delete operations.",
+                                "kind":  "stdlib",
+                                "label":  "eng.fs",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported: Read text/json/toml, write text/json, exports, source hashes, and output hashes.",
+                                "kind":  "stdlib",
+                                "label":  "eng.io",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported: Structured runtime messages and run-log records.",
+                                "kind":  "stdlib",
+                                "label":  "eng.log",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Internal: Internal data-driven modeling vocabulary, target contracts, model specs, and model-card artifacts.",
+                                "kind":  "stdlib",
+                                "label":  "eng.ml",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                "kind":  "stdlib",
+                                "label":  "eng.model",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Offline/fixture HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries.",
+                                "kind":  "stdlib",
+                                "label":  "eng.net",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported: Typed path helpers, joins, names, and review-visible existence checks.",
+                                "kind":  "stdlib",
+                                "label":  "eng.path",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path file(path: String) -\u003e FilePath",
+                                "kind":  "stdlib",
+                                "label":  "file(...)",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path dir(path: String) -\u003e DirectoryPath",
+                                "kind":  "stdlib",
+                                "label":  "dir(...)",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path join(base: DirectoryPath, child: String) -\u003e FilePath | DirectoryPath",
+                                "kind":  "stdlib",
+                                "label":  "join(...)",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path parent(path: FilePath) -\u003e DirectoryPath",
+                                "kind":  "stdlib",
+                                "label":  "parent(...)",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path stem(path: FilePath) -\u003e String",
+                                "kind":  "stdlib",
+                                "label":  "stem(...)",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path extension(path: FilePath) -\u003e String",
+                                "kind":  "stdlib",
+                                "label":  "extension(...)",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.path exists(path: FilePath | DirectoryPath) -\u003e Bool",
+                                "kind":  "stdlib",
+                                "label":  "exists path",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Planned: PlotSpec-oriented helper vocabulary above current plot built-ins.",
+                                "kind":  "stdlib",
+                                "label":  "eng.plot",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported narrow: Explicit external process boundaries with args, env, cwd, timeout/retry, tool version, expected outputs, and captured output hashes.",
+                                "kind":  "stdlib",
+                                "label":  "eng.process",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
+                                "kind":  "stdlib",
+                                "label":  "eng.quality",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Planned: Report-facing helper vocabulary layered over existing report/review artifacts.",
+                                "kind":  "stdlib",
+                                "label":  "eng.report",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records.",
+                                "kind":  "stdlib",
+                                "label":  "eng.review",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews.",
+                                "kind":  "stdlib",
+                                "label":  "eng.sampling",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Planned: Semantic statistics helpers for TimeSeries and tables.",
+                                "kind":  "stdlib",
+                                "label":  "eng.stats",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Internal planned: Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                "kind":  "stdlib",
+                                "label":  "eng.system",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Promoted table diagnostics, deterministic row-selection artifacts, and filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned.",
+                                "kind":  "stdlib",
+                                "label":  "eng.table",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement.",
+                                "kind":  "stdlib",
+                                "label":  "eng.template",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Supported narrow: Local assertions, golden checks, and test-result artifacts.",
+                                "kind":  "stdlib",
+                                "label":  "eng.test",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Native workflow support: TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
+                                "kind":  "stdlib",
+                                "label":  "eng.timeseries",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Internal: Constructor, propagation, and uncertainty review vocabulary.",
+                                "kind":  "stdlib",
+                                "label":  "eng.uncertainty",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "Planned: RunPlan, run lock, dependency graph, rerun decisions, and workflow node status.",
+                                "kind":  "stdlib",
+                                "label":  "eng.workflow",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.io raw text read",
+                                "kind":  "stdlib",
+                                "label":  "read text",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.io raw JSON read",
+                                "kind":  "stdlib",
+                                "label":  "read json",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.io raw TOML read",
+                                "kind":  "stdlib",
+                                "label":  "read toml",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.io text output",
+                                "kind":  "stdlib",
+                                "label":  "write text",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.io JSON output",
+                                "kind":  "stdlib",
+                                "label":  "write json",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.fs copy generated output",
+                                "kind":  "stdlib",
+                                "label":  "copy file",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.fs move generated output",
+                                "kind":  "stdlib",
+                                "label":  "move file",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.fs delete generated output",
+                                "kind":  "stdlib",
+                                "label":  "delete file",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.process command boundary",
+                                "kind":  "stdlib",
+                                "label":  "run command",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.config JSON file promotion",
+                                "kind":  "stdlib",
+                                "label":  "promote json config",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.table JSON records table promotion",
+                                "kind":  "stdlib",
+                                "label":  "promote json records",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.config TOML file promotion",
+                                "kind":  "stdlib",
+                                "label":  "promote toml config",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "canonical unit K",
+                                "kind":  "class",
+                                "label":  "AbsoluteTemperature",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit K",
+                                "kind":  "class",
+                                "label":  "TemperatureDelta",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit m",
+                                "kind":  "class",
+                                "label":  "Length",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit W/K",
+                                "kind":  "class",
+                                "label":  "Conductance",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit J/K",
+                                "kind":  "class",
+                                "label":  "HeatCapacity",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit J/kg/K",
+                                "kind":  "class",
+                                "label":  "SpecificHeat",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit W",
+                                "kind":  "class",
+                                "label":  "HeatRate",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit W",
+                                "kind":  "class",
+                                "label":  "ElectricPower",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit W",
+                                "kind":  "class",
+                                "label":  "MechanicalPower",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit J",
+                                "kind":  "class",
+                                "label":  "Energy",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit W/m2",
+                                "kind":  "class",
+                                "label":  "Irradiance",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit person/m2",
+                                "kind":  "class",
+                                "label":  "PeopleDensity",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit Pa",
+                                "kind":  "class",
+                                "label":  "Pressure",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit kg/s",
+                                "kind":  "class",
+                                "label":  "MassFlowRate",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit 1",
+                                "kind":  "class",
+                                "label":  "Ratio",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit 1",
+                                "kind":  "class",
+                                "label":  "DimensionlessNumber",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "canonical unit 1",
+                                "kind":  "class",
+                                "label":  "ReynoldsNumber",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Length unit",
+                                "kind":  "unit",
+                                "label":  "m",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Length unit",
+                                "kind":  "unit",
+                                "label":  "cm",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Length unit",
+                                "kind":  "unit",
+                                "label":  "mm",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "TemperatureDelta unit",
+                                "kind":  "unit",
+                                "label":  "K",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "AbsoluteTemperature unit",
+                                "kind":  "unit",
+                                "label":  "degC",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "AbsoluteTemperature unit",
+                                "kind":  "unit",
+                                "label":  "°C",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Power unit",
+                                "kind":  "unit",
+                                "label":  "W",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Power unit",
+                                "kind":  "unit",
+                                "label":  "kW",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Energy unit",
+                                "kind":  "unit",
+                                "label":  "J",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Energy unit",
+                                "kind":  "unit",
+                                "label":  "Wh",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Energy unit",
+                                "kind":  "unit",
+                                "label":  "kWh",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Energy unit",
+                                "kind":  "unit",
+                                "label":  "MJ",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Conductance unit",
+                                "kind":  "unit",
+                                "label":  "W/K",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "SpecificHeat unit",
+                                "kind":  "unit",
+                                "label":  "J/kg/K",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "HeatCapacity unit",
+                                "kind":  "unit",
+                                "label":  "J/K",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "HeatCapacity unit",
+                                "kind":  "unit",
+                                "label":  "kJ/K",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Pressure unit",
+                                "kind":  "unit",
+                                "label":  "Pa",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Pressure unit",
+                                "kind":  "unit",
+                                "label":  "kPa",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Duration unit",
+                                "kind":  "unit",
+                                "label":  "s",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Duration unit",
+                                "kind":  "unit",
+                                "label":  "h",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "MassFlowRate unit",
+                                "kind":  "unit",
+                                "label":  "kg/s",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Irradiance unit",
+                                "kind":  "unit",
+                                "label":  "W/m2",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "Irradiance unit",
+                                "kind":  "unit",
+                                "label":  "W/m^2",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "PeopleDensity unit",
+                                "kind":  "unit",
+                                "label":  "person/m2",
+                                "lsp_kind":  11
+                            },
+                            {
+                                "detail":  "PeopleDensity unit",
+                                "kind":  "unit",
+                                "label":  "people/m2",
+                                "lsp_kind":  11
+                            }
+                        ],
+    "completion_seed_count":  306,
+    "format":  "eng-lsp-editor-metadata-v1",
+    "semantic_token_legend":  {
+                                  "token_modifiers":  [
+                                                          "declaration",
+                                                          "definition",
+                                                          "readonly",
+                                                          "static",
+                                                          "local",
+                                                          "imported",
+                                                          "defaultLibrary",
+                                                          "deprecated",
+                                                          "unit",
+                                                          "quantity",
+                                                          "axis",
+                                                          "timeseries",
+                                                          "uncertain",
+                                                          "sideEffect",
+                                                          "external",
+                                                          "validation",
+                                                          "report",
+                                                          "planned",
+                                                          "internal",
+                                                          "riskHigh",
+                                                          "riskMedium",
+                                                          "state",
+                                                          "input",
+                                                          "model",
+                                                          "db",
+                                                          "cache",
+                                                          "workflowStep"
+                                                      ],
+                                  "token_types":  [
+                                                      "namespace",
+                                                      "type",
+                                                      "class",
+                                                      "interface",
+                                                      "parameter",
+                                                      "variable",
+                                                      "property",
+                                                      "function",
+                                                      "method",
+                                                      "keyword",
+                                                      "modifier",
+                                                      "string",
+                                                      "number",
+                                                      "operator",
+                                                      "comment"
+                                                  ]
+                              }
+}

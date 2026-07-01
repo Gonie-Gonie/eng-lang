@@ -135,3 +135,15 @@ The generated TextMate grammar lives at `syntaxes/eng.tmLanguage.json`. Edit
 
 The grammar smoke writes token-check output under
 `build\editor-tests\textmate_tokens\grammar_smoke.json`.
+
+## Editor Metadata
+
+The extension loads its semantic-token legend from
+`generated/editor/englang-editor-metadata.json`, generated from
+`eng-lsp --editor-metadata`. Regenerate it after LSP completion or semantic
+legend changes:
+
+```bat
+.\dev.bat vscode-build-editor-metadata
+.\dev.bat ide-check
+```

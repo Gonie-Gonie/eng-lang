@@ -1653,6 +1653,11 @@ function Invoke-VscodeBuildGrammar {
     & (Join-Path $RepoRoot "tools\vscode-englang\scripts\build-grammar.ps1") -ExtensionRoot (Join-Path $RepoRoot "tools\vscode-englang")
 }
 
+function Invoke-VscodeBuildEditorMetadata {
+    Set-DevEnvironment
+    & (Join-Path $RepoRoot "tools\vscode-englang\scripts\build-editor-metadata.ps1") -ExtensionRoot (Join-Path $RepoRoot "tools\vscode-englang")
+}
+
 function Invoke-VscodeGrammarTest {
     Set-DevEnvironment
     & (Join-Path $RepoRoot "tools\vscode-englang\scripts\test-grammar.ps1") -ExtensionRoot (Join-Path $RepoRoot "tools\vscode-englang")
@@ -1708,6 +1713,9 @@ function Assert-VscodeExtensionContract {
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
+    $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
+    $SemanticLegendPath = Join-Path $ExtensionRoot "generated\editor\englang-semantic-legend.json"
+    $CompletionsPath = Join-Path $ExtensionRoot "generated\editor\englang-completions.json"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
@@ -1717,6 +1725,11 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing eng_lsp source at $LspSourcePath"
+    }
+    foreach ($RequiredMetadataPath in @($EditorMetadataPath, $SemanticLegendPath, $CompletionsPath)) {
+        if (-not (Test-Path $RequiredMetadataPath)) {
+            throw "missing generated VS Code editor metadata at $RequiredMetadataPath"
+        }
     }
 
     $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
@@ -1776,6 +1789,7 @@ function Assert-VscodeExtensionContract {
     }
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
+    & (Join-Path $ExtensionRoot "scripts\build-editor-metadata.ps1") -ExtensionRoot $ExtensionRoot -Check
     $Commands = @($Package.contributes.commands | ForEach-Object { $_.command })
     foreach ($Required in @(
         "englang.checkFile",
@@ -1875,6 +1889,12 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
+    if (-not $ExtensionSource.Contains("loadEditorMetadata") -or -not $ExtensionSource.Contains("englang-editor-metadata.json")) {
+        throw "VS Code extension must load semantic legend from generated editor metadata"
+    }
+    if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
+        throw "VS Code extension must not hardcode semantic token legend arrays"
+    }
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type")) {
         throw "VS Code extension must expose semantic token debug output"
     }
@@ -1922,12 +1942,16 @@ function Assert-VscodeExtensionContract {
     }
 
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
-    $JsSemanticTypes = Read-JavaScriptStringArrayConst -Source $ExtensionSource -Name "SEMANTIC_TOKEN_TYPES"
-    $JsSemanticModifiers = Read-JavaScriptStringArrayConst -Source $ExtensionSource -Name "SEMANTIC_TOKEN_MODIFIERS"
+    $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
+    if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
+        throw "generated VS Code editor metadata returned unexpected format $($EditorMetadata.format)"
+    }
+    $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)
+    $GeneratedSemanticModifiers = @($EditorMetadata.semantic_token_legend.token_modifiers)
     $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"
     $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
-    Assert-SameStringSequence -Left $JsSemanticTypes -Right $LspSemanticTypes -Description "VS Code/LSP semantic token types"
-    Assert-SameStringSequence -Left $JsSemanticModifiers -Right $LspSemanticModifiers -Description "VS Code/LSP semantic token modifiers"
+    Assert-SameStringSequence -Left $GeneratedSemanticTypes -Right $LspSemanticTypes -Description "VS Code generated/LSP semantic token types"
+    Assert-SameStringSequence -Left $GeneratedSemanticModifiers -Right $LspSemanticModifiers -Description "VS Code generated/LSP semantic token modifiers"
     $StandardSemanticModifiers = @("declaration", "definition", "readonly", "static", "local", "imported", "defaultLibrary", "deprecated")
     foreach ($Modifier in $LspSemanticModifiers) {
         if ($StandardSemanticModifiers -notcontains $Modifier -and $SemanticModifiers -notcontains $Modifier) {
@@ -2982,6 +3006,7 @@ Usage:
   .\dev.bat docs-check     Check supported documentation Eng snippets
   .\dev.bat grammar-docs   Generate the oodocs language grammar PDF
   .\dev.bat vscode-build-grammar Regenerate VS Code TextMate grammar from source JSON
+  .\dev.bat vscode-build-editor-metadata Regenerate VS Code editor metadata from eng-lsp
   .\dev.bat vscode-grammar-test  Check VS Code TextMate grammar source, generated output, and token fixtures
   .\dev.bat ide-check      Validate the Tauri IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
@@ -3014,6 +3039,7 @@ switch ($Command) {
     "docs-check" { Invoke-DocsCheck }
     "grammar-docs" { Invoke-GrammarDocs }
     "vscode-build-grammar" { Invoke-VscodeBuildGrammar }
+    "vscode-build-editor-metadata" { Invoke-VscodeBuildEditorMetadata }
     "vscode-grammar-test" { Invoke-VscodeGrammarTest }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
