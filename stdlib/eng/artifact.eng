@@ -1,5 +1,5 @@
 # module: eng.artifact
-# status: supported-seed
+# status: supported-artifact-records
 # purpose: generated artifact kinds, hashes, validation records, and manifest links.
 #
 # Current implementation:

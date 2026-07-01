@@ -1,5 +1,5 @@
 # module: eng.db
-# status: supported-native-sqlite-write-seed
+# status: supported-native-sqlite-write-records
 # purpose: typed database side effects, starting with SQLite-style write/upsert workflows and transaction artifacts.
 #
 # Current implementation:

@@ -1,6 +1,6 @@
 # module: eng.review
-# status: supported-seed
-# purpose: Review IR, root workflow contracts, risk/fallback entries, opaque boundary summaries, and semantic diff vocabulary.
+# status: supported-review-artifacts
+# purpose: Review IR, root workflow contracts, risk/fallback entries, external boundary summaries, and semantic diff vocabulary.
 #
 # Current implementation:
 #   review.json, report.html, report_spec.json, result.engres, run_log.json,

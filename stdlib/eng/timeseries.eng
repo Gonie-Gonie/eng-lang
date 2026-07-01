@@ -1,5 +1,5 @@
 # module: eng.timeseries
-# status: supported-narrow-builtins-coverage-fill-quality-alignment-artifact-seed
+# status: supported-narrow-builtins-coverage-fill-quality-alignment-artifacts
 # purpose: TimeSeries statistics, generic coverage artifacts, explicit fill/interpolation artifacts, quality summaries, alignment/resampling hooks, and planned richer resampling helpers.
 #
 # Current implementation:

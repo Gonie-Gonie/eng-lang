@@ -53,7 +53,7 @@ Examples:
 
 Documentation and tooling:
 
-- `stdlib/`: packaged standard library source seeds.
+- `stdlib/`: packaged standard library module source files.
 - `docs/EngLang_User_Guide.pdf`: this guide.
 - `docs/EngLang_Language_Grammar_Guide.pdf`: grammar and command policy.
 - `tools/vscode-englang/`: optional VS Code extension source.
@@ -221,8 +221,8 @@ The public user contract is intentionally narrow:
   generation, and portable package smoke.
 - Native IDE check/run/inspect workflow for packaged examples.
 
-These areas are present only as internal or future-facing seeds unless current
-documentation marks them stable or supported for a narrow scope:
+These areas are present only as internal or future-facing implementation tracks
+unless current documentation marks them stable or supported for a narrow scope:
 
 - Broad public solver support outside the documented scoped examples.
 - General nonlinear solving.

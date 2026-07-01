@@ -1,5 +1,5 @@
 # module: eng.table
-# status: supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join transform seeds; planned broader transform APIs
+# status: supported diagnostics, row-selection, and filter/select/derive/sort/require_one/join transform records; planned broader transform APIs
 # purpose: domain-neutral promoted-table diagnostics, filters, column projection, derived-column provenance, row ordering, row requirements, joins, and schema helpers.
 #
 # Current implementation:
@@ -11,7 +11,7 @@
 #   `select <table> columns a, b`,
 #   `derive <table> column name = expression`, `sort <table> by column`,
 #   `require_one <filtered_table>`, and `join <left> with <right>` plus
-#   `on { left.key == right.key }` are supported as transform record seeds.
+#   `on { left.key == right.key }` are supported as transform records.
 #   The legacy `select_first_row(...)` helper remains available for older
 #   examples, but new workflows should use filter/require_one transforms.
 #   These appear in result.engres as

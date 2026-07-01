@@ -170,6 +170,20 @@ Status: implemented after workflow inspector review.
   view stays summary-first.
 - Extended `ide-check` contract coverage for the workflow node drawer UI.
 
+## Batch 15: Public Seed Wording Follow-Up
+
+Status: implemented after public wording audit.
+
+- Replaced public README/user-guide implementation-seed wording with
+  implementation-track wording where it describes support boundaries.
+- Renamed packaged stdlib module header statuses such as `supported-seed` and
+  `supported-native-sqlite-write-seed` to artifact/record-oriented labels.
+- Reworded table transform and review module comments to describe supported
+  records and external boundary summaries instead of implementation seeds or
+  opaque boundaries.
+- Left deterministic sampling `seed` vocabulary intact where it is part of the
+  user-facing reproducibility API.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

@@ -19,8 +19,8 @@ Workspace package version: `0.1.0`
 
 EngLang `0.1.0` is a clean initial portable release. The documented
 data-to-report workflow, artifact family, packaged runner, and native tester
-path are the public contract. Internal implementation seeds remain outside that
-contract unless a status document gives a narrow supported scope.
+path are the public contract. Internal implementation tracks remain outside
+that contract unless a status document gives a narrow supported scope.
 
 | EngLang is | EngLang is not |
 |---|---|
