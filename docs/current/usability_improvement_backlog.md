@@ -119,6 +119,17 @@ Status: implemented after reference-doc wording audit.
 - Left deterministic sampling/reproducibility `seed` wording intact where it is
   part of the user-facing language.
 
+## Batch 11: VS Code Example Runner
+
+Status: implemented after VS Code command review.
+
+- Added `EngLang: Run Example...` to list `examples/official/**/main.eng` and
+  `examples/workflows/**/main.eng` from the current workspace.
+- Reused the same profile-aware `eng.exe run <file.eng> --profile ... --save-artifacts`
+  path as `EngLang: Run Current File`.
+- Extended `ide-check` contract coverage so the command and official/workflow
+  example discovery stay wired.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:

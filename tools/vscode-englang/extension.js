@@ -149,6 +149,7 @@ function activate(context) {
     }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
+    vscode.commands.registerCommand("englang.runExample", () => runExample(context)),
     vscode.commands.registerCommand("englang.switchProfile", () => switchExecutionProfile()),
     vscode.commands.registerCommand("englang.reviewFile", () => reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => openReviewPanel(context)),
@@ -364,6 +365,10 @@ async function runActiveFile(context) {
     vscode.window.showWarningMessage("Open an EngLang .eng file first.");
     return;
   }
+  await runDocumentFile(context, document);
+}
+
+async function runDocumentFile(context, document) {
   if (document.isDirty) {
     await document.save();
   }
@@ -392,6 +397,37 @@ async function runActiveFile(context) {
       }
     }
   );
+}
+
+async function runExample(context) {
+  const root = currentWorkspaceRoot();
+  if (!root) {
+    vscode.window.showWarningMessage("Open an EngLang workspace first.");
+    return;
+  }
+
+  const examples = findExampleFiles(root);
+  if (examples.length === 0) {
+    vscode.window.showWarningMessage("No EngLang examples found under examples/official or examples/workflows.");
+    return;
+  }
+
+  const picked = await vscode.window.showQuickPick(
+    examples.map((example) => ({
+      label: example.label,
+      description: example.kind,
+      detail: example.relativePath,
+      path: example.path
+    })),
+    { placeHolder: "Select an EngLang example to run" }
+  );
+  if (!picked) {
+    return;
+  }
+
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(picked.path));
+  await vscode.window.showTextDocument(document, { preview: false });
+  await runDocumentFile(context, document);
 }
 
 async function switchExecutionProfile() {
@@ -1855,6 +1891,47 @@ function currentWorkspaceRoot() {
     }
   }
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+}
+
+function findExampleFiles(root) {
+  const groups = [
+    { kind: "official", dir: path.join(root, "examples", "official") },
+    { kind: "workflow", dir: path.join(root, "examples", "workflows") }
+  ];
+  const examples = [];
+  for (const group of groups) {
+    collectExampleMainFiles(group.dir, root, group.kind, examples);
+  }
+  return examples.sort((left, right) => left.relativePath.localeCompare(right.relativePath));
+}
+
+function collectExampleMainFiles(dir, root, kind, examples) {
+  let entries;
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
+  for (const entry of entries) {
+    const entryPath = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      if (!entry.name.startsWith(".") && entry.name !== "build" && entry.name !== "target") {
+        collectExampleMainFiles(entryPath, root, kind, examples);
+      }
+      continue;
+    }
+    if (!entry.isFile() || entry.name !== "main.eng") {
+      continue;
+    }
+    const relativePath = path.relative(root, entryPath).replace(/[\\/]/g, "/");
+    examples.push({
+      kind,
+      path: entryPath,
+      relativePath,
+      label: relativePath.replace(/^examples\//, "").replace(/\/main\.eng$/, "")
+    });
+  }
 }
 
 function engConfig(document) {

@@ -110,6 +110,10 @@
         "title": "EngLang: Run Current File"
       },
       {
+        "command": "englang.runExample",
+        "title": "EngLang: Run Example..."
+      },
+      {
         "command": "englang.switchProfile",
         "title": "EngLang: Switch Execution Profile..."
       },

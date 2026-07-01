@@ -20,11 +20,11 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - position-aware completion from `eng-lsp --completion-stdin`
 - snippets from `snippets/eng.json`
 - quick fixes for `:=` and stale `struct Args` migration diagnostics
-- commands to check, run with saved artifacts, open a current-file review panel,
-  open the current file review JSON, open the latest generated report, and
-  inspect review/run artifacts such as `review.json`, `output_manifest.json`,
-  `run_log.json`, `run_plan.json`, `process_results.json`, and
-  `cache_manifest.json`
+- commands to check, run the current file or a bundled example with saved
+  artifacts, open a current-file review panel, open the current file review
+  JSON, open the latest generated report, and inspect review/run artifacts such
+  as `review.json`, `output_manifest.json`, `run_log.json`, `run_plan.json`,
+  `process_results.json`, and `cache_manifest.json`
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -73,6 +73,9 @@ passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact
 commands immediately after a successful run. Use `EngLang: Switch Execution
 Profile...` to choose `normal`, `safe`, or `repro` for the workspace.
+`EngLang: Run Example...` lists `examples/official/**/main.eng` and
+`examples/workflows/**/main.eng`, opens the selected example, then runs it
+through the same profile/artifact path.
 `EngLang: Open Current File Review Panel` runs
 `eng.exe review <file.eng> --json` and opens a VS Code-native summary of
 inputs, symbols, schemas, units/quantities, time axes, derived values,

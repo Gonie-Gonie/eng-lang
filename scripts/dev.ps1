@@ -1714,6 +1714,7 @@ function Assert-VscodeExtensionContract {
     foreach ($Required in @(
         "englang.checkFile",
         "englang.runFile",
+        "englang.runExample",
         "englang.switchProfile",
         "englang.reviewFile",
         "englang.openReviewPanel",
@@ -1749,6 +1750,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("--profile") -or -not $ExtensionSource.Contains("executionProfile") -or -not $ExtensionSource.Contains("switchExecutionProfile")) {
         throw "VS Code extension run command must expose and pass an execution profile"
+    }
+    if (-not $ExtensionSource.Contains("runExample") -or -not $ExtensionSource.Contains("findExampleFiles") -or -not $ExtensionSource.Contains('"official"') -or -not $ExtensionSource.Contains('"workflows"')) {
+        throw "VS Code extension must expose an example runner for official and workflow examples"
     }
     if (-not $ExtensionSource.Contains('"review", document.uri.fsPath, "--json"')) {
         throw "VS Code extension must expose a current-file review JSON command"
