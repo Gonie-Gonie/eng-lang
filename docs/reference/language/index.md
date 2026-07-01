@@ -5,11 +5,11 @@ This area contains lookup material for EngLang syntax and semantic rules.
 ## Core Pages
 
 - [Syntax and grammar](syntax.md)
-- [Language v8 policy](language_v8.md)
 - [Top-level execution policy](top_level_execution_policy.md)
 - [Functions and imports](functions_imports.md)
 - [Fast assignment](fast_assignment.md)
 - [Dimensionless and unit policy](dimensionless.md)
+- [Versioned language policy summary](language_v8.md)
 - [Formatting and CSV summary export](formatting.md)
 - [TimeSeries statistics](timeseries.md)
 - [Plotting](plotting.md)

@@ -112,7 +112,9 @@ Public behavior should have an example, a smoke test, or both.
 
 ```text
 CLI output or options          docs/reference/cli/spec.md
-language syntax or policy      docs/reference/language/language_v8.md
+language syntax                docs/reference/language/syntax.md
+assignment policy              docs/reference/language/fast_assignment.md
+unit/dimensionless policy      docs/reference/language/dimensionless.md
 artifact layout                docs/architecture/01_runtime_artifacts.md
 setup or packaging             docs/development/00_getting_started.md
 repo structure                 docs/development/01_repo_layout.md
@@ -120,7 +122,7 @@ daily workflow                 docs/development/02_daily_workflow.md
 environment reproducibility    docs/development/03_environment_reproducibility.md
 milestone scope                docs/roadmap.md
 language philosophy            docs/current/philosophy.md
-side-effect policy             docs/reference/side_effect_policy.md
+side-effect policy             docs/reference/language/side_effect_policy.md
 release gates                  docs/release/acceptance-checklist.md
 ```
 

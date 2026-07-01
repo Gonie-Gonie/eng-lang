@@ -70,7 +70,6 @@ task_types:
 
   parser:
     - docs/reference/language/syntax.md
-    - docs/reference/language/language_v8.md
     - docs/reference/language/fast_assignment.md
     - docs/reference/language/dimensionless.md
     - crates/eng_compiler/

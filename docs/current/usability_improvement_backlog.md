@@ -42,6 +42,17 @@ Status: implemented in the sixth cleanup batch.
 - Extend `ide-check` extension contract coverage and LSP integration tests for
   the stdin snapshot path.
 
+## Batch 4: Language Policy Doc Consolidation
+
+Status: implemented in the seventh cleanup batch.
+
+- Replace the stale, duplicated `language_v8.md` body with a short compatibility
+  pointer to the current focused policy pages.
+- Move language-reference navigation toward `syntax.md`,
+  `fast_assignment.md`, and `dimensionless.md` as the detailed sources.
+- Remove the historical policy pointer from the parser LLM load map so agents
+  load the actual current policy pages first.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
