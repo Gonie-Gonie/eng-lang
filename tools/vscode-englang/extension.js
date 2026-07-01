@@ -6,6 +6,23 @@ const vscode = require("vscode");
 
 const LANGUAGE_ID = "englang";
 const CHECK_DEBOUNCE_MS = 350;
+const EXECUTION_PROFILES = [
+  {
+    id: "normal",
+    description: "Default workflow execution",
+    detail: "Runs declared effects and writes the standard review artifacts."
+  },
+  {
+    id: "safe",
+    description: "Reject side effects",
+    detail: "Fails workflows with explicit write, export, process, file, or DB mutation effects."
+  },
+  {
+    id: "repro",
+    description: "Require reproducibility metadata",
+    detail: "Records environment dependencies and rejects unseeded sampling or unpinned network/cache reads."
+  }
+];
 const reviewCache = new Map();
 const changeTimers = new Map();
 let output;
@@ -132,6 +149,7 @@ function activate(context) {
     }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
+    vscode.commands.registerCommand("englang.switchProfile", () => switchExecutionProfile()),
     vscode.commands.registerCommand("englang.reviewFile", () => reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => openReviewPanel(context)),
     vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
@@ -352,11 +370,13 @@ async function runActiveFile(context) {
 
   const runtime = findRuntime(context, document);
   const cwd = workspaceRoot(document);
+  const profile = executionProfile(document);
+  const args = ["run", document.uri.fsPath, "--profile", profile, "--save-artifacts"];
   output.show(true);
-  output.appendLine(`run ${document.uri.fsPath}`);
+  output.appendLine(`run ${document.uri.fsPath} --profile ${profile}`);
   cp.execFile(
     runtime,
-    ["run", document.uri.fsPath, "--save-artifacts"],
+    args,
     { cwd, maxBuffer: 10 * 1024 * 1024 },
     (error, stdout, stderr) => {
       if (stdout) {
@@ -366,12 +386,35 @@ async function runActiveFile(context) {
         output.appendLine(stderr.trim());
       }
       if (error) {
-        vscode.window.showErrorMessage("EngLang run failed. See the EngLang output panel.");
+        vscode.window.showErrorMessage(`EngLang run failed in ${profile} profile. See the EngLang output panel.`);
       } else {
-        vscode.window.showInformationMessage("EngLang run completed.");
+        vscode.window.showInformationMessage(`EngLang run completed (${profile}).`);
       }
     }
   );
+}
+
+async function switchExecutionProfile() {
+  const document = vscode.window.activeTextEditor?.document;
+  const current = executionProfile(document);
+  const picked = await vscode.window.showQuickPick(
+    EXECUTION_PROFILES.map((profile) => ({
+      label: profile.id,
+      description: profile.description,
+      detail: profile.detail,
+      profile: profile.id
+    })),
+    { placeHolder: `Current EngLang execution profile: ${current}` }
+  );
+  if (!picked) {
+    return;
+  }
+
+  const target = vscode.workspace.workspaceFolders?.length
+    ? vscode.ConfigurationTarget.Workspace
+    : vscode.ConfigurationTarget.Global;
+  await engConfig(document).update("executionProfile", picked.profile, target);
+  vscode.window.showInformationMessage(`EngLang execution profile set to ${picked.profile}.`);
 }
 
 async function reviewActiveFile(context) {
@@ -1814,12 +1857,26 @@ function currentWorkspaceRoot() {
   return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
 }
 
+function engConfig(document) {
+  const uri = document?.uri;
+  return uri
+    ? vscode.workspace.getConfiguration("englang", uri)
+    : vscode.workspace.getConfiguration("englang");
+}
+
+function executionProfile(document) {
+  const configured = engConfig(document).get("executionProfile", "normal");
+  return EXECUTION_PROFILES.some((profile) => profile.id === configured)
+    ? configured
+    : "normal";
+}
+
 function diagnosticsBackend(document) {
-  return vscode.workspace.getConfiguration("englang", document.uri).get("diagnosticsBackend", "eng-cli");
+  return engConfig(document).get("diagnosticsBackend", "eng-cli");
 }
 
 function findRuntime(context, document) {
-  const configPath = vscode.workspace.getConfiguration("englang", document.uri).get("runtimePath", "");
+  const configPath = engConfig(document).get("runtimePath", "");
   const candidates = [
     configPath,
     path.join(context.extensionPath, "bin", "eng.exe"),
@@ -1839,7 +1896,7 @@ function findRuntime(context, document) {
 }
 
 function findLspRuntime(context, document) {
-  const configPath = vscode.workspace.getConfiguration("englang", document.uri).get("lspPath", "");
+  const configPath = engConfig(document).get("lspPath", "");
   const candidates = [
     configPath,
     path.join(context.extensionPath, "bin", "eng-lsp.exe"),

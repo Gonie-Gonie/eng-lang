@@ -1701,6 +1701,7 @@ function Assert-VscodeExtensionContract {
     foreach ($Required in @(
         "englang.checkFile",
         "englang.runFile",
+        "englang.switchProfile",
         "englang.reviewFile",
         "englang.openReviewPanel",
         "englang.openReport",
@@ -1718,7 +1719,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.lintOnSave", "englang.lintOnChange")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -1732,6 +1733,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("--save-artifacts")) {
         throw "VS Code extension run command must save artifacts for review/open-artifact commands"
+    }
+    if (-not $ExtensionSource.Contains("--profile") -or -not $ExtensionSource.Contains("executionProfile") -or -not $ExtensionSource.Contains("switchExecutionProfile")) {
+        throw "VS Code extension run command must expose and pass an execution profile"
     }
     if (-not $ExtensionSource.Contains('"review", document.uri.fsPath, "--json"')) {
         throw "VS Code extension must expose a current-file review JSON command"
@@ -1761,6 +1765,12 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {
         if ($BackendEnum -notcontains $RequiredBackend) {
             throw "VS Code extension diagnosticsBackend missing enum value $RequiredBackend"
+        }
+    }
+    $ProfileEnum = @($Properties."englang.executionProfile".enum)
+    foreach ($RequiredProfile in @("normal", "safe", "repro")) {
+        if ($ProfileEnum -notcontains $RequiredProfile) {
+            throw "VS Code extension executionProfile missing enum value $RequiredProfile"
         }
     }
 

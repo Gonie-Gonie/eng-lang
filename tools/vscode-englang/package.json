@@ -64,6 +64,16 @@
           ],
           "description": "Diagnostics backend. eng-cli runs eng.exe ide-check for file diagnostics; lsp-snapshot runs eng-lsp.exe --snapshot for experimental diagnostics, hover, and completion metadata."
         },
+        "englang.executionProfile": {
+          "type": "string",
+          "default": "normal",
+          "enum": [
+            "normal",
+            "safe",
+            "repro"
+          ],
+          "description": "Execution profile used by EngLang: Run Current File. normal runs declared effects; safe rejects side effects; repro requires reproducibility metadata for sampling, network, and cache boundaries."
+        },
         "englang.lintOnSave": {
           "type": "boolean",
           "default": true,
@@ -89,6 +99,10 @@
       {
         "command": "englang.runFile",
         "title": "EngLang: Run Current File"
+      },
+      {
+        "command": "englang.switchProfile",
+        "title": "EngLang: Switch Execution Profile..."
       },
       {
         "command": "englang.reviewFile",
