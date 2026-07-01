@@ -726,6 +726,18 @@ Status: implemented after unit highlighting consistency review.
 - Added grammar fixture expectations for full quantity literals and standalone
   unit tokens using those aliases.
 
+## Batch 60: VS Code User-Facing Wording Cleanup
+
+Status: implemented after settings and command wording review.
+
+- Reworded VS Code setting descriptions around diagnostics, live linting,
+  semantic highlighting, and execution profiles so users see file/live-check
+  behavior instead of editor-service implementation details.
+- Renamed last-run artifact command titles to include "Last Run", reducing
+  ambiguity between current-file review output and saved run artifacts.
+- Renamed the semantic-token debug command title to "Inspect Highlight Tokens"
+  and extended `ide-check` to guard these wording choices.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

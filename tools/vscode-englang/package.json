@@ -311,7 +311,7 @@
         "englang.lspPath": {
           "type": "string",
           "default": "",
-          "description": "Path to eng-lsp.exe. Leave empty to use the bundled executable, workspace executable, or PATH."
+          "description": "Path to the EngLang editor service executable. Leave empty to use the bundled executable, workspace executable, or PATH."
         },
         "englang.diagnosticsBackend": {
           "type": "string",
@@ -321,10 +321,10 @@
             "lsp-snapshot"
           ],
           "enumDescriptions": [
-            "Stable CLI diagnostics for opened and saved files.",
-            "Editor-service snapshot diagnostics aligned with hover and completion metadata."
+            "File diagnostics from eng.exe. Best for stable open, save, and manual checks.",
+            "Live editor diagnostics aligned with hover, completion, and unsaved-buffer checks."
           ],
-          "description": "Diagnostics source for the Problems panel. Use eng-cli for stable file diagnostics, or lsp-snapshot to try the editor-service snapshot path."
+          "description": "Choose how the Problems panel is updated. Use eng-cli for stable file checks, or lsp-snapshot for live editor diagnostics while typing."
         },
         "englang.executionProfile": {
           "type": "string",
@@ -339,7 +339,7 @@
             "Reject workflows with explicit write, export, process, file, or DB mutation effects.",
             "Require reproducibility metadata for sampling, network, and cache boundaries."
           ],
-          "description": "Execution profile used by EngLang: Run Current File. normal runs declared effects; safe rejects side effects; repro requires reproducibility metadata for sampling, network, and cache boundaries."
+          "description": "Execution profile used by EngLang run commands. normal runs declared effects; safe rejects side effects; repro requires reproducibility metadata for sampling, network, and cache boundaries."
         },
         "englang.lintOnSave": {
           "type": "boolean",
@@ -349,12 +349,12 @@
         "englang.lintOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "Update EngLang diagnostics for unsaved .eng buffers after a short typing pause using eng-lsp.exe."
+          "description": "Update EngLang diagnostics for unsaved .eng buffers after a short typing pause."
         },
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Use eng-lsp snapshot semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, and workflow boundaries."
+          "description": "Use compiler-backed semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, and workflow boundaries."
         }
       }
     },
@@ -397,27 +397,27 @@
       },
       {
         "command": "englang.openOutputManifest",
-        "title": "EngLang: Open Output Manifest"
+        "title": "EngLang: Open Last Run Output Manifest"
       },
       {
         "command": "englang.openRunLog",
-        "title": "EngLang: Open Run Log"
+        "title": "EngLang: Open Last Run Log"
       },
       {
         "command": "englang.openRunPlan",
-        "title": "EngLang: Open Run Plan"
+        "title": "EngLang: Open Last Run Plan"
       },
       {
         "command": "englang.openProcessResults",
-        "title": "EngLang: Open Process Results"
+        "title": "EngLang: Open Last Run Process Results"
       },
       {
         "command": "englang.openCacheManifest",
-        "title": "EngLang: Open Cache Manifest"
+        "title": "EngLang: Open Last Run Cache Manifest"
       },
       {
         "command": "englang.showSemanticTokensDebug",
-        "title": "EngLang: Show Semantic Tokens Debug"
+        "title": "EngLang: Inspect Highlight Tokens"
       }
     ]
   }

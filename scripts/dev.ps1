@@ -1812,11 +1812,40 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing command $Required"
         }
     }
+    $CommandTitles = @{}
+    foreach ($Command in @($Package.contributes.commands)) {
+        $CommandTitles[[string]$Command.command] = [string]$Command.title
+    }
+    foreach ($RequiredTitle in @(
+        @{ Command = "englang.openOutputManifest"; Text = "Last Run Output Manifest" },
+        @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
+        @{ Command = "englang.openRunPlan"; Text = "Last Run Plan" },
+        @{ Command = "englang.openProcessResults"; Text = "Last Run Process Results" },
+        @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Manifest" },
+        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
+    )) {
+        $Title = $CommandTitles[$RequiredTitle.Command]
+        if ([string]::IsNullOrWhiteSpace($Title) -or -not $Title.Contains($RequiredTitle.Text)) {
+            throw "VS Code command $($RequiredTitle.Command) must expose clearer title text containing '$($RequiredTitle.Text)'"
+        }
+    }
     $Properties = $Package.contributes.configuration.properties
     foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
+    }
+    $DiagnosticsDescription = [string]$Properties."englang.diagnosticsBackend".description
+    if ($DiagnosticsDescription -match "snapshot path|metadata") {
+        throw "VS Code diagnosticsBackend description must use user-facing wording, not implementation details"
+    }
+    $LintOnChangeDescription = [string]$Properties."englang.lintOnChange".description
+    if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
+        throw "VS Code lintOnChange description must avoid editor-service implementation details"
+    }
+    $SemanticDescription = [string]$Properties."englang.semanticHighlighting.enabled".description
+    if ($SemanticDescription -match "eng-lsp|snapshot") {
+        throw "VS Code semanticHighlighting description must avoid editor-service implementation details"
     }
     $SemanticModifiers = @($Package.contributes.semanticTokenModifiers | ForEach-Object { $_.id })
     foreach ($RequiredSemanticModifier in @(

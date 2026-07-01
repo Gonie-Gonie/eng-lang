@@ -1,30 +1,28 @@
 # EngLang VS Code Extension Preview
 
-This extension is the secondary IDE preview for user testing. It intentionally uses
-the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
+This extension is the VS Code preview for EngLang editing and local workflow
+checks. It intentionally uses the shipped EngLang executables instead of
+embedding compiler logic in JavaScript.
 
 ## Features
 
 - `.eng` language registration and syntax highlighting for workflow keywords,
   schema/types, units, built-in functions, with-block options, and literals
 - stable file diagnostics from the EngLang CLI checker
-- optional editor-service diagnostics/completion/hover metadata from
-  `eng-lsp --snapshot`
-- debounced unsaved-buffer diagnostics from `eng-lsp --snapshot-stdin`
-- semantic highlighting from `eng-lsp --snapshot-stdin`, covering roles such as
+- optional live editor diagnostics, hover, completion, symbols, and folding from
+  the EngLang editor service
+- debounced diagnostics for unsaved buffers after a short typing pause
+- semantic highlighting for unsaved buffers, covering roles such as
   variables, parameters, properties, built-in workflow helpers, module
   namespaces, quantities, units, reports, validations, and side-effect/external
   workflow boundaries
 - packaged semantic token modifier and TextMate fallback scope metadata so
   themes can color EngLang roles consistently
-- semantic token debug command that opens the current `eng-lsp --snapshot-stdin`
-  token payload as JSON for theme/highlighting inspection
+- highlight-token inspection command that opens the current token payload as JSON
+  for theme/highlighting inspection
 - hover from compiler review metadata
-- position-aware completion from `eng-lsp --completion-stdin`
-- editor metadata export from `eng-lsp --editor-metadata` for completion seed
-  and semantic-token legend contract checks
-- current-file go-to-definition from `eng-lsp --snapshot-stdin` document
-  symbols
+- position-aware completion from compiler/editor metadata
+- current-file go-to-definition from document symbols
 - snippets from `snippets/eng.json`
 - quick fixes for `:=`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
@@ -47,10 +45,10 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 4. Open the extracted folder or any EngLang project folder.
 5. Open a `.eng` file and run `EngLang: Check Current File`.
 
-The packaged VSIX contains `eng.exe` and experimental `eng-lsp.exe`, so no Rust
-setup is required for IDE preview diagnostics or editor-service smoke checks.
-The default diagnostics source still uses the stable CLI checker. To try the
-editor-service snapshot path, set:
+The packaged VSIX contains `eng.exe` and the EngLang editor service, so no Rust
+setup is required for diagnostics or editor-service smoke checks. The default
+Problems source still uses stable file checks. To try live editor diagnostics,
+set:
 
 ```text
 englang.diagnosticsBackend = lsp-snapshot
@@ -74,10 +72,10 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 ## Current Scope
 
 This is not a persistent LSP-client extension yet. The default `eng-cli`
-diagnostics source runs the stable CLI checker on open/save and manual check.
-The optional `lsp-snapshot` source runs `eng-lsp.exe --snapshot <file.eng>` for
-experimental editor-service diagnostics, hover metadata, and completion
-metadata, while run/report/artifact commands still use `eng.exe`.
+diagnostics source runs stable file checks on open/save and manual check. The
+optional `lsp-snapshot` source uses the EngLang editor service for live
+Problems data aligned with hover, completion, symbols, and folding, while
+run/report/artifact commands still use `eng.exe`.
 `EngLang: Run Current File`
 passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact
@@ -97,14 +95,13 @@ JSON` runs the same current-file review command and opens the normalized JSON
 directly, without requiring a prior run. `EngLang: Open Last Run Review JSON`
 opens the `build/result/review.json` artifact from the last saved run.
 
-Dirty buffers are checked after a short typing pause with
-`eng-lsp.exe --snapshot-stdin <file.eng>`, so Problems can update before the
-file is saved. Set `englang.lintOnChange = false` to keep diagnostics limited
-to open/save/manual checks.
+Dirty buffers are checked after a short typing pause, so Problems can update
+before the file is saved. Set `englang.lintOnChange = false` to keep
+diagnostics limited to open/save/manual checks.
 
-Semantic highlighting uses the same snapshot-stdin path so unsaved edits receive
-role-aware token colors without waiting for a file save. The extension declares
-EngLang-specific semantic token modifiers and TextMate fallback scopes for units,
+Semantic highlighting also works on unsaved edits, so role-aware token colors do
+not have to wait for a file save. The extension declares EngLang-specific
+semantic token modifiers and TextMate fallback scopes for units,
 quantities, axes, time series, validation/report roles, side effects, external
 boundaries, inputs, state, built-in workflow helper functions, module
 namespaces, model artifacts, DB/cache records, workflow steps, and review risks,
@@ -112,18 +109,17 @@ so themes without EngLang-specific rules still receive stable color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting.
 
-Completion requests call `eng-lsp.exe --completion-stdin <file.eng> <line>
-<character>` with the current unsaved buffer. JavaScript does not maintain a
-separate keyword, type, quantity, or unit table. If the LSP completion request
-is unavailable, the extension falls back to the generated completion seed from
-`generated/editor/englang-editor-metadata.json`. `eng-lsp.exe
---editor-metadata` exposes that completion seed and the semantic-token legend
-used by editor contract checks.
+Completion uses the current unsaved buffer and compiler-owned editor metadata.
+JavaScript does not maintain a separate keyword, type, quantity, or unit table.
+If live completion is unavailable, the extension falls back to the generated
+completion seed from `generated/editor/englang-editor-metadata.json`.
+`eng-lsp.exe --editor-metadata` exposes that completion seed and the
+semantic-token legend used by editor contract checks.
 
-Go-to-definition uses the current unsaved-buffer snapshot document symbols and
-stays within the current file. It resolves top-level symbols and nested document
+Go-to-definition uses document symbols from the current unsaved buffer and stays
+within the current file. It resolves top-level symbols and nested document
 symbols such as schema fields, class fields, component ports, and object
-members when those symbols are present in the snapshot.
+members when those symbols are available.
 
 ## Grammar Maintenance
 
