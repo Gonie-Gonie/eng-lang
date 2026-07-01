@@ -323,6 +323,16 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "on_none ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "on_many ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "keyword.operator.word.englang",
     "text": "using"
   },
@@ -871,6 +881,11 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "title ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "sensor_std ="
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",

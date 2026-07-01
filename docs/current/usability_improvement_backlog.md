@@ -1696,6 +1696,18 @@ and legacy process calls.
   and legacy `select_first_row(...)` in native workflow sources, so newly added
   workflows cannot bypass the native-only execution policy.
 
+## Batch 140: Workflow Option Highlight Completion Coverage
+
+Status: implemented after comparing native workflow option usage with editor
+grammar and LSP completion lists.
+
+- Added `on_none`, `on_many`, and `sensor_std` to LSP workflow option
+  completions and context-aware `with { ... }` suggestions.
+- Added TextMate option highlighting coverage and grammar smoke expectations
+  for `require_one` failure-policy options and TimeSeries `sensor_std`.
+- Marked `on_none`/`on_many` semantic tokens as validation-related and
+  `sensor_std`/`confidence_band` as uncertainty-related for richer IDE panels.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

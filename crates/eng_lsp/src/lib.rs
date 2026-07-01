@@ -474,6 +474,8 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("method", "fill or transform method"),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
+    ("on_many", "require_one multiple-row failure policy"),
+    ("on_none", "require_one no-row failure policy"),
     ("output", "generated output path"),
     ("output_root", "case output root directory"),
     ("query", "HTTP query parameters"),
@@ -483,6 +485,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("retry", "external command retry policy"),
     ("return_column", "projection return column"),
     ("seed", "deterministic sampling seed"),
+    ("sensor_std", "TimeSeries sensor standard deviation"),
     ("start", "range start option"),
     ("status", "case or validation status"),
     ("step", "case workflow step"),
@@ -1258,6 +1261,8 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             let modifiers = match option.key.as_str() {
                 "cache" | "cache_key" | "cache_dir" => ["cache"].as_slice(),
                 "step" => ["workflowStep"].as_slice(),
+                "on_none" | "on_many" => ["validation"].as_slice(),
+                "sensor_std" | "confidence_band" => ["uncertain"].as_slice(),
                 "algorithm" | "features" | "hidden" | "target" | "test" => ["model"].as_slice(),
                 _ => [].as_slice(),
             };
@@ -3841,6 +3846,12 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     if owner.starts_with("plot ") {
         return Some(&["unit", "title", "confidence_band"]);
     }
+    if owner.contains("require_one ") || owner.starts_with("require_one(") {
+        return Some(&["on_none", "on_many"]);
+    }
+    if owner.contains("TimeSeries[") {
+        return Some(&["sensor_std"]);
+    }
     if owner.contains("render template") {
         return Some(&[
             "values",
@@ -4741,6 +4752,24 @@ with {
 db = open sqlite file("outputs/results.sqlite")
 write sensor to db.table("sensor")
 
+selected = require_one sensor
+with {
+    on_none = error "No sensor row"
+    on_many = error "Multiple sensor rows"
+}
+
+Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+with {
+    sensor_std = 0.2 kW
+}
+
+report {
+    plot Q_series over Time
+    with {
+        confidence_band = sensor_std
+    }
+}
+
 cases = materialize sensor
 with {
     step = "prepare"
@@ -4756,6 +4785,10 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "step", "workflowStep");
+        assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "on_many", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "sensor_std", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "confidence_band", "uncertain");
     }
 
     #[test]
@@ -5225,6 +5258,63 @@ with {
         assert!(completions
             .iter()
             .any(|completion| completion.label == "title"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_require_one_context() {
+        let source = r#"selected = require_one rows
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("require_one_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "on_none"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "on_many"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_timeseries_context() {
+        let source = r#"Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("timeseries_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "sensor_std"));
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));

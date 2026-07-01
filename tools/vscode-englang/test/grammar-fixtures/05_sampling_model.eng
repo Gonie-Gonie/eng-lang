@@ -15,6 +15,10 @@ card = model_card(model)
 predictions = predict model using designs
 surrogate_predictions = predict surrogate_model using designs
 first_design = require_one designs
+with {
+    on_none = error "No design row"
+    on_many = error "Multiple design rows"
+}
 
 cases = materialize cases designs
 with {

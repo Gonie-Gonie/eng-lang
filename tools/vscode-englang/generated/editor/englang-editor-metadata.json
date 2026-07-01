@@ -1285,6 +1285,18 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "require_one multiple-row failure policy",
+                                "kind":  "property",
+                                "label":  "on_many",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "require_one no-row failure policy",
+                                "kind":  "property",
+                                "label":  "on_none",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "generated output path",
                                 "kind":  "property",
                                 "label":  "output",
@@ -1336,6 +1348,12 @@
                                 "detail":  "deterministic sampling seed",
                                 "kind":  "property",
                                 "label":  "seed",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "TimeSeries sensor standard deviation",
+                                "kind":  "property",
+                                "label":  "sensor_std",
                                 "lsp_kind":  10
                             },
                             {
@@ -1933,7 +1951,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  322,
+    "completion_seed_count":  325,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
