@@ -4836,9 +4836,9 @@ mod tests {
                     "sample_row_hash": "row-hash-1",
                     "case_dir": "outputs/case_001",
                     "generated_input_file": "outputs/case_001/input.txt",
-                    "process_bindings": ["run_case_001"],
+                    "process_bindings": ["materialize_case_001"],
                     "process_statuses": [
-                      { "name": "run_case_001", "command": "python run.py", "status": "succeeded" }
+                      { "name": "materialize_case_001", "command": "native render template model/native_case_template.txt", "status": "succeeded" }
                     ],
                     "output_artifacts": ["outputs/case_001/result.csv"],
                     "result_files": ["outputs/case_001/result.csv"],
@@ -4860,14 +4860,14 @@ mod tests {
                     "sample_row_hash": "row-hash-2",
                     "case_dir": "outputs/case_002",
                     "generated_input_file": "outputs/case_002/input.txt",
-                    "process_bindings": ["run_case_002"],
+                    "process_bindings": ["materialize_case_002"],
                     "process_statuses": [
-                      { "name": "run_case_002", "command": "python run.py", "status": "failed" }
+                      { "name": "materialize_case_002", "command": "native render template model/native_case_template.txt", "status": "failed" }
                     ],
                     "output_artifacts": [],
                     "result_files": [],
                     "metrics": [],
-                    "failure_reason": "process run_case_002 failed",
+                    "failure_reason": "case materialize_case_002 failed",
                     "status": "failed"
                   }
                 ],
@@ -4902,7 +4902,7 @@ mod tests {
                   {
                     "severity": "error",
                     "code": "E-CASE-STEP-FAILED",
-                    "message": "case `case_002` step `run_case_002` reported status `failed`",
+                    "message": "case `case_002` step `materialize_case_002` reported status `failed`",
                     "case_id": "case_002",
                     "sample_table": "designs",
                     "line": 14
@@ -5069,7 +5069,7 @@ mod tests {
                 "time_axes": [{ "axis": "Time", "binding": "sensor", "line": 3 }],
                 "calculations": [{ "name": "Q", "expression": "m_dot * cp * dT", "line": 4 }],
                 "report_outputs": [{ "kind": "summary", "source": "Q", "line": 5 }],
-                "external_boundaries": [{ "kind": "process", "name": "tool", "target": "python", "line": 6 }],
+                "external_boundaries": [{ "kind": "http_fixture", "name": "weather_api", "target": "https://api.example.org/weather/hourly", "line": 6 }],
                 "side_effects": [{ "kind": "write_output", "target": "\"out.csv\"", "line": 7 }],
                 "risks": [{ "category": "side_effect", "level": "high", "line": 8 }]
               }

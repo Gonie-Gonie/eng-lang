@@ -2385,6 +2385,11 @@ function Invoke-IdeCheck {
             throw "Native IDE backend must use eng_lsp editor completion seed instead of $ForbiddenNativeIdeCompletionToken"
         }
     }
+    foreach ($ForbiddenNativeIdeFixtureToken in @("python run.py", '"target": "python"')) {
+        if ($IdeMainSource.Contains($ForbiddenNativeIdeFixtureToken)) {
+            throw "Native IDE backend fixture must not expose legacy Python workflow marker $ForbiddenNativeIdeFixtureToken"
+        }
+    }
     $Node = Get-Command node -ErrorAction SilentlyContinue
     if ($null -ne $Node) {
         try {

@@ -1528,6 +1528,18 @@ Status: implemented after Native IDE highlight consistency review.
   `eng_lsp` against `.hl-mod-*` CSS classes, so future modifier additions
   cannot silently render as plain text in the Native IDE highlight overlay.
 
+## Batch 126: Native Workflow Inspector Fixture Cleanup
+
+Status: implemented after workflow native-surface audit.
+
+- Removed legacy `python run.py` commands from Native IDE case-manifest
+  inspector test payloads and replaced them with native template
+  materialization commands.
+- Replaced the normalized review cockpit external-boundary fixture target from
+  `python` to the workflow 01-style weather HTTP fixture boundary.
+- Extended `ide-check` so Native IDE backend fixtures cannot reintroduce those
+  Python workflow markers while workflow 01/02/03 remain native-only.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
