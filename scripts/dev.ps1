@@ -1658,16 +1658,65 @@ function Invoke-VscodeGrammarTest {
     & (Join-Path $RepoRoot "tools\vscode-englang\scripts\test-grammar.ps1") -ExtensionRoot (Join-Path $RepoRoot "tools\vscode-englang")
 }
 
+function Read-JavaScriptStringArrayConst {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+
+    $pattern = "const\s+$([regex]::Escape($Name))\s*=\s*\[(?<body>.*?)\];"
+    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $match.Success) {
+        throw "missing JavaScript string array constant $Name"
+    }
+    return @([regex]::Matches($match.Groups["body"].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+}
+
+function Read-RustStringSliceConst {
+    param(
+        [Parameter(Mandatory = $true)][string] $Source,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+
+    $pattern = "pub\s+const\s+$([regex]::Escape($Name))\s*:\s*&\[\&str\]\s*=\s*&\[(?<body>.*?)\];"
+    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
+    if (-not $match.Success) {
+        throw "missing Rust string slice constant $Name"
+    }
+    return @([regex]::Matches($match.Groups["body"].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
+}
+
+function Assert-SameStringSequence {
+    param(
+        [Parameter(Mandatory = $true)][string[]] $Left,
+        [Parameter(Mandatory = $true)][string[]] $Right,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    if ($Left.Count -ne $Right.Count) {
+        throw "${Description} length mismatch: $($Left.Count) != $($Right.Count)"
+    }
+    for ($index = 0; $index -lt $Left.Count; $index++) {
+        if ($Left[$index] -ne $Right[$index]) {
+            throw "${Description} mismatch at index ${index}: $($Left[$index]) != $($Right[$index])"
+        }
+    }
+}
+
 function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+    $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
     }
     if (-not (Test-Path $ExtensionJsPath)) {
         throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+    if (-not (Test-Path $LspSourcePath)) {
+        throw "missing eng_lsp source at $LspSourcePath"
     }
 
     $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
@@ -1867,6 +1916,20 @@ function Assert-VscodeExtensionContract {
     }
     if (@($Properties."englang.executionProfile".enumDescriptions).Count -lt 3) {
         throw "VS Code extension executionProfile must include user-facing enum descriptions"
+    }
+
+    $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
+    $JsSemanticTypes = Read-JavaScriptStringArrayConst -Source $ExtensionSource -Name "SEMANTIC_TOKEN_TYPES"
+    $JsSemanticModifiers = Read-JavaScriptStringArrayConst -Source $ExtensionSource -Name "SEMANTIC_TOKEN_MODIFIERS"
+    $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"
+    $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
+    Assert-SameStringSequence -Left $JsSemanticTypes -Right $LspSemanticTypes -Description "VS Code/LSP semantic token types"
+    Assert-SameStringSequence -Left $JsSemanticModifiers -Right $LspSemanticModifiers -Description "VS Code/LSP semantic token modifiers"
+    $StandardSemanticModifiers = @("declaration", "definition", "readonly", "static", "local", "imported", "defaultLibrary", "deprecated")
+    foreach ($Modifier in $LspSemanticModifiers) {
+        if ($StandardSemanticModifiers -notcontains $Modifier -and $SemanticModifiers -notcontains $Modifier) {
+            throw "VS Code package.json missing custom semantic token modifier from LSP legend: $Modifier"
+        }
     }
 
     $Node = Get-Command node -ErrorAction SilentlyContinue

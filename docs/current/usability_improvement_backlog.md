@@ -525,6 +525,18 @@ Status: implemented after schema fixture highlighting review.
   `[unix]`, `[epoch]`, and `[utc]`.
 - Pinned schema modifier and format marker coverage in grammar smoke fixtures.
 
+## Batch 44: Semantic Legend Contract
+
+Status: implemented after VS Code/LSP metadata drift review.
+
+- Extended `ide-check` so the VS Code extension's `SEMANTIC_TOKEN_TYPES` and
+  `SEMANTIC_TOKEN_MODIFIERS` must match the `eng_lsp` legend exactly.
+- Added a manifest check that every nonstandard LSP semantic-token modifier is
+  declared in `package.json`, keeping VS Code theme fallback metadata aligned
+  with compiler-backed semantic tokens.
+- This keeps future highlighting additions from landing in LSP only or VS Code
+  only without failing the editor contract gate.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
