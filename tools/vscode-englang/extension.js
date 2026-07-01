@@ -169,7 +169,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),
     vscode.commands.registerCommand("englang.openCacheManifest", () => openLastRunArtifact("cacheManifest")),
     vscode.commands.registerCommand("englang.showSemanticTokensDebug", () => showSemanticTokensDebug(context)),
-    vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider()),
+    vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider(context)),
     vscode.languages.registerCompletionItemProvider(
       LANGUAGE_ID,
       new EngCompletionProvider(context),
@@ -1976,19 +1976,75 @@ function completionKindFromLsp(kind) {
   }
 }
 
+function findHoverForWord(source, candidates, line) {
+  const names = Array.isArray(candidates) ? candidates : [candidates];
+  const hovers = [
+    ...(source.hovers ?? []),
+    ...(source.hover_hints ?? []),
+    ...(source.type_info ?? [])
+  ];
+  return (
+    hovers.find((hover) => hoverNameMatches(hover, names, line)) ??
+    hovers.find((hover) => hoverNameMatches(hover, names, undefined))
+  );
+}
+
+function hoverNameMatches(hover, candidates, line) {
+  if (Number.isInteger(line) && Number(hover?.line) !== line) {
+    return false;
+  }
+  const name = String(hover?.name ?? "");
+  if (!name) {
+    return false;
+  }
+  return candidates.some((candidate) => {
+    const text = String(candidate ?? "");
+    return text && (name === text || name.endsWith(`.${text}`) || text.endsWith(`.${name}`));
+  });
+}
+
+function hoverRangeAtPosition(document, position) {
+  const line = document.lineAt(position.line).text;
+  const tokenRange = identifierPathRangeAt(line, position.character);
+  if (tokenRange) {
+    return new vscode.Range(position.line, tokenRange.start, position.line, tokenRange.end);
+  }
+  return document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
+}
+
+function hoverCandidatesAtPosition(document, position, wordRange) {
+  const candidates = new Set(definitionNameCandidates(document, position));
+  if (wordRange) {
+    candidates.add(document.getText(wordRange));
+  }
+  return Array.from(candidates).filter((candidate) => candidate.length > 0);
+}
+
 class EngHoverProvider {
-  provideHover(document, position) {
-    const review = reviewCache.get(document.uri.fsPath);
-    if (!review) {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideHover(document, position, cancellationToken) {
+    if (!isEngDocument(document)) {
       return undefined;
     }
-    const wordRange = document.getWordRangeAtPosition(position, /[A-Za-z_][A-Za-z0-9_]*/);
-    const word = wordRange ? document.getText(wordRange) : "";
+    const snapshot =
+      (await snapshotDocumentSource(document, this.context, cancellationToken)) ??
+      reviewCache.get(document.uri.fsPath);
+    if (!snapshot) {
+      return undefined;
+    }
+    reviewCache.set(document.uri.fsPath, snapshot);
+
+    const wordRange = hoverRangeAtPosition(document, position);
+    const candidates = hoverCandidatesAtPosition(document, position, wordRange);
+    const word = candidates[0] ?? "";
+    if (!word) {
+      return undefined;
+    }
     const line = position.line + 1;
-    const hover =
-      (review.hover_hints ?? []).find((item) => item.line === line && item.name === word) ??
-      (review.hovers ?? []).find((item) => item.line === line && item.name === word) ??
-      (review.type_info ?? []).find((item) => item.name === word);
+    const hover = findHoverForWord(snapshot, candidates, line);
     if (!hover) {
       return undefined;
     }
@@ -2002,6 +2058,9 @@ class EngHoverProvider {
     const markdown = new vscode.MarkdownString();
     markdown.isTrusted = false;
     markdown.appendMarkdown(`**${hover.name ?? word}**\n\n`);
+    if (hover.kind) {
+      markdown.appendMarkdown(`Kind: \`${hover.kind}\`\n\n`);
+    }
     markdown.appendMarkdown(`${hover.detail ?? "EngLang symbol"}\n\n`);
     if (hover.quantity_kind) {
       markdown.appendMarkdown(`Quantity: \`${hover.quantity_kind}\`\n\n`);
@@ -2013,7 +2072,10 @@ class EngHoverProvider {
       markdown.appendMarkdown(`Canonical unit: \`${hover.canonical_unit}\`\n\n`);
     }
     if (hover.dimension) {
-      markdown.appendMarkdown(`Dimension: \`${hover.dimension}\``);
+      markdown.appendMarkdown(`Dimension: \`${hover.dimension}\`\n\n`);
+    }
+    if (hover.status) {
+      markdown.appendMarkdown(`Status: \`${hover.status}\``);
     }
     return new vscode.Hover(markdown, wordRange);
   }

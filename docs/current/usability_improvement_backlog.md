@@ -796,6 +796,18 @@ Status: implemented after native IDE highlight usability review.
 - Extended `ide-check` and Rust regression coverage so native IDE hover payload
   wiring and caret token insight helpers remain covered.
 
+## Batch 66: VS Code Live Hover Snapshot
+
+Status: implemented after VS Code hover parity review.
+
+- Changed the VS Code hover provider to read the current unsaved buffer through
+  `eng-lsp --snapshot-stdin`, matching diagnostics, semantic tokens,
+  completion, symbols, folding, and current-file definition behavior.
+- Matched dotted and namespaced hover names such as `where.Q_for_energy`,
+  `Thermal.T`, and component ports when the caret is on the local token.
+- Extended `ide-check` and README coverage so live hover snapshot wiring,
+  kind/status display, and namespace-aware matching stay documented.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

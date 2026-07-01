@@ -1922,6 +1922,20 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
+    foreach ($RequiredHoverToken in @(
+        "new EngHoverProvider(context)",
+        "async provideHover",
+        "findHoverForWord",
+        "hoverNameMatches",
+        "snapshotDocumentSource(document, this.context, cancellationToken)",
+        "reviewCache.set(document.uri.fsPath, snapshot)",
+        "hover.status",
+        "hover.kind"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredHoverToken)) {
+            throw "VS Code extension missing live hover snapshot token $RequiredHoverToken"
+        }
+    }
     if (-not $ExtensionSource.Contains("loadEditorMetadata") -or -not $ExtensionSource.Contains("englang-editor-metadata.json")) {
         throw "VS Code extension must load semantic legend from generated editor metadata"
     }

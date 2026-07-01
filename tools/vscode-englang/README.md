@@ -100,6 +100,10 @@ Dirty buffers are checked after a short typing pause, so Problems can update
 before the file is saved. Set `englang.lintOnChange = false` to keep
 diagnostics limited to open/save/manual checks.
 
+Hover uses the current unsaved buffer through the editor-service snapshot, so
+quantity, unit, kind, and status details stay aligned with live diagnostics and
+semantic highlighting.
+
 Semantic highlighting also works on unsaved edits, so role-aware token colors do
 not have to wait for a file save. The extension declares EngLang-specific
 semantic token modifiers and TextMate fallback scopes for units,
