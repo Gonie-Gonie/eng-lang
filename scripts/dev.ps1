@@ -1848,6 +1848,8 @@ function Invoke-IdeCheck {
         "renderWorkflowNodeDetail",
         "panelArtifactEmptyState",
         "No network/cache artifact data yet.",
+        "sourceBreadcrumbs",
+        "source-breadcrumbs",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
         "data-open-path",

@@ -207,6 +207,17 @@ Status: implemented after native IDE inspector review.
 - Extended native IDE UI contract coverage in `ide-check` for the shared empty
   state helper.
 
+## Batch 18: Native IDE Source Breadcrumbs
+
+Status: implemented after native IDE inspector review.
+
+- Added source-line breadcrumb rows to Network/Cache, DB, Model, and Case
+  panels.
+- Breadcrumbs collect unique source spans from the panel payload and reuse the
+  existing source-line jump behavior.
+- Extended native IDE UI contract coverage in `ide-check` for the breadcrumb
+  helper and styling.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -244,7 +255,6 @@ Status: implemented after native IDE inspector review.
   as part of native IDE regression checks.
 - Group raw JSON inspectors behind advanced toggles so first-run users see the
   reviewable summary first.
-- Add source span breadcrumbs in case/model/DB/network panels.
 
 ## VS Code Linter And Highlighting Candidates
 

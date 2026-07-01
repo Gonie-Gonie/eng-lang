@@ -581,6 +581,20 @@ button:hover {
   padding: 7px 10px;
 }
 
+.source-breadcrumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 0 10px 8px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.source-breadcrumbs > span:first-child {
+  font-weight: 600;
+}
+
 .badge {
   display: inline-flex;
   align-items: center;

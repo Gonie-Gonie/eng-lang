@@ -2825,6 +2825,7 @@ function renderNetworkPanel() {
       <span class="badge">Requests ${requests.length || events.length}</span>
       <span class="badge">Cache ${caches.length || cacheEvents.length}</span>
     </div>
+    ${sourceBreadcrumbs("Source spans", [...boundaries, ...requests, ...events, ...cacheEvents])}
     <div class="scroll">
       <div class="panel-title compact">Network Boundaries</div>
       ${renderNetworkBoundaries(boundaries)}
@@ -2890,6 +2891,7 @@ function renderDbPanel() {
       <span class="badge">Tables ${tableCount}</span>
       <span class="badge">Registry ${registry.length}</span>
     </div>
+    ${sourceBreadcrumbs("Source spans", [...manifests, ...registry])}
     <div class="scroll">
       ${renderDbManifests(manifests)}
       <div class="panel-title compact">Registry</div>
@@ -2928,6 +2930,7 @@ function renderModelPanel() {
       <span class="badge">Diagnostics ${diagnostics.length}</span>
       <span class="badge">Residuals ${residualPoints}</span>
     </div>
+    ${sourceBreadcrumbs("Source spans", [...specs, ...cards, ...artifacts, ...predictionManifests, ...diagnostics])}
     <div class="scroll">
       ${renderModelSpecs(specs)}
       <div class="panel-title compact">Model Cards</div>
@@ -2966,6 +2969,7 @@ function renderCasePanel() {
       <span class="badge">Diagnostics ${diagnostics.length}</span>
       <span class="badge">Failed ${failed.length}</span>
     </div>
+    ${sourceBreadcrumbs("Source spans", [...caseTables, ...manifests, ...diagnostics, ...failed])}
     <div class="scroll">
       ${renderCaseTables(caseTables)}
       ${renderCaseManifests(manifests)}
@@ -3642,6 +3646,24 @@ function sourceLineButton(item) {
   const line = item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line;
   if (!line) return "-";
   return `<button class="link-button" data-source-line="${escapeAttr(line)}">L${escapeHtml(line)}</button>`;
+}
+
+function sourceBreadcrumbs(label, items) {
+  const lines = [...new Set((items || [])
+    .map((item) => item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line)
+    .filter((line) => Number.isFinite(Number(line)) && Number(line) > 0)
+    .map((line) => Number(line)))]
+    .sort((left, right) => left - right);
+  if (!lines.length) return "";
+  const visible = lines.slice(0, 10);
+  const hidden = lines.length - visible.length;
+  return `
+    <div class="source-breadcrumbs">
+      <span>${escapeHtml(label)}</span>
+      ${visible.map((line) => `<button class="link-button" data-source-line="${escapeAttr(line)}">L${escapeHtml(line)}</button>`).join("")}
+      ${hidden > 0 ? `<span class="muted">+${hidden}</span>` : ""}
+    </div>
+  `;
 }
 
 function openPathButton(path, limit = 80) {
