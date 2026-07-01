@@ -561,6 +561,18 @@ Status: implemented after editor navigation review.
 - Updated extension docs and `ide-check` contract coverage so the provider does
   not silently disappear.
 
+## Batch 47: LSP Definition Source Ranges
+
+Status: implemented after LSP navigation range review.
+
+- `textDocument/definition` now returns the actual UTF-16 source range of the
+  definition label instead of the previous `0..1` placeholder range.
+- Shared hover/definition symbol matching now prefers exact names and then
+  falls back to the final dotted segment, reducing inconsistent behavior for
+  dotted references.
+- The stdio LSP regression test now pins both variable and function definition
+  ranges so editor navigation cannot silently lose source precision.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -598,6 +610,8 @@ Status: implemented after editor navigation review.
 
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
+- Add cross-file go-to-definition for imported functions and module symbols
+  once snapshots expose definition URI/range metadata.
 - Expand compiler-backed semantic token coverage for richer workflow step
   references after those source spans become first-class metadata.
 - Continue expanding snapshot coverage for grammar and completion vocabulary

@@ -18,6 +18,12 @@ fn stdio_server_round_trips_core_lsp_requests() {
         .lines()
         .position(|line| line.contains("Q_coil ="))
         .expect("official example should define Q_coil");
+    let q_coil_definition_char = source
+        .lines()
+        .nth(q_coil_line)
+        .unwrap()
+        .find("Q_coil")
+        .unwrap();
     let q_coil_hover_char = source
         .lines()
         .nth(q_coil_line)
@@ -192,6 +198,14 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert_eq!(definition["id"], 5);
     assert_eq!(definition["result"]["uri"], uri);
     assert_eq!(definition["result"]["range"]["start"]["line"], q_coil_line);
+    assert_eq!(
+        definition["result"]["range"]["start"]["character"],
+        q_coil_definition_char
+    );
+    assert_eq!(
+        definition["result"]["range"]["end"]["character"],
+        q_coil_definition_char + "Q_coil".len()
+    );
 
     write_message(
         &mut stdin,
@@ -380,6 +394,88 @@ fn stdio_server_round_trips_core_lsp_requests() {
     assert!(function_hover_text.contains("heat_loss"));
     assert!(function_hover_text.contains("fn heat_loss"));
     assert!(function_hover_text.contains("-> HeatRate [W]"));
+
+    let local_function_source = r#"fn heat_loss(UA: Conductance [W/K], dT: TemperatureDelta [K]) -> HeatRate [W] {
+    return UA * dT
+}
+
+Q_wall = heat_loss(150 W/K, 8 K)
+"#;
+    let local_function_uri = file_uri(&repo_root().join("target/eng_lsp_local_function.eng"));
+    let heat_loss_definition_line = local_function_source
+        .lines()
+        .position(|line| line.contains("fn heat_loss"))
+        .expect("local function source should define heat_loss");
+    let heat_loss_definition_char = local_function_source
+        .lines()
+        .nth(heat_loss_definition_line)
+        .unwrap()
+        .find("heat_loss")
+        .unwrap();
+    let local_heat_loss_line = local_function_source
+        .lines()
+        .position(|line| line.contains("Q_wall = heat_loss"))
+        .expect("local function source should call heat_loss");
+    let local_heat_loss_char = local_function_source
+        .lines()
+        .nth(local_heat_loss_line)
+        .unwrap()
+        .find("heat_loss")
+        .unwrap()
+        + "heat_loss".len();
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": local_function_uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": local_function_source
+                }
+            }
+        }),
+    );
+    let local_function_published = read_message(&mut stdout);
+    assert_eq!(
+        local_function_published["method"],
+        "textDocument/publishDiagnostics"
+    );
+    assert_eq!(
+        local_function_published["params"]["uri"],
+        local_function_uri
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 13,
+            "method": "textDocument/definition",
+            "params": {
+                "textDocument": { "uri": local_function_uri },
+                "position": { "line": local_heat_loss_line, "character": local_heat_loss_char }
+            }
+        }),
+    );
+    let function_definition = read_message(&mut stdout);
+    assert_eq!(function_definition["id"], 13);
+    assert_eq!(function_definition["result"]["uri"], local_function_uri);
+    assert_eq!(
+        function_definition["result"]["range"]["start"]["line"],
+        heat_loss_definition_line
+    );
+    assert_eq!(
+        function_definition["result"]["range"]["start"]["character"],
+        heat_loss_definition_char
+    );
+    assert_eq!(
+        function_definition["result"]["range"]["end"]["character"],
+        heat_loss_definition_char + "heat_loss".len()
+    );
 
     let where_source_path = repo_root()
         .join("examples/official/09_command_where_with/main.eng")

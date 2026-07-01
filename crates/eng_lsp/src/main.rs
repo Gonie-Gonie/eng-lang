@@ -462,14 +462,7 @@ fn hover_for_request(
         .as_deref()
         .and_then(|text| symbol_at_position(text, line_zero_based, character))
     {
-        if let Some(hover) = snapshot
-            .hovers
-            .iter()
-            .find(|hover| {
-                hover.name == symbol || hover.name.rsplit('.').next() == Some(symbol.as_str())
-            })
-            .cloned()
-        {
+        if let Some(hover) = hover_for_symbol(&snapshot.hovers, &symbol).cloned() {
             return Some(hover);
         }
     }
@@ -494,28 +487,43 @@ fn definition_for_request(request: &Value, documents: &HashMap<String, String>) 
         .or_else(|| std::fs::read_to_string(&path).ok())?;
     let snapshot = snapshot_for_source(&path, &text);
     let symbol = symbol_at_position(&text, line_zero_based, character)?;
-    let hover = snapshot.hovers.iter().find(|hover| {
-        hover.name == symbol || hover.name.rsplit('.').next() == Some(symbol.as_str())
-    })?;
+    let hover = hover_for_symbol(&snapshot.hovers, &symbol)?;
     let definition_line = hover.line.saturating_sub(1);
     let line_text = text.lines().nth(definition_line)?;
     let label = hover.name.rsplit('.').next().unwrap_or(&hover.name);
-    if !line_text.contains(label) {
-        return None;
-    }
+    let (start_character, end_character) = definition_character_range(line_text, label)?;
     Some(json!({
         "uri": uri,
         "range": {
-            "start": { "line": definition_line, "character": 0 },
-            "end": { "line": definition_line, "character": 1 }
+            "start": { "line": definition_line, "character": start_character },
+            "end": { "line": definition_line, "character": end_character }
         }
     }))
+}
+
+fn hover_for_symbol<'a>(
+    hovers: &'a [eng_lsp::LspHover],
+    symbol: &str,
+) -> Option<&'a eng_lsp::LspHover> {
+    let symbol_label = symbol.rsplit('.').next().unwrap_or(symbol);
+    hovers
+        .iter()
+        .find(|hover| hover.name == symbol)
+        .or_else(|| {
+            hovers.iter().find(|hover| {
+                hover
+                    .name
+                    .rsplit('.')
+                    .next()
+                    .is_some_and(|hover_label| hover_label == symbol_label)
+            })
+        })
 }
 
 fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<String> {
     let line_text = source.lines().nth(line)?;
     let bytes = line_text.as_bytes();
-    let mut cursor = character.min(bytes.len());
+    let mut cursor = utf16_character_to_byte(line_text, character);
     while cursor > 0 && !is_symbol_byte(bytes[cursor.saturating_sub(1)]) {
         cursor -= 1;
     }
@@ -535,6 +543,60 @@ fn symbol_at_position(source: &str, line: usize, character: usize) -> Option<Str
 
 fn is_symbol_byte(byte: u8) -> bool {
     byte == b'.' || byte == b'_' || byte.is_ascii_alphanumeric()
+}
+
+fn definition_character_range(line_text: &str, label: &str) -> Option<(usize, usize)> {
+    let (start_byte, end_byte) = find_identifier_byte_range(line_text, label)?;
+    Some((
+        utf16_len(&line_text[..start_byte]),
+        utf16_len(&line_text[..end_byte]),
+    ))
+}
+
+fn find_identifier_byte_range(line_text: &str, label: &str) -> Option<(usize, usize)> {
+    if label.is_empty() {
+        return None;
+    }
+    let mut search_start = 0;
+    while search_start <= line_text.len() {
+        let offset = line_text[search_start..].find(label)?;
+        let start = search_start + offset;
+        let end = start + label.len();
+        if has_identifier_boundaries(line_text, start, end) {
+            return Some((start, end));
+        }
+        search_start = end;
+    }
+    None
+}
+
+fn has_identifier_boundaries(line_text: &str, start: usize, end: usize) -> bool {
+    let bytes = line_text.as_bytes();
+    let before_ok = start == 0
+        || bytes
+            .get(start.saturating_sub(1))
+            .is_none_or(|byte| !is_identifier_byte(*byte));
+    let after_ok = bytes.get(end).is_none_or(|byte| !is_identifier_byte(*byte));
+    before_ok && after_ok
+}
+
+fn is_identifier_byte(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphanumeric()
+}
+
+fn utf16_character_to_byte(line_text: &str, character: usize) -> usize {
+    let mut units = 0;
+    for (byte_index, ch) in line_text.char_indices() {
+        if units >= character {
+            return byte_index;
+        }
+        units += ch.len_utf16();
+    }
+    line_text.len()
+}
+
+fn utf16_len(value: &str) -> usize {
+    value.encode_utf16().count()
 }
 
 fn document_text_from_notification(
