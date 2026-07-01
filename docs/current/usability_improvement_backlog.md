@@ -1540,6 +1540,20 @@ Status: implemented after workflow native-surface audit.
 - Extended `ide-check` so Native IDE backend fixtures cannot reintroduce those
   Python workflow markers while workflow 01/02/03 remain native-only.
 
+## Batch 127: VS Code Artifact Command Wording Cleanup
+
+Status: implemented after command-palette wording review.
+
+- Renamed user-visible VS Code review commands from `Review JSON` to
+  `Review Data`, keeping command IDs stable while avoiding format-first labels.
+- Renamed the last-run output-manifest command and artifact-picker label to
+  `Output List`, matching the task users perform when opening generated files.
+- Renamed `Process Results` in the command surface to `External Process
+  Results` so native workflows with `process_count = 0` do not imply Python or
+  mandatory process execution.
+- Extended `ide-check` to reject the older wording in package and extension
+  sources.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

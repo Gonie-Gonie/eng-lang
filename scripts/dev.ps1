@@ -1761,7 +1761,8 @@ function Assert-VscodeExtensionContract {
         }
     }
 
-    $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
+    $PackageSource = Get-Content -LiteralPath $PackageJsonPath -Raw
+    $Package = $PackageSource | ConvertFrom-Json
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -1855,15 +1856,17 @@ function Assert-VscodeExtensionContract {
         $CommandTitles[[string]$Command.command] = [string]$Command.title
     }
     foreach ($RequiredTitle in @(
+        @{ Command = "englang.reviewFile"; Text = "Current File Review Data" },
         @{ Command = "englang.openGeneratedOutput"; Text = "Last Generated Output" },
+        @{ Command = "englang.openReviewJson"; Text = "Last Run Review Data" },
         @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Artifact" },
         @{ Command = "englang.openReportSpec"; Text = "Last Run Report Spec" },
-        @{ Command = "englang.openOutputManifest"; Text = "Last Run Output Manifest" },
+        @{ Command = "englang.openOutputManifest"; Text = "Last Run Output List" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
         @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Plan" },
         @{ Command = "englang.openRunPlan"; Text = "Last Run Plan" },
         @{ Command = "englang.openRunLock"; Text = "Last Run Lock" },
-        @{ Command = "englang.openProcessResults"; Text = "Last Run Process Results" },
+        @{ Command = "englang.openProcessResults"; Text = "Last Run External Process Results" },
         @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Manifest" },
         @{ Command = "englang.openTestResults"; Text = "Last Run Test Results" },
         @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Spec" },
@@ -1941,6 +1944,11 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    foreach ($ForbiddenCommandWording in @("Current File Review JSON", "Last Run Review JSON", "Last Run Output Manifest", "Last Run Process Results")) {
+        if ($PackageSource.Contains($ForbiddenCommandWording) -or $ExtensionSource.Contains($ForbiddenCommandWording)) {
+            throw "VS Code command wording should use user-facing artifact names instead of '$ForbiddenCommandWording'"
+        }
+    }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleStatusDetailDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
         if (-not $ExtensionSource.Contains($RequiredModuleWordingToken)) {
             throw "VS Code workflow module panel missing wording token $RequiredModuleWordingToken"

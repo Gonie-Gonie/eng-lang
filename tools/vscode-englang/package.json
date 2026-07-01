@@ -415,7 +415,7 @@
       },
       {
         "command": "englang.reviewFile",
-        "title": "EngLang: Open Current File Review JSON"
+        "title": "EngLang: Open Current File Review Data"
       },
       {
         "command": "englang.openReviewPanel",
@@ -435,7 +435,7 @@
       },
       {
         "command": "englang.openReviewJson",
-        "title": "EngLang: Open Last Run Review JSON"
+        "title": "EngLang: Open Last Run Review Data"
       },
       {
         "command": "englang.openResultArtifact",
@@ -447,7 +447,7 @@
       },
       {
         "command": "englang.openOutputManifest",
-        "title": "EngLang: Open Last Run Output Manifest"
+        "title": "EngLang: Open Last Run Output List"
       },
       {
         "command": "englang.openRunLog",
@@ -467,7 +467,7 @@
       },
       {
         "command": "englang.openProcessResults",
-        "title": "EngLang: Open Last Run Process Results"
+        "title": "EngLang: Open Last Run External Process Results"
       },
       {
         "command": "englang.openCacheManifest",

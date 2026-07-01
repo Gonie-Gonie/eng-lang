@@ -40,7 +40,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "review",
-    label: "Review JSON",
+    label: "Review Data",
     description: "build/result/review.json",
     relativePath: ["build", "result", "review.json"]
   },
@@ -58,7 +58,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "outputManifest",
-    label: "Output Manifest",
+    label: "Output List",
     description: "build/result/output_manifest.json",
     relativePath: ["build", "result", "output_manifest.json"]
   },
@@ -88,7 +88,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "processResults",
-    label: "Process Results",
+    label: "External Process Results",
     description: "build/result/process_results.json",
     relativePath: ["build", "result", "process_results.json"]
   },
