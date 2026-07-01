@@ -1260,6 +1260,19 @@ Status: implemented after imported-symbol highlighting review.
   token with `declaration` and `imported` modifiers.
 - Updated the editor token-scope guide with the imported namespace contract.
 
+## Batch 105: Deprecated And Reserved Modifier Pins
+
+Status: implemented after deprecated/internal/planned modifier review.
+
+- Added LSP snapshot regression coverage so deprecated `script` and `struct`
+  keywords continue to carry the `deprecated` semantic modifier.
+- Documented that bundled stdlib domain namespaces carry
+  `defaultLibrary` + `internal` and that `planned` remains reserved until a
+  source-visible planned symbol path exists.
+- Kept the planned modifier visible in the editor contract, but require future
+  source emission to land with LSP regression coverage and VS Code fallback
+  mapping in the same change.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

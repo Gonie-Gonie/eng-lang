@@ -128,6 +128,12 @@ Core semantic role expectations:
 | `args` field | `parameter` with `declaration`. |
 | Function parameter | `parameter` with `declaration`. |
 | Function-local binding | `variable` with `local`. |
+| Deprecated `script`/`struct` keyword | `keyword` with `deprecated`. |
+| Bundled stdlib domain namespace | `namespace` with `defaultLibrary` and `internal`. |
+
+`planned` is currently reserved for future source-visible module or workflow
+symbols. Add LSP regression coverage and a VS Code fallback mapping in the same
+change that starts emitting it from source.
 
 ## VS Code Fallback Mapping
 

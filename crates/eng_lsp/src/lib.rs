@@ -4639,6 +4639,9 @@ test "temperature stays bounded" {
 
 render template file("report.md") to file("report.html")
 response = http get url("https://example.org/weather")
+
+script LegacyScript
+struct LegacyArgs
 "#;
         let snapshot = snapshot_for_source(Path::new("keyword_modifiers.eng"), source);
 
@@ -4659,6 +4662,9 @@ response = http get url("https://example.org/weather")
         }
         for label in ["http", "get"] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
+        }
+        for label in ["script", "struct"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }
     }
 
