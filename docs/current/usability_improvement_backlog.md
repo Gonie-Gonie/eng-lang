@@ -1452,6 +1452,18 @@ Status: implemented after VS Code workflow artifact command review.
 - Extended the VS Code extension contract check and README artifact list so the
   static plan command stays aligned with the promoted `eng.workflow` surface.
 
+## Batch 120: Report And Plot Artifact Commands
+
+Status: implemented after VS Code artifact surface review.
+
+- Added last-run artifact picker entries for `result.engres`,
+  `report_spec.json`, `plots/plot_spec.json`, `plots/plot_manifest.json`, and
+  `plots/timeseries.svg`.
+- Added direct Command Palette actions for opening each result/report/plot
+  artifact without locating the file manually under `build/result`.
+- Extended `ide-check` command/title coverage and the VS Code README artifact
+  list so the editor surface mirrors the runtime artifact set.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

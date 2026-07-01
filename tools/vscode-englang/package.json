@@ -434,6 +434,14 @@
         "title": "EngLang: Open Last Run Review JSON"
       },
       {
+        "command": "englang.openResultArtifact",
+        "title": "EngLang: Open Last Run Result Artifact"
+      },
+      {
+        "command": "englang.openReportSpec",
+        "title": "EngLang: Open Last Run Report Spec"
+      },
+      {
         "command": "englang.openOutputManifest",
         "title": "EngLang: Open Last Run Output Manifest"
       },
@@ -464,6 +472,18 @@
       {
         "command": "englang.openTestResults",
         "title": "EngLang: Open Last Run Test Results"
+      },
+      {
+        "command": "englang.openPlotSpec",
+        "title": "EngLang: Open Last Run Plot Spec"
+      },
+      {
+        "command": "englang.openPlotManifest",
+        "title": "EngLang: Open Last Run Plot Manifest"
+      },
+      {
+        "command": "englang.openPlotSvg",
+        "title": "EngLang: Open Last Run Plot SVG"
       },
       {
         "command": "englang.showSemanticTokensDebug",

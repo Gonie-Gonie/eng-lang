@@ -1819,6 +1819,8 @@ function Assert-VscodeExtensionContract {
         "englang.openReport",
         "englang.openLastArtifact",
         "englang.openReviewJson",
+        "englang.openResultArtifact",
+        "englang.openReportSpec",
         "englang.openOutputManifest",
         "englang.openRunLog",
         "englang.openStaticRunPlan",
@@ -1827,6 +1829,9 @@ function Assert-VscodeExtensionContract {
         "englang.openProcessResults",
         "englang.openCacheManifest",
         "englang.openTestResults",
+        "englang.openPlotSpec",
+        "englang.openPlotManifest",
+        "englang.openPlotSvg",
         "englang.showSemanticTokensDebug"
     )) {
         if ($Commands -notcontains $Required) {
@@ -1838,6 +1843,8 @@ function Assert-VscodeExtensionContract {
         $CommandTitles[[string]$Command.command] = [string]$Command.title
     }
     foreach ($RequiredTitle in @(
+        @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Artifact" },
+        @{ Command = "englang.openReportSpec"; Text = "Last Run Report Spec" },
         @{ Command = "englang.openOutputManifest"; Text = "Last Run Output Manifest" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
         @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Plan" },
@@ -1846,6 +1853,9 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openProcessResults"; Text = "Last Run Process Results" },
         @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Manifest" },
         @{ Command = "englang.openTestResults"; Text = "Last Run Test Results" },
+        @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Spec" },
+        @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Manifest" },
+        @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]

@@ -45,6 +45,18 @@ const LAST_RUN_ARTIFACTS = [
     relativePath: ["build", "result", "review.json"]
   },
   {
+    id: "result",
+    label: "Result Artifact",
+    description: "build/result/result.engres",
+    relativePath: ["build", "result", "result.engres"]
+  },
+  {
+    id: "reportSpec",
+    label: "Report Spec",
+    description: "build/result/report_spec.json",
+    relativePath: ["build", "result", "report_spec.json"]
+  },
+  {
     id: "outputManifest",
     label: "Output Manifest",
     description: "build/result/output_manifest.json",
@@ -91,6 +103,25 @@ const LAST_RUN_ARTIFACTS = [
     label: "Test Results",
     description: "build/result/test_results.json",
     relativePath: ["build", "result", "test_results.json"]
+  },
+  {
+    id: "plotSpec",
+    label: "Plot Spec",
+    description: "build/result/plots/plot_spec.json",
+    relativePath: ["build", "result", "plots", "plot_spec.json"]
+  },
+  {
+    id: "plotManifest",
+    label: "Plot Manifest",
+    description: "build/result/plots/plot_manifest.json",
+    relativePath: ["build", "result", "plots", "plot_manifest.json"]
+  },
+  {
+    id: "plotSvg",
+    label: "Plot SVG",
+    description: "build/result/plots/timeseries.svg",
+    relativePath: ["build", "result", "plots", "timeseries.svg"],
+    external: true
   }
 ];
 
@@ -178,6 +209,8 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
     vscode.commands.registerCommand("englang.openLastArtifact", openLastRunArtifactPicker),
     vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
+    vscode.commands.registerCommand("englang.openResultArtifact", () => openLastRunArtifact("result")),
+    vscode.commands.registerCommand("englang.openReportSpec", () => openLastRunArtifact("reportSpec")),
     vscode.commands.registerCommand("englang.openOutputManifest", () => openLastRunArtifact("outputManifest")),
     vscode.commands.registerCommand("englang.openRunLog", () => openLastRunArtifact("runLog")),
     vscode.commands.registerCommand("englang.openStaticRunPlan", () => openLastRunArtifact("staticRunPlan")),
@@ -186,6 +219,9 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),
     vscode.commands.registerCommand("englang.openCacheManifest", () => openLastRunArtifact("cacheManifest")),
     vscode.commands.registerCommand("englang.openTestResults", () => openLastRunArtifact("testResults")),
+    vscode.commands.registerCommand("englang.openPlotSpec", () => openLastRunArtifact("plotSpec")),
+    vscode.commands.registerCommand("englang.openPlotManifest", () => openLastRunArtifact("plotManifest")),
+    vscode.commands.registerCommand("englang.openPlotSvg", () => openLastRunArtifact("plotSvg")),
     vscode.commands.registerCommand("englang.showSemanticTokensDebug", () => showSemanticTokensDebug(context)),
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider(context)),
     vscode.languages.registerCompletionItemProvider(
