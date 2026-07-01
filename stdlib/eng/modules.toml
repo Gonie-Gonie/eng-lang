@@ -59,7 +59,7 @@ examples = ["examples/official/13_file_operations"]
 tests = ["cargo test -p eng_compiler records_test_assert_and_golden_metadata", "cargo test -p eng_runtime run_file_executes_test_assert_and_golden_checks"]
 
 [module."eng.table"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Promoted table diagnostics, deterministic row-selection artifacts, and filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned."
 artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
@@ -68,7 +68,7 @@ examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/work
 tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
 
 [module."eng.timeseries"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration."
 artifacts = ["typed_payload.timeseries_coverage", "typed_payload.timeseries_fill", "typed_payload.timeseries_quality", "typed_payload.quality_results", "typed_payload.time_alignments", "review.fallbacks"]
@@ -77,7 +77,7 @@ examples = ["examples/workflows/01_weather_api_to_standard_file"]
 tests = ["cargo test -p eng_runtime run_file_records_timeseries_coverage_in_review", "cargo test -p eng_runtime run_file_records_timeseries_fill_missing_in_artifacts", "cargo test -p eng_runtime run_file_records_timeseries_alignment_and_resampling_hooks"]
 
 [module."eng.sampling"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews."
 artifacts = ["typed_payload.sample_tables", "case_manifest"]
@@ -86,7 +86,7 @@ examples = ["examples/workflows/02_external_simulation_surrogate"]
 tests = ["cargo test -p eng_compiler sample_generation", "cargo test -p eng_runtime sample"]
 
 [module."eng.case"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata."
 artifacts = ["typed_payload.case_tables", "typed_payload.case_manifests", "typed_payload.case_diagnostics", "case_manifest", "output_manifest"]
@@ -95,7 +95,7 @@ examples = ["examples/workflows/02_external_simulation_surrogate"]
 tests = ["cargo test -p eng_runtime case_manifest"]
 
 [module."eng.artifact"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Generated artifact kinds, hashes, manifests, validation records, and report/review links."
 artifacts = ["output_manifest", "review.side_effects", "artifact_registry"]
@@ -104,7 +104,7 @@ examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/work
 tests = ["cargo test -p eng_runtime output_manifest"]
 
 [module."eng.review"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records."
 artifacts = ["review"]
@@ -113,7 +113,7 @@ examples = ["eng review examples/workflows/01_weather_api_to_standard_file/main.
 tests = ["cargo test -p eng_compiler review_json_exposes_normalized_review_document", "cargo test -p eng_cli review_semantic_diff_compares_workflow_modules"]
 
 [module."eng.model"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts."
 artifacts = ["typed_payload.model_specs", "typed_payload.model_cards", "typed_payload.prediction_manifests", "typed_payload.model_diagnostics", "model_card", "model_metrics", "output_manifest"]
@@ -122,9 +122,9 @@ examples = ["examples/workflows/02_external_simulation_surrogate", "examples/int
 tests = ["cargo test -p eng_compiler records_data_driven_modeling_metadata", "cargo test -p eng_runtime model", "cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite"]
 
 [module."eng.db"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Native SQLite append/upsert write seed with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records."
+purpose = "Native SQLite append/upsert writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records."
 artifacts = ["typed_payload.db_manifests", "db_write_manifest", "sqlite_database", "review.external_boundaries"]
 diagnostics = ["E-DB-CONNECT", "E-DB-SCHEMA-MISMATCH", "E-DB-KEY-MISSING", "E-DB-TRANSACTION-FAILED", "E-DB-SAFE-PROFILE", "W-PROFILE-REPRO-DB"]
 examples = ["examples/workflows/02_external_simulation_surrogate"]
@@ -140,7 +140,7 @@ examples = ["tests/runtime/config_optional_fields.eng"]
 tests = ["cargo test -p eng_compiler config_", "cargo test -p eng_runtime config_"]
 
 [module."eng.net"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Offline/fixture HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries."
 artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
@@ -149,7 +149,7 @@ examples = ["examples/workflows/01_weather_api_to_standard_file"]
 tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network", "cargo test -p eng_runtime secret_arg"]
 
 [module."eng.cache"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Explicit cache keys, network fixture cache materialization/replay, hit/miss records, stale cache diagnostics, cache manifests, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned."
 artifacts = ["cache_manifest", "review.caches", "run_log.cache_events", "output_manifest"]
@@ -158,7 +158,7 @@ examples = ["examples/workflows/01_weather_api_to_standard_file"]
 tests = ["cargo test -p eng_compiler cache_", "cargo test -p eng_runtime cache"]
 
 [module."eng.quality"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection."
 artifacts = ["typed_payload.expectation_suites", "typed_payload.quality_results", "typed_payload.validations", "typed_payload.policy_results", "review.expectation_suites", "review.quality_results", "review.validations", "report_spec.quality_report", "report_html.quality_report", "ide.quality_inspector", "output_manifest"]
@@ -167,7 +167,7 @@ examples = ["examples/diagnostics/data_quality"]
 tests = ["cargo test -p eng_compiler lowers_expectation_suite_seed", "cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints"]
 
 [module."eng.template"]
-status = "supported_seed"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement."
 artifacts = ["typed_payload.render_manifests", "template_render_manifest", "review.render_manifests", "output_manifest"]

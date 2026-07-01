@@ -1,8 +1,8 @@
 # module: eng.net
-# status: supported_seed
+# status: native_preview
 # purpose: HTTP/download boundaries with endpoint, cache, hash, fixture, and reproducibility policy.
 #
-# Supported seed vocabulary:
+# Native preview vocabulary:
 #   response = http get url("https://example.org/api")
 #   download url("https://example.org/file.csv") to file("build/raw/file.csv")
 #   with fixture = file("fixtures/response.json")

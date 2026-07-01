@@ -1,5 +1,5 @@
 # module: eng.cache
-# status: supported_seed
+# status: native_preview
 # purpose: reproducible cache keys, pinned downloads, fixture mode, and hit/miss artifacts.
 #
 # Current implementation:
@@ -24,6 +24,6 @@
 #   observed hash, hit/miss lookup status, runtime status, and source span.
 #
 # Non-goal:
-#   this seed does not skip execution or replay cached values yet. Implicit
+#   this module does not skip execution or replay cached values yet. Implicit
 #   caching is not acceptable for engineering review; cache use must be visible
 #   in review/runtime artifacts.

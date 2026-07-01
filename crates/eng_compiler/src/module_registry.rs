@@ -40,6 +40,7 @@ pub fn module_status_label(status: &str) -> &'static str {
     match status {
         "supported" => "Supported",
         "supported_narrow" => "Supported narrow",
+        "native_preview" => "Native preview",
         "supported_seed" => "Native preview",
         "planned" => "Planned",
         "internal_planned" => "Internal planned",
@@ -52,6 +53,9 @@ pub fn module_status_detail(status: &str) -> &'static str {
     match status {
         "supported" => "Public built-in surface supported by compiler/runtime.",
         "supported_narrow" => "Supported for the listed syntax forms and review artifacts.",
+        "native_preview" => {
+            "Native implementation exists for current workflow fixtures; broader API may still change."
+        }
         "supported_seed" => {
             "Native implementation exists for current workflow fixtures; broader API may still change."
         }
@@ -317,11 +321,11 @@ mod tests {
         assert!(registry
             .modules
             .iter()
-            .any(|module| module.name == "eng.net" && module.status == "supported_seed"));
+            .any(|module| module.name == "eng.net" && module.status == "native_preview"));
         assert!(registry
             .modules
             .iter()
-            .any(|module| module.name == "eng.cache" && module.status == "supported_seed"));
+            .any(|module| module.name == "eng.cache" && module.status == "native_preview"));
         assert!(registry
             .modules
             .iter()
@@ -336,6 +340,7 @@ mod tests {
             .completion_detail()
             .starts_with("Native preview:"));
         assert!(!net_module.completion_detail().contains("supported_seed"));
+        assert!(!net_module.completion_detail().contains("native_preview"));
         assert!(net_module
             .diagnostics
             .iter()

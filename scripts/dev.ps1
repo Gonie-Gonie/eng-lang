@@ -322,8 +322,24 @@ function Invoke-WorkflowsTest {
     }
     Invoke-Native $cargo "test" "-p" "eng_compiler" "workflow_modules"
     Invoke-Native $cargo "test" "-p" "eng_runtime" "workflow_modules"
-    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" "examples\workflows\01_weather_api_to_standard_file_hybrid\main.eng" "--save-artifacts"
-    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" "examples\workflows\02_external_simulation_surrogate_hybrid\main.eng" "--save-artifacts"
+    foreach ($Workflow in @(
+        "examples\workflows\01_weather_api_to_standard_file\main.eng",
+        "examples\workflows\02_external_simulation_surrogate\main.eng",
+        "examples\workflows\03_uncertain_sensor_report\main.eng"
+    )) {
+        Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" $Workflow "--save-artifacts"
+        $ProcessResultsPath = Join-Path $RepoRoot "build\result\process_results.json"
+        if (Test-Path -LiteralPath $ProcessResultsPath) {
+            $ProcessResults = Get-Content -LiteralPath $ProcessResultsPath -Raw | ConvertFrom-Json
+            $ProcessCount = 0
+            if ($null -ne $ProcessResults.process_count) {
+                $ProcessCount = [int]$ProcessResults.process_count
+            }
+            if ($ProcessCount -ne 0) {
+                throw "Native workflow smoke must not execute external processes: $Workflow"
+            }
+        }
+    }
 }
 
 function Invoke-Fmt {
@@ -561,6 +577,7 @@ function Convert-ModuleRegistryStatusLabel {
     switch ($Status) {
         "supported" { return "Supported" }
         "supported_narrow" { return "Supported narrow" }
+        "native_preview" { return "Native preview" }
         "supported_seed" { return "Native preview" }
         "planned" { return "Planned" }
         "internal_planned" { return "Internal planned" }

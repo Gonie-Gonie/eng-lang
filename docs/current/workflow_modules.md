@@ -16,8 +16,8 @@ tables, and IDE Quality inspector payloads,
 explicit alignment/resampling hooks in
 `typed_payload.time_alignments[]`, plus
 deterministic row-selection records in `typed_payload.table_selections[]`. Promoted
-table filter/select/derive/sort/require_one/join seeds now emit static `review_document.table_transforms[]`
-and runtime `typed_payload.table_transforms[]` records with predicates, join
+table filter/select/derive/sort/require_one/join operations now emit static
+`review_document.table_transforms[]` and runtime `typed_payload.table_transforms[]` records with predicates, join
 keys, matched pair counts, row counts, Date/DateTime predicate comparison, and
 `row_diagnostics[]`. Promoted
 `sample grid`, `sample random`, `sample lhs`, and DesignSample-style CSV tables
@@ -29,12 +29,12 @@ hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
 contracts, and process-output enrichment when external processes are used. The
 workflow examples now exercise native network/cache, sampling, template,
 model-prediction, DB-write, and generated-artifact paths with zero external
-processes in workflows 01 and 02. Native network and cache record seeds have
-landed for offline/fixture boundaries and cache manifests; cache manifests now
+processes in workflows 01 and 02. Native network and cache records now cover
+offline/fixture boundaries and cache manifests; cache manifests now
 share owner records across network, process, model, and case workflow surfaces,
 materialize/replay network fixture cache entries, enforce observed cache hashes
 under the repro profile, and warn about stale cache entries. Native SQLite
-append/upsert write seeds now produce DB files,
+append/upsert writes now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
 tables and manifests. Live network execution, broader cache invalidation/reuse,
@@ -101,7 +101,7 @@ planned pure .eng helper vocabulary
 internal vocabulary used by current examples or artifacts
 ```
 
-The supported built-in seeds are now reflected as explicit files:
+The supported and native-preview built-ins are reflected as explicit files:
 
 ```text
 stdlib/eng/path.eng
@@ -136,7 +136,7 @@ source span
 
 For generated files, `output_manifest.json` is the minimum public record. Its
 `artifact_registry` section gives source files, generated files, external
-commands, network/cache seed records, DB writes, model artifacts, and tests a
+commands, network/cache records, DB writes, model artifacts, and tests a
 shared review shape, including generated artifact validation records and
 `standard_file` classifications for generic fixed-record/text outputs. For
 external processes, `process_results.json` records command, args, env keys,
@@ -156,7 +156,7 @@ diagnostics, status, and reason,
 sample/case table metadata, and `typed_payload.case_manifests[]` records one case manifest per
 sample row with process-output enrichment from generated `case_manifest.json`
 files, `typed_payload.db_manifests[]` records generated and native SQLite DB
-write manifests, and current network/cache seeds record fixture boundaries and
+write manifests, and current network/cache records capture fixture boundaries and
 cache hit/miss lookup manifests, including materialized/replayed network
 fixture cache entries. Future live network execution, broader cache
 invalidation/reuse, native case runner, broad DB engines, and model modules
@@ -186,7 +186,7 @@ process_results.json with process_count = 0
 ```text
 deterministic LHS training and prediction sample tables
 sample table artifacts with case IDs, parameter ranges, duplicate checks, and row-hash previews
-case manifest seeds for generated sample/case rows
+case manifest records for generated sample/case rows
 native template_render records for case input files
 native regression_table model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
@@ -200,7 +200,7 @@ These fixtures show the review contract that `eng.net`, `eng.cache`,
 without depending on Python workflow adapters. External simulators and domain
 adapters can still be layered through `eng.process`, but workflows 01 and 02 do
 not require that boundary.
-Broader model train syntax remains planned, and the internal `eng.ml` seed
+Broader model train syntax remains planned, and the internal `eng.ml` path
 exposes matching model review artifacts without claiming a broad ML framework surface.
 
 ## Weather API To Standard File Pattern
@@ -249,7 +249,7 @@ should also fit CFD, FEM, Modelica, laboratory equipment, and legacy solvers.
 
 ## Case Manifest Target
 
-The current case artifact seed records `case_id`, source row, sample row
+The current case artifact preview records `case_id`, source row, sample row
 number, sample row hash, default case directory, pending/succeeded/failed/skipped
 status, result collection status, cache hit/miss counts, scheduler hooks,
 duplicate diagnostics, and

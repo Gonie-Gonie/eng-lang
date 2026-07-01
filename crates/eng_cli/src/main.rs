@@ -1464,7 +1464,7 @@ mod tests {
                 {
                     "kind": "native_module",
                     "name": "eng.net",
-                    "status": "supported_seed",
+                    "status": "native_preview",
                     "backing": "compiler_runtime_builtin",
                     "purpose": "Network boundary records",
                     "artifacts": ["review.external_boundaries"],
@@ -1490,7 +1490,7 @@ mod tests {
         );
         assert_eq!(
             diff["section_changes"][0]["changed"][0]["after"]["status"],
-            "supported_seed"
+            "native_preview"
         );
     }
 
