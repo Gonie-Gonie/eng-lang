@@ -1684,6 +1684,7 @@ function Assert-VscodeExtensionContract {
     foreach ($Required in @(
         "englang.checkFile",
         "englang.runFile",
+        "englang.reviewFile",
         "englang.openReport",
         "englang.openLastArtifact",
         "englang.openReviewJson",
@@ -1713,6 +1714,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("--save-artifacts")) {
         throw "VS Code extension run command must save artifacts for review/open-artifact commands"
+    }
+    if (-not $ExtensionSource.Contains('"review", document.uri.fsPath, "--json"')) {
+        throw "VS Code extension must expose a current-file review JSON command"
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"

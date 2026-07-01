@@ -91,6 +91,10 @@
         "title": "EngLang: Run Current File"
       },
       {
+        "command": "englang.reviewFile",
+        "title": "EngLang: Review Current File"
+      },
+      {
         "command": "englang.openReport",
         "title": "EngLang: Open Last Report"
       },

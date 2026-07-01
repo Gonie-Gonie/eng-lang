@@ -131,6 +131,7 @@ function activate(context) {
     }),
     vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
+    vscode.commands.registerCommand("englang.reviewFile", () => reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
     vscode.commands.registerCommand("englang.openLastArtifact", openLastRunArtifactPicker),
     vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
@@ -366,6 +367,57 @@ async function runActiveFile(context) {
         vscode.window.showErrorMessage("EngLang run failed. See the EngLang output panel.");
       } else {
         vscode.window.showInformationMessage("EngLang run completed.");
+      }
+    }
+  );
+}
+
+async function reviewActiveFile(context) {
+  const document = vscode.window.activeTextEditor?.document;
+  if (!document || !isEngDocument(document)) {
+    vscode.window.showWarningMessage("Open an EngLang .eng file first.");
+    return;
+  }
+  if (document.isDirty) {
+    await document.save();
+  }
+
+  const runtime = findRuntime(context, document);
+  const cwd = workspaceRoot(document);
+  output.show(true);
+  output.appendLine(`review ${document.uri.fsPath}`);
+  cp.execFile(
+    runtime,
+    ["review", document.uri.fsPath, "--json"],
+    { cwd, maxBuffer: 20 * 1024 * 1024 },
+    async (error, stdout, stderr) => {
+      if (stderr && stderr.trim().length > 0) {
+        output.appendLine(stderr.trim());
+      }
+
+      let review;
+      try {
+        review = JSON.parse(stdout);
+      } catch (parseError) {
+        output.appendLine(`Unable to parse EngLang review output: ${parseError.message}`);
+        if (error) {
+          output.appendLine(error.message);
+        }
+        vscode.window.showErrorMessage("EngLang review failed. See the EngLang output panel.");
+        return;
+      }
+
+      const reviewDocument = await vscode.workspace.openTextDocument({
+        language: "json",
+        content: JSON.stringify(review, null, 2)
+      });
+      await vscode.window.showTextDocument(reviewDocument, { preview: false });
+
+      if (error) {
+        output.appendLine(error.message);
+        vscode.window.showWarningMessage("EngLang review opened with diagnostics. See the EngLang output panel.");
+      } else {
+        vscode.window.showInformationMessage("EngLang review opened.");
       }
     }
   );
