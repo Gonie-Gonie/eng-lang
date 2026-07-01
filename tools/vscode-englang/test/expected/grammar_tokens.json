@@ -36,8 +36,26 @@
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "variable.other.interpolation.englang",
+    "scope": "meta.interpolation.englang",
     "text": "{sensor.T_supply: .2 degC}"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.interpolation.englang",
+    "text": "sensor.T_supply",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "constant.numeric.format.englang",
+    "text": ".2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "constant.other.unit.format.englang",
+    "text": "degC",
+    "fullMatch": true
   },
   {
     "fixture": "02_units_quantities.eng",

@@ -44,8 +44,33 @@
                 "match": "\\\\."
               },
               {
-                "name": "variable.other.interpolation.englang",
-                "match": "\\{[A-Za-z_][A-Za-z0-9_\\.]*(:[^}]*)?\\}"
+                "name": "meta.interpolation.englang",
+                "begin": "\\{",
+                "end": "\\}",
+                "beginCaptures": {
+                  "0": { "name": "punctuation.definition.interpolation.begin.englang" }
+                },
+                "endCaptures": {
+                  "0": { "name": "punctuation.definition.interpolation.end.englang" }
+                },
+                "patterns": [
+                  {
+                    "name": "variable.other.interpolation.englang",
+                    "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
+                  },
+                  {
+                    "name": "punctuation.separator.format.englang",
+                    "match": ":"
+                  },
+                  {
+                    "name": "constant.numeric.format.englang",
+                    "match": "\\.[0-9]+"
+                  },
+                  {
+                    "name": "constant.other.unit.format.englang",
+                    "match": "(?<![A-Za-z0-9_])(J/kg/K|person/m2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])"
+                  }
+                ]
               }
             ]
           }
