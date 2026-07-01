@@ -2175,6 +2175,11 @@ class EngCodeActionProvider {
           actions.push(action);
         }
       }
+      const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
+      if (optionAction) {
+        optionAction.isPreferred = true;
+        actions.push(optionAction);
+      }
     }
     return actions;
   }
@@ -2373,6 +2378,67 @@ function recursiveDeleteAction(document, diagnostic) {
     return undefined;
   }
   return booleanWithOptionsAction(document, diagnostic, ["recursive", "confirm"]);
+}
+
+function optionQuickFix(code) {
+  switch (code) {
+    case "E-NET-RETRY-POLICY":
+    case "E-PROCESS-RETRY-POLICY":
+      return { optionNames: ["retry"], value: "0", label: "Disable retries" };
+    case "E-NET-TIMEOUT":
+      return { optionNames: ["timeout"], value: "30 s", label: "Set timeout to 30 s" };
+    case "E-PROCESS-TIMEOUT":
+      return { optionNames: ["timeout"], value: "10 s", label: "Set timeout to 10 s" };
+    case "E-NET-BODY-SIZE-LIMIT":
+      return {
+        optionNames: ["body_size_limit", "response_body_limit"],
+        value: "10 MB",
+        label: "Set response body limit to 10 MB"
+      };
+    case "E-PROCESS-ALLOW-FAILURE":
+      return {
+        optionNames: ["allow_failure"],
+        value: "true",
+        label: "Allow process failure"
+      };
+    default:
+      return undefined;
+  }
+}
+
+function optionValueReplacementAction(document, diagnostic, fix) {
+  if (!fix) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const assignment = optionAssignmentRange(line.text, fix.optionNames);
+  if (!assignment) {
+    return undefined;
+  }
+  const optionLabel = fix.optionNames.length === 1 ? fix.optionNames[0] : assignment.optionName;
+  const action = new vscode.CodeAction(
+    `${fix.label}: ${optionLabel} = ${fix.value}`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, assignment.valueStart, line.lineNumber, assignment.valueEnd),
+    fix.value
+  );
+  return action;
+}
+
+function optionAssignmentRange(lineText, optionNames) {
+  const options = optionNames.map(escapeRegExp).join("|");
+  const match = new RegExp(`^(\\s*)(${options})(\\s*=\\s*)([^#]*?)(\\s*(?:#.*)?)$`).exec(lineText);
+  if (!match) {
+    return undefined;
+  }
+  const valueStart = match[1].length + match[2].length + match[3].length;
+  const valueEnd = valueStart + match[4].trimEnd().length;
+  return { optionName: match[2], valueStart, valueEnd };
 }
 
 function booleanWithOptionsAction(document, diagnostic, optionNames) {

@@ -100,6 +100,11 @@ Dirty buffers are checked after a short typing pause, so Problems can update
 before the file is saved. Set `englang.lintOnChange = false` to keep
 diagnostics limited to open/save/manual checks.
 
+Quick fixes are available for common syntax migrations, quantity/unit
+annotations, schema column annotations, side-effect confirmations, and invalid
+network/process options such as retry, timeout, body-size, and allow-failure
+values.
+
 Hover uses the current unsaved buffer through the editor-service snapshot, so
 quantity, unit, kind, and status details stay aligned with live diagnostics and
 semantic highlighting.

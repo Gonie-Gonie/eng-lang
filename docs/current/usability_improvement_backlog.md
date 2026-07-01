@@ -821,6 +821,18 @@ Status: implemented after VS Code keyword-color consistency review.
 - Added LSP regression coverage and `ide-check` contract guards so semantic
   keyword colors stay aligned with TextMate fallback scopes.
 
+## Batch 68: VS Code Option Value Quick Fixes
+
+Status: implemented after VS Code linter quick-fix review.
+
+- Added VS Code quick fixes for invalid network retry, timeout, and response
+  body-size options, replacing only the invalid option value on the diagnostic
+  line.
+- Added VS Code quick fixes for process retry, timeout, and `allow_failure`
+  option diagnostics using compiler-supported example values.
+- Extended README and `ide-check` contract coverage so option-value quick fixes
+  remain part of the editor surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -1979,12 +1979,21 @@ function Assert-VscodeExtensionContract {
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
+        "E-NET-RETRY-POLICY",
+        "E-NET-TIMEOUT",
+        "E-NET-BODY-SIZE-LIMIT",
+        "E-PROCESS-RETRY-POLICY",
+        "E-PROCESS-TIMEOUT",
+        "E-PROCESS-ALLOW-FAILURE",
         "removeScriptWrapperAction",
         "quantityAnnotationActions",
         "missingUnitActions",
         "schemaAnnotationAction",
         "fileMutationConfirmAction",
-        "recursiveDeleteAction"
+        "recursiveDeleteAction",
+        "optionQuickFix",
+        "optionValueReplacementAction",
+        "optionAssignmentRange"
     )) {
         if (-not $ExtensionSource.Contains($RequiredQuickFixToken)) {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
