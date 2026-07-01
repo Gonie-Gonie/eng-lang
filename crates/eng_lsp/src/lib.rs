@@ -436,17 +436,22 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("body", "HTTP request body option"),
     ("body_size_limit", "HTTP response body size limit"),
     ("cache", "cache behavior option"),
+    ("cache_dir", "cache storage directory option"),
     ("cache_key", "cache identity option"),
     ("case_id", "case identifier expression"),
+    ("confirm", "explicit filesystem mutation confirmation"),
     ("count", "sample count option"),
     ("cwd", "external command working directory"),
     ("env", "external command environment"),
+    ("end", "range end option"),
     ("expected_sha256", "expected SHA-256 hash"),
     ("expected_outputs", "declared process outputs"),
+    ("expected_step", "expected TimeSeries step"),
     ("features", "model feature columns"),
     ("fixture", "offline fixture input"),
     ("headers", "HTTP request headers"),
     ("hidden", "MLP hidden layer option"),
+    ("max_gap", "maximum allowed gap option"),
     ("method", "fill or transform method"),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
@@ -455,9 +460,11 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("query", "HTTP query parameters"),
     ("recursive", "filesystem recursion option"),
     ("resume", "case resume policy"),
+    ("response_body_limit", "HTTP download body size limit"),
     ("retry", "external command retry policy"),
     ("return_column", "projection return column"),
     ("seed", "deterministic sampling seed"),
+    ("start", "range start option"),
     ("status", "case or validation status"),
     ("step", "case workflow step"),
     ("test", "model train/test split option"),
@@ -465,6 +472,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("timeout", "external command timeout"),
     ("tool_version", "external tool version"),
     ("values", "template value map"),
+    ("year", "calendar year option"),
 ];
 
 const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
@@ -3258,6 +3266,24 @@ pub fn completion_items_at(
     line: usize,
     character: usize,
 ) -> Vec<LspCompletion> {
+    if let Some(context) = with_block_completion_context(source, line) {
+        let mut seen = BTreeSet::new();
+        let mut items = Vec::new();
+        if let Some(labels) = with_block_option_labels(&context.owner_text) {
+            for label in labels {
+                if context.assigned_options.contains(*label) {
+                    continue;
+                }
+                if let Some(detail) = workflow_option_completion_detail(label) {
+                    push_completion(&mut items, &mut seen, label, "property", detail);
+                }
+            }
+        }
+        if !items.is_empty() {
+            return items;
+        }
+    }
+
     if let Some(context) = object_field_completion_context(report, source, line, character) {
         if let Some(class_info) = report
             .semantic_program
@@ -3418,6 +3444,201 @@ pub fn completion_items_at(
     }
 
     completion_items(report)
+}
+
+struct WithBlockCompletionContext {
+    owner_text: String,
+    assigned_options: BTreeSet<String>,
+}
+
+fn with_block_completion_context(source: &str, line: usize) -> Option<WithBlockCompletionContext> {
+    let lines = source.lines().collect::<Vec<_>>();
+    if line >= lines.len() {
+        return None;
+    }
+    for start in 0..=line {
+        if !is_with_block_start(lines[start]) {
+            continue;
+        }
+        let Some(end) = source_block_end(&lines, start) else {
+            continue;
+        };
+        if line <= start || line >= end {
+            continue;
+        }
+        let owner_line = previous_non_empty_line(&lines, start)?;
+        return Some(WithBlockCompletionContext {
+            owner_text: lines[owner_line].trim().to_owned(),
+            assigned_options: assigned_with_options(&lines, start, end),
+        });
+    }
+    None
+}
+
+fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]> {
+    let owner = owner_text.trim();
+    if owner.contains("http get ") {
+        return Some(&[
+            "query",
+            "headers",
+            "fixture",
+            "expected_sha256",
+            "retry",
+            "timeout",
+            "body_size_limit",
+            "cache",
+            "cache_key",
+            "cache_dir",
+            "status_code",
+        ]);
+    }
+    if owner.starts_with("download ") {
+        return Some(&[
+            "fixture",
+            "expected_sha256",
+            "retry",
+            "timeout",
+            "response_body_limit",
+            "cache",
+            "cache_key",
+            "cache_dir",
+        ]);
+    }
+    if owner.contains("run command") {
+        return Some(&[
+            "args",
+            "cwd",
+            "env",
+            "timeout",
+            "retry",
+            "expected_outputs",
+            "allow_failure",
+            "tool_version",
+            "cache",
+            "cache_key",
+            "cache_dir",
+        ]);
+    }
+    if owner.starts_with("delete ") {
+        return Some(&["confirm", "recursive"]);
+    }
+    if owner.starts_with("move ") {
+        return Some(&["confirm", "overwrite"]);
+    }
+    if owner.starts_with("copy ") || owner.starts_with("write ") || owner.starts_with("export ") {
+        return Some(&["overwrite", "mode"]);
+    }
+    if owner.contains("render template") {
+        return Some(&[
+            "values",
+            "output",
+            "overwrite",
+            "cache",
+            "cache_key",
+            "cache_dir",
+        ]);
+    }
+    if owner.contains("materialize ") {
+        return Some(&[
+            "step",
+            "output_root",
+            "resume",
+            "case_id",
+            "cache",
+            "cache_key",
+        ]);
+    }
+    if owner.contains("check coverage") || owner.contains("coverage ") {
+        return Some(&[
+            "expected_step",
+            "year",
+            "start",
+            "end",
+            "max_gap",
+            "missing",
+        ]);
+    }
+    if owner.contains("train_test_split") {
+        return Some(&["target", "features", "test", "seed", "cache", "cache_key"]);
+    }
+    if owner.contains("regression(") || owner.contains("train_regression") || owner.contains("mlp(")
+    {
+        return Some(&[
+            "algorithm",
+            "features",
+            "target",
+            "hidden",
+            "epochs",
+            "cache",
+            "cache_key",
+        ]);
+    }
+    if owner.contains("predict ") || owner.contains("predict(") {
+        return Some(&["output", "cache", "cache_key"]);
+    }
+    if owner.contains("sample ") || owner.contains("lhs(") || owner.contains("uniform(") {
+        return Some(&["count", "seed", "start", "end", "method"]);
+    }
+    None
+}
+
+fn workflow_option_completion_detail(label: &str) -> Option<&'static str> {
+    WORKFLOW_OPTION_COMPLETIONS
+        .iter()
+        .find(|(candidate, _detail)| *candidate == label)
+        .map(|(_candidate, detail)| *detail)
+}
+
+fn is_with_block_start(line: &str) -> bool {
+    line.trim() == "with {"
+}
+
+fn previous_non_empty_line(lines: &[&str], before: usize) -> Option<usize> {
+    (0..before)
+        .rev()
+        .find(|line| !lines[*line].trim().is_empty())
+}
+
+fn source_block_end(lines: &[&str], start: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (line_number, line) in lines.iter().enumerate().skip(start) {
+        for character in strip_source_comment(line).chars() {
+            match character {
+                '{' => depth += 1,
+                '}' => {
+                    depth = depth.saturating_sub(1);
+                    if depth == 0 {
+                        return Some(line_number);
+                    }
+                }
+                _ => {}
+            }
+        }
+    }
+    None
+}
+
+fn assigned_with_options(lines: &[&str], start: usize, end: usize) -> BTreeSet<String> {
+    let mut options = BTreeSet::new();
+    for line in lines.iter().take(end).skip(start + 1) {
+        let Some((key, _value)) = strip_source_comment(line).trim().split_once('=') else {
+            continue;
+        };
+        let key = key.trim();
+        if key
+            .chars()
+            .all(|character| character == '_' || character.is_ascii_alphanumeric())
+        {
+            options.insert(key.to_owned());
+        }
+    }
+    options
+}
+
+fn strip_source_comment(line: &str) -> &str {
+    line.split_once('#')
+        .map(|(before_comment, _comment)| before_comment)
+        .unwrap_or(line)
 }
 
 pub fn severity_to_lsp(severity: &Severity) -> u8 {
@@ -4224,6 +4445,73 @@ Q = sensor.T
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "m_dot"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_owner_context() {
+        let source = r#"response = http get url("https://api.example.org/hourly")
+with {
+    
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("network_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "body_size_limit"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "cache_key"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "recursive"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "HeatRate"));
+    }
+
+    #[test]
+    fn with_block_completion_skips_existing_options() {
+        let source = r#"delete dir("old")
+with {
+    confirm = true
+    
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("delete_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "recursive"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "confirm"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
     }
 
     #[test]

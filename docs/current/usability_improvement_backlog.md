@@ -474,6 +474,20 @@ Status: implemented after VS Code linter quick-fix review.
   duplicate options and keeping filesystem mutation policy visible in source.
 - Extended extension README wording and `ide-check` quick-fix contract coverage.
 
+## Batch 40: With-Block Option Completion
+
+Status: implemented after LSP completion context review.
+
+- Added position-aware LSP completion for `with { ... }` blocks.
+- Completion now uses the owner statement to prefer relevant options for
+  network requests, downloads, process boundaries, file mutations, template
+  renders, case materialization, coverage checks, sampling, and model helpers.
+- Existing options in the same multiline `with` block are skipped so users do
+  not get duplicate `confirm`, `cache_key`, or similar suggestions.
+- Expanded option completion vocabulary for supported public keys such as
+  `confirm`, `recursive`, `cache_dir`, `expected_step`, `response_body_limit`,
+  `start`, `end`, and `year`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
