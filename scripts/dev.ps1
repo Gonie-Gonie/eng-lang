@@ -1930,6 +1930,14 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleStatusDetailDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
+        if (-not $ExtensionSource.Contains($RequiredModuleWordingToken)) {
+            throw "VS Code workflow module panel missing wording token $RequiredModuleWordingToken"
+        }
+    }
+    if ($ExtensionSource.Contains('reviewValue(module, "backing")')) {
+        throw "VS Code workflow module panel must not display raw registry backing keys"
+    }
     if ($ExtensionSource.Contains("--entry") -or $ExtensionSource.Contains("runEntry")) {
         throw "VS Code extension run command must use top-level execution without entry flags"
     }
@@ -2326,6 +2334,14 @@ function Invoke-IdeCheck {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
             throw "Native IDE UI missing contract token $RequiredIdeToken"
         }
+    }
+    foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
+        if (-not $IdeUiSource.Contains($RequiredModuleWordingToken)) {
+            throw "Native IDE module wording missing token $RequiredModuleWordingToken"
+        }
+    }
+    if ($IdeUiSource.Contains('${escapeHtml(module.status || "-")} / ${escapeHtml(module.backing || "-")}')) {
+        throw "Native IDE Modules view must not display raw registry status/backing keys"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight", "variable-source-line")) {

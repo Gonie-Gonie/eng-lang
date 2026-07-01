@@ -1478,6 +1478,18 @@ Status: implemented after VS Code last-run output review.
 - Extended `ide-check` command/title coverage and README docs so the new
   manifest-driven artifact surface stays visible in local VS Code installs.
 
+## Batch 122: Module Status Display Cleanup
+
+Status: implemented after Native IDE wording review.
+
+- Stopped showing raw registry keys such as `native_preview` and
+  `compiler_runtime_builtin` in the Native IDE Modules table.
+- Updated the VS Code review panel workflow-module table to show the same
+  user-facing backing labels, such as `Compiler/runtime` and
+  `No executable backing`.
+- Extended `ide-check` coverage so both editor surfaces keep using display
+  helpers instead of leaking raw module registry status/backing keys.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

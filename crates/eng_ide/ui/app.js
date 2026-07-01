@@ -1598,7 +1598,7 @@ function renderModules(modules = filteredModules()) {
   const rows = modules.map((module) => `
     <tr>
       <td><strong>${escapeHtml(module.name || "-")}</strong></td>
-      <td><strong>${escapeHtml(moduleStatusLabel(module))}</strong><div class="muted">${escapeHtml(moduleStatusDetail(module))}</div><div class="muted">${escapeHtml(module.status || "-")} / ${escapeHtml(module.backing || "-")}</div></td>
+      <td><strong>${escapeHtml(moduleStatusLabel(module))}</strong><div class="muted">${escapeHtml(moduleStatusDetail(module))}</div><div class="muted">${escapeHtml(moduleStatusDisplay(module))} / ${escapeHtml(moduleBackingLabel(module))}</div></td>
       <td>${escapeHtml(compactText(module.purpose || "-", 120))}</td>
       <td>${escapeHtml(Array.isArray(module.symbols) && module.symbols.length ? module.symbols.join("; ") : "-")}</td>
       <td>${escapeHtml(Array.isArray(module.artifacts) && module.artifacts.length ? module.artifacts.join("; ") : "-")}</td>
@@ -1700,6 +1700,23 @@ function moduleStatusDetail(module) {
       return "Internal compiler/runtime vocabulary, not a public stdlib contract.";
     default:
       return "-";
+  }
+}
+
+function moduleStatusDisplay(module) {
+  return module.statusLabel || moduleStatusLabel(module) || "-";
+}
+
+function moduleBackingLabel(module) {
+  switch (module.backing) {
+    case "compiler_runtime_builtin":
+      return "Compiler/runtime";
+    case "none":
+      return "No executable backing";
+    case "internal":
+      return "Internal";
+    default:
+      return module.backing ? String(module.backing).replaceAll("_", " ") : "-";
   }
 }
 
