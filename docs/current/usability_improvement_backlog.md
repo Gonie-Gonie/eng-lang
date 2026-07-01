@@ -1049,6 +1049,19 @@ Status: implemented after native IDE inspector workflow review.
 - Extended `ide-check` contract coverage for the shared variable source cell
   and styling.
 
+## Batch 87: Native IDE Source-Line Field Normalization
+
+Status: implemented after native IDE source-jump audit.
+
+- Normalized native IDE source-line extraction through a shared helper so
+  inspector links recognize `source_span.line`, `sourceSpan.line`,
+  `source_line`, `sourceLine`, and plain `line` records.
+- Reused that helper for source breadcrumbs, keeping Network/Cache, DB, Model,
+  Case, and other review inspectors from losing links when artifact payloads
+  use snake-case or camel-case source-line fields.
+- Extended `ide-check` contract coverage for the normalized source-line field
+  variants.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

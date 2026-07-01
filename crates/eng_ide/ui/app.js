@@ -4131,9 +4131,21 @@ function validationSummary(validations) {
 }
 
 function sourceLineButton(item) {
-  const line = item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line;
-  if (!line) return "-";
-  return `<button class="link-button" data-source-line="${escapeAttr(line)}">L${escapeHtml(line)}</button>`;
+  const line = sourceLineValue(item);
+  const lineNumber = Number(line);
+  if (!Number.isFinite(lineNumber) || lineNumber < 1) {
+    return line ? escapeHtml(line) : "-";
+  }
+  const safeLine = Math.trunc(lineNumber);
+  return `<button class="link-button" data-source-line="${escapeAttr(safeLine)}">L${escapeHtml(safeLine)}</button>`;
+}
+
+function sourceLineValue(item) {
+  return item?.source_span?.line
+    ?? item?.sourceSpan?.line
+    ?? item?.source_line
+    ?? item?.sourceLine
+    ?? item?.line;
 }
 
 function sourceTokenButton(token) {
@@ -4149,7 +4161,7 @@ function sourceTokenButton(token) {
 
 function sourceBreadcrumbs(label, items) {
   const lines = [...new Set((items || [])
-    .map((item) => item?.source_span?.line ?? item?.sourceSpan?.line ?? item?.line)
+    .map(sourceLineValue)
     .filter((line) => Number.isFinite(Number(line)) && Number(line) > 0)
     .map((line) => Number(line)))]
     .sort((left, right) => left - right);
