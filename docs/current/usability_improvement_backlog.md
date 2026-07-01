@@ -785,6 +785,17 @@ Status: implemented after native IDE completion source review.
   labels mirror the LSP seed and do not reintroduce duplicate completion
   constants.
 
+## Batch 65: Native IDE Caret Token Insight
+
+Status: implemented after native IDE highlight usability review.
+
+- Added LSP hover payloads to native IDE check results alongside semantic
+  tokens.
+- Added editor-meta caret insight that shows line/column, semantic token
+  type/modifiers, and quantity/unit hover detail for the current caret token.
+- Extended `ide-check` and Rust regression coverage so native IDE hover payload
+  wiring and caret token insight helpers remain covered.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -816,8 +827,9 @@ Status: implemented after native IDE completion source review.
 
 ## Native IDE Usability Candidates
 
-- Add hover/inline source range details to the native editor overlay once the
-  textarea-backed editor can show them without fighting text selection.
+- Continue improving the caret token insight with richer source range actions
+  once the textarea-backed editor can expose them without fighting text
+  selection.
 - Continue reviewing inspector workflows for dense, repeated debugging tasks.
 
 ## VS Code Linter And Highlighting Candidates

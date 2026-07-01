@@ -80,7 +80,9 @@ Editor
   Checked files use compiler-backed semantic tokens for colored keyword, unit,
   quantity, workflow, and review-risk highlighting. If the buffer has changed
   since the last check, the overlay falls back to plain text until Check or Run
-  refreshes token ranges.
+  refreshes token ranges. The editor meta bar shows the current caret line,
+  column, semantic token type/modifiers, and quantity/unit hover detail when
+  the caret is on a checked token.
 
 Right Sidebar
   Vars, Schema, Time, Plot, Checks, Highlight, Artifacts, and Run tabs are the

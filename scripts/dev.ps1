@@ -2105,6 +2105,11 @@ function Invoke-IdeCheck {
         "semanticTokenPayload",
         "semanticTokens",
         "byteOffsetToCodeUnit",
+        "cursorInsight",
+        "renderCursorInsight",
+        "semanticTokenAtCaret",
+        "hoverForSemanticToken",
+        "codeUnitToByteOffset",
         "Timestamp",
         "Artifact Root"
     )) {
@@ -2113,13 +2118,13 @@ function Invoke-IdeCheck {
         }
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-riskHigh", "semantic-token-table", "token-chip")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "cursor-insight")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "semantic_tokens_view", "snapshot_from_report_with_source", "editor_completion_seed", "CompletionView::from_lsp", "native_insert_for_lsp_completion", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "editor_completion_seed", "CompletionView::from_lsp", "native_insert_for_lsp_completion", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

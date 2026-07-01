@@ -56,6 +56,7 @@ struct CheckView {
     symbols: Vec<SymbolView>,
     status: String,
     semantic_tokens: Value,
+    hovers: Value,
 }
 
 #[derive(Clone, Serialize)]
@@ -450,6 +451,7 @@ fn ide_terminal(
                 symbols: Vec::new(),
                 status: "ok".to_owned(),
                 semantic_tokens: empty_semantic_tokens_view(),
+                hovers: empty_hovers_view(),
             },
             variables: Vec::new(),
             args: Vec::new(),
@@ -627,6 +629,7 @@ impl RunView {
                 symbols: Vec::new(),
                 status: "ok".to_owned(),
                 semantic_tokens: empty_semantic_tokens_view(),
+                hovers: empty_hovers_view(),
             },
             variables: Vec::new(),
             args: Vec::new(),
@@ -843,24 +846,33 @@ fn check_view_from_report(report: &CheckReport, source: Option<&str>) -> CheckVi
         .collect();
     let errors = report.diagnostic_count(Severity::Error);
     let warnings = report.diagnostic_count(Severity::Warning);
+    let (semantic_tokens, hovers) = editor_payload_view(report, source);
     CheckView {
         diagnostics,
         symbols,
         status: format!("{errors} error(s), {warnings} warning(s)"),
-        semantic_tokens: semantic_tokens_view(report, source),
+        semantic_tokens,
+        hovers,
     }
 }
 
-fn semantic_tokens_view(report: &CheckReport, source: Option<&str>) -> Value {
+fn editor_payload_view(report: &CheckReport, source: Option<&str>) -> (Value, Value) {
     let Some(source) = source else {
-        return empty_semantic_tokens_view();
+        return (empty_semantic_tokens_view(), empty_hovers_view());
     };
     let snapshot = eng_lsp::snapshot_from_report_with_source(report, Some(source));
-    eng_lsp::semantic_tokens_json(&snapshot.semantic_tokens)
+    (
+        eng_lsp::semantic_tokens_json(&snapshot.semantic_tokens),
+        Value::Array(snapshot.hovers.iter().map(eng_lsp::hover_json).collect()),
+    )
 }
 
 fn empty_semantic_tokens_view() -> Value {
     eng_lsp::semantic_tokens_json(&eng_lsp::LspSemanticTokens::default())
+}
+
+fn empty_hovers_view() -> Value {
+    Value::Array(Vec::new())
 }
 
 fn base_completion_items() -> Vec<CompletionView> {
@@ -2276,6 +2288,7 @@ fn terminal_command_error(command: &str) -> Option<CheckView> {
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
         semantic_tokens: empty_semantic_tokens_view(),
+        hovers: empty_hovers_view(),
     })
 }
 
@@ -2299,6 +2312,7 @@ fn terminal_unrecognized_command_error(command: &str, run_dir: &Path) -> Option<
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
         semantic_tokens: empty_semantic_tokens_view(),
+        hovers: empty_hovers_view(),
     })
 }
 
@@ -3869,6 +3883,10 @@ mod tests {
                 .and_then(Value::as_array)
                 .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("unit")))
         }));
+        assert!(check
+            .hovers
+            .as_array()
+            .is_some_and(|hovers| hovers.iter().any(|hover| hover["name"] == "Q_coil")));
     }
 
     #[test]

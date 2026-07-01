@@ -495,10 +495,29 @@ button:hover {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 12px;
   padding: 0 10px;
   border-bottom: 1px solid var(--border);
   font-size: 12px;
   color: var(--muted);
+}
+
+.editor-meta > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.editor-meta > span:first-child {
+  flex: 1 1 auto;
+}
+
+.cursor-insight {
+  flex: 0 1 46%;
+  text-align: center;
+  color: #344054;
+  font-family: Consolas, "Cascadia Mono", monospace;
 }
 
 .editor-shell {

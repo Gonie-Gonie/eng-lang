@@ -16,7 +16,7 @@ const state = {
   runDir: "",
   source: "",
   dirty: false,
-  check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] } },
+  check: { diagnostics: [], symbols: [], status: "", semanticTokens: { legend: {}, tokens: [] }, hovers: [] },
   highlightSource: "",
   variables: [],
   args: [],
@@ -98,6 +98,7 @@ function normalizeCheck(check) {
     diagnostics: Array.isArray(check?.diagnostics) ? check.diagnostics : [],
     symbols: Array.isArray(check?.symbols) ? check.symbols : [],
     status: check?.status || "",
+    hovers: Array.isArray(check?.hovers) ? check.hovers : [],
     semanticTokens: {
       legend: semanticTokens.legend || {},
       tokens: Array.isArray(semanticTokens.tokens) ? semanticTokens.tokens : []
@@ -141,6 +142,7 @@ function render() {
       <div class="editor-tabs">${renderTabs()}</div>
       <div class="editor-meta">
         <span>${escapeHtml(state.currentPath)}</span>
+        <span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>
         <span>${lineCount(state.source)} lines</span>
       </div>
       <div class="editor-shell">
@@ -168,6 +170,7 @@ function render() {
   bind();
   bindGlobalEvents();
   syncEditorHighlightScroll();
+  updateCursorInsight();
   if (state.sideTab === "plot" && state.plotSpec) drawPlot("sidePlotCanvas");
 }
 
@@ -261,10 +264,16 @@ function bind() {
   editor.addEventListener("keydown", handleEditorKeyDown);
   editor.addEventListener("scroll", syncEditorHighlightScroll);
   editor.addEventListener("keyup", (event) => {
+    updateCursorInsight();
     if (["ArrowDown", "ArrowUp", "Enter", "Tab", "Escape"].includes(event.key)) return;
     updateCompletionOverlay();
   });
-  editor.addEventListener("click", updateCompletionOverlay);
+  editor.addEventListener("click", () => {
+    updateCursorInsight();
+    updateCompletionOverlay();
+  });
+  editor.addEventListener("mouseup", updateCursorInsight);
+  editor.addEventListener("select", updateCursorInsight);
   editor.addEventListener("input", (event) => {
     state.source = event.target.value;
     state.dirty = true;
@@ -272,6 +281,7 @@ function bind() {
     state.status = "Modified";
     renderTabLabels();
     updateEditorHighlight();
+    updateCursorInsight();
     updateCompletionOverlay();
   });
   byId("checkBtn").onclick = checkCurrent;
@@ -3761,8 +3771,94 @@ function insertCompletion(item) {
   rememberCurrentTab();
   renderTabLabels();
   updateEditorHighlight();
+  updateCursorInsight();
   hideCompletions();
   editor.focus();
+}
+
+function updateCursorInsight() {
+  const target = byId("cursorInsight");
+  if (!target) return;
+  target.outerHTML = `<span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>`;
+}
+
+function renderCursorInsight() {
+  const editor = byId("editor");
+  const source = editor?.value ?? state.source ?? "";
+  const position = editorCursorPosition(source, editor?.selectionStart ?? 0);
+  const token = editor ? semanticTokenAtCaret(editor, position) : null;
+  const hover = token ? hoverForSemanticToken(token, position.line) : null;
+  const parts = [`L${position.line + 1}:C${position.column + 1}`];
+  if (state.source !== state.highlightSource) {
+    parts.push("Check needed");
+  } else if (token) {
+    parts.push(tokenLabel(token));
+    if (hover?.quantity_kind || hover?.quantityKind) {
+      const quantity = hover.quantity_kind || hover.quantityKind;
+      const unit = hover.display_unit || hover.displayUnit || "-";
+      parts.push(`${quantity} [${unit}]`);
+    }
+  } else {
+    parts.push("plain");
+  }
+  const title = hover ? hoverTitle(hover) : parts.join(" / ");
+  return `<span title="${escapeAttr(title)}">${escapeHtml(parts.join(" · "))}</span>`;
+}
+
+function editorCursorPosition(source, offset) {
+  const safeOffset = Math.max(0, Math.min(Number(offset) || 0, source.length));
+  const before = source.slice(0, safeOffset);
+  const lines = before.split(/\r\n|\r|\n/);
+  return {
+    line: lines.length - 1,
+    column: lines[lines.length - 1].length,
+    offset: safeOffset
+  };
+}
+
+function semanticTokenAtCaret(editor, position) {
+  if (state.source !== state.highlightSource) return null;
+  const line = editor.value.split(/\r\n|\r|\n/)[position.line] || "";
+  const columnByte = codeUnitToByteOffset(line, position.column);
+  const tokens = semanticTokensByLine(semanticTokenPayload().tokens || []).get(position.line) || [];
+  return tokens.find((token) => {
+    const start = Number(token.start ?? 0);
+    const end = start + Number(token.length ?? 0);
+    return columnByte >= start && columnByte <= end;
+  }) || null;
+}
+
+function hoverForSemanticToken(token, lineIndex) {
+  const line = lineIndex + 1;
+  const hovers = Array.isArray(state.check?.hovers) ? state.check.hovers : [];
+  const tokenText = tokenTextForSemanticToken(token, lineIndex);
+  return hovers.find((hover) => {
+    if (Number(hover.line || 0) !== line) return false;
+    const name = String(hover.name || "");
+    return name === tokenText || name.endsWith(`.${tokenText}`) || tokenText.endsWith(`.${name}`);
+  }) || hovers.find((hover) => Number(hover.line || 0) === line) || null;
+}
+
+function tokenTextForSemanticToken(token, lineIndex) {
+  const line = String(state.highlightSource || "").split(/\r\n|\r|\n/)[lineIndex] || "";
+  const range = semanticTokenRange(line, token);
+  return range ? line.slice(range.start, range.end) : "";
+}
+
+function tokenLabel(token) {
+  const modifiers = arrayOrEmpty(token.modifiers);
+  return [token.type || "token", ...modifiers].join("/");
+}
+
+function hoverTitle(hover) {
+  return [
+    hover.name,
+    hover.kind,
+    hover.detail,
+    hover.quantity_kind || hover.quantityKind,
+    hover.display_unit || hover.displayUnit,
+    hover.status
+  ].filter(Boolean).join(" / ");
 }
 
 function caretOverlayPosition(editor) {
@@ -3852,6 +3948,17 @@ function byteOffsetToCodeUnit(text, byteOffset) {
     if (codePoint > 0xffff) index += 1;
   }
   return text.length;
+}
+
+function codeUnitToByteOffset(text, codeUnitOffset) {
+  let bytes = 0;
+  const limit = Math.max(0, Math.min(Number(codeUnitOffset) || 0, text.length));
+  for (let index = 0; index < limit; index += 1) {
+    const codePoint = text.codePointAt(index);
+    bytes += utf8ByteLength(String.fromCodePoint(codePoint));
+    if (codePoint > 0xffff) index += 1;
+  }
+  return bytes;
 }
 
 function utf8ByteLength(value) {
