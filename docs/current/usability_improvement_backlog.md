@@ -637,6 +637,19 @@ Status: implemented after syntax-highlighting TODO review.
 - Regenerated the VS Code grammar, synced the local installed extension
   grammar, and verified `vscode-grammar-test`, `lsp-check`, and `ide-check`.
 
+## Batch 53: JSON Records LSP Metadata Alignment
+
+Status: implemented after grammar/LSP consistency review.
+
+- Added `records` and `promote json records` to the LSP completion surface so
+  the new native table promotion is discoverable from VS Code and snapshot
+  completions.
+- Marked `promote json records` semantic tokens with the `workflowStep`
+  modifier and changed document-symbol detail from CSV wording to
+  `json_records as <Schema>` for JSON-record table promotions.
+- Added an LSP snapshot regression that pins completion, semantic token, and
+  document-symbol behavior for the JSON records promotion syntax.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -229,6 +229,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "promote",
     "random",
     "read",
+    "records",
     "regression",
     "render",
     "report",
@@ -930,6 +931,13 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "class",
             &["defaultLibrary"],
         );
+        if promotion.source_format == "json_records" {
+            builder.push_keywords_on_line(
+                promotion.line,
+                &["promote", "json", "records"],
+                &["workflowStep"],
+            );
+        }
     }
 
     for promotion in &program.config_promotions {
@@ -1448,12 +1456,17 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
     }
 
     for promotion in &program.csv_promotions {
+        let detail = if promotion.source_format == "json_records" {
+            format!("json_records as {}", promotion.schema_name)
+        } else {
+            format!("csv as {}", promotion.schema_name)
+        };
         push_document_symbol(
             &mut symbols,
             &mut seen,
             &lines,
             promotion.binding.clone(),
-            format!("csv as {}", promotion.schema_name),
+            detail,
             SYMBOL_KIND_VARIABLE,
             promotion.line,
             Vec::new(),
@@ -3163,6 +3176,10 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("delete file", "eng.fs delete generated output"),
         ("run command", "eng.process command boundary"),
         ("promote json config", "eng.config JSON file promotion"),
+        (
+            "promote json records",
+            "eng.table JSON records table promotion",
+        ),
         ("promote toml config", "eng.config TOML file promotion"),
     ] {
         push_completion(&mut items, &mut seen, label, "stdlib", detail);
@@ -4243,6 +4260,8 @@ mod tests {
             "predict",
             "check",
             "coverage",
+            "records",
+            "promote json records",
             "materialize",
             "apply",
             "collect",
@@ -4490,6 +4509,42 @@ predictions = predict surrogate using designs
         for label in ["regression_table", "evaluate", "model_card", "predict"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
+    }
+
+    #[test]
+    fn snapshot_marks_json_records_promotion_as_workflow_metadata() {
+        let source = r#"schema WeatherApiRecord {
+    time: DateTime index
+    value: Float
+}
+
+schema WeatherApiPayload {
+    records: Array[WeatherApiRecord]
+}
+
+payload = read json file("data/weather.json")
+api_contract = promote json payload as WeatherApiPayload
+weather = promote json records payload.records as WeatherApiRecord
+"#;
+        let snapshot = snapshot_for_source(Path::new("json_records.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "promote json records"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "records"));
+        assert_semantic_token_type(&snapshot, source, "records", "keyword");
+        assert_semantic_token_modifier(&snapshot, source, "records", "workflowStep");
+        assert_semantic_token_type(&snapshot, source, "weather", "variable");
+        let weather_symbol = snapshot
+            .document_symbols
+            .iter()
+            .find(|symbol| symbol.name == "weather")
+            .expect("weather document symbol");
+        assert_eq!(weather_symbol.detail, "json_records as WeatherApiRecord");
     }
 
     #[test]
