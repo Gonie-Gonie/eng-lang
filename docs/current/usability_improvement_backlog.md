@@ -277,6 +277,16 @@ Status: implemented after workflow module docs review.
 - Clarified that external simulators and legacy tools are optional adapters
   above the native contracts, not hidden steps in the workflow examples.
 
+## Batch 24: VS Code Snippet Wording
+
+Status: implemented after snippet wording review.
+
+- Replaced the `system thermal` snippet description's internal
+  `preview shape` wording with a direct first-order thermal system model
+  description.
+- Updated the locally installed VS Code extension snippet file so completions
+  use the same wording after reload.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
