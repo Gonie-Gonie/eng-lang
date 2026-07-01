@@ -12,13 +12,12 @@ Recommended first-read path:
 - howto/README.md
 - concepts/README.md
 
-build_user_docs.py assembles those Markdown sources into
-build/docs/oodocs/user_guide.md. Use python docs/user/build_user_docs.py
---assemble-markdown to verify the assembled Markdown without OODocs; PDF
-generation passes that source to OODocs when a PDF is requested. OODocs is only
-an optional publishing layer for release bundles; EngLang runtime commands,
-examples, tests, and package smoke must continue to work without OODocs or
-Python documentation tooling.
+`.\dev.bat user-docs-markdown` assembles those Markdown sources into
+`build/docs/oodocs/user_guide.md` for publishing checks without requiring
+OODocs. The wrapper uses the repo-local portable Python only for optional
+documentation publishing; it is not part of the EngLang runtime, workflow
+examples, tests, or package smoke path. PDF generation passes the assembled
+Markdown to OODocs only when a PDF is requested.
 
 The release package must not ship the whole developer documentation tree. It
 should ship only polished user artifacts such as:

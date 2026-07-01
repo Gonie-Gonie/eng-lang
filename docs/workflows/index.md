@@ -5,6 +5,10 @@ typed data, native workflow modules, generated artifacts, and review output.
 They are user-facing workflow references, not first-run tutorials and not
 domain-specific product claims.
 
+This page is the workflow subguide linked from [docs/README.md](../README.md),
+not a parallel documentation index. Keep global navigation in `docs/README.md`
+and keep this page focused on workflow examples and their shared contracts.
+
 Current examples:
 
 - [Weather API to standard file](weather_api_to_standard_file.md)

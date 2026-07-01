@@ -1026,6 +1026,17 @@ Status: implemented after workflow 01/02/03 native-source audit.
   markers, process adapters, and legacy seeded row selection helpers are blocked
   before native workflow examples can regress.
 
+## Batch 85: User Docs Navigation And Publishing Wrapper
+
+Status: implemented after docs cleanup review.
+
+- Added `.\dev.bat user-docs-markdown` as the user-guide assembly entrypoint so
+  user documentation no longer leads with a direct Python command.
+- Clarified that repo-local Python/OODocs are optional publishing tooling, not
+  runtime, workflow, test, or package-smoke dependencies.
+- Marked `docs/workflows/index.md` as a workflow subguide under
+  `docs/README.md`, not a parallel global documentation index.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -2778,6 +2778,16 @@ function Invoke-GrammarDocs {
     Write-Host "Grammar docs generated at $Output"
 }
 
+function Invoke-UserDocsMarkdown {
+    Set-DevEnvironment
+    $python = Get-PortablePython
+    $script = Join-Path $RepoRoot "docs\user\build_user_docs.py"
+    if ($null -eq $python -or -not (Test-Path -LiteralPath $script)) {
+        throw "user docs Markdown assembly requires portable Python from .\dev.bat setup"
+    }
+    Invoke-Native $python $script "--assemble-markdown"
+}
+
 function New-UserGuidePdf {
     param(
         [Parameter(Mandatory = $true)][string] $Path,
@@ -3261,6 +3271,7 @@ Usage:
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
   .\dev.bat docs-check     Check supported documentation Eng snippets
+  .\dev.bat user-docs-markdown Assemble curated user guide Markdown for publishing checks
   .\dev.bat grammar-docs   Generate the oodocs language grammar PDF
   .\dev.bat vscode-build-grammar Regenerate VS Code TextMate grammar from source JSON
   .\dev.bat vscode-build-editor-metadata Regenerate VS Code editor metadata from eng-lsp
@@ -3294,6 +3305,7 @@ switch ($Command) {
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }
     "docs-check" { Invoke-DocsCheck }
+    "user-docs-markdown" { Invoke-UserDocsMarkdown }
     "grammar-docs" { Invoke-GrammarDocs }
     "vscode-build-grammar" { Invoke-VscodeBuildGrammar }
     "vscode-build-editor-metadata" { Invoke-VscodeBuildEditorMetadata }
