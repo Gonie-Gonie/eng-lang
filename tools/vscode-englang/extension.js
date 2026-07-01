@@ -1850,6 +1850,13 @@ class EngCodeActionProvider {
       if (typeof code === "string" && code.startsWith("E-DIM-ADD-")) {
         actions.push(...missingUnitActions(document, diagnostic));
       }
+      if (code === "E-PUBLIC-ANNOTATION-001") {
+        const action = schemaAnnotationAction(document, diagnostic);
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
     }
     return actions;
   }
@@ -1985,6 +1992,53 @@ function bareNumericRanges(lineText) {
     ranges.push({ start: literalStart, end: literalEnd });
   }
   return ranges;
+}
+
+function schemaAnnotationAction(document, diagnostic) {
+  const details = schemaAnnotationDetails(diagnostic.message);
+  if (!details) {
+    return undefined;
+  }
+
+  const line = document.lineAt(diagnostic.range.start.line);
+  const assignment = new RegExp(`^(\\s*)(${escapeRegExp(details.name)})\\s*=.*$`).exec(line.text);
+  if (!assignment) {
+    return undefined;
+  }
+  if (details.unit && !sourceLineContainsUnit(line.text, details.unit)) {
+    return undefined;
+  }
+
+  const action = new vscode.CodeAction(
+    `Convert ${details.name} to schema column annotation`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, 0, line.lineNumber, line.text.length),
+    `${assignment[1]}${details.annotation}`
+  );
+  return action;
+}
+
+function schemaAnnotationDetails(message) {
+  const match = /Write `([A-Za-z_][A-Za-z0-9_]*:\s*[A-Za-z_][A-Za-z0-9_]*(?:\s*\[[^\]\r\n`]+\])?)` instead of assigning a value\./.exec(message);
+  if (!match) {
+    return undefined;
+  }
+  const annotation = match[1].replace(/\s+/g, " ").trim();
+  const name = /^([A-Za-z_][A-Za-z0-9_]*)\s*:/.exec(annotation)?.[1];
+  if (!name) {
+    return undefined;
+  }
+  const unit = /\[([^\]\r\n`]+)\]/.exec(annotation)?.[1]?.trim();
+  return { annotation, name, unit };
+}
+
+function sourceLineContainsUnit(lineText, unit) {
+  return new RegExp(`\\b${escapeRegExp(unit)}\\b`).test(lineText);
 }
 
 function escapeRegExp(text) {

@@ -23,8 +23,9 @@ the shipped `eng.exe` command instead of embedding compiler logic in JavaScript.
 - position-aware completion from `eng-lsp --completion-stdin`
 - snippets from `snippets/eng.json`
 - quick fixes for `:=`, stale `struct Args`, removable `script` wrapper
-  migration diagnostics, ambiguous unit-to-quantity annotations, and safe
-  missing-unit suffix fixes for unit arithmetic diagnostics
+  migration diagnostics, ambiguous unit-to-quantity annotations, safe
+  missing-unit suffix fixes for unit arithmetic diagnostics, and schema column
+  annotation migrations
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open the current file review
   JSON, open the latest generated report, and inspect review/run artifacts such

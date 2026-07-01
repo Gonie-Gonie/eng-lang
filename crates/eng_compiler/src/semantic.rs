@@ -11333,11 +11333,12 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     }
 
     if binding.context == ParseContext::Schema {
+        let help = schema_fast_assignment_help(binding);
         accum.diagnostics.push(Diagnostic::error(
             "E-PUBLIC-ANNOTATION-001",
             binding.line,
             "Schema columns require explicit quantity type and source unit.",
-            Some("Write `T_supply: AbsoluteTemperature [degC]` instead of assigning a value."),
+            Some(&help),
         ));
         return;
     }
@@ -11483,6 +11484,18 @@ impl SemanticAccum<'_> {
         bindings.extend(self.scoped_bindings.clone());
         bindings
     }
+}
+
+fn schema_fast_assignment_help(binding: &FastBinding) -> String {
+    if let Some(unit) = first_unit_in_expression(&binding.expression) {
+        if let Some(quantity) = infer_quantity_from_name_and_unit(&binding.name, &unit) {
+            return format!(
+                "Write `{}: {} [{}]` instead of assigning a value.",
+                binding.name, quantity.quantity_kind, unit
+            );
+        }
+    }
+    "Write `T_supply: AbsoluteTemperature [degC]` instead of assigning a value.".to_owned()
 }
 
 fn check_ambiguous_quantity(binding: &FastBinding, diagnostics: &mut Vec<Diagnostic>) {

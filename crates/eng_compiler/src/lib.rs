@@ -11820,12 +11820,16 @@ system Envelope {
     fn rejects_schema_fast_assignment() {
         let report = check_source(
             "bad.eng",
-            "schema SensorData {\n    T_supply = 24 degC\n}\n",
+            "schema SensorData {\n    m_dot = 1 kg/s\n}\n",
             &CheckOptions::default(),
         );
 
         assert!(report.has_errors());
         assert_eq!(report.diagnostics[0].code, "E-PUBLIC-ANNOTATION-001");
+        assert_eq!(
+            report.diagnostics[0].help.as_deref(),
+            Some("Write `m_dot: MassFlowRate [kg/s]` instead of assigning a value.")
+        );
     }
 
     #[test]

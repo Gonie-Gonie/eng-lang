@@ -1822,9 +1822,11 @@ function Assert-VscodeExtensionContract {
         "E-SCRIPT-001",
         "W-QTY-AMBIG-001",
         "E-DIM-ADD-",
+        "E-PUBLIC-ANNOTATION-001",
         "removeScriptWrapperAction",
         "quantityAnnotationActions",
-        "missingUnitActions"
+        "missingUnitActions",
+        "schemaAnnotationAction"
     )) {
         if (-not $ExtensionSource.Contains($RequiredQuickFixToken)) {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"

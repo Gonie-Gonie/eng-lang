@@ -413,6 +413,19 @@ Status: implemented after VS Code linter quick-fix review.
   diagnostic line, and it does not infer a unit when no stable hint exists.
 - Updated extension README wording and `ide-check` contract coverage.
 
+## Batch 35: Schema Annotation Quick Fix
+
+Status: implemented after public annotation diagnostic review.
+
+- Made `E-PUBLIC-ANNOTATION-001` compiler help use the actual schema column
+  name, unit, and inferred quantity kind when the unit registry can resolve it.
+- Added a VS Code quick fix that converts a schema-local `name = value unit`
+  line into `name: QuantityKind [unit]`.
+- Kept the edit guarded by the compiler help and the source-line left-hand name
+  so the extension does not duplicate quantity inference logic.
+- Extended compiler tests, extension README wording, and `ide-check` contract
+  coverage.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
