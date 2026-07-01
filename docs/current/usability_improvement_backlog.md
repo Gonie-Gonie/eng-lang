@@ -713,6 +713,19 @@ Status: implemented after extension completion source-of-truth review.
   workflow/data completion labels, `lsp_kind` presence, and extension fallback
   wiring.
 
+## Batch 59: TextMate Unit And Quantity Drift Guard
+
+Status: implemented after unit highlighting consistency review.
+
+- Added TextMate fallback coverage for compiler-known ASCII unit aliases
+  `W/m^2` and `people/m2`, so unit highlighting stays consistent when semantic
+  tokens are unavailable or disabled.
+- Extended the grammar smoke guard to compare TextMate fallback labels against
+  compiler `UNIT_INFOS` and `QUANTITY_COMPLETIONS`, catching unit and quantity
+  drift before release.
+- Added grammar fixture expectations for full quantity literals and standalone
+  unit tokens using those aliases.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

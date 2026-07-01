@@ -526,6 +526,30 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "850 W/m^2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "W/m^2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "0.12 people/m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "people/m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
     "text": "validate"
   },
