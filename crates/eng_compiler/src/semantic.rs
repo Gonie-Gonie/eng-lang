@@ -5605,10 +5605,36 @@ fn resolve_format_expression_type(
     if let Some(semantic_type) = net_response_field_semantic_type(expression, typed_bindings) {
         return Some(semantic_type);
     }
+    if let Some(semantic_type) = coverage_result_field_semantic_type(expression, typed_bindings) {
+        return Some(semantic_type);
+    }
     typed_bindings
         .iter()
         .find(|binding| binding.name == expression)
         .map(|binding| binding.semantic_type.clone())
+}
+
+fn coverage_result_field_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (binding_name, field) = expression.trim().split_once('.')?;
+    let has_coverage_binding = typed_bindings.iter().any(|binding| {
+        binding.name == binding_name.trim()
+            && binding.semantic_type.quantity_kind == "CoverageResult"
+    });
+    if !has_coverage_binding {
+        return None;
+    }
+    match field.trim() {
+        "complete" => semantic_type("Bool", ""),
+        "status" | "leap_year_policy" => semantic_type("String", ""),
+        "missing_count" | "actual_count" | "expected_count" => semantic_type("Count", "count"),
+        "max_gap" | "expected_step" => semantic_type("Duration", "s"),
+        "max_gap_hours" => semantic_type("Duration", "h"),
+        "year" | "coverage_year" => semantic_type("DimensionlessNumber", "1"),
+        _ => None,
+    }
 }
 
 fn net_response_field_semantic_type(

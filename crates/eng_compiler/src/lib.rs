@@ -9927,6 +9927,34 @@ system Envelope {
     }
 
     #[test]
+    fn supports_coverage_result_fields_in_format_interpolation() {
+        let report = check_source(
+            "coverage-format.eng",
+            "coverage = check coverage weather.time\nwrite text \"coverage.txt\", \"status={coverage.status} actual={coverage.actual_count} missing={coverage.missing_count} expected={coverage.expected_count} max_gap={coverage.max_gap_hours: .1 h}\"\nprint \"complete={coverage.complete} policy={coverage.leap_year_policy}\"\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let write = report
+            .semantic_program
+            .writes
+            .iter()
+            .find(|write| write.path == "\"coverage.txt\"")
+            .expect("coverage write");
+        assert!(write.expression.contains("coverage.actual_count"));
+        assert!(!report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code.starts_with("E-WRITE-FMT-")));
+        assert!(report.semantic_program.prints.iter().any(|print| {
+            print
+                .fields
+                .iter()
+                .any(|field| field.expression == "coverage.leap_year_policy")
+        }));
+    }
+
+    #[test]
     fn rejects_invalid_log_levels() {
         let report = check_source(
             "bad.eng",

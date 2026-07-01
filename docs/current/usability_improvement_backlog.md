@@ -1321,6 +1321,20 @@ Status: implemented after planned/internal decoration review.
 - Documented that `planned` still has no source-visible emission path today, but
   will use the same underline decoration path when compiler/LSP emits it.
 
+## Batch 109: Coverage Result Formatting In Native Workflows
+
+Status: implemented after workflow 01/02/03 native smoke review.
+
+- Fixed compiler format-expression typing for `CoverageResult` fields such as
+  `coverage.status`, `coverage.actual_count`, `coverage.missing_count`, and
+  `coverage.max_gap_hours` so native workflow summaries can write these values
+  directly without Python-side preprocessing.
+- Added regression coverage for `write text` and `print` interpolation of
+  coverage fields, including duration unit formatting for `max_gap_hours`.
+- Re-ran the native workflow smoke path; workflow 01/02/03 source files contain
+  no Python/process markers and their saved run contracts require
+  `process_count = 0`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
