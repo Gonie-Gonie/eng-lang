@@ -1289,6 +1289,23 @@ Status: implemented after diagnostic underline review.
 - Sorted unknown component-equation signal labels for deterministic diagnostic
   wording and stable editor snapshots.
 
+## Batch 107: Side-Effect Risk Decoration Coverage
+
+Status: implemented after side-effect decoration coverage review.
+
+- Added review-risk records for CSV exports, `write` outputs, HTTP requests, and
+  downloads so the default VS Code `eng-cli` diagnostics backend has explicit
+  risk lines for those side-effect/external-boundary operations.
+- Extended LSP semantic risk tokens so snapshot/live-buffer editor data marks
+  `export`, `write`, `download`, and HTTP request lines with `riskHigh` or
+  `riskMedium`, feeding the existing VS Code gutter and overview-ruler
+  decorations.
+- Added compiler review JSON regression coverage for export/write and
+  HTTP/download risks, plus LSP semantic-token regression coverage for the same
+  decoration-driving modifiers.
+- Updated the editor token-scope contract to note that side-effect operations
+  can carry both `sideEffect` coloring and risk modifiers.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

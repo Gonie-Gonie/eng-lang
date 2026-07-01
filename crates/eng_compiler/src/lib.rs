@@ -5822,8 +5822,12 @@ fn review_risk_count(report: &CheckReport) -> usize {
         .filter(|diagnostic| diagnostic.severity == Severity::Warning)
         .count()
         + report.semantic_program.process_runs.len()
+        + report.semantic_program.csv_exports.len()
+        + report.semantic_program.writes.len()
         + report.semantic_program.file_operations.len()
         + report.semantic_program.environment_dependencies.len()
+        + report.semantic_program.net_requests.len()
+        + report.semantic_program.net_downloads.len()
         + report
             .semantic_program
             .schemas
@@ -7173,6 +7177,30 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             process.line,
         );
     }
+    for export in &report.semantic_program.csv_exports {
+        push_review_comma(json, &mut first);
+        let classification = classify_review_risk("side_effect", "info");
+        push_review_risk_json(
+            json,
+            classification.category,
+            classification.severity,
+            classification.level,
+            &format!("CSV export `{}` writes `{}`", export.source, export.path),
+            export.line,
+        );
+    }
+    for write in &report.semantic_program.writes {
+        push_review_comma(json, &mut first);
+        let classification = classify_review_risk("side_effect", "info");
+        push_review_risk_json(
+            json,
+            classification.category,
+            classification.severity,
+            classification.level,
+            &format!("write {} output to `{}`", write.format, write.path),
+            write.line,
+        );
+    }
     for operation in &report.semantic_program.file_operations {
         push_review_comma(json, &mut first);
         let classification = classify_review_risk("side_effect", "info");
@@ -7186,6 +7214,32 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 operation.operation
             ),
             operation.line,
+        );
+    }
+    for request in &report.semantic_program.net_requests {
+        push_review_comma(json, &mut first);
+        push_review_risk_json(
+            json,
+            "external_boundary",
+            "info",
+            "medium",
+            &format!(
+                "network request `{}` reads external resource",
+                request.binding
+            ),
+            request.line,
+        );
+    }
+    for download in &report.semantic_program.net_downloads {
+        push_review_comma(json, &mut first);
+        let classification = classify_review_risk("external_boundary", "info");
+        push_review_risk_json(
+            json,
+            classification.category,
+            classification.severity,
+            classification.level,
+            &format!("network download writes `{}`", download.target_value),
+            download.line,
         );
     }
     for dependency in &report.semantic_program.environment_dependencies {
@@ -9802,6 +9856,23 @@ system Envelope {
         assert!(review.contains("\"process_runs\""));
         assert!(review.contains("\"overwrite\""));
         assert!(review.contains("\"confirm\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let risks = value
+            .pointer("/review_document/risks")
+            .and_then(serde_json::Value::as_array)
+            .expect("review risks");
+        assert!(risks.iter().any(|risk| {
+            risk.get("summary")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|summary| summary.contains("CSV export `summary` writes"))
+                && risk.get("level").and_then(serde_json::Value::as_str) == Some("high")
+        }));
+        assert!(risks.iter().any(|risk| {
+            risk.get("summary")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|summary| summary.contains("write text output"))
+                && risk.get("level").and_then(serde_json::Value::as_str) == Some("high")
+        }));
     }
 
     #[test]
@@ -13317,6 +13388,27 @@ system Envelope {
         assert!(review.contains("\"cache_count\": 2"));
         assert!(review.contains("\"kind\": \"network_request\""));
         assert!(review.contains("\"kind\": \"network_download\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let risks = value
+            .pointer("/review_document/risks")
+            .and_then(serde_json::Value::as_array)
+            .expect("review risks");
+        assert!(risks.iter().any(|risk| {
+            risk.get("summary")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|summary| summary.contains("network request `response`"))
+                && risk.get("category").and_then(serde_json::Value::as_str)
+                    == Some("external_boundary")
+                && risk.get("level").and_then(serde_json::Value::as_str) == Some("medium")
+        }));
+        assert!(risks.iter().any(|risk| {
+            risk.get("summary")
+                .and_then(serde_json::Value::as_str)
+                .is_some_and(|summary| summary.contains("network download writes"))
+                && risk.get("category").and_then(serde_json::Value::as_str)
+                    == Some("external_boundary")
+                && risk.get("level").and_then(serde_json::Value::as_str) == Some("high")
+        }));
     }
 
     #[test]

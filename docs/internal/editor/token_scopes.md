@@ -101,7 +101,7 @@ Modifier meanings:
 | `axis` | Time axes and aligned axis metadata. |
 | `timeseries` | TimeSeries values and accessors. |
 | `uncertain` | Measured, interval, ensemble, fallback, or propagated uncertainty values. |
-| `sideEffect` | Filesystem or other declared side effects. |
+| `sideEffect` | Filesystem or other declared side effects; risk-bearing side effects also carry `riskHigh` or `riskMedium`. |
 | `external` | File, process, HTTP, DB, or other external boundaries. |
 | `validation` | Validation, assertion, golden, and coverage operations. |
 | `report` | Report, plot, summary, and rendered artifact operations. |

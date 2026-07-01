@@ -1306,6 +1306,23 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         }
     }
 
+    for export in &program.csv_exports {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("side_effect", "info").level)
+        {
+            builder.push_on_line(export.line, &export.source, "variable", &[modifier]);
+            builder.push_keywords_on_line(export.line, &["export", "csv"], &[modifier]);
+        }
+    }
+
+    for write in &program.writes {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("side_effect", "info").level)
+        {
+            builder.push_keywords_on_line(write.line, &["write"], &[modifier]);
+        }
+    }
+
     for operation in &program.file_operations {
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("side_effect", "info").level)
@@ -1315,6 +1332,21 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
                 &[operation.operation.as_str()],
                 &[modifier],
             );
+        }
+    }
+
+    for request in &program.net_requests {
+        if let Some(modifier) = review_risk_modifier("medium") {
+            builder.push_on_line(request.line, &request.binding, "variable", &[modifier]);
+            builder.push_keywords_on_line(request.line, &["http", "get"], &[modifier]);
+        }
+    }
+
+    for download in &program.net_downloads {
+        if let Some(modifier) =
+            review_risk_modifier(classify_review_risk("external_boundary", "info").level)
+        {
+            builder.push_keywords_on_line(download.line, &["download"], &[modifier]);
         }
     }
 
@@ -4629,6 +4661,14 @@ with {
     expected_outputs = ["outputs/result.txt"]
 }
 
+export summary to csv "summary.csv" {
+    T_measured as degC
+}
+write text "summary.txt", "ok"
+
+response = http get url("https://example.org/weather")
+download url("https://example.org/file.csv") to file("build/raw/file.csv")
+
 T_measured = measured(12 degC, std=0.2 K)
 
 system RoomThermal {
@@ -4639,6 +4679,11 @@ system RoomThermal {
 
         assert_semantic_token_modifier(&snapshot, source, "process_result", "riskHigh");
         assert_semantic_token_modifier(&snapshot, source, "run", "riskHigh");
+        assert_semantic_token_modifier(&snapshot, source, "export", "riskHigh");
+        assert_semantic_token_modifier(&snapshot, source, "write", "riskHigh");
+        assert_semantic_token_modifier(&snapshot, source, "download", "riskHigh");
+        assert_semantic_token_modifier(&snapshot, source, "response", "riskMedium");
+        assert_semantic_token_modifier(&snapshot, source, "http", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "reading", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "T_measured", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "RoomThermal", "riskMedium");
