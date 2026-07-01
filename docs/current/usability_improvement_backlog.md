@@ -1610,6 +1610,18 @@ Status: implemented after last-run artifact wording review.
 - Extended `ide-check` to reject the older internal artifact labels in package
   and extension sources.
 
+## Batch 133: Native IDE Inspector Wording Cleanup
+
+Status: implemented after Native IDE inspector wording review.
+
+- Reworded Native IDE DB, model, case, and run-history labels away from
+  internal data-shape names such as `Manifest`, `Spec`, and `Artifact Root`.
+- Changed the visible UI vocabulary to task-oriented labels such as
+  `Write Records`, `Training Plans`, `Prediction Runs`, `Case Runs`, and
+  `Output Root`.
+- Extended `ide-check` so those Native IDE panel labels and empty states cannot
+  regress to implementation-first wording.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

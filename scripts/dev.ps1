@@ -2383,7 +2383,11 @@ function Invoke-IdeCheck {
         "variable-source-line",
         "codeUnitToByteOffset",
         "Timestamp",
-        "Artifact Root",
+        "Output Root",
+        "Write Records",
+        "Training Plans",
+        "Prediction Runs",
+        "Case Runs",
         "External Process Results"
     )) {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
@@ -2392,6 +2396,24 @@ function Invoke-IdeCheck {
     }
     if ($IdeUiSource.Contains('<div class="panel-title compact">Process Results</div>')) {
         throw "Native IDE Effects panel must label process data as External Process Results"
+    }
+    foreach ($ForbiddenIdeWording in @(
+        "<th>Artifact Root</th>",
+        "No DB write artifact data yet.",
+        'Manifests ${manifests.length}',
+        'Specs ${specs.length}',
+        "Prediction Manifests",
+        "No model artifact data yet.",
+        "No model specs.",
+        "No model artifacts.",
+        "No prediction manifests.",
+        "No case artifact data yet.",
+        "No case manifests.",
+        "No DB write manifests."
+    )) {
+        if ($IdeUiSource.Contains($ForbiddenIdeWording)) {
+            throw "Native IDE UI should use task-oriented wording instead of '$ForbiddenIdeWording'"
+        }
     }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
         if (-not $IdeUiSource.Contains($RequiredModuleWordingToken)) {

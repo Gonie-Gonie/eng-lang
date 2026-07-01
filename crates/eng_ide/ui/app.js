@@ -1090,7 +1090,7 @@ function renderRunHistory() {
   }
   return `
     <table class="artifact-table run-history-table">
-      <thead><tr><th>Timestamp</th><th>Profile</th><th>Status</th><th>Source</th><th>Artifact Root</th></tr></thead>
+      <thead><tr><th>Timestamp</th><th>Profile</th><th>Status</th><th>Source</th><th>Output Root</th></tr></thead>
       <tbody>
         ${state.runHistory.map((entry) => `
           <tr>
@@ -3204,21 +3204,22 @@ function renderDbPanel() {
     return `
       <div class="panel-title compact">DB Writes</div>
       ${panelArtifactEmptyState(
-        "No DB write artifact data yet.",
+        "No DB write records yet.",
         "Run a file with open sqlite and write <table> to db.table(...).",
-        "result.engres typed_payload.db_manifests[] and db_write_manifest"
+        "Saved result data contains DB write records and table write details."
       )}
     `;
   }
   return `
     <div class="panel-title compact">DB Writes</div>
     <div class="badges">
-      <span class="badge">Manifests ${manifests.length}</span>
+      <span class="badge">Write Records ${manifests.length}</span>
       <span class="badge">Tables ${tableCount}</span>
       <span class="badge">Registry ${registry.length}</span>
     </div>
     ${sourceBreadcrumbs("Source spans", [...manifests, ...registry])}
     <div class="scroll">
+      <div class="panel-title compact">Write Records</div>
       ${renderDbManifests(manifests)}
       <div class="panel-title compact">Registry</div>
       ${renderDbRegistry(registry)}
@@ -3242,29 +3243,30 @@ function renderModelPanel() {
     return `
       <div class="panel-title compact">Model Review</div>
       ${panelArtifactEmptyState(
-        "No model artifact data yet.",
-        "Run a file with regression_table, model_card, evaluate, or predict ... using ....",
-        "result.engres typed_payload.model_specs[], model_cards[], and prediction_manifests[]"
+        "No model review data yet.",
+        "Run a file with regression_table, model_card, evaluate, or predict <model> using <table>.",
+        "Saved result data contains model cards, training plans, prediction runs, and diagnostics."
       )}
     `;
   }
   return `
     <div class="panel-title compact">Model Review</div>
     <div class="badges">
-      <span class="badge">Specs ${specs.length}</span>
+      <span class="badge">Training Plans ${specs.length}</span>
       <span class="badge">Cards ${cards.length}</span>
-      <span class="badge">Predictions ${predictionManifests.length}</span>
+      <span class="badge">Prediction Runs ${predictionManifests.length}</span>
       <span class="badge">Diagnostics ${diagnostics.length}</span>
       <span class="badge">Residuals ${residualPoints}</span>
     </div>
     ${sourceBreadcrumbs("Source spans", [...specs, ...cards, ...artifacts, ...predictionManifests, ...diagnostics])}
     <div class="scroll">
+      <div class="panel-title compact">Training Plans</div>
       ${renderModelSpecs(specs)}
       <div class="panel-title compact">Model Cards</div>
       ${renderModelCards(cards)}
-      <div class="panel-title compact">Training Artifacts</div>
+      <div class="panel-title compact">Training Results</div>
       ${renderModelArtifacts(artifacts)}
-      <div class="panel-title compact">Prediction Manifests</div>
+      <div class="panel-title compact">Prediction Runs</div>
       ${renderPredictionManifests(predictionManifests)}
       <div class="panel-title compact">Model Diagnostics</div>
       ${renderModelDiagnostics(diagnostics)}
@@ -3283,9 +3285,9 @@ function renderCasePanel() {
     return `
       <div class="panel-title compact">Cases</div>
       ${panelArtifactEmptyState(
-        "No case artifact data yet.",
+        "No case run data yet.",
         "Run a file that materializes case tables or case input artifacts.",
-        "result.engres typed_payload.case_tables[] and case_manifests[]"
+        "Saved result data contains case tables and case run records."
       )}
     `;
   }
@@ -3300,6 +3302,7 @@ function renderCasePanel() {
     ${sourceBreadcrumbs("Source spans", [...caseTables, ...manifests, ...diagnostics, ...failed])}
     <div class="scroll">
       ${renderCaseTables(caseTables)}
+      <div class="panel-title compact">Case Runs</div>
       ${renderCaseManifests(manifests)}
       <div class="panel-title compact">Case Diagnostics</div>
       ${renderCaseDiagnostics(diagnostics)}
@@ -3362,7 +3365,7 @@ function renderCaseManifests(manifests) {
   return `
     <table class="artifact-table">
       <thead><tr><th>Case</th><th>Sample</th><th>Files</th><th>Process</th><th>Outputs</th><th>Failure</th><th>Source</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="7" class="muted">No case manifests.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No case runs.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -3420,7 +3423,7 @@ function renderModelSpecs(specs) {
   return `
     <table class="artifact-table">
       <thead><tr><th>Binding</th><th>Model</th><th>Features</th><th>Target</th><th>Train/Test</th><th>Hash</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No model specs.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No model training plans.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -3484,8 +3487,8 @@ function renderModelArtifacts(artifacts) {
   }).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Artifact</th><th>Algorithm</th><th>Features</th><th>RMSE/MAE/R2</th><th>Points</th><th>Training Hash</th><th>Source</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="7" class="muted">No model artifacts.</td></tr>`}</tbody>
+      <thead><tr><th>Training Run</th><th>Algorithm</th><th>Features</th><th>RMSE/MAE/R2</th><th>Points</th><th>Training Hash</th><th>Source</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No training results.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -3504,7 +3507,7 @@ function renderPredictionManifests(manifests) {
   return `
     <table class="artifact-table">
       <thead><tr><th>Binding</th><th>Model</th><th>Files</th><th>Rows</th><th>Outputs</th><th>Confidence</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="6" class="muted">No prediction manifests.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No prediction runs.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -3571,7 +3574,7 @@ function renderDbManifests(manifests) {
   return `
     <table class="artifact-table">
       <thead><tr><th>Binding</th><th>Database</th><th>Transaction</th><th>Table</th><th>Rows</th><th>Shape</th><th>Source</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="7" class="muted">No DB write manifests.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="7" class="muted">No DB write records.</td></tr>`}</tbody>
     </table>
   `;
 }
