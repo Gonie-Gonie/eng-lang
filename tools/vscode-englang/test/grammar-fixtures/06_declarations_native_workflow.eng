@@ -3,6 +3,12 @@ struct LegacyArgs
 
 const cp_water: SpecificHeat [J/kg/K] = 4.18 kJ/K
 
+class Zone {
+    name: String
+    area: Area [m2]
+    method label() -> String = self.name
+}
+
 fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
     Q = m_dot * cp_water * dT
     return Q

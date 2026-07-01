@@ -17,8 +17,14 @@ component RoomBoundary {
     port heat: Thermal
 }
 
+component Coil {
+    port heat: Thermal
+    parameter UA: Conductance [W/K] = 500 W/K
+}
+
 component AmbientBoundary {
     port heat: Thermal
 }
 
-connect RoomBoundary.heat -> AmbientBoundary.heat
+connect RoomBoundary.heat -> Coil.heat
+connect Coil.heat -> AmbientBoundary.heat

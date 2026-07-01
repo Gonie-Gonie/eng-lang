@@ -1190,6 +1190,19 @@ Status: implemented after string-interpolation TODO review.
 - Added compiler regression coverage for unresolved placeholders and
   incompatible requested units in `write text` templates.
 
+## Batch 99: Declaration Name Grammar Pins
+
+Status: implemented after declaration/function-name highlighting review.
+
+- Extended the VS Code grammar smoke harness so capture scopes are tested
+  directly, not only their parent phrase scopes.
+- Pinned declaration-name captures for `schema`, `system`, `domain`,
+  `component`, `class`, `fn`, `method`, `const`, and `test` names.
+- Added fixture coverage for TODO examples such as `class Zone` and
+  `component Coil`.
+- Updated the editor token-scope guide with the declaration-name capture
+  contract.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -41,8 +41,14 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `keyword.operator*.englang` | Word and symbolic operators. |
 | `storage.type.*.englang` | Block declarations and declaration-level markers. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
-| `entity.name.type.*.englang` | Type-like declarations such as schemas. |
-| `entity.name.function*.englang` | Function-like workflow or model operations. |
+| `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
+| `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
+| `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
+| `entity.name.function.englang` | Captured `fn` and `method` names. |
+| `meta.declaration.constant.englang` | Full `const` declaration phrases. |
+| `variable.other.constant.englang` | Captured `const` names. |
+| `meta.declaration.test.englang` | Full `test "..."` declaration phrases. |
+| `entity.name.section.englang` | Captured quoted test names. |
 | `support.type.englang` | Quantity/type names. |
 | `support.function.builtin.englang` | Built-in functions and helpers. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |

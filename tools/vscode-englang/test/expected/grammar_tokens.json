@@ -21,6 +21,12 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "entity.name.type.englang",
+    "text": "SensorData",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "storage.type.block.englang",
     "text": "args"
   },
@@ -340,6 +346,30 @@
     "fullMatch": true
   },
   {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.englang",
+    "text": "RoomThermal",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.englang",
+    "text": "Thermal",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "component Coil",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.englang",
+    "text": "Coil",
+    "fullMatch": true
+  },
+  {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.deprecated.englang",
     "text": "script",
@@ -359,8 +389,44 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.constant.englang",
+    "text": "cp_water",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "class Zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.type.englang",
+    "text": "Zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.function.englang",
+    "text": "method label",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.function.englang",
+    "text": "label",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.function.englang",
     "text": "fn coil_heat",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.function.englang",
+    "text": "coil_heat",
     "fullMatch": true
   },
   {
@@ -372,6 +438,12 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.test.englang",
     "text": "test \"coil heat stays positive\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.section.englang",
+    "text": "\"coil heat stays positive\"",
     "fullMatch": true
   },
   {

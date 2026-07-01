@@ -41,6 +41,51 @@ if ($ExpectedJson -is [System.Array]) {
 }
 $PatternsByScope = @{}
 
+function Add-ScopePattern {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][object] $Pattern,
+        [object] $CaptureIndex = $null,
+        [string] $CaptureKind = ""
+    )
+
+    if (-not $PatternsByScope.ContainsKey($Scope)) {
+        $PatternsByScope[$Scope] = New-Object System.Collections.Generic.List[object]
+    }
+    $PatternsByScope[$Scope].Add([pscustomobject]@{
+        pattern = $Pattern
+        capture_index = $CaptureIndex
+        capture_kind = $CaptureKind
+    }) | Out-Null
+}
+
+function Add-CapturePatternNodes {
+    param(
+        [Parameter(Mandatory = $true)][object] $Node,
+        [Parameter(Mandatory = $true)][string] $PropertyName,
+        [Parameter(Mandatory = $true)][string] $CaptureKind
+    )
+
+    if ($Node.PSObject.Properties.Name -notcontains $PropertyName) {
+        return
+    }
+    $captures = $Node.$PropertyName
+    if ($null -eq $captures) {
+        return
+    }
+    foreach ($capture in $captures.PSObject.Properties) {
+        $captureNode = $capture.Value
+        if ($null -ne $captureNode.name) {
+            Add-ScopePattern -Scope ([string] $captureNode.name) -Pattern $Node -CaptureIndex ([int] $capture.Name) -CaptureKind $CaptureKind
+        }
+        if ($null -ne $captureNode.patterns) {
+            foreach ($child in @($captureNode.patterns)) {
+                Add-PatternNode $child
+            }
+        }
+    }
+}
+
 function Add-PatternNode {
     param([object] $Node)
 
@@ -48,12 +93,11 @@ function Add-PatternNode {
         return
     }
     if ($null -ne $Node.name) {
-        $scope = [string] $Node.name
-        if (-not $PatternsByScope.ContainsKey($scope)) {
-            $PatternsByScope[$scope] = New-Object System.Collections.Generic.List[object]
-        }
-        $PatternsByScope[$scope].Add($Node) | Out-Null
+        Add-ScopePattern -Scope ([string] $Node.name) -Pattern $Node
     }
+    Add-CapturePatternNodes -Node $Node -PropertyName "captures" -CaptureKind "match"
+    Add-CapturePatternNodes -Node $Node -PropertyName "beginCaptures" -CaptureKind "begin"
+    Add-CapturePatternNodes -Node $Node -PropertyName "endCaptures" -CaptureKind "end"
     if ($null -ne $Node.patterns) {
         foreach ($child in @($Node.patterns)) {
             Add-PatternNode $child
@@ -72,11 +116,44 @@ function Test-PatternMatchesText {
     param(
         [Parameter(Mandatory = $true)][object] $Pattern,
         [Parameter(Mandatory = $true)][string] $Text,
+        [Parameter(Mandatory = $true)][string] $FixtureText,
         [bool] $FullMatch = $false
     )
 
-    if ($null -ne $Pattern.match) {
-        $match = [regex]::Match($Text, [string] $Pattern.match)
+    $patternNode = $Pattern.pattern
+    $captureIndex = $Pattern.capture_index
+    $captureKind = [string] $Pattern.capture_kind
+
+    if ($null -ne $captureIndex) {
+        $patternText = $null
+        if ($captureKind -eq "begin" -and $null -ne $patternNode.begin) {
+            $patternText = [string] $patternNode.begin
+        } elseif ($captureKind -eq "end" -and $null -ne $patternNode.end) {
+            $patternText = [string] $patternNode.end
+        } elseif ($captureKind -eq "match" -and $null -ne $patternNode.match) {
+            $patternText = [string] $patternNode.match
+        }
+        if ($null -eq $patternText) {
+            return $false
+        }
+        foreach ($match in [regex]::Matches($FixtureText, $patternText)) {
+            if ($captureIndex -ge $match.Groups.Count) {
+                continue
+            }
+            $capturedText = $match.Groups[$captureIndex].Value
+            if ($FullMatch) {
+                if ($capturedText -eq $Text) {
+                    return $true
+                }
+            } elseif ($capturedText.Contains($Text)) {
+                return $true
+            }
+        }
+        return $false
+    }
+
+    if ($null -ne $patternNode.match) {
+        $match = [regex]::Match($Text, [string] $patternNode.match)
         if (-not $match.Success) {
             return $false
         }
@@ -85,8 +162,8 @@ function Test-PatternMatchesText {
         }
         return $true
     }
-    if ($null -ne $Pattern.begin -and $null -ne $Pattern.end) {
-        return [regex]::IsMatch($Text, [string] $Pattern.begin) -and [regex]::IsMatch($Text, [string] $Pattern.end)
+    if ($null -ne $patternNode.begin -and $null -ne $patternNode.end) {
+        return [regex]::IsMatch($Text, [string] $patternNode.begin) -and [regex]::IsMatch($Text, [string] $patternNode.end)
     }
     return $false
 }
@@ -190,7 +267,7 @@ foreach ($case in $Expected) {
     }
     $matched = $false
     foreach ($pattern in $PatternsByScope[[string] $case.scope]) {
-        if (Test-PatternMatchesText -Pattern $pattern -Text ([string] $case.text) -FullMatch $fullMatch) {
+        if (Test-PatternMatchesText -Pattern $pattern -Text ([string] $case.text) -FixtureText $fixtureText -FullMatch $fullMatch) {
             $matched = $true
             break
         }
