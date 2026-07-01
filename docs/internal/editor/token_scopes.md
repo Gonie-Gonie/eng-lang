@@ -39,7 +39,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `comment.line.*.englang` | Line comments and documentation comments. |
 | `keyword.control.*.englang` | Workflow, report, validation, solver, deprecated, side-effect, and external-boundary words. |
 | `keyword.operator*.englang` | Word and symbolic operators. |
-| `storage.type.*.englang` | Block declarations and declaration-level markers. |
+| `storage.type.*.englang` | Block openers such as `args {` and declaration-level markers. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |

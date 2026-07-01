@@ -28,7 +28,12 @@
   {
     "fixture": "01_core_workflow.eng",
     "scope": "storage.type.block.englang",
-    "text": "args"
+    "text": "args {"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "storage.type.block.englang",
+    "text": "report {"
   },
   {
     "fixture": "01_core_workflow.eng",
@@ -676,8 +681,7 @@
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "storage.type.block.englang",
-    "text": "on",
-    "fullMatch": true
+    "text": "on {"
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",

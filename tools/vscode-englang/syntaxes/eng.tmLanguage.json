@@ -217,7 +217,7 @@
                                       "patterns":  [
                                                        {
                                                            "name":  "storage.type.block.englang",
-                                                           "match":  "\\b(args|report|constraints|missing|test|with|on)\\b"
+                                                           "match":  "\\b(args|report|constraints|missing|test|with|on)\\b(?=\\s*\\{)"
                                                        }
                                                    ]
                                   },

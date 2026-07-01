@@ -1203,6 +1203,17 @@ Status: implemented after declaration/function-name highlighting review.
 - Updated the editor token-scope guide with the declaration-name capture
   contract.
 
+## Batch 100: Block Keyword Boundary Highlighting
+
+Status: implemented after args/report block highlighting review.
+
+- Narrowed the TextMate block keyword scope so `args`, `report`, `with`, `on`,
+  and related block words are highlighted as block openers only when followed by
+  `{`.
+- Added grammar smoke coverage for `args {`, `report {`, and `on {` so block
+  keywords do not collide with option keys such as `args =`.
+- Updated the editor token-scope guide to document block opener scope intent.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
