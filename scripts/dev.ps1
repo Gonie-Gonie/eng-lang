@@ -362,12 +362,17 @@ function Invoke-WorkflowsTest {
     }
     Invoke-Native $cargo "test" "-p" "eng_compiler" "workflow_modules"
     Invoke-Native $cargo "test" "-p" "eng_runtime" "workflow_modules"
-    foreach ($Workflow in @(
-        "examples\workflows\01_weather_api_to_standard_file\main.eng",
-        "examples\workflows\02_external_simulation_surrogate\main.eng",
-        "examples\workflows\03_uncertain_sensor_report\main.eng"
-    )) {
-        $WorkflowSourcePath = Join-Path $RepoRoot $Workflow
+    $WorkflowRoot = Join-Path $RepoRoot "examples\workflows"
+    $WorkflowSourcePaths = @(Get-ChildItem -LiteralPath $WorkflowRoot -Directory | ForEach-Object {
+        Join-Path $_.FullName "main.eng"
+    } | Where-Object {
+        Test-Path -LiteralPath $_ -PathType Leaf
+    } | Sort-Object)
+    if ($WorkflowSourcePaths.Count -lt 3) {
+        throw "Native workflow smoke expected at least workflow 01/02/03 main.eng files"
+    }
+    foreach ($WorkflowSourcePath in $WorkflowSourcePaths) {
+        $Workflow = $WorkflowSourcePath.Substring($RepoRoot.Length).TrimStart('\')
         $WorkflowSource = Get-Content -LiteralPath $WorkflowSourcePath -Raw
         if ($WorkflowSource -match "(?im)\brun\s+command\b") {
             throw "Native workflow source must not use run command: $Workflow"

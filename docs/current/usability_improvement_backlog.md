@@ -1685,6 +1685,17 @@ semantic token legend.
 - Extended `ide-check` so every LSP semantic token type and modifier must have
   a corresponding native IDE overlay CSS class before editor checks pass.
 
+## Batch 139: Native Workflow Python-Guard Generalization
+
+Status: implemented after auditing workflow 01/02/03 native sources for Python
+and legacy process calls.
+
+- Changed `workflows-test` to discover every `examples/workflows/*/main.eng`
+  file instead of checking a hard-coded workflow list.
+- Kept the existing guard that rejects `run command`, Python/notebook markers,
+  and legacy `select_first_row(...)` in native workflow sources, so newly added
+  workflows cannot bypass the native-only execution policy.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
