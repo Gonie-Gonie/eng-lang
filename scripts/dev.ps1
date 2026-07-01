@@ -313,6 +313,19 @@ function Invoke-Test {
     Invoke-Native $cargo "run" "-p" "eng_cli" "--" "test" "examples"
 }
 
+function Invoke-WorkflowsTest {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "test" "-p" "eng_compiler" "workflow_modules"
+    Invoke-Native $cargo "test" "-p" "eng_runtime" "workflow_modules"
+    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" "examples\workflows\01_weather_api_to_standard_file_hybrid\main.eng" "--save-artifacts"
+    Invoke-Native $cargo "run" "-p" "eng_cli" "--" "run" "examples\workflows\02_external_simulation_surrogate_hybrid\main.eng" "--save-artifacts"
+}
+
 function Invoke-Fmt {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -2606,6 +2619,7 @@ Usage:
   .\dev.bat doctor         Run eng doctor through the local toolchain
   .\dev.bat build          Build the Rust workspace
   .\dev.bat test           Run Rust tests and EngLang example smoke tests
+  .\dev.bat workflows-test Run native workflow module and workflow example smoke tests
   .\dev.bat fmt            Format Rust code
   .\dev.bat clippy         Run clippy with warnings denied
   .\dev.bat ci             Run fmt, tests, clippy, and preview example
@@ -2635,6 +2649,7 @@ switch ($Command) {
     "doctor" { Invoke-Doctor }
     "build" { Invoke-Build }
     "test" { Invoke-Test }
+    "workflows-test" { Invoke-WorkflowsTest }
     "fmt" { Invoke-Fmt }
     "clippy" { Invoke-Clippy }
     "ci" { Invoke-Ci }

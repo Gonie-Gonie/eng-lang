@@ -11,7 +11,7 @@ API data -> typed schema -> quality check -> fallback/imputation -> standard art
 ## Run
 
 ```bat
-eng.exe run examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng --out build/runs/weather_workflow
+eng.exe run examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng --save-artifacts
 ```
 
 ## What It Proves

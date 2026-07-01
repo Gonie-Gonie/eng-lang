@@ -10,9 +10,9 @@ adapters into core language features.
 Run the current composite workflow examples:
 
 ```bat
-eng.exe run examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng --out build/runs/weather_workflow
-eng.exe run examples/workflows/02_external_simulation_surrogate_hybrid/main.eng --out build/runs/simulation_workflow
-eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --out build/runs/uncertain_workflow
+eng.exe run examples/workflows/01_weather_api_to_standard_file_hybrid/main.eng --save-artifacts
+eng.exe run examples/workflows/02_external_simulation_surrogate_hybrid/main.eng --save-artifacts
+eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifacts
 ```
 
 ## Expected Artifacts

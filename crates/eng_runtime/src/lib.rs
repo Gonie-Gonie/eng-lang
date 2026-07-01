@@ -14984,6 +14984,104 @@ mod tests {
         serde_json::from_str(output.trim()).expect("sqlite query json")
     }
 
+    fn assert_saved_artifact(path: &Path, label: &str) {
+        assert!(path.exists(), "missing {label}: {}", path.display());
+    }
+
+    fn assert_common_workflow_artifacts(output: &RunOutput) {
+        assert_saved_artifact(&output.review_path, "review.json");
+        assert_saved_artifact(&output.output_manifest_path, "output_manifest.json");
+        assert_saved_artifact(&output.run_log_path, "run_log.json");
+        assert_saved_artifact(&output.run_plan_path, "run_plan.json");
+        assert_saved_artifact(&output.run_lock_path, "run_lock.json");
+        assert!(output.artifacts_saved);
+        assert!(output.run_plan_json.contains("\"graph\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"artifact_registry\""));
+    }
+
+    #[test]
+    fn workflow_modules_native_workflow_artifact_contracts() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let weather_source = repo_root
+            .join("examples")
+            .join("workflows")
+            .join("01_weather_api_to_standard_file_hybrid")
+            .join("main.eng");
+        let weather_build = repo_root
+            .join("build")
+            .join("runtime-workflow-modules-weather");
+        let _ = fs::remove_dir_all(&weather_build);
+        let weather_output = run_file(
+            &weather_source,
+            &weather_build,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("weather workflow run");
+        assert_common_workflow_artifacts(&weather_output);
+        assert_saved_artifact(&weather_output.process_results_path, "process_results.json");
+        assert_saved_artifact(&weather_output.cache_manifest_path, "cache_manifest.json");
+        assert!(weather_output
+            .output_manifest_json
+            .contains("outputs/standard_weather_file.txt"));
+        assert!(weather_output
+            .result_json
+            .contains("\"timeseries_coverage\""));
+        assert!(weather_output.review_json.contains("\"workflow_modules\""));
+
+        let surrogate_dir = repo_root
+            .join("examples")
+            .join("workflows")
+            .join("02_external_simulation_surrogate_hybrid");
+        let surrogate_source = surrogate_dir.join("main.eng");
+        let surrogate_build = repo_root
+            .join("build")
+            .join("runtime-workflow-modules-surrogate");
+        let _ = fs::remove_dir_all(&surrogate_build);
+        let surrogate_output = run_file(
+            &surrogate_source,
+            &surrogate_build,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("surrogate workflow run");
+        assert_common_workflow_artifacts(&surrogate_output);
+        assert_saved_artifact(
+            &surrogate_output.process_results_path,
+            "process_results.json",
+        );
+        assert_saved_artifact(
+            &surrogate_dir
+                .join("outputs")
+                .join("case_001")
+                .join("case_manifest.json"),
+            "case_manifest.json",
+        );
+        assert_saved_artifact(
+            &surrogate_dir.join("outputs").join("model_card.json"),
+            "model_card.json",
+        );
+        assert_saved_artifact(
+            &surrogate_dir.join("outputs").join("db_write_manifest.json"),
+            "db_write_manifest.json",
+        );
+        assert!(surrogate_output.result_json.contains("\"case_manifests\""));
+        assert!(surrogate_output.result_json.contains("\"model_cards\""));
+        assert!(surrogate_output.result_json.contains("\"db_manifests\""));
+        assert!(surrogate_output
+            .output_manifest_json
+            .contains("outputs/prediction_manifest.json"));
+    }
+
     const SQLITE_TEST_EXECUTE_SCRIPT: &str = r#"
 import json
 import sqlite3

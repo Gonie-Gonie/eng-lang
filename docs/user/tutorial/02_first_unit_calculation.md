@@ -24,12 +24,12 @@ Create a small file such as scratch/first_units.eng in your working directory.
 ## Run Command
 
 ```bat
-eng.exe run scratch/first_units.eng --out build/runs/first_units
+eng.exe run scratch/first_units.eng --save-artifacts
 ```
 
 ## Expected Artifacts
 
-The run directory should contain result.engres and review metadata. The printed
+`build/result` should contain result.engres and review metadata. The printed
 value should be convertible to kW.
 
 ## Explanation

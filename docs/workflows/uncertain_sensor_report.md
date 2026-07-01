@@ -11,7 +11,7 @@ typed sensor data -> derived TimeSeries -> measured uncertainty metadata -> revi
 ## Run
 
 ```bat
-eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --out build/runs/uncertain_workflow
+eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifacts
 ```
 
 ## What It Proves

@@ -1174,18 +1174,22 @@ fn parse_json_value(text: &str) -> Value {
 }
 
 fn effect_records_inspector(output_manifest: &Value, run_log: &Value) -> Value {
-    let artifact_records = output_manifest
+    let registry_artifact_records = output_manifest
         .get("artifact_registry")
         .and_then(|registry| registry.get("generated_files"))
         .and_then(Value::as_array)
         .cloned()
-        .or_else(|| {
-            output_manifest
-                .get("artifacts")
-                .and_then(Value::as_array)
-                .cloned()
-        })
         .unwrap_or_default();
+    let manifest_artifact_records = output_manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    let artifact_records = if registry_artifact_records.is_empty() {
+        manifest_artifact_records
+    } else {
+        registry_artifact_records
+    };
     let external_boundary_records = run_log
         .get("external_boundary_events")
         .and_then(Value::as_array)
@@ -1553,11 +1557,18 @@ fn output_manifest_inspector(root: &Path, output: &CachedRunOutput) -> Value {
     let artifacts = runtime_artifacts(root, output)
         .into_iter()
         .map(|artifact| {
+            let class = runtime_artifact_class(&artifact.kind);
             json!({
                 "kind": artifact.kind,
+                "class": class,
                 "path": artifact.path,
                 "hash": "",
-                "status": artifact.status
+                "status": artifact.status,
+                "validation": {
+                    "status": "available",
+                    "rule": "runtime_buffer",
+                    "message": "runtime artifact is available through the IDE memory cache"
+                }
             })
         })
         .collect::<Vec<_>>();
@@ -1571,6 +1582,14 @@ fn output_manifest_inspector(root: &Path, output: &CachedRunOutput) -> Value {
         "artifact_count": artifacts.len(),
         "artifacts": artifacts
     })
+}
+
+fn runtime_artifact_class(kind: &str) -> &'static str {
+    match kind {
+        "process_results" => "external_boundary",
+        "test_results" => "test",
+        _ => "review_artifact",
+    }
 }
 
 fn schema_inspector(report: &Value, result: &Value) -> Value {
@@ -5034,6 +5053,68 @@ mod tests {
                 .and_then(Value::as_str),
             Some("source:program")
         );
+    }
+
+    #[test]
+    fn ide_surfaces_output_manifest_artifact_paths() {
+        let mut cached = cached_output_with_report_and_review("{}", "{}");
+        cached.artifacts_saved = true;
+        cached.result_path = PathBuf::from("build/result/result.engres");
+        cached.review_path = PathBuf::from("build/result/review.json");
+        cached.output_manifest_path = PathBuf::from("build/result/output_manifest.json");
+        cached.run_plan_path = PathBuf::from("build/result/run_plan.json");
+        cached.run_lock_path = PathBuf::from("build/result/run_lock.json");
+        cached.run_log_path = PathBuf::from("build/result/run_log.json");
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+        let artifacts = inspectors
+            .output_manifest
+            .get("artifacts")
+            .and_then(Value::as_array)
+            .expect("output manifest artifacts");
+
+        assert!(artifacts.iter().any(|artifact| {
+            artifact.get("kind").and_then(Value::as_str) == Some("output_manifest")
+                && artifact
+                    .get("path")
+                    .and_then(Value::as_str)
+                    .is_some_and(|path| path.ends_with("output_manifest.json"))
+        }));
+    }
+
+    #[test]
+    fn ide_surfaces_memory_runtime_artifacts_as_effect_records() {
+        let mut cached = cached_output_with_report_and_review("{}", "{}");
+        cached.output_manifest_json = r#"{
+          "format": "eng-output-manifest-v1",
+          "artifact_count": 0,
+          "artifacts": [],
+          "artifact_registry": {
+            "format": "eng-artifact-registry-v1",
+            "generated_files": []
+          }
+        }"#
+        .to_owned();
+        cached.run_log_json = r#"{
+          "format": "eng-run-log-v1",
+          "external_boundary_events": [
+            {
+              "kind": "process",
+              "target": "cmd",
+              "status": "completed",
+              "success": true,
+              "line": 1
+            }
+          ]
+        }"#
+        .to_owned();
+        cached.process_results_path = PathBuf::from("build/result/process_results.json");
+
+        let inspectors = runtime_inspectors(Path::new("."), &cached);
+
+        assert!(effect_records_has_artifact_and_boundary_records(
+            &inspectors.effect_records
+        ));
     }
 
     fn cached_output_with_report_and_review(

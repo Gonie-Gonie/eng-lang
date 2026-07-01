@@ -14,7 +14,7 @@ schema and unit diagnostics are reported when source or input data is wrong.
 
 ```bat
 eng.exe check examples/official/01_csv_plot/main.eng
-eng.exe run examples/official/01_csv_plot/main.eng --out build/runs/diagnostics
+eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts
 ```
 
 ## Expected Artifacts

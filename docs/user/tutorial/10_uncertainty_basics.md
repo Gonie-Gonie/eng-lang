@@ -9,7 +9,7 @@ Understand the current uncertainty track without overstating public support.
 Use the workflow-shaped fixture:
 
 ```bat
-eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --out build/runs/uncertain_sensor
+eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifacts
 ```
 
 ## Expected Artifacts

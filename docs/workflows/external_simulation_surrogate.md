@@ -11,7 +11,7 @@ sample table -> input variants -> external runs -> typed results -> surrogate ->
 ## Run
 
 ```bat
-eng.exe run examples/workflows/02_external_simulation_surrogate_hybrid/main.eng --out build/runs/simulation_workflow
+eng.exe run examples/workflows/02_external_simulation_surrogate_hybrid/main.eng --save-artifacts
 ```
 
 ## What It Proves

@@ -14,7 +14,7 @@ report/review artifact
 fixture mode for deterministic smoke runs
 ```
 
-Current examples:
+Current hybrid examples:
 
 ```text
 01_weather_api_to_standard_file_hybrid
@@ -28,7 +28,17 @@ Current examples:
   typed sensor data -> uncertainty metadata -> confidence-band report artifact.
 ```
 
-Planned modules such as `eng.net`, `eng.cache`, `eng.case`, `eng.db`, and
-`eng.model` should grow from the repeated contracts in these examples. Domain
+Native workflow module contracts are documented separately:
+
+```text
+docs/workflows/weather_api_to_standard_file_native.md
+  generic request/cache/table/coverage/artifact workflow contract.
+
+docs/workflows/external_simulation_surrogate_native.md
+  generic sample/case/process/model/prediction/DB workflow contract.
+```
+
+The hybrid examples are executable fixture pipelines. The native docs describe
+the generic module contracts those fixtures are being reduced into. Domain
 adapters such as weather APIs, EPW writers, and EnergyPlus-like tools should
 remain layered above those generic modules.

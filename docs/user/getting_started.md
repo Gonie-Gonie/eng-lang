@@ -17,14 +17,14 @@ path consistently in the commands below.
 ## Run A First Example
 
 ```bat
-eng.exe run examples/official/01_csv_plot/main.eng --out build/runs/first
+eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts
 ```
 
 Inspect these outputs:
 
-- build/runs/first/result.engres
-- build/runs/first/review.json
-- build/runs/first/report.html
+- build/result/result.engres
+- build/result/review.json
+- build/result/report.html
 - generated plot and summary artifacts listed in the review output
 
 The point of the first run is not only the numeric result. Check that units,

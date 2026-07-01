@@ -74,6 +74,7 @@ the repository.
 .\dev.bat ci
 .\dev.bat docs-check
 .\dev.bat artifacts-check
+.\dev.bat workflows-test
 .\dev.bat run-example
 ```
 
@@ -92,8 +93,8 @@ For user testing and release validation, start with the core workflow examples:
 - `examples/official/16_test_assert_golden`
 
 Composite workflow examples live under `examples/workflows`. They demonstrate
-API/file/process/model/report pipelines through generic adapter boundaries, not
-domain-specific core language claims.
+generic API/file/process/model/DB/report workflows through adapter boundaries,
+not domain-specific core language claims.
 
 Solver-heavy examples remain in the repository as advanced/internal smoke
 fixtures until their paths can be moved without breaking package and IDE gates.

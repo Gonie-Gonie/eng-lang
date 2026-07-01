@@ -29,8 +29,8 @@ with {
 ## Run Commands
 
 ```bat
-eng.exe run examples/official/12_write_output_manifest/main.eng --out build/runs/artifacts
-eng.exe run examples/official/15_process_result/main.eng --out build/runs/process
+eng.exe run examples/official/12_write_output_manifest/main.eng --save-artifacts
+eng.exe run examples/official/15_process_result/main.eng --save-artifacts
 ```
 
 ## Expected Artifacts

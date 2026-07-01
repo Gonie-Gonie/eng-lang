@@ -9,7 +9,7 @@ Organize reusable calculations while keeping execution behavior predictable.
 Use the official functions and imports example:
 
 ```bat
-eng.exe run examples/official/07_functions_imports/main.eng --out build/runs/functions
+eng.exe run examples/official/07_functions_imports/main.eng --save-artifacts
 ```
 
 Representative source patterns:

@@ -28,7 +28,7 @@ workflows.
 ## Run Command
 
 ```bat
-eng.exe run examples/official/01_csv_plot/main.eng --out build/runs/args_files
+eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts
 ```
 
 ## Expected Artifacts
