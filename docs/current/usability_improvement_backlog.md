@@ -309,6 +309,20 @@ Status: implemented after native IDE Problems panel review.
 - Extended `ide-check` contract coverage for problem query state, row source
   jump hooks, and Problems panel styles.
 
+## Batch 27: VS Code Workflow Role Semantic Tokens
+
+Status: implemented after VS Code highlighting review.
+
+- Added `model`, `db`, `cache`, and `workflowStep` semantic-token modifiers to
+  the LSP and VS Code extension legends.
+- Marked model training/evaluation/prediction bindings, cache-backed owner
+  bindings and cache options, SQLite bindings and DB writes, and case workflow
+  step keywords/options from compiler-backed semantic metadata.
+- Added TextMate fallback scope mappings and `ide-check` contract coverage for
+  the new role modifiers.
+- Added LSP snapshot coverage for model cache records, DB write boundaries, and
+  workflow step tokens.
+
 ## API And Wording Cleanup Candidates
 
 - Review public command names and setting text for terms that are too internal:
@@ -348,9 +362,8 @@ Status: implemented after native IDE Problems panel review.
 
 - Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
   protocol surface is stable.
-- Expand compiler-backed semantic token coverage where review metadata still
-  lacks roles for module names, workflow step references, model artifacts, or
-  DB/cache records.
+- Expand compiler-backed semantic token coverage for module names and richer
+  workflow step references after those source spans become first-class metadata.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need semantic context, such

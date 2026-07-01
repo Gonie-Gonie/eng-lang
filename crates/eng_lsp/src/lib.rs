@@ -140,6 +140,10 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "riskMedium",
     "state",
     "input",
+    "model",
+    "db",
+    "cache",
+    "workflowStep",
 ];
 
 const COMPLETION_KEYWORDS: &[&str] = &[
@@ -717,7 +721,16 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for ml in &program.ml_infos {
-        builder.push_on_line(ml.line, &ml.binding, "variable", &["declaration"]);
+        builder.push_on_line(ml.line, &ml.binding, "variable", &["declaration", "model"]);
+    }
+
+    for cache in &program.cache_records {
+        let modifiers = if cache.owner_kind == "model" {
+            ["cache", "model"].as_slice()
+        } else {
+            ["cache"].as_slice()
+        };
+        builder.push_on_line(cache.line, &cache.owner_name, "variable", modifiers);
     }
 
     for system in &program.systems {
@@ -835,8 +848,12 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for write in &program.writes {
-        builder.push_on_line(write.line, &write.expression, "variable", &["sideEffect"]);
-        builder.push_keywords_on_line(write.line, &["write"], &["sideEffect"]);
+        let mut modifiers = vec!["sideEffect"];
+        if write.quantity_kind == "DbWrite" {
+            modifiers.push("db");
+        }
+        builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
+        builder.push_keywords_on_line(write.line, &["write"], &modifiers);
     }
 
     for operation in &program.file_operations {
@@ -900,7 +917,13 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for block in &program.with_blocks {
         builder.push_keywords_on_line(block.line, &["with"], &[]);
         for option in &block.options {
-            builder.push_on_line(option.line, &option.key, "property", &[]);
+            let modifiers = match option.key.as_str() {
+                "cache" | "cache_key" | "cache_dir" => ["cache"].as_slice(),
+                "step" => ["workflowStep"].as_slice(),
+                "algorithm" | "features" | "hidden" | "target" | "test" => ["model"].as_slice(),
+                _ => [].as_slice(),
+            };
+            builder.push_on_line(option.line, &option.key, "property", modifiers);
         }
     }
 
@@ -1905,7 +1928,20 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
     if quantity_kind.contains("Uncertain") || quantity_kind.contains("Interval") {
         modifiers.push("uncertain");
     }
+    if is_model_quantity_kind(quantity_kind) {
+        modifiers.push("model");
+    }
+    if quantity_kind.contains("Db") {
+        modifiers.push("db");
+    }
     modifiers
+}
+
+fn is_model_quantity_kind(quantity_kind: &str) -> bool {
+    quantity_kind.contains("Model")
+        || quantity_kind.contains("Prediction")
+        || quantity_kind.contains("TrainTestSplit")
+        || quantity_kind.contains("LeakageLint")
 }
 
 struct SemanticTokenBuilder<'a> {
@@ -2256,8 +2292,10 @@ impl<'a> SemanticTokenBuilder<'a> {
 
 fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
-        "run" | "command" | "write" | "export" | "copy" | "move" | "delete" | "open" | "sqlite"
-        | "http" | "download" => &["sideEffect", "external"],
+        "open" | "sqlite" => &["sideEffect", "external", "db"],
+        "run" | "command" | "write" | "export" | "copy" | "move" | "delete" | "http"
+        | "download" => &["sideEffect", "external"],
+        "materialize" | "apply" | "collect" => &["workflowStep"],
         "report" | "show" | "plot" | "print" | "log" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" => &["validation"],
         "script" | "struct" => &["deprecated"],
@@ -3766,6 +3804,45 @@ system RoomThermal {
         assert_semantic_token_modifier(&snapshot, source, "reading", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "T_measured", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "RoomThermal", "riskMedium");
+    }
+
+    #[test]
+    fn snapshot_marks_model_db_cache_and_workflow_step_semantic_tokens() {
+        let source = r#"schema SensorData {
+    time: DateTime index
+    T_supply: AbsoluteTemperature [degC]
+    T_return: AbsoluteTemperature [degC]
+    m_dot: MassFlowRate [kg/s]
+}
+
+sensor = promote csv file("data/sensor.csv") as SensorData
+cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.5, seed=7)
+reg_model = regression(split, algorithm=linear)
+with {
+    cache = true
+    cache_key = ["model", "reg", "v1"]
+}
+
+db = open sqlite file("outputs/results.sqlite")
+write sensor to db.table("sensor")
+
+cases = materialize sensor
+with {
+    step = "prepare"
+    output_root = dir("outputs/cases")
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("roles.eng"), source);
+
+        assert_semantic_token_modifier(&snapshot, source, "reg_model", "model");
+        assert_semantic_token_modifier(&snapshot, source, "reg_model", "cache");
+        assert_semantic_token_modifier(&snapshot, source, "cache_key", "cache");
+        assert_semantic_token_modifier(&snapshot, source, "db", "db");
+        assert_semantic_token_modifier(&snapshot, source, "write", "db");
+        assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
+        assert_semantic_token_modifier(&snapshot, source, "step", "workflowStep");
     }
 
     #[test]

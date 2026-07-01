@@ -126,7 +126,11 @@ const SEMANTIC_TOKEN_MODIFIERS = [
   "riskHigh",
   "riskMedium",
   "state",
-  "input"
+  "input",
+  "model",
+  "db",
+  "cache",
+  "workflowStep"
 ];
 
 const semanticLegend = new vscode.SemanticTokensLegend(

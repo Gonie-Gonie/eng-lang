@@ -99,8 +99,9 @@ Semantic highlighting uses the same snapshot-stdin path so unsaved edits receive
 role-aware token colors without waiting for a file save. The extension declares
 EngLang-specific semantic token modifiers and TextMate fallback scopes for units,
 quantities, axes, time series, validation/report roles, side effects, external
-boundaries, inputs, state, and review risks, so themes without EngLang-specific
-rules still receive stable color hints. Set
+boundaries, inputs, state, model artifacts, DB/cache records, workflow steps,
+and review risks, so themes without EngLang-specific rules still receive stable
+color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting.
 

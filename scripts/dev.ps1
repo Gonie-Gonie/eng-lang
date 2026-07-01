@@ -1744,7 +1744,8 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredSemanticModifier in @(
         "unit", "quantity", "axis", "timeseries", "uncertain",
         "sideEffect", "external", "validation", "report",
-        "planned", "internal", "riskHigh", "riskMedium", "state", "input"
+        "planned", "internal", "riskHigh", "riskMedium", "state", "input",
+        "model", "db", "cache", "workflowStep"
     )) {
         if ($SemanticModifiers -notcontains $RequiredSemanticModifier) {
             throw "VS Code extension missing semantic token modifier $RequiredSemanticModifier"
@@ -1758,7 +1759,8 @@ function Assert-VscodeExtensionContract {
         "type.unit", "property.unit", "variable.quantity", "function.external",
         "method.sideEffect", "variable.validation", "variable.report",
         "variable.state", "parameter.input", "variable.riskHigh",
-        "variable.riskMedium"
+        "variable.riskMedium", "variable.model", "variable.db",
+        "variable.cache", "keyword.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
         if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {
