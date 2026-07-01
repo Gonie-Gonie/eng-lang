@@ -1563,6 +1563,19 @@ Status: implemented after Native IDE artifact wording review.
   and making it clearer that native workflows can have zero external processes.
 - Extended `ide-check` so the old Native IDE panel title cannot return.
 
+## Batch 129: Native IDE Highlight Token Filtering
+
+Status: implemented after Highlight panel usability review.
+
+- Added a Native IDE Highlight panel filter for semantic token text, type,
+  modifier, and source line, making it easier to audit whether specific
+  workflow roles such as `db`, `cache`, `workflowStep`, or `riskHigh` are
+  actually present.
+- Updated token type/modifier counts to reflect the current filter and added a
+  shown/total badge so dense token lists remain scannable.
+- Extended `ide-check` contract coverage for the new highlight-token filter
+  wiring.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

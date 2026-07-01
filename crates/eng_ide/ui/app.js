@@ -35,6 +35,7 @@ const state = {
   problemQuery: "",
   moduleCategory: "all",
   moduleQuery: "",
+  highlightTokenQuery: "",
   sideTab: "variables",
   selectedVariable: null,
   selectedWorkflowNodeId: null,
@@ -396,6 +397,26 @@ function bind() {
       state.moduleQuery = event.target.value;
       render();
       const nextInput = byId("moduleQueryInput");
+      if (nextInput) {
+        nextInput.focus();
+        nextInput.setSelectionRange(cursor, cursor);
+      }
+    };
+  }
+  const clearHighlightTokenFilter = byId("clearHighlightTokenFilter");
+  if (clearHighlightTokenFilter) {
+    clearHighlightTokenFilter.onclick = () => {
+      state.highlightTokenQuery = "";
+      render();
+    };
+  }
+  const highlightTokenQueryInput = byId("highlightTokenQueryInput");
+  if (highlightTokenQueryInput) {
+    highlightTokenQueryInput.oninput = (event) => {
+      const cursor = event.target.selectionStart ?? event.target.value.length;
+      state.highlightTokenQuery = event.target.value;
+      render();
+      const nextInput = byId("highlightTokenQueryInput");
       if (nextInput) {
         nextInput.focus();
         nextInput.setSelectionRange(cursor, cursor);
@@ -1182,24 +1203,31 @@ function renderHighlightPanel() {
   const semantic = semanticTokenPayload();
   const legend = semantic.legend || {};
   const tokens = Array.isArray(semantic.tokens) ? semantic.tokens : [];
-  const typeCounts = countSemanticTokens(tokens, (token) => token.type || "-");
-  const modifierCounts = countSemanticTokens(tokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
+  const filteredTokens = filteredSemanticTokens(tokens);
+  const typeCounts = countSemanticTokens(filteredTokens, (token) => token.type || "-");
+  const modifierCounts = countSemanticTokens(filteredTokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
   const tokenCurrent = state.source === state.highlightSource;
   return `
     <div class="panel-title compact">Highlight Tokens</div>
     <div class="badges">
       <span class="badge">Tokens ${tokens.length}</span>
+      <span class="badge">Shown ${filteredTokens.length}</span>
       <span class="badge">Types ${arrayOrEmpty(legend.token_types || legend.tokenTypes).length}</span>
       <span class="badge">Modifiers ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
       <span class="badge ${tokenCurrent ? "" : "warn"}">${tokenCurrent ? "Current" : "Check needed"}</span>
     </div>
     <div class="scroll highlight-panel">
+      <div class="module-toolbar">
+        <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlight tokens" title="Filter by token text, type, modifier, or source line" />
+        <button id="clearHighlightTokenFilter">Clear</button>
+        <span class="muted">${filteredTokens.length} of ${tokens.length}</span>
+      </div>
       <div class="panel-title compact">Token Types</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_types || legend.tokenTypes), typeCounts, "type")}
       <div class="panel-title compact">Modifiers</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers), modifierCounts, "modifier")}
       <div class="panel-title compact">Current File Tokens</div>
-      ${renderSemanticTokenRows(tokens)}
+      ${renderSemanticTokenRows(filteredTokens, Boolean(state.highlightTokenQuery.trim()))}
       ${rawJsonToggle("Raw semantic token JSON", semantic)}
     </div>
   `;
@@ -1220,7 +1248,7 @@ function renderSemanticLegendTable(items, counts, kind) {
   `;
 }
 
-function renderSemanticTokenRows(tokens) {
+function renderSemanticTokenRows(tokens, filtered = false) {
   const rows = tokens.slice(0, 120).map((token) => {
     const start = Number(token.start ?? 0);
     const length = Number(token.length ?? 0);
@@ -1235,10 +1263,11 @@ function renderSemanticTokenRows(tokens) {
     `;
   }).join("");
   const hidden = tokens.length > 120 ? `<div class="empty-state">Showing first 120 of ${escapeHtml(String(tokens.length))} tokens.</div>` : "";
+  const empty = filtered ? "No semantic tokens match the current filter." : "No semantic tokens for the current check.";
   return `
     <table class="var-table semantic-token-table">
       <thead><tr><th>Range</th><th>Text</th><th>Type</th><th>Modifiers</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">No semantic tokens for the current check.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="4" class="muted">${escapeHtml(empty)}</td></tr>`}</tbody>
     </table>
     ${hidden}
   `;
@@ -4063,6 +4092,25 @@ function safeCssToken(value) {
 
 function semanticTokenPayload() {
   return state.check?.semanticTokens ?? state.check?.semantic_tokens ?? { legend: {}, tokens: [] };
+}
+
+function filteredSemanticTokens(tokens) {
+  const query = state.highlightTokenQuery.trim().toLowerCase();
+  if (!query) return tokens;
+  return tokens.filter((token) => semanticTokenSearchText(token).includes(query));
+}
+
+function semanticTokenSearchText(token) {
+  const line = Number(token?.line ?? -1) + 1;
+  return [
+    semanticTokenText(token),
+    token?.type,
+    ...arrayOrEmpty(token?.modifiers),
+    Number.isFinite(line) && line > 0 ? `L${line}` : "",
+    Number.isFinite(line) && line > 0 ? `line:${line}` : "",
+    token?.start,
+    token?.length
+  ].map((part) => String(part ?? "").toLowerCase()).join(" ");
 }
 
 function arrayOrEmpty(value) {
