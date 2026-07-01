@@ -2,8 +2,8 @@
 
 `eng-lsp.exe --snapshot <file.eng>` emits a compact JSON document for editor,
 IDE, and automated smoke-test consumers that need compiler diagnostics,
-completion metadata, and hover metadata without starting a long-lived LSP
-session.
+completion metadata, hover metadata, semantic tokens, document symbols, and
+folding ranges without starting a long-lived LSP session.
 
 The current format marker is:
 
@@ -37,12 +37,23 @@ it has a clear compatibility rule so tools can be built against it safely:
   "format": "eng-lsp-snapshot-v1",
   "diagnostics": [],
   "completions": [],
-  "hovers": []
+  "hovers": [],
+  "semantic_tokens": {
+    "legend": {
+      "token_types": [],
+      "token_modifiers": []
+    },
+    "tokens": []
+  },
+  "document_symbols": [],
+  "folding_ranges": []
 }
 ```
 
-`diagnostics`, `completions`, and `hovers` are always arrays. The arrays may be
-empty when the source legitimately has no diagnostics or no semantic metadata.
+`diagnostics`, `completions`, `hovers`, `document_symbols`, and
+`folding_ranges` are always arrays. `semantic_tokens` always has a legend and a
+token array. These arrays may be empty when the source legitimately has no
+diagnostics or no semantic metadata.
 
 ## Diagnostics
 
@@ -61,9 +72,12 @@ Diagnostics are shaped like LSP diagnostics:
 }
 ```
 
-Current ranges are line-based and intentionally coarse: `line` is zero-based,
-`character` is currently `0..1`. Precise character spans are deferred until the
-compiler exposes consistent spans for all diagnostics.
+`line` is zero-based. `character` uses LSP UTF-16 offsets. Diagnostics use
+source-aware ranges when possible: dimensionless arithmetic diagnostics
+highlight the offending `+` or `-`, schema fast-assignment diagnostics
+highlight `=`, and file mutation diagnostics target `move` or `delete`. Generic
+diagnostics fall back through backticked message/help text, then the first
+identifier or visible token on the line.
 
 Severity follows LSP numeric severity:
 
@@ -185,6 +199,58 @@ function-local symbols from importable or top-level bindings.
 `where_local` hovers expose owner-local `where { ... }` bindings as
 `where.<name>` with inferred quantity/unit, owner line, expression, and status.
 
+## Semantic Tokens
+
+Semantic token output mirrors the stdio LSP legend used by the VS Code
+extension:
+
+```json
+{
+  "semantic_tokens": {
+    "legend": {
+      "token_types": ["namespace", "type", "class", "interface"],
+      "token_modifiers": ["declaration", "defaultLibrary", "unit"]
+    },
+    "tokens": [
+      {
+        "line": 0,
+        "start": 0,
+        "length": 6,
+        "type": "keyword",
+        "modifiers": ["declaration"]
+      }
+    ]
+  }
+}
+```
+
+Token coordinates are zero-based and use UTF-16 offsets. The current legend is
+validated by `ide-check` against the VS Code extension's semantic token arrays
+and package manifest so LSP-only or extension-only modifier drift fails the
+editor contract gate.
+
+Current semantic token roles include:
+
+- standard syntax roles such as namespace, type, class, parameter, variable,
+  property, function, method, keyword, operator, string, number, and comment
+- EngLang modifiers for units, quantities, axes, TimeSeries values,
+  uncertainty, reports, validations, side effects, external boundaries, inputs,
+  state, model, DB, cache, workflow steps, internal/planned symbols, and review
+  risk
+
+The snapshot token list is suitable for preview/debug tooling. Editor clients
+that need efficient live highlighting should use the stdio
+`textDocument/semanticTokens/full` request.
+
+## Document Symbols And Folding Ranges
+
+`document_symbols` uses LSP-style document symbol JSON with numeric symbol
+kinds, source ranges, selection ranges, details, and children. It is intended
+for outlines and breadcrumbs.
+
+`folding_ranges` contains zero-based line ranges plus an optional `kind`
+(`comment`, `imports`, or `region`) for editor folding support.
+
 ## Intended Consumers
 
 Use the snapshot for:
@@ -193,6 +259,7 @@ Use the snapshot for:
 - native IDE metadata inspection
 - extension tests that do not need a persistent server
 - debugging compiler metadata quickly from the command line
+- semantic token and TextMate fallback verification
 
 Use the stdio LSP server for:
 

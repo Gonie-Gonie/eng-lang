@@ -537,6 +537,18 @@ Status: implemented after VS Code/LSP metadata drift review.
 - This keeps future highlighting additions from landing in LSP only or VS Code
   only without failing the editor contract gate.
 
+## Batch 45: LSP Snapshot Reference Refresh
+
+Status: implemented after editor-token documentation review.
+
+- Updated the LSP snapshot reference so its top-level shape includes semantic
+  tokens, document symbols, and folding ranges.
+- Replaced stale coarse diagnostic range wording with the current source-aware
+  UTF-16 range behavior.
+- Added a semantic token section documenting the legend, token coordinates,
+  EngLang-specific modifiers, and the `ide-check` parity gate with the VS Code
+  extension.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
