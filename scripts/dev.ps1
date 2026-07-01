@@ -2269,6 +2269,8 @@ function Invoke-IdeCheck {
         "selectSourceTokenRange",
         "data-source-token-line",
         "sourceLineRange",
+        "variableSourceCell",
+        "variable-source-line",
         "codeUnitToByteOffset",
         "Timestamp",
         "Artifact Root"
@@ -2278,7 +2280,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }

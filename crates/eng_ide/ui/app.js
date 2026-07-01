@@ -409,7 +409,8 @@ function bind() {
     };
   });
   document.querySelectorAll("[data-variable]").forEach((row) => {
-    row.onclick = () => {
+    row.onclick = (event) => {
+      if (event.target.closest("[data-source-line]")) return;
       state.selectedVariable = state.selectedVariable === row.dataset.variable ? null : row.dataset.variable;
       render();
     };
@@ -4236,7 +4237,7 @@ function renderVariables() {
       <td>${escapeHtml(variable.quantityKind || "-")}</td>
       <td>${escapeHtml(variable.displayUnit || "-")}</td>
       <td><code>${escapeHtml(variable.value || "-")}</code></td>
-      <td>${escapeHtml(variable.source || "-")}</td>
+      <td>${variableSourceCell(variable)}</td>
     </tr>
     ${state.selectedVariable === variable.name ? `<tr><td colspan="5">${renderVariableDetail(variable)}</td></tr>` : ""}
   `).join("");
@@ -4244,7 +4245,7 @@ function renderVariables() {
     <div class="panel-title">Args</div>
     <table class="var-table">
       <thead><tr><th>Name</th><th>Type</th><th>Value</th><th>Source</th></tr></thead>
-      <tbody>${state.args.map((arg) => `<tr><td>${escapeHtml(arg.name)}</td><td>${escapeHtml(arg.typeName)}</td><td><code>${escapeHtml(arg.value)}</code></td><td>${escapeHtml(arg.source)}</td></tr>`).join("")}</tbody>
+      <tbody>${state.args.map((arg) => `<tr><td>${escapeHtml(arg.name)}</td><td>${escapeHtml(arg.typeName)}</td><td><code>${escapeHtml(arg.value)}</code></td><td>${variableSourceCell(arg)}</td></tr>`).join("")}</tbody>
     </table>
   ` : "";
   return `
@@ -4254,6 +4255,13 @@ function renderVariables() {
     </table>
     ${args}
   `;
+}
+
+function variableSourceCell(item) {
+  const source = escapeHtml(item?.source || "-");
+  const lineButton = sourceLineButton(item);
+  if (lineButton === "-") return source;
+  return `${source}<div class="muted variable-source-line">${lineButton}</div>`;
 }
 
 function renderVariableDetail(variable) {

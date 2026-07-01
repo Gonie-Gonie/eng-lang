@@ -785,6 +785,10 @@ button:hover {
   background: #f7fbff;
 }
 
+.variable-source-line {
+  margin-top: 3px;
+}
+
 .var-detail {
   margin: 8px;
   padding: 8px;

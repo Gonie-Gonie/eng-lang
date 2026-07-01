@@ -1037,6 +1037,18 @@ Status: implemented after docs cleanup review.
 - Marked `docs/workflows/index.md` as a workflow subguide under
   `docs/README.md`, not a parallel global documentation index.
 
+## Batch 86: Native IDE Variable Source Navigation
+
+Status: implemented after native IDE inspector workflow review.
+
+- Added source-line navigation buttons to runtime Variables and Args source
+  cells so repeated run/debug inspection can jump back to the defining source
+  line without switching to another inspector.
+- Kept variable row expansion separate from source navigation, so clicking a
+  source line does not toggle the variable detail row.
+- Extended `ide-check` contract coverage for the shared variable source cell
+  and styling.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
