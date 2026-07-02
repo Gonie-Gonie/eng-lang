@@ -3268,6 +3268,17 @@ Status: implemented while continuing the VS Code entrypoint split.
 - Extended extension and portable-package contract checks so formatting helpers
   remain packaged and do not drift back into the entrypoint.
 
+## Batch 264: VS Code Folding Provider Split
+
+Status: implemented while continuing the VS Code entrypoint split.
+
+- Moved VS Code folding-range provider orchestration into
+  `foldingRangeProvider.js`.
+- Kept shared LSP kind conversion in `lspKinds.js`, with folding-specific range
+  conversion owned by the provider module.
+- Extended extension and portable-package contract checks so folding helpers
+  remain packaged and do not drift back into the entrypoint.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

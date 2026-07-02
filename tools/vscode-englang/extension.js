@@ -10,12 +10,12 @@ const {
   severityName
 } = require("./diagnosticsProvider");
 const { EngCodeActionProvider } = require("./codeActionProvider");
+const { EngFoldingRangeProvider } = require("./foldingRangeProvider");
 const { EngFormattingProvider } = require("./formattingProvider");
 const { EngHoverProvider } = require("./hoverProvider");
 const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
-const { foldingRangeKindFromLsp } = require("./lspKinds");
 const {
   definitionLocationFromLsp,
   definitionLocationFromSnapshotSymbols,
@@ -175,7 +175,11 @@ function activate(context) {
     ),
     vscode.languages.registerFoldingRangeProvider(
       LANGUAGE_ID,
-      new EngFoldingRangeProvider(context)
+      new EngFoldingRangeProvider(context, {
+        isEngDocument,
+        snapshotDocumentSource,
+        cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
+      })
     ),
     vscode.languages.registerDocumentFormattingEditProvider(
       LANGUAGE_ID,
@@ -2011,43 +2015,6 @@ class EngDefinitionProvider {
     const candidates = definitionNameCandidates(document, position);
     return definitionLocationFromSnapshotSymbols(snapshot.document_symbols ?? [], candidates, document.uri);
   }
-}
-
-class EngFoldingRangeProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideFoldingRanges(document, _context, cancellationToken) {
-    if (!isEngDocument(document)) {
-      return [];
-    }
-    const snapshot = await snapshotDocumentSource(document, this.context, cancellationToken);
-    if (!snapshot) {
-      return [];
-    }
-    reviewCache.set(document.uri.fsPath, snapshot);
-    return foldingRangesFromSnapshot(snapshot);
-  }
-}
-
-function foldingRangesFromSnapshot(snapshot) {
-  return (snapshot.folding_ranges ?? [])
-    .map(foldingRangeFromSnapshot)
-    .filter((range) => range !== undefined);
-}
-
-function foldingRangeFromSnapshot(range) {
-  const startLine = range?.startLine;
-  const endLine = range?.endLine;
-  if (!Number.isInteger(startLine) || !Number.isInteger(endLine) || endLine <= startLine) {
-    return undefined;
-  }
-  const kind = foldingRangeKindFromLsp(range.kind);
-  if (kind) {
-    return new vscode.FoldingRange(startLine, endLine, kind);
-  }
-  return new vscode.FoldingRange(startLine, endLine);
 }
 
 function fullLineRange(document, lineNumber) {

@@ -1860,6 +1860,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
     $CodeActionProviderPath = Join-Path $ExtensionRoot "codeActionProvider.js"
+    $FoldingRangeProviderPath = Join-Path $ExtensionRoot "foldingRangeProvider.js"
     $FormattingProviderPath = Join-Path $ExtensionRoot "formattingProvider.js"
     $SemanticTokensProviderPath = Join-Path $ExtensionRoot "semanticTokensProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
@@ -1905,6 +1906,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CodeActionProviderPath)) {
         throw "missing VS Code code action provider at $CodeActionProviderPath"
+    }
+    if (-not (Test-Path $FoldingRangeProviderPath)) {
+        throw "missing VS Code folding range provider at $FoldingRangeProviderPath"
     }
     if (-not (Test-Path $FormattingProviderPath)) {
         throw "missing VS Code formatting provider at $FormattingProviderPath"
@@ -2291,6 +2295,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
     $CodeActionProviderSource = Get-Content -LiteralPath $CodeActionProviderPath -Raw
+    $FoldingRangeProviderSource = Get-Content -LiteralPath $FoldingRangeProviderPath -Raw
     $FormattingProviderSource = Get-Content -LiteralPath $FormattingProviderPath -Raw
     $SemanticTokensProviderSource = Get-Content -LiteralPath $SemanticTokensProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
@@ -2615,6 +2620,26 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("class EngFormattingProvider") -or $ExtensionSource.Contains("function fullDocumentRange")) {
         throw "VS Code extension must keep formatting provider helpers in formattingProvider.js"
     }
+    $FoldingSource = $ExtensionSource + "`n" + $FoldingRangeProviderSource
+    foreach ($RequiredFoldingToken in @(
+        "registerFoldingRangeProvider",
+        "EngFoldingRangeProvider",
+        "snapshotDocumentSource",
+        "foldingRangesFromSnapshot",
+        "foldingRangeFromSnapshot",
+        "foldingRangeKindFromLsp",
+        "new vscode.FoldingRange"
+    )) {
+        if (-not $FoldingSource.Contains($RequiredFoldingToken)) {
+            throw "VS Code extension missing folding provider token $RequiredFoldingToken"
+        }
+    }
+    if (-not $ExtensionSource.Contains('require("./foldingRangeProvider")') -or -not $FoldingRangeProviderSource.Contains("EngFoldingRangeProvider") -or -not $FoldingRangeProviderSource.Contains('require("./lspKinds")')) {
+        throw "VS Code extension must load folding provider orchestration from foldingRangeProvider.js"
+    }
+    if ($ExtensionSource.Contains("class EngFoldingRangeProvider") -or $ExtensionSource.Contains("function foldingRangesFromSnapshot") -or $ExtensionSource.Contains("function foldingRangeFromSnapshot")) {
+        throw "VS Code extension must keep folding provider helpers in foldingRangeProvider.js"
+    }
     $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
@@ -2681,11 +2706,14 @@ function Assert-VscodeExtensionContract {
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
     }
-    if (-not $ExtensionSource.Contains('require("./lspKinds")') -or -not $LspKindsSource.Contains("symbolKindFromLsp") -or -not $LspKindsSource.Contains("completionKindFromLsp") -or -not $LspKindsSource.Contains("foldingRangeKindFromLsp")) {
+    if (-not $LspKindsSource.Contains("symbolKindFromLsp") -or -not $LspKindsSource.Contains("completionKindFromLsp") -or -not $LspKindsSource.Contains("foldingRangeKindFromLsp")) {
         throw "VS Code extension must share LSP kind conversion through lspKinds.js"
     }
     if (-not $CompletionProviderSource.Contains('require("./lspKinds")')) {
         throw "VS Code completion provider must reuse shared LSP kind conversion"
+    }
+    if (-not $FoldingRangeProviderSource.Contains('require("./lspKinds")')) {
+        throw "VS Code folding provider must reuse shared LSP kind conversion"
     }
     if (-not $ExtensionSource.Contains('require("./lspNavigation")') -or -not $LspNavigationSource.Contains("definitionLocationFromLsp") -or -not $LspNavigationSource.Contains("definitionLocationFromSnapshotSymbols") -or -not $LspNavigationSource.Contains("documentSymbolsFromSnapshot") -or -not $LspNavigationSource.Contains("workspaceSymbolInformationFromLsp") -or -not $LspNavigationSource.Contains("definitionNameCandidates")) {
         throw "VS Code extension must share LSP navigation conversion through lspNavigation.js"
@@ -3984,6 +4012,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\codeActionProvider.js"))) {
             throw "portable package did not include VS Code code action provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\foldingRangeProvider.js"))) {
+            throw "portable package did not include VS Code folding range provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\formattingProvider.js"))) {
             throw "portable package did not include VS Code formatting provider"
