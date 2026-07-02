@@ -1442,6 +1442,17 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.fill-missing.englang",
+    "text": "fill missing measured.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "missing"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.align-series.englang",
     "text": "align measured.T_zone with simulated.T_zone",
     "fullMatch": true

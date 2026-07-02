@@ -3085,6 +3085,18 @@ implementation-oriented wording.
 - Replaced artifact reference wording about Jacobian sparsity placeholders with
   Jacobian sparsity metadata.
 
+## Batch 249: Fill Missing Highlighting Parity
+
+Status: implemented after comparing public TimeSeries fill syntax against the
+editor vocabulary.
+
+- Added `fill` and `fill missing` to LSP workflow builtin completions and
+  semantic token modifiers.
+- Added TextMate phrase coverage for `fill missing <table>.<column>` so the
+  command no longer falls back to disconnected identifiers.
+- Extended grammar fixture and editor metadata coverage for the public
+  TimeSeries fill workflow.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

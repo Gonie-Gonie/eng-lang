@@ -331,6 +331,12 @@
                                 "lsp_kind":  3
                             },
                             {
+                                "detail":  "Record an explicit TimeSeries fill policy with `fill missing`",
+                                "kind":  "function",
+                                "label":  "fill",
+                                "lsp_kind":  3
+                            },
+                            {
                                 "detail":  "Align TimeSeries values onto a shared axis",
                                 "kind":  "function",
                                 "label":  "align",
@@ -2275,7 +2281,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  379,
+    "completion_seed_count":  380,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

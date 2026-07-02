@@ -191,6 +191,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "export",
     "false",
     "fetch",
+    "fill",
     "filter",
     "fn",
     "from",
@@ -316,6 +317,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "require_one",
     "check",
     "coverage",
+    "fill",
     "fill_missing",
     "align",
     "resample",
@@ -430,6 +432,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     (
         "fill_missing",
         "Fill missing TimeSeries values with an explicit policy",
+    ),
+    (
+        "fill",
+        "Record an explicit TimeSeries fill policy with `fill missing`",
     ),
     ("align", "Align TimeSeries values onto a shared axis"),
     ("resample", "Resample a TimeSeries onto a new step"),
@@ -1394,6 +1400,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for command in &program.command_styles {
         builder.push_on_line(command.line, &command.verb, "function", &["defaultLibrary"]);
+        if command.verb == "fill" && command.target.trim().starts_with("missing ") {
+            builder.push_keywords_on_line(command.line, &["missing"], &["validation"]);
+        }
     }
 
     for suite in &program.expectation_suites {
@@ -3175,6 +3184,7 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         "train_test_split" | "regression" | "regression_table" | "train_regression" | "mlp"
         | "evaluate" | "model_card" | "leakage_lint" | "predict" => &["defaultLibrary", "model"],
         "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
+        "fill" => &["defaultLibrary", "validation", "workflowStep"],
         "check" | "coverage" | "fill_missing" | "align" | "resample" | "rmse" => {
             &["defaultLibrary", "validation"]
         }
@@ -5982,6 +5992,7 @@ cases = materialize cases designs
 case_results = apply run_case over designs
 case_inputs = apply(case_input_template, over=cases)
 collected = collect results case_results
+filled = fill missing designs.cooling_cop
 legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
@@ -6005,6 +6016,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "model_card",
             "predict",
             "derive",
+            "fill",
             "select_first_row",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
@@ -6042,9 +6054,12 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "apply",
             "collect",
             "derive",
+            "fill",
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
+        assert_semantic_token_modifier(&snapshot, source, "fill", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
         for label in ["designs", "case_row", "derived", "derived_many"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }

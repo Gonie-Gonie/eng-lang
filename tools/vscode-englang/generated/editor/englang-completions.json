@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  379,
+    "completion_seed_count":  380,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -330,6 +330,12 @@
                                 "detail":  "Fill missing TimeSeries values with an explicit policy",
                                 "kind":  "function",
                                 "label":  "fill_missing",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "Record an explicit TimeSeries fill policy with `fill missing`",
+                                "kind":  "function",
+                                "label":  "fill",
                                 "lsp_kind":  3
                             },
                             {

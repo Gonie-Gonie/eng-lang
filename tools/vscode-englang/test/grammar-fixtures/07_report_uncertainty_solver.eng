@@ -23,6 +23,7 @@ with {
     sensor_std = 0.2 kW
 }
 coverage = check coverage measured.T_zone
+filled_zone = fill missing measured.T_zone
 aligned_series = align measured.T_zone with simulated.T_zone
 resampled_series = resample measured.T_zone to simulated.T_zone
 
