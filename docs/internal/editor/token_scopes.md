@@ -82,7 +82,7 @@ Current workflow phrase scopes:
 | Scope | Phrase |
 | --- | --- |
 | `meta.workflow.apply-call.englang` | `apply(<step>, over=<table>)` |
-| `meta.workflow.apply-step.englang` | `apply <step> over ...` |
+| `meta.workflow.apply-step.englang` | `apply <step> over <table>` |
 | `meta.workflow.check-coverage.englang` | `check coverage` |
 | `meta.workflow.collect-results.englang` | `collect results` |
 | `meta.workflow.db-write.englang` | `write <table> to <db>.table` |

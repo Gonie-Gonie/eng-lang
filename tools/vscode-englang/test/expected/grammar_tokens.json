@@ -422,7 +422,13 @@
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.apply-step.englang",
-    "text": "apply run_case over",
+    "text": "apply run_case over designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.local.englang",
+    "text": "designs",
     "fullMatch": true
   },
   {

@@ -1930,6 +1930,18 @@ the compiler/runtime option contract.
 - Added LSP regression tests for apply and render-template with-block option
   completions.
 
+## Batch 158: Command Apply Source Highlighting
+
+Status: implemented to keep command-style `apply` highlighting consistent with
+the canonical `apply(..., over=...)` form.
+
+- Extended `meta.workflow.apply-step.englang` to cover
+  `apply <step> over <table>` instead of stopping at `over`.
+- Scoped the source table reference as `variable.other.local.englang`, matching
+  the local-binding treatment used by canonical apply calls.
+- Added grammar fixture expectations for the full command-style apply phrase and
+  table reference.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
