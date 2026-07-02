@@ -4912,25 +4912,25 @@ function validationSummary(validations) {
 
 function statusLabel(status) {
   switch (String(status ?? "-")) {
-    case "algebraic_only_seed":
+    case "algebraic_only_preview":
       return "algebraic-only preview";
-    case "algebraic_split_seed":
+    case "algebraic_split_preview":
       return "algebraic split preview";
     case "component_local_signal_resolved":
       return "component-local signal resolved";
-    case "dae_split_seed_deferred":
+    case "dae_split_deferred":
       return "DAE split deferred";
-    case "delay_call_runtime_buffer_seed_not_integrated":
+    case "delay_call_runtime_buffer_pending_integration":
       return "delay runtime buffer not connected to this language-level solve";
     case "delay_relationship_metadata_only":
       return "delay relationship metadata";
-    case "external_behavior_contract_metadata_seed":
+    case "external_behavior_contract_metadata":
       return "external behavior contract metadata";
-    case "external_behavior_wrapper_seed_not_integrated":
+    case "external_behavior_wrapper_pending_integration":
       return "external behavior adapter not connected to this language-level solve";
     case "external_output_typed_identity_contract":
       return "external output typed from input";
-    case "mixed_state_algebraic_seed":
+    case "mixed_state_algebraic_preview":
       return "mixed state/algebraic preview";
     case "no_jit_speed_claim":
       return "no JIT speed claim";
@@ -4942,17 +4942,17 @@ function statusLabel(status) {
       return "not a general nonlinear solve";
     case "not_production_multi_domain":
       return "not production multi-domain";
-    case "predictor_call_contract_seed_not_integrated":
+    case "predictor_call_contract_pending_integration":
       return "Predictor contract not connected to this language-level solve";
-    case "predictor_contract_metadata_seed":
+    case "predictor_contract_metadata":
       return "Predictor contract metadata";
     case "predictor_output_typed_identity_contract":
       return "Predictor output typed from input";
-    case "safe_repro_profile_policy_seed":
+    case "safe_repro_profile_policy_metadata":
       return "safe/repro profile policy metadata";
     case "solver_policy_not_integrated":
       return "solver policy not connected";
-    case "symbolic_residual_seed_no_nonlinear_iteration":
+    case "symbolic_residual_preview_no_nonlinear_iteration":
       return "symbolic residual preview, no nonlinear iteration";
     default:
       return String(status ?? "-");

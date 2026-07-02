@@ -2365,7 +2365,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"diagnostic_code\": \"E-BEHAVIOR-SOURCE-DAE-DELAY\"")
                 || !output
                     .report_spec_json
-                    .contains("delay_call_runtime_buffer_seed_not_integrated")
+                    .contains("delay_call_runtime_buffer_pending_integration")
                 || !output
                     .report_spec_json
                     .contains("not_evaluated_in_language_behavior_graph")
@@ -4771,13 +4771,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             if !output.report_spec_json.contains("\"behavior_nodes\"")
                 || !output
                     .report_spec_json
-                    .contains("\"delay_call_runtime_buffer_seed_not_integrated\"")
+                    .contains("\"delay_call_runtime_buffer_pending_integration\"")
                 || !output
                     .report_spec_json
-                    .contains("\"predictor_call_contract_seed_not_integrated\"")
+                    .contains("\"predictor_call_contract_pending_integration\"")
                 || !output
                     .report_spec_json
-                    .contains("\"external_behavior_wrapper_seed_not_integrated\"")
+                    .contains("\"external_behavior_wrapper_pending_integration\"")
                 || !output
                     .report_spec_json
                     .contains("\"signal\": \"temperature_signal\"")

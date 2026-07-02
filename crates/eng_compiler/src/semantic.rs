@@ -9996,32 +9996,32 @@ fn build_component_solver_preview(
         }
         .to_owned(),
         mixed_algebraic_dynamic: if state_count > 0 {
-            "mixed_state_algebraic_seed"
+            "mixed_state_algebraic_preview"
         } else {
-            "algebraic_only_seed"
+            "algebraic_only_preview"
         }
         .to_owned(),
-        nonlinear_residual: "symbolic_residual_seed_no_nonlinear_iteration".to_owned(),
+        nonlinear_residual: "symbolic_residual_preview_no_nonlinear_iteration".to_owned(),
         dae_split: if state_count > 0 {
-            "dae_split_seed_deferred"
+            "dae_split_deferred"
         } else {
-            "algebraic_split_seed"
+            "algebraic_split_preview"
         }
         .to_owned(),
         delay_history: if delay_call_count > 0 {
-            "delay_call_runtime_buffer_seed_not_integrated"
+            "delay_call_runtime_buffer_pending_integration"
         } else {
             "deferred_no_delay_calls"
         }
         .to_owned(),
         predictor: if predictor_call_count > 0 {
-            "predictor_call_contract_seed_not_integrated"
+            "predictor_call_contract_pending_integration"
         } else {
             "deferred_no_predictor_calls"
         }
         .to_owned(),
         external_adapter: if external_call_count > 0 {
-            "external_behavior_wrapper_seed_not_integrated"
+            "external_behavior_wrapper_pending_integration"
         } else {
             "deferred_no_external_behavior_adapter"
         }

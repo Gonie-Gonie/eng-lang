@@ -7898,7 +7898,7 @@ fn behavior_node_seeds(expression: &str) -> Vec<ComponentBehaviorSeed> {
         let arguments = first_behavior_call_arguments(expression, "delay").unwrap_or_default();
         nodes.push(ComponentBehaviorSeed {
             behavior_kind: "delay".to_owned(),
-            status: "delay_call_runtime_buffer_seed_not_integrated".to_owned(),
+            status: "delay_call_runtime_buffer_pending_integration".to_owned(),
             signal: arguments.first().cloned(),
             delay_s: arguments
                 .get(1)
@@ -7912,13 +7912,13 @@ fn behavior_node_seeds(expression: &str) -> Vec<ComponentBehaviorSeed> {
     if normalized.contains("predict(") || normalized.contains("predictor(") {
         nodes.push(ComponentBehaviorSeed {
             behavior_kind: "predictor".to_owned(),
-            status: "predictor_call_contract_seed_not_integrated".to_owned(),
+            status: "predictor_call_contract_pending_integration".to_owned(),
             signal: first_behavior_call_arguments(expression, "predictor")
                 .or_else(|| first_behavior_call_arguments(expression, "predict"))
                 .and_then(|arguments| arguments.first().cloned()),
             delay_s: None,
             relationship_status: None,
-            contract_status: Some("predictor_contract_metadata_seed".to_owned()),
+            contract_status: Some("predictor_contract_metadata".to_owned()),
             jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
             profile_policy: None,
         });
@@ -7926,15 +7926,15 @@ fn behavior_node_seeds(expression: &str) -> Vec<ComponentBehaviorSeed> {
     if normalized.contains("external(") || normalized.contains("adapter(") {
         nodes.push(ComponentBehaviorSeed {
             behavior_kind: "external".to_owned(),
-            status: "external_behavior_wrapper_seed_not_integrated".to_owned(),
+            status: "external_behavior_wrapper_pending_integration".to_owned(),
             signal: first_behavior_call_arguments(expression, "external")
                 .or_else(|| first_behavior_call_arguments(expression, "adapter"))
                 .and_then(|arguments| arguments.first().cloned()),
             delay_s: None,
             relationship_status: None,
-            contract_status: Some("external_behavior_contract_metadata_seed".to_owned()),
+            contract_status: Some("external_behavior_contract_metadata".to_owned()),
             jacobian_policy: None,
-            profile_policy: Some("safe_repro_profile_policy_seed".to_owned()),
+            profile_policy: Some("safe_repro_profile_policy_metadata".to_owned()),
         });
     }
     nodes
@@ -8612,7 +8612,7 @@ mod tests {
         assert_eq!(assembly.local_expression_count, 1);
         assert_eq!(
             assembly.solver_preview.delay_history,
-            "delay_call_runtime_buffer_seed_not_integrated"
+            "delay_call_runtime_buffer_pending_integration"
         );
         assert_eq!(assembly.connection_sets.len(), 1);
         assert_eq!(assembly.connection_sets[0].ports.len(), 2);
@@ -8647,7 +8647,7 @@ mod tests {
         assert_eq!(assembly.solver_preview.status, "single_domain_preview");
         assert_eq!(
             assembly.solver_preview.nonlinear_residual,
-            "symbolic_residual_seed_no_nonlinear_iteration"
+            "symbolic_residual_preview_no_nonlinear_iteration"
         );
         assert_eq!(assembly.residual_graph.status, "metadata_only");
         assert_eq!(assembly.residual_graph.jacobian_sparsity.len(), 2);
@@ -8672,7 +8672,7 @@ mod tests {
         assert!(review.contains("\"component_summary\""));
         assert!(review.contains("\"local_expression_count\": 1"));
         assert!(review.contains("\"pressure_seed\""));
-        assert!(review.contains("\"delay_call_runtime_buffer_seed_not_integrated\""));
+        assert!(review.contains("\"delay_call_runtime_buffer_pending_integration\""));
         assert!(review.contains("\"connection_summary\""));
         assert!(review.contains("\"assembly_summary\""));
         assert!(review.contains("\"component_graph\""));
@@ -9522,7 +9522,7 @@ system Envelope {
     }
 
     #[test]
-    fn records_predictor_contract_seed_status_in_component_preview() {
+    fn records_predictor_contract_pending_status_in_component_preview() {
         let report = check_source(
             "ok.eng",
             "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    prediction = predictor(out.T)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
@@ -9534,12 +9534,12 @@ system Envelope {
         assert_eq!(assembly.predictor_call_count, 1);
         assert_eq!(
             assembly.solver_preview.predictor,
-            "predictor_call_contract_seed_not_integrated"
+            "predictor_call_contract_pending_integration"
         );
     }
 
     #[test]
-    fn records_external_behavior_seed_status_in_component_preview() {
+    fn records_external_behavior_pending_status_in_component_preview() {
         let report = check_source(
             "ok.eng",
             "domain Thermal {\n    across T: AbsoluteTemperature [degC]\n    through Q: HeatRate [kW]\n    conservation sum(Q) = 0\n}\n\ncomponent Source {\n    port out: Thermal\n    adapter_value = adapter(out.T)\n}\n\ncomponent Sink {\n    port inlet: Thermal\n}\n\nconnect Source.out -> Sink.inlet\n",
@@ -9550,7 +9550,7 @@ system Envelope {
         let assembly = &report.semantic_program.component_assemblies[0];
         assert_eq!(
             assembly.solver_preview.external_adapter,
-            "external_behavior_wrapper_seed_not_integrated"
+            "external_behavior_wrapper_pending_integration"
         );
     }
 

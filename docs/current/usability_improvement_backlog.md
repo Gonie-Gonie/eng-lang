@@ -2997,8 +2997,8 @@ TextMate fallback but absent from the LSP keyword/completion vocabulary.
 ## Batch 242: Behavior Preview Status Display Labels
 
 Status: implemented after auditing internal component behavior artifacts for
-raw `_seed_not_integrated` status strings leaking into user-facing report and
-IDE tables.
+raw pending-integration status strings leaking into user-facing report and IDE
+tables.
 
 - Kept report-spec JSON contract statuses stable, but mapped component behavior
   and solver-preview HTML cells to readable labels such as "Predictor contract
@@ -3712,6 +3712,20 @@ contracts rather than only checking that the examples run.
   plot manifests, and report-spec links.
 - Kept the existing zero-external-process assertion across workflow 01/02/03 so
   these examples cannot silently reintroduce Python or shell process execution.
+
+## Batch 300: Behavior Status Artifact Wording
+
+Status: implemented to remove legacy seed-style pending-integration status
+names from component behavior and solver-preview artifacts.
+
+- Renamed behavior integration statuses to explicit pending-integration names
+  such as `predictor_call_contract_pending_integration`.
+- Renamed behavior contract/profile statuses to explicit metadata names so
+  report and IDE artifacts no longer expose implementation-seed wording.
+- Updated report, compiler, runtime, CLI smoke, native IDE, and golden artifact
+  expectations together so the new status vocabulary is covered.
+- Added an IDE contract guard that rejects the legacy behavior status keys in
+  the UI label mapper.
 
 ## Seed-To-Implementation Candidates
 

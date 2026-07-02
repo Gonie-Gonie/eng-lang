@@ -3065,9 +3065,9 @@ fn smoke() -> Result<(), String> {
         json_field_string(node, "behavior_kind").as_deref() == Some("predictor")
             && json_field_string(node, "signal").as_deref() == Some("temperature_signal")
             && json_field_string(node, "status").as_deref()
-                == Some("predictor_call_contract_seed_not_integrated")
+                == Some("predictor_call_contract_pending_integration")
             && json_field_string(node, "contract_status").as_deref()
-                == Some("predictor_contract_metadata_seed")
+                == Some("predictor_contract_metadata")
             && has_contract_quantity(node, "contract_inputs", "AbsoluteTemperature")
             && has_contract_quantity(node, "contract_outputs", "AbsoluteTemperature")
             && has_contract_status(
@@ -3082,9 +3082,9 @@ fn smoke() -> Result<(), String> {
         json_field_string(node, "behavior_kind").as_deref() == Some("external")
             && json_field_string(node, "signal").as_deref() == Some("out.Q")
             && json_field_string(node, "status").as_deref()
-                == Some("external_behavior_wrapper_seed_not_integrated")
+                == Some("external_behavior_wrapper_pending_integration")
             && json_field_string(node, "contract_status").as_deref()
-                == Some("external_behavior_contract_metadata_seed")
+                == Some("external_behavior_contract_metadata")
             && has_contract_quantity(node, "contract_inputs", "HeatRate")
             && has_contract_quantity(node, "contract_outputs", "HeatRate")
             && has_contract_status(

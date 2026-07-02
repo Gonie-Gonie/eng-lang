@@ -2275,7 +2275,7 @@ fn report_behavior_node_seeds(
             .collect();
         nodes.push(ReportBehaviorSeed {
             behavior_kind: "delay".to_owned(),
-            status: "delay_call_runtime_buffer_seed_not_integrated".to_owned(),
+            status: "delay_call_runtime_buffer_pending_integration".to_owned(),
             signal,
             delay_s: arguments
                 .get(1)
@@ -2306,11 +2306,11 @@ fn report_behavior_node_seeds(
             .collect();
         nodes.push(ReportBehaviorSeed {
             behavior_kind: "predictor".to_owned(),
-            status: "predictor_call_contract_seed_not_integrated".to_owned(),
+            status: "predictor_call_contract_pending_integration".to_owned(),
             signal,
             delay_s: None,
             relationship_status: None,
-            contract_status: Some("predictor_contract_metadata_seed".to_owned()),
+            contract_status: Some("predictor_contract_metadata".to_owned()),
             jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
             profile_policy: None,
             contract_outputs: report_behavior_identity_output_contract(
@@ -2342,13 +2342,13 @@ fn report_behavior_node_seeds(
             .collect();
         nodes.push(ReportBehaviorSeed {
             behavior_kind: "external".to_owned(),
-            status: "external_behavior_wrapper_seed_not_integrated".to_owned(),
+            status: "external_behavior_wrapper_pending_integration".to_owned(),
             signal,
             delay_s: None,
             relationship_status: None,
-            contract_status: Some("external_behavior_contract_metadata_seed".to_owned()),
+            contract_status: Some("external_behavior_contract_metadata".to_owned()),
             jacobian_policy: None,
-            profile_policy: Some("safe_repro_profile_policy_seed".to_owned()),
+            profile_policy: Some("safe_repro_profile_policy_metadata".to_owned()),
             contract_outputs: report_behavior_identity_output_contract(
                 &contract_inputs,
                 &local.name,
@@ -2679,33 +2679,33 @@ fn report_behavior_signal_contracts_detail(contracts: &[ReportBehaviorSignalCont
 
 fn report_status_label(status: &str) -> &str {
     match status {
-        "algebraic_only_seed" => "algebraic-only preview",
-        "algebraic_split_seed" => "algebraic split preview",
+        "algebraic_only_preview" => "algebraic-only preview",
+        "algebraic_split_preview" => "algebraic split preview",
         "component_local_signal_resolved" => "component-local signal resolved",
-        "dae_split_seed_deferred" => "DAE split deferred",
-        "delay_call_runtime_buffer_seed_not_integrated" => {
+        "dae_split_deferred" => "DAE split deferred",
+        "delay_call_runtime_buffer_pending_integration" => {
             "delay runtime buffer not connected to this language-level solve"
         }
         "delay_relationship_metadata_only" => "delay relationship metadata",
-        "external_behavior_contract_metadata_seed" => "external behavior contract metadata",
-        "external_behavior_wrapper_seed_not_integrated" => {
+        "external_behavior_contract_metadata" => "external behavior contract metadata",
+        "external_behavior_wrapper_pending_integration" => {
             "external behavior adapter not connected to this language-level solve"
         }
         "external_output_typed_identity_contract" => "external output typed from input",
-        "mixed_state_algebraic_seed" => "mixed state/algebraic preview",
+        "mixed_state_algebraic_preview" => "mixed state/algebraic preview",
         "no_jit_speed_claim" => "no JIT speed claim",
         "not_adaptive" => "not adaptive",
         "not_full_dae" => "not a full DAE solve",
         "not_general_nonlinear" => "not a general nonlinear solve",
         "not_production_multi_domain" => "not production multi-domain",
-        "predictor_call_contract_seed_not_integrated" => {
+        "predictor_call_contract_pending_integration" => {
             "Predictor contract not connected to this language-level solve"
         }
-        "predictor_contract_metadata_seed" => "Predictor contract metadata",
+        "predictor_contract_metadata" => "Predictor contract metadata",
         "predictor_output_typed_identity_contract" => "Predictor output typed from input",
-        "safe_repro_profile_policy_seed" => "safe/repro profile policy metadata",
+        "safe_repro_profile_policy_metadata" => "safe/repro profile policy metadata",
         "solver_policy_not_integrated" => "solver policy not connected",
-        "symbolic_residual_seed_no_nonlinear_iteration" => {
+        "symbolic_residual_preview_no_nonlinear_iteration" => {
             "symbolic residual preview, no nonlinear iteration"
         }
         other => other,
@@ -9137,7 +9137,7 @@ mod tests {
         assert!(json.contains("\"component_summary\""));
         assert!(json.contains("\"local_expression_count\": 1"));
         assert!(json.contains("\"pressure_seed\""));
-        assert!(json.contains("\"delay_call_runtime_buffer_seed_not_integrated\""));
+        assert!(json.contains("\"delay_call_runtime_buffer_pending_integration\""));
         assert!(json.contains("\"connection_summary\""));
         assert!(json.contains("\"assembly_summary\""));
         assert!(json.contains("\"solver_result\": null"));
@@ -9177,7 +9177,7 @@ mod tests {
         assert!(html.contains("inputs=input:outlet.m_dot:MassFlowRate"));
         assert!(html.contains("outputs=output:pressure_seed:MassFlowRate"));
         assert!(html.contains("diagnostics=delay_history_underflow_failure"));
-        assert!(!html.contains("delay_call_runtime_buffer_seed_not_integrated"));
+        assert!(!html.contains("delay_call_runtime_buffer_pending_integration"));
         assert!(html.contains("delay runtime buffer not connected to this language-level solve"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));

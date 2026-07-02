@@ -459,9 +459,9 @@ Current coverage:
   preserves node artifacts, range warnings, invalid-source failures, and
   non-finite RHS failures in solver-API tests and CLI smoke coverage.
 - Component artifacts distinguish delay calls as
-  `delay_call_runtime_buffer_seed_not_integrated` and Predictor calls as
-  `predictor_call_contract_seed_not_integrated`; external behavior expressions
-  report `external_behavior_wrapper_seed_not_integrated`.
+  `delay_call_runtime_buffer_pending_integration` and Predictor calls as
+  `predictor_call_contract_pending_integration`; external behavior expressions
+  report `external_behavior_wrapper_pending_integration`.
 - Review/report/component-graph artifacts and the IDE Assembly panel expose
   behavior nodes with source navigation metadata, inferred input/output
   quantity-unit contract metadata, and diagnostic channels for delay

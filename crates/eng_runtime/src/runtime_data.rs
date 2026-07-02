@@ -803,19 +803,19 @@ impl RuntimeData {
             assembly.solver_result = Some(solution.to_report_solver_result());
             if behavior_graph_solution_integrated(solution) {
                 if assembly.solver_preview.delay_history
-                    == "delay_call_runtime_buffer_seed_not_integrated"
+                    == "delay_call_runtime_buffer_pending_integration"
                 {
                     assembly.solver_preview.delay_history =
                         "delay_call_runtime_buffer_integrated".to_owned();
                 }
                 if assembly.solver_preview.predictor
-                    == "predictor_call_contract_seed_not_integrated"
+                    == "predictor_call_contract_pending_integration"
                 {
                     assembly.solver_preview.predictor =
                         "predictor_call_contract_integrated".to_owned();
                 }
                 if assembly.solver_preview.external_adapter
-                    == "external_behavior_wrapper_seed_not_integrated"
+                    == "external_behavior_wrapper_pending_integration"
                 {
                     assembly.solver_preview.external_adapter =
                         "external_behavior_wrapper_integrated".to_owned();

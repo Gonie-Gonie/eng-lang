@@ -3547,6 +3547,30 @@ function Invoke-IdeCheck {
     if ($IdeUiSource.Contains('${escapeHtml(module.status || "-")} / ${escapeHtml(module.backing || "-")}')) {
         throw "Native IDE Modules view must not display raw registry status/backing keys"
     }
+    foreach ($RequiredBehaviorStatusToken in @(
+        "delay_call_runtime_buffer_pending_integration",
+        "predictor_call_contract_pending_integration",
+        "external_behavior_wrapper_pending_integration",
+        "predictor_contract_metadata",
+        "external_behavior_contract_metadata",
+        "safe_repro_profile_policy_metadata"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredBehaviorStatusToken)) {
+            throw "Native IDE behavior status labels missing current artifact status $RequiredBehaviorStatusToken"
+        }
+    }
+    foreach ($ForbiddenBehaviorStatusToken in @(
+        "delay_call_runtime_buffer_seed_not_integrated",
+        "predictor_call_contract_seed_not_integrated",
+        "external_behavior_wrapper_seed_not_integrated",
+        "predictor_contract_metadata_seed",
+        "external_behavior_contract_metadata_seed",
+        "safe_repro_profile_policy_seed"
+    )) {
+        if ($IdeUiSource.Contains($ForbiddenBehaviorStatusToken)) {
+            throw "Native IDE behavior status labels must not expose legacy seed status $ForbiddenBehaviorStatusToken"
+        }
+    }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
