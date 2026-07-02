@@ -62,6 +62,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `constant.other.unit*.englang` | Unit literals. |
 | `constant.language.englang` | Language constants and uncertainty/fallback words. |
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
+| `variable.language.self.englang` | `self` references inside class methods. |
 | `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
 | `meta.declaration.field.englang` | Field declarations written with `name:`. |
 | `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
@@ -115,6 +116,7 @@ Current workflow phrase scopes:
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` |
 | `meta.workflow.render-template.englang` | `render template <source>` |
+| `meta.workflow.return-statement.englang` | `return <value>` function return lines. |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.select-columns.englang` | `select <table> columns <columns>` |

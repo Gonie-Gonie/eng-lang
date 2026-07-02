@@ -10,6 +10,7 @@
       { "include": "#withOptions" },
       { "include": "#declarations" },
       { "include": "#members" },
+      { "include": "#languageVariables" },
       { "include": "#blocks" },
       { "include": "#workflowPhrases" },
       { "include": "#keywords" },
@@ -247,6 +248,33 @@
               "2": { "name": "keyword.operator.englang" },
               "3": { "name": "constant.language.englang" }
             }
+          },
+          {
+            "name": "meta.workflow.return-statement.englang",
+            "begin": "\\b(return)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.workflow.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#languageVariables" },
+              { "include": "#members" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#constants" },
+              { "include": "#units" },
+              { "include": "#numbers" },
+              { "include": "#operators" },
+              { "include": "#punctuation" },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.export-summary-csv.englang",
@@ -967,6 +995,14 @@
           {
             "name": "variable.other.property.englang",
             "match": "(?<=\\.)[A-Za-z_][A-Za-z0-9_]*"
+          }
+        ]
+      },
+      "languageVariables": {
+        "patterns": [
+          {
+            "name": "variable.language.self.englang",
+            "match": "\\bself\\b"
           }
         ]
       },

@@ -855,6 +855,12 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.language.self.englang",
+    "text": "self",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.function.englang",
     "text": "fn coil_heat",
     "fullMatch": true
@@ -869,6 +875,18 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "return"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.return-statement.englang",
+    "text": "return Q",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.local.englang",
+    "text": "Q",
+    "fullMatch": true
   },
   {
     "fixture": "06_declarations_native_workflow.eng",

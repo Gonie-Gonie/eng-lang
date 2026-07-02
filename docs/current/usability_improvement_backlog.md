@@ -2300,6 +2300,18 @@ conditions instead of a plain identifier plus a generic comparison.
   the lifecycle state as a language constant.
 - Added grammar expectations for the report/solver fixture's `on` block.
 
+## Batch 189: Method Self And Return Highlighting
+
+Status: implemented to make class method bodies and function returns less
+visually flat in fallback highlighting.
+
+- Added `variable.language.self.englang` for `self` references in class
+  methods, keeping member properties such as `.name` distinct.
+- Added `meta.workflow.return-statement.englang` so `return <value>` lines
+  highlight as a full statement instead of only a lone keyword.
+- Added grammar expectations for `self` and `return Q` in the declaration
+  fixture.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
