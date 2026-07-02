@@ -2372,6 +2372,19 @@ as workflow-step references in semantic highlighting.
 - Added VS Code fallback mapping for `variable.workflowStep` so table workflow
   bindings and source operands are theme-compatible.
 
+## Batch 195: Model Workflow Operand Semantic Tokens
+
+Status: implemented to make native model workflow calls show their input and
+feature roles, not just the model result binding.
+
+- Added compiler-backed semantic tokens for ML/model source operands such as
+  `evaluate(surrogate)`, `model_card(surrogate)`, and
+  `predict surrogate using designs`.
+- Added semantic tokens for `regression_table` target and feature column
+  operands.
+- Added LSP regression coverage so model declarations and repeated model/table
+  references are counted as role-aware semantic tokens.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

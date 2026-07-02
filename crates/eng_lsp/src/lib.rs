@@ -1127,6 +1127,18 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for ml in &program.ml_infos {
         builder.push_on_line(ml.line, &ml.binding, "variable", &["declaration", "model"]);
+        if let Some(source) = &ml.source {
+            builder.push_on_line(ml.line, source, "variable", &["model"]);
+        }
+        if let Some(input) = &ml.prediction_input {
+            builder.push_on_line(ml.line, input, "variable", &["model"]);
+        }
+        if let Some(target) = &ml.target {
+            builder.push_on_line(ml.line, target, "property", &["model"]);
+        }
+        for feature in &ml.features {
+            builder.push_on_line(ml.line, feature, "property", &["model"]);
+        }
     }
 
     for cache in &program.cache_records {
@@ -4593,6 +4605,27 @@ mod tests {
             .count()
     }
 
+    fn semantic_token_modifier_count(
+        snapshot: &LspSnapshot,
+        source: &str,
+        label: &str,
+        token_type: &str,
+        modifier: &str,
+    ) -> usize {
+        snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                source.lines().nth(token.line).is_some_and(|line| {
+                    line.get(token.start..token.start + token.length) == Some(label)
+                        && token.token_type == token_type
+                        && token.modifiers.iter().any(|item| item == modifier)
+                })
+            })
+            .count()
+    }
+
     fn assert_semantic_token_on_line_without_modifier(
         snapshot: &LspSnapshot,
         source: &str,
@@ -5286,6 +5319,19 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
         }
         for label in ["regression_table", "evaluate", "model_card", "predict"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "model");
+        }
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "surrogate", "variable", "model"),
+            4,
+            "model declaration plus evaluate/model_card/predict references should be model tokens"
+        );
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "designs", "variable", "model"),
+            2,
+            "regression and prediction table operands should be model tokens"
+        );
+        for label in ["annual_electricity", "people_density"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
         for label in ["sample", "lhs", "uniform", "latin_hypercube"] {
