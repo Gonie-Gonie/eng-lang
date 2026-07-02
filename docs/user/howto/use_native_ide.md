@@ -167,6 +167,10 @@ Use `.\dev.bat vscode-package` to only write
 `dist\local-vscode\tools\englang-vscode-<version>.vsix` and install it through
 VS Code's `Extensions: Install from VSIX...` command.
 
+The VS Code extension defaults to quieter file checks for the Problems panel.
+Set `"englang.problemsSource": "live"` to update Problems while typing from the
+current unsaved buffer.
+
 The extension shares the compiler-facing diagnostic/hover/completion shape, but
 it is secondary for the current release. The primary no-install user test path
 is `eng-ide.exe`. The LSP remains smoke/snapshot tooling until a status

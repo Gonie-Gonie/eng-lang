@@ -2396,6 +2396,20 @@ moved to native workflow support wording.
 - Kept `native_preview` rendering as the user-facing `Native workflow support`
   status.
 
+## Batch 197: VS Code Problems Source Setting
+
+Status: implemented to remove implementation-facing backend wording from the
+primary VS Code linting configuration.
+
+- Added `englang.problemsSource` with user-facing `file` and `live` values for
+  choosing how the Problems panel updates.
+- Kept `englang.diagnosticsBackend` as a deprecated compatibility alias so
+  existing workspaces that set the old values continue to work.
+- Updated extension output, README, and user IDE guide wording so users see
+  file/live checks instead of backend implementation names.
+- Extended `ide-check` contract coverage so the new setting cannot disappear
+  and legacy wording does not return to the primary user path.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -2433,8 +2447,8 @@ moved to native workflow support wording.
 
 ## VS Code Linter And Highlighting Candidates
 
-- Promote `eng-lsp` from snapshot mode to a persistent LSP server when the
-  protocol surface is stable.
+- Promote the VS Code extension from short editor-service bridge calls to a
+  persistent LSP client when the protocol surface is stable.
 - Broaden cross-file go-to-definition beyond static file imports once bundled
   module symbols expose definition URI/range metadata.
 - Expand compiler-backed semantic token coverage for richer workflow step

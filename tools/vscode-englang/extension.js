@@ -232,7 +232,7 @@ function checkDocument(document, diagnostics, context) {
   const args = backend === "lsp-snapshot" ? ["--snapshot", document.uri.fsPath] : ["ide-check", document.uri.fsPath];
   const cwd = workspaceRoot(document);
   const documentVersion = document.version;
-  output.appendLine(`${backend} check ${document.uri.fsPath}`);
+  output.appendLine(`${diagnosticsBackendLabel(backend)} check ${document.uri.fsPath}`);
 
   cp.execFile(
     runtime,
@@ -248,14 +248,14 @@ function checkDocumentSource(document, diagnostics, context) {
   const runtime = findLspRuntime(context, document);
   const cwd = workspaceRoot(document);
   const documentVersion = document.version;
-  output.appendLine(`lsp-buffer check ${document.uri.fsPath}`);
+  output.appendLine(`live buffer check ${document.uri.fsPath}`);
 
   const child = cp.execFile(
     runtime,
     ["--snapshot-stdin", document.uri.fsPath],
     { cwd, maxBuffer: 10 * 1024 * 1024 },
     (error, stdout, stderr) => {
-      finishDocumentCheck(document, diagnostics, "lsp-buffer", documentVersion, error, stdout, stderr);
+      finishDocumentCheck(document, diagnostics, "live buffer", documentVersion, error, stdout, stderr);
     }
   );
   if (child.stdin) {
@@ -2739,7 +2739,42 @@ function executionProfile(document) {
 }
 
 function diagnosticsBackend(document) {
-  return engConfig(document).get("diagnosticsBackend", "eng-cli");
+  const source = problemsSource(document);
+  return source === "live" ? "lsp-snapshot" : "eng-cli";
+}
+
+function diagnosticsBackendLabel(backend) {
+  return backend === "lsp-snapshot" ? "live editor" : "file";
+}
+
+function problemsSource(document) {
+  const config = engConfig(document);
+  const configuredSource = explicitlyConfiguredEngValue(config, "problemsSource");
+  if (configuredSource === "file" || configuredSource === "live") {
+    return configuredSource;
+  }
+  const legacyBackend = config.get("diagnosticsBackend", "eng-cli");
+  return legacyBackend === "lsp-snapshot" ? "live" : "file";
+}
+
+function explicitlyConfiguredEngValue(config, key) {
+  const inspection = config.inspect(key);
+  if (!inspection) {
+    return undefined;
+  }
+  for (const scope of [
+    "workspaceFolderLanguageValue",
+    "workspaceFolderValue",
+    "workspaceLanguageValue",
+    "workspaceValue",
+    "globalLanguageValue",
+    "globalValue"
+  ]) {
+    if (inspection[scope] !== undefined) {
+      return inspection[scope];
+    }
+  }
+  return undefined;
 }
 
 function findRuntime(context, document) {

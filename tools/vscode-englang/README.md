@@ -54,8 +54,10 @@ setup is required for diagnostics or editor-service smoke checks. The default
 Problems source uses stable file checks. In Settings, switch EngLang diagnostics
 to live editor checks to update Problems while typing. In `settings.json`, set:
 
-```text
-englang.diagnosticsBackend = lsp-snapshot
+```json
+{
+  "englang.problemsSource": "live"
+}
 ```
 
 ## Install From Source
@@ -90,11 +92,15 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 ## Current Scope
 
-This is not a persistent LSP-client extension yet. The default diagnostics
-source runs stable file checks on open/save and manual check. The optional live
-editor source uses the EngLang editor service for Problems data aligned with
-hover, completion, symbols, and folding, while run/report/artifact commands
-still use `eng.exe`.
+This is not a persistent VS Code LSP-client extension yet. The `eng-lsp`
+executable exposes a stdio LSP protocol for external clients, but this
+extension uses short editor-service bridge calls for live Problems, hover,
+completion, symbols, folding, semantic tokens, definition, formatting, and
+quick fixes. The default Problems source runs stable file checks on open/save
+and manual check. Set `englang.problemsSource` to `live` to update Problems
+from the current unsaved buffer while typing. The legacy
+`englang.diagnosticsBackend` setting is still accepted for older workspaces,
+but new settings should use `englang.problemsSource`.
 `EngLang: Run Current File`
 passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact

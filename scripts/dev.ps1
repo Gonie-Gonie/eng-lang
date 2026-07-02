@@ -2021,9 +2021,19 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.problemsSource", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
+        }
+    }
+    $ProblemsSourceDescription = [string]$Properties."englang.problemsSource".description
+    if ($ProblemsSourceDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
+        throw "VS Code problemsSource description must use user-facing wording, not implementation details"
+    }
+    $ProblemsSourceEnumDescriptions = @($Properties."englang.problemsSource".enumDescriptions)
+    foreach ($ProblemsSourceEnumDescription in $ProblemsSourceEnumDescriptions) {
+        if ([string]$ProblemsSourceEnumDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
+            throw "VS Code problemsSource enum descriptions must use user-facing wording, not implementation details"
         }
     }
     $DiagnosticsDescription = [string]$Properties."englang.diagnosticsBackend".description
@@ -2349,6 +2359,20 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
         throw "VS Code extension must keep local quick fix helpers in localCodeActions.js"
+    }
+    foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
+        if (-not $ExtensionSource.Contains($RequiredProblemsSourceToken)) {
+            throw "VS Code extension missing user-facing Problems source token $RequiredProblemsSourceToken"
+        }
+    }
+    $ProblemsSourceEnum = @($Properties."englang.problemsSource".enum)
+    foreach ($RequiredProblemsSource in @("file", "live")) {
+        if ($ProblemsSourceEnum -notcontains $RequiredProblemsSource) {
+            throw "VS Code extension problemsSource missing enum value $RequiredProblemsSource"
+        }
+    }
+    if (@($Properties."englang.problemsSource".enumDescriptions).Count -lt 2) {
+        throw "VS Code extension problemsSource must include user-facing enum descriptions"
     }
     $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)
     foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {
