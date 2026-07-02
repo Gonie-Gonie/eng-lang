@@ -2151,6 +2151,18 @@ readable as workflow phrases.
 - Scoped both source and target series operands as property references and
   pinned grammar expectations for dotted TimeSeries operands.
 
+## Batch 176: Report Summary Phrase Highlighting
+
+Status: implemented to keep report summary commands readable as a single
+statistics workflow phrase instead of disconnected report keywords and builtins.
+
+- Added `meta.workflow.summarize-series.englang` for
+  `summarize <series> by [...]`.
+- Scoped the summarized series operand as a property reference and `by` as a
+  word operator.
+- Kept statistic names such as `mean`, `time_weighted_mean`, `p90`, and `p95`
+  on built-in function scopes inside the summary list.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

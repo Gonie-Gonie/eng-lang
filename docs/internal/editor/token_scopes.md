@@ -109,6 +109,7 @@ Current workflow phrase scopes:
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.select-columns.englang` | `select <table> columns <columns>` |
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
+| `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
 | `meta.workflow.write-text.englang` | `write text <target>, <value>` |
 

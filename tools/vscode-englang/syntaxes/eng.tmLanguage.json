@@ -798,6 +798,45 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.summarize-series.englang",
+                                                                    "begin":  "\\b(summarize)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(by)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.report.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                },
+                                                                                          "3":  {
+                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.promote-csv.englang",
                                                                     "begin":  "\\b(promote)\\s+(csv)\\b",
                                                                     "beginCaptures":  {
