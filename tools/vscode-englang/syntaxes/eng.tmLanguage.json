@@ -144,6 +144,18 @@
                                             "patterns":  [
                                                              {
                                                                  "name":  "entity.name.type.declaration.englang",
+                                                                 "match":  "\\b(script|struct)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "keyword.control.deprecated.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "entity.name.type.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "entity.name.type.declaration.englang",
                                                                  "match":  "\\b(schema|system|domain|component|class|states|inputs|outputs)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
