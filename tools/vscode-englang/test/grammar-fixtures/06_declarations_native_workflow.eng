@@ -50,6 +50,8 @@ response_text = response.body
 response_hash = response.response_hash
 payload = read json file("data/weather.json")
 api_contract = promote json payload as WeatherApiPayload
+json_config = promote json file("data/workflow.json") as WorkflowConfig
+toml_config = promote toml file("data/case.toml") as CaseConfig
 weather = promote json records payload.records as WeatherApiRecord
 
 submitted = http post api_url

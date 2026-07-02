@@ -570,6 +570,61 @@
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.promote-toml.englang",
+                                                                    "begin":  "\\b(promote)\\s+(toml)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "meta.promote-toml-target.englang",
+                                                                                         "match":  "\\b(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                                                                                         "captures":  {
+                                                                                                          "1":  {
+                                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                                },
+                                                                                                          "2":  {
+                                                                                                                    "name":  "entity.name.type.englang"
+                                                                                                                }
+                                                                                                      }
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
                                                                                          "name":  "variable.other.property.englang",
                                                                                          "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
                                                                                      },

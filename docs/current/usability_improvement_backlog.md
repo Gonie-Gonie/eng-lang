@@ -2031,6 +2031,19 @@ paths, string paths, and `file(...)` source expressions.
 - Added grammar fixture and expectation coverage for string and `file(...)`
   CSV promotion sources.
 
+## Batch 166: Config Promotion Phrase Highlighting
+
+Status: implemented to align TextMate highlighting with the public JSON/TOML
+config promotion completions and docs.
+
+- Added `meta.workflow.promote-toml.englang` for
+  `promote toml <source> as <schema>`.
+- Extended JSON object promotion coverage with
+  `promote json file(...) as WorkflowConfig`.
+- Scoped config promotion target schemas through dedicated target sub-scopes so
+  JSON and TOML config promotion render consistently before semantic tokens
+  arrive.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

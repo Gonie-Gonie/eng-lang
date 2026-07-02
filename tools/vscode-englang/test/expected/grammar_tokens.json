@@ -832,6 +832,42 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.promote-json.englang",
+    "text": "promote json file(\"data/workflow.json\") as WorkflowConfig",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.promote-json-target.englang",
+    "text": "as WorkflowConfig",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.type.englang",
+    "text": "WorkflowConfig",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.promote-toml.englang",
+    "text": "promote toml file(\"data/case.toml\") as CaseConfig",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.promote-toml-target.englang",
+    "text": "as CaseConfig",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.type.englang",
+    "text": "CaseConfig",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.workflow.promote-json-records.englang",
     "text": "promote json records payload.records as WeatherApiRecord",
     "fullMatch": true
