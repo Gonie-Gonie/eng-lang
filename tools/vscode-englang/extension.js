@@ -15,6 +15,13 @@ const {
 } = require("./lspKinds");
 const { vscodeRangeFromLsp } = require("./lspRanges");
 const {
+  addSemanticTokenDebugSample,
+  createSemanticLegend,
+  semanticTokenDebugSample,
+  semanticTokenRange,
+  semanticTokensFromSnapshot
+} = require("./lspSemanticTokens");
+const {
   moduleStatusDisplay,
   moduleStatusDetailDisplay,
   moduleBackingLabel
@@ -34,7 +41,7 @@ const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_SEED = editorMetadata.completionSeed;
 
-const semanticLegend = new vscode.SemanticTokensLegend(
+const semanticLegend = createSemanticLegend(
   SEMANTIC_TOKEN_TYPES,
   SEMANTIC_TOKEN_MODIFIERS
 );
@@ -389,29 +396,6 @@ function semanticSymbolDecorationOptions(document, snapshot) {
     }
   }
   return { internal, planned };
-}
-
-function semanticTokenRange(document, token) {
-  const line = Number(token.line);
-  const start = Number(token.start);
-  const length = Number(token.length);
-  if (
-    !Number.isFinite(line) ||
-    !Number.isFinite(start) ||
-    !Number.isFinite(length) ||
-    line < 0 ||
-    line >= document.lineCount ||
-    start < 0 ||
-    length <= 0
-  ) {
-    return undefined;
-  }
-  const textLine = document.lineAt(line);
-  if (start >= textLine.text.length) {
-    return undefined;
-  }
-  const end = Math.min(textLine.text.length, start + length);
-  return new vscode.Range(line, start, line, Math.max(start + 1, end));
 }
 
 function semanticSymbolHoverMessage(kind) {
@@ -1723,30 +1707,6 @@ async function showSemanticTokensDebug(context) {
   await vscode.window.showTextDocument(debugDocument, { preview: false });
 }
 
-function semanticTokenDebugSample(document, token) {
-  const line = Number(token?.line ?? -1);
-  const range = semanticTokenRange(document, token);
-  return {
-    text: range ? document.getText(range) : "",
-    line: Number.isFinite(line) && line >= 0 ? line + 1 : null,
-    start: token?.start ?? null,
-    length: token?.length ?? null,
-    type: token?.type || "-",
-    modifiers: token?.modifiers ?? []
-  };
-}
-
-function addSemanticTokenDebugSample(samplesByKey, key, sample) {
-  if (!key || !sample || !sample.text) {
-    return;
-  }
-  const samples = samplesByKey[key] ?? [];
-  if (samples.length < 8 && !samples.some((item) => item.text === sample.text && item.line === sample.line && item.start === sample.start)) {
-    samples.push(sample);
-  }
-  samplesByKey[key] = samples;
-}
-
 class EngSemanticTokensProvider {
   constructor(context) {
     this.context = context;
@@ -1767,7 +1727,12 @@ class EngSemanticTokensProvider {
     }
     reviewCache.set(document.uri.fsPath, snapshot);
     updateSemanticSymbolDecorations(document, snapshot);
-    return semanticTokensFromSnapshot(snapshot);
+    return semanticTokensFromSnapshot(
+      snapshot,
+      semanticLegend,
+      SEMANTIC_TOKEN_TYPES,
+      SEMANTIC_TOKEN_MODIFIERS
+    );
   }
 }
 
@@ -2133,25 +2098,6 @@ function codeActionsForDocumentSource(document, context, cancellationToken) {
   });
 }
 
-function semanticTokensFromSnapshot(snapshot) {
-  const builder = new vscode.SemanticTokensBuilder(semanticLegend);
-  const tokens = snapshot.semantic_tokens?.tokens ?? [];
-  for (const token of tokens) {
-    const tokenType = SEMANTIC_TOKEN_TYPES.indexOf(token.type);
-    if (tokenType < 0 || token.length <= 0) {
-      continue;
-    }
-    builder.push(
-      token.line,
-      token.start,
-      token.length,
-      tokenType,
-      semanticModifierBits(token.modifiers ?? [])
-    );
-  }
-  return builder.build();
-}
-
 class EngDocumentSymbolProvider {
   constructor(context) {
     this.context = context;
@@ -2414,17 +2360,6 @@ function fullDocumentRange(document) {
   }
   const lastLine = document.lineAt(document.lineCount - 1);
   return new vscode.Range(0, 0, lastLine.lineNumber, lastLine.text.length);
-}
-
-function semanticModifierBits(modifiers) {
-  let bits = 0;
-  for (const modifier of modifiers) {
-    const index = SEMANTIC_TOKEN_MODIFIERS.indexOf(modifier);
-    if (index >= 0) {
-      bits |= 1 << index;
-    }
-  }
-  return bits;
 }
 
 function findHoverForWord(source, candidates, line) {

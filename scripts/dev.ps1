@@ -1819,6 +1819,7 @@ function Assert-VscodeExtensionContract {
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
     $LspRangesPath = Join-Path $ExtensionRoot "lspRanges.js"
+    $LspSemanticTokensPath = Join-Path $ExtensionRoot "lspSemanticTokens.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
@@ -1856,6 +1857,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LspRangesPath)) {
         throw "missing VS Code LSP range bridge at $LspRangesPath"
+    }
+    if (-not (Test-Path $LspSemanticTokensPath)) {
+        throw "missing VS Code LSP semantic token bridge at $LspSemanticTokensPath"
     }
     if (-not (Test-Path $ArtifactRegistryPath)) {
         throw "missing VS Code artifact registry at $ArtifactRegistryPath"
@@ -2215,6 +2219,7 @@ function Assert-VscodeExtensionContract {
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
     $LspRangesSource = Get-Content -LiteralPath $LspRangesPath -Raw
+    $LspSemanticTokensSource = Get-Content -LiteralPath $LspSemanticTokensPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
@@ -2385,6 +2390,12 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier") -or -not $ExtensionSource.Contains("token_samples_by_type") -or -not $ExtensionSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"
     }
+    if (-not $ExtensionSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample")) {
+        throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
+    }
+    if ($ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {
+        throw "VS Code extension must keep LSP semantic token conversion in lspSemanticTokens.js"
+    }
     foreach ($RequiredHighlightDebugToken in @("highlight_count", "highlight_counts_by_category", "highlight_counts_by_detail", "highlight_samples_by_category", "highlight_samples_by_detail", "highlight_data")) {
         if (-not $ExtensionSource.Contains($RequiredHighlightDebugToken)) {
             throw "VS Code highlight inspection output missing user-facing token $RequiredHighlightDebugToken"
@@ -2409,6 +2420,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing review risk decoration token $RequiredRiskDecorationToken"
         }
     }
+    $SemanticSymbolDecorationSource = $ExtensionSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticSymbolDecorationToken in @(
         "createSemanticSymbolDecorationTypes",
         "updateSemanticSymbolDecorations",
@@ -2420,7 +2432,7 @@ function Assert-VscodeExtensionContract {
         "internal",
         "planned"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredSemanticSymbolDecorationToken)) {
+        if (-not $SemanticSymbolDecorationSource.Contains($RequiredSemanticSymbolDecorationToken)) {
             throw "VS Code extension missing semantic symbol decoration token $RequiredSemanticSymbolDecorationToken"
         }
     }
@@ -2697,6 +2709,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspKindsPath
             Invoke-Native $Node.Source "--check" $LspRangesPath
+            Invoke-Native $Node.Source "--check" $LspSemanticTokensPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
@@ -3801,6 +3814,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspRanges.js"))) {
             throw "portable package did not include VS Code LSP range bridge"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspSemanticTokens.js"))) {
+            throw "portable package did not include VS Code LSP semantic token bridge"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
             throw "portable package did not include VS Code artifact registry"
