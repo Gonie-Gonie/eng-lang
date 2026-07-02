@@ -1078,8 +1078,8 @@ Status: implemented after VS Code review-panel source-jump audit.
 
 Status: implemented after TextMate workflow fixture review.
 
-- Added phrase-aware TextMate scopes for `read json`/`read toml`/`read text`/
-  `read csv`, `open sqlite`, and `write <table> to db.table(...)` so native
+- Added phrase-aware TextMate scopes for `read json`/`read toml`/`read text`,
+  `open sqlite`, and `write <table> to db.table(...)` so native
   workflow I/O and DB operations remain highlighted as coherent actions.
 - Extended grammar smoke expectations for workflow 01/02 constructs that
   previously depended on generic keyword/operator scopes.
@@ -2051,7 +2051,7 @@ argument, and dotted source references.
 - Changed `meta.workflow.read-structured.englang` from a two-token match to a
   phrase scope covering the source expression.
 - Scoped `file(...)`, `args.*`, and dotted response-body sources inside
-  `read text/json/toml/csv` expressions.
+  `read text/json/toml` expressions.
 - Added grammar fixture and expectation coverage for
   `read json file(...)`, `read text args.notes`, `read toml args.config_toml`,
   and `read json api_response.body`.
@@ -3315,6 +3315,18 @@ Status: implemented while tightening native model API phrase highlighting.
   calls and `leakage_lint(...)`.
 - Updated the token-scope contract wording to document the supported optional
   split argument form.
+
+## Batch 268: Clarify Raw Read Highlighting Surface
+
+Status: implemented while reducing API wording/highlighting confusion.
+
+- Removed unsupported `read csv` phrase highlighting from
+  `meta.workflow.read-structured.englang`; raw reads are `read text`,
+  `read json`, and `read toml`.
+- Updated editor token-scope wording to point CSV table users to
+  `promote csv <source> as <schema>`.
+- Added a grammar smoke guard so `read csv file(...)` cannot silently become a
+  highlighted raw-read workflow phrase again.
 
 ## API And Wording Cleanup Candidates
 

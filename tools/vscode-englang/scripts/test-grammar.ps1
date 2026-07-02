@@ -339,6 +339,24 @@ function Assert-ScopeDoesNotMatchLabels {
     }
 }
 
+function Assert-ScopeDoesNotMatchText {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string] $Text,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    if (-not $PatternsByScope.ContainsKey($Scope)) {
+        return
+    }
+
+    foreach ($pattern in $PatternsByScope[$Scope]) {
+        if (Test-PatternMatchesText -Pattern $pattern -Text $Text -FixtureText $Text -FullMatch $true) {
+            throw "TextMate scope $Scope must not match $Description text '$Text'"
+        }
+    }
+}
+
 function Test-PatternMatchesLabelInFixture {
     param(
         [Parameter(Mandatory = $true)][object] $Pattern,
@@ -612,6 +630,7 @@ $KeywordFallbackScopes = @(
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin call" -Suffix "("
+Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"

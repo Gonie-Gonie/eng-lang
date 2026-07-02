@@ -120,7 +120,7 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json.englang` | `promote json <source> as <schema>` |
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
-| `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, `read text <source>`, and `read csv <source>`. |
+| `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads. Use `promote csv <source> as <schema>` for CSV tables. |
 | `meta.workflow.regression-table.englang` | `regression_table(<table>, target=..., features=..., ...)` |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` |

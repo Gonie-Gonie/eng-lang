@@ -500,7 +500,7 @@
           },
           {
             "name": "meta.workflow.read-structured.englang",
-            "begin": "\\b(read)\\s+(json|toml|text|csv)\\b",
+            "begin": "\\b(read)\\s+(json|toml|text)\\b",
             "beginCaptures": {
               "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" }
