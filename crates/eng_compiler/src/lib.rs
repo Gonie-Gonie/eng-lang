@@ -431,6 +431,9 @@ fn resolve_file_imports(
         let AstItem::Import(import) = item else {
             continue;
         };
+        if handle_stdlib_module_import(import, diagnostics) {
+            continue;
+        }
         if import_target_is_dynamic(&import.target) {
             diagnostics.push(Diagnostic::error(
                 "E-IMPORT-DYNAMIC-001",
@@ -509,6 +512,71 @@ fn resolve_file_imports(
         visited.remove(&import_path);
     }
     imported_items
+}
+
+fn handle_stdlib_module_import(import: &ImportDecl, diagnostics: &mut Vec<Diagnostic>) -> bool {
+    let target = import.target.trim();
+    if !stdlib_module_import_target_is_valid(target) {
+        return false;
+    }
+
+    let registry = match bundled_module_registry() {
+        Ok(registry) => registry,
+        Err(error) => {
+            diagnostics.push(Diagnostic::error(
+                "E-STDLIB-REGISTRY-001",
+                import.line,
+                &format!("Could not load bundled stdlib module registry: {error}."),
+                Some("Check stdlib/eng/modules.toml before using `eng.*` module imports."),
+            ));
+            return true;
+        }
+    };
+
+    let Some(module) = registry.modules.iter().find(|module| module.name == target) else {
+        diagnostics.push(Diagnostic::error(
+            "E-STDLIB-MODULE-UNKNOWN",
+            import.line,
+            &format!(
+                "`{} {}` names unknown stdlib module `{}`.",
+                import.kind, target, target
+            ),
+            Some(
+                "Use a module listed in stdlib/eng/modules.toml or docs/reference/stdlib/index.md.",
+            ),
+        ));
+        return true;
+    };
+
+    match module.status.as_str() {
+        "planned" => diagnostics.push(Diagnostic::warning(
+            "W-STDLIB-MODULE-PLANNED",
+            import.line,
+            &format!(
+                "`{} {}` names planned stdlib module `{}`.",
+                import.kind, target, target
+            ),
+            Some(
+                "Use a supported/native module for current code, or keep this only as forward-looking metadata.",
+            ),
+        )),
+        "internal" | "internal_planned" => diagnostics.push(Diagnostic::warning(
+            "W-STDLIB-MODULE-INTERNAL",
+            import.line,
+            &format!(
+                "`{} {}` names internal stdlib module `{}`.",
+                import.kind, target, target
+            ),
+            Some("Internal stdlib modules are not public contracts; prefer documented supported modules."),
+        )),
+        _ => {}
+    }
+
+    true
+}
+
+fn stdlib_module_import_target_is_valid(target: &str) -> bool {
+    target.starts_with("eng.") && target.split('.').all(is_identifier_text)
 }
 
 fn import_target_is_dynamic(target: &str) -> bool {
@@ -11803,6 +11871,68 @@ system Envelope {
             .iter()
             .any(|diagnostic| diagnostic.code == "E-IMPORT-SYMBOL-001"));
         assert!(report.semantic_program.args_blocks.is_empty());
+    }
+
+    #[test]
+    fn stdlib_module_imports_use_registry_without_file_import_errors() {
+        let report = check_source(
+            "ok.eng",
+            "use eng.path\nimport eng.table\nQ = 1 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-IMPORT-001"));
+        assert!(report
+            .semantic_program
+            .imports
+            .iter()
+            .any(|import| import.target == "eng.path"));
+        assert!(report
+            .semantic_program
+            .imports
+            .iter()
+            .any(|import| import.target == "eng.table"));
+    }
+
+    #[test]
+    fn planned_and_internal_stdlib_module_imports_are_warnings() {
+        let report = check_source(
+            "warn.eng",
+            "use eng.stats\nuse eng.system\nQ = 1 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-STDLIB-MODULE-PLANNED" && diagnostic.severity == Severity::Warning
+        }));
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-STDLIB-MODULE-INTERNAL"
+                && diagnostic.severity == Severity::Warning
+        }));
+    }
+
+    #[test]
+    fn unknown_stdlib_module_import_is_actionable() {
+        let report = check_source(
+            "bad.eng",
+            "use eng.unknown\nQ = 1 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-STDLIB-MODULE-UNKNOWN"
+                && diagnostic.message.contains("eng.unknown")
+        }));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-IMPORT-001"));
     }
 
     #[test]

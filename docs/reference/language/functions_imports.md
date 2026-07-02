@@ -51,6 +51,22 @@ Rules:
 - Import cycles and unreadable paths are compile diagnostics.
 - Source files should be UTF-8 encoded.
 
+## Stdlib Module Imports
+
+```text
+use eng.net
+import eng.table
+```
+
+`eng.*` imports are resolved against
+[`stdlib/eng/modules.toml`](../../../stdlib/eng/modules.toml), not the file
+import resolver. Supported and native workflow modules are accepted as module
+boundary declarations for editor navigation and review metadata.
+
+Planned or internal modules produce warnings so the editor can underline the
+boundary without treating it as a missing file. Unknown `eng.*` module names are
+errors with a linkable registry fix path.
+
 ## Example
 
 ```text

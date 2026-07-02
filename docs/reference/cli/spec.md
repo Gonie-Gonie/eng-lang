@@ -154,6 +154,9 @@ E-ASSERT-UNIT-001      assert operands use incompatible units
 E-ASSERT-TOL-001       tolerance is only valid with equality-style checks
 E-GOLDEN-001           golden check syntax is invalid
 E-GOLDEN-002           golden check expected path must use file("...")
+E-STDLIB-MODULE-UNKNOWN use/import names an unknown `eng.*` stdlib module
+W-STDLIB-MODULE-PLANNED use/import names a planned stdlib module
+W-STDLIB-MODULE-INTERNAL use/import names an internal stdlib module
 ```
 
 `--review` writes:

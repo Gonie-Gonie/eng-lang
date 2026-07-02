@@ -3170,6 +3170,20 @@ index wording.
 - Extended `docs-check` with a stdlib-reference wording guard so stale early
   index text and missing native workflow module references fail locally.
 
+## Batch 256: Registry-Aware Stdlib Import Diagnostics
+
+Status: implemented after finding that VS Code/LSP could navigate
+`use eng.<module>` while compiler linting still treated the same lines as file
+import errors.
+
+- Changed compiler import resolution so registered `eng.*` stdlib module
+  imports are handled through `stdlib/eng/modules.toml` instead of the file
+  import resolver.
+- Added warnings for planned/internal stdlib module imports and a specific
+  unknown-module error for misspelled `eng.*` imports.
+- Documented stdlib module import behavior in the functions/imports reference
+  and CLI diagnostic code list.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
