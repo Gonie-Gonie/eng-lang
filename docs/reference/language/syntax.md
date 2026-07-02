@@ -1601,7 +1601,7 @@ for the discrete path. `examples/advanced_solver/22_state_space_continuous` uses
 RK4. Both produce `sim.<state>` TimeSeries through the common
 SolverInput/SolverResult path.
 
-The legacy state-space metadata syntax remains available for internal fixtures:
+The legacy state-space metadata syntax remains available for internal examples:
 
 ```eng partial
 system ThermalStateSpaceMetadata {

@@ -1,6 +1,6 @@
 # module: eng.net
 # status: native_preview
-# purpose: HTTP/download boundaries with endpoint, cache, hash, fixture, and reproducibility policy.
+# purpose: HTTP/download boundaries with endpoint, cache, hash, pinned response, and reproducibility policy.
 #
 # Native workflow vocabulary:
 #   response = http get url("https://example.org/api")
@@ -9,23 +9,23 @@
 #   with query fields, retry, cache, timeout, status_code, expected_sha256
 #
 # Current implementation:
-#   records pinned offline/fixture and live `http://` network boundaries in
+#   records pinned offline response/cache and live `http://` network boundaries in
 #   review.json, result.engres, run_log.json, and output_manifest.json. Query
 #   values using `secret env(...)` or Args fields typed as `Secret[T]` are
 #   redacted in artifacts. `retry` accepts integer retry counts from 0 to 5,
 #   `timeout` accepts positive finite durations with ms/s/min/h units, and
 #   `body_size_limit` / `response_body_limit` accept positive byte sizes with
-#   B/KB/MB/GB or KiB/MiB/GiB units. Pinned offline fixture and live `http://`
+#   B/KB/MB/GB or KiB/MiB/GiB units. Pinned offline response and live `http://`
 #   response hashes are SHA-256 values and `expected_sha256` is checked when
-#   provided. Fixture-backed and live `http get` bindings expose `.body`,
+#   provided. Pinned-response and live `http get` bindings expose `.body`,
 #   `.status`, `.status_code`, `.status_class`, `.response_hash`, `.hash`, and
 #   `.url` fields for downstream native workflow steps. Live `http://`
 #   requests/downloads materialize response or target files with retry,
 #   timeout, body-size-limit, expected-hash, cache miss materialization, and
 #   cache replay support. Live `https://` currently needs a packaged TLS
-#   backend in this local build; use pinned fixtures or cache replay for HTTPS
+#   backend in this local build; use pinned response files or cache replay for HTTPS
 #   boundaries. The repro profile rejects unpinned network boundaries that lack
-#   fixture or expected_sha256.
+#   a pinned response file or expected_sha256.
 #
 # Planned helper vocabulary:
 #   packaged TLS backend for live HTTPS

@@ -504,7 +504,7 @@ numeric runtime. Runtime can also materialize state trajectories from
 shape-checked A/B operators. The supported typed-block examples cover
 discrete fixed-step execution in `examples/advanced_solver/21_state_space_discrete`
 and continuous fixed-step RK4 with TimeSeries input materialization in
-`examples/advanced_solver/22_state_space_continuous`. Legacy/internal fixtures also
+`examples/advanced_solver/22_state_space_continuous`. Legacy/internal examples also
 cover multi-state Euler/RK4, continuous `adaptive_heun` execution with a fixed
 output TimeGrid, discrete A/B execution, and additional failure paths. This is
 not a general nonlinear/DAE, discrete adaptive, broad adaptive,

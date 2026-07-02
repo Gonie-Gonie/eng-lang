@@ -3039,6 +3039,18 @@ product-facing `preview`, `seed`, and generic `fixture` wording.
   fixtures with implementation tracks, validation examples, or narrower test
   discovery wording.
 
+## Batch 245: Network Boundary Wording Cleanup
+
+Status: implemented after reviewing public network/cache docs for fixture-first
+wording that could obscure the pinned offline response contract.
+
+- Reworded side-effect policy and stdlib module descriptions from
+  offline/fixture phrasing to pinned offline/cache HTTP boundary records.
+- Updated the `E-NET-UNPINNED-REPRO` CLI summary to say pinned response file
+  instead of the lower-level fixture term.
+- Replaced remaining public artifact/language references to internal fixtures
+  with internal examples where no `fixture = ...` option was being named.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
