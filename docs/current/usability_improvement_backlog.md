@@ -3444,6 +3444,18 @@ Status: implemented while continuing the VS Code thin-client split.
 - Extended extension and portable-package contract checks so LSP request
   helpers stay packaged and do not drift back into `extension.js`.
 
+## Batch 279: Command-Style Case Apply Native Guard
+
+Status: implemented while tightening workflow 02 native execution coverage.
+
+- Extended case-apply binding detection to understand both
+  `apply(case_input_template, over=cases)` and the public command-style
+  `apply case_input_template over cases` form directly.
+- Added a runtime guard for both forms so case-output table materialization is
+  not dependent on canonical lowering alone.
+- Added LSP semantic and VS Code grammar smoke coverage for the workflow 02
+  template-step phrase used by the native surrogate example.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

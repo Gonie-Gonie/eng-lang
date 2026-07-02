@@ -48,6 +48,7 @@ with {
     step = run_case
 }
 
+template_case_inputs = apply case_input_template over cases
 case_inputs = apply(case_input_template, over=cases)
 with {
     template = file("model/native_case_template.txt")

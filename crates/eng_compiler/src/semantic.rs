@@ -12013,16 +12013,32 @@ fn materialize_cases_source_table(expression: &str) -> Option<&str> {
 }
 
 fn case_apply_cases_binding(expression: &str) -> Option<&str> {
-    let inner = expression
-        .trim()
-        .strip_prefix("apply(")?
-        .strip_suffix(')')?;
-    inner.split(',').find_map(|part| {
-        part.trim()
-            .strip_prefix("over=")
-            .map(str::trim)
-            .filter(|value| is_simple_binding_name(value))
-    })
+    let expression = expression.trim();
+    if let Some(inner) = expression
+        .strip_prefix("apply(")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        return inner.split(',').find_map(|part| {
+            part.trim()
+                .strip_prefix("over=")
+                .map(str::trim)
+                .filter(|value| is_simple_binding_name(value))
+        });
+    }
+
+    let mut parts = expression.split_whitespace();
+    if parts.next()? != "apply" {
+        return None;
+    }
+    let _step = parts.next()?;
+    if parts.next()? != "over" {
+        return None;
+    }
+    let cases = parts.next()?;
+    if parts.next().is_some() || !is_simple_binding_name(cases) {
+        return None;
+    }
+    Some(cases)
 }
 
 fn is_simple_binding_name(value: &str) -> bool {

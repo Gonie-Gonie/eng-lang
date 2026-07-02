@@ -6527,7 +6527,7 @@ derived = derive designs column annual_electricity = people_density * 1 kWh
 derived_many = derive designs columns annual_cooling = cooling_cop * 1 kWh
 cases = materialize cases designs
 case_results = apply run_case over designs
-case_inputs = apply(case_input_template, over=cases)
+case_inputs = apply case_input_template over cases
 collected = collect results case_results
 filled = fill missing designs.cooling_cop
 legacy_station = select_first_row(stations, return_column="station_id")

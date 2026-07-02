@@ -7344,16 +7344,32 @@ fn materialize_case_apply_output_table(
 }
 
 fn case_apply_cases_binding(expression: &str) -> Option<&str> {
-    let inner = expression
-        .trim()
-        .strip_prefix("apply(")?
-        .strip_suffix(')')?;
-    inner.split(',').find_map(|part| {
-        part.trim()
-            .strip_prefix("over=")
-            .map(str::trim)
-            .filter(|value| is_simple_binding_name(value))
-    })
+    let expression = expression.trim();
+    if let Some(inner) = expression
+        .strip_prefix("apply(")
+        .and_then(|value| value.strip_suffix(')'))
+    {
+        return inner.split(',').find_map(|part| {
+            part.trim()
+                .strip_prefix("over=")
+                .map(str::trim)
+                .filter(|value| is_simple_binding_name(value))
+        });
+    }
+
+    let mut parts = expression.split_whitespace();
+    if parts.next()? != "apply" {
+        return None;
+    }
+    let _step = parts.next()?;
+    if parts.next()? != "over" {
+        return None;
+    }
+    let cases = parts.next()?;
+    if parts.next().is_some() || !is_simple_binding_name(cases) {
+        return None;
+    }
+    Some(cases)
 }
 
 fn case_apply_template_path(expression: &str, report: &CheckReport) -> String {
@@ -20829,6 +20845,22 @@ fn days_from_civil(year: i32, month: u32, day: u32) -> i64 {
 mod tests {
     use super::*;
     use eng_compiler::{check_file, check_source, CheckOptions, CheckReport};
+
+    #[test]
+    fn case_apply_cases_binding_accepts_command_and_call_styles() {
+        assert_eq!(
+            case_apply_cases_binding("apply(case_input_template, over=cases)"),
+            Some("cases")
+        );
+        assert_eq!(
+            case_apply_cases_binding("apply case_input_template over cases"),
+            Some("cases")
+        );
+        assert_eq!(
+            case_apply_cases_binding("apply case_input_template with cases"),
+            None
+        );
+    }
 
     #[test]
     fn parses_plot_options() {
