@@ -3456,6 +3456,19 @@ Status: implemented while tightening workflow 02 native execution coverage.
 - Added LSP semantic and VS Code grammar smoke coverage for the workflow 02
   template-step phrase used by the native surrogate example.
 
+## Batch 280: VS Code Command Handler Split
+
+Status: implemented while continuing the VS Code thin-client split.
+
+- Moved run, example-runner, execution-profile, review JSON/panel, source-line
+  navigation, artifact-click, and semantic highlight debug command handlers
+  into `commandHandlers.js`.
+- Kept `extension.js` focused on activation, provider wiring, diagnostics, and
+  decoration state while command handlers own subprocess calls and webview
+  command behavior.
+- Extended extension and portable-package contract checks so command handlers
+  stay packaged and do not drift back into `extension.js`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

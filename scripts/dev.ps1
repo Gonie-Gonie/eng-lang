@@ -1908,6 +1908,7 @@ function Assert-VscodeExtensionContract {
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $ArtifactOpenersPath = Join-Path $ExtensionRoot "artifactOpeners.js"
+    $CommandHandlersPath = Join-Path $ExtensionRoot "commandHandlers.js"
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
@@ -1953,6 +1954,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ArtifactOpenersPath)) {
         throw "missing VS Code artifact opener helpers at $ArtifactOpenersPath"
+    }
+    if (-not (Test-Path $CommandHandlersPath)) {
+        throw "missing VS Code command handlers at $CommandHandlersPath"
     }
     if (-not (Test-Path $CompletionProviderPath)) {
         throw "missing VS Code completion provider at $CompletionProviderPath"
@@ -2363,6 +2367,7 @@ function Assert-VscodeExtensionContract {
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $ArtifactOpenersSource = Get-Content -LiteralPath $ArtifactOpenersPath -Raw
+    $CommandHandlersSource = Get-Content -LiteralPath $CommandHandlersPath -Raw
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
@@ -2447,38 +2452,42 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function findRuntime") -or $ExtensionSource.Contains("function findLspRuntime") -or $ExtensionSource.Contains("function findLspRuntimeForRoot") -or $ExtensionSource.Contains("function workspaceRoot") -or $ExtensionSource.Contains("function currentWorkspaceRoot") -or $ExtensionSource.Contains("function engConfig")) {
         throw "VS Code extension must keep runtime discovery helpers in runtimeDiscovery.js"
     }
-    $ReviewPanelSourceCombined = $ExtensionSource + "`n" + $ReviewPanelRendererSource
+    $CommandSourceCombined = $ExtensionSource + "`n" + $CommandHandlersSource
+    if (-not $ExtensionSource.Contains('require("./commandHandlers")') -or -not $CommandHandlersSource.Contains("function createCommandHandlers")) {
+        throw "VS Code extension must load command handlers from commandHandlers.js"
+    }
+    $ReviewPanelSourceCombined = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $ReviewPanelRendererSource
     if ($ReviewPanelSourceCombined.Contains('reviewValue(module, "backing")')) {
         throw "VS Code workflow module panel must not display raw registry backing keys"
     }
     if ($ExtensionSource.Contains("--entry") -or $ExtensionSource.Contains("runEntry")) {
         throw "VS Code extension run command must use top-level execution without entry flags"
     }
-    if (-not $ExtensionSource.Contains("--save-artifacts")) {
+    if (-not $CommandHandlersSource.Contains("--save-artifacts")) {
         throw "VS Code extension run command must save artifacts for review/open-artifact commands"
     }
-    if (-not $ExtensionSource.Contains("--profile") -or -not $ExtensionSource.Contains("executionProfile") -or -not $ExtensionSource.Contains("switchExecutionProfile")) {
+    if (-not $CommandHandlersSource.Contains("--profile") -or -not $CommandHandlersSource.Contains("executionProfile") -or -not $CommandHandlersSource.Contains("switchExecutionProfile")) {
         throw "VS Code extension run command must expose and pass an execution profile"
     }
-    if (-not $ExtensionSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {
+    if (-not $CommandHandlersSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {
         throw "VS Code extension must load user-facing execution profiles from executionProfiles.js"
     }
-    if ($ExtensionSource.Contains("const EXECUTION_PROFILES = [")) {
+    if ($ExtensionSource.Contains("const EXECUTION_PROFILES = [") -or $CommandHandlersSource.Contains("const EXECUTION_PROFILES = [")) {
         throw "VS Code extension must keep execution profile labels in executionProfiles.js"
     }
-    if (-not $ExtensionSource.Contains("runExample") -or -not $ExtensionSource.Contains("findExampleFiles") -or -not $ExtensionSource.Contains('"official"') -or -not $ExtensionSource.Contains('"workflows"')) {
+    if (-not $CommandHandlersSource.Contains("runExample") -or -not $CommandHandlersSource.Contains("findExampleFiles") -or -not $CommandHandlersSource.Contains('"official"') -or -not $CommandHandlersSource.Contains('"workflows"')) {
         throw "VS Code extension must expose an example runner for official and workflow examples"
     }
-    if (-not $ExtensionSource.Contains('"review", document.uri.fsPath, "--json"')) {
+    if (-not $CommandHandlersSource.Contains('"review", document.uri.fsPath, "--json"')) {
         throw "VS Code extension must expose a current-file review JSON command"
     }
-    if (-not $ExtensionSource.Contains('require("./reviewPanelRenderer")') -or -not $ReviewPanelRendererSource.Contains("function renderReviewSummaryHtml") -or -not $ReviewPanelRendererSource.Contains("function reviewPanelArtifacts")) {
+    if (-not $CommandHandlersSource.Contains('require("./reviewPanelRenderer")') -or -not $ReviewPanelRendererSource.Contains("function renderReviewSummaryHtml") -or -not $ReviewPanelRendererSource.Contains("function reviewPanelArtifacts")) {
         throw "VS Code extension must load review panel rendering helpers from reviewPanelRenderer.js"
     }
     if ($ExtensionSource.Contains("function renderReviewSummaryHtml") -or $ExtensionSource.Contains("function renderReviewTable") -or $ExtensionSource.Contains("function lineValue(item)") -or $ExtensionSource.Contains("function reviewPanelArtifacts")) {
         throw "VS Code extension must keep review panel rendering helpers in reviewPanelRenderer.js"
     }
-    if (-not $ExtensionSource.Contains("openReviewPanel") -or -not $ExtensionSource.Contains("createWebviewPanel") -or -not $ReviewPanelSourceCombined.Contains("renderReviewSummaryHtml")) {
+    if (-not $CommandSourceCombined.Contains("openReviewPanel") -or -not $CommandHandlersSource.Contains("createWebviewPanel") -or -not $ReviewPanelSourceCombined.Contains("renderReviewSummaryHtml")) {
         throw "VS Code extension must expose a current-file review summary panel"
     }
     if (-not $ReviewPanelSourceCombined.Contains("<h2>Inputs</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Schemas</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Units And Quantities</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Derived Values</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Caches</h2>")) {
@@ -2490,7 +2499,7 @@ function Assert-VscodeExtensionContract {
     if ($ReviewPanelSourceCombined.Contains("<h2>Semantic Hash</h2>")) {
         throw "VS Code extension review panel must not expose internal Semantic Hash wording"
     }
-    if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ReviewPanelSourceCombined.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
+    if (-not $CommandHandlersSource.Contains("onDidReceiveMessage") -or -not $ReviewPanelSourceCombined.Contains("data-source-line") -or -not $CommandHandlersSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }
     foreach ($RequiredSourceLineToken in @(
@@ -2505,8 +2514,23 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension review panel missing normalized source-line token $RequiredSourceLineToken"
         }
     }
-    if (-not $ReviewPanelSourceCombined.Contains("reviewPanelArtifacts") -or -not $ReviewPanelSourceCombined.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
+    if (-not $ReviewPanelSourceCombined.Contains("reviewPanelArtifacts") -or -not $ReviewPanelSourceCombined.Contains("data-artifact-id") -or -not $CommandHandlersSource.Contains("openArtifact")) {
         throw "VS Code extension review panel must expose clickable last-run artifacts"
+    }
+    foreach ($ForbiddenCommandHandlerEntrypointToken in @(
+        "async function runActiveFile",
+        "async function runExample",
+        "async function switchExecutionProfile",
+        "async function reviewActiveFile",
+        "async function openReviewPanel",
+        "async function showSemanticTokensDebug",
+        "function runReviewForDocument",
+        "function findExampleFiles",
+        "function executionProfile"
+    )) {
+        if ($ExtensionSource.Contains($ForbiddenCommandHandlerEntrypointToken)) {
+            throw "VS Code extension must keep command handlers in commandHandlers.js"
+        }
     }
     $ArtifactOpenersCombined = $ExtensionSource + "`n" + $ArtifactOpenersSource
     if (-not $ExtensionSource.Contains('require("./artifactOpeners")') -or -not $ArtifactOpenersSource.Contains("function createArtifactOpeners") -or -not $ArtifactOpenersSource.Contains("function outputManifestArtifactItems")) {
@@ -2632,8 +2656,8 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing completion provider token $RequiredCompletionToken"
         }
     }
-    $SemanticProviderSource = $ExtensionSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
-    if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier") -or -not $ExtensionSource.Contains("token_samples_by_type") -or -not $ExtensionSource.Contains("token_samples_by_modifier")) {
+    $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
+    if (-not $CommandSourceCombined.Contains("showSemanticTokensDebug") -or -not $CommandHandlersSource.Contains("token_counts_by_type") -or -not $CommandHandlersSource.Contains("token_counts_by_modifier") -or -not $CommandHandlersSource.Contains("token_samples_by_type") -or -not $CommandHandlersSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"
     }
     if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
@@ -2646,11 +2670,11 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must keep LSP semantic token conversion in lspSemanticTokens.js"
     }
     foreach ($RequiredHighlightDebugToken in @("highlight_count", "highlight_counts_by_category", "highlight_counts_by_detail", "highlight_samples_by_category", "highlight_samples_by_detail", "highlight_data")) {
-        if (-not $ExtensionSource.Contains($RequiredHighlightDebugToken)) {
+        if (-not $CommandHandlersSource.Contains($RequiredHighlightDebugToken)) {
             throw "VS Code highlight inspection output missing user-facing token $RequiredHighlightDebugToken"
         }
     }
-    if ($ExtensionSource.Contains("No semantic token snapshot is available")) {
+    if ($CommandSourceCombined.Contains("No semantic token snapshot is available")) {
         throw "VS Code highlight inspection warning must use highlight wording"
     }
     foreach ($RequiredDiagnosticsToken in @(
@@ -3047,6 +3071,7 @@ function Assert-VscodeExtensionContract {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $ArtifactOpenersPath
+            Invoke-Native $Node.Source "--check" $CommandHandlersPath
             Invoke-Native $Node.Source "--check" $CompletionProviderPath
             Invoke-Native $Node.Source "--check" $CodeActionProviderPath
             Invoke-Native $Node.Source "--check" $DiagnosticsProviderPath
@@ -4159,6 +4184,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactOpeners.js"))) {
             throw "portable package did not include VS Code artifact opener helpers"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\commandHandlers.js"))) {
+            throw "portable package did not include VS Code command handlers"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\completionProvider.js"))) {
             throw "portable package did not include VS Code completion provider"
