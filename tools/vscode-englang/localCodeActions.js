@@ -94,6 +94,9 @@ function localCodeActions(document, context, options = {}) {
     if (typeof code === "string" && code.startsWith("E-UNC-ARGS-")) {
       actions.push(...uncertaintyArgumentActions(document, diagnostic));
     }
+    if (code === "E-UNC-SOURCE-001" || code === "E-UNC-SOURCE-002") {
+      actions.push(...uncertaintySourceActions(document, diagnostic));
+    }
     if (code === "E-CMD-AMBIG-001") {
       const action = commandTargetParenthesesAction(document, diagnostic);
       if (action) {
@@ -604,12 +607,186 @@ function uncertaintyArgumentActions(document, diagnostic) {
   return actions;
 }
 
+function uncertaintySourceActions(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const message = String(diagnostic.message ?? "");
+  const actions = [];
+
+  if (message.includes("Unknown uncertainty source")) {
+    const source = uncertaintySourceNameFromDiagnostic(message);
+    if (source) {
+      const indent = lineIndent(line.text);
+      const placeholder = `${indent}${source} = normal(mean=5 kW, std=0.8 kW, samples=31)`;
+      const action = new vscode.CodeAction(
+        `Define uncertainty source ${source}`,
+        vscode.CodeActionKind.QuickFix
+      );
+      action.isPreferred = true;
+      action.diagnostics = [diagnostic];
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.insert(
+        document.uri,
+        new vscode.Position(line.lineNumber, 0),
+        `${placeholder}${documentNewline(document)}`
+      );
+      actions.push(action);
+    }
+  }
+
+  if (message.includes("requires a prior uncertainty binding as its first argument")) {
+    const openParen = uncertaintySourceCallOpenParen(line.text);
+    if (openParen !== undefined) {
+      const source = "Q_source_unc";
+      const indent = lineIndent(line.text);
+      const placeholder = `${indent}${source} = normal(mean=5 kW, std=0.8 kW, samples=31)`;
+      const action = new vscode.CodeAction(
+        "Add uncertainty source Q_source_unc",
+        vscode.CodeActionKind.QuickFix
+      );
+      action.isPreferred = true;
+      action.diagnostics = [diagnostic];
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.insert(
+        document.uri,
+        new vscode.Position(line.lineNumber, 0),
+        `${placeholder}${documentNewline(document)}`
+      );
+      action.edit.insert(
+        document.uri,
+        new vscode.Position(line.lineNumber, openParen + 1),
+        `${source}, `
+      );
+      actions.push(action);
+    }
+  }
+
+  if (message.includes("not an uncertainty source")) {
+    const source = uncertaintySourceNameFromDiagnostic(message);
+    const bindingRange = source
+      ? bindingExpressionRangeForName(document, source, line.lineNumber)
+      : undefined;
+    if (
+      bindingRange &&
+      expressionStartsNumeric(bindingRange.expression) &&
+      !isUncertaintyCallExpression(bindingRange.expression)
+    ) {
+      const unit = firstUnitOnLine(bindingRange.expression);
+      if (unit) {
+        const stdUnit = unit === "degC" ? "K" : unit;
+        const replacement = `measured(${bindingRange.expression.trim()}, std=0.8 ${stdUnit})`;
+        const action = new vscode.CodeAction(
+          `Convert ${source} to measured uncertainty source`,
+          vscode.CodeActionKind.QuickFix
+        );
+        action.isPreferred = true;
+        action.diagnostics = [diagnostic];
+        action.edit = new vscode.WorkspaceEdit();
+        action.edit.replace(
+          document.uri,
+          new vscode.Range(
+            bindingRange.lineNumber,
+            bindingRange.expressionStart,
+            bindingRange.lineNumber,
+            bindingRange.expressionEnd
+          ),
+          replacement
+        );
+        actions.push(action);
+      }
+    }
+  }
+
+  return actions;
+}
+
+function uncertaintySourceNameFromDiagnostic(message) {
+  if (String(message ?? "").includes("Unknown uncertainty source")) {
+    const match = /Unknown uncertainty source `([^`]+)`/.exec(String(message ?? ""));
+    const source = match?.[1]?.trim();
+    return isIdentifier(source) ? source : undefined;
+  }
+  const source = /`([^`]+)`/.exec(String(message ?? ""))?.[1]?.trim();
+  return isIdentifier(source) ? source : undefined;
+}
+
+function uncertaintySourceCallOpenParen(lineText) {
+  const code = stripLineComment(lineText);
+  for (const call of ["propagate", "ensemble", "probability"]) {
+    let searchStart = 0;
+    while (searchStart < code.length) {
+      const start = code.indexOf(call, searchStart);
+      if (start < 0) {
+        break;
+      }
+      const afterName = start + call.length;
+      if (identifierBoundary(code, start, afterName)) {
+        let open = afterName;
+        while (open < code.length && /\s/.test(code[open])) {
+          open += 1;
+        }
+        if (code[open] === "(") {
+          return open;
+        }
+      }
+      searchStart = afterName;
+    }
+  }
+  return undefined;
+}
+
+function bindingExpressionRangeForName(document, name, lineLimit) {
+  for (let lineNumber = 0; lineNumber < lineLimit; lineNumber += 1) {
+    const line = document.lineAt(lineNumber);
+    const code = stripLineComment(line.text);
+    const indent = lineIndent(code).length;
+    const rest = code.slice(indent);
+    if (!rest.startsWith(name)) {
+      continue;
+    }
+    const afterName = rest.slice(name.length);
+    if (isIdentifierCharacter(afterName[0])) {
+      continue;
+    }
+    const equalsOffset = afterName.indexOf("=");
+    if (equalsOffset < 0 || afterName.slice(0, equalsOffset).trim() !== "") {
+      continue;
+    }
+    const rawStart = indent + name.length + equalsOffset + 1;
+    const rawEnd = code.trimEnd().length;
+    const rawExpression = code.slice(rawStart, rawEnd);
+    const leading = rawExpression.length - rawExpression.trimStart().length;
+    const trailing = rawExpression.length - rawExpression.trimEnd().length;
+    const expressionStart = rawStart + leading;
+    const expressionEnd = rawEnd - trailing;
+    const expression = code.slice(expressionStart, expressionEnd);
+    if (expression.trim() === "") {
+      continue;
+    }
+    return { lineNumber, expression, expressionStart, expressionEnd };
+  }
+  return undefined;
+}
+
+function expressionStartsNumeric(expression) {
+  return /^\s*\d/.test(String(expression ?? ""));
+}
+
+function isUncertaintyCallExpression(expression) {
+  return /^\s*(measured|interval|normal|uniform|distribution|ensemble|propagate|probability)\s*\(/.test(
+    String(expression ?? "")
+  );
+}
+
 function uncertaintyCallExampleFromDiagnostic(message) {
   const pattern = /`([^`]+)`/g;
   let match;
   while ((match = pattern.exec(String(message ?? ""))) !== null) {
     const candidate = match[1].trim();
-    if (/^(measured|interval|normal|uniform|distribution|propagate)\s*\(.*\)$/.test(candidate)) {
+    if (
+      /^(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\s*\(.*\)$/.test(
+        candidate
+      )
+    ) {
       return candidate;
     }
   }
@@ -618,7 +795,16 @@ function uncertaintyCallExampleFromDiagnostic(message) {
 
 function uncertaintyCallRangeOnLine(lineText) {
   const code = stripLineComment(lineText);
-  for (const call of ["measured", "interval", "normal", "uniform", "distribution", "propagate"]) {
+  for (const call of [
+    "measured",
+    "interval",
+    "normal",
+    "uniform",
+    "distribution",
+    "propagate",
+    "ensemble",
+    "probability"
+  ]) {
     let searchStart = 0;
     while (searchStart < code.length) {
       const start = code.indexOf(call, searchStart);
@@ -686,6 +872,10 @@ function identifierBoundary(text, start, end) {
   const before = start > 0 ? text[start - 1] : undefined;
   const after = end < text.length ? text[end] : undefined;
   return !isIdentifierCharacter(before) && !isIdentifierCharacter(after);
+}
+
+function isIdentifier(value) {
+  return typeof value === "string" && /^[A-Za-z_][A-Za-z0-9_]*$/.test(value);
 }
 
 function isIdentifierCharacter(value) {

@@ -676,6 +676,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-OPTION-001" => {
             optional_code_action(lsp_with_option_rename_code_action(uri, text, diagnostic))
         }
+        "E-UNC-SOURCE-001" | "E-UNC-SOURCE-002" => {
+            lsp_uncertainty_source_code_actions(uri, text, diagnostic)
+        }
         code if code.starts_with("E-UNC-ARGS-") => {
             lsp_uncertainty_argument_code_actions(uri, text, diagnostic)
         }
@@ -1404,6 +1407,221 @@ fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Val
     actions
 }
 
+fn lsp_uncertainty_source_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let message = diagnostic_message(diagnostic);
+    let mut actions = Vec::new();
+
+    if message.contains("Unknown uncertainty source") {
+        if let Some(source) = uncertainty_source_name_from_diagnostic(message) {
+            let indent = line_indent(line);
+            let placeholder =
+                format!("{indent}{source} = normal(mean=5 kW, std=0.8 kW, samples=31)");
+            actions.push(json!({
+                "title": format!("Define uncertainty source {source}"),
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    zero_width_range(line_number, 0),
+                    &format!("{placeholder}{}", document_newline(text))
+                )
+            }));
+        }
+    }
+
+    if message.contains("requires a prior uncertainty binding as its first argument") {
+        if let Some(open_paren_byte) = uncertainty_source_call_open_paren(line) {
+            let indent = line_indent(line);
+            let source = "Q_source_unc";
+            let placeholder =
+                format!("{indent}{source} = normal(mean=5 kW, std=0.8 kW, samples=31)");
+            actions.push(json!({
+                "title": "Add uncertainty source Q_source_unc",
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": workspace_edit_for_edits(
+                    uri,
+                    json!([
+                        {
+                            "range": zero_width_range(line_number, 0),
+                            "newText": format!("{placeholder}{}", document_newline(text))
+                        },
+                        {
+                            "range": line_byte_range(
+                                line_number,
+                                line,
+                                open_paren_byte + 1,
+                                open_paren_byte + 1
+                            ),
+                            "newText": format!("{source}, ")
+                        }
+                    ])
+                )
+            }));
+        }
+    }
+
+    if message.contains("not an uncertainty source") {
+        if let Some(source) = uncertainty_source_name_from_diagnostic(message) {
+            if let Some(range) = binding_expression_range_for_name(text, source, line_number) {
+                if expression_starts_numeric(range.expression)
+                    && !is_uncertainty_call_expression(range.expression)
+                {
+                    if let Some(unit) = first_unit_on_line(range.expression) {
+                        let std_unit = if unit == "degC" { "K" } else { &unit };
+                        let replacement =
+                            format!("measured({}, std=0.8 {std_unit})", range.expression.trim());
+                        actions.push(json!({
+                            "title": format!("Convert {source} to measured uncertainty source"),
+                            "kind": "quickfix",
+                            "isPreferred": true,
+                            "diagnostics": [diagnostic.clone()],
+                            "edit": single_change_workspace_edit(
+                                uri,
+                                line_byte_range(
+                                    range.line_number,
+                                    range.line,
+                                    range.expression_start,
+                                    range.expression_end
+                                ),
+                                &replacement
+                            )
+                        }));
+                    }
+                }
+            }
+        }
+    }
+
+    actions
+}
+
+fn uncertainty_source_name_from_diagnostic(message: &str) -> Option<&str> {
+    if message.contains("Unknown uncertainty source") {
+        let (_, after_marker) = message.split_once("Unknown uncertainty source `")?;
+        let (source, _) = after_marker.split_once('`')?;
+        let source = source.trim();
+        return is_identifier(source).then_some(source);
+    }
+    let payload = first_backtick_payload(message)?.trim();
+    is_identifier(payload).then_some(payload)
+}
+
+fn uncertainty_source_call_open_paren(line: &str) -> Option<usize> {
+    let code = strip_line_comment(line);
+    for call in ["propagate", "ensemble", "probability"] {
+        let mut search_start = 0usize;
+        while search_start < code.len() {
+            let Some(relative_start) = code[search_start..].find(call) else {
+                break;
+            };
+            let start = search_start + relative_start;
+            let after_name = start + call.len();
+            if identifier_boundary(code, start, after_name) {
+                let whitespace = code[after_name..]
+                    .chars()
+                    .take_while(|character| character.is_whitespace())
+                    .map(char::len_utf8)
+                    .sum::<usize>();
+                let open = after_name + whitespace;
+                if code.as_bytes().get(open) == Some(&b'(') {
+                    return Some(open);
+                }
+            }
+            search_start = after_name;
+        }
+    }
+    None
+}
+
+struct BindingExpressionRange<'a> {
+    line_number: usize,
+    line: &'a str,
+    expression: &'a str,
+    expression_start: usize,
+    expression_end: usize,
+}
+
+fn binding_expression_range_for_name<'a>(
+    text: &'a str,
+    name: &str,
+    line_limit: usize,
+) -> Option<BindingExpressionRange<'a>> {
+    for (line_number, line) in text.lines().enumerate().take(line_limit) {
+        let code = strip_line_comment(line);
+        let start = line_indent(code).len();
+        let rest = &code[start..];
+        let Some(after_name) = rest.strip_prefix(name) else {
+            continue;
+        };
+        if after_name
+            .chars()
+            .next()
+            .is_some_and(is_identifier_character)
+        {
+            continue;
+        }
+        let Some(equals_offset) = after_name.find('=') else {
+            continue;
+        };
+        if !after_name[..equals_offset].trim().is_empty() {
+            continue;
+        }
+        let expression_start = start + name.len() + equals_offset + 1;
+        let expression_end = code.trim_end().len();
+        let expression = code[expression_start..expression_end].trim();
+        if expression.is_empty() {
+            continue;
+        }
+        let leading = code[expression_start..expression_end]
+            .len()
+            .saturating_sub(code[expression_start..expression_end].trim_start().len());
+        let trailing = code[expression_start..expression_end]
+            .len()
+            .saturating_sub(code[expression_start..expression_end].trim_end().len());
+        return Some(BindingExpressionRange {
+            line_number,
+            line,
+            expression,
+            expression_start: expression_start + leading,
+            expression_end: expression_end.saturating_sub(trailing),
+        });
+    }
+    None
+}
+
+fn expression_starts_numeric(expression: &str) -> bool {
+    let trimmed = expression.trim_start();
+    let Some(first) = trimmed.as_bytes().first() else {
+        return false;
+    };
+    first.is_ascii_digit()
+}
+
+fn is_uncertainty_call_expression(expression: &str) -> bool {
+    let trimmed = expression.trim_start();
+    [
+        "measured(",
+        "interval(",
+        "normal(",
+        "uniform(",
+        "distribution(",
+        "ensemble(",
+        "propagate(",
+        "probability(",
+    ]
+    .iter()
+    .any(|prefix| trimmed.starts_with(prefix))
+}
+
 fn uncertainty_call_example_from_diagnostic(message: &str) -> Option<&str> {
     for payload in backtick_payloads(message) {
         let candidate = payload.trim();
@@ -1415,6 +1633,8 @@ fn uncertainty_call_example_from_diagnostic(message: &str) -> Option<&str> {
                 "uniform(",
                 "distribution(",
                 "propagate(",
+                "ensemble(",
+                "probability(",
             ]
             .iter()
             .any(|prefix| candidate.starts_with(prefix))
@@ -1434,6 +1654,8 @@ fn uncertainty_call_range_on_line(line: &str) -> Option<(usize, usize)> {
         "uniform",
         "distribution",
         "propagate",
+        "ensemble",
+        "probability",
     ] {
         let mut search_start = 0usize;
         while search_start < code.len() {

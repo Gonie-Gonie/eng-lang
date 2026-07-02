@@ -32,7 +32,8 @@ embedding compiler logic in JavaScript.
   parenthesizing, schema column annotation migrations, required file-mutation
   `with` options, invalid network retry/timeout/body-size policies, pinned
   response SHA-256 mismatches, sampling seed values, missing repro-profile
-  sampling seeds, and uncertainty constructor argument repairs. LSP-backed
+  sampling seeds, uncertainty constructor argument repairs, and uncertainty
+  source definition/conversion repairs. LSP-backed
   quick fixes are shown first and merged with local fallback repairs so partial
   LSP responses do not hide available fixes.
 - commands to check, run the current file or a bundled example with saved

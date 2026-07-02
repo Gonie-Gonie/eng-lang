@@ -3763,6 +3763,18 @@ assembly balance metadata exposed through review/report artifacts.
 - Added a dev contract guard so the old balance-status strings cannot return to
   compiler-generated artifact metadata.
 
+## Batch 304: Uncertainty Source Quick Fixes
+
+Status: implemented to reduce linter friction when propagation-style
+uncertainty calls reference missing or deterministic sources.
+
+- Added LSP quick fixes for `E-UNC-SOURCE-001` that define an unknown
+  uncertainty source or insert the missing first source argument.
+- Added an `E-UNC-SOURCE-002` quick fix that converts a preceding deterministic
+  numeric binding into `measured(..., std=...)` when the unit can be inferred.
+- Mirrored the repairs in the VS Code local quick-fix fallback and extended
+  contract coverage for source-diagnostic quick-fix parity.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
