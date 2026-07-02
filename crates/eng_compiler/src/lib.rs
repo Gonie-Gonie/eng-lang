@@ -8629,7 +8629,7 @@ mod tests {
             == "generated from through variable conservation within a connection set"));
         assert_eq!(assembly.boundary.algebraic_count, 4);
         assert_eq!(assembly.boundary.equation_count, 2);
-        assert_eq!(assembly.boundary.balance_status, "underdetermined_seed");
+        assert_eq!(assembly.boundary.balance_status, "underdetermined_metadata");
         assert_eq!(
             assembly.boundary.diagnostic_code.as_deref(),
             Some("E-ASSEMBLY-UNDERDETERMINED")
@@ -8750,7 +8750,7 @@ mod tests {
 
         assert!(!report.has_errors());
         let assembly = &report.semantic_program.component_assemblies[0];
-        assert_eq!(assembly.boundary.balance_status, "balanced_metadata_seed");
+        assert_eq!(assembly.boundary.balance_status, "balanced_metadata");
         assert_eq!(assembly.boundary.equation_count, 4);
         assert_eq!(assembly.boundary.unknown_count, 4);
         assert_eq!(assembly.component_equation_count, 2);
@@ -8808,7 +8808,7 @@ mod tests {
         assert_eq!(assembly.connection_count, 1);
         assert_eq!(assembly.local_expression_count, 2);
         assert_eq!(assembly.component_equation_count, 2);
-        assert_eq!(assembly.boundary.balance_status, "balanced_metadata_seed");
+        assert_eq!(assembly.boundary.balance_status, "balanced_metadata");
         assert_eq!(assembly.boundary.equation_count, 4);
         assert!(assembly
             .equations
@@ -9164,7 +9164,7 @@ system Loop {
 
         assert!(!report.has_errors());
         let assembly = &report.semantic_program.component_assemblies[0];
-        assert_eq!(assembly.boundary.balance_status, "balanced_metadata_seed");
+        assert_eq!(assembly.boundary.balance_status, "balanced_metadata");
         assert_eq!(assembly.boundary.equation_count, 4);
         assert_eq!(assembly.component_equation_count, 2);
         assert!(assembly

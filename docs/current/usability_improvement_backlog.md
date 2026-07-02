@@ -3752,6 +3752,17 @@ uncertainty workflow helpers beyond constructor calls.
   function arguments before semantic tokens arrive.
 - Regenerated the packaged TextMate grammar from the source grammar.
 
+## Batch 303: Assembly Balance Status Wording
+
+Status: implemented to remove implementation-seed wording from component
+assembly balance metadata exposed through review/report artifacts.
+
+- Renamed `balanced_metadata_seed` to `balanced_metadata`.
+- Renamed `underdetermined_seed` and `overdetermined_seed` to
+  `underdetermined_metadata` and `overdetermined_metadata`.
+- Added a dev contract guard so the old balance-status strings cannot return to
+  compiler-generated artifact metadata.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

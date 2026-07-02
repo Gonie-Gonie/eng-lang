@@ -8662,16 +8662,16 @@ fn build_component_assembly_graphs(
     let equation_count = equations.len();
     let (balance_status, diagnostic_code) = if equation_count < unknown_count {
         (
-            "underdetermined_seed".to_owned(),
+            "underdetermined_metadata".to_owned(),
             Some("E-ASSEMBLY-UNDERDETERMINED".to_owned()),
         )
     } else if equation_count > unknown_count {
         (
-            "overdetermined_seed".to_owned(),
+            "overdetermined_metadata".to_owned(),
             Some("E-ASSEMBLY-OVERDETERMINED".to_owned()),
         )
     } else {
-        ("balanced_metadata_seed".to_owned(), None)
+        ("balanced_metadata".to_owned(), None)
     };
     let component_equation_count = equations
         .iter()

@@ -3347,6 +3347,7 @@ function Invoke-IdeCheck {
     $TauriUiIndexPath = Join-Path $RepoRoot "crates\eng_ide\ui\index.html"
     $TauriUiAppPath = Join-Path $RepoRoot "crates\eng_ide\ui\app.js"
     $TauriUiStylesPath = Join-Path $RepoRoot "crates\eng_ide\ui\styles.css"
+    $CompilerSemanticSourcePath = Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     if (-not (Test-Path $TauriConfigPath)) {
         throw "missing Tauri IDE config at $TauriConfigPath"
@@ -3362,6 +3363,9 @@ function Invoke-IdeCheck {
     }
     if (-not (Test-Path $TauriUiStylesPath)) {
         throw "missing Tauri IDE frontend styles at $TauriUiStylesPath"
+    }
+    if (-not (Test-Path $CompilerSemanticSourcePath)) {
+        throw "missing compiler semantic source at $CompilerSemanticSourcePath"
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing LSP source at $LspSourcePath"
@@ -3577,6 +3581,25 @@ function Invoke-IdeCheck {
     )) {
         if ($IdeUiSource.Contains($ForbiddenBehaviorStatusToken)) {
             throw "Native IDE behavior status labels must not expose legacy seed status $ForbiddenBehaviorStatusToken"
+        }
+    }
+    $CompilerSemanticSource = Get-Content -LiteralPath $CompilerSemanticSourcePath -Raw
+    foreach ($RequiredAssemblyBalanceStatusToken in @(
+        "balanced_metadata",
+        "underdetermined_metadata",
+        "overdetermined_metadata"
+    )) {
+        if (-not $CompilerSemanticSource.Contains($RequiredAssemblyBalanceStatusToken)) {
+            throw "Compiler assembly balance status missing current token $RequiredAssemblyBalanceStatusToken"
+        }
+    }
+    foreach ($ForbiddenAssemblyBalanceStatusToken in @(
+        "balanced_metadata_seed",
+        "underdetermined_seed",
+        "overdetermined_seed"
+    )) {
+        if ($CompilerSemanticSource.Contains($ForbiddenAssemblyBalanceStatusToken)) {
+            throw "Compiler assembly balance status must not expose legacy seed status $ForbiddenAssemblyBalanceStatusToken"
         }
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
