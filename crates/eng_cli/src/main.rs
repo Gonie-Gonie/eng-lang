@@ -501,6 +501,8 @@ fn command_run(args: Vec<String>) -> ExitCode {
             if !output.stdout.is_empty() {
                 print!("{}", output.stdout);
             }
+            let process_results_label =
+                process_results_artifact_label(&output.process_results_json);
             if output.artifacts_saved {
                 println!("artifacts: saved");
                 print_run_artifact_path("bytecode", &output.bytecode_path);
@@ -510,7 +512,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 print_run_artifact_path("run graph", &output.run_plan_path);
                 print_run_artifact_path("reproducibility lock", &output.run_lock_path);
                 print_run_artifact_path("run log", &output.run_log_path);
-                print_run_artifact_path("external process results", &output.process_results_path);
+                print_run_artifact_path(process_results_label, &output.process_results_path);
                 print_run_artifact_path("cache records", &output.cache_manifest_path);
                 print_run_artifact_path("test results", &output.test_results_path);
                 print_run_artifact_path("report data", &output.report_spec_path);
@@ -528,10 +530,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 print_run_artifact_bytes("run graph", output.run_plan_json.len());
                 print_run_artifact_bytes("reproducibility lock", output.run_lock_json.len());
                 print_run_artifact_bytes("run log", output.run_log_json.len());
-                print_run_artifact_bytes(
-                    "external process results",
-                    output.process_results_json.len(),
-                );
+                print_run_artifact_bytes(process_results_label, output.process_results_json.len());
                 print_run_artifact_bytes("cache records", output.cache_manifest_json.len());
                 print_run_artifact_bytes("test results", output.test_results_json.len());
                 print_run_artifact_bytes("report data", output.report_spec_json.len());
@@ -582,6 +581,21 @@ fn print_run_artifact_path(label: &str, path: &Path) {
 
 fn print_run_artifact_bytes(label: &str, byte_count: usize) {
     print_run_artifact_value(label, &format!("{byte_count} bytes"));
+}
+
+fn process_results_artifact_label(process_results_json: &str) -> &'static str {
+    let process_count = serde_json::from_str::<serde_json::Value>(process_results_json)
+        .ok()
+        .and_then(|value| {
+            value
+                .get("process_count")
+                .and_then(serde_json::Value::as_u64)
+        });
+    match process_count {
+        Some(0) => "process results (0 external processes)",
+        Some(_) => "external process results",
+        None => "process results",
+    }
 }
 
 fn print_run_artifact_value(label: &str, value: &str) {
@@ -1391,6 +1405,22 @@ fn json_usize(value: &serde_json::Value, key: &str) -> Option<usize> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn process_results_label_reflects_external_process_count() {
+        assert_eq!(
+            process_results_artifact_label(r#"{"process_count":0,"processes":[]}"#),
+            "process results (0 external processes)"
+        );
+        assert_eq!(
+            process_results_artifact_label(r#"{"process_count":1,"processes":[{}]}"#),
+            "external process results"
+        );
+        assert_eq!(
+            process_results_artifact_label(r#"{"format":"eng-process-results-v1"}"#),
+            "process results"
+        );
+    }
 
     #[test]
     fn review_semantic_diff_reports_changed_sections() {

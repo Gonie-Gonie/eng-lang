@@ -2,15 +2,15 @@
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM.
 By default it keeps result data, review data, report data, report HTML, run log,
-external process results, test results, plot data, plot SVG, plot output list,
-output list, and bytecode payloads as runtime objects and does not write
-ordinary artifacts.
+process results, test results, plot data, plot SVG, plot output list, output
+list, and bytecode payloads as runtime objects and does not write ordinary
+artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
 `copy/move/delete` statements are user-requested artifacts and write or mutate
 under `build\result`. Explicit `run command` statements always execute during
-the run and are captured in the external process results payload. Named `test`
-blocks run after generated artifacts are available and are captured in the test
-results payload.
+the run and are captured in the process results payload as external process
+entries. Named `test` blocks run after generated artifacts are available and
+are captured in the test results payload.
 
 ## Basic Run
 
@@ -29,7 +29,7 @@ static run graph:          345 bytes
 run graph:                 456 bytes
 reproducibility lock:      567 bytes
 run log:                   456 bytes
-external process results:  321 bytes
+process results (0 external processes): 321 bytes
 cache records:             234 bytes
 test results:              234 bytes
 report data:               2345 bytes

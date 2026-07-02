@@ -3110,6 +3110,19 @@ against the LSP semantic token overlay.
 - Extended LSP snapshot coverage so schema quality blocks stay as colorful and
   meaningful as workflow validation lines.
 
+## Batch 251: Zero-Process Run Output Wording
+
+Status: implemented after workflow smoke output still printed an external
+process label for native workflows with `process_count = 0`.
+
+- Changed CLI artifact summaries to label zero-process runs as
+  `process results (0 external processes)` instead of implying an external
+  process ran.
+- Kept the existing `external process results` label for workflows that do run
+  `run command`.
+- Updated the `eng run` reference output and added unit coverage for the
+  process-result label selection.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
