@@ -375,10 +375,13 @@ function Invoke-WorkflowsTest {
     foreach ($WorkflowPublicDocPath in $WorkflowPublicDocPaths) {
         $WorkflowPublicDoc = Get-Content -LiteralPath $WorkflowPublicDocPath.FullName -Raw
         foreach ($ForbiddenWorkflowDocWording in @(
-            "files produced by an external process"
+            "files produced by an external process",
+            "external-simulator adapter pattern",
+            "native surrogate half",
+            "external simulator adapter could feed later"
         )) {
             if ($WorkflowPublicDoc.Contains($ForbiddenWorkflowDocWording)) {
-                throw "Native workflow public docs must not describe native artifacts as external-process output: $($WorkflowPublicDocPath.FullName)"
+                throw "Native workflow public docs must not lead with stale external-process wording '$ForbiddenWorkflowDocWording': $($WorkflowPublicDocPath.FullName)"
             }
         }
     }

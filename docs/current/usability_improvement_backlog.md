@@ -3219,6 +3219,19 @@ Status: implemented after reviewing the VS Code linter quick-fix bridge.
 - Extended extension contract coverage and README wording so partial LSP bridge
   responses cannot silently remove JavaScript fallback repairs.
 
+## Batch 260: Workflow 02 Native Wording Guard
+
+Status: implemented after rechecking workflow 02 public wording against the
+native source and zero-process smoke contract.
+
+- Reworded workflow 02 docs from external-simulator-first phrasing to a native
+  sampling, case, model, prediction, and DB workflow description.
+- Kept the existing path stable while making future simulator adapters a
+  layered possibility, not the current executable behavior.
+- Extended `workflows-test` so public workflow docs cannot reintroduce stale
+  external-process wording that makes the native workflow look Python/process
+  backed.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
