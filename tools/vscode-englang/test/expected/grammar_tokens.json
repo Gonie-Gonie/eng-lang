@@ -94,6 +94,48 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.read-structured.englang",
+    "text": "read json file(\"data/config.json\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.read-structured.englang",
+    "text": "read text args.notes",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.notes",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.read-structured.englang",
+    "text": "read toml args.config_toml",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.config_toml",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.read-structured.englang",
+    "text": "read json api_response.body",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "api_response.body",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.declaration.binding.englang",
     "text": "sensor ="
   },

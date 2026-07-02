@@ -2044,6 +2044,19 @@ config promotion completions and docs.
   JSON and TOML config promotion render consistently before semantic tokens
   arrive.
 
+## Batch 167: Read Source Expression Highlighting
+
+Status: implemented to keep read-only I/O expressions readable across file,
+argument, and dotted source references.
+
+- Changed `meta.workflow.read-structured.englang` from a two-token match to a
+  phrase scope covering the source expression.
+- Scoped `file(...)`, `args.*`, and dotted response-body sources inside
+  `read text/json/toml/csv` expressions.
+- Added grammar fixture and expectation coverage for
+  `read json file(...)`, `read text args.notes`, `read toml args.config_toml`,
+  and `read json api_response.body`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

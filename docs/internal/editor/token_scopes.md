@@ -98,7 +98,7 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json.englang` | `promote json <source> as <schema>` |
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
-| `meta.workflow.read-structured.englang` | `read json`, `read toml`, `read text`, and `read csv`. |
+| `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, `read text <source>`, and `read csv <source>`. |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.write-text.englang` | `write text` |

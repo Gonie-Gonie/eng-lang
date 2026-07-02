@@ -18,6 +18,9 @@ sensor = promote csv args.input as SensorData
 sensor_from_path = promote csv "data/sensor.csv" as SensorData
 sensor_from_file = promote csv file("data/sensor.csv") as SensorData
 raw = read json file("data/config.json")
+notes_text = read text args.notes
+toml_text = read toml args.config_toml
+api_payload = read json api_response.body
 message = "Q = {sensor.T_supply: .2 degC}"
 
 write text file("outputs/summary.txt"), message
