@@ -1816,6 +1816,7 @@ function Assert-VscodeExtensionContract {
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
+    $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
@@ -1850,6 +1851,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CompletionProviderPath)) {
         throw "missing VS Code completion provider at $CompletionProviderPath"
+    }
+    if (-not (Test-Path $HoverProviderPath)) {
+        throw "missing VS Code hover provider at $HoverProviderPath"
     }
     if (-not (Test-Path $LocalCodeActionsPath)) {
         throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
@@ -2224,6 +2228,7 @@ function Assert-VscodeExtensionContract {
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
+    $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
@@ -2371,19 +2376,27 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension output must use live editor wording, not $ForbiddenLiveEditorOutputToken"
         }
     }
+    $HoverSource = $ExtensionSource + "`n" + $HoverProviderSource
     foreach ($RequiredHoverToken in @(
-        "new EngHoverProvider(context)",
+        'require("./hoverProvider")',
+        "new EngHoverProvider(context",
         "async provideHover",
         "findHoverForWord",
         "hoverNameMatches",
-        "snapshotDocumentSource(document, this.context, cancellationToken)",
-        "reviewCache.set(document.uri.fsPath, snapshot)",
+        "hoverFromSnapshot",
+        "hoverMarkdown",
+        "snapshotDocumentSource",
+        "cachedSnapshotForDocument",
+        "cacheSnapshotForDocument",
         "hover.status",
         "hover.kind"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredHoverToken)) {
+        if (-not $HoverSource.Contains($RequiredHoverToken)) {
             throw "VS Code extension missing live hover snapshot token $RequiredHoverToken"
         }
+    }
+    if ($ExtensionSource.Contains("class EngHoverProvider") -or $ExtensionSource.Contains("function findHoverForWord") -or $ExtensionSource.Contains("function hoverNameMatches") -or $ExtensionSource.Contains("function hoverRangeAtPosition") -or $ExtensionSource.Contains("function hoverCandidatesAtPosition")) {
+        throw "VS Code extension must keep hover provider helpers in hoverProvider.js"
     }
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
@@ -2746,6 +2759,7 @@ function Assert-VscodeExtensionContract {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $CompletionProviderPath
+            Invoke-Native $Node.Source "--check" $HoverProviderPath
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspKindsPath
@@ -3847,6 +3861,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\completionProvider.js"))) {
             throw "portable package did not include VS Code completion provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\hoverProvider.js"))) {
+            throw "portable package did not include VS Code hover provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
             throw "portable package did not include VS Code local quick fix provider"
