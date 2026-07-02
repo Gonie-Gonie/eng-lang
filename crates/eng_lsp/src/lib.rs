@@ -1027,7 +1027,12 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for sample in &program.sample_generations {
-        builder.push_on_line(sample.line, &sample.binding, "variable", &["declaration"]);
+        builder.push_on_line(
+            sample.line,
+            &sample.binding,
+            "variable",
+            &["declaration", "workflowStep"],
+        );
         for distribution in &sample.distributions {
             let modifiers = semantic_modifiers_for_quantity(&distribution.quantity_kind);
             builder.push_on_line(
@@ -1044,8 +1049,48 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             transform.line,
             &transform.binding,
             "variable",
-            &["declaration"],
+            &["declaration", "workflowStep"],
         );
+        builder.push_on_line(
+            transform.line,
+            &transform.source_table,
+            "variable",
+            &["workflowStep"],
+        );
+        if let Some(secondary_table) = &transform.secondary_table {
+            builder.push_on_line(
+                transform.line,
+                secondary_table,
+                "variable",
+                &["workflowStep"],
+            );
+        }
+        for column in &transform.selected_columns {
+            builder.push_on_line(column.line, &column.name, "property", &["workflowStep"]);
+        }
+        for key in &transform.sort_keys {
+            builder.push_on_line(key.line, &key.column, "property", &["workflowStep"]);
+        }
+        for column in &transform.derived_columns {
+            builder.push_on_line(
+                column.line,
+                &column.name,
+                "property",
+                &["declaration", "workflowStep"],
+            );
+            for source_column in &column.source_columns {
+                builder.push_on_line(column.line, source_column, "property", &["workflowStep"]);
+            }
+        }
+        for predicate in &transform.predicates {
+            if let Some(column) = &predicate.column {
+                builder.push_on_line(predicate.line, column, "property", &["workflowStep"]);
+            }
+        }
+        for join in &transform.join_keys {
+            builder.push_on_line(join.line, &join.left_column, "property", &["workflowStep"]);
+            builder.push_on_line(join.line, &join.right_column, "property", &["workflowStep"]);
+        }
     }
 
     for request in &program.net_requests {
@@ -5244,6 +5289,17 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
         for label in ["sample", "lhs", "uniform", "latin_hypercube"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        for label in ["designs", "case_row", "derived", "derived_many"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        for label in [
+            "annual_electricity",
+            "annual_cooling",
+            "people_density",
+            "cooling_cop",
+        ] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_semantic_token_modifier(&snapshot, source, "uniform", "uncertain");

@@ -221,7 +221,7 @@ in sync with the generated legend. Important pairings:
 | `variable.model`, `function.model`, `property.model` | Model and prediction artifacts. |
 | `variable.db`, `keyword.db` | SQLite and DB-write boundaries. |
 | `variable.cache`, `property.cache` | Cache keys and records. |
-| `keyword.workflowStep`, `function.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |
+| `keyword.workflowStep`, `function.workflowStep`, `variable.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.internal` | Planned/internal symbol visibility. |
 

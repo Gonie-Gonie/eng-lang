@@ -310,6 +310,10 @@
             "entity.name.function.workflow-step.englang",
             "support.function.builtin.englang"
           ],
+          "variable.workflowStep": [
+            "entity.name.function.workflow-step.englang",
+            "variable.other.definition.englang"
+          ],
           "property.workflowStep": [
             "entity.name.function.workflow-step.englang",
             "variable.other.property.englang"

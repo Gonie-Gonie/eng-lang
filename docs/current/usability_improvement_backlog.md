@@ -2348,6 +2348,30 @@ semantic tokens resolve symbols.
   highlighting.
 - Added grammar fixture coverage for `coil_heat(...)`.
 
+## Batch 193: Function Scoped Reference Semantic Tokens
+
+Status: implemented to make function bodies stay role-aware after declaration
+highlighting.
+
+- Added compiler-backed semantic tokens for function parameter references in
+  function bodies, not just parameter declarations.
+- Added compiler-backed semantic tokens for function-local references such as
+  `return Q`, preserving local declaration tokens.
+- Added LSP regression coverage so declaration tokens keep `declaration` while
+  body references are emitted as separate scoped tokens.
+
+## Batch 194: Table Workflow Operand Semantic Tokens
+
+Status: implemented to make native table workflow sources and columns visible
+as workflow-step references in semantic highlighting.
+
+- Added `workflowStep` semantic modifiers to sample and table-transform result
+  bindings.
+- Added semantic tokens for table transform source tables, secondary join
+  tables, selected/sorted/derived columns, predicate columns, and join keys.
+- Added VS Code fallback mapping for `variable.workflowStep` so table workflow
+  bindings and source operands are theme-compatible.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
