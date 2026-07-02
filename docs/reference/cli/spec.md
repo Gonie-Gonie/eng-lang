@@ -381,8 +381,8 @@ connection, and assembly metadata.
 
 ## `eng-lsp.exe`
 
-Starts the stdio LSP server when no flags are supplied. The release
-package also supports smoke and snapshot commands:
+Starts the stdio LSP server when no flags are supplied. The release package
+also supports advanced editor-tooling smoke and metadata JSON commands:
 
 ```bat
 eng-lsp.exe --smoke
@@ -390,12 +390,12 @@ eng-lsp.exe --snapshot examples\internal\06_domain_port\main.eng
 eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
 ```
 
-`--smoke` verifies the official CSV snapshot path and the official domain/component track
-domain/component/assembly metadata path. `--snapshot` emits `eng-lsp-snapshot-v1` JSON
-with diagnostics, completion items, and hover items. Domain/component files
-include hover `kind`/`status` metadata and completion labels such as
-`Thermal`, `RoomBoundary`, `RoomBoundary.heat`, `component_graph`, and
-`connection_set_1.across_T_1`.
+`--smoke` verifies editor metadata extraction for the official CSV workflow and
+the official domain/component track metadata. `--snapshot` emits
+`eng-lsp-snapshot-v1` JSON with diagnostics, completion items, and hover items.
+Domain/component files include hover `kind`/`status` metadata and completion
+labels such as `Thermal`, `RoomBoundary`, `RoomBoundary.heat`,
+`component_graph`, and `connection_set_1.across_T_1`.
 
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]`
 

@@ -1,9 +1,12 @@
-# LSP Snapshot Reference
+# Advanced Editor Metadata JSON
+
+This page is for maintainers and editor-tooling authors. Normal users should
+prefer the VS Code extension, native IDE, or `eng.exe check`.
 
 `eng-lsp.exe --snapshot <file.eng>` emits a compact JSON document for editor,
 IDE, and automated smoke-test consumers that need compiler diagnostics,
-completion metadata, hover metadata, semantic tokens, document symbols, and
-folding ranges without starting a long-lived LSP session.
+completion metadata, hover metadata, semantic highlighting data, document
+symbols, and folding ranges without starting a long-lived editor session.
 
 The current format marker is:
 
@@ -13,7 +16,7 @@ The current format marker is:
 }
 ```
 
-## Stability Policy
+## Compatibility Policy
 
 `eng-lsp-snapshot-v1` is experimental and not public release-supported, but
 it has a clear compatibility rule so tools can be built against it safely:
@@ -26,9 +29,9 @@ it has a clear compatibility rule so tools can be built against it safely:
 - A removal, required type change, semantic reinterpretation, or incompatible
   range convention requires a new format marker such as
   `eng-lsp-snapshot-v2`.
-- `--snapshot-check <file.eng>` is the smoke path for this contract. It verifies
-  that a supported example exposes non-empty completion and hover data without
-  printing the full JSON.
+- `--snapshot-check <file.eng>` is the smoke command for this contract. It
+  verifies that a supported example exposes non-empty completion and hover data
+  without printing the full JSON.
 
 ## Top-Level Shape
 
@@ -99,7 +102,7 @@ Completion items use LSP-style numeric kinds:
 }
 ```
 
-Current snapshot completions are global for the file and include:
+Current metadata completions are global for the file and include:
 
 - EngLang keywords
 - current typed bindings
@@ -238,7 +241,7 @@ Current semantic token roles include:
   state, model, DB, cache, workflow steps, internal/planned symbols, and review
   risk
 
-The snapshot token list is suitable for preview/debug tooling. Editor clients
+The metadata token list is suitable for preview/debug tooling. Editor clients
 that need efficient live highlighting should use the stdio
 `textDocument/semanticTokens/full` request.
 
@@ -253,7 +256,7 @@ for outlines and breadcrumbs.
 
 ## Intended Consumers
 
-Use the snapshot for:
+Use this JSON contract for:
 
 - package and CI smoke checks
 - native IDE metadata inspection
@@ -270,4 +273,4 @@ Use the stdio LSP server for:
 - conservative line-based go-to-definition for symbols whose definition line is
   in the current document
 
-The snapshot is not a replacement for full LSP editor validation.
+This JSON contract is not a replacement for full LSP editor validation.

@@ -2817,6 +2817,19 @@ docs for stale Python/process assumptions.
   reject Python markers, `run command`, legacy `select_first_row(...)`, and
   nonzero process execution.
 
+## Batch 228: Advanced Editor Metadata CLI Wording
+
+Status: implemented after reviewing public CLI reference docs for internal
+snapshot-first wording.
+
+- Renamed the CLI index entry from `LSP snapshot` to `Advanced editor metadata
+  JSON`.
+- Reframed the snapshot reference as a maintainer/editor-tooling contract, not
+  a first-user command page.
+- Reworded the `eng-lsp.exe` CLI spec from snapshot-path phrasing to advanced
+  editor metadata extraction while preserving the real `--snapshot` command and
+  `eng-lsp-snapshot-v1` format names.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

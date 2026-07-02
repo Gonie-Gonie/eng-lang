@@ -5,7 +5,7 @@ Lookup pages for EngLang commands.
 - [CLI spec](spec.md)
 - [Run command](run.md)
 - [Standalone package](standalone_package.md)
-- [LSP snapshot](lsp_snapshot.md)
+- [Advanced editor metadata JSON](lsp_snapshot.md)
 
 Planned pages:
 
