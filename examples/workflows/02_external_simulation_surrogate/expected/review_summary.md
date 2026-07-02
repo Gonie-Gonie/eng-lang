@@ -12,8 +12,8 @@ summary metrics derived from the selected case_001 derived-result row rather tha
 native `regression_table` model with feature, target, split, residual, training-hash, and model-hash metadata
 native `model_card`, `evaluate`, and `predict ... using ...` records
 PredictionResult schema with predicted_annual_electricity and confidence columns
-three generated case_input files plus render manifests
-two native SQLite db_write manifests: simulation_results and predictions, both committed
+eight generated case_input files plus render manifests
+two native SQLite db_write manifests using args.database_target: simulation_results and predictions, both committed
 output_manifest.json entries for case_input, template_render_manifest, sqlite_database, db_write_manifest, csv_export, and model:// artifacts
 process_results.json with process_count = 0
 report entries for sample, training, case, case-input, prediction row counts, model metrics, the DB target, and DB tables written

@@ -8606,10 +8606,12 @@ fn evaluate_runtime_path_expression(expression: &str, report: &CheckReport) -> O
             .find(|arg| arg.name == arg_name.trim())
             .map(|arg| arg.value.clone());
     }
-    if let Some(value) = runtime_strip_call_string_arg(expression, "file") {
+    if let Some(inner) = runtime_strip_call_inner(expression, "file") {
+        let value = evaluate_runtime_path_expression(inner, report)?;
         return Some(runtime_path_text(value));
     }
-    if let Some(value) = runtime_strip_call_string_arg(expression, "dir") {
+    if let Some(inner) = runtime_strip_call_inner(expression, "dir") {
+        let value = evaluate_runtime_path_expression(inner, report)?;
         return Some(runtime_path_text(value));
     }
     if expression.starts_with('"') {
@@ -8659,11 +8661,6 @@ fn runtime_strip_call_inner<'a>(expression: &'a str, function_name: &str) -> Opt
         .strip_prefix(&prefix)?
         .strip_suffix(')')
         .map(str::trim)
-}
-
-fn runtime_strip_call_string_arg(expression: &str, function_name: &str) -> Option<String> {
-    let inner = runtime_strip_call_inner(expression, function_name)?;
-    Some(strip_runtime_string_value(inner))
 }
 
 fn runtime_join_path_text(parts: &[String]) -> String {
@@ -20072,6 +20069,69 @@ mod tests {
         assert!(output.result_json.contains("W-PROFILE-REPRO-DB"));
         assert!(output.result_json.contains("\"database_hash_after\""));
         assert!(output.run_log_json.contains("W-PROFILE-REPRO-DB"));
+    }
+
+    #[test]
+    fn run_file_resolves_args_path_inside_sqlite_connection() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-arg-path");
+        let build_root = repo_root.join("build").join("runtime-db-arg-path-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\n",
+        )
+        .expect("results csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "args {\n",
+                "    database_target: String = \"outputs/arg_results.sqlite\"\n",
+                "}\n\n",
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(args.database_target)\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = replace\n",
+                "    transaction = commit\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("DB write with args path run");
+
+        assert!(output
+            .result_json
+            .contains("\"outputs/arg_results.sqlite\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"path\": \"outputs/arg_results.sqlite\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"path\": \"outputs/arg_results.sqlite.db_write_manifest.json\""));
+        assert!(!output.output_manifest_json.contains("args.database_target"));
+        assert!(!output
+            .review_json
+            .contains("args.database_target.db_write_manifest"));
     }
 
     #[test]

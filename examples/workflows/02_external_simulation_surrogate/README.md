@@ -31,6 +31,7 @@ object_store.tables includes the CaseOutput binding `case_inputs`
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
+args.database_target controls the SQLite output boundary
 output_manifest.json records case_input artifacts and workflow_summary.csv
 workflow_summary.csv records values pulled from the selected native derived-result row, not fixed literals
 ```

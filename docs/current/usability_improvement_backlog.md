@@ -2458,6 +2458,22 @@ workflow `with` options.
 - Regenerated VS Code editor metadata and TextMate grammar after adding
   `cache_ttl` to the grammar option vocabulary.
 
+## Batch 201: Workflow DB Target Path Resolution
+
+Status: implemented to make workflow 02's SQLite output argument real instead of
+display-only.
+
+- Updated workflow 02 so `args.database_target` feeds
+  `open sqlite file(args.database_target)` and both DB writes record explicit
+  `transaction = commit`.
+- Fixed runtime path evaluation so `file(args.<name>)` and `dir(args.<name>)`
+  resolve the arg value before output and DB manifest paths are materialized.
+- Added runtime regression coverage for SQLite connections using an args-backed
+  path and verified generated manifests no longer use the literal
+  `args.database_target`.
+- Cleaned workflow 02 expected docs to reflect eight generated case inputs and
+  the args-backed SQLite boundary.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
