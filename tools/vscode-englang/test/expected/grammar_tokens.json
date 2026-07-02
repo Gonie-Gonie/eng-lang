@@ -144,6 +144,17 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.run-command.englang",
+    "text": "run command \"cmd\""
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "command",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "variable.parameter.property.englang",
     "text": "expected_outputs ="
   },
@@ -637,6 +648,17 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.external-boundary.englang",
     "text": "download"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.download-to.englang",
+    "text": "download url(\"https://example.org/file.csv\") to file(\"outputs/file.csv\")"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "to",
+    "fullMatch": true
   },
   {
     "fixture": "06_declarations_native_workflow.eng",

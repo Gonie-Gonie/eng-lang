@@ -287,6 +287,39 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.run-command.englang",
+                                                                    "begin":  "\\b(run)\\s+(command)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.db-write.englang",
                                                                     "match":  "\\b(write)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
                                                                     "captures":  {
@@ -420,6 +453,40 @@
                                                                                                "name":  "keyword.control.workflow.englang"
                                                                                            }
                                                                                  }
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.download-to.englang",
+                                                                    "begin":  "\\b(download)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "match":  "\\bto\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.http-request.englang",

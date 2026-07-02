@@ -1849,6 +1849,18 @@ Status: implemented while continuing the VS Code extension split checklist.
 - Extended `ide-check` contract coverage so local quick-fix tokens and portable
   packaging include the split module.
 
+## Batch 152: Workflow Boundary Phrase Highlighting
+
+Status: implemented to reduce inconsistent first-render TextMate coloring for
+native workflow boundary statements.
+
+- Added dedicated TextMate phrase scopes for `run command ...` and
+  `download ... to ...`.
+- Kept nested string/function/number punctuation highlighting active inside the
+  new phrase scopes.
+- Added grammar smoke expectations for both phrase scopes so future keyword
+  changes do not silently fall back to one-word highlighting.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
