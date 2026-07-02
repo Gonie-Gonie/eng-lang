@@ -1815,6 +1815,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+    $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
@@ -1846,6 +1847,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ExtensionJsPath)) {
         throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+    if (-not (Test-Path $CompletionProviderPath)) {
+        throw "missing VS Code completion provider at $CompletionProviderPath"
     }
     if (-not (Test-Path $LocalCodeActionsPath)) {
         throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
@@ -2219,6 +2223,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
@@ -2389,8 +2394,22 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
     }
-    if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $ExtensionSource.Contains("completion.lsp_kind")) {
+    $CompletionSource = $ExtensionSource + "`n" + $CompletionProviderSource
+    if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $CompletionProviderSource.Contains("completion.lsp_kind")) {
         throw "VS Code extension must use generated completion seed metadata as the completion fallback"
+    }
+    foreach ($RequiredCompletionToken in @(
+        'require("./completionProvider")',
+        "EngCompletionProvider",
+        "completionSnapshotForPosition",
+        "cachedSnapshotForDocument",
+        "completionItemsFromPayload",
+        "completionKindFromLsp",
+        "new vscode.CompletionItem"
+    )) {
+        if (-not $CompletionSource.Contains($RequiredCompletionToken)) {
+            throw "VS Code extension missing completion provider token $RequiredCompletionToken"
+        }
     }
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier") -or -not $ExtensionSource.Contains("token_samples_by_type") -or -not $ExtensionSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"
@@ -2544,6 +2563,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./lspKinds")') -or -not $LspKindsSource.Contains("symbolKindFromLsp") -or -not $LspKindsSource.Contains("completionKindFromLsp") -or -not $LspKindsSource.Contains("foldingRangeKindFromLsp")) {
         throw "VS Code extension must share LSP kind conversion through lspKinds.js"
     }
+    if (-not $CompletionProviderSource.Contains('require("./lspKinds")')) {
+        throw "VS Code completion provider must reuse shared LSP kind conversion"
+    }
     if (-not $ExtensionSource.Contains('require("./lspNavigation")') -or -not $LspNavigationSource.Contains("definitionLocationFromLsp") -or -not $LspNavigationSource.Contains("definitionLocationFromSnapshotSymbols") -or -not $LspNavigationSource.Contains("documentSymbolsFromSnapshot") -or -not $LspNavigationSource.Contains("workspaceSymbolInformationFromLsp") -or -not $LspNavigationSource.Contains("definitionNameCandidates")) {
         throw "VS Code extension must share LSP navigation conversion through lspNavigation.js"
     }
@@ -2561,6 +2583,9 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("function symbolKindFromLsp") -or $ExtensionSource.Contains("function completionKindFromLsp") -or $ExtensionSource.Contains("function foldingRangeKindFromLsp")) {
         throw "VS Code extension must keep LSP kind conversion in lspKinds.js"
+    }
+    if ($ExtensionSource.Contains("class EngCompletionProvider") -or $ExtensionSource.Contains("function addCompletion") -or $ExtensionSource.Contains("function completionItemsFromPayload")) {
+        throw "VS Code extension must keep completion provider helpers in completionProvider.js"
     }
     if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
         throw "VS Code extension must keep LSP navigation conversion in lspNavigation.js"
@@ -2720,6 +2745,7 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $Node) {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
+            Invoke-Native $Node.Source "--check" $CompletionProviderPath
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspKindsPath
@@ -3818,6 +3844,9 @@ function Invoke-PackageSmoke {
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\completionProvider.js"))) {
+            throw "portable package did not include VS Code completion provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
             throw "portable package did not include VS Code local quick fix provider"

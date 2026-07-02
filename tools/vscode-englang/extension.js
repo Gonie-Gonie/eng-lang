@@ -4,14 +4,12 @@ const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
 const { LAST_RUN_ARTIFACTS } = require("./artifactRegistry");
+const { EngCompletionProvider } = require("./completionProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
 const { localCodeActions } = require("./localCodeActions");
 const { lspCodeActionsFromPayload } = require("./lspCodeActions");
-const {
-  completionKindFromLsp,
-  foldingRangeKindFromLsp
-} = require("./lspKinds");
+const { foldingRangeKindFromLsp } = require("./lspKinds");
 const {
   definitionLocationFromLsp,
   definitionLocationFromSnapshotSymbols,
@@ -118,7 +116,11 @@ function activate(context) {
     vscode.languages.registerHoverProvider(LANGUAGE_ID, new EngHoverProvider(context)),
     vscode.languages.registerCompletionItemProvider(
       LANGUAGE_ID,
-      new EngCompletionProvider(context),
+      new EngCompletionProvider(context, {
+        completionSeed: COMPLETION_SEED,
+        completionSnapshotForPosition,
+        cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath)
+      }),
       ":",
       " ",
       "[",
@@ -2337,35 +2339,6 @@ class EngHoverProvider {
   }
 }
 
-class EngCompletionProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideCompletionItems(document, position, cancellationToken) {
-    const items = [];
-    const seen = new Set();
-    const completionPayload =
-      (await completionSnapshotForPosition(document, position, this.context, cancellationToken)) ??
-      reviewCache.get(document.uri.fsPath);
-
-    const completions = completionPayload?.completions ?? COMPLETION_SEED;
-    for (const completion of completions) {
-      const item = new vscode.CompletionItem(
-        completion.label,
-        completionKindFromLsp(completion.lsp_kind ?? completion.kind)
-      );
-      item.detail = completion.detail;
-      if (completion.documentation) {
-        item.documentation = completion.documentation;
-      }
-      addCompletion(items, seen, item);
-    }
-
-    return items;
-  }
-}
-
 class EngCodeActionProvider {
   constructor(context) {
     this.context = context;
@@ -2387,15 +2360,6 @@ function fullLineRange(document, lineNumber) {
     return new vscode.Range(lineNumber, 0, lineNumber + 1, 0);
   }
   return new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
-}
-
-function addCompletion(items, seen, item) {
-  const label = typeof item.label === "string" ? item.label : item.label?.label;
-  if (!label || seen.has(label)) {
-    return;
-  }
-  seen.add(label);
-  items.push(item);
 }
 
 function isEngDocument(document) {
