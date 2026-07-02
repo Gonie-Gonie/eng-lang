@@ -3519,6 +3519,16 @@ Status: implemented to reduce theme-dependent highlight gaps in VS Code.
 - Extended extension contract checks and token-scope docs so these fallback
   mappings remain covered.
 
+## Batch 285: Semantic Fallback Pair Test Coverage
+
+Status: implemented to keep VS Code fallback coverage from narrowing again.
+
+- Strengthened the `eng_lsp` fixture test so it checks every emitted semantic
+  token selector used by the grammar fixtures, including plain token types and
+  standard modifiers.
+- Removed the previous custom-modifier-only filter that missed selectors such
+  as `comment`, `number`, `class.declaration`, and `variable.readonly`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

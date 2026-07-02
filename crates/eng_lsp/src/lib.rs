@@ -5458,15 +5458,6 @@ mod tests {
             .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()))
     }
 
-    fn package_custom_semantic_modifiers(package: &serde_json::Value) -> BTreeSet<&str> {
-        package["contributes"]["semanticTokenModifiers"]
-            .as_array()
-            .expect("package should declare semanticTokenModifiers")
-            .iter()
-            .filter_map(|modifier| modifier["id"].as_str())
-            .collect()
-    }
-
     fn package_semantic_scope_keys(package: &serde_json::Value) -> BTreeSet<&str> {
         package["contributes"]["semanticTokenScopes"]
             .as_array()
@@ -5910,7 +5901,7 @@ mod tests {
     }
 
     #[test]
-    fn vscode_scope_mapping_covers_fixture_custom_semantic_token_pairs() {
+    fn vscode_scope_mapping_covers_fixture_semantic_token_pairs() {
         let root = repo_root_for_tests();
         let package = read_json_file(
             &root
@@ -5918,7 +5909,6 @@ mod tests {
                 .join("vscode-englang")
                 .join("package.json"),
         );
-        let custom_modifiers = package_custom_semantic_modifiers(&package);
         let scope_keys = package_semantic_scope_keys(&package);
         let fixture_dir = root
             .join("tools")
@@ -5955,8 +5945,12 @@ mod tests {
                 .and_then(|name| name.to_str())
                 .unwrap_or("<fixture>");
             for token in &snapshot.semantic_tokens.tokens {
-                for modifier in &token.modifiers {
-                    if custom_modifiers.contains(modifier.as_str()) {
+                if token.modifiers.is_empty() {
+                    if !scope_keys.contains(token.token_type.as_str()) {
+                        missing.insert(format!("{fixture_name}: {}", token.token_type));
+                    }
+                } else {
+                    for modifier in &token.modifiers {
                         let scope_key = format!("{}.{}", token.token_type, modifier);
                         if !scope_keys.contains(scope_key.as_str()) {
                             missing.insert(format!("{fixture_name}: {scope_key}"));
