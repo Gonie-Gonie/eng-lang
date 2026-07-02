@@ -4517,6 +4517,27 @@ pub fn completion_items_at(
         }
     }
 
+    if let Some(context) = function_argument_completion_context(source, line, character) {
+        if let Some(labels) = function_argument_option_labels(&context.function_name) {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for label in labels {
+                if context.assigned_options.contains(*label) {
+                    continue;
+                }
+                if !context.prefix.is_empty() && !label.starts_with(&context.prefix) {
+                    continue;
+                }
+                if let Some(detail) = function_argument_option_completion_detail(label) {
+                    push_completion(&mut items, &mut seen, label, "property", detail);
+                }
+            }
+            if !items.is_empty() {
+                return items;
+            }
+        }
+    }
+
     completion_items(report)
 }
 
@@ -4750,6 +4771,220 @@ fn contextual_workflow_option_completion_detail(label: &str) -> Option<&'static 
         "unit y" => Some("plot y-axis display unit option"),
         _ => None,
     })
+}
+
+struct FunctionArgumentCompletionContext {
+    function_name: String,
+    prefix: String,
+    assigned_options: BTreeSet<String>,
+}
+
+fn function_argument_completion_context(
+    source: &str,
+    line: usize,
+    character: usize,
+) -> Option<FunctionArgumentCompletionContext> {
+    let line_text = source.lines().nth(line)?;
+    let before_cursor = line_text.chars().take(character).collect::<String>();
+    let open_paren = last_unmatched_open_paren(&before_cursor)?;
+    let function_name = function_name_before_open_paren(&before_cursor, open_paren)?;
+    let arguments = &before_cursor[open_paren + 1..];
+    if current_argument_has_assignment(arguments) {
+        return None;
+    }
+    Some(FunctionArgumentCompletionContext {
+        function_name,
+        prefix: current_argument_prefix(arguments),
+        assigned_options: assigned_function_argument_options(arguments),
+    })
+}
+
+fn function_argument_option_labels(function_name: &str) -> Option<&'static [&'static str]> {
+    match function_name {
+        "train_test_split" => Some(&["target", "features", "test", "test_fraction", "seed"]),
+        "regression" | "regression_table" | "train_regression" => {
+            Some(&["target", "features", "algorithm", "test", "seed"])
+        }
+        "mlp" | "ann" => Some(&[
+            "target",
+            "features",
+            "algorithm",
+            "hidden",
+            "layers",
+            "epochs",
+            "seed",
+        ]),
+        "evaluate" | "metrics" | "leakage_lint" => Some(&["split"]),
+        "measured" => Some(&["std", "sigma", "uncertainty", "error", "relative_error"]),
+        "interval" | "uniform" => Some(&["lower", "min", "upper", "max", "samples", "n"]),
+        "normal" => Some(&["mean", "mu", "std", "sigma", "samples", "n"]),
+        "distribution" => Some(&[
+            "kind",
+            "distribution",
+            "mean",
+            "mu",
+            "std",
+            "sigma",
+            "lower",
+            "min",
+            "upper",
+            "max",
+            "samples",
+            "n",
+        ]),
+        "propagate" => Some(&["method", "scale", "gain", "offset", "bias", "samples", "n"]),
+        "ensemble" => Some(&["method", "samples", "n"]),
+        _ => None,
+    }
+}
+
+fn function_argument_option_completion_detail(label: &str) -> Option<&'static str> {
+    contextual_workflow_option_completion_detail(label).or_else(|| match label {
+        "distribution" => Some("uncertainty distribution kind option alias"),
+        "error" => Some("measurement absolute error option"),
+        "layers" => Some("MLP hidden layer alias"),
+        "max" => Some("upper uncertainty or range bound alias"),
+        "mean" => Some("uncertainty mean option"),
+        "min" => Some("lower uncertainty or range bound alias"),
+        "std" => Some("uncertainty standard deviation option"),
+        "test_fraction" => Some("train/test split fraction alias"),
+        _ => None,
+    })
+}
+
+fn last_unmatched_open_paren(value: &str) -> Option<usize> {
+    let mut stack = Vec::new();
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in value.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' => stack.push(index),
+            ')' => {
+                stack.pop();
+            }
+            _ => {}
+        }
+    }
+    stack.last().copied()
+}
+
+fn function_name_before_open_paren(value: &str, open_paren: usize) -> Option<String> {
+    let bytes = value.as_bytes();
+    let mut end = open_paren.min(bytes.len());
+    while end > 0 && bytes[end - 1].is_ascii_whitespace() {
+        end -= 1;
+    }
+    let mut start = end;
+    while start > 0 && is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    (start < end && is_ident_start(bytes[start])).then(|| value[start..end].to_ascii_lowercase())
+}
+
+fn current_argument_has_assignment(arguments: &str) -> bool {
+    top_level_current_argument(arguments).contains('=')
+}
+
+fn current_argument_prefix(arguments: &str) -> String {
+    let current = top_level_current_argument(arguments).trim_end();
+    let bytes = current.as_bytes();
+    let mut start = bytes.len();
+    while start > 0 && is_ident_byte(bytes[start - 1]) {
+        start -= 1;
+    }
+    current[start..].to_owned()
+}
+
+fn top_level_current_argument(arguments: &str) -> &str {
+    let mut segment_start = 0usize;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in arguments.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => segment_start = index + character.len_utf8(),
+            _ => {}
+        }
+    }
+    &arguments[segment_start..]
+}
+
+fn assigned_function_argument_options(arguments: &str) -> BTreeSet<String> {
+    let mut options = BTreeSet::new();
+    let bytes = arguments.as_bytes();
+    let mut index = 0usize;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    while index < bytes.len() {
+        let character = arguments[index..].chars().next().unwrap_or_default();
+        let width = character.len_utf8();
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            index += width;
+            continue;
+        }
+        match character {
+            '"' => {
+                in_string = true;
+                index += width;
+            }
+            '(' | '[' | '{' => {
+                depth += 1;
+                index += width;
+            }
+            ')' | ']' | '}' => {
+                depth = depth.saturating_sub(1);
+                index += width;
+            }
+            _ if depth == 0 && is_ident_start(bytes[index]) => {
+                let start = index;
+                index += 1;
+                while index < bytes.len() && is_ident_byte(bytes[index]) {
+                    index += 1;
+                }
+                let end = index;
+                let after_key = skip_ascii_whitespace(bytes, index, bytes.len());
+                if after_key < bytes.len() && bytes[after_key] == b'=' {
+                    options.insert(arguments[start..end].to_owned());
+                }
+            }
+            _ => {
+                index += width;
+            }
+        }
+    }
+    options
 }
 
 fn is_with_block_start(line: &str) -> bool {
@@ -6685,6 +6920,85 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn function_argument_completion_uses_uncertainty_context() {
+        let source = "Q = distribution(kind=normal, sig";
+        let line = 0;
+        let character = source.len();
+        let report = check_source(
+            Path::new("uncertainty_arg_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        let sigma = completions
+            .iter()
+            .find(|completion| completion.label == "sigma")
+            .expect("distribution argument completion should include sigma");
+        assert_eq!(sigma.kind, "property");
+        assert_eq!(sigma.detail, "uncertainty standard deviation alias");
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "kind"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "target"));
+
+        let source = "Q = distribution(";
+        let report = check_source(
+            Path::new("distribution_arg_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, source.len());
+        for label in [
+            "kind",
+            "distribution",
+            "mean",
+            "sigma",
+            "lower",
+            "upper",
+            "n",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label && completion.kind == "property"),
+                "distribution argument completion should include property {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "cache_key"));
+    }
+
+    #[test]
+    fn function_argument_completion_uses_model_context() {
+        let source = "model = regression(split, fe";
+        let line = 0;
+        let character = source.len();
+        let report = check_source(
+            Path::new("model_arg_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        let features = completions
+            .iter()
+            .find(|completion| completion.label == "features")
+            .expect("regression argument completion should include features");
+        assert_eq!(features.kind, "property");
+        assert_eq!(features.detail, "model feature columns");
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "sigma"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "cache_key"));
     }
 
     #[test]

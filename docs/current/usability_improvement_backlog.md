@@ -3409,6 +3409,19 @@ Status: implemented while reducing accidental Python framing in public docs.
   "brace-based string interpolation" so the docs describe EngLang syntax
   without implying a Python runtime dependency.
 
+## Batch 276: Function Argument Completion Context
+
+Status: implemented while improving live LSP completion ergonomics for native
+workflow helpers.
+
+- Added position-aware property completions inside supported helper calls such
+  as `distribution(...)`, `normal(...)`, `regression(...)`, `mlp(...)`, and
+  `train_test_split(...)`.
+- Kept member completion and with-block completion higher priority so `table.`
+  fields and owner-specific `with { ... }` options keep their current behavior.
+- Added regression tests for uncertainty and model argument contexts, including
+  filtering already-assigned named arguments.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
