@@ -91,6 +91,9 @@ function localCodeActions(document, context, options = {}) {
         actions.push(confidenceAction);
       }
     }
+    if (typeof code === "string" && code.startsWith("E-UNC-ARGS-")) {
+      actions.push(...uncertaintyArgumentActions(document, diagnostic));
+    }
     if (code === "E-CMD-AMBIG-001") {
       const action = commandTargetParenthesesAction(document, diagnostic);
       if (action) {
@@ -513,6 +516,180 @@ function withOptionRenameAction(document, diagnostic, fix) {
 function unknownWithOptionName(message) {
   const match = /Unknown with option `([^`]+)`/.exec(String(message ?? ""));
   return match?.[1]?.trim();
+}
+
+function uncertaintyArgumentActions(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const message = String(diagnostic.message ?? "");
+  const actions = [];
+
+  const example = uncertaintyCallExampleFromDiagnostic(message);
+  const callRange = uncertaintyCallRangeOnLine(line.text);
+  if (example && callRange) {
+    const action = new vscode.CodeAction(
+      `Replace uncertainty call with ${example}`,
+      vscode.CodeActionKind.QuickFix
+    );
+    action.isPreferred = true;
+    action.diagnostics = [diagnostic];
+    action.edit = new vscode.WorkspaceEdit();
+    action.edit.replace(
+      document.uri,
+      new vscode.Range(line.lineNumber, callRange.start, line.lineNumber, callRange.end),
+      example
+    );
+    actions.push(action);
+  }
+
+  if (message.includes("method=linear")) {
+    const range = namedArgumentValueRange(line.text, ["method"]);
+    if (range) {
+      const action = new vscode.CodeAction(
+        "Set uncertainty method to linear",
+        vscode.CodeActionKind.QuickFix
+      );
+      action.isPreferred = true;
+      action.diagnostics = [diagnostic];
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.replace(
+        document.uri,
+        new vscode.Range(line.lineNumber, range.valueStart, line.lineNumber, range.valueEnd),
+        "linear"
+      );
+      actions.push(action);
+    }
+  }
+
+  if (
+    message.includes("supports `normal` and `uniform`") &&
+    stripLineComment(line.text).includes("distribution(")
+  ) {
+    const range = namedArgumentValueRange(line.text, ["kind"]);
+    if (range) {
+      const action = new vscode.CodeAction(
+        "Set distribution kind to normal",
+        vscode.CodeActionKind.QuickFix
+      );
+      action.isPreferred = true;
+      action.diagnostics = [diagnostic];
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.replace(
+        document.uri,
+        new vscode.Range(line.lineNumber, range.valueStart, line.lineNumber, range.valueEnd),
+        "normal"
+      );
+      actions.push(action);
+    }
+  }
+
+  if (message.includes("between 1 and 256")) {
+    const range = namedArgumentValueRange(line.text, ["samples", "n"]);
+    if (range) {
+      const action = new vscode.CodeAction(
+        "Set uncertainty samples to 31",
+        vscode.CodeActionKind.QuickFix
+      );
+      action.isPreferred = true;
+      action.diagnostics = [diagnostic];
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.replace(
+        document.uri,
+        new vscode.Range(line.lineNumber, range.valueStart, line.lineNumber, range.valueEnd),
+        "31"
+      );
+      actions.push(action);
+    }
+  }
+
+  return actions;
+}
+
+function uncertaintyCallExampleFromDiagnostic(message) {
+  const pattern = /`([^`]+)`/g;
+  let match;
+  while ((match = pattern.exec(String(message ?? ""))) !== null) {
+    const candidate = match[1].trim();
+    if (/^(measured|interval|normal|uniform|distribution|propagate)\s*\(.*\)$/.test(candidate)) {
+      return candidate;
+    }
+  }
+  return undefined;
+}
+
+function uncertaintyCallRangeOnLine(lineText) {
+  const code = stripLineComment(lineText);
+  for (const call of ["measured", "interval", "normal", "uniform", "distribution", "propagate"]) {
+    let searchStart = 0;
+    while (searchStart < code.length) {
+      const start = code.indexOf(call, searchStart);
+      if (start < 0) {
+        break;
+      }
+      const afterName = start + call.length;
+      if (identifierBoundary(code, start, afterName)) {
+        let open = afterName;
+        while (open < code.length && /\s/.test(code[open])) {
+          open += 1;
+        }
+        if (code[open] === "(") {
+          const close = matchingCloseParenIndex(code, open);
+          if (close !== undefined) {
+            return { start, end: close + 1 };
+          }
+        }
+      }
+      searchStart = afterName;
+    }
+  }
+  return undefined;
+}
+
+function namedArgumentValueRange(lineText, names) {
+  const code = stripLineComment(lineText);
+  for (const name of names) {
+    const pattern = new RegExp(`(^|[^A-Za-z0-9_])(${escapeRegExp(name)})(\\s*=\\s*)`, "g");
+    let match;
+    while ((match = pattern.exec(code)) !== null) {
+      const nameStart = match.index + match[1].length;
+      const valueStart = nameStart + name.length + match[3].length;
+      let valueEnd = valueStart;
+      while (valueEnd < code.length && code[valueEnd] !== "," && code[valueEnd] !== ")") {
+        valueEnd += 1;
+      }
+      while (valueEnd > valueStart && /\s/.test(code[valueEnd - 1])) {
+        valueEnd -= 1;
+      }
+      if (valueEnd > valueStart) {
+        return { optionName: name, valueStart, valueEnd };
+      }
+    }
+  }
+  return undefined;
+}
+
+function matchingCloseParenIndex(text, openIndex) {
+  let depth = 0;
+  for (let index = openIndex; index < text.length; index += 1) {
+    if (text[index] === "(") {
+      depth += 1;
+    } else if (text[index] === ")") {
+      depth -= 1;
+      if (depth === 0) {
+        return index;
+      }
+    }
+  }
+  return undefined;
+}
+
+function identifierBoundary(text, start, end) {
+  const before = start > 0 ? text[start - 1] : undefined;
+  const after = end < text.length ? text[end] : undefined;
+  return !isIdentifierCharacter(before) && !isIdentifierCharacter(after);
+}
+
+function isIdentifierCharacter(value) {
+  return typeof value === "string" && /^[A-Za-z0-9_]$/.test(value);
 }
 
 function commandTargetParenthesesAction(document, diagnostic) {

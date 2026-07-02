@@ -31,9 +31,10 @@ embedding compiler logic in JavaScript.
   missing-unit suffix fixes for unit arithmetic diagnostics, command target
   parenthesizing, schema column annotation migrations, required file-mutation
   `with` options, invalid network retry/timeout/body-size policies, pinned
-  response SHA-256 mismatches, sampling seed values, and missing repro-profile
-  sampling seeds. LSP-backed quick fixes are shown first and merged with local
-  fallback repairs so partial LSP responses do not hide available fixes.
+  response SHA-256 mismatches, sampling seed values, missing repro-profile
+  sampling seeds, and uncertainty constructor argument repairs. LSP-backed
+  quick fixes are shown first and merged with local fallback repairs so partial
+  LSP responses do not hide available fixes.
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open current-file review data,
   open the latest generated report, and inspect last-run review data, result
@@ -136,7 +137,9 @@ diagnostics limited to open/save/manual checks.
 Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid
 network/process options such as retry, timeout, body-size, and allow-failure
-values.
+values. Uncertainty argument diagnostics can also repair common constructor
+mistakes such as unsupported distribution kind, unsupported propagation method,
+invalid sample count, and missing `normal(...)` arguments.
 
 Hover is computed from the current unsaved buffer, so quantity, unit, kind, and
 status details stay aligned with live diagnostics and semantic highlighting.

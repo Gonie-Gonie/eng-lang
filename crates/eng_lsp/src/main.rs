@@ -676,6 +676,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-OPTION-001" => {
             optional_code_action(lsp_with_option_rename_code_action(uri, text, diagnostic))
         }
+        code if code.starts_with("E-UNC-ARGS-") => {
+            lsp_uncertainty_argument_code_actions(uri, text, diagnostic)
+        }
         "E-CMD-AMBIG-001" => optional_code_action(lsp_parenthesize_command_target_code_action(
             uri, text, diagnostic,
         )),
@@ -1320,6 +1323,218 @@ fn unknown_with_option_name(message: &str) -> Option<&str> {
     let (_, after_marker) = message.split_once("Unknown with option `")?;
     let (option, _) = after_marker.split_once('`')?;
     Some(option.trim())
+}
+
+fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let message = diagnostic_message(diagnostic);
+    let mut actions = Vec::new();
+
+    if let Some(example) = uncertainty_call_example_from_diagnostic(message) {
+        if let Some((start_byte, end_byte)) = uncertainty_call_range_on_line(line) {
+            actions.push(json!({
+                "title": format!("Replace uncertainty call with {example}"),
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    line_byte_range(line_number, line, start_byte, end_byte),
+                    example
+                )
+            }));
+        }
+    }
+
+    if message.contains("method=linear") {
+        if let Some(range) = named_argument_value_range(line, &["method"]) {
+            actions.push(json!({
+                "title": "Set uncertainty method to linear",
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    line_byte_range(line_number, line, range.value_start, range.value_end),
+                    "linear"
+                )
+            }));
+        }
+    }
+
+    if message.contains("supports `normal` and `uniform`")
+        && strip_line_comment(line).contains("distribution(")
+    {
+        if let Some(range) = named_argument_value_range(line, &["kind"]) {
+            actions.push(json!({
+                "title": "Set distribution kind to normal",
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    line_byte_range(line_number, line, range.value_start, range.value_end),
+                    "normal"
+                )
+            }));
+        }
+    }
+
+    if message.contains("between 1 and 256") {
+        if let Some(range) = named_argument_value_range(line, &["samples", "n"]) {
+            actions.push(json!({
+                "title": "Set uncertainty samples to 31",
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    line_byte_range(line_number, line, range.value_start, range.value_end),
+                    "31"
+                )
+            }));
+        }
+    }
+
+    actions
+}
+
+fn uncertainty_call_example_from_diagnostic(message: &str) -> Option<&str> {
+    for payload in backtick_payloads(message) {
+        let candidate = payload.trim();
+        if candidate.ends_with(')')
+            && [
+                "measured(",
+                "interval(",
+                "normal(",
+                "uniform(",
+                "distribution(",
+                "propagate(",
+            ]
+            .iter()
+            .any(|prefix| candidate.starts_with(prefix))
+        {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
+fn uncertainty_call_range_on_line(line: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    for call in [
+        "measured",
+        "interval",
+        "normal",
+        "uniform",
+        "distribution",
+        "propagate",
+    ] {
+        let mut search_start = 0usize;
+        while search_start < code.len() {
+            let Some(relative_start) = code[search_start..].find(call) else {
+                break;
+            };
+            let start = search_start + relative_start;
+            let after_name = start + call.len();
+            if identifier_boundary(code, start, after_name) {
+                let whitespace = code[after_name..]
+                    .chars()
+                    .take_while(|character| character.is_whitespace())
+                    .map(char::len_utf8)
+                    .sum::<usize>();
+                let open = after_name + whitespace;
+                if code.as_bytes().get(open) == Some(&b'(') {
+                    let close = matching_close_paren_byte(code, open)?;
+                    return Some((start, close + 1));
+                }
+            }
+            search_start = after_name;
+        }
+    }
+    None
+}
+
+fn named_argument_value_range(line: &str, names: &[&str]) -> Option<OptionAssignmentRange> {
+    let code = strip_line_comment(line);
+    let mut index = 0usize;
+    while index < code.len() {
+        for name in names {
+            let end_name = index + name.len();
+            if end_name > code.len()
+                || !code[index..].starts_with(name)
+                || !identifier_boundary(code, index, end_name)
+            {
+                continue;
+            }
+            let mut cursor = end_name;
+            while cursor < code.len() && code.as_bytes()[cursor].is_ascii_whitespace() {
+                cursor += 1;
+            }
+            if code.as_bytes().get(cursor) != Some(&b'=') {
+                continue;
+            }
+            cursor += 1;
+            while cursor < code.len() && code.as_bytes()[cursor].is_ascii_whitespace() {
+                cursor += 1;
+            }
+            let value_start = cursor;
+            while cursor < code.len() && !matches!(code.as_bytes()[cursor], b',' | b')') {
+                cursor += 1;
+            }
+            let value_end = value_start + code[value_start..cursor].trim_end().len();
+            if value_end > value_start {
+                return Some(OptionAssignmentRange {
+                    option_name: (*name).to_owned(),
+                    value_start,
+                    value_end,
+                });
+            }
+        }
+        let Some((next_index, _)) = code[index..].char_indices().nth(1) else {
+            break;
+        };
+        index += next_index;
+    }
+    None
+}
+
+fn matching_close_paren_byte(text: &str, open_byte: usize) -> Option<usize> {
+    let mut depth = 0usize;
+    for (index, character) in text[open_byte..].char_indices() {
+        let byte_index = open_byte + index;
+        match character {
+            '(' => depth += 1,
+            ')' => {
+                depth = depth.checked_sub(1)?;
+                if depth == 0 {
+                    return Some(byte_index);
+                }
+            }
+            _ => {}
+        }
+    }
+    None
+}
+
+fn identifier_boundary(text: &str, start: usize, end: usize) -> bool {
+    let before = if start == 0 {
+        None
+    } else {
+        text[..start].chars().next_back()
+    };
+    let after = text[end..].chars().next();
+    before.is_none_or(|character| !is_identifier_character(character))
+        && after.is_none_or(|character| !is_identifier_character(character))
+}
+
+fn is_identifier_character(character: char) -> bool {
+    character.is_ascii_alphanumeric() || character == '_'
 }
 
 fn lsp_parenthesize_command_target_code_action(

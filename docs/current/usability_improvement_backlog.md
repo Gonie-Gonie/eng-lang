@@ -3727,6 +3727,18 @@ names from component behavior and solver-preview artifacts.
 - Added an IDE contract guard that rejects the legacy behavior status keys in
   the UI label mapper.
 
+## Batch 301: Uncertainty Argument Quick Fixes
+
+Status: implemented to reduce VS Code/LSP linter friction for uncertainty
+constructor mistakes used by the native uncertainty workflow path.
+
+- Added LSP-owned quick fixes for `E-UNC-ARGS-*` diagnostics that replace
+  malformed uncertainty calls with compiler-provided examples when available.
+- Added targeted repairs for unsupported `distribution(kind=...)`, unsupported
+  `propagate(method=...)`, and invalid `samples`/`n` values.
+- Mirrored the same repairs in the VS Code local quick-fix fallback and
+  extended contract coverage so LSP/local quick-fix parity does not drift.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

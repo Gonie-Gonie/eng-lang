@@ -756,6 +756,12 @@ with {
     x = uniform(0, 1)
 }
 
+Q_bad_normal = normal()
+Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
+Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
+Q_prop_source = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_bad_propagation = propagate(Q_prop_source, method=monte_carlo, scale=1.0)
+
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -827,6 +833,9 @@ report {
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-SEED-INVALID",
         "E-WITH-OPTION-001",
+        "E-UNC-ARGS-001",
+        "E-UNC-ARGS-002",
+        "E-UNC-ARGS-003",
     ] {
         assert!(
             diagnostics
@@ -952,6 +961,15 @@ report {
     );
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Replace uncertainty call with normal(mean=5 kW, std=0.8 kW, samples=31)",
+        "normal(mean=5 kW, std=0.8 kW, samples=31)",
+    );
+    assert_action_edit(actions, &uri, "Set distribution kind to normal", "normal");
+    assert_action_edit(actions, &uri, "Set uncertainty samples to 31", "31");
+    assert_action_edit(actions, &uri, "Set uncertainty method to linear", "linear");
     assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
     assert_action_edit(
         actions,
@@ -1012,6 +1030,12 @@ with {
     seed = later
     x = uniform(0, 1)
 }
+
+Q_bad_normal = normal()
+Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
+Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
+Q_prop_source = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_bad_propagation = propagate(Q_prop_source, method=monte_carlo, scale=1.0)
 
 Q_plot: HeatRate [kW] = 1 kW
 report {
@@ -1075,6 +1099,15 @@ report {
         "true",
     );
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Replace uncertainty call with normal(mean=5 kW, std=0.8 kW, samples=31)",
+        "normal(mean=5 kW, std=0.8 kW, samples=31)",
+    );
+    assert_action_edit(actions, &uri, "Set distribution kind to normal", "normal");
+    assert_action_edit(actions, &uri, "Set uncertainty samples to 31", "31");
+    assert_action_edit(actions, &uri, "Set uncertainty method to linear", "linear");
     assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
     assert_action_edit(
         actions,
