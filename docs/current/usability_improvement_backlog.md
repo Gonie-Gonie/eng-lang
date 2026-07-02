@@ -2514,6 +2514,18 @@ imports.
 - Added an LSP stdio regression test for `use eng.net` navigation to the
   bundled `stdlib/eng/net.eng` module declaration.
 
+## Batch 205: LSP Workspace Symbol Search
+
+Status: implemented for persistent LSP clients that need workspace-wide symbol
+lookup.
+
+- Advertised `workspaceSymbolProvider` from the stdio LSP server.
+- Added `workspace/symbol` handling over open documents plus `.eng` files under
+  initialized workspace roots, with bounded scanning and skipped generated/tool
+  directories.
+- Added an LSP stdio regression test that finds an unopened `.eng` file's
+  schema symbol through `rootUri` workspace search.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -1415,6 +1415,99 @@ fn definition_stdin_follows_stdlib_modules() {
 }
 
 #[test]
+fn stdio_workspace_symbol_searches_workspace_roots() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let workspace_root = repo_root().join("build/editor-tests/workspace_symbols");
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+    let source_path = workspace_root.join("symbols.eng");
+    std::fs::write(
+        &source_path,
+        "schema WorkspaceThing {\n    value: Float\n}\n\nworkspace_value = 1\n",
+    )
+    .expect("workspace symbol source should be writable");
+    let root_uri = file_uri(
+        &workspace_root
+            .canonicalize()
+            .expect("workspace root should exist"),
+    );
+    let source_uri = file_uri(
+        &source_path
+            .canonicalize()
+            .expect("workspace source should exist"),
+    );
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "rootUri": root_uri
+            }
+        }),
+    );
+    let initialize = read_message(&mut stdout);
+    assert_eq!(initialize["id"], 1);
+    assert_eq!(
+        initialize["result"]["capabilities"]["workspaceSymbolProvider"],
+        true
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "workspace/symbol",
+            "params": {
+                "query": "WorkspaceThing"
+            }
+        }),
+    );
+    let workspace_symbols = read_message(&mut stdout);
+    assert_eq!(workspace_symbols["id"], 2);
+    let symbols = workspace_symbols["result"]
+        .as_array()
+        .expect("workspace symbols should be an array");
+    assert!(symbols.iter().any(|symbol| {
+        symbol["name"] == "WorkspaceThing" && symbol["location"]["uri"] == source_uri
+    }));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "shutdown"
+        }),
+    );
+    let shutdown = read_message(&mut stdout);
+    assert_eq!(shutdown["id"], 3);
+    assert!(shutdown["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    let status = child.wait().expect("eng-lsp should exit");
+    assert!(status.success());
+}
+
+#[test]
 fn editor_metadata_cli_exports_editor_contract() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let output = Command::new(server)

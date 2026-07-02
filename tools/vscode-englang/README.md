@@ -168,10 +168,13 @@ rules. JavaScript does not maintain a separate indentation or block-formatting
 implementation.
 
 Go-to-definition asks `eng-lsp --definition-stdin` about the current unsaved
-buffer, so static file imports can resolve to their imported source files. If
-live definition lookup is unavailable, the extension falls back to document
-symbols from the current buffer for top-level symbols and nested symbols such as
-schema fields, class fields, component ports, and object members.
+buffer, so static file imports and bundled `use eng.<module>` imports can
+resolve to their source files. If live definition lookup is unavailable, the
+extension falls back to document symbols from the current buffer for top-level
+symbols and nested symbols such as schema fields, class fields, component
+ports, and object members. Persistent LSP clients can also call
+`workspace/symbol` to search symbols from open documents and `.eng` files under
+the initialized workspace roots.
 
 ## Grammar Maintenance
 

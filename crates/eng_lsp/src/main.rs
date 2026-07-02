@@ -347,6 +347,7 @@ fn run_lsp() -> io::Result<()> {
     let mut input = io::stdin().lock();
     let mut output = io::stdout().lock();
     let mut documents = HashMap::<String, String>::new();
+    let mut workspace_roots = Vec::<PathBuf>::new();
 
     while let Some(message) = read_lsp_message(&mut input)? {
         let request = match serde_json::from_str::<Value>(&message) {
@@ -368,6 +369,7 @@ fn run_lsp() -> io::Result<()> {
 
         match method {
             "initialize" => {
+                workspace_roots = workspace_roots_from_initialize(&request);
                 let legend = semantic_legend();
                 write_response(
                     &mut output,
@@ -380,6 +382,7 @@ fn run_lsp() -> io::Result<()> {
                                 "hoverProvider": true,
                                 "definitionProvider": true,
                                 "documentSymbolProvider": true,
+                                "workspaceSymbolProvider": true,
                                 "foldingRangeProvider": true,
                                 "documentFormattingProvider": true,
                                 "completionProvider": {
@@ -483,6 +486,13 @@ fn run_lsp() -> io::Result<()> {
                 let symbols = snapshot_for_request(&request, &documents)
                     .map(|snapshot| document_symbols_lsp_json(&snapshot.document_symbols))
                     .unwrap_or_else(|| json!([]));
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": symbols }),
+                )?;
+            }
+            "workspace/symbol" => {
+                let symbols = workspace_symbols_for_request(&request, &documents, &workspace_roots);
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": symbols }),
@@ -1561,6 +1571,184 @@ fn snapshot_for_request(
         .cloned()
         .or_else(|| std::fs::read_to_string(&path).ok())?;
     Some(snapshot_for_source(&path, &text))
+}
+
+const MAX_WORKSPACE_SYMBOL_FILES: usize = 500;
+const MAX_WORKSPACE_SYMBOL_RESULTS: usize = 200;
+
+fn workspace_roots_from_initialize(request: &Value) -> Vec<PathBuf> {
+    let mut roots = Vec::new();
+    if let Some(uri) = request.pointer("/params/rootUri").and_then(Value::as_str) {
+        if let Some(path) = path_from_uri(uri) {
+            roots.push(path);
+        }
+    }
+    if let Some(folders) = request
+        .pointer("/params/workspaceFolders")
+        .and_then(Value::as_array)
+    {
+        for folder in folders {
+            let Some(uri) = folder.get("uri").and_then(Value::as_str) else {
+                continue;
+            };
+            let Some(path) = path_from_uri(uri) else {
+                continue;
+            };
+            if !roots.contains(&path) {
+                roots.push(path);
+            }
+        }
+    }
+    roots
+}
+
+fn workspace_symbols_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+    workspace_roots: &[PathBuf],
+) -> Vec<Value> {
+    let query = request
+        .pointer("/params/query")
+        .and_then(Value::as_str)
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    let mut results = Vec::new();
+    let mut seen = HashSet::<(String, usize, String)>::new();
+
+    for (uri, source) in documents {
+        if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
+            break;
+        }
+        let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
+        push_workspace_symbols_from_source(uri, &path, source, &query, &mut results, &mut seen);
+    }
+
+    let mut files = Vec::new();
+    for root in workspace_roots {
+        collect_workspace_eng_files(root, &mut files, MAX_WORKSPACE_SYMBOL_FILES);
+        if files.len() >= MAX_WORKSPACE_SYMBOL_FILES {
+            break;
+        }
+    }
+    for path in files {
+        if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
+            break;
+        }
+        let canonical = path.canonicalize().unwrap_or(path);
+        let uri = file_uri_from_path(&canonical);
+        if documents.contains_key(&uri) {
+            continue;
+        }
+        let Ok(source) = std::fs::read_to_string(&canonical) else {
+            continue;
+        };
+        push_workspace_symbols_from_source(
+            &uri,
+            &canonical,
+            &source,
+            &query,
+            &mut results,
+            &mut seen,
+        );
+    }
+
+    results
+}
+
+fn push_workspace_symbols_from_source(
+    uri: &str,
+    path: &Path,
+    source: &str,
+    query: &str,
+    results: &mut Vec<Value>,
+    seen: &mut HashSet<(String, usize, String)>,
+) {
+    let snapshot = snapshot_for_source(path, source);
+    push_workspace_symbols_from_document_symbols(
+        uri,
+        &snapshot.document_symbols,
+        query,
+        results,
+        seen,
+    );
+}
+
+fn push_workspace_symbols_from_document_symbols(
+    uri: &str,
+    symbols: &[eng_lsp::LspDocumentSymbol],
+    query: &str,
+    results: &mut Vec<Value>,
+    seen: &mut HashSet<(String, usize, String)>,
+) {
+    for symbol in symbols {
+        if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
+            return;
+        }
+        if workspace_symbol_matches(symbol, query)
+            && seen.insert((uri.to_owned(), symbol.line, symbol.name.clone()))
+        {
+            results.push(workspace_symbol_json(uri, symbol));
+        }
+        push_workspace_symbols_from_document_symbols(uri, &symbol.children, query, results, seen);
+    }
+}
+
+fn workspace_symbol_matches(symbol: &eng_lsp::LspDocumentSymbol, query: &str) -> bool {
+    query.is_empty()
+        || symbol.name.to_ascii_lowercase().contains(query)
+        || symbol.detail.to_ascii_lowercase().contains(query)
+}
+
+fn workspace_symbol_json(uri: &str, symbol: &eng_lsp::LspDocumentSymbol) -> Value {
+    json!({
+        "name": symbol.name,
+        "kind": symbol.kind,
+        "location": {
+            "uri": uri,
+            "range": {
+                "start": { "line": symbol.line, "character": symbol.character },
+                "end": { "line": symbol.end_line, "character": symbol.end_character }
+            }
+        },
+        "containerName": symbol.detail
+    })
+}
+
+fn collect_workspace_eng_files(root: &Path, files: &mut Vec<PathBuf>, limit: usize) {
+    if files.len() >= limit {
+        return;
+    }
+    let Ok(metadata) = std::fs::metadata(root) else {
+        return;
+    };
+    if metadata.is_file() {
+        if root.extension().is_some_and(|extension| extension == "eng") {
+            files.push(root.to_path_buf());
+        }
+        return;
+    }
+    if !metadata.is_dir() || skip_workspace_symbol_dir(root) {
+        return;
+    }
+    let Ok(entries) = std::fs::read_dir(root) else {
+        return;
+    };
+    for entry in entries.flatten() {
+        if files.len() >= limit {
+            break;
+        }
+        collect_workspace_eng_files(&entry.path(), files, limit);
+    }
+}
+
+fn skip_workspace_symbol_dir(path: &Path) -> bool {
+    let Some(name) = path.file_name().and_then(|name| name.to_str()) else {
+        return false;
+    };
+    matches!(
+        name,
+        ".git" | ".vscode" | "target" | "dist" | "node_modules" | "__pycache__"
+    )
 }
 
 fn completions_for_request(
