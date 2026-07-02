@@ -3603,6 +3603,18 @@ Status: implemented to make the right sidebar match the intended review flow.
 - Updated user docs and `ide-check` contract coverage so future UI edits do
   not accidentally bury the primary review path behind advanced panels.
 
+## Batch 292: Native IDE Bracket Pair Editing
+
+Status: implemented to align native IDE textarea editing with the VS Code
+language configuration basics.
+
+- Added native IDE auto-closing and selection wrapping for `{}`, `[]`, `()`,
+  and `"` pairs.
+- Added closing-pair skip and empty-pair Backspace deletion so pair editing
+  behaves predictably during repeated edits.
+- Added `}` on-type indentation for blank indented lines, plus docs and
+  `ide-check` contract coverage for the new editor helpers.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

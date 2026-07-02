@@ -3,6 +3,8 @@ const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
 const EDITOR_INDENT = "  ";
+const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
+const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
 const FALLBACK_LEXICAL_KEYWORDS = [
   "use", "import", "from", "as", "schema", "class", "system", "component", "domain",
   "args", "report", "test", "where", "with", "on", "const", "fn", "method",
@@ -3914,6 +3916,9 @@ function handleEditorKeyDown(event) {
     drawCompletionOverlay();
     return;
   }
+  if (handleEditorPairKey(event, editor)) {
+    return;
+  }
   if (event.key === "Tab") {
     event.preventDefault();
     if (event.shiftKey) outdentEditorSelection(editor);
@@ -3955,6 +3960,80 @@ function outdentEditorSelection(editor) {
   const lines = splitTextLines(source.slice(range.start, range.end));
   const changed = lines.map((line) => ({ ...line, text: outdentLine(line.text) }));
   applyLineBlockEdit(editor, range, lines, changed);
+}
+
+function handleEditorPairKey(event, editor) {
+  if (event.ctrlKey || event.metaKey || event.altKey) return false;
+  if (event.key === "Backspace") {
+    const handled = deleteEmptyEditorPair(editor);
+    if (handled) event.preventDefault();
+    return handled;
+  }
+  if (event.key === "}" && insertClosingBraceWithIndent(editor)) {
+    event.preventDefault();
+    return true;
+  }
+  if (EDITOR_PAIR_OPEN[event.key] && skipEditorClosingPair(editor, event.key)) {
+    event.preventDefault();
+    return true;
+  }
+  if (EDITOR_PAIR_CLOSE[event.key]) {
+    event.preventDefault();
+    insertEditorPair(editor, event.key, EDITOR_PAIR_CLOSE[event.key]);
+    return true;
+  }
+  return false;
+}
+
+function insertEditorPair(editor, open, close) {
+  const start = Math.min(editor.selectionStart, editor.selectionEnd);
+  const end = Math.max(editor.selectionStart, editor.selectionEnd);
+  const selectedText = editor.value.slice(start, end);
+  replaceEditorRange(
+    editor,
+    start,
+    end,
+    `${open}${selectedText}${close}`,
+    start + open.length,
+    start + open.length + selectedText.length
+  );
+}
+
+function skipEditorClosingPair(editor, close) {
+  if (editor.selectionStart !== editor.selectionEnd) return false;
+  const cursor = editor.selectionStart;
+  if (editor.value[cursor] !== close) return false;
+  editor.selectionStart = cursor + close.length;
+  editor.selectionEnd = cursor + close.length;
+  hideCompletions();
+  updateCursorInsight();
+  return true;
+}
+
+function deleteEmptyEditorPair(editor) {
+  if (editor.selectionStart !== editor.selectionEnd) return false;
+  const cursor = editor.selectionStart;
+  if (cursor <= 0) return false;
+  const open = editor.value[cursor - 1];
+  const close = editor.value[cursor];
+  if (EDITOR_PAIR_CLOSE[open] !== close) return false;
+  replaceEditorRange(editor, cursor - 1, cursor + close.length, "", cursor - 1, cursor - 1);
+  return true;
+}
+
+function insertClosingBraceWithIndent(editor) {
+  if (editor.selectionStart !== editor.selectionEnd) return false;
+  const source = editor.value;
+  const cursor = editor.selectionStart;
+  if (source[cursor] === "}") return false;
+  const lineStart = lineStartOffset(source, cursor);
+  const beforeLine = source.slice(lineStart, cursor);
+  if (!/^\s*$/.test(beforeLine)) return false;
+  const nextBeforeLine = outdentLine(beforeLine);
+  const insertText = `${nextBeforeLine}}`;
+  const nextCursor = lineStart + insertText.length;
+  replaceEditorRange(editor, lineStart, cursor, insertText, nextCursor, nextCursor);
+  return true;
 }
 
 function insertEditorNewlineWithIndent(editor) {
