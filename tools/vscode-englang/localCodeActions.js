@@ -91,6 +91,13 @@ function localCodeActions(document, context) {
         actions.push(confidenceAction);
       }
     }
+    if (code === "E-CMD-AMBIG-001") {
+      const action = commandTargetParenthesesAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
     if (optionAction) {
       optionAction.isPreferred = true;
@@ -419,6 +426,58 @@ function withOptionRenameAction(document, diagnostic, fix) {
 function unknownWithOptionName(message) {
   const match = /Unknown with option `([^`]+)`/.exec(String(message ?? ""));
   return match?.[1]?.trim();
+}
+
+function commandTargetParenthesesAction(document, diagnostic) {
+  const message = String(diagnostic.message ?? "");
+  if (!message.includes("ambiguous without parentheses")) {
+    return undefined;
+  }
+  const target = commandTargetFromDiagnostic(message);
+  if (!target || target.startsWith("(")) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const startCharacter = code.indexOf(target);
+  if (startCharacter < 0) {
+    return undefined;
+  }
+  const endCharacter = startCharacter + target.length;
+  const before = firstNonWhitespaceFromRight(code.slice(0, startCharacter));
+  const after = firstNonWhitespace(code.slice(endCharacter));
+  if (before === "(" && after === ")") {
+    return undefined;
+  }
+
+  const action = new vscode.CodeAction("Parenthesize command target", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, endCharacter),
+    `(${target})`
+  );
+  return action;
+}
+
+function commandTargetFromDiagnostic(message) {
+  return /Command target `([^`]+)` is ambiguous without parentheses\./
+    .exec(String(message ?? ""))?.[1]?.trim();
+}
+
+function firstNonWhitespace(text) {
+  return String(text ?? "").match(/\S/)?.[0];
+}
+
+function firstNonWhitespaceFromRight(text) {
+  const chars = Array.from(String(text ?? ""));
+  for (let index = chars.length - 1; index >= 0; index -= 1) {
+    if (/\S/.test(chars[index])) {
+      return chars[index];
+    }
+  }
+  return undefined;
 }
 
 function optionAssignmentRange(lineText, optionNames) {

@@ -710,6 +710,9 @@ fn stdio_code_actions_offer_linter_quick_fixes() {
     std::fs::write(&fixture_path, "{\"ok\":true}\n").expect("fixture should be writable");
     let source = r#"power = 10 kW
 Q_total = 10 + 2 kW
+Q1 = 1 kW
+Q2 = 2 kW
+E_total = integrate Q1 + Q2 over Time
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -810,6 +813,7 @@ report {
     for code in [
         "W-QTY-AMBIG-001",
         "E-DIM-ADD-002",
+        "E-CMD-AMBIG-001",
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
@@ -897,6 +901,7 @@ report {
         "power: HeatRate [kW] =",
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
+    assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
     assert_action_edit(
         actions,
         &uri,
@@ -984,6 +989,9 @@ fn code_actions_stdin_returns_linter_quick_fixes_for_unsaved_source() {
     let uri = file_uri(&source_path);
     let source = r#"power = 10 kW
 Q_total = 10 + 2 kW
+Q1 = 1 kW
+Q2 = 2 kW
+E_total = integrate Q1 + Q2 over Time
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -1049,6 +1057,7 @@ report {
         "power: HeatRate [kW] =",
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
+    assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
     assert_action_edit(
         actions,
         &uri,

@@ -676,6 +676,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-OPTION-001" => {
             optional_code_action(lsp_with_option_rename_code_action(uri, text, diagnostic))
         }
+        "E-CMD-AMBIG-001" => optional_code_action(lsp_parenthesize_command_target_code_action(
+            uri, text, diagnostic,
+        )),
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
             text,
@@ -1314,6 +1317,48 @@ fn unknown_with_option_name(message: &str) -> Option<&str> {
     let (_, after_marker) = message.split_once("Unknown with option `")?;
     let (option, _) = after_marker.split_once('`')?;
     Some(option.trim())
+}
+
+fn lsp_parenthesize_command_target_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let message = diagnostic_message(diagnostic);
+    if !message.contains("ambiguous without parentheses") {
+        return None;
+    }
+    let target = first_backtick_payload(message)?.trim();
+    if target.is_empty() || target.starts_with('(') {
+        return None;
+    }
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let start_byte = code.find(target)?;
+    let end_byte = start_byte + target.len();
+    let before = code[..start_byte]
+        .chars()
+        .rev()
+        .find(|character| !character.is_whitespace());
+    let after = code[end_byte..]
+        .chars()
+        .find(|character| !character.is_whitespace());
+    if before == Some('(') && after == Some(')') {
+        return None;
+    }
+    let replacement = format!("({target})");
+    Some(json!({
+        "title": "Parenthesize command target",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            &replacement
+        )
+    }))
 }
 
 fn expected_sha256_from_diagnostic(diagnostic: &Value) -> Option<String> {
