@@ -8,6 +8,7 @@ the files that keep VS Code and the native IDE aligned.
 
 | Surface | Source |
 | --- | --- |
+| VS Code language configuration | `tools/vscode-englang/language-configuration.json` |
 | TextMate fallback grammar | `tools/vscode-englang/syntaxes/eng.tmLanguage.source.json` |
 | Generated TextMate grammar | `tools/vscode-englang/syntaxes/eng.tmLanguage.json` |
 | Semantic token legend | `eng-lsp --editor-metadata` |

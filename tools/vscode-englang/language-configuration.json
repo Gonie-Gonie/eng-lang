@@ -11,6 +11,10 @@
       }
     }
   ],
+  "indentationRules": {
+    "increaseIndentPattern": "^.*\\{\\s*(#.*)?$",
+    "decreaseIndentPattern": "^\\s*\\}"
+  },
   "brackets": [
     ["{", "}"],
     ["[", "]"],

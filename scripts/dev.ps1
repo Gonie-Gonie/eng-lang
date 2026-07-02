@@ -1900,6 +1900,12 @@ function Assert-VscodeExtensionContract {
     if ($LanguageConfiguration.comments.lineComment -ne "#") {
         throw "VS Code extension language configuration must keep # as line comment"
     }
+    if ($LanguageConfiguration.indentationRules.increaseIndentPattern -ne '^.*\{\s*(#.*)?$') {
+        throw "VS Code extension language configuration must indent after block openers"
+    }
+    if ($LanguageConfiguration.indentationRules.decreaseIndentPattern -ne '^\s*\}') {
+        throw "VS Code extension language configuration must outdent block closers"
+    }
     foreach ($RequiredVscodeInstallPattern in @(
         '(?m)^\s+"vscode-package"\s*\{\s*Invoke-VscodePackage\s*\}',
         '(?m)^\s+"vscode-install"\s*\{\s*Invoke-VscodeInstall\s*\}',

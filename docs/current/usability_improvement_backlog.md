@@ -2255,6 +2255,17 @@ first-class EngLang blocks in VS Code fallback highlighting.
 - Added grammar fixture coverage for a table `filter` followed by a `where`
   condition block, matching workflow 01/02 and command-style examples.
 
+## Batch 185: VS Code Block Indentation Rules
+
+Status: implemented to improve editing ergonomics for EngLang block syntax in
+the local VS Code extension.
+
+- Added VS Code language-configuration indentation rules so lines ending in
+  `{` increase indentation and standalone `}` decreases indentation.
+- Extended `ide-check` to require the indentation contract alongside the
+  existing `#` comment and `///` continuation checks.
+- Documented `language-configuration.json` as an editor source of truth.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
