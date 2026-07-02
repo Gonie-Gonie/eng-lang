@@ -1421,9 +1421,11 @@ also include nominal left/right time steps, irregular-axis flags, and a
 `step_status` of `matched`, `mismatch`, or `unavailable`. Explicit
 `align <series> with <series>` and `resample <series> to <series>` hooks add
 binding, strategy, method, optional resample step, tolerance, and source line to
-the same artifact collection. Runtime report specs also include `time_axes`
-entries with source column, range, count, nominal step, missing count, and
-irregular-axis status per promoted table. RMSE metrics record their
+the same artifact collection. `align` also accepts `to`, and `resample` also
+accepts `with`; the examples above are the preferred spellings. Runtime report
+specs also include `time_axes` entries with source column, range, count, nominal
+step, missing count, and irregular-axis status per promoted table. RMSE metrics
+record their
 `alignment_reference`, `alignment_status`, and `alignment_step_status` when a
 corresponding TimeSeries alignment artifact exists.
 

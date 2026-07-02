@@ -3849,6 +3849,18 @@ Status: implemented to align the native table API with the VS Code grammar.
 - Added a VS Code grammar fixture expectation and reference docs wording so the
   highlighted `column` keyword is not only an editor-only affordance.
 
+## Batch 311: TimeSeries Alignment Alias Highlighting Parity
+
+Status: implemented to reduce valid-but-dim TimeSeries workflow phrases.
+
+- Extended TextMate phrase scopes so accepted `align <series> to <series>` and
+  `resample <series> with <series>` aliases receive the same workflow coloring
+  as the preferred `align ... with ...` and `resample ... to ...` forms.
+- Added compiler/runtime regression coverage showing the aliases lower to native
+  TimeSeries alignment commands and materialize review/result artifacts.
+- Updated reference and editor-scope docs to distinguish preferred spellings
+  from accepted aliases.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -99,7 +99,7 @@ Current workflow phrase scopes:
 | --- | --- |
 | `meta.workflow.apply-call.englang` | `apply(<step>, over=<table>)` |
 | `meta.workflow.apply-step.englang` | `apply <step> over <table>` |
-| `meta.workflow.align-series.englang` | `align <series> with <series>` |
+| `meta.workflow.align-series.englang` | `align <series> with <series>` or `align <series> to <series>` |
 | `meta.workflow.check-coverage.englang` | `check coverage <series>` |
 | `meta.workflow.collect-results.englang` | `collect results <table>` |
 | `meta.workflow.db-write.englang` | `write <table> to <db>.table("<name>")` |
@@ -132,7 +132,7 @@ Current workflow phrase scopes:
 | `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads. Use `promote csv <source> as <schema>` for CSV tables. |
 | `meta.workflow.regression-table.englang` | Legacy `regression_table(<table>, target=..., features=..., ...)` table-model training calls. |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
-| `meta.workflow.resample-series.englang` | `resample <series> to <series>` |
+| `meta.workflow.resample-series.englang` | `resample <series> to <series>` or `resample <series> with <series>` |
 | `meta.workflow.render-template.englang` | `render template <source>` |
 | `meta.workflow.return-statement.englang` | `return <value>` function return lines. |
 | `meta.workflow.run-command.englang` | `run command ...` |

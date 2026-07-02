@@ -189,7 +189,9 @@ inspector summarize those common quality results for report consumers.
 ## Alignment And Resampling Hooks
 
 `align <series> with <series>` and `resample <series> to <series>` record
-reviewable TimeSeries alignment intent without silently mutating source data:
+reviewable TimeSeries alignment intent without silently mutating source data.
+The compiler also accepts `to` for `align` and `with` for `resample`; the forms
+above are the preferred spellings in docs and generated canonical examples:
 
 ```eng partial
 aligned = align measured.T_zone with simulated.T_zone

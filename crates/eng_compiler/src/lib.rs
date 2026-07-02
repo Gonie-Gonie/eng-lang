@@ -10379,7 +10379,7 @@ system Envelope {
     fn lowers_timeseries_alignment_and_resampling_commands() {
         let report = check_source(
             "ok.eng",
-            "aligned = align measured.T_zone with simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nwith {\n    method = linear\n    target_step = 1 h\n}\n",
+            "aligned = align measured.T_zone with simulated.T_zone\naligned_to = align measured.T_zone to simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nresampled_with = resample measured.T_zone with simulated.T_zone\nwith {\n    method = linear\n    target_step = 1 h\n}\n",
             &CheckOptions::default(),
         );
 
@@ -10395,6 +10395,17 @@ system Envelope {
             align.canonical,
             "align(measured.T_zone, with=simulated.T_zone)"
         );
+        let align_to = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.owner.as_deref() == Some("aligned_to"))
+            .expect("align to command");
+        assert_eq!(align_to.verb, "align");
+        assert_eq!(
+            align_to.canonical,
+            "align(measured.T_zone, to=simulated.T_zone)"
+        );
         let resample = report
             .semantic_program
             .command_styles
@@ -10405,6 +10416,17 @@ system Envelope {
         assert_eq!(
             resample.canonical,
             "resample(measured.T_zone, to=simulated.T_zone)"
+        );
+        let resample_with = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.owner.as_deref() == Some("resampled_with"))
+            .expect("resample with command");
+        assert_eq!(resample_with.verb, "resample");
+        assert_eq!(
+            resample_with.canonical,
+            "resample(measured.T_zone, with=simulated.T_zone)"
         );
         assert_eq!(
             report

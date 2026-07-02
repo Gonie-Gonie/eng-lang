@@ -18223,7 +18223,9 @@ mod tests {
                 "measured = promote csv args.measured_file as ZoneTemperature\n",
                 "simulated = promote csv args.simulated_file as ZoneTemperature\n",
                 "aligned = align measured.T_zone with simulated.T_zone\n",
+                "aligned_to = align measured.T_zone to simulated.T_zone\n",
                 "resampled = resample measured.T_zone to simulated.T_zone\n",
+                "resampled_with = resample measured.T_zone with simulated.T_zone\n",
                 "with {\n",
                 "    method = linear\n",
                 "    target_step = 1 h\n",
@@ -18276,6 +18278,16 @@ mod tests {
         assert_eq!(
             resampled.get("tolerance").and_then(Value::as_f64),
             Some(300.0)
+        );
+        assert!(
+            json_array_item_by_binding(&result, "/typed_payload/time_alignments", "aligned_to")
+                .is_some(),
+            "align-to alias should materialize a time alignment record"
+        );
+        assert!(
+            json_array_item_by_binding(&result, "/typed_payload/time_alignments", "resampled_with")
+                .is_some(),
+            "resample-with alias should materialize a time alignment record"
         );
     }
 
