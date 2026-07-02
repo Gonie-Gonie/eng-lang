@@ -13,6 +13,6 @@ network cache entry owned by network_request/api_response with region/year key p
 review/provenance entries showing weather source_format = json_records
 fetched_weather.json materialized from api_response.body
 process_results.json with process_count = 0
-generated text artifacts under outputs/fetched_weather.json, outputs/standard_weather_file.txt, and outputs/weather_quality_summary.txt
+write_text artifacts under outputs/fetched_weather.json and outputs/weather_quality_summary.txt, plus standard_file artifact outputs/standard_weather_file.txt
 report entries for selected station, coverage status, expected/missing counts, station rows, hourly rows, and max gap
 ```

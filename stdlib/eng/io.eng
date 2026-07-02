@@ -16,6 +16,8 @@
 #   typed_payload.structured_reads[].
 #   write/export operations are generated outputs and must appear in
 #   output_manifest.json.
+#   table-to-standard text artifact writing is exposed as
+#   `write standard_text <table>` and recorded through eng.artifact.
 #   structured json/toml promotion remains a future eng.config boundary.
 #
 # Diagnostics:

@@ -24,6 +24,10 @@ api_payload = read json api_response.body
 message = "Q = {sensor.T_supply: .2 degC}"
 
 write text file("outputs/summary.txt"), message
+write standard_text sensor
+with {
+    output = join(args.output, "sensor_standard.txt")
+}
 report {
     show sensor
 }

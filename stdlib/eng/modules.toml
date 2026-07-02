@@ -16,7 +16,7 @@ symbols = ["file(path: String) -> FilePath", "dir(path: String) -> DirectoryPath
 [module."eng.io"]
 status = "supported"
 backing = "compiler_runtime_builtin"
-purpose = "Read text/json/toml, write text/json, exports, source hashes, and output hashes."
+purpose = "Read text/json/toml, write text/json, exports, source hashes, and output hashes; table-to-standard text artifacts are recorded through eng.artifact."
 artifacts = ["review.inputs", "review.side_effects", "output_manifest"]
 diagnostics = ["E-IO-JSON-PARSE", "E-IO-TOML-PARSE", "E-IO-JSON-FIELD-ACCESS-001"]
 examples = ["examples/official/11_read_only_io"]
@@ -97,11 +97,11 @@ tests = ["cargo test -p eng_runtime case_manifest"]
 [module."eng.artifact"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Generated artifact kinds, hashes, manifests, validation records, and report/review links."
+purpose = "Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links."
 artifacts = ["output_manifest", "review.side_effects", "artifact_registry"]
 diagnostics = ["artifact_validation_failed"]
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_external_simulation_surrogate"]
-tests = ["cargo test -p eng_runtime output_manifest"]
+tests = ["cargo test -p eng_runtime output_manifest", "cargo test -p eng_runtime run_file_writes_standard_text_from_native_table"]
 
 [module."eng.review"]
 status = "native_preview"

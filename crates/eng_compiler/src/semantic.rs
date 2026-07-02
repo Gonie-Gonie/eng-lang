@@ -1461,6 +1461,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_process_options(&process_runs, &with_blocks, &mut diagnostics);
     let sample_generations = analyze_sample_generations(program, &with_blocks, &mut diagnostics);
+    validate_write_options(&writes, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_component_behavior_calls(&domains, &components, &mut diagnostics);
@@ -3420,14 +3421,32 @@ fn analyze_write_decl(
     if write.format == "db" {
         return analyze_db_write_decl(write, typed_bindings, diagnostics);
     }
-    if !matches!(write.format.as_str(), "text" | "json") {
+    if !matches!(write.format.as_str(), "text" | "json" | "standard_text") {
         diagnostics.push(Diagnostic::error(
             "E-WRITE-002",
             write.line,
             &format!("Write format `{}` is not supported.", write.format),
-            Some("Use `write text` or `write json`."),
+            Some("Use `write text`, `write json`, or `write standard_text`."),
         ));
         return None;
+    }
+    if write.format == "standard_text" {
+        let source = write.expression.trim();
+        let source_type = typed_bindings
+            .iter()
+            .find(|binding| binding.name == source)
+            .map(|binding| binding.semantic_type.quantity_kind.as_str());
+        if !source_type.is_some_and(is_standard_text_table_quantity_kind) {
+            diagnostics.push(Diagnostic::error(
+                "E-WRITE-STANDARD-TEXT-001",
+                write.line,
+                &format!("Standard text source `{source}` is not a typed table."),
+                Some(
+                    "Write a promoted, generated, derived, or joined table with `write standard_text <table>`.",
+                ),
+            ));
+            return None;
+        }
     }
     if write.format == "text" {
         if let Some(template) = string_literal_content(&write.expression) {
@@ -5413,6 +5432,35 @@ fn with_option_bool(with_blocks: &[WithBlockInfo], owner_line: usize, key: &str)
     })
 }
 
+fn validate_write_options(
+    writes: &[WriteInfo],
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for write in writes {
+        if write.format != "standard_text" || !write.path.trim().is_empty() {
+            continue;
+        }
+        let has_output = with_blocks.iter().any(|block| {
+            block.owner_line == Some(write.line)
+                && block
+                    .options
+                    .iter()
+                    .any(|option| option.key == "output" && option.status == "accepted")
+        });
+        if !has_output {
+            diagnostics.push(Diagnostic::error(
+                "E-WRITE-STANDARD-TEXT-OUTPUT",
+                write.line,
+                "`write standard_text` needs an output path.",
+                Some(
+                    "Add `with { output = join(args.output, \"standard_weather_file.txt\") }` or write `write standard_text <table> to \"outputs/file.txt\"`.",
+                ),
+            ));
+        }
+    }
+}
+
 fn resolve_write_expression_type(
     expression: &str,
     typed_bindings: &[TypedBinding],
@@ -5647,6 +5695,10 @@ fn resolve_format_expression_type(
 
 fn is_materialized_table_quantity_kind(quantity_kind: &str) -> bool {
     quantity_kind.starts_with("Table[") || quantity_kind == "TableTransform[Derive]"
+}
+
+fn is_standard_text_table_quantity_kind(quantity_kind: &str) -> bool {
+    quantity_kind.starts_with("Table[") || quantity_kind.starts_with("TableTransform[")
 }
 
 fn coverage_result_field_semantic_type(

@@ -1280,9 +1280,21 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         let mut modifiers = vec!["sideEffect"];
         if write.quantity_kind == "DbWrite" {
             modifiers.push("db");
+        } else if write.format == "standard_text" {
+            modifiers.push("workflowStep");
         }
         builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
         builder.push_keywords_on_line(write.line, &["write"], &modifiers);
+        if write.format == "standard_text" {
+            builder.push_on_line(
+                write.line,
+                &write.format,
+                "function",
+                &["defaultLibrary", "workflowStep"],
+            );
+        } else {
+            builder.push_on_line(write.line, &write.format, "function", &["defaultLibrary"]);
+        }
     }
 
     for operation in &program.file_operations {
@@ -3515,6 +3527,10 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("read toml", "eng.io raw TOML read"),
         ("write text", "eng.io text output"),
         ("write json", "eng.io JSON output"),
+        (
+            "write standard_text",
+            "eng.artifact standard table text output",
+        ),
         ("export summary to csv", "eng.io one-row summary CSV export"),
         ("copy file", "eng.fs copy generated output"),
         ("move file", "eng.fs move generated output"),
@@ -5092,6 +5108,11 @@ with {
 db = open sqlite file("outputs/results.sqlite")
 write sensor to db.table("sensor")
 
+write standard_text sensor
+with {
+    output = "outputs/sensor_standard.txt"
+}
+
 selected = require_one sensor
 with {
     on_none = error "No sensor row"
@@ -5147,6 +5168,7 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "cache_key", "cache");
         assert_semantic_token_modifier(&snapshot, source, "db", "db");
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
+        assert_semantic_token_modifier(&snapshot, source, "standard_text", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "step", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");

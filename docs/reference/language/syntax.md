@@ -1007,6 +1007,7 @@ Current write forms:
 |---|---|
 | `write text "path.txt", expression` | Text formatting of a checked expression |
 | `write json "path.json", expression` | JSON string, raw JSON text, or scalar quantity object |
+| `write standard_text table with { output = "path.txt" }` | Deterministic schema-aware table text artifact |
 
 Rules:
 

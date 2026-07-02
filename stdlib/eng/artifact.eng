@@ -6,6 +6,8 @@
 #   output_manifest.json, artifact_registry, artifact hashes, validation
 #   sections, and standard_file artifact kinds are compiler/runtime/report
 #   built-ins for supported side-effect workflows.
+#   `write standard_text <table>` materializes a deterministic table-text
+#   artifact with schema, row-count, column, and source-hash metadata.
 #
 # Planned helper vocabulary:
 #   artifact(path, kind=...)

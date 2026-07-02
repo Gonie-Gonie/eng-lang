@@ -2817,6 +2817,27 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     }
     let (format, rest) = rest.split_once(char::is_whitespace)?;
     let format = format.trim();
+    if format == "standard_text" {
+        let rest = rest.trim();
+        let (path, expression) = if let Some((path, expression)) = rest.split_once(',') {
+            (path.trim().to_owned(), expression.trim().to_owned())
+        } else if let Some((expression, path)) = rest.rsplit_once(" to ") {
+            (path.trim().to_owned(), expression.trim().to_owned())
+        } else {
+            (String::new(), rest.to_owned())
+        };
+        if expression.is_empty() {
+            return None;
+        }
+        return Some(WriteDecl {
+            format: format.to_owned(),
+            path,
+            expression,
+            line: first.span.line,
+            span: first.span,
+            context,
+        });
+    }
     if !matches!(format, "text" | "json") {
         return None;
     }

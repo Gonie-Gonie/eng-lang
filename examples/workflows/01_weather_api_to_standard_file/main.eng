@@ -92,8 +92,9 @@ with {
     overwrite = true
 }
 
-write text "outputs/standard_weather_file.txt", "station_id={selected_station_id} year={args.year} records={weather.rows} timezone=UTC+09:00"
+write standard_text weather
 with {
+    output = join(args.output, "standard_weather_file.txt")
     overwrite = true
 }
 

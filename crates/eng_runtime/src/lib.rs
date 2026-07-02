@@ -4566,16 +4566,23 @@ fn write_outputs(
         .iter()
         .filter(|write| write.format != "db")
     {
-        let path_text = evaluate_runtime_path_expression(&write.path, report).ok_or_else(|| {
+        let path_expression = write_output_path_expression(report, write).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("invalid write path `{}`", write.path),
+                format!("write {} is missing an output path", write.format),
             )
         })?;
+        let path_text = evaluate_runtime_output_path_expression(&path_expression, report)
+            .ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("invalid write path `{path_expression}`"),
+                )
+            })?;
         let path = export_output_path(result_dir, &path_text).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
-                format!("invalid write path `{}`", write.path),
+                format!("invalid write path `{path_expression}`"),
             )
         })?;
         let contents = render_write_contents(write, report, runtime_data).ok_or_else(|| {
@@ -4586,8 +4593,12 @@ fn write_outputs(
         })?;
         let overwrite_policy = overwrite_policy(report, write.line);
         write_output_file(&path, &contents, overwrite_policy.allowed)?;
-        let artifact_kind =
-            artifact_kind_for_owner(report, write.line, &format!("write_{}", write.format));
+        let default_artifact_kind = if write.format == "standard_text" {
+            "standard_file".to_owned()
+        } else {
+            format!("write_{}", write.format)
+        };
+        let artifact_kind = artifact_kind_for_owner(report, write.line, &default_artifact_kind);
         artifacts.push(output_artifact_with_overwrite_policy(
             &artifact_kind,
             relative_output_path(result_dir, &path),
@@ -4597,6 +4608,16 @@ fn write_outputs(
         ));
     }
     Ok(artifacts)
+}
+
+fn write_output_path_expression(
+    report: &CheckReport,
+    write: &eng_compiler::WriteInfo,
+) -> Option<String> {
+    if !write.path.trim().is_empty() {
+        return Some(write.path.clone());
+    }
+    process_option(report, write.line, "output")
 }
 
 #[derive(Clone, Debug)]
@@ -5437,6 +5458,9 @@ fn render_write_contents(
     report: &CheckReport,
     runtime_data: &RuntimeData,
 ) -> Option<String> {
+    if write.format == "standard_text" {
+        return render_standard_text_write_contents(write, runtime_data);
+    }
     if write.format == "text" && write.expression.trim_start().starts_with('"') {
         let template = strip_runtime_string_value(&write.expression);
         return Some(render_runtime_text_template(
@@ -5452,6 +5476,73 @@ fn render_write_contents(
         "json" => Some(format_runtime_json_value(value)),
         _ => None,
     }
+}
+
+fn render_standard_text_write_contents(
+    write: &eng_compiler::WriteInfo,
+    runtime_data: &RuntimeData,
+) -> Option<String> {
+    let table_name = write.expression.trim();
+    let table = runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == table_name)?;
+    let mut text = String::new();
+    text.push_str("# EngLang standard_text v1\n");
+    text.push_str(&format!("source={}\n", table.binding));
+    text.push_str(&format!("schema={}\n", table.schema_name));
+    text.push_str(&format!("rows={}\n", table.row_count));
+    text.push_str(&format!("columns={}\n", table.columns.len()));
+    if let Some(hash) = &table.source_hash {
+        text.push_str(&format!("source_hash={hash}\n"));
+    }
+    text.push_str("---\n");
+    text.push_str(
+        &table
+            .columns
+            .iter()
+            .map(standard_text_column_header)
+            .collect::<Vec<_>>()
+            .join("\t"),
+    );
+    text.push('\n');
+    for row in 0..table.row_count {
+        let values = table
+            .columns
+            .iter()
+            .map(|column| standard_text_cell_value(column, row))
+            .collect::<Vec<_>>();
+        text.push_str(&values.join("\t"));
+        text.push('\n');
+    }
+    Some(text)
+}
+
+fn standard_text_column_header(column: &runtime_data::RuntimeColumn) -> String {
+    match column.unit.as_deref() {
+        Some(unit) if !unit.trim().is_empty() => format!("{}[{}]", column.name, unit),
+        _ => column.name.clone(),
+    }
+}
+
+fn standard_text_cell_value(column: &runtime_data::RuntimeColumn, row: usize) -> String {
+    let raw = match &column.values {
+        RuntimeValues::Text(values) => values.get(row).cloned().unwrap_or_default(),
+        RuntimeValues::Number(values) => values
+            .get(row)
+            .and_then(|value| *value)
+            .map(|value| format_number_with_precision(value, None))
+            .unwrap_or_default(),
+    };
+    standard_text_escape_cell(&raw)
+}
+
+fn standard_text_escape_cell(value: &str) -> String {
+    value
+        .replace('\\', "\\\\")
+        .replace('\t', "\\t")
+        .replace('\r', "\\r")
+        .replace('\n', "\\n")
 }
 
 fn format_runtime_json_value(value: RuntimeFormatValue) -> String {
@@ -6207,17 +6298,19 @@ fn static_run_plan_json(
     }
     for write in &report.semantic_program.writes {
         let id = format!("write:{}:{}", write.format, write.line);
+        let path =
+            write_output_path_expression(report, write).unwrap_or_else(|| write.path.clone());
         nodes.push(run_plan_node(
             &id,
             "write_output",
-            &write.path,
+            &path,
             "planned",
             "static",
             "low",
             write.line,
             vec![json!({
                 "format": &write.format,
-                "path": &write.path,
+                "path": &path,
                 "quantity_kind": &write.quantity_kind,
                 "display_unit": &write.display_unit
             })],
@@ -20567,6 +20660,52 @@ mod tests {
         let text =
             fs::read_to_string(build_root.join("result").join("summary.txt")).expect("summary");
         assert_eq!(text, "rows=2 station=STN001 input=data/sensor.csv");
+    }
+
+    #[test]
+    fn run_file_writes_standard_text_from_native_table() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-standard-text-writer");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-standard-text-writer-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("sensor.csv"),
+            "time,T_supply\n2024-01-01T00:00:00+09:00,20\n2024-01-01T01:00:00+09:00,21\n",
+        )
+        .expect("sensor csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n}\n\nargs {\n    input: CsvFile = file(\"data/sensor.csv\")\n    output: DirectoryPath = dir(\"outputs\")\n}\n\nsensor = promote csv args.input as SensorData\nwrite standard_text sensor\nwith {\n    output = join(args.output, \"sensor_standard.txt\")\n    overwrite = true\n}\n",
+        )
+        .expect("write source");
+
+        let output =
+            run_file(&source_path, &build_root, &RunOptions::default()).expect("standard text run");
+
+        let text = fs::read_to_string(
+            build_root
+                .join("result")
+                .join("outputs")
+                .join("sensor_standard.txt"),
+        )
+        .expect("standard text file");
+        assert!(text.contains("# EngLang standard_text v1"));
+        assert!(text.contains("schema=SensorData"));
+        assert!(text.contains("rows=2"));
+        assert!(text.contains("time\tT_supply[degC]"));
+        assert!(text.contains("2024-01-01T00:00:00+09:00\t20"));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"standard_file\""));
+        assert!(output.run_plan_json.contains("sensor_standard.txt"));
     }
 
     #[test]

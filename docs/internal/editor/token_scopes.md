@@ -133,6 +133,7 @@ Current workflow phrase scopes:
 | `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
 | `meta.workflow.validation.englang` | `validate ...`, `assert ...`, and `golden ... matches ...` validation lines. |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
+| `meta.workflow.write-standard-text.englang` | `write standard_text <table>` with an output option or `to <target>`. |
 | `meta.workflow.write-text.englang` | `write text <target>, <value>` |
 
 ## Semantic Token Legend

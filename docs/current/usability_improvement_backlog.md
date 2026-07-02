@@ -2425,6 +2425,23 @@ network boundary analysis and editor highlighting.
   network options.
 - Added compiler, runtime, and LSP regressions for non-GET request methods.
 
+## Batch 199: Native Standard Text Writer
+
+Status: implemented to move workflow 01 standard-file generation out of
+string-shaped `write text` and into a native table artifact writer.
+
+- Added `write standard_text <table>` with `with { output = ... }` support,
+  table-only compiler validation, output-path diagnostics, and generated-output
+  path policy checks.
+- Implemented deterministic runtime table-text materialization with schema,
+  row-count, column, source-hash, and TSV body metadata; output manifest records
+  it as `standard_file` by default.
+- Updated workflow 01 to write `standard_weather_file.txt` through
+  `write standard_text weather` while keeping Python/external process count at
+  zero.
+- Added TextMate grammar, LSP completion/semantic token, compiler, runtime,
+  workflow-doc, and stdlib registry coverage for the new public writer.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -120,7 +120,9 @@ different existing contents requires `with { overwrite = true }` on the export.
 
 ## Explicit Write Outputs
 
-`write text` and `write json` write small generated files under `build\result`.
+`write text`, `write json`, and `write standard_text` write generated files
+under `build\result`. `write standard_text` is for deterministic table-text
+artifacts.
 
 ```eng partial
 write text "outputs/run_note.txt", "finished"
@@ -130,6 +132,12 @@ with {
 
 write json "outputs/energy.json", E_coil
 with {
+    overwrite = true
+}
+
+write standard_text weather
+with {
+    output = "outputs/standard_weather_file.txt"
     overwrite = true
 }
 ```

@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  348,
+    "completion_seed_count":  349,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -1557,7 +1557,7 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "Native workflow support: Generated artifact kinds, hashes, manifests, validation records, and report/review links.",
+                                "detail":  "Native workflow support: Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links.",
                                 "kind":  "stdlib",
                                 "label":  "eng.artifact",
                                 "lsp_kind":  9
@@ -1599,7 +1599,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Supported: Read text/json/toml, write text/json, exports, source hashes, and output hashes.",
+                                "detail":  "Supported: Read text/json/toml, write text/json, exports, source hashes, and output hashes; table-to-standard text artifacts are recorded through eng.artifact.",
                                 "kind":  "stdlib",
                                 "label":  "eng.io",
                                 "lsp_kind":  9
@@ -1788,6 +1788,12 @@
                                 "detail":  "eng.io JSON output",
                                 "kind":  "stdlib",
                                 "label":  "write json",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.artifact standard table text output",
+                                "kind":  "stdlib",
+                                "label":  "write standard_text",
                                 "lsp_kind":  9
                             },
                             {

@@ -1070,13 +1070,15 @@ fn validate_generated_output_path_policies(program: &SemanticProgram) -> Vec<Dia
         );
     }
     for write in &program.writes {
-        push_generated_output_path_diagnostic(
-            &mut diagnostics,
-            "write output",
-            &write.path,
-            write.line,
-            program,
-        );
+        if let Some(path) = write_output_path_expression(program, write) {
+            push_generated_output_path_diagnostic(
+                &mut diagnostics,
+                "write output",
+                path,
+                write.line,
+                program,
+            );
+        }
     }
     for operation in &program.file_operations {
         match operation.operation.as_str() {
@@ -1122,6 +1124,22 @@ fn validate_generated_output_path_policies(program: &SemanticProgram) -> Vec<Dia
         }
     }
     diagnostics
+}
+
+fn write_output_path_expression<'a>(
+    program: &'a SemanticProgram,
+    write: &'a WriteInfo,
+) -> Option<&'a str> {
+    if !write.path.trim().is_empty() {
+        return Some(write.path.as_str());
+    }
+    program
+        .with_blocks
+        .iter()
+        .filter(|block| block.owner_line == Some(write.line))
+        .flat_map(|block| block.options.iter())
+        .find(|option| option.key == "output" && option.status == "accepted")
+        .map(|option| option.value.as_str())
 }
 
 fn push_generated_output_path_diagnostic(
@@ -9961,6 +9979,55 @@ system Envelope {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-WRITE-FMT-004"));
+    }
+
+    #[test]
+    fn supports_standard_text_writer_for_native_tables() {
+        let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    value = uniform(1, 2)\n}\n\nwrite standard_text samples\nwith {\n    output = \"outputs/samples.txt\"\n}\n";
+        let report = check_source("standard-text.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let write = report
+            .semantic_program
+            .writes
+            .iter()
+            .find(|write| write.format == "standard_text")
+            .expect("standard text writer");
+        assert_eq!(write.expression, "samples");
+        assert!(write.path.is_empty());
+        assert!(report.semantic_program.with_blocks.iter().any(|block| {
+            block.owner_line == Some(write.line)
+                && block
+                    .options
+                    .iter()
+                    .any(|option| option.key == "output" && option.status == "accepted")
+        }));
+    }
+
+    #[test]
+    fn rejects_standard_text_writer_without_table_or_output() {
+        let missing_output = "samples = sample lhs\nwith {\n    count = 1\n    seed = 7\n    value = uniform(1, 2)\n}\n\nwrite standard_text samples\n";
+        let missing_report = check_source(
+            "standard-text-missing-output.eng",
+            missing_output,
+            &CheckOptions::default(),
+        );
+        assert!(missing_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WRITE-STANDARD-TEXT-OUTPUT"));
+
+        let scalar_source =
+            "Q = 10 kW\nwrite standard_text Q\nwith {\n    output = \"outputs/q.txt\"\n}\n";
+        let scalar_report = check_source(
+            "standard-text-scalar.eng",
+            scalar_source,
+            &CheckOptions::default(),
+        );
+        assert!(scalar_report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WRITE-STANDARD-TEXT-001"));
     }
 
     #[test]

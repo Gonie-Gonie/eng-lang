@@ -5,7 +5,7 @@ This workflow demonstrates a native, domain-neutral API-to-artifact pattern:
 ```text
 station table -> selected station -> args-driven HTTP offline-response/cache boundary ->
 response body artifact -> API JSON schema contract -> JSON records weather table ->
-TimeSeries coverage -> generated text artifacts
+TimeSeries coverage -> native standard_text artifact and quality text artifact
 ```
 
 The workflow uses:
@@ -16,7 +16,7 @@ eng.cache     cache records and replayable response materialization from args-dr
 eng.config    read/promote JSON validation from the native HTTP response body
 eng.table     station CSV promotion, JSON records table promotion, and filter/require_one row selection
 eng.timeseries coverage review for the hourly weather time axis
-eng.artifact  write text artifacts with hashes and output manifest entries
+eng.artifact  write standard_text table artifact plus generated text artifacts with hashes and output manifest entries
 ```
 
 Expected saved-run properties:
@@ -27,8 +27,8 @@ cache_manifest.json records the api_response network cache key from region/year 
 result.engres records the resolved network query station value from station.station_id
 result.engres typed_payload.config_promotions validates WeatherApiPayload from api_response.body
 result.engres provenance.data_hashes records weather as source_format = json_records
-output_manifest.json records fetched_weather.json, standard_weather_file.txt,
-and weather_quality_summary.txt as native write_text artifacts
+output_manifest.json records fetched_weather.json and weather_quality_summary.txt
+as write_text artifacts, and standard_weather_file.txt as a standard_file artifact
 review.json records json_records table promotion, table transforms, network/cache boundary, and coverage data
 ```
 
