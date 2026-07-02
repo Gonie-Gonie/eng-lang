@@ -3252,6 +3252,32 @@ function Invoke-IdeCheck {
             throw "Native IDE UI missing contract token $RequiredIdeToken"
         }
     }
+    $ExpectedNativeIdeSideTabOrder = @(
+        'sideTabButton("variables", "Vars")',
+        'sideTabButton("checks", "Checks")',
+        'sideTabButton("schema", "Schema")',
+        'sideTabButton("time", "Time")',
+        'sideTabButton("plot", "Plot")',
+        'sideTabButton("review", "Review")',
+        'sideTabButton("quality", "Quality")',
+        'sideTabButton("effects", "Effects")',
+        'sideTabButton("artifacts", "Artifacts")',
+        'sideTabButton("run", "Run")',
+        'sideTabButton("modules", "Modules")',
+        'sideTabButton("assembly", "Asm")',
+        'sideTabButton("kernels", "Kernel")'
+    )
+    $PreviousNativeIdeSideTabIndex = -1
+    foreach ($ExpectedNativeIdeSideTab in $ExpectedNativeIdeSideTabOrder) {
+        $NativeIdeSideTabIndex = $IdeUiSource.IndexOf($ExpectedNativeIdeSideTab)
+        if ($NativeIdeSideTabIndex -lt 0) {
+            throw "Native IDE side tab order missing $ExpectedNativeIdeSideTab"
+        }
+        if ($NativeIdeSideTabIndex -lt $PreviousNativeIdeSideTabIndex) {
+            throw "Native IDE side tab order should keep review panels before advanced panels"
+        }
+        $PreviousNativeIdeSideTabIndex = $NativeIdeSideTabIndex
+    }
     if ($IdeUiSource.Contains('<div class="panel-title compact">Process Results</div>')) {
         throw "Native IDE Effects panel must label process data as External Process Results"
     }

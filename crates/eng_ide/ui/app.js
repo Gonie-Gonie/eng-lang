@@ -1087,27 +1087,27 @@ function renderSidePanel() {
     <aside class="variables inspector">
       <div class="side-tabs">
         ${sideTabButton("variables", "Vars")}
+        ${sideTabButton("checks", "Checks")}
         ${sideTabButton("schema", "Schema")}
         ${sideTabButton("time", "Time")}
         ${sideTabButton("tables", "Tables")}
         ${sideTabButton("reads", "Reads")}
         ${sideTabButton("plot", "Plot")}
-        ${sideTabButton("checks", "Checks")}
-        ${sideTabButton("highlight", "Highlight")}
-        ${sideTabButton("quality", "Quality")}
-        ${sideTabButton("kernels", "Kernel")}
-        ${sideTabButton("objects", "Obj")}
-        ${sideTabButton("modules", "Modules")}
-        ${sideTabButton("workflow", "Flow")}
-        ${sideTabButton("assembly", "Asm")}
         ${sideTabButton("review", "Review")}
-        ${sideTabButton("artifacts", "Artifacts")}
+        ${sideTabButton("quality", "Quality")}
+        ${sideTabButton("highlight", "Highlight")}
         ${sideTabButton("effects", "Effects")}
         ${sideTabButton("network", "Net")}
+        ${sideTabButton("artifacts", "Artifacts")}
+        ${sideTabButton("run", "Run")}
+        ${sideTabButton("modules", "Modules")}
+        ${sideTabButton("workflow", "Flow")}
+        ${sideTabButton("objects", "Obj")}
+        ${sideTabButton("assembly", "Asm")}
+        ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("case", "Case")}
         ${sideTabButton("model", "Model")}
         ${sideTabButton("db", "DB")}
-        ${sideTabButton("run", "Run")}
       </div>
       <div class="side-body">${renderSideBody()}</div>
     </aside>

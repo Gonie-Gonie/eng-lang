@@ -3591,6 +3591,18 @@ on browser defaults.
 - Added Enter auto-indent for block openers, closing-brace splits, and `///`
   documentation comment continuation, with IDE contract coverage and user docs.
 
+## Batch 291: Native IDE Review-First Panel Order
+
+Status: implemented to make the right sidebar match the intended review flow.
+
+- Moved Checks, Review, Quality, Effects, Artifacts, and Run ahead of
+  implementation-heavy panels such as Modules, Flow, Assembly, Kernel, Case,
+  Model, and DB.
+- Kept Highlight available near the review panels as an inspection/debug aid,
+  while leaving Problems in the bottom panel.
+- Updated user docs and `ide-check` contract coverage so future UI edits do
+  not accidentally bury the primary review path behind advanced panels.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

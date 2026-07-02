@@ -88,16 +88,17 @@ Editor
   quantity/unit detail when the caret is on a checked token.
 
 Right Sidebar
-  Vars, Schema, Time, Plot, Checks, Highlight, Artifacts, and Run tabs are the
-  primary review path. After a successful run, source symbols, runtime
-  variables, Args values, schema summaries, unit conversions, TimeSeries
-  ranges/statistics, metrics, validations, uncertainty summaries/propagation
-  metadata, time alignments, artifact paths, and JSON artifact outlines are
-  summarized in tables. The Highlight tab shows highlight categories, token
-  counts, and source ranges from the current check. The Net tab summarizes
-  network boundaries, network events, cache events, hashes, and cache keys for
-  workflows that use `eng.net` or `eng.cache`. Uncertain scalar bindings also
-  appear in the variable view with their representation and summary values.
+  Vars, Checks, Schema, Time, Tables, Reads, Plot, Review, Quality, Effects,
+  Artifacts, and Run tabs are the primary review path. After a successful run,
+  source symbols, runtime variables, Args values, schema summaries, unit
+  conversions, TimeSeries ranges/statistics, metrics, validations, uncertainty
+  summaries/propagation metadata, time alignments, artifact paths, and JSON
+  artifact outlines are summarized in tables. The Highlight tab shows highlight
+  categories, token counts, and source ranges from the current check. The Net
+  tab summarizes network boundaries, network events, cache events, hashes, and
+  cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
+  bindings also appear in the variable view with their representation and
+  summary values.
 
 Advanced panels
   Assembly, dependency, residual, component graph, system, and solver result
