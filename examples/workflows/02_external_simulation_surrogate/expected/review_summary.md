@@ -3,9 +3,10 @@
 The saved run should show:
 
 ```text
-native `sample lhs` tables for training_results and designs with case IDs, parameter ranges, units, and row-hash previews
+native `sample lhs` tables for training_designs and designs with case IDs, parameter ranges, units, and row-hash previews
+native `derive` transforms materializing annual_electricity, annual_cooling, peak_cooling, and unmet_hours from sampled design inputs
 native filter/require_one transforms selecting case rows from training_results for template values
-summary metrics derived from the selected case_001 sample row rather than fixed literals
+summary metrics derived from the selected case_001 derived-result row rather than fixed literals
 native `regression_table` model with feature, target, split, residual, training-hash, and model-hash metadata
 native `model_card`, `evaluate`, and `predict ... using ...` records
 PredictionResult schema with predicted_annual_electricity and confidence columns

@@ -240,6 +240,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "records",
     "regression",
     "render",
+    "replace",
     "request",
     "report",
     "return",

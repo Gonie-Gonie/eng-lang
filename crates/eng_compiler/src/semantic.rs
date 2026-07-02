@@ -3447,12 +3447,12 @@ fn analyze_db_write_decl(
         .iter()
         .find(|binding| binding.name == source)
         .map(|binding| binding.semantic_type.quantity_kind.as_str());
-    if !source_type.is_some_and(|kind| kind.starts_with("Table[")) {
+    if !source_type.is_some_and(is_materialized_table_quantity_kind) {
         diagnostics.push(Diagnostic::error(
             "E-DB-SCHEMA-MISMATCH",
             write.line,
             &format!("DB write source `{source}` is not a typed table."),
-            Some("Write a promoted or generated table to `db.table(\"name\")`."),
+            Some("Write a promoted, generated, or derived table to `db.table(\"name\")`."),
         ));
         return None;
     }
@@ -5587,7 +5587,8 @@ fn resolve_format_expression_type(
     if let Some(table_name) = expression.strip_suffix(".rows") {
         let table_name = table_name.trim();
         if typed_bindings.iter().any(|binding| {
-            binding.name == table_name && binding.semantic_type.quantity_kind.starts_with("Table[")
+            binding.name == table_name
+                && is_materialized_table_quantity_kind(&binding.semantic_type.quantity_kind)
         }) {
             return semantic_type("Count", "count");
         }
@@ -5612,6 +5613,10 @@ fn resolve_format_expression_type(
         .iter()
         .find(|binding| binding.name == expression)
         .map(|binding| binding.semantic_type.clone())
+}
+
+fn is_materialized_table_quantity_kind(quantity_kind: &str) -> bool {
+    quantity_kind.starts_with("Table[") || quantity_kind == "TableTransform[Derive]"
 }
 
 fn coverage_result_field_semantic_type(

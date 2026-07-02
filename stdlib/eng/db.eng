@@ -1,11 +1,11 @@
 # module: eng.db
 # status: supported-native-sqlite-write-records
-# purpose: typed database side effects, starting with SQLite-style write/upsert workflows and transaction artifacts.
+# purpose: typed database side effects, starting with SQLite-style write/upsert/replace workflows and transaction artifacts.
 #
 # Current implementation:
 #   top-level SQLite connections use `db = open sqlite file("outputs/name.sqlite")`.
 #   Typed tables can be written with `write results to db.table("table_name")`
-#   using append or upsert-by-key modes. Runtime writes produce a SQLite
+#   using append, replace, or upsert-by-key modes. Runtime writes produce a SQLite
 #   database artifact plus a db_write_manifest sidecar, and summarize database
 #   target, table names, modes, key fields, schemas, schema mismatch
 #   diagnostics, row counts, DB file hashes before/after, transaction status,
@@ -14,7 +14,7 @@
 # Supported helper vocabulary:
 #   open sqlite
 #   write <table_binding> to db.table("table")
-#   append/upsert by key
+#   append/replace/upsert by key
 #   transaction commit/rollback policy
 #   safe profile DB-write rejection
 #

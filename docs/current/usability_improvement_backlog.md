@@ -918,8 +918,8 @@ Status: implemented after native surrogate workflow review.
 
 - Removed fixed summary literals from workflow 02.
 - Routed `annual_electricity`, `peak_cooling`, and `unmet_hours` through the
-  selected `case_001` sample row so the CSV summary matches the native
-  `sample lhs` table and rendered case input.
+  selected `case_001` workflow row so the CSV summary matches the native table
+  path and rendered case input.
 - Extended workflow smoke coverage so `workflow_summary.csv` cannot regress to
   the old fixed `12800.0,14.2,0.0` row while claiming native sampling.
 
@@ -1747,6 +1747,22 @@ Status: implemented after comparing `dev.bat workflows-test` with `eng test`.
   rejects Python markers, `run command`, and legacy `select_first_row(...)`.
 - Kept the minimum count check so the existing workflow 01/02/03 smoke surface
   cannot silently disappear.
+
+## Batch 144: Native Derived Table Materialization
+
+Status: implemented after reviewing workflow 02's surrogate-data path.
+
+- Added runtime materialization for accepted `derive <table> column ...`
+  transforms so derived numeric columns become real `RuntimeTable` columns that
+  can feed filters, model training, CSV export, and SQLite writes.
+- Changed workflow 02 from sampling result metrics directly to sampling input
+  designs and computing `annual_electricity`, `annual_cooling`,
+  `peak_cooling`, and `unmet_hours` through native derive expressions.
+- Added runtime coverage for `sample lhs -> derive -> derive ->
+  regression_table(...)` so the workflow cannot regress to metadata-only
+  derived-column records.
+- Added SQLite `mode = replace` support and changed workflow 02 DB writes to
+  replace target tables, keeping repeat saved-runs clean when schemas evolve.
 
 ## API And Wording Cleanup Candidates
 

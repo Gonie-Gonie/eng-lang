@@ -3,7 +3,7 @@ args {
     output: DirectoryPath = dir("outputs")
 }
 
-training_results = sample lhs
+training_designs = sample lhs
 with {
     count = 8
     seed = 42
@@ -11,11 +11,14 @@ with {
     lighting_power_density = uniform(5 W/m2, 15 W/m2)
     equipment_power_density = uniform(3 W/m2, 20 W/m2)
     cooling_cop = uniform(2.5, 5.0)
-    annual_electricity = uniform(11000 kWh, 15000 kWh)
-    annual_cooling = uniform(3800 kWh, 5400 kWh)
-    peak_cooling = uniform(11 kW, 17 kW)
-    unmet_hours = uniform(0 h, 2 h)
+    envelope_load_index = uniform(0.85, 1.20)
+    occupancy_schedule_index = uniform(0.75, 1.25)
 }
+
+electricity_results = derive training_designs column annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh + occupancy_schedule_index * 1600 kWh - cooling_cop * 750 kWh
+cooling_results = derive electricity_results column annual_cooling = 3200 kWh + envelope_load_index * 1700 kWh + occupancy_schedule_index * 450 kWh - cooling_cop * 280 kWh
+peak_cooling_results = derive cooling_results column peak_cooling = 7 kW + envelope_load_index * 7 kW + occupancy_schedule_index * 2 kW - cooling_cop * 0.6 kW
+training_results = derive peak_cooling_results column unmet_hours = 3 h + envelope_load_index * 1.2 h - cooling_cop * 0.7 h
 
 designs = sample lhs
 with {
@@ -25,9 +28,11 @@ with {
     lighting_power_density = uniform(6 W/m2, 14 W/m2)
     equipment_power_density = uniform(4 W/m2, 18 W/m2)
     cooling_cop = uniform(2.8, 4.8)
+    envelope_load_index = uniform(0.90, 1.15)
+    occupancy_schedule_index = uniform(0.80, 1.20)
 }
 
-surrogate_model = regression_table(training_results, target=annual_electricity, features=[people_density, lighting_power_density, equipment_power_density, cooling_cop], test=0.25, seed=7)
+surrogate_model = regression_table(training_results, target=annual_electricity, features=[people_density, lighting_power_density, equipment_power_density, cooling_cop, envelope_load_index, occupancy_schedule_index], test=0.25, seed=7)
 model_card_summary = model_card(surrogate_model)
 model_metrics = evaluate(surrogate_model)
 predictions = predict surrogate_model using designs
@@ -78,25 +83,25 @@ summary_case_id: String = case_001.case_id
 annual_electricity: Energy [kWh] = case_001.annual_electricity
 peak_cooling: HeatRate [kW] = case_001.peak_cooling
 unmet_hours: Duration [h] = case_001.unmet_hours
-native_case_status = "case inputs and summary metrics rendered natively from selected sample rows"
-native_model_status = "training samples, regression model, predictions, and DB writes materialized natively"
+native_case_status = "case inputs and summary metrics rendered natively from selected derived result rows"
+native_model_status = "training designs, derived results, regression model, predictions, and DB writes materialized natively"
 db = open sqlite file("outputs/surrogate_results.sqlite")
 write training_results to db.table("simulation_results")
 with {
-    mode = append
+    mode = replace
 }
 
 write predictions to db.table("predictions")
 with {
-    mode = append
+    mode = replace
 }
 
 db_tables_written = "simulation_results,predictions"
 
 print "Design samples = {designs.rows}"
-print "Training result samples = {training_results.rows}"
+print "Training result rows = {training_results.rows}"
 print "Predictions = {predictions.rows}"
-log info "surrogate workflow uses native sampling/template/model/predict/db records"
+log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
 export summary to csv "outputs/workflow_summary.csv" {
     annual_electricity as kWh with ".1"

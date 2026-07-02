@@ -34,7 +34,7 @@ cover pinned offline response boundaries and cache records; cache records now
 share owner records across network, process, model, and case workflow surfaces,
 materialize/replay pinned network response cache entries, enforce observed cache hashes
 under the repro profile, and warn about stale cache entries. Native SQLite
-append/upsert writes now produce DB files,
+append/upsert/replace writes now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
 tables and manifests. Live network execution, broader cache invalidation/reuse,

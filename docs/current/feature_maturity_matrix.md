@@ -248,7 +248,7 @@ separate.
   native workflow examples now emit weather, template-rendered case input,
   model-card, prediction-manifest, and DB side-effect artifacts without external
   process adapters; deterministic grid/random/LHS sampling materializes
-  `typed_payload.sample_tables[]`; native SQLite append/upsert writes include
+  `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes include
   manifests, schema diagnostics, transaction status, and DB file hashes; native
   `regression_table` and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; `Planned`

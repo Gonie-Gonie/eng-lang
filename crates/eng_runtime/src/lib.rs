@@ -4480,8 +4480,9 @@ fn db_write_mode(report: &CheckReport, owner_line: usize) -> Result<String, Runt
     {
         "" | "append" | "insert" => Ok("append".to_owned()),
         "upsert" => Ok("upsert".to_owned()),
+        "replace" | "overwrite" => Ok("replace".to_owned()),
         other => Err(invalid_input(&format!(
-            "E-DB-SCHEMA-MISMATCH: unsupported DB write mode `{other}`; use append or upsert"
+            "E-DB-SCHEMA-MISMATCH: unsupported DB write mode `{other}`; use append, upsert, or replace"
         ))),
     }
 }
@@ -4547,7 +4548,7 @@ fn db_write_preflight_diagnostics(
             });
         }
     }
-    if db_path.exists() {
+    if mode != "replace" && db_path.exists() {
         let existing_columns = sqlite_table_columns(db_path, table_name)?;
         if !existing_columns.is_empty() && existing_columns != desired_columns {
             diagnostics.push(DbManifestDiagnosticRecord {
@@ -4578,6 +4579,18 @@ fn execute_sqlite_write_payload(
             "E-DB-TRANSACTION-FAILED: failed to begin SQLite transaction for `{table_name}`: {error}"
         ))
     })?;
+    if mode == "replace" {
+        connection
+            .execute(&format!(
+                "DROP TABLE IF EXISTS {}",
+                sqlite_quote_identifier(table_name)
+            ))
+            .map_err(|error| {
+                invalid_input(&format!(
+                    "E-DB-TRANSACTION-FAILED: failed to replace SQLite table `{table_name}`: {error}"
+                ))
+            })?;
+    }
 
     let mut definitions = table
         .columns
@@ -15693,7 +15706,7 @@ mod tests {
         let surrogate_summary_csv =
             fs::read_to_string(&surrogate_output.csv_export_paths[0]).expect("surrogate summary");
         assert!(!surrogate_summary_csv.contains("12800.0,14.2,0.0"));
-        assert!(surrogate_summary_csv.contains("12581.5,12.5,1.6"));
+        assert!(surrogate_summary_csv.contains("11090.8,13.2,1.4"));
         assert!(surrogate_output.result_json.contains("\"case_manifests\""));
         assert!(surrogate_output.result_json.contains("\"model_cards\""));
         assert!(surrogate_output
@@ -15701,8 +15714,14 @@ mod tests {
             .contains("\"kind\": \"RegressionModel\""));
         assert!(surrogate_output
             .result_json
+            .contains("\"operation\": \"derive\""));
+        assert!(surrogate_output
+            .result_json
             .contains("\"schema_name\": \"PredictionResult\""));
         assert!(surrogate_output.result_json.contains("\"db_manifests\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"mode\": \"replace\""));
         assert!(surrogate_output
             .result_json
             .contains("\"transaction_status\": \"committed\""));
@@ -19147,6 +19166,101 @@ mod tests {
         .expect("updated row");
         assert_eq!(row_count, 2);
         assert_eq!(updated, 1200.0);
+    }
+
+    #[test]
+    fn run_file_replaces_sqlite_table_schema() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-replace");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-replace-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity,annual_cooling\ncase_001,1200,450\n",
+        )
+        .expect("results csv");
+        let db_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("results.sqlite");
+        fs::create_dir_all(db_path.parent().expect("db parent")).expect("db dir");
+        sqlite_execute(
+            &db_path,
+            &[
+                "CREATE TABLE simulation_results (case_id TEXT PRIMARY KEY, stale_value REAL)",
+                "INSERT INTO simulation_results (case_id, stale_value) VALUES ('case_001', 99.0)",
+            ],
+        );
+
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "    annual_cooling: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = replace\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("sqlite replace run");
+
+        let result: Value = serde_json::from_str(&output.result_json).expect("result json");
+        let manifest = result
+            .pointer("/typed_payload/db_manifests/0")
+            .expect("db manifest");
+        assert_eq!(
+            manifest.pointer("/tables/0/mode").and_then(Value::as_str),
+            Some("replace")
+        );
+        assert_eq!(
+            manifest.get("schema_status").and_then(Value::as_str),
+            Some("ok")
+        );
+        assert_eq!(
+            manifest
+                .get("diagnostics")
+                .and_then(Value::as_array)
+                .unwrap()
+                .len(),
+            0
+        );
+
+        assert_eq!(
+            sqlite_table_columns(&db_path, "simulation_results").unwrap(),
+            vec![
+                "case_id".to_owned(),
+                "annual_electricity".to_owned(),
+                "annual_cooling".to_owned(),
+            ]
+        );
+        let row_count = sqlite_query_scalar(&db_path, "SELECT COUNT(*) FROM simulation_results")
+            .as_i64()
+            .expect("row count");
+        assert_eq!(row_count, 1);
     }
 
     #[test]

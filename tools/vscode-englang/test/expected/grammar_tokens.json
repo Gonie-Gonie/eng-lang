@@ -154,6 +154,11 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "replace"
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.export-summary-csv.englang",
     "text": "export summary to csv",
     "fullMatch": true

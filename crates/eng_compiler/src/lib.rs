@@ -10734,6 +10734,25 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_derived_table_for_table_regression_source() {
+        let report = check_source(
+            "ok.eng",
+            "designs = sample lhs\nwith {\n    count = 4\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nresults = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\nsurrogate_model = regression_table(results, target=annual_electricity, features=[cooling_cop], test=0.25, seed=7)\ndb = open sqlite file(\"outputs/results.sqlite\")\nwrite results to db.table(\"simulation_results\")\nprint \"Rows = {results.rows}\"\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let model = report
+            .semantic_program
+            .ml_infos
+            .iter()
+            .find(|info| info.binding == "surrogate_model")
+            .unwrap();
+        assert_eq!(model.kind, "RegressionModel");
+        assert_eq!(model.source.as_deref(), Some("results"));
+    }
+
+    #[test]
     fn rejects_unresolved_ml_source() {
         let report = check_source(
             "bad.eng",

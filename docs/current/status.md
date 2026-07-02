@@ -178,7 +178,7 @@ is not mistaken for public module support.
     diagnostics, native network/cache fixture boundaries, native JSON API
     payload contract promotion in the weather workflow, native sample-table
     artifacts, native template-rendered case input artifacts, optional JSON/TOML
-    config field policy, native SQLite append/upsert write records in
+    config field policy, native SQLite append/upsert/replace write records in
     `typed_payload.db_manifests[]`, output-manifest
     `artifact_registry` summaries, model specs/cards in
     `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,

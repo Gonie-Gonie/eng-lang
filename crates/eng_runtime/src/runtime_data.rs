@@ -3059,6 +3059,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         .extend(materialize_generated_sample_tables(report));
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
+    let derived_tables = materialize_table_transform_tables(report, &data.tables);
+    data.tables.extend(derived_tables);
     data.time_axes = materialize_time_axes(&data.tables);
     data.timeseries_coverage =
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
@@ -5873,11 +5875,467 @@ fn materialize_table_transforms(
     records
 }
 
+fn materialize_table_transform_tables(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTable> {
+    let mut available_tables = tables.to_vec();
+    let mut materialized_tables = Vec::new();
+    let mut transform_rows: HashMap<String, TableTransformRows> = HashMap::new();
+
+    for transform in &report.semantic_program.table_transforms {
+        match transform.operation.as_str() {
+            "filter" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    &available_tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    continue;
+                };
+                let row_diagnostics =
+                    table_transform_row_diagnostics(report, table, &source_rows, transform);
+                let matched_rows = row_diagnostics
+                    .iter()
+                    .filter(|diagnostic| diagnostic.status == "matched")
+                    .map(|diagnostic| diagnostic.row_index.saturating_sub(1))
+                    .collect::<Vec<_>>();
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name,
+                        rows: matched_rows,
+                    },
+                );
+            }
+            "select" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    &available_tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    continue;
+                };
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name,
+                        rows: source_rows,
+                    },
+                );
+            }
+            "sort" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    &available_tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    continue;
+                };
+                let sorted_rows = sorted_table_transform_rows(table, &source_rows, transform);
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: table.binding.clone(),
+                        schema_name,
+                        rows: sorted_rows,
+                    },
+                );
+            }
+            "derive" => {
+                let Some((table, source_rows, schema_name)) = resolve_table_transform_source(
+                    &available_tables,
+                    &transform_rows,
+                    &transform.source_table,
+                ) else {
+                    continue;
+                };
+                let source_table = table.clone();
+                let Some(derived_table) =
+                    materialize_derived_table(transform, &source_table, &source_rows, schema_name)
+                else {
+                    continue;
+                };
+                let derived_rows = (0..derived_table.row_count).collect::<Vec<_>>();
+                transform_rows.insert(
+                    transform.binding.clone(),
+                    TableTransformRows {
+                        base_table: derived_table.binding.clone(),
+                        schema_name: Some(derived_table.schema_name.clone()),
+                        rows: derived_rows,
+                    },
+                );
+                available_tables.push(derived_table.clone());
+                materialized_tables.push(derived_table);
+            }
+            _ => {}
+        }
+    }
+
+    materialized_tables
+}
+
+fn materialize_derived_table(
+    transform: &eng_compiler::TableTransformInfo,
+    source_table: &RuntimeTable,
+    source_rows: &[usize],
+    _source_schema_name: Option<String>,
+) -> Option<RuntimeTable> {
+    let accepted_columns = transform
+        .derived_columns
+        .iter()
+        .filter(|column| column.status == "accepted")
+        .collect::<Vec<_>>();
+    if accepted_columns.is_empty() {
+        return None;
+    }
+
+    let mut table = RuntimeTable {
+        binding: transform.binding.clone(),
+        schema_name: transform
+            .schema_name
+            .clone()
+            .unwrap_or_else(|| "DerivedTable".to_owned()),
+        source: format!("derive {} column", transform.source_table),
+        source_hash: None,
+        row_count: source_rows.len(),
+        columns: source_table
+            .columns
+            .iter()
+            .map(|column| runtime_column_rows(column, source_rows))
+            .collect(),
+        parse_failures: runtime_parse_failures_for_rows(&source_table.parse_failures, source_rows),
+        line: transform.line,
+    };
+
+    for column in accepted_columns {
+        let derived_column = materialize_derived_column(column, &table);
+        table.columns.push(derived_column);
+    }
+
+    let hash_payload = derived_table_hash_payload(transform, &table);
+    table.source_hash = Some(stable_hash_text(&hash_payload));
+    Some(table)
+}
+
+fn runtime_column_rows(column: &RuntimeColumn, source_rows: &[usize]) -> RuntimeColumn {
+    if is_identity_rows(source_rows, column.len()) {
+        return column.clone();
+    }
+
+    let values = match &column.values {
+        RuntimeValues::Text(values) => RuntimeValues::Text(
+            source_rows
+                .iter()
+                .map(|row| values.get(*row).cloned().unwrap_or_default())
+                .collect(),
+        ),
+        RuntimeValues::Number(values) => RuntimeValues::Number(
+            source_rows
+                .iter()
+                .map(|row| values.get(*row).copied().flatten())
+                .collect(),
+        ),
+    };
+    let canonical_values = source_rows
+        .iter()
+        .filter_map(|row| column.canonical_values.get(*row).copied())
+        .collect::<Vec<_>>();
+    let missing_count = match &values {
+        RuntimeValues::Text(values) => values
+            .iter()
+            .filter(|value| value.trim().is_empty())
+            .count(),
+        RuntimeValues::Number(values) => values.iter().filter(|value| value.is_none()).count(),
+    };
+    RuntimeColumn {
+        name: column.name.clone(),
+        type_name: column.type_name.clone(),
+        unit: column.unit.clone(),
+        canonical_unit: column.canonical_unit.clone(),
+        is_index: column.is_index,
+        values,
+        canonical_values,
+        missing_count,
+        conversion_failures: runtime_conversion_failures_for_rows(
+            &column.conversion_failures,
+            source_rows,
+        ),
+    }
+}
+
+fn is_identity_rows(rows: &[usize], len: usize) -> bool {
+    rows.len() == len && rows.iter().enumerate().all(|(index, row)| *row == index)
+}
+
+fn runtime_parse_failures_for_rows(
+    failures: &[RuntimeParseFailure],
+    source_rows: &[usize],
+) -> Vec<RuntimeParseFailure> {
+    failures
+        .iter()
+        .filter_map(|failure| {
+            remapped_source_row(failure.row, source_rows).map(|row| RuntimeParseFailure {
+                row,
+                column: failure.column.clone(),
+                value: failure.value.clone(),
+                message: failure.message.clone(),
+            })
+        })
+        .collect()
+}
+
+fn runtime_conversion_failures_for_rows(
+    failures: &[RuntimeConversionFailure],
+    source_rows: &[usize],
+) -> Vec<RuntimeConversionFailure> {
+    failures
+        .iter()
+        .filter_map(|failure| {
+            remapped_source_row(failure.row, source_rows).map(|row| RuntimeConversionFailure {
+                row,
+                column: failure.column.clone(),
+                value: failure.value.clone(),
+                source_unit: failure.source_unit.clone(),
+                target_unit: failure.target_unit.clone(),
+                message: failure.message.clone(),
+            })
+        })
+        .collect()
+}
+
+fn remapped_source_row(row: usize, source_rows: &[usize]) -> Option<usize> {
+    let zero_based = row.checked_sub(2)?;
+    source_rows
+        .iter()
+        .position(|source_row| *source_row == zero_based)
+        .map(|index| index + 2)
+}
+
+fn materialize_derived_column(
+    column: &eng_compiler::TableDerivedColumnInfo,
+    table: &RuntimeTable,
+) -> RuntimeColumn {
+    let Some(expression) = parse_derived_column_expression(column, table) else {
+        return missing_derived_column(column, table.row_count);
+    };
+    let referenced_symbols = expression.referenced_symbols();
+    let mut values = Vec::with_capacity(table.row_count);
+    for row in 0..table.row_count {
+        let Some(symbols) = table_numeric_symbols_for_row(table, row, &referenced_symbols) else {
+            values.push(None);
+            continue;
+        };
+        values.push(
+            expression
+                .evaluate(&symbols)
+                .ok()
+                .filter(|value| value.is_finite()),
+        );
+    }
+    let missing_count = values.iter().filter(|value| value.is_none()).count();
+    let unit = derived_column_unit(&expression, column, table);
+    RuntimeColumn {
+        name: column.name.clone(),
+        type_name: unit.quantity_kind,
+        unit: Some(unit.display_unit),
+        canonical_unit: Some(unit.canonical_unit),
+        is_index: false,
+        values: RuntimeValues::Number(values.clone()),
+        canonical_values: values,
+        missing_count,
+        conversion_failures: Vec::new(),
+    }
+}
+
+fn parse_derived_column_expression(
+    column: &eng_compiler::TableDerivedColumnInfo,
+    table: &RuntimeTable,
+) -> Option<ParsedArithmeticExpression> {
+    let symbols = table_numeric_symbol_defaults(table);
+    let symbol_units = table_numeric_symbol_units(table);
+    let mut ignore_units = |value: f64, _unit: Option<&str>| Ok(value);
+    parse_arithmetic_expression_with_symbol_metadata_and_unit_converter(
+        &column.expression,
+        &symbols,
+        &symbol_units,
+        &mut ignore_units,
+        ArithmeticExpressionProfile::SOURCE_RESIDUAL,
+    )
+    .ok()
+}
+
+fn table_numeric_symbol_defaults(table: &RuntimeTable) -> HashMap<String, f64> {
+    table
+        .columns
+        .iter()
+        .filter(|column| matches!(column.values, RuntimeValues::Number(_)))
+        .map(|column| {
+            (
+                column.name.clone(),
+                numeric_column_value(column, 0).unwrap_or(0.0),
+            )
+        })
+        .collect()
+}
+
+fn table_numeric_symbol_units(table: &RuntimeTable) -> HashMap<String, ArithmeticUnitMetadata> {
+    table
+        .columns
+        .iter()
+        .filter(|column| matches!(column.values, RuntimeValues::Number(_)))
+        .map(|column| {
+            let display_unit = column
+                .unit
+                .clone()
+                .or_else(|| column.canonical_unit.clone())
+                .unwrap_or_else(|| "1".to_owned());
+            let canonical_unit = column
+                .canonical_unit
+                .clone()
+                .unwrap_or_else(|| display_unit.clone());
+            (
+                column.name.clone(),
+                ArithmeticUnitMetadata {
+                    display_unit,
+                    canonical_unit,
+                    quantity_kind: column.type_name.clone(),
+                },
+            )
+        })
+        .collect()
+}
+
+fn table_numeric_symbols_for_row(
+    table: &RuntimeTable,
+    row: usize,
+    referenced_symbols: &HashSet<String>,
+) -> Option<HashMap<String, f64>> {
+    let mut symbols = HashMap::new();
+    for column in table
+        .columns
+        .iter()
+        .filter(|column| matches!(column.values, RuntimeValues::Number(_)))
+    {
+        let Some(value) = numeric_column_value(column, row) else {
+            if referenced_symbols.contains(&column.name) {
+                return None;
+            }
+            continue;
+        };
+        symbols.insert(column.name.clone(), value);
+    }
+    if referenced_symbols
+        .iter()
+        .all(|symbol| symbols.contains_key(symbol))
+    {
+        Some(symbols)
+    } else {
+        None
+    }
+}
+
+fn derived_column_unit(
+    expression: &ParsedArithmeticExpression,
+    column: &eng_compiler::TableDerivedColumnInfo,
+    table: &RuntimeTable,
+) -> ArithmeticUnitMetadata {
+    expression
+        .root_unit
+        .clone()
+        .or_else(|| {
+            column
+                .source_columns
+                .first()
+                .and_then(|name| table.columns.iter().find(|source| source.name == *name))
+                .map(column_unit_metadata)
+        })
+        .unwrap_or_else(dimensionless_unit_metadata)
+}
+
+fn column_unit_metadata(column: &RuntimeColumn) -> ArithmeticUnitMetadata {
+    let display_unit = column
+        .unit
+        .clone()
+        .or_else(|| column.canonical_unit.clone())
+        .unwrap_or_else(|| "1".to_owned());
+    ArithmeticUnitMetadata {
+        canonical_unit: column
+            .canonical_unit
+            .clone()
+            .unwrap_or_else(|| display_unit.clone()),
+        display_unit,
+        quantity_kind: column.type_name.clone(),
+    }
+}
+
+fn dimensionless_unit_metadata() -> ArithmeticUnitMetadata {
+    ArithmeticUnitMetadata {
+        display_unit: "1".to_owned(),
+        canonical_unit: "1".to_owned(),
+        quantity_kind: "DimensionlessNumber".to_owned(),
+    }
+}
+
+fn missing_derived_column(
+    column: &eng_compiler::TableDerivedColumnInfo,
+    row_count: usize,
+) -> RuntimeColumn {
+    RuntimeColumn {
+        name: column.name.clone(),
+        type_name: "DimensionlessNumber".to_owned(),
+        unit: Some("1".to_owned()),
+        canonical_unit: Some("1".to_owned()),
+        is_index: false,
+        values: RuntimeValues::Number(vec![None; row_count]),
+        canonical_values: vec![None; row_count],
+        missing_count: row_count,
+        conversion_failures: Vec::new(),
+    }
+}
+
+fn derived_table_hash_payload(
+    transform: &eng_compiler::TableTransformInfo,
+    table: &RuntimeTable,
+) -> String {
+    let mut payload = format!(
+        "{}|{}|{}|{}",
+        transform.binding, transform.operation, transform.source_table, table.row_count
+    );
+    for column in &transform.derived_columns {
+        payload.push_str(&format!(
+            "|derive:{}:{}:{}",
+            column.name, column.expression, column.status
+        ));
+    }
+    for row in 0..table.row_count {
+        payload.push('|');
+        payload.push_str(&format!("row={row}"));
+        for column in &table.columns {
+            payload.push_str(&format!(
+                ";{}={}",
+                column.name,
+                table_cell_text(column, row)
+            ));
+        }
+    }
+    payload
+}
+
 fn resolve_table_transform_source<'a>(
     tables: &'a [RuntimeTable],
     transform_rows: &HashMap<String, TableTransformRows>,
     source: &str,
 ) -> Option<(&'a RuntimeTable, Vec<usize>, Option<String>)> {
+    if let Some(table) = tables.iter().find(|table| table.binding == source) {
+        return Some((
+            table,
+            (0..table.row_count).collect(),
+            Some(table.schema_name.clone()),
+        ));
+    }
     if let Some(rows) = transform_rows.get(source) {
         let table = tables
             .iter()
@@ -23797,6 +24255,86 @@ with {{
         assert_eq!(air.step_count, 6);
         assert_eq!(round2(air.final_value), 26.0);
         assert_eq!(round2(wall.final_value), 32.0);
+    }
+
+    #[test]
+    fn materializes_derived_table_columns_for_table_regression() {
+        let source = r#"
+training_designs = sample lhs
+with {
+    count = 4
+    seed = 5
+    cooling_cop = uniform(2.5, 5.0)
+    envelope_load_index = uniform(0.85, 1.20)
+}
+
+energy_results = derive training_designs column annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh - cooling_cop * 750 kWh
+peak_cooling_results = derive energy_results column peak_cooling = 7 kW + envelope_load_index * 7 kW - cooling_cop * 0.6 kW
+training_results = derive peak_cooling_results column unmet_hours = 3 h - cooling_cop * 0.2 h
+surrogate_model = regression_table(training_results, target=annual_electricity, features=[cooling_cop, envelope_load_index], test=0.25, seed=7)
+"#;
+        let report = check_source("derived_regression.eng", source, &CheckOptions::default());
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+
+        let runtime = materialize_runtime_data(&report, source);
+        let table = runtime
+            .tables
+            .iter()
+            .find(|table| table.binding == "training_results")
+            .unwrap();
+        assert_eq!(table.schema_name, "DerivedTable");
+        assert_eq!(table.row_count, 4);
+
+        let cop = table
+            .columns
+            .iter()
+            .find(|column| column.name == "cooling_cop")
+            .unwrap();
+        let envelope = table
+            .columns
+            .iter()
+            .find(|column| column.name == "envelope_load_index")
+            .unwrap();
+        let annual = table
+            .columns
+            .iter()
+            .find(|column| column.name == "annual_electricity")
+            .unwrap();
+        let peak = table
+            .columns
+            .iter()
+            .find(|column| column.name == "peak_cooling")
+            .unwrap();
+        assert_eq!(annual.type_name, "Energy");
+        assert_eq!(annual.unit.as_deref(), Some("kWh"));
+        assert_eq!(peak.type_name, "Power");
+        assert_eq!(peak.unit.as_deref(), Some("kW"));
+
+        let expected_annual = 10200.0 + numeric_column_value(envelope, 0).unwrap() * 2600.0
+            - numeric_column_value(cop, 0).unwrap() * 750.0;
+        assert_eq!(
+            round2(numeric_column_value(annual, 0).unwrap()),
+            round2(expected_annual)
+        );
+
+        let regression = runtime
+            .ml_artifacts
+            .iter()
+            .find(|artifact| artifact.binding == "surrogate_model")
+            .unwrap();
+        assert_eq!(regression.status, "trained_linear");
+        assert_eq!(regression.target_quantity.as_deref(), Some("Energy"));
+        assert_eq!(regression.display_unit, "kWh");
+        assert_eq!(regression.train_count, Some(3));
+        assert!(regression.training_data_hash.is_some());
+        assert!(runtime
+            .sample_tables
+            .iter()
+            .any(|sample| sample.binding == "training_designs"));
+        assert!(!runtime
+            .sample_tables
+            .iter()
+            .any(|sample| sample.binding == "training_results"));
     }
 
     #[test]

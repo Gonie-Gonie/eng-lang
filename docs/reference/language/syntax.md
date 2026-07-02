@@ -1056,7 +1056,7 @@ Current DB write options:
 
 | Option | Meaning |
 |---|---|
-| `mode` | `append`/`insert` or `upsert`; default is `append` |
+| `mode` | `append`/`insert`, `upsert`, or `replace`; default is `append` |
 | `key` | Upsert key column name or list of column names |
 | `transaction` | `commit` or `rollback`; default is `commit` |
 
@@ -1066,8 +1066,8 @@ Rules:
 |---|---|
 | Top-level only | Imported files cannot hide DB writes |
 | SQLite output boundary | Database files live under `build/result` |
-| Typed source table | Source must be a promoted or generated typed table |
-| Schema preflight | Existing SQLite table columns must match the source schema |
+| Typed source table | Source must be a promoted, generated, or derived typed table |
+| Schema preflight | Existing SQLite table columns must match the source schema unless `mode = replace` recreates the target table |
 | Reviewable records | `result.engres` and `review.json` include `db_manifests[]` |
 | Manifest records | `output_manifest.json` records `sqlite_database` and `db_write_manifest` entries |
 

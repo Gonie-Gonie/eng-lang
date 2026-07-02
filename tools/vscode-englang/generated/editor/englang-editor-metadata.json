@@ -963,6 +963,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "replace",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "request",
                                 "lsp_kind":  14
                             },
@@ -1567,7 +1573,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Native SQLite append/upsert writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records.",
+                                "detail":  "Native workflow support: Native SQLite append/upsert/replace writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records.",
                                 "kind":  "stdlib",
                                 "label":  "eng.db",
                                 "lsp_kind":  9
@@ -2071,7 +2077,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  345,
+    "completion_seed_count":  346,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

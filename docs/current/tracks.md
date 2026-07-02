@@ -120,7 +120,7 @@ and next cleanup action.
 - Main internal: broader filesystem/process policy plus live `eng.net`
   execution, `eng.cache` replay/invalidation, broad `eng.db` database support,
   and broader `eng.model` train syntax are planned; network/cache record summaries,
-  native SQLite append/upsert DB write manifests, native predict-table manifests,
+  native SQLite append/upsert/replace DB write manifests, native predict-table manifests,
   output-manifest
   `artifact_registry` summaries, and
   model specs/cards/prediction-manifest summaries are supported as artifact

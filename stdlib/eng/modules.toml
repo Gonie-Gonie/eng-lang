@@ -124,7 +124,7 @@ tests = ["cargo test -p eng_compiler records_data_driven_modeling_metadata", "ca
 [module."eng.db"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Native SQLite append/upsert writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records."
+purpose = "Native SQLite append/upsert/replace writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records."
 artifacts = ["typed_payload.db_manifests", "db_write_manifest", "sqlite_database", "review.external_boundaries"]
 diagnostics = ["E-DB-CONNECT", "E-DB-SCHEMA-MISMATCH", "E-DB-KEY-MISSING", "E-DB-TRANSACTION-FAILED", "E-DB-SAFE-PROFILE", "W-PROFILE-REPRO-DB"]
 examples = ["examples/workflows/02_external_simulation_surrogate"]

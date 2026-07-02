@@ -287,6 +287,7 @@ fn matches_expected_source(quantity_kind: &str, expected: ExpectedMlSource) -> b
         }
         ExpectedMlSource::Table => {
             quantity_kind.starts_with("Table[") && quantity_kind.ends_with(']')
+                || quantity_kind == "TableTransform[Derive]"
         }
     }
 }
@@ -296,7 +297,7 @@ fn expected_source_label(expected: ExpectedMlSource) -> &'static str {
         ExpectedMlSource::TimeSeries => "TimeSeries",
         ExpectedMlSource::TrainTestSplit => "TrainTestSplit",
         ExpectedMlSource::Model => "Model[Regression] or Model[MLP]",
-        ExpectedMlSource::Table => "Table[...]",
+        ExpectedMlSource::Table => "Table[...] or materialized derive table",
     }
 }
 
@@ -312,7 +313,7 @@ fn expected_source_help(expected: ExpectedMlSource) -> &'static str {
             "Create `reg_model = regression(split, ...)` or `mlp_model = mlp(split, ...)` first."
         }
         ExpectedMlSource::Table => {
-            "Promote or generate a table first, then pass it as `predict model using samples` or `regression_table(table, ...)`."
+            "Promote, generate, or derive a table first, then pass it as `predict model using samples` or `regression_table(table, ...)`."
         }
     }
 }

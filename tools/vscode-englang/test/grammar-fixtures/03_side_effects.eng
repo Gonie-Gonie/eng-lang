@@ -18,6 +18,7 @@ db = open sqlite file("outputs/results.sqlite")
 write process_result to db.table("runs")
 with {
     mode = append
+    mode = replace
 }
 
 export summary to csv "outputs/summary.csv" {

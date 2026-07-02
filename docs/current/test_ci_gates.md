@@ -102,7 +102,7 @@ syntax:
   `typed_payload.prediction_manifests[]`, including output quantity/unit,
   case IDs, row counts, hashes, and confidence-column metadata.
 - Native DB tests cover `open sqlite`, `write <table> to db.table("...")`,
-  append, upsert with key, transaction rollback, schema mismatch diagnostics,
+  append, upsert with key, replace, transaction rollback, schema mismatch diagnostics,
   safe-profile rejection, DB write manifests, SQLite database artifacts, DB
   file hashes before/after, and table records.
 - Native model predict tests cover `predict <model> using <table>`,

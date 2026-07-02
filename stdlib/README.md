@@ -52,7 +52,7 @@ APIs unless a status document says so.
 | `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response cache materialization/replay, cache records, and hit/miss lookup artifacts; broader reuse/invalidation remains planned. |
 | `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
-| `eng.db` | Supported SQLite write scope | Native SQLite append/upsert writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
+| `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |
