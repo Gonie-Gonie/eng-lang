@@ -2169,7 +2169,7 @@ function Assert-VscodeExtensionContract {
         "property.external", "property.solver", "keyword.deprecated", "variable.state",
         "parameter.input", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
-        "property.riskMedium", "variable.model", "variable.db",
+        "property.riskMedium", "variable.model", "variable.db", "property.db",
         "function.model", "keyword.model", "function.defaultLibrary", "namespace.defaultLibrary",
         "namespace.imported", "namespace.internal", "type.axis", "variable.cache", "keyword.workflowStep",
         "function.workflowStep"

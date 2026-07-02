@@ -166,6 +166,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "check",
     "class",
     "command",
+    "commit",
     "component",
     "connect",
     "const",
@@ -248,6 +249,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "report",
     "return",
     "results",
+    "rollback",
     "run",
     "sample",
     "schema",
@@ -3064,6 +3066,7 @@ impl<'a> SemanticTokenBuilder<'a> {
 fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "open" | "sqlite" => &["sideEffect", "external", "db"],
+        "commit" | "rollback" => &["db"],
         "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
         | "fetch" | "download" => &["sideEffect", "external"],
         "write" | "export" | "copy" | "move" | "delete" | "render" | "template" => &["sideEffect"],
@@ -5471,6 +5474,7 @@ with {
     mode = upsert
     key = time
     transaction = commit
+    transaction = rollback
 }
 
 write standard_text sensor
@@ -5540,6 +5544,8 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
         assert_semantic_token_modifier(&snapshot, source, "key", "db");
         assert_semantic_token_modifier(&snapshot, source, "transaction", "db");
+        assert_semantic_token_modifier(&snapshot, source, "commit", "db");
+        assert_semantic_token_modifier(&snapshot, source, "rollback", "db");
         assert_semantic_token_modifier(&snapshot, source, "standard_text", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "output", "sideEffect");
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");

@@ -582,7 +582,7 @@ simulate GuardSystem
 solve GuardSystem
 if true else false
 none null and or not between over by using in into is where of vs
-append insert upsert keep empty interpolate monotonic safe normal repro
+append insert upsert replace commit rollback keep empty interpolate monotonic safe normal repro
 '@
 $KeywordFallbackScopes = @(
     "keyword.control.import.englang",

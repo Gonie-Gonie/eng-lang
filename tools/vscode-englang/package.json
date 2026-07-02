@@ -326,6 +326,10 @@
           "keyword.db": [
             "keyword.control.external-boundary.englang"
           ],
+          "property.db": [
+            "keyword.control.external-boundary.englang",
+            "variable.other.property.englang"
+          ],
           "variable.cache": [
             "keyword.control.workflow.englang",
             "variable.other.definition.englang"

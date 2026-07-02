@@ -302,6 +302,21 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "transaction ="
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "commit"
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "rollback"
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.print-message.englang",
     "text": "print \"Q total = {Q_total: .2 kWh}\"",
     "fullMatch": true

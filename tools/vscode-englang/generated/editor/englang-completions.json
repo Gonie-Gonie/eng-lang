@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  361,
+    "completion_seed_count":  363,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -611,6 +611,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "commit",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "component",
                                 "lsp_kind":  14
                             },
@@ -1002,6 +1008,12 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "results",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "rollback",
                                 "lsp_kind":  14
                             },
                             {

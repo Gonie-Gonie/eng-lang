@@ -2955,6 +2955,19 @@ Status: implemented after auditing public reference docs for placeholder pages.
 - Renamed the language index section from planned skeletons to focused lookup
   pages so public docs no longer advertise unfinished placeholders.
 
+## Batch 239: SQLite Transaction Value Highlighting
+
+Status: implemented after checking VS Code snippets against TextMate and LSP
+keyword coverage.
+
+- Added `commit` and `rollback` to the LSP keyword/completion vocabulary with
+  DB semantic-token modifiers.
+- Added the same values to the TextMate constant fallback so
+  `transaction = commit` and `transaction = rollback` are colored consistently
+  in VS Code before semantic tokens arrive.
+- Extended grammar fixtures and semantic-token tests to cover both transaction
+  values.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -19,6 +19,8 @@ write process_result to db.table("runs")
 with {
     mode = append
     mode = replace
+    transaction = commit
+    transaction = rollback
 }
 
 export summary to csv "outputs/summary.csv" {
