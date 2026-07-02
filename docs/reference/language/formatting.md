@@ -1,6 +1,6 @@
 # Unit-Aware Print And CSV Summary Export
 
-EngLang supports Python-like string interpolation for CLI/debug output,
+EngLang supports brace-based string interpolation for CLI/debug output,
 structured runtime messages, and a small explicit CSV export surface for scalar
 summary records.
 

@@ -3401,6 +3401,14 @@ VS Code highlighting and completion metadata.
 - Added grammar coverage for compiler-supported uncertainty option aliases such
   as `sigma`, `n`, `lower`, and `upper`.
 
+## Batch 275: Interpolation Wording Cleanup
+
+Status: implemented while reducing accidental Python framing in public docs.
+
+- Reworded the formatting reference from "Python-like string interpolation" to
+  "brace-based string interpolation" so the docs describe EngLang syntax
+  without implying a Python runtime dependency.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
