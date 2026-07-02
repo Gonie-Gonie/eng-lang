@@ -1909,6 +1909,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $ArtifactOpenersPath = Join-Path $ExtensionRoot "artifactOpeners.js"
     $CommandHandlersPath = Join-Path $ExtensionRoot "commandHandlers.js"
+    $DecorationsPath = Join-Path $ExtensionRoot "decorations.js"
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
@@ -1957,6 +1958,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CommandHandlersPath)) {
         throw "missing VS Code command handlers at $CommandHandlersPath"
+    }
+    if (-not (Test-Path $DecorationsPath)) {
+        throw "missing VS Code decoration controller at $DecorationsPath"
     }
     if (-not (Test-Path $CompletionProviderPath)) {
         throw "missing VS Code completion provider at $CompletionProviderPath"
@@ -2368,6 +2372,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $ArtifactOpenersSource = Get-Content -LiteralPath $ArtifactOpenersPath -Raw
     $CommandHandlersSource = Get-Content -LiteralPath $CommandHandlersPath -Raw
+    $DecorationsSource = Get-Content -LiteralPath $DecorationsPath -Raw
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
@@ -2456,7 +2461,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./commandHandlers")') -or -not $CommandHandlersSource.Contains("function createCommandHandlers")) {
         throw "VS Code extension must load command handlers from commandHandlers.js"
     }
-    $ReviewPanelSourceCombined = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $ReviewPanelRendererSource
+    $ReviewPanelSourceCombined = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $ReviewPanelRendererSource + "`n" + $DecorationsSource
     if ($ReviewPanelSourceCombined.Contains('reviewValue(module, "backing")')) {
         throw "VS Code workflow module panel must not display raw registry backing keys"
     }
@@ -2703,6 +2708,10 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function maybeCheck") -or $ExtensionSource.Contains("function scheduleChangedCheck") -or $ExtensionSource.Contains("function checkDocumentSource") -or $ExtensionSource.Contains("function finishDocumentCheck") -or $ExtensionSource.Contains("function toDiagnostics") -or $ExtensionSource.Contains("function toVscodeSeverity") -or $ExtensionSource.Contains("function firstLineRange")) {
         throw "VS Code extension must keep diagnostics helpers in diagnosticsProvider.js"
     }
+    $DecorationSourceCombined = $ExtensionSource + "`n" + $DecorationsSource
+    if (-not $ExtensionSource.Contains('require("./decorations")') -or -not $DecorationsSource.Contains("function createDecorationController")) {
+        throw "VS Code extension must load decoration helpers from decorations.js"
+    }
     foreach ($RequiredRiskDecorationToken in @(
         "createReviewRiskDecorationTypes",
         "updateReviewRiskDecorations",
@@ -2715,11 +2724,11 @@ function Assert-VscodeExtensionContract {
         "editorWarning.foreground",
         "OverviewRulerLane.Right"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredRiskDecorationToken)) {
+        if (-not $DecorationSourceCombined.Contains($RequiredRiskDecorationToken)) {
             throw "VS Code extension missing review risk decoration token $RequiredRiskDecorationToken"
         }
     }
-    $SemanticSymbolDecorationSource = $ExtensionSource + "`n" + $LspSemanticTokensSource
+    $SemanticSymbolDecorationSource = $ExtensionSource + "`n" + $DecorationsSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticSymbolDecorationToken in @(
         "createSemanticSymbolDecorationTypes",
         "updateSemanticSymbolDecorations",
@@ -2733,6 +2742,20 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $SemanticSymbolDecorationSource.Contains($RequiredSemanticSymbolDecorationToken)) {
             throw "VS Code extension missing semantic symbol decoration token $RequiredSemanticSymbolDecorationToken"
+        }
+    }
+    foreach ($ForbiddenDecorationEntrypointToken in @(
+        "function createReviewRiskDecorationTypes",
+        "function createSemanticSymbolDecorationTypes",
+        "function refreshVisibleReviewRiskDecorations",
+        "function semanticSymbolDecorationOptions",
+        "function semanticSymbolHoverMessage",
+        "function reviewRiskDecorationOptions",
+        "function setReviewRiskDecorationLine",
+        "function fullLineRange"
+    )) {
+        if ($ExtensionSource.Contains($ForbiddenDecorationEntrypointToken)) {
+            throw "VS Code extension must keep decoration helpers in decorations.js"
         }
     }
     $NavigationSource = $ExtensionSource + "`n" + $NavigationProvidersSource + "`n" + $LspNavigationSource + "`n" + $LspRequestsSource
@@ -3072,6 +3095,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $ArtifactOpenersPath
             Invoke-Native $Node.Source "--check" $CommandHandlersPath
+            Invoke-Native $Node.Source "--check" $DecorationsPath
             Invoke-Native $Node.Source "--check" $CompletionProviderPath
             Invoke-Native $Node.Source "--check" $CodeActionProviderPath
             Invoke-Native $Node.Source "--check" $DiagnosticsProviderPath
@@ -4187,6 +4211,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\commandHandlers.js"))) {
             throw "portable package did not include VS Code command handlers"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\decorations.js"))) {
+            throw "portable package did not include VS Code decoration controller"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\completionProvider.js"))) {
             throw "portable package did not include VS Code completion provider"

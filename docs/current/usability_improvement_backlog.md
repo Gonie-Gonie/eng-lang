@@ -3469,6 +3469,18 @@ Status: implemented while continuing the VS Code thin-client split.
 - Extended extension and portable-package contract checks so command handlers
   stay packaged and do not drift back into `extension.js`.
 
+## Batch 281: VS Code Decoration Controller Split
+
+Status: implemented while continuing the VS Code thin-client split.
+
+- Moved review-risk line decorations and internal/planned semantic symbol
+  decorations into `decorations.js`.
+- Kept `extension.js` responsible for activation and event wiring while the
+  decoration controller owns marker creation, refresh, hover wording, and
+  review snapshot line mapping.
+- Extended extension and portable-package contract checks so decoration helpers
+  stay packaged and do not drift back into `extension.js`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
