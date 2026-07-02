@@ -2868,6 +2868,17 @@ and workflow artifact declarations.
 - Pinned grammar expectations for the public declaration fixture and documented
   the new scopes in the editor token-scope contract.
 
+## Batch 232: Generic Type Completion Scope Guard
+
+Status: implemented after checking how generic public type completions can drift
+from TextMate fallback highlighting.
+
+- Strengthened the VS Code grammar smoke harness so every public generic type
+  label exported by LSP completion metadata must match
+  `meta.type.generic.englang`.
+- Kept the existing base-type guard for `support.type.englang`, while deriving
+  it from the same completion label list as the generic guard.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

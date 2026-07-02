@@ -395,7 +395,11 @@ $CompletionKeywords = Read-RustStringSliceConst -Source $LspSource -Name "COMPLE
 $WorkflowBuiltins = Read-RustStringSliceConst -Source $LspSource -Name "WORKFLOW_BUILTIN_KEYWORDS"
 $WorkflowOptions = Read-RustTupleFirstStringsConst -Source $LspSource -Name "WORKFLOW_OPTION_COMPLETIONS"
 $GrammarWorkflowOptions = Read-GrammarWorkflowOptionLabels
-$PublicTypes = @(Read-RustTupleFirstStringsConst -Source $LspSource -Name "PUBLIC_TYPE_COMPLETIONS" | ForEach-Object {
+$PublicTypeLabels = @(Read-RustTupleFirstStringsConst -Source $LspSource -Name "PUBLIC_TYPE_COMPLETIONS")
+$PublicGenericTypes = @($PublicTypeLabels | Where-Object {
+    $_ -match "\[[^\]]+\]"
+})
+$PublicTypes = @($PublicTypeLabels | ForEach-Object {
     ($_ -replace "\[.*$", "")
 } | Select-Object -Unique)
 $CompilerUnitSymbols = @(Read-RustStructFieldStringsConst -Source $CompilerUnitsSource -Name "UNIT_INFOS" -FieldName "symbol" | Where-Object {
@@ -581,6 +585,7 @@ $KeywordFallbackScopes = @(
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
+Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
