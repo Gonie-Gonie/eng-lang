@@ -183,9 +183,14 @@ The generated TextMate grammar lives at `syntaxes/eng.tmLanguage.json`. Edit
 `syntaxes/eng.tmLanguage.source.json`, then run:
 
 ```bat
+.\dev.bat vscode-build-editor-metadata
 .\dev.bat vscode-build-grammar
 .\dev.bat vscode-grammar-test
 ```
+
+The source grammar may use `{{...}}` placeholders for compiler-owned keyword,
+type, unit, and option lists. `vscode-build-grammar` expands those placeholders
+from `generated/editor/englang-editor-metadata.json`.
 
 The grammar smoke writes token-check output under
 `build\editor-tests\textmate_tokens\grammar_smoke.json`.

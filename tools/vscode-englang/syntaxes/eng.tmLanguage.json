@@ -124,7 +124,7 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "constant.other.unit.format.englang",
-                                                                                                      "match":  "(?\u003c![A-Za-z0-9_])(J/kg/K|people/m2|person/m2|W/m\\^2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])"
+                                                                                                      "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])"
                                                                                                   }
                                                                                               ]
                                                                              }
@@ -1944,7 +1944,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|distribution|ensemble|propagate|probability|train|train_test_split|regression|regression_table|train_regression|mlp|ann|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
+                                                             "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\b"
                                                          }
                                                      ]
                                     },
@@ -1952,7 +1952,7 @@
                                              "patterns":  [
                                                               {
                                                                   "name":  "meta.function-call.englang",
-                                                                  "begin":  "\\b(?!(?:file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|distribution|ensemble|propagate|probability|train|train_test_split|regression|regression_table|train_regression|mlp|ann|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
+                                                                  "begin":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
                                                                   "beginCaptures":  {
                                                                                         "1":  {
                                                                                                   "name":  "entity.name.function.call.englang"
@@ -2097,7 +2097,7 @@
                                                                                  },
                                                                                  {
                                                                                      "name":  "variable.parameter.property.englang",
-                                                                                     "match":  "\\b(args|backend|query|headers|body|offline_response|fixture|status_code|expected_sha256|body_size_limit|response_body_limit|expected_outputs|artifact_kind|tool_version|values|template|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_dir|cache_key|cache_ttl|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|test_fraction|features|x|target|y|algorithm|hidden|layers|epochs|missing|max_gap|method|status|start|end|return_column|kind|lower|upper|mu|sigma|n|samples|uncertainty|relative_error|scale|gain|offset|bias|sensor_std|timestep|duration|solver|tolerance|finite_difference_step|damping|initial|initial_derivative|initial_algebraic|algebraic_initialization|inputs|jacobian|mass_matrix|max_iter|line_search_steps|relaxation|residual_scale|residual_scales|consistency_tolerance|variable_scale|variable_scales|display_unit|title|confidence_band|on_none|on_many|split|transaction|type)\\b(?=\\s*=)"
+                                                                                     "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|tolerance|duration|features|jacobian|max_iter|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|samples|timeout|epochs|hidden|inputs|layers|method|offset|output|resume|solver|status|target|values|cache|count|lower|query|retry|scale|sigma|split|start|title|upper|args|bias|body|gain|kind|mode|seed|step|test|type|year|cwd|end|env|key|mu|n|x|y)\\b(?=\\s*=)"
                                                                                  },
                                                                                  {
                                                                                      "name":  "variable.other.property.englang",
@@ -2195,7 +2195,7 @@
                                                       },
                                                       {
                                                           "name":  "support.type.englang",
-                                                          "match":  "\\b(Report|ReviewDocument|RunPlan|RunLog|RunLock|OutputManifest|CacheManifest|ProcessResult|HttpResponse|CoverageResult|QualityResult|Table|TableRow|SampleTable|CaseTable|CaseManifest|TimeSeries|Time|Prediction|PredictionManifest|ModelCard|ModelArtifact|DbConnection|DbTableRef|DbWriteManifest|NetworkCache|ArtifactManifest|Path|FilePath|DirectoryPath|CsvFile|TextFile|JsonFile|TomlFile|ReportFile|PlotFile|Url|Secret|Optional|StateVector|InputVector|OutputVector|Derivative|LinearOperator|Object|Bool|Int|Float|Number|String|Date|DateTime|Duration|DimensionlessNumber|AbsoluteTemperature|TemperatureDelta|Length|Area|Volume|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|Mass|MassFlowRate|Pressure|Irradiance|PeopleDensity|Ratio|ReynoldsNumber)\\b"
+                                                          "match":  "\\b(PredictionManifest|ArtifactManifest|DbWriteManifest|CoverageResult|LinearOperator|OutputManifest|ReviewDocument|CacheManifest|DirectoryPath|ModelArtifact|ProcessResult|QualityResult|CaseManifest|DbConnection|HttpResponse|NetworkCache|OutputVector|InputVector|SampleTable|StateVector|DbTableRef|Derivative|Prediction|ReportFile|TimeSeries|CaseTable|ModelCard|DateTime|Duration|FilePath|JsonFile|Optional|PlotFile|TableRow|TextFile|TomlFile|CsvFile|RunLock|RunPlan|Number|Object|Report|RunLog|Secret|String|Volume|Float|Table|Area|Bool|Date|Mass|Path|Time|Int|Url|AbsoluteTemperature|DimensionlessNumber|TemperatureDelta|MechanicalPower|ReynoldsNumber|ElectricPower|PeopleDensity|HeatCapacity|MassFlowRate|SpecificHeat|Conductance|Irradiance|Duration|HeatRate|Pressure|Energy|Length|Ratio)\\b"
                                                       }
                                                   ]
                                  },
@@ -2203,7 +2203,7 @@
                                      "patterns":  [
                                                       {
                                                           "name":  "meta.quantity.literal.englang",
-                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(J/kg/K|people/m2|person/m2|W/m\\^2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])",
                                                           "captures":  {
                                                                            "1":  {
                                                                                      "name":  "constant.other.unit.englang"
@@ -2212,11 +2212,11 @@
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c=\\[)(J/kg/K|people/m2|person/m2|W/m\\^2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?=\\])"
+                                                          "match":  "(?\u003c=\\[)(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?=\\])"
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c![A-Za-z0-9_])(J/kg/K|people/m2|person/m2|W/m\\^2|W/m2|kg/s|W/K|J/K|kJ/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])"
+                                                          "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])"
                                                       }
                                                   ]
                                  },

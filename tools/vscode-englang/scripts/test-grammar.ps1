@@ -23,7 +23,7 @@ foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $Fi
     }
 }
 
-$GrammarSourceRaw = Get-Content -LiteralPath $GrammarSourcePath -Raw -Encoding UTF8
+$GrammarGeneratedRaw = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8
 $Grammar = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $ExpectedJson = Get-Content -LiteralPath $ExpectedPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -223,7 +223,7 @@ function Assert-WorkflowOptionsAreScopedToWithBlocks {
     }
 }
 
-function Assert-GrammarSourceContainsLabels {
+function Assert-GeneratedGrammarContainsLabels {
     param(
         [Parameter(Mandatory = $true)][string] $Source,
         [Parameter(Mandatory = $true)][string[]] $Labels,
@@ -236,7 +236,7 @@ function Assert-GrammarSourceContainsLabels {
         $jsonEscapedRegexLabel = $regexEscapedLabel.Replace("\", "\\")
         $escapedPattern = "(?<![A-Za-z0-9_])$([regex]::Escape($jsonEscapedRegexLabel))(?![A-Za-z0-9_])"
         if ($Source -notmatch $pattern -and $Source -notmatch $escapedPattern) {
-            throw "TextMate grammar source missing $Description label $Label"
+            throw "TextMate generated grammar missing $Description label $Label"
         }
     }
 }
@@ -403,12 +403,12 @@ $CompilerUnitSymbols = @($SyntaxCatalog.units | ForEach-Object { [string]$_.labe
 } | Select-Object -Unique)
 $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
 
-Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
-Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
-Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowOptions -Description "LSP workflow option"
-Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $PublicTypes -Description "LSP public type"
-Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
-Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowOptions -Description "LSP workflow option"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicTypes -Description "LSP public type"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-WorkflowOptionsAreScopedToWithBlocks
 $GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $WorkflowOptions -notcontains $_ } | Sort-Object -Unique)
 if ($GrammarOptionsMissingFromLsp.Count -gt 0) {

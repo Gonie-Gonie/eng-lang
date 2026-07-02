@@ -18,9 +18,13 @@ the files that keep VS Code and the native IDE aligned.
 | Grammar smoke fixtures | `tools/vscode-englang/test/grammar-fixtures/*.eng` |
 | Grammar smoke expectations | `tools/vscode-englang/test/expected/grammar_tokens.json` |
 
-Edit the source grammar, not the generated grammar. After grammar changes run:
+Edit the source grammar, not the generated grammar. The source grammar may use
+`{{...}}` placeholders for compiler-owned keyword, workflow helper, option,
+type, and unit lists; `build-grammar.ps1` expands them from generated editor
+metadata. After grammar changes run:
 
 ```bat
+.\dev.bat vscode-build-editor-metadata
 .\dev.bat vscode-build-grammar
 .\dev.bat vscode-grammar-test
 ```
