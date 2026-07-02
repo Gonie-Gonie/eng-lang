@@ -2407,6 +2407,7 @@ function Assert-VscodeExtensionContract {
         "englang.runFile",
         "englang.runExample",
         "englang.switchProfile",
+        "englang.switchProblemsSource",
         "englang.reviewFile",
         "englang.openReviewPanel",
         "englang.openReport",
@@ -2453,6 +2454,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Data" },
         @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Output List" },
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
+        @{ Command = "englang.switchProblemsSource"; Text = "Switch Problems Source" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]
@@ -2746,6 +2748,7 @@ function Assert-VscodeExtensionContract {
         "async function runActiveFile",
         "async function runExample",
         "async function switchExecutionProfile",
+        "async function switchProblemsSource",
         "async function reviewActiveFile",
         "async function openReviewPanel",
         "async function showSemanticTokensDebug",
@@ -2774,6 +2777,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
+    }
+    if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsBackend?.(document) !== "lsp-snapshot"')) {
+        throw "VS Code live buffer diagnostics must only run when englang.problemsSource is live"
     }
     $LspRequestSourceCombined = $ExtensionSource + "`n" + $LspRequestsSource
     if (-not $ExtensionSource.Contains('require("./lspRequests")') -or -not $LspRequestsSource.Contains("function createLspRequests")) {

@@ -38,6 +38,9 @@ class EngDiagnosticsController {
       return;
     }
     this.clearSnapshotCache(document);
+    if (this.diagnosticsBackend?.(document) !== "lsp-snapshot") {
+      return;
+    }
     const config = vscode.workspace.getConfiguration("englang", document.uri);
     if (!config.get("lintOnChange", true)) {
       return;

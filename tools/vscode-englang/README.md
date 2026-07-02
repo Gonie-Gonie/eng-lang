@@ -42,6 +42,8 @@ embedding compiler logic in JavaScript.
   data, report data, output lists, run logs, run graphs, reproducibility locks,
   external process results, cache records, test results, plot data, plot output
   lists, and plot SVGs
+- `EngLang: Switch Problems Source...` for choosing quieter saved-file checks
+  or live unsaved-buffer checks from the Command Palette
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -57,7 +59,8 @@ embedding compiler logic in JavaScript.
 The packaged VSIX contains the EngLang command-line and editor tooling, so no
 Rust setup is required for diagnostics or live editor checks. The default
 Problems source uses stable file checks. In Settings, switch EngLang diagnostics
-to live editor checks to update Problems while typing. In `settings.json`, set:
+to live editor checks, or run `EngLang: Switch Problems Source...`, to update
+Problems while typing. In `settings.json`, set:
 
 ```json
 {
@@ -104,7 +107,8 @@ and quick fixes. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default Problems
 source runs stable file checks on open/save and manual check. Set
 `englang.problemsSource` to `live` to update Problems from the current unsaved
-buffer while typing. If an older workspace already has
+buffer while typing, or run `EngLang: Switch Problems Source...` and choose
+`live`. If an older workspace already has
 `englang.diagnosticsBackend`, the extension
 still accepts it as a compatibility alias. New workspaces should use
 `englang.problemsSource`.
@@ -131,9 +135,10 @@ Data` opens the `build/result/review.json` artifact from the last saved run.
 last run, including generated CSV/text outputs and review artifacts that are not
 listed as fixed commands.
 
-Dirty buffers are checked after a short typing pause, so Problems can update
-before the file is saved. Set `englang.lintOnChange = false` to keep
-diagnostics limited to open/save/manual checks.
+When the Problems source is `live`, dirty buffers are checked after a short
+typing pause, so Problems can update before the file is saved. Set
+`englang.lintOnChange = false` to disable those live typing checks while keeping
+live open/save analysis.
 
 Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid

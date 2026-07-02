@@ -566,6 +566,10 @@
         "title": "EngLang: Switch Execution Profile..."
       },
       {
+        "command": "englang.switchProblemsSource",
+        "title": "EngLang: Switch Problems Source..."
+      },
+      {
         "command": "englang.reviewFile",
         "title": "EngLang: Open Current File Review Data"
       },

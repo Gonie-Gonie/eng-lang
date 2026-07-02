@@ -110,6 +110,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.runFile", () => commandHandlers.runActiveFile(context)),
     vscode.commands.registerCommand("englang.runExample", () => commandHandlers.runExample(context)),
     vscode.commands.registerCommand("englang.switchProfile", () => commandHandlers.switchExecutionProfile()),
+    vscode.commands.registerCommand("englang.switchProblemsSource", () => commandHandlers.switchProblemsSource()),
     vscode.commands.registerCommand("englang.reviewFile", () => commandHandlers.reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => commandHandlers.openReviewPanel(context)),
     vscode.commands.registerCommand("englang.openReport", () => artifactOpeners.openLastRunArtifact("report")),

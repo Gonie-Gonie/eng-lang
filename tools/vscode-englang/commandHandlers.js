@@ -19,6 +19,21 @@ const {
   reviewPanelArtifacts
 } = require("./reviewPanelRenderer");
 
+const PROBLEMS_SOURCES = [
+  {
+    id: "file",
+    label: "file",
+    description: "Quieter saved-file checks",
+    detail: "Problems update when an EngLang file opens, saves, or is checked manually."
+  },
+  {
+    id: "live",
+    label: "live",
+    description: "Live buffer checks",
+    detail: "Problems update from the current unsaved editor buffer after a short typing pause."
+  }
+];
+
 function createCommandHandlers(options = {}) {
   const output = options.output;
   const reviewCache = options.reviewCache;
@@ -120,6 +135,32 @@ function createCommandHandlers(options = {}) {
       : vscode.ConfigurationTarget.Global;
     await engConfig(document).update("executionProfile", picked.profile, target);
     vscode.window.showInformationMessage(`EngLang execution profile set to ${picked.profile}.`);
+  }
+
+  async function switchProblemsSource() {
+    const document = vscode.window.activeTextEditor?.document;
+    const current = problemsSource(document);
+    const picked = await vscode.window.showQuickPick(
+      PROBLEMS_SOURCES.map((source) => ({
+        label: source.label,
+        description: source.id === current ? `${source.description} (current)` : source.description,
+        detail: source.detail,
+        source: source.id
+      })),
+      { placeHolder: `Current EngLang Problems source: ${current}` }
+    );
+    if (!picked) {
+      return;
+    }
+
+    const target = vscode.workspace.workspaceFolders?.length
+      ? vscode.ConfigurationTarget.Workspace
+      : vscode.ConfigurationTarget.Global;
+    await engConfig(document).update("problemsSource", picked.source, target);
+    const suffix = picked.source === "live"
+      ? "Problems will update while typing when englang.lintOnChange is enabled."
+      : "Problems will use saved-file checks on open, save, and manual check.";
+    vscode.window.showInformationMessage(`EngLang Problems source set to ${picked.source}. ${suffix}`);
   }
 
   async function reviewActiveFile(context) {
@@ -361,10 +402,21 @@ function createCommandHandlers(options = {}) {
       : "normal";
   }
 
+  function problemsSource(document) {
+    const config = engConfig(document);
+    const configured = config.get("problemsSource", "file");
+    if (configured === "file" || configured === "live") {
+      return configured;
+    }
+    const legacyBackend = config.get("diagnosticsBackend", "eng-cli");
+    return legacyBackend === "lsp-snapshot" ? "live" : "file";
+  }
+
   return {
     runActiveFile,
     runExample,
     switchExecutionProfile,
+    switchProblemsSource,
     reviewActiveFile,
     openReviewPanel,
     showSemanticTokensDebug

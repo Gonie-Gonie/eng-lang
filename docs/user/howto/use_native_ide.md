@@ -175,7 +175,8 @@ Use `.\dev.bat vscode-package` to only write
 VS Code's `Extensions: Install from VSIX...` command.
 
 The VS Code extension defaults to quieter file checks for the Problems panel.
-Set `"englang.problemsSource": "live"` to update Problems while typing from the
+Run `EngLang: Switch Problems Source...` and choose `live`, or set
+`"englang.problemsSource": "live"`, to update Problems while typing from the
 current unsaved buffer.
 
 The extension shares the same compiler-backed diagnostics, hover, completion,
