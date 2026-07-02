@@ -1790,6 +1790,17 @@ implementation-stage wording.
 - Updated workflow guide pages to describe pinned inputs and workflow examples
   instead of generic fixtures.
 
+## Batch 147: Network Option Semantic Coloring
+
+Status: implemented after comparing TextMate option-map highlighting with LSP
+semantic overlays.
+
+- Marked HTTP/network option keys such as `query`, `headers`, `body`,
+  `fixture`, `expected_sha256`, response fields, retry/timeout, and body-size
+  limits with the `external` semantic modifier.
+- Extended the LSP semantic-token regression so pinned HTTP response options
+  stay visibly grouped as external-boundary metadata in VS Code.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

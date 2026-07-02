@@ -1304,9 +1304,20 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 | "residual_scales"
                 | "variable_scales" => ["solver"].as_slice(),
                 "overwrite" | "mode" => ["sideEffect"].as_slice(),
-                "status_code" | "body_size_limit" | "response_body_limit" | "retry" | "timeout" => {
-                    ["external"].as_slice()
-                }
+                "query"
+                | "headers"
+                | "body"
+                | "fixture"
+                | "expected_sha256"
+                | "status_code"
+                | "status_class"
+                | "response_hash"
+                | "hash"
+                | "url"
+                | "body_size_limit"
+                | "response_body_limit"
+                | "retry"
+                | "timeout" => ["external"].as_slice(),
                 "algorithm" | "features" | "hidden" | "target" | "test" => ["model"].as_slice(),
                 _ => [].as_slice(),
             };
@@ -4861,7 +4872,13 @@ with {
 
 upload = http get url("https://example.org/weather")
 with {
+    query = {
+        station = "demo"
+    }
+    fixture = file("data/weather-response.json")
+    expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     status_code = 200
+    body_size_limit = 2 MB
 }
 
 write text "outputs/out.txt", "ok"
@@ -4886,7 +4903,11 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "duration", "solver");
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
         assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "query", "external");
+        assert_semantic_token_modifier(&snapshot, source, "fixture", "external");
+        assert_semantic_token_modifier(&snapshot, source, "expected_sha256", "external");
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
+        assert_semantic_token_modifier(&snapshot, source, "body_size_limit", "external");
         assert_semantic_token_modifier(&snapshot, source, "overwrite", "sideEffect");
     }
 
