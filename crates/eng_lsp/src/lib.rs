@@ -530,7 +530,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("tolerance", "solver convergence tolerance"),
     ("transaction", "SQLite transaction policy"),
     ("type", "workflow display or command subtype option"),
-    ("unit", "display unit or plot axis option"),
     ("uncertainty", "uncertainty propagation policy"),
     ("values", "template value map"),
     ("variable_scale", "solver variable scale"),
@@ -1386,7 +1385,7 @@ fn with_option_semantic_modifiers(
     block: &WithBlockInfo,
     key: &str,
 ) -> &'static [&'static str] {
-    if key == "display_unit" || key == "unit" || key.starts_with("unit ") {
+    if key == "display_unit" || key.starts_with("unit ") {
         return &["report"];
     }
     match key {
@@ -3900,7 +3899,7 @@ pub fn completion_items_at(
                 if context.assigned_options.contains(*label) {
                     continue;
                 }
-                if let Some(detail) = workflow_option_completion_detail(label) {
+                if let Some(detail) = contextual_workflow_option_completion_detail(label) {
                     push_completion(&mut items, &mut seen, label, "property", detail);
                 }
             }
@@ -4160,7 +4159,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
         return Some(&["overwrite", "mode"]);
     }
     if owner.starts_with("plot ") {
-        return Some(&["unit", "title", "confidence_band"]);
+        return Some(&["unit y", "unit x", "title", "confidence_band"]);
     }
     if owner.contains("require_one ") || owner.starts_with("require_one(") {
         return Some(&["on_none", "on_many"]);
@@ -4293,6 +4292,14 @@ fn workflow_option_completion_detail(label: &str) -> Option<&'static str> {
         .map(|(_candidate, detail)| *detail)
 }
 
+fn contextual_workflow_option_completion_detail(label: &str) -> Option<&'static str> {
+    workflow_option_completion_detail(label).or_else(|| match label {
+        "unit x" => Some("plot x-axis display unit option"),
+        "unit y" => Some("plot y-axis display unit option"),
+        _ => None,
+    })
+}
+
 fn is_with_block_start(line: &str) -> bool {
     line.trim() == "with {"
 }
@@ -4329,14 +4336,26 @@ fn assigned_with_options(lines: &[&str], start: usize, end: usize) -> BTreeSet<S
             continue;
         };
         let key = key.trim();
-        if key
-            .chars()
-            .all(|character| character == '_' || character.is_ascii_alphanumeric())
-        {
+        if is_with_option_assignment_key(key) {
             options.insert(key.to_owned());
         }
     }
     options
+}
+
+fn is_with_option_assignment_key(key: &str) -> bool {
+    if key
+        .chars()
+        .all(|character| character == '_' || character.is_ascii_alphanumeric())
+    {
+        return true;
+    }
+    key.strip_prefix("unit ").is_some_and(|axis| {
+        !axis.is_empty()
+            && axis
+                .chars()
+                .all(|character| character == '_' || character.is_ascii_alphanumeric())
+    })
 }
 
 fn strip_source_comment(line: &str) -> &str {
@@ -5842,13 +5861,44 @@ with {
             .any(|completion| completion.label == "confidence_band"));
         assert!(completions
             .iter()
-            .any(|completion| completion.label == "unit"));
+            .any(|completion| completion.label == "unit y"));
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "unit x"));
         assert!(completions
             .iter()
             .any(|completion| completion.label == "title"));
         assert!(!completions
             .iter()
+            .any(|completion| completion.label == "unit"));
+        assert!(!completions
+            .iter()
             .any(|completion| completion.label == "expected_sha256"));
+
+        let source = r#"plot Q_sensor over Time
+with {
+    unit y = kW
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("plot_with_existing_unit_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "unit x"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "unit y"));
     }
 
     #[test]

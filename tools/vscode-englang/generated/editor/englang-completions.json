@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  361,
+    "completion_seed_count":  360,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -1590,12 +1590,6 @@
                                 "detail":  "workflow display or command subtype option",
                                 "kind":  "property",
                                 "label":  "type",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "display unit or plot axis option",
-                                "kind":  "property",
-                                "label":  "unit",
                                 "lsp_kind":  10
                             },
                             {

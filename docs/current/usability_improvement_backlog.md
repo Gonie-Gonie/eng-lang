@@ -2585,6 +2585,17 @@ Status: implemented to close a visible API gap for non-GET network requests.
 - Added compiler/runtime regressions for body lowering, body cache identity,
   live POST body transmission, and body hash reporting.
 
+## Batch 210: Plot Unit Axis Completion Accuracy
+
+Status: implemented to remove an invalid IDE suggestion from plot workflows.
+
+- Replaced the plot `with { ... }` completion for invalid `unit =` with the
+  compiler-supported `unit y =` and `unit x =` axis options.
+- Kept the TextMate `unit y =`/`unit x =` special scope while removing `unit =`
+  from the generic workflow option highlighter.
+- Taught assigned-option tracking to recognize spaced unit-axis keys, so an
+  existing `unit y = ...` no longer reappears as a duplicate completion.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
