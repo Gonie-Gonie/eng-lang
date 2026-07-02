@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  353,
+    "completion_seed_count":  360,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -1191,9 +1191,9 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "HTTP request body option",
+                                "detail":  "execution backend option",
                                 "kind":  "property",
-                                "label":  "body",
+                                "label":  "backend",
                                 "lsp_kind":  10
                             },
                             {
@@ -1245,6 +1245,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "solver consistency tolerance",
+                                "kind":  "property",
+                                "label":  "consistency_tolerance",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "sample count option",
                                 "kind":  "property",
                                 "label":  "count",
@@ -1260,6 +1266,18 @@
                                 "detail":  "solver or simulation duration",
                                 "kind":  "property",
                                 "label":  "duration",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver damping factor",
+                                "kind":  "property",
+                                "label":  "damping",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "display unit option",
+                                "kind":  "property",
+                                "label":  "display_unit",
                                 "lsp_kind":  10
                             },
                             {
@@ -1296,6 +1314,12 @@
                                 "detail":  "model feature columns",
                                 "kind":  "property",
                                 "label":  "features",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver finite difference step",
+                                "kind":  "property",
+                                "label":  "finite_difference_step",
                                 "lsp_kind":  10
                             },
                             {
@@ -1350,6 +1374,12 @@
                                 "detail":  "database upsert key",
                                 "kind":  "property",
                                 "label":  "key",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver line-search step limit",
+                                "kind":  "property",
+                                "label":  "line_search_steps",
                                 "lsp_kind":  10
                             },
                             {
@@ -1551,6 +1581,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "workflow display or command subtype option",
+                                "kind":  "property",
+                                "label":  "type",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "display unit or plot axis option",
                                 "kind":  "property",
                                 "label":  "unit",
@@ -1566,6 +1602,12 @@
                                 "detail":  "template value map",
                                 "kind":  "property",
                                 "label":  "values",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "solver variable scale",
+                                "kind":  "property",
+                                "label":  "variable_scale",
                                 "lsp_kind":  10
                             },
                             {

@@ -63,7 +63,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `constant.other.unit*.englang` | Unit literals. |
 | `constant.language.englang` | Language constants and uncertainty/fallback words. |
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
-| `variable.parameter.function.englang` | Function and method parameter names. |
+| `variable.parameter.function.englang` | Function and method parameter declarations plus named call arguments such as `std=` or `target=`. |
 | `variable.language.self.englang` | `self` references inside class methods. |
 | `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
 | `meta.declaration.parameter.englang` | Function and method parameter declaration fragments. |
@@ -107,6 +107,7 @@ Current workflow phrase scopes:
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>)`, `model_card(<model>)`, and related model summary calls. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
+| `meta.workflow.with-block.englang` | `with { ... }` option blocks scoped separately from top-level bindings. |
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
 | `meta.workflow.print-message.englang` | `print "..."` runtime message lines. |
 | `meta.workflow.plot-distribution.englang` | `plot distribution(<distribution>)` |

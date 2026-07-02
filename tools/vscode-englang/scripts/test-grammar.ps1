@@ -212,6 +212,61 @@ function Read-RustStructFieldStringsConst {
     return @([regex]::Matches($match.Groups["body"].Value, $fieldPattern) | ForEach-Object { $_.Groups[1].Value })
 }
 
+function Read-GrammarWorkflowOptionLabels {
+    if (-not $PatternsByScope.ContainsKey("variable.parameter.property.englang")) {
+        throw "grammar does not define workflow option property scope"
+    }
+
+    $labels = New-Object System.Collections.Generic.List[string]
+    foreach ($pattern in $PatternsByScope["variable.parameter.property.englang"]) {
+        $patternNode = $pattern.pattern
+        if ($null -eq $patternNode.match) {
+            continue
+        }
+        $matchText = [string] $patternNode.match
+        if (-not $matchText.Contains("expected_sha256") -or -not $matchText.Contains("(?=\s*=)")) {
+            continue
+        }
+        $start = $matchText.IndexOf('\b(')
+        if ($start -lt 0) {
+            continue
+        }
+        $end = $matchText.IndexOf(')\b(?=\s*=)', $start)
+        if ($end -lt 0) {
+            continue
+        }
+        $body = $matchText.Substring($start + 3, $end - ($start + 3))
+        foreach ($label in @($body -split '\|')) {
+            if (-not [string]::IsNullOrWhiteSpace($label)) {
+                $labels.Add($label) | Out-Null
+            }
+        }
+    }
+
+    return @($labels | Sort-Object -Unique)
+}
+
+function Assert-WorkflowOptionsAreScopedToWithBlocks {
+    $withOptions = $Grammar.repository.withOptions
+    if ($null -eq $withOptions -or $null -eq $withOptions.patterns) {
+        throw "grammar does not define a withOptions repository"
+    }
+
+    $withBlock = @($withOptions.patterns | Where-Object {
+        $_.name -eq "meta.workflow.with-block.englang" -and $_.begin -eq "\b(with)\s*(\{)"
+    })
+    if ($withBlock.Count -ne 1) {
+        throw "workflow option labels must be scoped under one meta.workflow.with-block.englang pattern"
+    }
+
+    $topLevelOptionMatchers = @($withOptions.patterns | Where-Object {
+        $_.name -eq "variable.parameter.property.englang" -and $null -ne $_.match
+    })
+    if ($topLevelOptionMatchers.Count -gt 0) {
+        throw "workflow option label matchers must not live at top-level withOptions scope"
+    }
+}
+
 function Assert-GrammarSourceContainsLabels {
     param(
         [Parameter(Mandatory = $true)][string] $Source,
@@ -339,6 +394,7 @@ function Assert-AnyScopeMatchesLabels {
 $CompletionKeywords = Read-RustStringSliceConst -Source $LspSource -Name "COMPLETION_KEYWORDS"
 $WorkflowBuiltins = Read-RustStringSliceConst -Source $LspSource -Name "WORKFLOW_BUILTIN_KEYWORDS"
 $WorkflowOptions = Read-RustTupleFirstStringsConst -Source $LspSource -Name "WORKFLOW_OPTION_COMPLETIONS"
+$GrammarWorkflowOptions = Read-GrammarWorkflowOptionLabels
 $PublicTypes = @(Read-RustTupleFirstStringsConst -Source $LspSource -Name "PUBLIC_TYPE_COMPLETIONS" | ForEach-Object {
     ($_ -replace "\[.*$", "")
 } | Select-Object -Unique)
@@ -353,6 +409,15 @@ Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowOp
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
+Assert-WorkflowOptionsAreScopedToWithBlocks
+$GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $WorkflowOptions -notcontains $_ } | Sort-Object -Unique)
+if ($GrammarOptionsMissingFromLsp.Count -gt 0) {
+    throw "TextMate workflow option labels are missing from LSP workflow options: $($GrammarOptionsMissingFromLsp -join ', ')"
+}
+$LspOptionsMissingFromGrammar = @($WorkflowOptions | Where-Object { $GrammarWorkflowOptions -notcontains $_ } | Sort-Object -Unique)
+if ($LspOptionsMissingFromGrammar.Count -gt 0) {
+    throw "LSP workflow options are missing from TextMate workflow option labels: $($LspOptionsMissingFromGrammar -join ', ')"
+}
 $CompletionKeywordFixture = @'
 use eng.path
 import eng.table

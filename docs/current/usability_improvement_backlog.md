@@ -2552,6 +2552,25 @@ metadata.
 - Extended `ide-check` metadata guards so generated VS Code completion seed
   output cannot drop `split` while the grammar still highlights it.
 
+## Batch 208: Scoped Workflow Option Highlighting
+
+Status: implemented to reduce VS Code option-coloring drift and false-positive
+workflow option scopes.
+
+- Scoped TextMate workflow option coloring to `with { ... }` blocks so ordinary
+  top-level bindings such as HTTP response field names do not get option-key
+  fallback colors.
+- Split function named arguments such as `std=`, `samples=`, `scale=`, and
+  `offset=` into a function-parameter scope instead of treating them as workflow
+  options.
+- Aligned the workflow option regex with the LSP completion registry, removed
+  unsupported HTTP response-field/body labels from option completions, and added
+  compiler-known solver/display options such as `variable_scale`,
+  `display_unit`, `backend`, and `consistency_tolerance`.
+- Added a reverse grammar regression guard so TextMate cannot highlight a
+  workflow option label unless the LSP completion registry exposes the same
+  label.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

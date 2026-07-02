@@ -1949,7 +1949,9 @@ function Assert-VscodeExtensionContract {
         "run_case", "train_test_split", "regression", "predict", "model_card",
         "CsvFile", "JsonFile", "DirectoryPath", "DimensionlessNumber",
         "expected_outputs", "artifact_kind", "cache_key", "allow_failure",
-        "OutputManifest", "metadata_ready", "database"
+        "OutputManifest", "metadata_ready", "backend", "display_unit",
+        "variable_scale", "consistency_tolerance", "meta.workflow.with-block.englang",
+        "variable.parameter.function.englang"
     )) {
         if (-not $GrammarSource.Contains($RequiredGrammarToken)) {
             throw "VS Code grammar missing token $RequiredGrammarToken"

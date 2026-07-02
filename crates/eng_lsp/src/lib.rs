@@ -457,7 +457,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("allow_failure", "external command failure policy"),
     ("artifact_kind", "expected artifact kind"),
     ("args", "external command argument list"),
-    ("body", "HTTP request body option"),
+    ("backend", "execution backend option"),
     ("body_size_limit", "HTTP response body size limit"),
     ("cache", "cache behavior option"),
     ("cache_dir", "cache storage directory option"),
@@ -466,9 +466,12 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("case_id", "case identifier expression"),
     ("confirm", "explicit filesystem mutation confirmation"),
     ("confidence_band", "plot confidence-band source"),
+    ("consistency_tolerance", "solver consistency tolerance"),
     ("count", "sample count option"),
     ("cwd", "external command working directory"),
     ("duration", "solver or simulation duration"),
+    ("damping", "solver damping factor"),
+    ("display_unit", "display unit option"),
     ("env", "external command environment"),
     ("end", "range end option"),
     ("epochs", "MLP training epoch count"),
@@ -476,6 +479,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("expected_outputs", "declared process outputs"),
     ("expected_step", "expected TimeSeries step"),
     ("features", "model feature columns"),
+    ("finite_difference_step", "solver finite difference step"),
     ("fixture", "pinned offline response input"),
     ("headers", "HTTP request headers"),
     ("hidden", "MLP hidden layer option"),
@@ -485,6 +489,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("inputs", "solver input source"),
     ("jacobian", "solver Jacobian policy"),
     ("key", "database upsert key"),
+    ("line_search_steps", "solver line-search step limit"),
     ("mass_matrix", "solver mass-matrix policy"),
     ("max_gap", "maximum allowed gap option"),
     ("max_iter", "solver maximum iteration count"),
@@ -523,9 +528,11 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("tool_version", "external tool version"),
     ("tolerance", "solver convergence tolerance"),
     ("transaction", "SQLite transaction policy"),
+    ("type", "workflow display or command subtype option"),
     ("unit", "display unit or plot axis option"),
     ("uncertainty", "uncertainty propagation policy"),
     ("values", "template value map"),
+    ("variable_scale", "solver variable scale"),
     ("variable_scales", "solver variable scale list"),
     ("year", "calendar year option"),
 ];
@@ -1378,7 +1385,7 @@ fn with_option_semantic_modifiers(
     block: &WithBlockInfo,
     key: &str,
 ) -> &'static [&'static str] {
-    if key == "unit" || key.starts_with("unit ") {
+    if key == "display_unit" || key == "unit" || key.starts_with("unit ") {
         return &["report"];
     }
     match key {
@@ -1386,11 +1393,13 @@ fn with_option_semantic_modifiers(
         "key" | "transaction" => &["db"],
         "on_none" | "on_many" | "expected_step" | "max_gap" | "status" => &["validation"],
         "sensor_std" | "confidence_band" => &["uncertain"],
-        "mean" | "std" | "error" | "samples" | "scale" | "offset" | "uncertainty" => &["uncertain"],
+        "samples" | "uncertainty" => &["uncertain"],
         "solver"
         | "timestep"
         | "duration"
         | "tolerance"
+        | "finite_difference_step"
+        | "damping"
         | "initial"
         | "initial_derivative"
         | "initial_algebraic"
@@ -1399,24 +1408,22 @@ fn with_option_semantic_modifiers(
         | "jacobian"
         | "mass_matrix"
         | "max_iter"
+        | "line_search_steps"
         | "relaxation"
         | "residual_scale"
         | "residual_scales"
+        | "consistency_tolerance"
+        | "variable_scale"
         | "variable_scales" => &["solver"],
         "overwrite" | "mode" | "confirm" | "recursive" | "output" => &["sideEffect"],
         "args"
         | "query"
         | "headers"
-        | "body"
         | "fixture"
         | "expected_sha256"
         | "expected_outputs"
         | "tool_version"
         | "status_code"
-        | "status_class"
-        | "response_hash"
-        | "hash"
-        | "url"
         | "body_size_limit"
         | "response_body_limit"
         | "retry"
@@ -4182,9 +4189,14 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "mass_matrix",
             "tolerance",
             "max_iter",
+            "finite_difference_step",
+            "damping",
+            "line_search_steps",
             "relaxation",
             "residual_scale",
             "residual_scales",
+            "consistency_tolerance",
+            "variable_scale",
             "variable_scales",
         ]);
     }
@@ -5760,6 +5772,12 @@ with {
             .any(|completion| completion.label == "cache_key"));
         assert!(!completions
             .iter()
+            .any(|completion| completion.label == "body"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "response_hash"));
+        assert!(!completions
+            .iter()
             .any(|completion| completion.label == "recursive"));
         assert!(!completions
             .iter()
@@ -6203,9 +6221,14 @@ with {
             "jacobian",
             "mass_matrix",
             "max_iter",
+            "finite_difference_step",
+            "damping",
+            "line_search_steps",
             "relaxation",
             "residual_scale",
             "residual_scales",
+            "consistency_tolerance",
+            "variable_scale",
             "variable_scales",
         ] {
             assert!(

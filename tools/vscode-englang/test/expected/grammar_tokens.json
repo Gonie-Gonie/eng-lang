@@ -1108,7 +1108,7 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "variable.other.property.englang",
     "text": "body ="
   },
   {
@@ -1349,22 +1349,22 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "variable.parameter.function.englang",
     "text": "std="
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "variable.parameter.function.englang",
     "text": "samples="
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "variable.parameter.function.englang",
     "text": "scale="
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
+    "scope": "variable.parameter.function.englang",
     "text": "offset="
   },
   {
