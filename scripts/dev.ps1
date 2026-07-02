@@ -2380,6 +2380,7 @@ function Assert-VscodeExtensionContract {
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
         "E-NET-HASH-MISMATCH",
+        "E-WITH-OPTION-001",
         "E-NET-RETRY-POLICY",
         "E-NET-TIMEOUT",
         "E-NET-BODY-SIZE-LIMIT",
@@ -2394,6 +2395,9 @@ function Assert-VscodeExtensionContract {
         "recursiveDeleteAction",
         "expectedSha256Action",
         "expectedSha256FromDiagnostic",
+        "plotUnitOptionAction",
+        "unknownWithOptionName",
+        "Use plot y-axis option: unit y =",
         "optionQuickFix",
         "optionValueReplacementAction",
         "optionAssignmentRange"

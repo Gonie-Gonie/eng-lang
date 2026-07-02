@@ -673,6 +673,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-NET-HASH-MISMATCH" => {
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
+        "E-WITH-OPTION-001" => {
+            optional_code_action(lsp_plot_unit_option_code_action(uri, text, diagnostic))
+        }
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
             text,
@@ -1266,6 +1269,45 @@ fn lsp_expected_sha256_code_action(uri: &str, text: &str, diagnostic: &Value) ->
             &replacement
         )
     }))
+}
+
+fn lsp_plot_unit_option_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    if unknown_with_option_name(diagnostic_message(diagnostic))? != "unit" {
+        return None;
+    }
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let name_start = line_indent(line).len();
+    let rest = &line[name_start..];
+    let after_name = rest.strip_prefix("unit")?;
+    if !after_name
+        .chars()
+        .next()
+        .is_some_and(|character| character.is_whitespace() || character == '=')
+    {
+        return None;
+    }
+    let equals_offset = after_name.find('=')?;
+    if !after_name[..equals_offset].trim().is_empty() {
+        return None;
+    }
+    Some(json!({
+        "title": "Use plot y-axis option: unit y =",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, name_start, name_start + "unit".len()),
+            "unit y"
+        )
+    }))
+}
+
+fn unknown_with_option_name(message: &str) -> Option<&str> {
+    let (_, after_marker) = message.split_once("Unknown with option `")?;
+    let (option, _) = after_marker.split_once('`')?;
+    Some(option.trim())
 }
 
 fn expected_sha256_from_diagnostic(diagnostic: &Value) -> Option<String> {

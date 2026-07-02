@@ -751,6 +751,14 @@ with {
     count = 2
     x = uniform(0, 1)
 }
+
+Q_plot: HeatRate [kW] = 1 kW
+report {
+    plot Q_plot over Time
+    with {
+        unit = kW
+    }
+}
 "#;
 
     let mut child = Command::new(server)
@@ -812,6 +820,7 @@ with {
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-SEED-INVALID",
+        "E-WITH-OPTION-001",
     ] {
         assert!(
             diagnostics
@@ -935,6 +944,7 @@ with {
     );
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
+    assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
 
     write_message(
         &mut stdin,
@@ -984,6 +994,14 @@ with {
     count = 2
     seed = later
     x = uniform(0, 1)
+}
+
+Q_plot: HeatRate [kW] = 1 kW
+report {
+    plot Q_plot over Time
+    with {
+        unit = kW
+    }
 }
 "#;
     let mut child = Command::new(server)
@@ -1038,6 +1056,7 @@ with {
         "true",
     );
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
+    assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
 }
 
 #[test]

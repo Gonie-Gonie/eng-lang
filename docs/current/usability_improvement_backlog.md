@@ -2622,6 +2622,19 @@ typed contract data that the compiler/report already knows.
 - Extended report, CLI smoke, and native IDE smoke regressions so predictor and
   external behavior nodes must expose typed output contracts.
 
+## Batch 213: Plot Unit Option Quick Fix
+
+Status: implemented to reduce migration friction after removing the invalid
+plot `unit =` option from completions/highlighting.
+
+- Added an LSP-owned quick fix for `E-WITH-OPTION-001` when the unknown option
+  is exactly `unit = ...`, replacing the key with the compiler-supported
+  `unit y = ...` form.
+- Mirrored the same quick fix in the VS Code local fallback provider for cases
+  where LSP code actions are unavailable.
+- Extended LSP stdio code-action regressions and the VS Code extension
+  contract so this quick fix remains covered.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -72,6 +72,13 @@ function localCodeActions(document, context) {
         actions.push(action);
       }
     }
+    if (code === "E-WITH-OPTION-001") {
+      const action = plotUnitOptionAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
     if (optionAction) {
       optionAction.isPreferred = true;
@@ -357,6 +364,35 @@ function expectedSha256FromDiagnostic(diagnostic) {
     diagnostic.message ?? ""
   );
   return match ? match[1].toLowerCase() : undefined;
+}
+
+function plotUnitOptionAction(document, diagnostic) {
+  if (unknownWithOptionName(diagnostic.message) !== "unit") {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const match = /^(\s*)unit(\s*=)/.exec(stripLineComment(line.text));
+  if (!match) {
+    return undefined;
+  }
+  const startCharacter = match[1].length;
+  const action = new vscode.CodeAction(
+    "Use plot y-axis option: unit y =",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, startCharacter + "unit".length),
+    "unit y"
+  );
+  return action;
+}
+
+function unknownWithOptionName(message) {
+  const match = /Unknown with option `([^`]+)`/.exec(String(message ?? ""));
+  return match?.[1]?.trim();
 }
 
 function optionAssignmentRange(lineText, optionNames) {
