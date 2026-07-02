@@ -41,7 +41,7 @@ args {
     year: Int = 2024
     region: String = "demo"
     station_map: CsvFile = file("data/station_map_sample.csv")
-    offline_response_file: JsonFile = file("data/sample_api_response.json")
+    offline_response_file: JsonFile = file("data/offline_weather_response.json")
     api_url: Url = url("https://api.example.org/weather/hourly")
     output: DirectoryPath = dir("outputs")
 }

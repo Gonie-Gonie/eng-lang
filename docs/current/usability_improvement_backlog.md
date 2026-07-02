@@ -3541,6 +3541,16 @@ Status: implemented to reduce fixture-like wording on public native API paths.
 - Kept internal compatibility for old cache records and `fixture` option usage
   so existing samples do not fail during the wording transition.
 
+## Batch 287: Weather Offline Response Filename
+
+Status: implemented to keep workflow 01 filenames aligned with API wording.
+
+- Renamed the workflow 01 pinned response data file from
+  `sample_api_response.json` to `offline_weather_response.json`.
+- Updated the workflow argument default and side-effect policy wording so public
+  docs no longer describe the network repro boundary with the legacy `fixture`
+  option.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -3554,9 +3564,9 @@ Status: implemented to reduce fixture-like wording on public native API paths.
 
 ## Seed-To-Implementation Candidates
 
-- Cache replay/invalidation: network fixture cache materialization/replay is
-  implemented with hash checks; broader process/model replay and explicit
-  invalidation remain to be designed around artifact safety.
+- Cache replay/invalidation: network offline-response cache
+  materialization/replay is implemented with hash checks; broader process/model
+  replay and explicit invalidation remain to be designed around artifact safety.
 - Live network execution: live `http://` GET/download is implemented with
   timeout, retry, body limit, SHA-256 verification, and cache replay; package a
   TLS backend for live `https://` and broaden request body/auth policy.

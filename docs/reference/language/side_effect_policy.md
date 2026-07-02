@@ -34,7 +34,7 @@ what was read, and what external state influenced the result.
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
 | Test checks | `test { assert ...; golden ... }` | Runtime verification plus structured `test_results.json` metadata |
-| Network | `http get/post/put/patch/head/request/fetch ...`, `download url(...) to file(...)` | Pinned offline response/cache boundary records, live `http://` request/download execution, request `body` for POST/PUT/PATCH; repro profile requires a pinned response file (`fixture`) and `expected_sha256` |
+| Network | `http get/post/put/patch/head/request/fetch ...`, `download url(...) to file(...)` | Pinned offline response/cache boundary records, live `http://` request/download execution, request `body` for POST/PUT/PATCH; repro profile requires `offline_response` or cache replay with `expected_sha256` |
 
 ## Types
 
