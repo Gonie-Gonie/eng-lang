@@ -3507,6 +3507,18 @@ current.
 - Extended IDE contract checks so interpolation-aware fallback rendering and
   styling do not regress to plain string coloring.
 
+## Batch 284: VS Code Semantic Fallback Scope Coverage
+
+Status: implemented to reduce theme-dependent highlight gaps in VS Code.
+
+- Audited semantic token pairs emitted for the grammar fixture set against
+  `package.json` `semanticTokenScopes`.
+- Added fallback scopes for plain and standard-modifier pairs such as
+  declarations, read-only values, default-library symbols, comments, numbers,
+  properties, parameters, and report functions.
+- Extended extension contract checks and token-scope docs so these fallback
+  mappings remain covered.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

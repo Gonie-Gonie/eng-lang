@@ -134,6 +134,79 @@
             "meta.type.generic.englang",
             "variable.parameter.type.englang"
           ],
+          "class.declaration": [
+            "entity.name.type.englang"
+          ],
+          "class.defaultLibrary": [
+            "entity.name.type.englang",
+            "support.type.englang"
+          ],
+          "comment": [
+            "comment.line.number-sign.englang",
+            "comment.line.documentation.englang"
+          ],
+          "function.declaration": [
+            "entity.name.function.englang"
+          ],
+          "function.definition": [
+            "entity.name.function.englang"
+          ],
+          "function.report": [
+            "keyword.control.report.englang",
+            "support.function.builtin.englang"
+          ],
+          "interface.declaration": [
+            "entity.name.type.englang"
+          ],
+          "interface.defaultLibrary": [
+            "entity.name.type.englang",
+            "support.type.englang"
+          ],
+          "keyword": [
+            "keyword.control.workflow.englang"
+          ],
+          "keyword.declaration": [
+            "storage.type.declaration.englang",
+            "keyword.control.workflow.englang"
+          ],
+          "keyword.local": [
+            "keyword.control.workflow.englang"
+          ],
+          "namespace.declaration": [
+            "support.namespace.module.englang"
+          ],
+          "number": [
+            "constant.numeric.englang"
+          ],
+          "parameter": [
+            "variable.parameter.function.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.readonly": [
+            "variable.parameter.function.englang",
+            "variable.parameter.property.englang"
+          ],
+          "property": [
+            "variable.other.property.englang"
+          ],
+          "property.declaration": [
+            "variable.other.property.englang"
+          ],
+          "variable": [
+            "variable.other.local.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.declaration": [
+            "variable.other.definition.englang"
+          ],
+          "variable.defaultLibrary": [
+            "support.function.builtin.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.readonly": [
+            "variable.other.constant.englang",
+            "variable.other.definition.englang"
+          ],
           "type.unit": [
             "constant.other.unit.englang",
             "support.type.englang"

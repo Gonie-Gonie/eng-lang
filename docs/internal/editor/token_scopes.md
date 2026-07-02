@@ -215,6 +215,17 @@ in sync with the generated legend. Important pairings:
 | Semantic selector | Fallback scope intent |
 | --- | --- |
 | `type` | Type names, generic type expressions, and bracketed type arguments. |
+| `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
+| `class.defaultLibrary`, `interface.defaultLibrary` | Bundled type/domain names surfaced by the compiler. |
+| `comment` | Ordinary and documentation line comments. |
+| `function.declaration`, `function.definition` | User-defined function and method names. |
+| `function.report` | Report helper functions when emitted as semantic function tokens. |
+| `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, and local keyword-like roles. |
+| `namespace.declaration` | Imported or declared module namespaces. |
+| `number` | Numeric literals. |
+| `parameter`, `parameter.readonly` | Function parameters, args-like parameters, and read-only parameter roles. |
+| `property`, `property.declaration` | Property paths and declared schema/class/system fields. |
+| `variable`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly` | Plain variables, declared bindings, bundled value symbols, and read-only constants. |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
@@ -245,7 +256,9 @@ The fallback map currently references these TextMate scopes directly:
 
 ```text
 comment.line.number-sign.englang
+comment.line.documentation.englang
 constant.language.englang
+constant.numeric.englang
 constant.other.unit.englang
 entity.name.function.englang
 entity.name.function.workflow-step.englang
@@ -259,6 +272,7 @@ keyword.control.validation.englang
 keyword.control.workflow.englang
 markup.warning.englang
 meta.type.generic.englang
+storage.type.declaration.englang
 storage.modifier.englang
 support.function.builtin.englang
 support.namespace.module.englang
