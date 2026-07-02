@@ -2906,6 +2906,17 @@ captures for generic type syntax.
 - Added a grammar fixture function with a generic table parameter and pinned
   the function name, parameter name, container type, and type argument scopes.
 
+## Batch 235: Builtin Call Scope Guard
+
+Status: implemented after finding that the generic user-function call pattern
+could still match public builtin helpers before the fallback builtin pattern in
+some TextMate traversal paths.
+
+- Excluded public workflow builtins such as `file(...)`, `normal(...)`,
+  `mean(...)`, and `integrate(...)` from the generic user-function call pattern.
+- Strengthened the VS Code grammar smoke harness so builtin helper labels from
+  the LSP registry cannot be captured as `entity.name.function.call.englang`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

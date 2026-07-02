@@ -317,6 +317,28 @@ function Assert-ScopeMatchesLabels {
     }
 }
 
+function Assert-ScopeDoesNotMatchLabels {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string[]] $Labels,
+        [Parameter(Mandatory = $true)][string] $Description,
+        [string] $Suffix = ""
+    )
+
+    if (-not $PatternsByScope.ContainsKey($Scope)) {
+        return
+    }
+
+    foreach ($Label in $Labels) {
+        $fixtureText = "$Label$Suffix"
+        foreach ($pattern in $PatternsByScope[$Scope]) {
+            if (Test-PatternMatchesLabelInFixture -Pattern $pattern -Label $Label -FixtureText $fixtureText) {
+                throw "TextMate scope $Scope must not match $Description label $Label"
+            }
+        }
+    }
+}
+
 function Test-PatternMatchesLabelInFixture {
     param(
         [Parameter(Mandatory = $true)][object] $Pattern,
@@ -584,6 +606,7 @@ $KeywordFallbackScopes = @(
 )
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
+Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin call" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
