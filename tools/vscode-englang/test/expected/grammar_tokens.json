@@ -779,7 +779,25 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.workflow.http-request.englang",
-    "text": "http get",
+    "text": "http get api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.local.englang",
+    "text": "api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http get args.api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.api_url",
     "fullMatch": true
   },
   {
@@ -790,7 +808,7 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.workflow.http-request.englang",
-    "text": "http post",
+    "text": "http post api_url",
     "fullMatch": true
   },
   {

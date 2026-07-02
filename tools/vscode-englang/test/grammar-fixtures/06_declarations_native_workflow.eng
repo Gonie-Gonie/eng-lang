@@ -33,6 +33,7 @@ schema WorkflowArtifactRefs {
 }
 
 response = http get api_url
+args_response = http get args.api_url
 with {
     query = {
         station = "demo"

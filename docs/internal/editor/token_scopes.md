@@ -89,7 +89,7 @@ Current workflow phrase scopes:
 | `meta.workflow.derive-column.englang` | `derive <table> column ...` |
 | `meta.workflow.download-to.englang` | `download ... to ...` |
 | `meta.workflow.export-summary-csv.englang` | `export summary to csv <target>` |
-| `meta.workflow.http-request.englang` | `http get`, `http post`, and other HTTP request phrases. |
+| `meta.workflow.http-request.englang` | `http get <target>`, `http post <target>`, and other HTTP request phrases. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |

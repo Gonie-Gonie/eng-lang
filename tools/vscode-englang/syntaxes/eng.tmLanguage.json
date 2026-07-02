@@ -883,15 +883,48 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.http-request.englang",
-                                                                    "match":  "\\b(http)\\s+(get|post|put|patch|head|request|fetch)\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.external-boundary.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "keyword.control.external-boundary.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(http)\\s+(get|post|put|patch|head|request|fetch)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.report.unit-axis.englang",

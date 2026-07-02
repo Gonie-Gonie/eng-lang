@@ -2094,6 +2094,17 @@ whole workflow phrases.
 - Added grammar expectations for SQLite source paths and DB table-name strings
   so workflow 02 DB boundaries do not render as disconnected fragments.
 
+## Batch 171: HTTP Request Target Highlighting
+
+Status: implemented to keep native network boundary requests readable as whole
+workflow phrases before semantic tokens arrive.
+
+- Extended `meta.workflow.http-request.englang` from `http <method>` to
+  `http <method> <target>`.
+- Scoped local and `args.*` request targets inside the HTTP phrase.
+- Added grammar expectations for `http get api_url`, `http get args.api_url`,
+  and `http post api_url`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
