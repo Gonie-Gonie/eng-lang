@@ -3051,6 +3051,19 @@ wording that could obscure the pinned offline response contract.
 - Replaced remaining public artifact/language references to internal fixtures
   with internal examples where no `fixture = ...` option was being named.
 
+## Batch 246: Sampling Alias Highlighting Parity
+
+Status: implemented after checking sampling workflow aliases that were accepted
+by the compiler but not fully aligned in LSP/editor metadata.
+
+- Added `latin-hypercube` to LSP workflow builtin completions alongside
+  `latin_hypercube`.
+- Extended semantic token scanning so the hyphenated sampling alias is colored
+  as one default-library workflow function instead of being split by the
+  identifier scanner.
+- Updated TextMate builtin fallback, generated editor metadata, and grammar
+  smoke expectations for the alias.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

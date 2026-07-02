@@ -326,6 +326,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "random",
     "lhs",
     "latin_hypercube",
+    "latin-hypercube",
     "materialize",
     "apply",
     "collect",
@@ -359,6 +360,8 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "delay",
     "sum",
 ];
+
+const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
 
 const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("Bool", "Boolean value"),
@@ -437,6 +440,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("random", "eng.sampling random generator helper"),
     ("lhs", "eng.sampling Latin hypercube helper"),
     ("latin_hypercube", "eng.sampling Latin hypercube helper"),
+    (
+        "latin-hypercube",
+        "eng.sampling Latin hypercube helper alias",
+    ),
     (
         "materialize",
         "Create reviewable case rows and case directories",
@@ -2683,6 +2690,7 @@ impl<'a> SemanticTokenBuilder<'a> {
 
             for (start, end) in code_ranges(line) {
                 self.scan_word_tokens(line_index, start, end, &quantity_names, &public_types);
+                self.scan_hyphenated_workflow_builtin_tokens(line_index, start, end);
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
                 self.scan_unit_tokens(line_index, start, end, &units);
                 self.scan_number_tokens(line_index, start, end);
@@ -2802,6 +2810,35 @@ impl<'a> SemanticTokenBuilder<'a> {
                         cursor += 1;
                     }
                 }
+            }
+        }
+    }
+
+    fn scan_hyphenated_workflow_builtin_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+    ) {
+        let line = self.lines[line_index];
+        for token in HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS {
+            let mut search_start = start;
+            while search_start < end {
+                let Some(relative_start) = line[search_start..end].find(token) else {
+                    break;
+                };
+                let token_start = search_start + relative_start;
+                let token_end = token_start + token.len();
+                if is_identifier_boundary(line, token_start, token_end) {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        token.len(),
+                        "function",
+                        workflow_builtin_modifiers(token),
+                    );
+                }
+                search_start = token_end;
             }
         }
     }
@@ -3124,7 +3161,7 @@ fn http_request_method_keyword(method: &str) -> &'static str {
 
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
-        "sample" | "grid" | "random" | "lhs" | "latin_hypercube" => {
+        "sample" | "grid" | "random" | "lhs" | "latin_hypercube" | "latin-hypercube" => {
             &["defaultLibrary", "workflowStep"]
         }
         "filter" | "select" | "derive" | "sort" | "require_one" => {
@@ -5923,6 +5960,13 @@ with {
     cooling_cop = uniform(2.5, 5.0)
 }
 
+latin_hyphen_designs = sample latin-hypercube
+with {
+    count = 2
+    seed = 17
+    cooling_cop = uniform(2.5, 5.0)
+}
+
 case_row = require_one designs
 surrogate = regression_table(designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
 metrics = evaluate(surrogate)
@@ -5947,6 +5991,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "lhs",
             "uniform",
             "latin_hypercube",
+            "latin-hypercube",
             "filter",
             "select",
             "sort",
@@ -5987,6 +6032,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "lhs",
             "uniform",
             "latin_hypercube",
+            "latin-hypercube",
             "filter",
             "select",
             "sort",

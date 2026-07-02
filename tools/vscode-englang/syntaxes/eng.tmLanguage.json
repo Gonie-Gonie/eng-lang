@@ -1804,7 +1804,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|materialize|apply|collect|run_case|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
+                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
                                                          }
                                                      ]
                                     },
@@ -1812,7 +1812,7 @@
                                              "patterns":  [
                                                               {
                                                                   "name":  "meta.function-call.englang",
-                                                                  "begin":  "\\b(?!(?:file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|materialize|apply|collect|run_case|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
+                                                                  "begin":  "\\b(?!(?:file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
                                                                   "beginCaptures":  {
                                                                                         "1":  {
                                                                                                   "name":  "entity.name.function.call.englang"

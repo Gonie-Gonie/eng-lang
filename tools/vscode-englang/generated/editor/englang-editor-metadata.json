@@ -385,6 +385,12 @@
                                 "lsp_kind":  3
                             },
                             {
+                                "detail":  "eng.sampling Latin hypercube helper alias",
+                                "kind":  "function",
+                                "label":  "latin-hypercube",
+                                "lsp_kind":  3
+                            },
+                            {
                                 "detail":  "Create reviewable case rows and case directories",
                                 "kind":  "function",
                                 "label":  "materialize",
@@ -1795,7 +1801,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Live http:// GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries; live HTTPS currently requires fixture/cache in this build.",
+                                "detail":  "Native workflow support: Live http:// GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries; live HTTPS currently requires a pinned response file or cache replay in this build.",
                                 "kind":  "stdlib",
                                 "label":  "eng.net",
                                 "lsp_kind":  9
@@ -2269,7 +2275,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  378,
+    "completion_seed_count":  379,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
