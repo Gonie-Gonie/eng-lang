@@ -3158,6 +3158,18 @@ against the immediate VS Code TextMate scopes.
   intent more closely.
 - Extended grammar fixtures and smoke expectations for schema quality blocks.
 
+## Batch 255: Stdlib Reference Current-Scope Cleanup
+
+Status: implemented after checking public docs for stale standard-library
+index wording.
+
+- Replaced the `docs/reference/stdlib/index.md` early/planned-only index with a
+  current lookup page tied to `stdlib/eng/modules.toml`.
+- Clarified that `docs/user/README.md` is contributor-facing source guidance
+  and that `docs/user/index.md` is the user documentation home.
+- Extended `docs-check` with a stdlib-reference wording guard so stale early
+  index text and missing native workflow module references fail locally.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

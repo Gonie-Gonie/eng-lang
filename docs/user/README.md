@@ -1,16 +1,19 @@
-# EngLang User Documentation Sources
+# EngLang User Documentation Source Notes
 
-This folder contains the curated source material for release-facing user
-documents. The Markdown files here are the source of truth for user
-documentation.
+If you want to read the user documentation, start at [index.md](index.md).
 
-Recommended first-read path:
+This file is for contributors maintaining the curated source material for
+release-facing user documents. The Markdown files under this directory are the
+source of truth for user documentation.
 
-- index.md
-- getting_started.md
-- tutorial/01_install_and_doctor.md through tutorial/12_composite_workflow.md
-- howto/README.md
-- concepts/README.md
+Curated user guide assembly path:
+
+- [index.md](index.md)
+- [getting_started.md](getting_started.md)
+- [tutorial/01_install_and_doctor.md](tutorial/01_install_and_doctor.md)
+  through [tutorial/12_composite_workflow.md](tutorial/12_composite_workflow.md)
+- [howto/README.md](howto/README.md)
+- [concepts/README.md](concepts/README.md)
 
 `.\dev.bat user-docs-markdown` assembles those Markdown sources into
 `build/docs/oodocs/user_guide.md` for publishing checks without requiring

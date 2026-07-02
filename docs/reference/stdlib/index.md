@@ -1,25 +1,27 @@
 # Standard Library Reference
 
-Status: early index.
+The standard library reference is a lookup layer over the machine-readable
+module registry. The canonical source for module names, status, artifacts,
+diagnostics, examples, and test evidence is
+[`stdlib/eng/modules.toml`](../../../stdlib/eng/modules.toml).
 
-This directory is the target for generated and hand-written standard library
-reference material.
+For the generated status table and workflow-contract detail, read
+[Composite Workflow Base Modules](../../current/workflow_modules.md). That page
+is checked by `dev.bat docs-check` against the registry.
 
-Planned modules:
+## Current Public Lookup
 
-- eng.core / prelude
-- eng.units / quantities
-- eng.path
-- eng.io
-- eng.fs
-- eng.log
-- eng.process
-- eng.test
-- eng.stats
-- eng.plot
-- eng.report
-- eng.timeseries
-- native workflow support: eng.net, eng.cache, eng.db, eng.model
+| Area | Current scope |
+|---|---|
+| Core built-ins | `eng.path`, `eng.io`, `eng.fs`, `eng.log`, `eng.process`, `eng.test`, and `eng.config` expose supported or supported-narrow compiler/runtime behavior. |
+| Native workflow support | `eng.table`, `eng.timeseries`, `eng.sampling`, `eng.case`, `eng.artifact`, `eng.review`, `eng.model`, `eng.db`, `eng.net`, `eng.cache`, `eng.quality`, `eng.template`, `eng.workflow`, `eng.report`, and `eng.plot` preserve typed workflow records, artifacts, and review metadata in the documented scopes. |
+| Planned/internal boundaries | `eng.stats`, `eng.building`, `eng.system`, `eng.ml`, and `eng.uncertainty` remain planned or internal unless a current status document says otherwise. |
 
-Generated stdlib reference should come from static metadata extraction, not from
-executing EngLang workflows.
+## Source Files
+
+Current `stdlib/eng/*.eng` files are module boundary notes. They are useful for
+definition lookup and editor navigation, but a file existing under `stdlib/eng`
+does not by itself mean that every helper is importable or stable.
+
+Generated stdlib reference output should come from static metadata extraction,
+not from executing EngLang workflows.

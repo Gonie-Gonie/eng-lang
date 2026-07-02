@@ -679,6 +679,42 @@ function Test-ModuleRegistryDocs {
     Write-Host "Module registry docs check passed. Checked $($RegistryModules.Count) module(s)."
 }
 
+function Test-StdlibReferenceDocs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ReferencePath
+    )
+
+    if (-not (Test-Path -LiteralPath $ReferencePath -PathType Leaf)) {
+        throw "missing stdlib reference at $ReferencePath"
+    }
+
+    $text = Get-Content -LiteralPath $ReferencePath -Raw -Encoding UTF8
+    foreach ($stalePhrase in @("Status: early index", "Planned modules:")) {
+        if ($text.Contains($stalePhrase)) {
+            throw "stdlib reference still contains stale phrase: $stalePhrase"
+        }
+    }
+
+    foreach ($requiredPhrase in @(
+        "stdlib/eng/modules.toml",
+        "docs-check",
+        "Native workflow support",
+        "eng.net",
+        "eng.cache",
+        "eng.sampling",
+        "eng.case",
+        "eng.db",
+        "eng.model"
+    )) {
+        if (-not $text.Contains($requiredPhrase)) {
+            throw "stdlib reference missing required current-scope phrase: $requiredPhrase"
+        }
+    }
+
+    Write-Host "Stdlib reference docs wording check passed."
+}
+
 function Convert-ModuleRegistryStatusLabel {
     param([string] $Status)
     switch ($Status) {
@@ -765,6 +801,8 @@ function Invoke-DocsCheck {
         -RegistryPath (Join-Path $RepoRoot "stdlib\eng\modules.toml") `
         -ReadmePath (Join-Path $RepoRoot "stdlib\README.md") `
         -WorkflowDocsPath (Join-Path $RepoRoot "docs\current\workflow_modules.md")
+    Test-StdlibReferenceDocs `
+        -ReferencePath (Join-Path $RepoRoot "docs\reference\stdlib\index.md")
 
     $checked = 0
     $skipped = 0
