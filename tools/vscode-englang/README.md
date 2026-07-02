@@ -46,6 +46,8 @@ embedding compiler logic in JavaScript.
   lists, and plot SVGs
 - `EngLang: Switch Problems Source...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette
+- `EngLang: Show Tooling Status` for inspecting the active runtime/LSP paths,
+  Problems source, lint toggles, semantic highlighting, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -92,8 +94,9 @@ To build the VSIX without installing it:
 If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
-extension development host. If you run directly from source without packaging,
-set:
+extension development host. After installing, run `EngLang: Show Tooling
+Status` to confirm the bundled `eng.exe` and `eng-lsp.exe` paths and current
+Problems source. If you run directly from source without packaging, set:
 
 ```text
 englang.runtimePath = C:\path\to\eng.exe

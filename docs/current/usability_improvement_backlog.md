@@ -3814,6 +3814,30 @@ public examples index.
 - Added a docs-check guard that rejects the stale phrase in `examples/README.md`
   and requires the current ProcessResult/process_results wording.
 
+## Batch 308: Where Local Reorder Quick Fix
+
+Status: implemented after reviewing common linter diagnostics surfaced in
+docs-check and editor workflows.
+
+- Added an LSP-owned quick fix for `E-WHERE-FWD-001` that moves a later
+  same-block `where` local definition before its first use.
+- Mirrored the same conservative repair in the VS Code local fallback so
+  partial LSP responses do not hide the quick fix.
+- Extended LSP stdio and `--code-actions-stdin` coverage plus VS Code
+  extension contract checks.
+
+## Batch 309: VS Code Tooling Status Command
+
+Status: implemented to reduce local install and linting setup ambiguity.
+
+- Added `EngLang: Show Tooling Status`, which opens a JSON status document with
+  extension version, workspace, active document, resolved `eng.exe` and
+  `eng-lsp.exe` paths, Problems source, lint toggles, semantic highlighting,
+  review-risk decorations, and execution profile.
+- Documented the command as the first check after installing the local VSIX.
+- Extended `ide-check` contract coverage so the command, manifest title, and
+  status payload fields cannot drift silently.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

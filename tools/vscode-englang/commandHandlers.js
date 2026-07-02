@@ -7,6 +7,7 @@ const { EXECUTION_PROFILES } = require("./executionProfiles");
 const {
   currentWorkspaceRoot,
   engConfig,
+  findLspRuntime,
   findRuntime,
   workspaceRoot
 } = require("./runtimeDiscovery");
@@ -161,6 +162,17 @@ function createCommandHandlers(options = {}) {
       ? "Problems will update while typing when englang.lintOnChange is enabled."
       : "Problems will use saved-file checks on open, save, and manual check.";
     vscode.window.showInformationMessage(`EngLang Problems source set to ${picked.source}. ${suffix}`);
+  }
+
+  async function showToolingStatus(context) {
+    const document = toolingStatusDocument();
+    const config = engConfig(document);
+    const payload = toolingStatusPayload(context, document, config);
+    const statusDocument = await vscode.workspace.openTextDocument({
+      language: "json",
+      content: JSON.stringify(payload, null, 2)
+    });
+    await vscode.window.showTextDocument(statusDocument, { preview: false });
   }
 
   async function reviewActiveFile(context) {
@@ -412,11 +424,75 @@ function createCommandHandlers(options = {}) {
     return legacyBackend === "lsp-snapshot" ? "live" : "file";
   }
 
+  function toolingStatusDocument() {
+    const document = vscode.window.activeTextEditor?.document;
+    if (document?.uri?.scheme === "file") {
+      return document;
+    }
+    const root = currentWorkspaceRoot();
+    if (!root) {
+      return undefined;
+    }
+    const probePath = path.join(root, "workspace.eng");
+    return {
+      uri: vscode.Uri.file(probePath),
+      fileName: probePath
+    };
+  }
+
+  function toolingStatusPayload(context, document, config) {
+    const runtime = document ? findRuntime(context, document) : "eng.exe";
+    const lsp = document ? findLspRuntime(context, document) : "eng-lsp.exe";
+    return {
+      extension: {
+        id: "englang.englang",
+        version: context.extension?.packageJSON?.version ?? "unknown",
+        path: context.extensionPath
+      },
+      workspace: {
+        root: document ? workspaceRoot(document) : currentWorkspaceRoot() ?? null,
+        active_document: vscode.window.activeTextEditor?.document?.uri?.fsPath ?? null
+      },
+      executables: {
+        eng: executableStatus(runtime, config.get("runtimePath", "")),
+        eng_lsp: executableStatus(lsp, config.get("lspPath", ""))
+      },
+      settings: {
+        problems_source: problemsSource(document),
+        lint_on_save: config.get("lintOnSave", true),
+        lint_on_change: config.get("lintOnChange", true),
+        semantic_highlighting: config.get("semanticHighlighting.enabled", true),
+        review_risk_decorations: config.get("reviewRiskDecorations.enabled", true),
+        execution_profile: executionProfile(document)
+      },
+      commands: {
+        switch_problems_source: "EngLang: Switch Problems Source...",
+        inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
+        check_current_file: "EngLang: Check Current File"
+      }
+    };
+  }
+
+  function executableStatus(resolvedPath, configuredPath) {
+    const pathLike = /[\\/]/.test(resolvedPath);
+    return {
+      resolved_path: resolvedPath,
+      configured_path: configuredPath || null,
+      source: configuredPath
+        ? "setting"
+        : pathLike
+          ? "bundled-or-workspace"
+          : "PATH",
+      exists: pathLike ? fs.existsSync(resolvedPath) : null
+    };
+  }
+
   return {
     runActiveFile,
     runExample,
     switchExecutionProfile,
     switchProblemsSource,
+    showToolingStatus,
     reviewActiveFile,
     openReviewPanel,
     showSemanticTokensDebug

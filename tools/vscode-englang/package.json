@@ -570,6 +570,10 @@
         "title": "EngLang: Switch Problems Source..."
       },
       {
+        "command": "englang.showToolingStatus",
+        "title": "EngLang: Show Tooling Status"
+      },
+      {
         "command": "englang.reviewFile",
         "title": "EngLang: Open Current File Review Data"
       },

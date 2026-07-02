@@ -174,6 +174,10 @@ Use `.\dev.bat vscode-package` to only write
 `dist\local-vscode\tools\englang-vscode-<version>.vsix` and install it through
 VS Code's `Extensions: Install from VSIX...` command.
 
+After installing, run `EngLang: Show Tooling Status` in VS Code to confirm the
+extension version, bundled `eng.exe` and `eng-lsp.exe` paths, Problems source,
+lint toggles, and semantic-highlighting setting.
+
 The VS Code extension defaults to quieter file checks for the Problems panel.
 Run `EngLang: Switch Problems Source...` and choose `live`, or set
 `"englang.problemsSource": "live"`, to update Problems while typing from the

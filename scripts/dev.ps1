@@ -2434,6 +2434,7 @@ function Assert-VscodeExtensionContract {
         "englang.runExample",
         "englang.switchProfile",
         "englang.switchProblemsSource",
+        "englang.showToolingStatus",
         "englang.reviewFile",
         "englang.openReviewPanel",
         "englang.openReport",
@@ -2481,6 +2482,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Output List" },
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.switchProblemsSource"; Text = "Switch Problems Source" },
+        @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]
@@ -2725,6 +2727,19 @@ function Assert-VscodeExtensionContract {
     if (-not $CommandHandlersSource.Contains("--profile") -or -not $CommandHandlersSource.Contains("executionProfile") -or -not $CommandHandlersSource.Contains("switchExecutionProfile")) {
         throw "VS Code extension run command must expose and pass an execution profile"
     }
+    foreach ($RequiredToolingStatusToken in @(
+        "async function showToolingStatus",
+        "function toolingStatusPayload",
+        "function executableStatus",
+        "findLspRuntime",
+        "problems_source",
+        "semantic_highlighting",
+        "review_risk_decorations"
+    )) {
+        if (-not $CommandHandlersSource.Contains($RequiredToolingStatusToken)) {
+            throw "VS Code command handlers missing tooling status token $RequiredToolingStatusToken"
+        }
+    }
     if (-not $CommandHandlersSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {
         throw "VS Code extension must load user-facing execution profiles from executionProfiles.js"
     }
@@ -2778,12 +2793,15 @@ function Assert-VscodeExtensionContract {
         "async function runExample",
         "async function switchExecutionProfile",
         "async function switchProblemsSource",
+        "async function showToolingStatus",
         "async function reviewActiveFile",
         "async function openReviewPanel",
         "async function showSemanticTokensDebug",
         "function runReviewForDocument",
         "function findExampleFiles",
-        "function executionProfile"
+        "function executionProfile",
+        "function toolingStatusPayload",
+        "function executableStatus"
     )) {
         if ($ExtensionSource.Contains($ForbiddenCommandHandlerEntrypointToken)) {
             throw "VS Code extension must keep command handlers in commandHandlers.js"
