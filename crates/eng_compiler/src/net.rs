@@ -157,7 +157,7 @@ fn build_request(
     let url_value =
         resolve_value(url_literal, arg_values).unwrap_or_else(|| url_literal.to_owned());
     validate_url(&url_value, line, diagnostics);
-    let fixture = option_value(options, "fixture")
+    let fixture = offline_response_value(options)
         .map(|value| resolve_value(value, arg_values).unwrap_or_else(|| value.to_owned()));
     let fixture_read = fixture
         .as_ref()
@@ -212,7 +212,7 @@ fn build_download(
     validate_url(&url_value, line, diagnostics);
     let target_value =
         resolve_value(target_literal, arg_values).unwrap_or_else(|| target_literal.to_owned());
-    let fixture = option_value(options, "fixture")
+    let fixture = offline_response_value(options)
         .map(|value| resolve_value(value, arg_values).unwrap_or_else(|| value.to_owned()));
     let fixture_read = fixture
         .as_ref()
@@ -289,6 +289,7 @@ pub fn is_net_control_option(key: &str) -> bool {
             | "cache_key"
             | "expected_sha256"
             | "timeout"
+            | "offline_response"
             | "fixture"
             | "status_code"
             | "body_size_limit"
@@ -329,6 +330,12 @@ fn request_body_option(
 
 fn option_value<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a str> {
     option_for_key(options, key).map(|option| option.value.as_str())
+}
+
+fn offline_response_value(options: &[WithOptionInfo]) -> Option<&str> {
+    option_for_key(options, "offline_response")
+        .or_else(|| option_for_key(options, "fixture"))
+        .map(|option| option.value.as_str())
 }
 
 fn option_for_key<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a WithOptionInfo> {
@@ -577,10 +584,10 @@ fn validate_expected_sha256(
             "E-NET-HASH-MISMATCH",
             line,
             &format!(
-                "Expected response SHA256 `{expected_sha256}` but fixture SHA256 was `{}`.",
+                "Expected response SHA256 `{expected_sha256}` but offline response SHA256 was `{}`.",
                 fixture_read.hash
             ),
-            Some("Update `expected_sha256` or the offline fixture so the digest matches."),
+            Some("Update `expected_sha256` or the offline response file so the digest matches."),
         ));
         return false;
     }
@@ -621,7 +628,7 @@ fn read_fixture(source_base: Option<&Path>, fixture: &str) -> Option<FixtureRead
     let source = fs::read(&path).ok()?;
     Some(FixtureRead {
         hash: hash_bytes(&source),
-        status: "fixture".to_owned(),
+        status: "offline_response".to_owned(),
     })
 }
 

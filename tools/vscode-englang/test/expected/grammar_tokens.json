@@ -1340,7 +1340,7 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
-    "text": "fixture ="
+    "text": "offline_response ="
   },
   {
     "fixture": "06_declarations_native_workflow.eng",

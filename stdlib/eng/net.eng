@@ -5,7 +5,7 @@
 # Native workflow vocabulary:
 #   response = http get url("https://example.org/api")
 #   download url("https://example.org/file.csv") to file("build/raw/file.csv")
-#   with fixture = file("fixtures/response.json")
+#   with offline_response = file("responses/weather-hourly.json")
 #   with query fields, retry, cache, timeout, status_code, expected_sha256
 #
 # Current implementation:

@@ -77,7 +77,7 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
             request.expected_sha256.clone(),
             request.response_hash.clone(),
             if request.response_hash.is_some() {
-                "fixture_available"
+                "offline_response_available"
             } else {
                 "declared"
             },
@@ -100,7 +100,7 @@ pub fn analyze_cache_records(program: &SemanticProgram, source_hash: &str) -> Ca
             download.expected_sha256.clone(),
             download.response_hash.clone(),
             if download.response_hash.is_some() {
-                "fixture_available"
+                "offline_response_available"
             } else {
                 "declared"
             },

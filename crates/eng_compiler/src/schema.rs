@@ -806,21 +806,22 @@ fn response_body_sources(
         {
             continue;
         }
-        let source =
-            if let Some(fixture_expression) = with_option_value(program, binding.line, "fixture") {
-                let Ok(fixture_value) = resolve_source_value(fixture_expression, arg_values) else {
-                    continue;
-                };
-                ResponseBodySource {
-                    resolved_path: resolve_source_path(source_base, &fixture_value),
-                    runtime_bound: false,
-                }
-            } else {
-                ResponseBodySource {
-                    resolved_path: PathBuf::from(format!("runtime:{}.body", binding.name)),
-                    runtime_bound: true,
-                }
+        let source = if let Some(fixture_expression) =
+            with_option_any_value(program, binding.line, &["offline_response", "fixture"])
+        {
+            let Ok(fixture_value) = resolve_source_value(fixture_expression, arg_values) else {
+                continue;
             };
+            ResponseBodySource {
+                resolved_path: resolve_source_path(source_base, &fixture_value),
+                runtime_bound: false,
+            }
+        } else {
+            ResponseBodySource {
+                resolved_path: PathBuf::from(format!("runtime:{}.body", binding.name)),
+                runtime_bound: true,
+            }
+        };
         sources.insert(format!("{}.body", binding.name), source.clone());
         sources.insert(format!("{}.text", binding.name), source);
     }
@@ -838,17 +839,19 @@ pub(crate) fn response_body_fixture_sources(
         .collect()
 }
 
-fn with_option_value<'a>(
+fn with_option_any_value<'a>(
     program: &'a crate::parser::ParsedProgram,
     owner_line: usize,
-    key: &str,
+    keys: &[&str],
 ) -> Option<&'a str> {
-    program.items.iter().find_map(|item| {
-        let AstItem::WithOption(option) = item else {
-            return None;
-        };
-        (option.owner_line == Some(owner_line) && option.key == key)
-            .then_some(option.value.as_str())
+    keys.iter().find_map(|key| {
+        program.items.iter().find_map(|item| {
+            let AstItem::WithOption(option) = item else {
+                return None;
+            };
+            (option.owner_line == Some(owner_line) && option.key == *key)
+                .then_some(option.value.as_str())
+        })
     })
 }
 

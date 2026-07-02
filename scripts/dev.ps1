@@ -2109,7 +2109,7 @@ function Assert-VscodeExtensionContract {
     }
     $Snippets = Get-Content -LiteralPath $SnippetsPath -Raw | ConvertFrom-Json
     foreach ($RequiredSnippet in @(
-        @{ Name = "Native HTTP GET"; Tokens = @("http get", "fixture", "expected_sha256", "cache_key") },
+        @{ Name = "Native HTTP GET"; Tokens = @("http get", "offline_response", "expected_sha256", "cache_key") },
         @{ Name = "Native HTTP POST body"; Tokens = @("http post", "body =", "expected_sha256", "cache_key") },
         @{ Name = "Sample LHS table"; Tokens = @("sample lhs", "count =", "seed =", "uniform(") },
         @{ Name = "Apply case template"; Tokens = @("apply", "over", "template = file", "{case_dir}") },

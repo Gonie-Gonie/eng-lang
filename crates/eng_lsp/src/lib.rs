@@ -542,9 +542,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("features", "model feature columns"),
     ("finite_difference_step", "solver finite difference step"),
     (
-        "fixture",
+        "offline_response",
         "Pinned offline HTTP response used instead of live network",
     ),
+    ("fixture", "Legacy alias for offline_response"),
     ("headers", "HTTP request headers"),
     ("gain", "uncertainty propagation scale alias"),
     ("hidden", "MLP hidden layer option"),
@@ -1532,6 +1533,7 @@ fn with_option_semantic_modifiers(
         | "query"
         | "headers"
         | "body"
+        | "offline_response"
         | "fixture"
         | "expected_sha256"
         | "expected_outputs"
@@ -4577,6 +4579,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "query",
             "headers",
             "body",
+            "offline_response",
             "fixture",
             "expected_sha256",
             "retry",
@@ -4590,6 +4593,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     }
     if owner.starts_with("download ") {
         return Some(&[
+            "offline_response",
             "fixture",
             "expected_sha256",
             "retry",
@@ -5693,6 +5697,7 @@ mod tests {
             "args",
             "output",
             "values",
+            "offline_response",
             "expected_sha256",
             "expected_outputs",
             "artifact_kind",
@@ -5841,13 +5846,21 @@ mod tests {
                 "editor metadata should include completion {label} as {kind}"
             );
         }
+        let offline_response_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "offline_response")
+            .expect("editor metadata should include offline_response option completion");
+        assert_eq!(
+            offline_response_completion["detail"],
+            "Pinned offline HTTP response used instead of live network"
+        );
         let fixture_completion = completions
             .iter()
             .find(|completion| completion["label"] == "fixture")
-            .expect("editor metadata should include fixture option completion");
+            .expect("editor metadata should include fixture legacy option completion");
         assert_eq!(
             fixture_completion["detail"],
-            "Pinned offline HTTP response used instead of live network"
+            "Legacy alias for offline_response"
         );
         let net_completion = completions
             .iter()
@@ -6174,7 +6187,7 @@ with {
     query = {
         station = "demo"
     }
-    fixture = file("data/weather-response.json")
+    offline_response = file("data/weather-response.json")
     expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     status_code = 200
     body_size_limit = 2 MB
@@ -6245,7 +6258,7 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
         assert_semantic_token_modifier(&snapshot, source, "query", "external");
         assert_semantic_token_modifier(&snapshot, source, "station", "external");
-        assert_semantic_token_modifier(&snapshot, source, "fixture", "external");
+        assert_semantic_token_modifier(&snapshot, source, "offline_response", "external");
         assert_semantic_token_modifier(&snapshot, source, "expected_sha256", "external");
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
         assert_semantic_token_modifier(&snapshot, source, "body_size_limit", "external");
@@ -6684,7 +6697,7 @@ weather = promote json records payload.records as WeatherApiRecord
 
     #[test]
     fn snapshot_exposes_http_response_member_fields() {
-        let source = "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\n";
+        let source = "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\nresponse_text = response.body\n";
         let snapshot = snapshot_for_source(Path::new("net.eng"), source);
 
         assert!(snapshot

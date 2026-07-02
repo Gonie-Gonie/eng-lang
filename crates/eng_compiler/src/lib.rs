@@ -4816,7 +4816,12 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
             request.expected_sha256.as_deref(),
             indent + 4,
         );
-        push_optional_json_string(json, "fixture", request.fixture.as_deref(), indent + 4);
+        push_optional_json_string(
+            json,
+            "offline_response",
+            request.fixture.as_deref(),
+            indent + 4,
+        );
         push_optional_json_string(
             json,
             "response_hash",
@@ -4875,7 +4880,12 @@ fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usiz
             download.expected_sha256.as_deref(),
             indent + 4,
         );
-        push_optional_json_string(json, "fixture", download.fixture.as_deref(), indent + 4);
+        push_optional_json_string(
+            json,
+            "offline_response",
+            download.fixture.as_deref(),
+            indent + 4,
+        );
         push_optional_json_string(
             json,
             "response_hash",
@@ -13279,7 +13289,7 @@ system Envelope {
     }
 
     #[test]
-    fn promotes_fixture_backed_http_response_body_as_json_source() {
+    fn promotes_offline_response_backed_http_response_body_as_json_source() {
         let root = env::temp_dir().join(format!(
             "englang-http-body-json-source-{}",
             std::process::id()
@@ -13294,7 +13304,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"https://api.example.org/weather\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
+            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"https://api.example.org/weather\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
         )
         .expect("source");
 
@@ -13338,6 +13348,37 @@ system Envelope {
             Some("records")
         );
         assert_eq!(table_promotion.row_count, 1);
+    }
+
+    #[test]
+    fn accepts_fixture_as_legacy_offline_response_alias() {
+        let root = env::temp_dir().join(format!(
+            "englang-http-body-legacy-fixture-alias-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n").expect("response");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/weather\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\npayload = read json response.body\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(
+            report.semantic_program.net_requests[0].fixture.as_deref(),
+            Some("data/response.json")
+        );
+        assert!(report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .any(|dependency| dependency.name == "payload"
+                && dependency.resolved_value.contains("response.json")));
     }
 
     #[test]
@@ -13634,13 +13675,13 @@ system Envelope {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("data")).expect("data dir");
         fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n")
-            .expect("response fixture");
+            .expect("response offline response");
         fs::write(root.join("data").join("file.csv"), "id,value\n1,42\n")
-            .expect("download fixture");
+            .expect("download offline response");
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "args {\n    api_url: Url = url(\"https://api.example.org/hourly\")\n    station_id: String = \"108\"\n    year: Int = 2026\n}\n\nresponse = http get args.api_url\nwith {\n    query = {\n    station = args.station_id\n    year = args.year\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", args.station_id, args.year]\n    fixture = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
+            "args {\n    api_url: Url = url(\"https://api.example.org/hourly\")\n    station_id: String = \"108\"\n    year: Int = 2026\n}\n\nresponse = http get args.api_url\nwith {\n    query = {\n    station = args.station_id\n    year = args.year\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", args.station_id, args.year]\n    offline_response = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -13654,7 +13695,7 @@ system Envelope {
         assert_eq!(request.method, "GET");
         assert_eq!(request.url_literal, "args.api_url");
         assert_eq!(request.url_value, "https://api.example.org/hourly");
-        assert_eq!(request.status, "fixture");
+        assert_eq!(request.status, "offline_response");
         assert_eq!(request.retry, Some(2));
         assert_eq!(request.timeout.as_deref(), Some("30 s"));
         assert_eq!(request.body_size_limit_bytes, Some(2_000_000));
@@ -13694,7 +13735,7 @@ system Envelope {
             .cache_key_parts
             .iter()
             .any(|part| part.starts_with("source_hash=")));
-        assert_eq!(cache_record.status, "fixture_available");
+        assert_eq!(cache_record.status, "offline_response_available");
         assert!(cache_record.observed_hash.is_some());
         let binding = report
             .semantic_program
@@ -13776,11 +13817,11 @@ system Envelope {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("data")).expect("data dir");
         fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n")
-            .expect("response fixture");
+            .expect("response offline response");
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    body = \"submitted=true\"\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nchecked = http head url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nsubmitted_text = submitted.body\nchecked_code = checked.status_code\n",
+            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    body = \"submitted=true\"\n    offline_response = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nchecked = http head url(\"https://api.example.org/submit\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\nsubmitted_text = submitted.body\nchecked_code = checked.status_code\n",
         )
         .expect("source");
 
@@ -13946,13 +13987,13 @@ system Envelope {
         let _ = fs::remove_dir_all(&root);
         fs::create_dir_all(root.join("data")).expect("data dir");
         fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n")
-            .expect("response fixture");
+            .expect("response offline response");
         fs::write(root.join("data").join("file.csv"), "id,value\n1,42\n")
-            .expect("download fixture");
+            .expect("download offline response");
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"0000000000000000000000000000000000000000000000000000000000000000\"\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/file.csv\")\n    expected_sha256 = \"sha256:1111111111111111111111111111111111111111111111111111111111111111\"\n}\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    offline_response = file(\"data/response.json\")\n    expected_sha256 = \"0000000000000000000000000000000000000000000000000000000000000000\"\n}\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/file.csv\")\n    expected_sha256 = \"sha256:1111111111111111111111111111111111111111111111111111111111111111\"\n}\n",
         )
         .expect("source");
 

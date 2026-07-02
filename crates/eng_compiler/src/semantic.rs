@@ -2593,6 +2593,7 @@ fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) ->
             "body",
             "expected_sha256",
             "timeout",
+            "offline_response",
             "fixture",
             "status_code",
             "body_size_limit",
@@ -2890,6 +2891,7 @@ fn known_with_option(key: &str) -> bool {
             | "cache_dir"
             | "cache_ttl"
             | "expected_sha256"
+            | "offline_response"
             | "on_none"
             | "on_many"
     )

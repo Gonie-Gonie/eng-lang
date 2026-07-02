@@ -340,7 +340,7 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                         severity: "error",
                         code: "E-NET-UNPINNED-REPRO",
                         message: format!(
-                            "repro profile requires network request `{}` to declare fixture and expected_sha256",
+                            "repro profile requires network request `{}` to declare offline_response and expected_sha256",
                             request.binding
                         ),
                         line: request.line,
@@ -353,7 +353,7 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                         severity: "error",
                         code: "E-NET-UNPINNED-REPRO",
                         message: format!(
-                            "repro profile requires network download `{}` to declare fixture and expected_sha256",
+                            "repro profile requires network download `{}` to declare offline_response and expected_sha256",
                             download.target_value
                         ),
                         line: download.line,
@@ -1935,7 +1935,7 @@ fn execute_live_http(
 ) -> Result<LiveHttpBody, RuntimeError> {
     if url.trim_start().starts_with("https://") {
         return Err(invalid_input(&format!(
-            "E-NET-TLS-UNAVAILABLE: live HTTPS `{url}` needs a packaged TLS backend; use an offline fixture/cache or an http:// endpoint in this build"
+            "E-NET-TLS-UNAVAILABLE: live HTTPS `{url}` needs a packaged TLS backend; use offline_response/cache or an http:// endpoint in this build"
         )));
     }
     let timeout = timeout_label
@@ -2103,7 +2103,7 @@ fn live_secret_query_value(
         }
     }
     Err(invalid_input(&format!(
-        "E-NET-SECRET-LIVE: live HTTP query `{key}` is redacted; use `secret env(\"NAME\")` or a fixture/cache until secret injection can recover the value safely"
+        "E-NET-SECRET-LIVE: live HTTP query `{key}` is redacted; use `secret env(\"NAME\")` or offline_response/cache until secret injection can recover the value safely"
     )))
 }
 
@@ -2754,7 +2754,10 @@ fn cache_manifest_status(
         record.expected_hash.as_deref(),
         observed_hash,
         lookup_status,
-        record.status == "fixture_available",
+        matches!(
+            record.status.as_str(),
+            "offline_response_available" | "fixture_available"
+        ),
     )
 }
 
@@ -2762,14 +2765,14 @@ fn cache_status(
     expected_hash: Option<&str>,
     observed_hash: Option<&str>,
     lookup_status: &str,
-    fixture_available: bool,
+    offline_response_available: bool,
 ) -> String {
     if cache_hash_mismatch(expected_hash, observed_hash) {
         "hash_mismatch".to_owned()
     } else if lookup_status == "hit" {
         "hit".to_owned()
-    } else if fixture_available {
-        "miss_fixture_available".to_owned()
+    } else if offline_response_available {
+        "miss_offline_response_available".to_owned()
     } else if observed_hash.is_some() {
         "miss_observed".to_owned()
     } else {
@@ -6902,7 +6905,7 @@ fn static_run_plan_json(
                 "timeout": &request.timeout,
                 "body_sha256": request.body.as_deref().map(eng_compiler::request_body_sha256),
                 "body_size_limit_bytes": request.body_size_limit_bytes,
-                "fixture": &request.fixture
+                "offline_response": &request.fixture
             })],
             rerun_decision,
         ));
@@ -6926,7 +6929,7 @@ fn static_run_plan_json(
                 "cache": download.cache,
                 "timeout": &download.timeout,
                 "body_size_limit_bytes": download.body_size_limit_bytes,
-                "fixture": &download.fixture
+                "offline_response": &download.fixture
             })],
             rerun_decision,
         ));
@@ -19980,7 +19983,7 @@ mod tests {
             source_hash: "source-hash".to_owned(),
             expected_hash: Some("sha256:expected".to_owned()),
             observed_hash: Some("observed".to_owned()),
-            status: "fixture_available".to_owned(),
+            status: "offline_response_available".to_owned(),
             line: 12,
         };
         let record = cache_manifest_record(
@@ -21899,7 +21902,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    fixture = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\nprint \"body={response_text}\"\nprint \"status={response_status} code={response_code} hash={response.hash}\"\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    offline_response = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\nprint \"body={response_text}\"\nprint \"status={response_status} code={response_code} hash={response.hash}\"\n",
         )
         .expect("write source");
 
@@ -21908,12 +21911,12 @@ mod tests {
 
         assert!(output.stdout.contains("x=1"));
         assert!(output.stdout.contains("body={\"ok\":true}"));
-        assert!(output.stdout.contains("status=fixture code=200"));
+        assert!(output.stdout.contains("status=offline_response code=200"));
         assert_eq!(
             result_json
                 .pointer("/typed_payload/network_boundaries/0/status")
                 .and_then(Value::as_str),
-            Some("fixture")
+            Some("offline_response")
         );
         assert_eq!(
             result_json
@@ -22224,7 +22227,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nprint submitted.status\n",
+            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    offline_response = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nprint submitted.status\n",
         )
         .expect("write source");
 
@@ -22233,7 +22236,7 @@ mod tests {
         let review_json_value =
             serde_json::from_str::<Value>(&output.review_json).expect("review json");
 
-        assert!(output.stdout.contains("fixture"));
+        assert!(output.stdout.contains("offline_response"));
         assert_eq!(
             result_json
                 .pointer("/typed_payload/network_boundaries/0/method")
@@ -22302,7 +22305,9 @@ mod tests {
 
         assert!(error.to_string().contains("profile `repro` rejected"));
         assert!(error.to_string().contains("E-NET-UNPINNED-REPRO"));
-        assert!(error.to_string().contains("fixture and expected_sha256"));
+        assert!(error
+            .to_string()
+            .contains("offline_response and expected_sha256"));
     }
 
     #[test]
@@ -22326,7 +22331,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "args {\n    api_key: Secret[String] = \"super-secret\"\n}\n\nresponse = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    serviceKey = args.api_key\n    }\n    fixture = file(\"data/response.json\")\n}\n\nx = 1\nprint \"x={x}\"\n",
+            "args {\n    api_key: Secret[String] = \"super-secret\"\n}\n\nresponse = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    serviceKey = args.api_key\n    }\n    offline_response = file(\"data/response.json\")\n}\n\nx = 1\nprint \"x={x}\"\n",
         )
         .expect("write source");
 

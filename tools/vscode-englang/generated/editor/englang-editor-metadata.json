@@ -1473,6 +1473,12 @@
                             {
                                 "detail":  "Pinned offline HTTP response used instead of live network",
                                 "kind":  "property",
+                                "label":  "offline_response",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "Legacy alias for offline_response",
+                                "kind":  "property",
                                 "label":  "fixture",
                                 "lsp_kind":  10
                             },
@@ -2353,7 +2359,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  392,
+    "completion_seed_count":  393,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

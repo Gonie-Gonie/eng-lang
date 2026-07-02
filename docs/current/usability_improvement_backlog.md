@@ -3529,6 +3529,18 @@ Status: implemented to keep VS Code fallback coverage from narrowing again.
 - Removed the previous custom-modifier-only filter that missed selectors such
   as `comment`, `number`, `class.declaration`, and `variable.readonly`.
 
+## Batch 286: Network Offline Response Wording
+
+Status: implemented to reduce fixture-like wording on public native API paths.
+
+- Added `offline_response` as the preferred `eng.net` option for pinned HTTP
+  response files, while keeping `fixture` as a legacy alias for existing files.
+- Updated workflow 01, stdlib notes, LSP completion metadata, semantic token
+  fixtures, and runtime/repro/cache status wording to surface offline response
+  terminology instead of test-fixture terminology.
+- Kept internal compatibility for old cache records and `fixture` option usage
+  so existing samples do not fail during the wording transition.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

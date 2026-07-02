@@ -1429,7 +1429,8 @@ fn edit_distance(left: &str, right: &str) -> usize {
 
 fn expected_sha256_from_diagnostic(diagnostic: &Value) -> Option<String> {
     let message = diagnostic.get("message")?.as_str()?;
-    expected_sha256_after(message, "fixture SHA256 was `")
+    expected_sha256_after(message, "offline response SHA256 was `")
+        .or_else(|| expected_sha256_after(message, "fixture SHA256 was `"))
         .or_else(|| expected_sha256_after(message, "observed `"))
 }
 
