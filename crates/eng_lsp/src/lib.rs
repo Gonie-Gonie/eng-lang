@@ -5,7 +5,7 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
     ClassFieldInfo, Diagnostic, DomainTypeParameterInfo, FunctionInfo, SemanticProgram, Severity,
-    WithBlockInfo,
+    WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -1219,10 +1219,32 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             builder.push_on_line(ml.line, input, "variable", &["model"]);
         }
         if let Some(target) = &ml.target {
+            builder.push_on_line(ml.line, "target", "property", &["model"]);
             builder.push_on_line(ml.line, target, "property", &["model"]);
+        }
+        if !ml.features.is_empty() {
+            builder.push_on_line(ml.line, "features", "property", &["model"]);
         }
         for feature in &ml.features {
             builder.push_on_line(ml.line, feature, "property", &["model"]);
+        }
+        if let Some(algorithm) = &ml.algorithm {
+            builder.push_on_line(ml.line, "algorithm", "property", &["model"]);
+            if is_simple_identifier_segment(algorithm) {
+                builder.push_on_line(ml.line, algorithm, "keyword", &["model"]);
+            }
+        }
+        if ml.test_fraction.is_some() {
+            builder.push_on_line(ml.line, "test", "property", &["model"]);
+        }
+        if ml.seed.is_some() {
+            builder.push_on_line(ml.line, "seed", "property", &["model"]);
+        }
+        if !ml.hidden_layers.is_empty() {
+            builder.push_on_line(ml.line, "hidden", "property", &["model"]);
+        }
+        if ml.epochs.is_some() {
+            builder.push_on_line(ml.line, "epochs", "property", &["model"]);
         }
     }
 
@@ -1444,6 +1466,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         for option in &block.options {
             let modifiers = with_option_semantic_modifiers(program, block, &option.key);
             builder.push_on_line(option.line, &option.key, "property", modifiers);
+            add_with_option_value_semantic_token(&mut builder, program, block, option);
         }
     }
 
@@ -1487,6 +1510,7 @@ fn with_option_semantic_modifiers(
         | "consistency_tolerance"
         | "variable_scale"
         | "variable_scales" => &["solver"],
+        "mode" if is_db_write_with_block(program, block.owner_line) => &["db"],
         "overwrite" | "mode" | "confirm" | "recursive" | "output" => &["sideEffect"],
         "args"
         | "query"
@@ -1520,6 +1544,116 @@ fn with_option_semantic_modifiers(
         _ if is_db_write_with_block(program, block.owner_line) => &["db"],
         _ if is_net_with_block(program, block.owner_line) => &["external"],
         _ => &[],
+    }
+}
+
+fn add_with_option_value_semantic_token(
+    builder: &mut SemanticTokenBuilder<'_>,
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+    option: &WithOptionInfo,
+) {
+    let Some(value) = leading_option_value_identifier(&option.value) else {
+        return;
+    };
+    if let Some((token_type, modifiers)) =
+        with_option_value_semantic_class(program, block, &option.key, value)
+    {
+        builder.push_on_line(option.line, value, token_type, modifiers);
+    }
+}
+
+fn leading_option_value_identifier(value: &str) -> Option<&str> {
+    let value = value.trim_start();
+    let bytes = value.as_bytes();
+    let first = *bytes.first()?;
+    if !is_ident_start(first) {
+        return None;
+    }
+    let mut end = 1usize;
+    while end < bytes.len() && is_ident_byte(bytes[end]) {
+        end += 1;
+    }
+    Some(&value[..end])
+}
+
+fn with_option_value_semantic_class(
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+    key: &str,
+    value: &str,
+) -> Option<(&'static str, &'static [&'static str])> {
+    match key {
+        "transaction" if matches!(value, "commit" | "rollback") => Some(("keyword", &["db"])),
+        "mode"
+            if is_db_write_with_block(program, block.owner_line)
+                && matches!(value, "append" | "insert" | "upsert" | "replace") =>
+        {
+            Some(("keyword", &["db"]))
+        }
+        "mode" if matches!(value, "append" | "insert" | "upsert" | "replace") => {
+            Some(("keyword", &["sideEffect"]))
+        }
+        "cache" if matches!(value, "true" | "false") => Some(("keyword", &["cache"])),
+        "overwrite" | "confirm" | "recursive" | "allow_failure"
+            if matches!(value, "true" | "false") =>
+        {
+            Some((
+                "keyword",
+                with_option_semantic_modifiers(program, block, key),
+            ))
+        }
+        "resume" if matches!(value, "true" | "false") => Some(("keyword", &["workflowStep"])),
+        "on_none" | "on_many" | "missing" | "status"
+            if matches!(
+                value,
+                "error"
+                    | "keep"
+                    | "empty"
+                    | "interpolate"
+                    | "pending"
+                    | "running"
+                    | "passed"
+                    | "failed"
+                    | "succeeded"
+                    | "skipped"
+                    | "blocked"
+                    | "completed"
+            ) =>
+        {
+            Some(("keyword", &["validation"]))
+        }
+        "solver" | "method" | "algebraic_initialization" | "jacobian" | "mass_matrix"
+            if matches!(
+                value,
+                "fixed_step"
+                    | "rk4"
+                    | "adaptive_heun"
+                    | "fixed_point"
+                    | "newton"
+                    | "implicit_euler_dae"
+                    | "dynamic_component_explicit_euler"
+                    | "dynamic_component_semi_implicit_euler"
+                    | "dynamic_component_adaptive_heun"
+                    | "trapezoidal"
+                    | "none"
+            ) =>
+        {
+            Some(("keyword", &["solver"]))
+        }
+        "algorithm" | "split"
+            if is_model_with_block(program, block.owner_line)
+                && matches!(value, "linear" | "regression" | "mlp") =>
+        {
+            Some(("keyword", &["model"]))
+        }
+        "step" if matches!(value, "run_case") => {
+            Some(("function", &["defaultLibrary", "workflowStep"]))
+        }
+        "method" if is_sample_with_block(program, block.owner_line) => {
+            Some(("keyword", &["workflowStep"]))
+        }
+        _ => None,
     }
 }
 
@@ -5695,6 +5829,7 @@ db = open sqlite file("outputs/results.sqlite")
 write sensor to db.table("sensor")
 with {
     mode = upsert
+    mode = replace
     key = time
     transaction = commit
     transaction = rollback
@@ -5765,10 +5900,14 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "epochs", "model");
         assert_semantic_token_modifier(&snapshot, source, "db", "db");
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
+        assert_semantic_token_modifier(&snapshot, source, "mode", "db");
+        assert_semantic_token_modifier(&snapshot, source, "upsert", "db");
+        assert_semantic_token_modifier(&snapshot, source, "replace", "db");
         assert_semantic_token_modifier(&snapshot, source, "key", "db");
         assert_semantic_token_modifier(&snapshot, source, "transaction", "db");
         assert_semantic_token_modifier(&snapshot, source, "commit", "db");
         assert_semantic_token_modifier(&snapshot, source, "rollback", "db");
+        assert_semantic_token_modifier(&snapshot, source, "linear", "model");
         assert_semantic_token_modifier(&snapshot, source, "standard_text", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "output", "sideEffect");
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
@@ -5792,6 +5931,7 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "timestep", "solver");
         assert_semantic_token_modifier(&snapshot, source, "duration", "solver");
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "adaptive_heun", "solver");
         assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
         assert_semantic_token_modifier(&snapshot, source, "query", "external");
         assert_semantic_token_modifier(&snapshot, source, "station", "external");

@@ -2203,7 +2203,7 @@ function Assert-VscodeExtensionContract {
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "property.db",
         "function.model", "keyword.model", "function.defaultLibrary", "namespace.defaultLibrary",
-        "namespace.imported", "namespace.internal", "type.axis", "variable.cache", "keyword.workflowStep",
+        "namespace.imported", "namespace.internal", "type.axis", "variable.cache", "keyword.cache", "keyword.workflowStep",
         "function.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]

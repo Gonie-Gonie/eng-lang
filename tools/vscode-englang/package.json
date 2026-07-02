@@ -337,6 +337,9 @@
             "keyword.control.workflow.englang",
             "variable.other.definition.englang"
           ],
+          "keyword.cache": [
+            "keyword.control.workflow.englang"
+          ],
           "property.cache": [
             "keyword.control.workflow.englang",
             "variable.other.property.englang"
