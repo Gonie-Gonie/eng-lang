@@ -3184,6 +3184,17 @@ import errors.
 - Documented stdlib module import behavior in the functions/imports reference
   and CLI diagnostic code list.
 
+## Batch 257: Stdlib Import Quick Fix
+
+Status: implemented after adding registry-aware stdlib import diagnostics.
+
+- Added an LSP quick fix for misspelled `eng.*` module imports that replaces
+  close matches such as `eng.nte` with the registry-backed module name.
+- Kept candidate lookup in `eng_lsp` through the compiler-owned module
+  registry instead of adding a JavaScript module-name table.
+- Extended VS Code/IDE contract checks and LSP stdio coverage for the new
+  quick fix path.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

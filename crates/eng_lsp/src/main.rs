@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::io::{self, Read, Write};
 use std::path::{Path, PathBuf};
 
-use eng_compiler::{format_source, parse_source, AstItem};
+use eng_compiler::{bundled_module_registry, format_source, parse_source, AstItem};
 use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
     diagnostic_json, document_symbols_lsp_json, editor_metadata_json, folding_ranges_lsp_json,
@@ -679,6 +679,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-CMD-AMBIG-001" => optional_code_action(lsp_parenthesize_command_target_code_action(
             uri, text, diagnostic,
         )),
+        "E-STDLIB-MODULE-UNKNOWN" => optional_code_action(
+            lsp_stdlib_module_replacement_code_action(uri, text, diagnostic),
+        ),
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
             text,
@@ -1359,6 +1362,69 @@ fn lsp_parenthesize_command_target_code_action(
             &replacement
         )
     }))
+}
+
+fn lsp_stdlib_module_replacement_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let unknown = stdlib_module_name_from_diagnostic(diagnostic_message(diagnostic))?;
+    let replacement = closest_stdlib_module_name(unknown)?;
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let start_byte = line.find(unknown)?;
+    let end_byte = start_byte + unknown.len();
+    Some(json!({
+        "title": format!("Replace {unknown} with {replacement}"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            &replacement
+        )
+    }))
+}
+
+fn stdlib_module_name_from_diagnostic(message: &str) -> Option<&str> {
+    backtick_payloads(message)
+        .into_iter()
+        .find(|payload| payload.starts_with("eng."))
+}
+
+fn closest_stdlib_module_name(unknown: &str) -> Option<String> {
+    let registry = bundled_module_registry().ok()?;
+    let (distance, name) = registry
+        .modules
+        .iter()
+        .map(|module| (edit_distance(unknown, &module.name), module.name.as_str()))
+        .filter(|(_distance, name)| *name != unknown)
+        .min_by(|left, right| left.0.cmp(&right.0).then_with(|| left.1.cmp(right.1)))?;
+    if distance <= 2 || (distance <= 3 && unknown.len() >= 8) {
+        Some(name.to_owned())
+    } else {
+        None
+    }
+}
+
+fn edit_distance(left: &str, right: &str) -> usize {
+    let left = left.as_bytes();
+    let right = right.as_bytes();
+    let mut previous = (0..=right.len()).collect::<Vec<_>>();
+    let mut current = vec![0; right.len() + 1];
+    for (left_index, left_byte) in left.iter().enumerate() {
+        current[0] = left_index + 1;
+        for (right_index, right_byte) in right.iter().enumerate() {
+            let substitution = usize::from(left_byte != right_byte);
+            current[right_index + 1] = (previous[right_index + 1] + 1)
+                .min(current[right_index] + 1)
+                .min(previous[right_index] + substitution);
+        }
+        std::mem::swap(&mut previous, &mut current);
+    }
+    previous[right.len()]
 }
 
 fn expected_sha256_from_diagnostic(diagnostic: &Value) -> Option<String> {

@@ -708,7 +708,8 @@ fn stdio_code_actions_offer_linter_quick_fixes() {
     std::fs::create_dir_all(fixture_path.parent().expect("fixture should have a parent"))
         .expect("fixture directory should be writable");
     std::fs::write(&fixture_path, "{\"ok\":true}\n").expect("fixture should be writable");
-    let source = r#"power = 10 kW
+    let source = r#"use eng.nte
+power = 10 kW
 Q_total = 10 + 2 kW
 Q1 = 1 kW
 Q2 = 2 kW
@@ -894,6 +895,7 @@ report {
     let actions = code_actions["result"]
         .as_array()
         .expect("code action result should be an array");
+    assert_action_edit(actions, &uri, "Replace eng.nte with eng.net", "eng.net");
     assert_action_edit(
         actions,
         &uri,
