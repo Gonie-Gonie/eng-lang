@@ -1992,6 +1992,18 @@ first-render TextMate highlighting.
   target schema name as `entity.name.type.englang`.
 - Added grammar expectations for the full promotion phrase and schema capture.
 
+## Batch 163: CSV Promotion Phrase Highlighting
+
+Status: implemented to keep CSV typed-table promotion readable in first-render
+TextMate highlighting.
+
+- Added `meta.workflow.promote-csv.englang` for
+  `promote csv <source> as <schema>`.
+- Scoped the source argument path as `variable.parameter.property.englang` and
+  the target schema name as `entity.name.type.englang`.
+- Added grammar expectations on the core workflow fixture so CSV promotion does
+  not fall back to disconnected keyword coloring.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

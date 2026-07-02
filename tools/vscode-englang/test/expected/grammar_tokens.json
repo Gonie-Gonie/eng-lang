@@ -58,6 +58,18 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.promote-csv.englang",
+    "text": "promote csv args.input as SensorData",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.input",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.declaration.binding.englang",
     "text": "sensor ="
   },

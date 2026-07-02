@@ -94,6 +94,7 @@ Current workflow phrase scopes:
 | `meta.workflow.open-sqlite.englang` | `open sqlite` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
+| `meta.workflow.promote-csv.englang` | `promote csv <source> as <schema>` |
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.read-structured.englang` | `read json`, `read toml`, `read text`, and `read csv`. |
 | `meta.workflow.run-command.englang` | `run command ...` |
