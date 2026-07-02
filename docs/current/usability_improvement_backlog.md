@@ -3672,6 +3672,19 @@ and the EngLang `run command` external-process syntax.
 - Updated the generated VSIX manifest description source to use the same
   wording.
 
+## Batch 297: VS Code Stdlib Module Quick Fix Fallback
+
+Status: implemented to keep stdlib import typo repairs available when the
+short LSP code-action bridge has no payload.
+
+- Passed the generated completion seed into the VS Code local quick-fix
+  fallback.
+- Added a local `E-STDLIB-MODULE-UNKNOWN` action that suggests the closest
+  `eng.*` module from generated editor metadata, matching the existing LSP
+  behavior such as `eng.nte` to `eng.net`.
+- Added `ide-check` contract coverage so the fallback and completion-seed
+  wiring do not regress.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

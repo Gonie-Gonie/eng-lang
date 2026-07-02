@@ -2895,6 +2895,12 @@ function Assert-VscodeExtensionContract {
         "confidenceBandOptionAction",
         "withOptionRenameAction",
         "unknownWithOptionName",
+        "E-STDLIB-MODULE-UNKNOWN",
+        "stdlibModuleReplacementAction",
+        "stdlibModuleNameFromDiagnostic",
+        "stdlibModuleNamesFromCompletionSeed",
+        "closestStdlibModuleName",
+        "editDistance",
         "Use plot y-axis option: unit y =",
         "Use confidence band option: confidence_band =",
         "optionQuickFix",
@@ -2910,6 +2916,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $CodeActionProviderSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
         throw "VS Code code action provider must load local quick fix helpers from localCodeActions.js"
+    }
+    if (-not $ExtensionSource.Contains('completionSeed: COMPLETION_SEED') -or -not $CodeActionProviderSource.Contains('this.completionSeed = Array.isArray(options.completionSeed)') -or -not $CodeActionProviderSource.Contains('completionSeed: this.completionSeed')) {
+        throw "VS Code code action provider must pass generated completion seed to local quick fixes"
     }
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"

@@ -1,6 +1,6 @@
 const vscode = require("vscode");
 
-function localCodeActions(document, context) {
+function localCodeActions(document, context, options = {}) {
   const actions = [];
   for (const diagnostic of context.diagnostics) {
     const code = diagnosticCode(diagnostic);
@@ -98,6 +98,13 @@ function localCodeActions(document, context) {
         actions.push(action);
       }
     }
+    if (code === "E-STDLIB-MODULE-UNKNOWN") {
+      const action = stdlibModuleReplacementAction(document, diagnostic, options.completionSeed);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
     if (optionAction) {
       optionAction.isPreferred = true;
@@ -129,6 +136,86 @@ function replacementAction(document, diagnostic, search, replacement, title) {
     replacement
   );
   return action;
+}
+
+function stdlibModuleReplacementAction(document, diagnostic, completionSeed) {
+  const unknown = stdlibModuleNameFromDiagnostic(diagnostic.message);
+  if (!unknown) {
+    return undefined;
+  }
+  const replacement = closestStdlibModuleName(unknown, completionSeed);
+  if (!replacement) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const index = line.text.indexOf(unknown);
+  if (index < 0) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    `Replace ${unknown} with ${replacement}`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, index, line.lineNumber, index + unknown.length),
+    replacement
+  );
+  return action;
+}
+
+function stdlibModuleNameFromDiagnostic(message) {
+  const candidates = String(message ?? "").match(/`eng\.[A-Za-z0-9_.-]+`/g) ?? [];
+  const last = candidates.at(-1);
+  return last ? last.slice(1, -1) : undefined;
+}
+
+function closestStdlibModuleName(unknown, completionSeed) {
+  const moduleNames = stdlibModuleNamesFromCompletionSeed(completionSeed)
+    .filter((name) => name !== unknown);
+  let best;
+  for (const name of moduleNames) {
+    const distance = editDistance(unknown, name);
+    if (!best || distance < best.distance || (distance === best.distance && name < best.name)) {
+      best = { distance, name };
+    }
+  }
+  if (!best) {
+    return undefined;
+  }
+  return best.distance <= 2 || (best.distance <= 3 && unknown.length >= 8) ? best.name : undefined;
+}
+
+function stdlibModuleNamesFromCompletionSeed(completionSeed) {
+  return Array.from(
+    new Set(
+      (Array.isArray(completionSeed) ? completionSeed : [])
+        .map((completion) => completion?.label)
+        .filter((label) => /^eng\.[A-Za-z0-9_.-]+$/.test(label ?? ""))
+    )
+  ).sort();
+}
+
+function editDistance(left, right) {
+  const previous = Array.from({ length: right.length + 1 }, (_value, index) => index);
+  const current = new Array(right.length + 1).fill(0);
+  for (let leftIndex = 0; leftIndex < left.length; leftIndex += 1) {
+    current[0] = leftIndex + 1;
+    for (let rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
+      const substitution = previous[rightIndex] + (left[leftIndex] === right[rightIndex] ? 0 : 1);
+      current[rightIndex + 1] = Math.min(
+        previous[rightIndex + 1] + 1,
+        current[rightIndex] + 1,
+        substitution
+      );
+    }
+    for (let index = 0; index < current.length; index += 1) {
+      previous[index] = current[index];
+    }
+  }
+  return previous[right.length];
 }
 
 function quantityAnnotationActions(document, diagnostic) {

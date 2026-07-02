@@ -207,7 +207,8 @@ function activate(context) {
     vscode.languages.registerCodeActionsProvider(
       LANGUAGE_ID,
       new EngCodeActionProvider(context, {
-        codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource
+        codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource,
+        completionSeed: COMPLETION_SEED
       }),
       {
         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]

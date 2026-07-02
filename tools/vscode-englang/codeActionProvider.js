@@ -6,6 +6,7 @@ class EngCodeActionProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.codeActionsForDocumentSource = options.codeActionsForDocumentSource;
+    this.completionSeed = Array.isArray(options.completionSeed) ? options.completionSeed : [];
   }
 
   async provideCodeActions(document, _range, context, cancellationToken) {
@@ -15,7 +16,9 @@ class EngCodeActionProvider {
       cancellationToken
     );
     const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
-    const localActions = localCodeActions(document, context);
+    const localActions = localCodeActions(document, context, {
+      completionSeed: this.completionSeed
+    });
     return mergeCodeActions(lspActions, localActions);
   }
 }
