@@ -1805,6 +1805,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+    $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
@@ -1817,6 +1818,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ExtensionJsPath)) {
         throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+    if (-not (Test-Path $ArtifactRegistryPath)) {
+        throw "missing VS Code artifact registry at $ArtifactRegistryPath"
     }
     if (-not (Test-Path $EditorMetadataLoaderPath)) {
         throw "missing VS Code editor metadata loader at $EditorMetadataLoaderPath"
@@ -2022,6 +2026,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
@@ -2045,7 +2050,7 @@ function Assert-VscodeExtensionContract {
         "Plot Spec",
         "Plot Manifest"
     )) {
-        if ($PackageSource.Contains($ForbiddenCommandWording) -or $ExtensionSource.Contains($ForbiddenCommandWording)) {
+        if ($PackageSource.Contains($ForbiddenCommandWording) -or $ExtensionSource.Contains($ForbiddenCommandWording) -or $ArtifactRegistrySource.Contains($ForbiddenCommandWording)) {
             throw "VS Code command wording should use user-facing artifact names instead of '$ForbiddenCommandWording'"
         }
     }
@@ -2095,6 +2100,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("reviewPanelArtifacts") -or -not $ExtensionSource.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
         throw "VS Code extension review panel must expose clickable last-run artifacts"
+    }
+    if (-not $ExtensionSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
+        throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
@@ -2365,6 +2373,7 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $Node) {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
+            Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
         } catch {
             Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
@@ -3384,6 +3393,9 @@ function Invoke-PackageSmoke {
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
+            throw "portable package did not include VS Code artifact registry"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\editorMetadata.js"))) {
             throw "portable package did not include VS Code editor metadata loader"
