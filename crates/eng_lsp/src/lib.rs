@@ -508,6 +508,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("samples", "uncertainty sample count"),
     ("seed", "deterministic sampling seed"),
     ("sensor_std", "TimeSeries sensor standard deviation"),
+    ("split", "model train/test split reference"),
     ("solver", "solver algorithm option"),
     ("start", "range start option"),
     ("status", "case or validation status"),
@@ -4244,6 +4245,9 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "cache_key",
         ]);
     }
+    if owner.contains("evaluate(") || owner.contains("leakage_lint(") {
+        return Some(&["split", "cache", "cache_key"]);
+    }
     if owner.contains("predict ") || owner.contains("predict(") {
         return Some(&["output", "cache", "cache_key"]);
     }
@@ -4997,6 +5001,7 @@ mod tests {
             ("eng.table", "stdlib"),
             ("HeatRate", "class"),
             ("kW", "unit"),
+            ("split", "property"),
         ] {
             assert!(
                 completions
@@ -5020,8 +5025,8 @@ mod tests {
         assert!(
             net_completion["detail"]
                 .as_str()
-                .is_some_and(|detail| detail.contains("Pinned offline HTTP")),
-            "eng.net completion detail should describe pinned offline HTTP, got {}",
+                .is_some_and(|detail| detail.contains("pinned offline/cache HTTP")),
+            "eng.net completion detail should describe pinned offline/cache HTTP, got {}",
             net_completion["detail"]
         );
         let cache_completion = completions
@@ -6088,6 +6093,44 @@ with {
                 "model training with-block completion should include {label}"
             );
         }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_model_evaluation_context() {
+        let source = r#"metrics = evaluate(model)
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("model_evaluation_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in ["split", "cache_key"] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "model evaluation with-block completion should include {label}"
+            );
+        }
+        let split_completion = completions
+            .iter()
+            .find(|completion| completion.label == "split")
+            .expect("model evaluation with-block completion should include split");
+        assert_eq!(split_completion.kind, "property");
+        assert_eq!(split_completion.detail, "model train/test split reference");
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));

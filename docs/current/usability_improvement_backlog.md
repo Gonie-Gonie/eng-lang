@@ -2539,6 +2539,19 @@ Status: implemented for VS Code users invoking workspace-wide symbol search.
 - Extended `ide-check` contract coverage and LSP stdio tests so the bridge,
   provider wiring, and CLI command stay present.
 
+## Batch 207: Model Split Option Completion Parity
+
+Status: implemented after comparing TextMate option coloring with LSP editor
+metadata.
+
+- Added `split` to the LSP workflow option completion registry so model
+  evaluation and leakage-lint contexts no longer color the option without also
+  offering it through completion.
+- Added position-aware with-block completion coverage for `evaluate(model)` so
+  `split`, cache, and cache-key options stay available from the editor.
+- Extended `ide-check` metadata guards so generated VS Code completion seed
+  output cannot drop `split` while the grammar still highlights it.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

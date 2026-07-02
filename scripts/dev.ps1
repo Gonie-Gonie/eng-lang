@@ -2507,7 +2507,7 @@ function Assert-VscodeExtensionContract {
     if ($MetadataCompletionLabels.Count -lt 100) {
         throw "generated VS Code completion seed is unexpectedly small: $($MetadataCompletionLabels.Count)"
     }
-    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table")) {
+    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
             throw "generated VS Code editor metadata missing completion seed $RequiredCompletion"
@@ -2749,7 +2749,7 @@ function Invoke-LspCheck {
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
         throw "eng-lsp --editor-metadata returned unexpected format $($EditorMetadata.format)"
     }
-    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table")) {
+    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
             throw "eng-lsp --editor-metadata missing completion seed $RequiredCompletion"

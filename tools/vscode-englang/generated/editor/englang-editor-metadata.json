@@ -1471,6 +1471,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "model train/test split reference",
+                                "kind":  "property",
+                                "label":  "split",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "solver algorithm option",
                                 "kind":  "property",
                                 "label":  "solver",
@@ -2113,7 +2119,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  352,
+    "completion_seed_count":  353,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
