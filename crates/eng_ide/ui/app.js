@@ -2,6 +2,27 @@ const invoke = window.__TAURI__?.core?.invoke;
 const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
+const LEXICAL_KEYWORDS = new Set([
+  "use", "import", "from", "as", "schema", "class", "system", "component", "domain",
+  "args", "report", "test", "where", "with", "on", "const", "fn", "method",
+  "state", "input", "parameter", "output", "operator", "port", "across", "through",
+  "promote", "read", "write", "export", "render", "template", "run", "command",
+  "open", "sqlite", "http", "get", "post", "put", "patch", "head", "request",
+  "fetch", "download", "simulate", "solve", "connect", "conservation", "equation",
+  "validate", "assert", "golden", "show", "plot", "summarize", "summary", "return",
+  "if", "else"
+]);
+const LEXICAL_OPERATOR_WORDS = new Set([
+  "eq", "is", "and", "or", "not", "between", "over", "by", "using", "in", "into",
+  "of", "vs", "to", "within", "matches"
+]);
+const LEXICAL_CONSTANTS = new Set([
+  "true", "false", "none", "null", "safe", "normal", "repro", "append", "insert",
+  "upsert", "replace", "commit", "rollback", "keep", "empty", "linear", "pending",
+  "running", "passed", "failed", "succeeded", "skipped", "blocked", "completed",
+  "cached", "stale", "hit", "miss", "adaptive_heun", "fixed_point", "newton"
+]);
+const LEXICAL_UNIT_PATTERN = /^(?:J\/kg\/K|people\/m2|person\/m2|W\/m\^2|W\/m2|kg\/s|W\/K|J\/K|kJ\/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])/;
 
 const state = {
   root: "",
@@ -4021,16 +4042,16 @@ function syncEditorHighlightScroll() {
 }
 
 function renderHighlightedSource() {
+  const lines = String(state.source ?? "").split(/\r\n|\r|\n/);
   if (state.source !== state.highlightSource) {
-    return escapeHtml(state.source || "\n");
+    return lines.map(renderLexicalHighlightedLine).join("\n") || "\n";
   }
   const tokensByLine = semanticTokensByLine(semanticTokenPayload().tokens || []);
-  const lines = String(state.source ?? "").split(/\r\n|\r|\n/);
   return lines.map((line, index) => renderHighlightedLine(line, tokensByLine.get(index) || [])).join("\n") || "\n";
 }
 
 function renderHighlightedLine(line, tokens) {
-  if (!tokens.length) return escapeHtml(line);
+  if (!tokens.length) return renderLexicalHighlightedLine(line);
   const ranges = tokens
     .map((token) => semanticTokenRange(line, token))
     .filter(Boolean)
@@ -4039,12 +4060,129 @@ function renderHighlightedLine(line, tokens) {
   let html = "";
   for (const range of ranges) {
     if (range.start < cursor || range.end <= range.start) continue;
-    html += escapeHtml(line.slice(cursor, range.start));
+    html += renderLexicalHighlightedLine(line.slice(cursor, range.start));
     html += `<span class="${escapeAttr(semanticTokenClass(range.token))}">${escapeHtml(line.slice(range.start, range.end))}</span>`;
     cursor = range.end;
   }
-  html += escapeHtml(line.slice(cursor));
+  html += renderLexicalHighlightedLine(line.slice(cursor));
   return html;
+}
+
+function renderLexicalHighlightedLine(line) {
+  let index = 0;
+  let html = "";
+  while (index < line.length) {
+    const rest = line.slice(index);
+    if (rest.startsWith("///") || rest.startsWith("#")) {
+      html += lexicalSpan("hl-comment", rest);
+      break;
+    }
+    if (rest[0] === "\"") {
+      const end = scanStringEnd(line, index);
+      html += lexicalSpan("hl-string", line.slice(index, end));
+      index = end;
+      continue;
+    }
+    const moduleMatch = /^eng(?:\.[A-Za-z_][A-Za-z0-9_]*)+/.exec(rest);
+    if (moduleMatch) {
+      html += lexicalSpan("hl-namespace", moduleMatch[0]);
+      index += moduleMatch[0].length;
+      continue;
+    }
+    const numberMatch = /^[0-9]+(?:\.[0-9]+)?/.exec(rest);
+    if (numberMatch) {
+      html += lexicalSpan("hl-number", numberMatch[0]);
+      index += numberMatch[0].length;
+      const unitRest = line.slice(index);
+      const unitMatch = /^(\s+)(.+)$/.exec(unitRest);
+      if (unitMatch) {
+        const unit = LEXICAL_UNIT_PATTERN.exec(unitMatch[2]);
+        if (unit) {
+          html += escapeHtml(unitMatch[1]);
+          html += lexicalSpan("hl-mod-unit", unit[0]);
+          index += unitMatch[1].length + unit[0].length;
+        }
+      }
+      continue;
+    }
+    const unitMatch = LEXICAL_UNIT_PATTERN.exec(rest);
+    if (unitMatch) {
+      html += lexicalSpan("hl-mod-unit", unitMatch[0]);
+      index += unitMatch[0].length;
+      continue;
+    }
+    const wordMatch = /^[A-Za-z_][A-Za-z0-9_]*(?:-[A-Za-z0-9_]+)?/.exec(rest);
+    if (wordMatch) {
+      const word = wordMatch[0];
+      const cssClass = lexicalClassForWord(word, line, index);
+      html += cssClass ? lexicalSpan(cssClass, word) : escapeHtml(word);
+      index += word.length;
+      continue;
+    }
+    const symbolMatch = /^(?:->|==|!=|>=|<=|=|\+|-|\*|\/|>|<)/.exec(rest);
+    if (symbolMatch) {
+      html += lexicalSpan("hl-operator", symbolMatch[0]);
+      index += symbolMatch[0].length;
+      continue;
+    }
+    const punctuationMatch = /^[{}[\](),:.]/.exec(rest);
+    if (punctuationMatch) {
+      html += lexicalSpan("hl-punctuation", punctuationMatch[0]);
+      index += punctuationMatch[0].length;
+      continue;
+    }
+    html += escapeHtml(rest[0]);
+    index += 1;
+  }
+  return html;
+}
+
+function scanStringEnd(line, start) {
+  for (let index = start + 1; index < line.length; index += 1) {
+    if (line[index] === "\\") {
+      index += 1;
+      continue;
+    }
+    if (line[index] === "\"") {
+      return index + 1;
+    }
+  }
+  return line.length;
+}
+
+function lexicalClassForWord(word, line, index) {
+  if (line[index - 1] === ".") return "hl-property";
+  if (LEXICAL_CONSTANTS.has(word)) return "hl-constant";
+  if (LEXICAL_OPERATOR_WORDS.has(word)) return "hl-operator";
+  if (LEXICAL_KEYWORDS.has(word)) return "hl-keyword";
+  return lexicalCompletionClass(word);
+}
+
+function lexicalCompletionClass(word) {
+  for (const item of state.completions || []) {
+    const label = String(item.label || "").replace(/\(\.\.\.\)$/, "");
+    if (label !== word) continue;
+    switch (item.kind) {
+      case "class":
+        return "hl-type";
+      case "function":
+        return "hl-function";
+      case "keyword":
+      case "snippet":
+        return "hl-keyword";
+      case "unit":
+        return "hl-mod-unit";
+      case "stdlib":
+        return "hl-namespace";
+      default:
+        return "";
+    }
+  }
+  return "";
+}
+
+function lexicalSpan(cssClass, text) {
+  return `<span class="hl-token ${escapeAttr(cssClass)}">${escapeHtml(text)}</span>`;
 }
 
 function semanticTokensByLine(tokens) {

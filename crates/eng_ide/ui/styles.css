@@ -583,6 +583,15 @@ button:hover {
   color: #7c3aed;
 }
 
+.hl-constant {
+  color: #6d28d9;
+  font-weight: 600;
+}
+
+.hl-punctuation {
+  color: #64748b;
+}
+
 .hl-type,
 .hl-class,
 .hl-interface {

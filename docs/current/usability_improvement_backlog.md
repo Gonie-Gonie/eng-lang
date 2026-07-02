@@ -3481,6 +3481,20 @@ Status: implemented while continuing the VS Code thin-client split.
 - Extended extension and portable-package contract checks so decoration helpers
   stay packaged and do not drift back into `extension.js`.
 
+## Batch 282: Native IDE Lexical Highlight Fallback
+
+Status: implemented to make editor coloring less dependent on completed
+analysis snapshots.
+
+- Added a lightweight lexical fallback highlighter for the native IDE editor
+  overlay so comments, strings, numbers, units, keywords, operators,
+  constants, modules, and completion-backed types/functions keep color before
+  or between semantic checks.
+- Kept compiler/LSP semantic tokens authoritative when they are current; the
+  fallback only fills stale or token-empty source ranges.
+- Extended IDE contract checks so the fallback renderer and its core styles do
+  not silently regress to plain text.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
