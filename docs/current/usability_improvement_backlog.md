@@ -2830,6 +2830,17 @@ snapshot-first wording.
   editor metadata extraction while preserving the real `--snapshot` command and
   `eng-lsp-snapshot-v1` format names.
 
+## Batch 229: Review Fingerprint UI Wording
+
+Status: implemented after checking VS Code and Native IDE review panels for
+internal ReviewDocument field labels.
+
+- Renamed the visible `Semantic Hash` section in the VS Code review panel to
+  `Review Fingerprint`.
+- Renamed the same Native IDE Review panel label to `Review Fingerprint`.
+- Extended `ide-check` so both editor surfaces keep the user-facing label and
+  do not reintroduce the internal semantic-hash wording.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -2263,6 +2263,12 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("<h2>Inputs</h2>") -or -not $ExtensionSource.Contains("<h2>Schemas</h2>") -or -not $ExtensionSource.Contains("<h2>Units And Quantities</h2>") -or -not $ExtensionSource.Contains("<h2>Derived Values</h2>") -or -not $ExtensionSource.Contains("<h2>Caches</h2>")) {
         throw "VS Code extension review panel must expose core ReviewDocument sections"
     }
+    if (-not $ExtensionSource.Contains("<h2>Review Fingerprint</h2>")) {
+        throw "VS Code extension review panel must label semantic_hash as Review Fingerprint"
+    }
+    if ($ExtensionSource.Contains("<h2>Semantic Hash</h2>")) {
+        throw "VS Code extension review panel must not expose internal Semantic Hash wording"
+    }
     if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ExtensionSource.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }
@@ -2783,6 +2789,7 @@ function Invoke-IdeCheck {
         "Raw model JSON",
         "Raw case JSON",
         "Raw semantic token JSON",
+        "Semantic Hash",
         "No semantic legend entries.",
         "No semantic tokens match the current filter.",
         "No semantic tokens for the current check.",
@@ -2799,6 +2806,9 @@ function Invoke-IdeCheck {
         if (-not $IdeUiSource.Contains($RequiredAdvancedDataLabel)) {
             throw "Native IDE UI missing task-oriented advanced data label $RequiredAdvancedDataLabel"
         }
+    }
+    if (-not $IdeUiSource.Contains("Review Fingerprint")) {
+        throw "Native IDE review panel must label semantic_hash as Review Fingerprint"
     }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
         if (-not $IdeUiSource.Contains($RequiredModuleWordingToken)) {

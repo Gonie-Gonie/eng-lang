@@ -1523,7 +1523,7 @@ function renderReviewPanel() {
           <tr><td>Fallbacks</td><td>${fallbacks.length}</td></tr>
         </tbody>
       </table>
-      <div class="panel-title compact">Semantic Hash</div>
+      <div class="panel-title compact">Review Fingerprint</div>
       <table class="artifact-table">
         <tbody>
           <tr><td><code>${escapeHtml(doc.semantic_hash || doc.semanticHash || "-")}</code></td></tr>

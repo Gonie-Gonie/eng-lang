@@ -996,7 +996,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
       ${counts.map(([label, value]) => `<div class="metric"><strong>${escapeHtml(value)}</strong><span>${escapeHtml(label)}</span></div>`).join("")}
     </div>
 
-    <h2>Semantic Hash</h2>
+    <h2>Review Fingerprint</h2>
     <div class="table-wrap">
       <table><tbody><tr><td><code>${escapeHtml(doc.semantic_hash || doc.semanticHash || "-")}</code></td></tr></tbody></table>
     </div>
