@@ -49,6 +49,7 @@ with {
 response_text = response.body
 response_hash = response.response_hash
 payload = read json file("data/weather.json")
+api_contract = promote json payload as WeatherApiPayload
 weather = promote json records payload.records as WeatherApiRecord
 
 submitted = http post api_url

@@ -2004,6 +2004,19 @@ TextMate highlighting.
 - Added grammar expectations on the core workflow fixture so CSV promotion does
   not fall back to disconnected keyword coloring.
 
+## Batch 164: JSON Object Promotion Phrase Highlighting
+
+Status: implemented to keep native JSON object promotion aligned with the CSV
+and JSON-record promotion forms in first-render TextMate highlighting.
+
+- Added `meta.workflow.promote-json.englang` for
+  `promote json <source> as <schema>`, excluding the existing
+  `promote json records` table promotion form.
+- Scoped local JSON payload references and target schema names inside the
+  phrase so API contract promotion does not render as disconnected keywords.
+- Added grammar fixture and expectation coverage for
+  `promote json payload as WeatherApiPayload`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
