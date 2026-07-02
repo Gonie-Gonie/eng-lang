@@ -41,7 +41,6 @@ pub fn module_status_label(status: &str) -> &'static str {
         "supported" => "Supported",
         "supported_narrow" => "Supported narrow",
         "native_preview" => "Native workflow support",
-        "supported_seed" => "Native workflow support",
         "planned" => "Planned",
         "internal_planned" => "Internal planned",
         "internal" => "Internal",
@@ -54,9 +53,6 @@ pub fn module_status_detail(status: &str) -> &'static str {
         "supported" => "Public built-in surface supported by compiler/runtime.",
         "supported_narrow" => "Supported for the listed syntax forms and review artifacts.",
         "native_preview" => {
-            "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics."
-        }
-        "supported_seed" => {
             "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics."
         }
         "planned" => "Documented target surface; not executable as a public module yet.",
@@ -345,7 +341,6 @@ mod tests {
         assert!(net_module
             .completion_detail()
             .starts_with("Native workflow support:"));
-        assert!(!net_module.completion_detail().contains("supported_seed"));
         assert!(!net_module.completion_detail().contains("native_preview"));
         assert!(net_module
             .diagnostics

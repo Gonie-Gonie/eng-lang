@@ -1688,7 +1688,7 @@ function moduleCategoryLabel(category) {
 
 function moduleStatusCategory(module) {
   const status = String(module.status || "");
-  if (status === "native_preview" || status === "supported_seed") return "native";
+  if (status === "native_preview") return "native";
   if (status.startsWith("supported")) return "native";
   if (status.includes("internal")) return "internal";
   if (status.includes("planned")) return "planned";
@@ -1703,8 +1703,6 @@ function moduleStatusLabel(module) {
     case "supported_narrow":
       return "Supported narrow";
     case "native_preview":
-      return "Native workflow support";
-    case "supported_seed":
       return "Native workflow support";
     case "planned":
       return "Planned";
@@ -1725,8 +1723,6 @@ function moduleStatusDetail(module) {
     case "supported_narrow":
       return "Supported for the listed syntax forms and review artifacts.";
     case "native_preview":
-      return "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics.";
-    case "supported_seed":
       return "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics.";
     case "planned":
       return "Documented target surface; not executable as a public module yet.";

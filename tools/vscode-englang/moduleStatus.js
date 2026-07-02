@@ -13,7 +13,6 @@ function moduleStatusLabelForStatus(status) {
     case "supported_narrow":
       return "Supported narrow";
     case "native_preview":
-    case "supported_seed":
       return "Native workflow support";
     case "planned":
       return "Planned";
@@ -33,7 +32,6 @@ function moduleStatusDetailForStatus(status) {
     case "supported_narrow":
       return "Supported for the listed syntax forms and review artifacts.";
     case "native_preview":
-    case "supported_seed":
       return "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics.";
     case "planned":
       return "Documented target surface; not executable as a public module yet.";

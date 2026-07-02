@@ -101,8 +101,8 @@ Status: implemented after the execution-profile switch.
 
 Status: implemented after module status review.
 
-- Renamed the user-facing label for `native_preview` and `supported_seed`
-  registry entries from `Native preview` to `Native workflow support`.
+- Renamed native workflow registry entries from the old preview/seed wording
+  to the user-facing `Native workflow support` label.
 - Kept the machine-readable status keys stable while updating completion
   details, ReviewDocument status labels, native IDE fallback labels, and the
   generated workflow module docs table.
@@ -357,9 +357,8 @@ Status: implemented after native IDE module inspector review.
   Modules inspector.
 - Included module names, status text, purpose, symbols, artifacts, diagnostics,
   examples, and tests in the module search text.
-- Counted `native_preview` and `supported_seed` registry entries as native in
-  the native IDE category view while keeping the machine-readable status keys
-  unchanged.
+- Counted native workflow registry entries as native in the native IDE
+  category view while keeping the machine-readable status keys unchanged.
 - Extended `ide-check` contract coverage for module filter state, handlers, and
   styles.
 
@@ -2384,6 +2383,18 @@ feature roles, not just the model result binding.
   operands.
 - Added LSP regression coverage so model declarations and repeated model/table
   references are counted as role-aware semantic tokens.
+
+## Batch 196: Legacy Seed Status Alias Cleanup
+
+Status: implemented to remove a stale module-status alias after the registry
+moved to native workflow support wording.
+
+- Removed the unused legacy seed-status alias from compiler module-status
+  labeling.
+- Removed the same alias from Native IDE and VS Code module-status display
+  helpers.
+- Kept `native_preview` rendering as the user-facing `Native workflow support`
+  status.
 
 ## API And Wording Cleanup Candidates
 
