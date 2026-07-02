@@ -43,12 +43,12 @@ and next cleanup action.
 - Next cleanup: keep detailed solver ledgers in [solver docs](../internal/solver/README.md)
   and out of first-user docs.
 
-## T5 IDE / LSP
+## T5 IDE / Editor Tooling
 
 - Purpose: give engineers a review cockpit for variables, units, schemas,
   TimeSeries, plots, reports, provenance, and side effects.
 - Public scope: packaged Tauri/WebView tester IDE and smoke path.
-- Main internal: solver/component inspector rows, LSP smoke/snapshot tooling,
+- Main internal: solver/component inspector rows, editor metadata smoke checks,
   and optional VS Code extension source.
 - Next cleanup: present TimeSeries/schema/unit/report panels before component
   graph and solver panels.

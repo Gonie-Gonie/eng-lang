@@ -146,7 +146,7 @@ implementation coverage, but they are not first-user walkthroughs.
 2. Side-effect and provenance panels.
 3. Scoped system simulation result inspection.
 4. Component graph, residual, dependency, and solver internals.
-5. Editor parity and persistent LSP integration.
+5. Editor parity and long-running editor integration.
 
 ## VS Code Extension
 

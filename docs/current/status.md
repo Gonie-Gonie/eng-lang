@@ -116,8 +116,8 @@ review material. It is not a broad solver claim.
   inspectors, compiler-backed semantic highlight overlay, module registry
   browser, table transform inspector rows, PlotSpec viewing, report opening,
   and side-effect artifact panels.
-- Packaged LSP smoke/snapshot binary for internal editor tooling. It is not a
-  stable persistent editor-service contract.
+- Packaged editor-tooling binary for internal smoke checks and metadata JSON.
+  It is not a stable long-running editor protocol contract.
 
 ## Supported But Narrow Main Behavior
 
@@ -209,7 +209,7 @@ is not mistaken for public module support.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.
-- Stable persistent LSP/editor contract.
+- Stable long-running editor protocol contract.
 - Native JIT/AOT code generation and measured speedups.
 - Network/download support, broad filesystem mutation, and full process
   sandboxing.
@@ -224,7 +224,7 @@ is not mistaken for public module support.
 | `eng_runtime` | Runtime execution, VM, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
 | `eng_ide` | Tauri/WebView tester IDE and package smoke UI checks |
-| `eng_lsp` | Internal editor-service smoke and snapshot paths |
+| `eng_lsp` | Internal editor tooling, smoke checks, and metadata JSON |
 
 Future crate splitting should be documented as planned work, not assumed as the
 current architecture.

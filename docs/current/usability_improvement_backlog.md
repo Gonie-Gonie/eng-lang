@@ -2841,6 +2841,20 @@ internal ReviewDocument field labels.
 - Extended `ide-check` so both editor surfaces keep the user-facing label and
   do not reintroduce the internal semantic-hash wording.
 
+## Batch 230: Current Status Editor Wording
+
+Status: implemented after checking current status, tracks, and Native IDE
+how-to docs for stale editor-service and smoke/snapshot wording.
+
+- Reworded `docs/current/status.md` so packaged editor tooling is described as
+  smoke checks plus metadata JSON, not an LSP smoke/snapshot binary.
+- Renamed the IDE track heading and status detail from `IDE / LSP` and
+  `LSP smoke/snapshot tooling` to editor tooling and metadata smoke checks.
+- Reworded the Native IDE guide roadmap from persistent LSP integration to
+  long-running editor integration.
+- Extended `ide-check` editor-doc wording guards to cover `status.md` and
+  `tracks.md`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

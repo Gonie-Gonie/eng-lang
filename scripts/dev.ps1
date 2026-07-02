@@ -1833,6 +1833,8 @@ function Assert-VscodeExtensionContract {
     $UserGuidePath = Join-Path $RepoRoot "docs\user\user_guide.md"
     $FeatureMaturityPath = Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"
     $MainInternalStatusPath = Join-Path $RepoRoot "docs\current\main_internal_status.md"
+    $CurrentStatusPath = Join-Path $RepoRoot "docs\current\status.md"
+    $CurrentTracksPath = Join-Path $RepoRoot "docs\current\tracks.md"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
@@ -1872,7 +1874,7 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $TokenScopesDocPath)) {
         throw "missing editor token scope contract at $TokenScopesDocPath"
     }
-    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserGuidePath, $FeatureMaturityPath, $MainInternalStatusPath)) {
+    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserGuidePath, $FeatureMaturityPath, $MainInternalStatusPath, $CurrentStatusPath, $CurrentTracksPath)) {
         if (-not (Test-Path $RequiredDocPath)) {
             throw "missing VS Code install contract input at $RequiredDocPath"
         }
@@ -1887,6 +1889,8 @@ function Assert-VscodeExtensionContract {
     $UserGuideSource = Get-Content -LiteralPath $UserGuidePath -Raw
     $FeatureMaturitySource = Get-Content -LiteralPath $FeatureMaturityPath -Raw
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
+    $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
+    $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -2111,9 +2115,13 @@ function Assert-VscodeExtensionContract {
         "short editor-service bridge",
         "editor-service snapshot",
         "smoke/snapshot tooling",
-        "stable persistent editor-service contract"
+        "stable persistent editor-service contract",
+        "Packaged LSP smoke/snapshot",
+        "editor-service smoke and snapshot paths",
+        "LSP smoke/snapshot tooling",
+        "persistent LSP integration"
     )) {
-        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording) -or $FeatureMaturitySource.Contains($ForbiddenEditorDocWording) -or $MainInternalStatusSource.Contains($ForbiddenEditorDocWording)) {
+        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording) -or $FeatureMaturitySource.Contains($ForbiddenEditorDocWording) -or $MainInternalStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentTracksSource.Contains($ForbiddenEditorDocWording)) {
             throw "User-facing editor docs must avoid internal wording: $ForbiddenEditorDocWording"
         }
     }
