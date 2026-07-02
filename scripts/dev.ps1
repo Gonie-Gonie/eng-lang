@@ -1816,6 +1816,7 @@ function Assert-VscodeExtensionContract {
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
+    $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
@@ -1851,6 +1852,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CompletionProviderPath)) {
         throw "missing VS Code completion provider at $CompletionProviderPath"
+    }
+    if (-not (Test-Path $DiagnosticsProviderPath)) {
+        throw "missing VS Code diagnostics provider at $DiagnosticsProviderPath"
     }
     if (-not (Test-Path $HoverProviderPath)) {
         throw "missing VS Code hover provider at $HoverProviderPath"
@@ -2228,6 +2232,7 @@ function Assert-VscodeExtensionContract {
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
+    $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
@@ -2239,6 +2244,7 @@ function Assert-VscodeExtensionContract {
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
     $ModuleStatusSource = Get-Content -LiteralPath $ModuleStatusPath -Raw
+    $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
         "Last Run Review JSON",
@@ -2333,7 +2339,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
         throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
     }
-    if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $ExtensionSource.Contains("--snapshot-stdin")) {
+    if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
     foreach ($RequiredSnapshotReuseToken in @(
@@ -2349,7 +2355,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing shared LSP snapshot reuse token $RequiredSnapshotReuseToken"
         }
     }
-    if (([regex]::Matches($ExtensionSource, [regex]::Escape("clearSnapshotCache(document)"))).Count -lt 3) {
+    if (-not $ExtensionSource.Contains("clearSnapshotCache,") -or -not $DiagnosticsProviderSource.Contains("this.clearSnapshotCache(document)") -or ([regex]::Matches($DiagnosticsSource, [regex]::Escape("clearSnapshotCache(document)"))).Count -lt 3) {
         throw "VS Code extension must clear shared LSP snapshot cache on document changes and close"
     }
     foreach ($RequiredLiveEditorOutputToken in @(
@@ -2440,6 +2446,32 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("No semantic token snapshot is available")) {
         throw "VS Code highlight inspection warning must use highlight wording"
+    }
+    foreach ($RequiredDiagnosticsToken in @(
+        'require("./diagnosticsProvider")',
+        "EngDiagnosticsController",
+        "maybeCheck(document)",
+        "scheduleChangedCheck",
+        "clearPendingCheck",
+        "checkActiveFile",
+        "checkDocumentSource",
+        "finishDocumentCheck",
+        "toDiagnostics",
+        "severityName",
+        "firstLineRange",
+        "lintOnSave",
+        "lintOnChange",
+        "diagnosticsBackend",
+        "diagnosticsBackendLabel",
+        "live buffer check",
+        "EngLang runtime did not return editor JSON"
+    )) {
+        if (-not $DiagnosticsSource.Contains($RequiredDiagnosticsToken)) {
+            throw "VS Code extension missing diagnostics provider token $RequiredDiagnosticsToken"
+        }
+    }
+    if ($ExtensionSource.Contains("function maybeCheck") -or $ExtensionSource.Contains("function scheduleChangedCheck") -or $ExtensionSource.Contains("function checkDocumentSource") -or $ExtensionSource.Contains("function finishDocumentCheck") -or $ExtensionSource.Contains("function toDiagnostics") -or $ExtensionSource.Contains("function toVscodeSeverity") -or $ExtensionSource.Contains("function firstLineRange")) {
+        throw "VS Code extension must keep diagnostics helpers in diagnosticsProvider.js"
     }
     foreach ($RequiredRiskDecorationToken in @(
         "createReviewRiskDecorationTypes",
@@ -2759,6 +2791,7 @@ function Assert-VscodeExtensionContract {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $CompletionProviderPath
+            Invoke-Native $Node.Source "--check" $DiagnosticsProviderPath
             Invoke-Native $Node.Source "--check" $HoverProviderPath
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
@@ -3861,6 +3894,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\completionProvider.js"))) {
             throw "portable package did not include VS Code completion provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\diagnosticsProvider.js"))) {
+            throw "portable package did not include VS Code diagnostics provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\hoverProvider.js"))) {
             throw "portable package did not include VS Code hover provider"

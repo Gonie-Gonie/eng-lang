@@ -5,6 +5,10 @@ const path = require("path");
 const vscode = require("vscode");
 const { LAST_RUN_ARTIFACTS } = require("./artifactRegistry");
 const { EngCompletionProvider } = require("./completionProvider");
+const {
+  EngDiagnosticsController,
+  severityName
+} = require("./diagnosticsProvider");
 const { EngHoverProvider } = require("./hoverProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
@@ -32,10 +36,8 @@ const {
 } = require("./moduleStatus");
 
 const LANGUAGE_ID = "englang";
-const CHECK_DEBOUNCE_MS = 350;
 const reviewCache = new Map();
 const snapshotPromiseCache = new Map();
-const changeTimers = new Map();
 let output;
 let reviewRiskDecorations;
 let semanticSymbolDecorations;
@@ -55,6 +57,19 @@ function activate(context) {
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   reviewRiskDecorations = createReviewRiskDecorationTypes();
   semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
+  const diagnosticController = new EngDiagnosticsController(context, diagnostics, {
+    output,
+    isEngDocument,
+    clearSnapshotCache,
+    diagnosticsBackend,
+    diagnosticsBackendLabel,
+    findLspRuntime,
+    findRuntime,
+    workspaceRoot,
+    cacheReview: (document, review) => reviewCache.set(document.uri.fsPath, review),
+    updateReviewRiskDecorations,
+    updateSemanticSymbolDecorations
+  });
   context.subscriptions.push(output, diagnostics);
   context.subscriptions.push(
     reviewRiskDecorations.high,
@@ -64,16 +79,16 @@ function activate(context) {
   );
 
   context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument((document) => maybeCheck(document, diagnostics, context)),
-    vscode.workspace.onDidChangeTextDocument((event) => scheduleChangedCheck(event.document, diagnostics, context)),
-    vscode.workspace.onDidSaveTextDocument((document) => maybeCheck(document, diagnostics, context)),
+    vscode.workspace.onDidOpenTextDocument((document) => diagnosticController.maybeCheck(document)),
+    vscode.workspace.onDidChangeTextDocument((event) => diagnosticController.scheduleChangedCheck(event.document)),
+    vscode.workspace.onDidSaveTextDocument((document) => diagnosticController.maybeCheck(document)),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("englang.reviewRiskDecorations.enabled")) {
         refreshVisibleReviewRiskDecorations();
       }
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
-      clearPendingCheck(document);
+      diagnosticController.clearPendingCheck(document);
       clearSnapshotCache(document);
       diagnostics.delete(document.uri);
       updateReviewRiskDecorations(document, undefined);
@@ -89,7 +104,7 @@ function activate(context) {
         updateSemanticSymbolDecorations(editor.document, cached);
       }
     }),
-    vscode.commands.registerCommand("englang.checkFile", () => checkActiveFile(diagnostics, context)),
+    vscode.commands.registerCommand("englang.checkFile", () => diagnosticController.checkActiveFile()),
     vscode.commands.registerCommand("englang.runFile", () => runActiveFile(context)),
     vscode.commands.registerCommand("englang.runExample", () => runExample(context)),
     vscode.commands.registerCommand("englang.switchProfile", () => switchExecutionProfile()),
@@ -164,7 +179,7 @@ function activate(context) {
   );
 
   for (const document of vscode.workspace.textDocuments) {
-    maybeCheck(document, diagnostics, context);
+    diagnosticController.maybeCheck(document);
   }
 }
 
@@ -202,135 +217,6 @@ function createSemanticSymbolDecorationTypes() {
       opacity: "0.75"
     })
   };
-}
-
-function maybeCheck(document, diagnostics, context) {
-  if (!isEngDocument(document)) {
-    return;
-  }
-  const config = vscode.workspace.getConfiguration("englang", document.uri);
-  if (!config.get("lintOnSave", true)) {
-    return;
-  }
-  if (document.isDirty) {
-    return;
-  }
-  clearPendingCheck(document);
-  checkDocument(document, diagnostics, context);
-}
-
-function scheduleChangedCheck(document, diagnostics, context) {
-  if (!isEngDocument(document)) {
-    return;
-  }
-  clearSnapshotCache(document);
-  const config = vscode.workspace.getConfiguration("englang", document.uri);
-  if (!config.get("lintOnChange", true)) {
-    return;
-  }
-  clearPendingCheck(document);
-  const key = document.uri.toString();
-  const timer = setTimeout(() => {
-    changeTimers.delete(key);
-    checkDocumentSource(document, diagnostics, context);
-  }, CHECK_DEBOUNCE_MS);
-  changeTimers.set(key, timer);
-}
-
-function clearPendingCheck(document) {
-  const key = document.uri.toString();
-  const timer = changeTimers.get(key);
-  if (timer) {
-    clearTimeout(timer);
-    changeTimers.delete(key);
-  }
-}
-
-async function checkActiveFile(diagnostics, context) {
-  const document = vscode.window.activeTextEditor?.document;
-  if (!document || !isEngDocument(document)) {
-    vscode.window.showWarningMessage("Open an EngLang .eng file first.");
-    return;
-  }
-  if (document.isDirty) {
-    checkDocumentSource(document, diagnostics, context);
-    return;
-  }
-  await checkDocument(document, diagnostics, context);
-}
-
-function checkDocument(document, diagnostics, context) {
-  const backend = diagnosticsBackend(document);
-  const runtime = backend === "lsp-snapshot" ? findLspRuntime(context, document) : findRuntime(context, document);
-  const args = backend === "lsp-snapshot" ? ["--snapshot", document.uri.fsPath] : ["ide-check", document.uri.fsPath];
-  const cwd = workspaceRoot(document);
-  const documentVersion = document.version;
-  output.appendLine(`${diagnosticsBackendLabel(backend)} check ${document.uri.fsPath}`);
-
-  cp.execFile(
-    runtime,
-    args,
-    { cwd, maxBuffer: 10 * 1024 * 1024 },
-    (error, stdout, stderr) => {
-      finishDocumentCheck(document, diagnostics, backend, documentVersion, error, stdout, stderr);
-    }
-  );
-}
-
-function checkDocumentSource(document, diagnostics, context) {
-  const runtime = findLspRuntime(context, document);
-  const cwd = workspaceRoot(document);
-  const documentVersion = document.version;
-  output.appendLine(`live buffer check ${document.uri.fsPath}`);
-
-  const child = cp.execFile(
-    runtime,
-    ["--snapshot-stdin", document.uri.fsPath],
-    { cwd, maxBuffer: 10 * 1024 * 1024 },
-    (error, stdout, stderr) => {
-      finishDocumentCheck(document, diagnostics, "live buffer", documentVersion, error, stdout, stderr);
-    }
-  );
-  if (child.stdin) {
-    child.stdin.end(document.getText());
-  }
-}
-
-function finishDocumentCheck(document, diagnostics, backend, documentVersion, error, stdout, stderr) {
-  if (document.version !== documentVersion) {
-    return;
-  }
-  if (stderr && stderr.trim().length > 0) {
-    output.appendLine(stderr.trim());
-  }
-
-  let review;
-  try {
-    review = JSON.parse(stdout);
-  } catch (parseError) {
-    output.appendLine(`Unable to parse EngLang ${backend} output: ${parseError.message}`);
-    if (error) {
-      output.appendLine(error.message);
-    }
-    diagnostics.set(document.uri, [
-      new vscode.Diagnostic(
-        firstLineRange(document),
-        "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
-        vscode.DiagnosticSeverity.Error
-      )
-    ]);
-    updateReviewRiskDecorations(document, undefined);
-    updateSemanticSymbolDecorations(document, undefined);
-    return;
-  }
-
-  reviewCache.set(document.uri.fsPath, review);
-  diagnostics.set(document.uri, toDiagnostics(document, review));
-  updateReviewRiskDecorations(document, review);
-  updateSemanticSymbolDecorations(document, review);
-  const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
-  const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
-  output.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
 }
 
 function clearSnapshotCache(document) {
@@ -510,45 +396,6 @@ function reviewRiskHoverMessage(level, record) {
     markdown.appendMarkdown(`\n\n${summary}`);
   }
   return markdown;
-}
-
-function toDiagnostics(document, review) {
-  return (review.diagnostics ?? []).map((item) => {
-    const line = item.range?.start?.line ?? Math.max(0, (item.line ?? 1) - 1);
-    const textLine = document.lineAt(Math.min(line, document.lineCount - 1));
-    const startCharacter = item.range?.start?.character ?? 0;
-    const endCharacter = item.range?.end?.character ?? Math.max(1, textLine.text.length);
-    const range = new vscode.Range(line, startCharacter, line, Math.max(startCharacter + 1, endCharacter));
-    const severity = toVscodeSeverity(item.severity);
-    const diagnostic = new vscode.Diagnostic(range, item.message, severity);
-    diagnostic.code = item.code;
-    diagnostic.source = "eng";
-    if (item.help) {
-      diagnostic.message = `${item.message}\n${item.help}`;
-    }
-    return diagnostic;
-  });
-}
-
-function severityName(severity) {
-  if (severity === 1 || severity === "error") {
-    return "error";
-  }
-  if (severity === 2 || severity === "warning") {
-    return "warning";
-  }
-  return "info";
-}
-
-function toVscodeSeverity(severity) {
-  const name = severityName(severity);
-  if (name === "error") {
-    return vscode.DiagnosticSeverity.Error;
-  }
-  if (name === "warning") {
-    return vscode.DiagnosticSeverity.Warning;
-  }
-  return vscode.DiagnosticSeverity.Information;
 }
 
 async function runActiveFile(context) {
@@ -2428,11 +2275,6 @@ function findLspRuntimeForRoot(context, root, document) {
   }
 
   return "eng-lsp.exe";
-}
-
-function firstLineRange(document) {
-  const line = document.lineAt(0);
-  return new vscode.Range(0, 0, 0, Math.max(1, line.text.length));
 }
 
 module.exports = {
