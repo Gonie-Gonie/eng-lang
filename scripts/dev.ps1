@@ -1958,8 +1958,14 @@ function Assert-VscodeExtensionContract {
         }
     }
     $DiagnosticsDescription = [string]$Properties."englang.diagnosticsBackend".description
-    if ($DiagnosticsDescription -match "snapshot path|metadata") {
+    if ($DiagnosticsDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
         throw "VS Code diagnosticsBackend description must use user-facing wording, not implementation details"
+    }
+    $DiagnosticsEnumDescriptions = @($Properties."englang.diagnosticsBackend".enumDescriptions)
+    foreach ($DiagnosticsEnumDescription in $DiagnosticsEnumDescriptions) {
+        if ([string]$DiagnosticsEnumDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
+            throw "VS Code diagnosticsBackend enum descriptions must use user-facing wording, not implementation details"
+        }
     }
     $LintOnChangeDescription = [string]$Properties."englang.lintOnChange".description
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {

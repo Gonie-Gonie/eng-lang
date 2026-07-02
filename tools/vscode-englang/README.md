@@ -50,8 +50,8 @@ embedding compiler logic in JavaScript.
 
 The packaged VSIX contains `eng.exe` and the EngLang editor service, so no Rust
 setup is required for diagnostics or editor-service smoke checks. The default
-Problems source still uses stable file checks. To try live editor diagnostics,
-set:
+Problems source uses stable file checks. In Settings, switch EngLang diagnostics
+to live editor checks to update Problems while typing. In `settings.json`, set:
 
 ```text
 englang.diagnosticsBackend = lsp-snapshot
@@ -74,11 +74,11 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 ## Current Scope
 
-This is not a persistent LSP-client extension yet. The default `eng-cli`
-diagnostics source runs stable file checks on open/save and manual check. The
-optional `lsp-snapshot` source uses the EngLang editor service for live
-Problems data aligned with hover, completion, symbols, and folding, while
-run/report/artifact commands still use `eng.exe`.
+This is not a persistent LSP-client extension yet. The default diagnostics
+source runs stable file checks on open/save and manual check. The optional live
+editor source uses the EngLang editor service for Problems data aligned with
+hover, completion, symbols, and folding, while run/report/artifact commands
+still use `eng.exe`.
 `EngLang: Run Current File`
 passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact

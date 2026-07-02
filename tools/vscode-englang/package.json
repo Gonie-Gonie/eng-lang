@@ -354,10 +354,10 @@
             "lsp-snapshot"
           ],
           "enumDescriptions": [
-            "File diagnostics from eng.exe. Best for stable open, save, and manual checks.",
-            "Live editor diagnostics aligned with hover, completion, and unsaved-buffer checks."
+            "Stable file checks on open, save, and manual check.",
+            "Live editor checks while typing, aligned with hover, completion, and the current unsaved buffer."
           ],
-          "description": "Choose how the Problems panel is updated. Use eng-cli for stable file checks, or lsp-snapshot for live editor diagnostics while typing."
+          "description": "Choose how the Problems panel is updated. Stable file checks are quieter; live editor checks update while typing and use the current unsaved buffer."
         },
         "englang.executionProfile": {
           "type": "string",
