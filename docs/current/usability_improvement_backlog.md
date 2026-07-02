@@ -3207,6 +3207,18 @@ diagnostics and quick fixes.
 - Added VS Code fallback mapping and contract coverage for `namespace.planned`
   so planned module imports remain visible even without semantic-theme support.
 
+## Batch 259: VS Code Quick Fix Fallback Merge
+
+Status: implemented after reviewing the VS Code linter quick-fix bridge.
+
+- Changed the VS Code code action provider to merge LSP-owned quick fixes with
+  local fallback quick fixes instead of hiding local fixes whenever any LSP
+  action is available.
+- Deduplicated merged quick fixes by title, kind, and edit fingerprint so LSP
+  actions still stay first without showing duplicate repairs.
+- Extended extension contract coverage and README wording so partial LSP bridge
+  responses cannot silently remove JavaScript fallback repairs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

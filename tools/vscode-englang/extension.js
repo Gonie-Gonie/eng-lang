@@ -2097,11 +2097,53 @@ class EngCodeActionProvider {
   async provideCodeActions(document, _range, context, cancellationToken) {
     const payload = await codeActionsForDocumentSource(document, this.context, cancellationToken);
     const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
-    if (lspActions.length > 0) {
-      return lspActions;
-    }
-    return localCodeActions(document, context);
+    const localActions = localCodeActions(document, context);
+    return mergeCodeActions(lspActions, localActions);
   }
+}
+
+function mergeCodeActions(primaryActions, fallbackActions) {
+  const merged = [];
+  const seen = new Set();
+  for (const action of [...primaryActions, ...fallbackActions]) {
+    if (!action) {
+      continue;
+    }
+    const key = codeActionKey(action);
+    if (seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    merged.push(action);
+  }
+  return merged;
+}
+
+function codeActionKey(action) {
+  const kind = action?.kind?.value ?? String(action?.kind ?? "");
+  return `${action?.title ?? ""}\n${kind}\n${codeActionEditKey(action?.edit)}`;
+}
+
+function codeActionEditKey(edit) {
+  if (!edit || typeof edit.entries !== "function") {
+    return "";
+  }
+  return edit.entries()
+    .map(([uri, edits]) => {
+      const editKeys = edits.map((textEdit) => {
+        const range = textEdit.range;
+        return [
+          range.start.line,
+          range.start.character,
+          range.end.line,
+          range.end.character,
+          textEdit.newText
+        ].join(":");
+      });
+      return `${uri.toString()}:${editKeys.join("|")}`;
+    })
+    .sort()
+    .join("\n");
 }
 
 function fullLineRange(document, lineNumber) {

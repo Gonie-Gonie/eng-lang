@@ -32,7 +32,8 @@ embedding compiler logic in JavaScript.
   parenthesizing, schema column annotation migrations, required file-mutation
   `with` options, invalid network retry/timeout/body-size policies, pinned
   response SHA-256 mismatches, sampling seed values, and missing repro-profile
-  sampling seeds
+  sampling seeds. LSP-backed quick fixes are shown first and merged with local
+  fallback repairs so partial LSP responses do not hide available fixes.
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open current-file review data,
   open the latest generated report, and inspect last-run review data, result
