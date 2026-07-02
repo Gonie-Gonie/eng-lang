@@ -1079,6 +1079,62 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.model-train-call.englang",
+                                                                    "begin":  "\\b(train_test_split|regression|train_regression|mlp)\\s*(\\()",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "punctuation.section.parens.begin.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "\\)",
+                                                                    "endCaptures":  {
+                                                                                        "0":  {
+                                                                                                  "name":  "punctuation.section.parens.end.englang"
+                                                                                              }
+                                                                                    },
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "match":  "\\b(target|features|test|seed|algorithm|hidden|epochs|split)\\b\\s*(=)",
+                                                                                         "captures":  {
+                                                                                                          "1":  {
+                                                                                                                    "name":  "variable.parameter.property.englang"
+                                                                                                                },
+                                                                                                          "2":  {
+                                                                                                                    "name":  "keyword.operator.englang"
+                                                                                                                }
+                                                                                                      }
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_.]*\\b"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.regression-table.englang",
                                                                     "begin":  "\\b(regression_table)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\b",
                                                                     "beginCaptures":  {

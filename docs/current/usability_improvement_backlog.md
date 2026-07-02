@@ -3291,6 +3291,19 @@ Status: implemented while continuing the VS Code entrypoint split.
 - Extended extension and portable-package contract checks so navigation
   providers stay packaged and keep reusing `lspNavigation.js`.
 
+## Batch 266: VS Code Model Training Highlighting
+
+Status: implemented while improving workflow phrase highlighting consistency.
+
+- Added `meta.workflow.model-train-call.englang` for `train_test_split(...)`,
+  `train_regression(...)`, `regression(...)`, and `mlp(...)` model-training
+  calls.
+- Expanded the sampling/model grammar fixture and token expectations so model
+  training APIs get the same phrase-level TextMate coverage as prediction and
+  model-card calls.
+- Updated the editor token-scope contract so the new model-training scope is
+  documented and checked with the rest of the workflow phrase scopes.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
