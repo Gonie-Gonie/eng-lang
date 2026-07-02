@@ -3884,6 +3884,19 @@ Status: implemented to reduce fixture-like API wording in new editor flows.
 - Updated workflow-module evidence so workflows 01, 02, and 03 are all listed
   as native zero-external-process examples.
 
+## Batch 314: File Operation Phrase Highlighting
+
+Status: implemented to make supported file mutation statements color like
+first-class workflow actions.
+
+- Added a TextMate phrase scope for top-level `copy`, `move`, and `delete`
+  file operation statements instead of relying only on generic side-effect
+  keyword coloring.
+- Anchored the scope to top-level statements so names such as
+  `derive ... column copy = ...` are not misclassified as file operations.
+- Added VS Code grammar fixture/snapshot coverage for copy, move, and delete
+  file operation lines.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

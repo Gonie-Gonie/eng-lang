@@ -107,6 +107,7 @@ Current workflow phrase scopes:
 | `meta.workflow.distribution-call.englang` | `uniform(...)`, `normal(...)`, `distribution(...)`, `measured(...)`, and `interval(...)` value distributions. |
 | `meta.workflow.download-to.englang` | `download ... to ...` |
 | `meta.workflow.export-summary-csv.englang` | `export summary to csv <target>` |
+| `meta.workflow.file-operation.englang` | Top-level `copy <source> to <destination>`, `move <source> to <destination>`, and `delete <target>` file operation statements. |
 | `meta.workflow.fill-missing.englang` | `fill missing <series>` |
 | `meta.workflow.filter-table.englang` | `filter <table>` |
 | `meta.workflow.http-request.englang` | `http get <target>`, `http post <target>`, and other HTTP request phrases. |

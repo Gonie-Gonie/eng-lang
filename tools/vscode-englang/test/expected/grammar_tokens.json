@@ -1339,6 +1339,42 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.side-effect.englang",
+    "text": "copy",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.file-operation.englang",
+    "text": "copy file(\"data/template.txt\") to file(\"outputs/template.txt\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.side-effect.englang",
+    "text": "move",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.file-operation.englang",
+    "text": "move file(\"outputs/template.txt\") to file(\"outputs/archive/template.txt\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.side-effect.englang",
+    "text": "delete",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.file-operation.englang",
+    "text": "delete dir(\"outputs/archive\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.operator.word.englang",
     "text": "to",
     "fullMatch": true

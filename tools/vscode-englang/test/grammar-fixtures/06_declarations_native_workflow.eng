@@ -82,3 +82,7 @@ with {
     cache = true
     cache_dir = dir("build/cache")
 }
+
+copy file("data/template.txt") to file("outputs/template.txt")
+move file("outputs/template.txt") to file("outputs/archive/template.txt")
+delete dir("outputs/archive")
