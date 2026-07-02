@@ -295,8 +295,12 @@
                        "blocks":  {
                                       "patterns":  [
                                                        {
+                                                           "name":  "keyword.control.validation.englang",
+                                                           "match":  "\\b(constraints|missing)\\b(?=\\s*\\{)"
+                                                       },
+                                                       {
                                                            "name":  "storage.type.block.englang",
-                                                           "match":  "\\b(args|report|constraints|missing|test|where|with|on)\\b(?=\\s*\\{)"
+                                                           "match":  "\\b(args|report|test|where|with|on)\\b(?=\\s*\\{)"
                                                        }
                                                    ]
                                   },
@@ -1783,7 +1787,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.validation.englang",
-                                                             "match":  "\\b(validate|assert|golden|matches|within)\\b"
+                                                             "match":  "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.side-effect.englang",

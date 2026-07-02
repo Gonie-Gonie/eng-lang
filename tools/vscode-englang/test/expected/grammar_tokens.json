@@ -1405,6 +1405,39 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "constraints {"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "monotonic",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "between",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "missing {"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "interpolate",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "max_gap="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.operator.word.englang",
     "text": "of"
   },

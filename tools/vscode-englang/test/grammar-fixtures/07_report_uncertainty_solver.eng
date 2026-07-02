@@ -5,6 +5,15 @@ args {
 schema MeasuredZoneData {
     time: DateTime index
     T_zone: TimeSeries[Time] of AbsoluteTemperature [degC]
+
+    constraints {
+        time is monotonic
+        T_zone between 0 degC and 60 degC
+    }
+
+    missing {
+        T_zone: interpolate max_gap=10 min
+    }
 }
 
 T_supply_meas = measured(12 degC, std=0.2 K)

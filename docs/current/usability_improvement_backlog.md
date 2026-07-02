@@ -3146,6 +3146,18 @@ did not describe deterministic sampling.
 - Left deterministic sampling `seed` wording unchanged where it is the public
   reproducibility API.
 
+## Batch 254: Schema Quality TextMate Parity
+
+Status: implemented after comparing schema quality blocks in workflows 01/03
+against the immediate VS Code TextMate scopes.
+
+- Split `constraints` and `missing` block openers out of the generic block
+  scope and into the validation keyword scope.
+- Added TextMate validation coverage for schema quality words such as
+  `interpolate` and `monotonic` so pre-LSP coloring matches the semantic token
+  intent more closely.
+- Extended grammar fixtures and smoke expectations for schema quality blocks.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
