@@ -2312,6 +2312,18 @@ visually flat in fallback highlighting.
 - Added grammar expectations for `self` and `return Q` in the declaration
   fixture.
 
+## Batch 190: Typed Binding Declaration Highlighting
+
+Status: implemented to keep typed value declarations visually distinct from
+schema/class field declarations.
+
+- Added `meta.declaration.typed-binding.englang` for `name: Type = ...`
+  declarations.
+- Scoped typed binding names as `variable.other.definition.englang` while
+  leaving `name:` field declarations on the existing field scope.
+- Added grammar expectations for URL/secret typed bindings and a TimeSeries
+  typed binding.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

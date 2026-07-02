@@ -953,6 +953,22 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.typed-binding.englang",
+    "text": "api_url: Url ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.definition.englang",
+    "text": "api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.typed-binding.englang",
+    "text": "api_key: Secret[String] ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.external-boundary.englang",
     "text": "http"
   },
@@ -1466,6 +1482,11 @@
     "scope": "constant.other.unit.englang",
     "text": "people/m2",
     "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.declaration.typed-binding.englang",
+    "text": "Q_series: TimeSeries[Time] of HeatRate [kW] ="
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",

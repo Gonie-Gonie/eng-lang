@@ -64,6 +64,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
 | `variable.language.self.englang` | `self` references inside class methods. |
 | `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
+| `meta.declaration.typed-binding.englang` | Typed value declarations written with `name: Type = ...`. |
 | `meta.declaration.field.englang` | Field declarations written with `name:`. |
 | `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
 | `variable.other.definition.englang` | Runtime binding names written with `name = ...`. |

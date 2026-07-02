@@ -146,6 +146,21 @@
             "match": "\\b(index)\\b"
           },
           {
+            "name": "meta.declaration.typed-binding.englang",
+            "begin": "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s*:)(?=[^\\n=]*=)",
+            "beginCaptures": {
+              "2": { "name": "variable.other.definition.englang" },
+              "3": { "name": "punctuation.separator.colon.englang" }
+            },
+            "end": "(?=\\s*=|#|$)",
+            "patterns": [
+              { "include": "#types" },
+              { "include": "#units" },
+              { "include": "#operators" },
+              { "include": "#punctuation" }
+            ]
+          },
+          {
             "name": "meta.declaration.field.englang",
             "match": "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
             "captures": {
