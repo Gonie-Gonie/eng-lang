@@ -458,6 +458,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("artifact_kind", "expected artifact kind"),
     ("args", "external command argument list"),
     ("backend", "execution backend option"),
+    ("body", "HTTP request body option"),
     ("body_size_limit", "HTTP response body size limit"),
     ("cache", "cache behavior option"),
     ("cache_dir", "cache storage directory option"),
@@ -1419,6 +1420,7 @@ fn with_option_semantic_modifiers(
         "args"
         | "query"
         | "headers"
+        | "body"
         | "fixture"
         | "expected_sha256"
         | "expected_outputs"
@@ -4105,6 +4107,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
         return Some(&[
             "query",
             "headers",
+            "body",
             "fixture",
             "expected_sha256",
             "retry",
@@ -5770,7 +5773,7 @@ with {
         assert!(completions
             .iter()
             .any(|completion| completion.label == "cache_key"));
-        assert!(!completions
+        assert!(completions
             .iter()
             .any(|completion| completion.label == "body"));
         assert!(!completions

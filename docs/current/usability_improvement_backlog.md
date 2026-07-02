@@ -2571,6 +2571,20 @@ workflow option scopes.
   workflow option label unless the LSP completion registry exposes the same
   label.
 
+## Batch 209: Native HTTP Request Body Option
+
+Status: implemented to close a visible API gap for non-GET network requests.
+
+- Added compiler/runtime support for `http post`, `http put`, and `http patch`
+  request bodies through `with { body = ... }`.
+- Live `http://` requests now send the native body value and record
+  `body_sha256` in network boundary metadata instead of treating `body` as a
+  query parameter or unsupported editor-only option.
+- Reintroduced `body` in LSP completions and scoped TextMate option coloring
+  now that the compiler/runtime path accepts it.
+- Added compiler/runtime regressions for body lowering, body cache identity,
+  live POST body transmission, and body hash reporting.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

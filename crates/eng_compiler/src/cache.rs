@@ -236,6 +236,12 @@ fn network_request_cache_parts(request: &crate::net::NetRequestInfo) -> Vec<Stri
     for query in &request.query {
         parts.push(format!("{}={}", query.key, query.value));
     }
+    if let Some(body) = &request.body {
+        parts.push(format!(
+            "body_sha256={}",
+            crate::net::request_body_sha256(body)
+        ));
+    }
     if let Some(expected_hash) = &request.expected_sha256 {
         parts.push(format!("expected_sha256={expected_hash}"));
     }

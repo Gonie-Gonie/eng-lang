@@ -52,7 +52,7 @@ pub use module_registry::{
     bundled_module_registry, load_module_registry, parse_module_registry, ModuleRegistry,
     ModuleRegistryEntry, ModuleRegistryError,
 };
-pub use net::{NetDownloadInfo, NetQueryParam, NetRequestInfo};
+pub use net::{request_body_sha256, NetDownloadInfo, NetQueryParam, NetRequestInfo};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{
@@ -4739,6 +4739,8 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
             "{spaces}    \"url\": \"{}\",\n",
             json_escape(&request.url_value)
         ));
+        let body_sha256 = request.body.as_deref().map(net::request_body_sha256);
+        push_optional_json_string(json, "body_sha256", body_sha256.as_deref(), indent + 4);
         push_net_query_json(json, &request.query, indent + 4);
         push_optional_json_string(
             json,
@@ -6974,6 +6976,12 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             "        \"target\": \"{}\",\n",
             json_escape(&request.url_value)
         ));
+        if let Some(body) = &request.body {
+            json.push_str(&format!(
+                "        \"body_sha256\": \"{}\",\n",
+                net::request_body_sha256(body)
+            ));
+        }
         json.push_str("        \"inputs\": [],\n");
         json.push_str("        \"outputs\": [],\n");
         json.push_str(&format!(
@@ -13642,7 +13650,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nchecked = http head url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nsubmitted_text = submitted.body\nchecked_code = checked.status_code\n",
+            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    body = \"submitted=true\"\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nchecked = http head url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nsubmitted_text = submitted.body\nchecked_code = checked.status_code\n",
         )
         .expect("source");
 
@@ -13651,6 +13659,10 @@ system Envelope {
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
         assert_eq!(report.semantic_program.net_requests.len(), 2);
         assert_eq!(report.semantic_program.net_requests[0].method, "POST");
+        assert_eq!(
+            report.semantic_program.net_requests[0].body.as_deref(),
+            Some("submitted=true")
+        );
         assert_eq!(
             report.semantic_program.net_requests[0].status_code,
             Some(201)
@@ -13680,6 +13692,7 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"method\": \"POST\""));
         assert!(review.contains("\"method\": \"HEAD\""));
+        assert!(review.contains("\"body_sha256\""));
         assert!(review.contains("\"side_effects\": [\"http_post\"]"));
     }
 

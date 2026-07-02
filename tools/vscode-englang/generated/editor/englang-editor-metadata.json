@@ -1195,6 +1195,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "HTTP request body option",
+                                "kind":  "property",
+                                "label":  "body",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "HTTP response body size limit",
                                 "kind":  "property",
                                 "label":  "body_size_limit",
@@ -1687,7 +1693,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Live http:// GET/download execution plus pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries; live HTTPS currently requires fixture/cache in this build.",
+                                "detail":  "Native workflow support: Live http:// GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries; live HTTPS currently requires fixture/cache in this build.",
                                 "kind":  "stdlib",
                                 "label":  "eng.net",
                                 "lsp_kind":  9
@@ -2161,7 +2167,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  360,
+    "completion_seed_count":  361,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

@@ -32,6 +32,7 @@ pub struct NetRequestInfo {
     pub method: String,
     pub url_literal: String,
     pub url_value: String,
+    pub body: Option<String>,
     pub query: Vec<NetQueryParam>,
     pub retry: Option<usize>,
     pub cache: bool,
@@ -181,6 +182,7 @@ fn build_request(
         method: method.to_owned(),
         url_literal: url_literal.to_owned(),
         url_value,
+        body: request_body_option(method, options, arg_values, diagnostics),
         query: query_params(options, arg_values),
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
@@ -280,6 +282,7 @@ pub fn is_net_control_option(key: &str) -> bool {
     matches!(
         key,
         "query"
+            | "body"
             | "retry"
             | "cache"
             | "cache_dir"
@@ -290,6 +293,37 @@ pub fn is_net_control_option(key: &str) -> bool {
             | "status_code"
             | "body_size_limit"
             | "response_body_limit"
+    )
+}
+
+fn request_body_option(
+    method: &str,
+    options: &[WithOptionInfo],
+    arg_values: &[ArgValueInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<String> {
+    let option = option_for_key(options, "body")?;
+    if !matches!(method, "POST" | "PUT" | "PATCH") {
+        diagnostics.push(Diagnostic::error(
+            "E-NET-BODY-METHOD",
+            option.line,
+            &format!("HTTP request body is not supported for method `{method}`."),
+            Some("Use `http post`, `http put`, or `http patch` when sending a request body."),
+        ));
+        return None;
+    }
+    if is_secret_expression(&option.value) {
+        diagnostics.push(Diagnostic::error(
+            "E-NET-BODY-POLICY",
+            option.line,
+            "HTTP request body currently supports string literals and non-secret args values only.",
+            Some("Bind request bodies with a string literal or a non-secret `args.<name>` value."),
+        ));
+        return None;
+    }
+    Some(
+        resolve_value(&option.value, arg_values)
+            .unwrap_or_else(|| strip_string_literal(&option.value)),
     )
 }
 
@@ -563,6 +597,10 @@ fn normalize_sha256(value: &str) -> String {
 
 fn is_sha256_hex(value: &str) -> bool {
     value.len() == 64 && value.chars().all(|character| character.is_ascii_hexdigit())
+}
+
+pub fn request_body_sha256(body: &str) -> String {
+    format!("{:x}", Sha256::digest(body.as_bytes()))
 }
 
 struct FixtureRead {

@@ -1863,6 +1863,7 @@ fn execute_live_http_request(
         request.line,
         request.retry.unwrap_or(0),
         request.timeout.as_deref(),
+        request.body.as_deref(),
         request.body_size_limit_bytes,
         request.expected_sha256.as_deref(),
         runtime_data,
@@ -1895,6 +1896,7 @@ fn execute_live_http_download(
         download.line,
         download.retry.unwrap_or(0),
         download.timeout.as_deref(),
+        None,
         download.body_size_limit_bytes,
         download.expected_sha256.as_deref(),
         runtime_data,
@@ -1925,6 +1927,7 @@ fn execute_live_http(
     owner_line: usize,
     retry: usize,
     timeout_label: Option<&str>,
+    request_body: Option<&str>,
     body_size_limit: Option<usize>,
     expected_hash: Option<&str>,
     runtime_data: &RuntimeData,
@@ -1942,7 +1945,8 @@ fn execute_live_http(
     let query = live_network_query_pairs(query, runtime_data, report, owner_line)?;
     let mut last_error = None;
     for attempt in 0..=retry {
-        match execute_live_http_attempt(method, url, &query, timeout, body_size_limit) {
+        match execute_live_http_attempt(method, url, &query, timeout, request_body, body_size_limit)
+        {
             Ok(body) => {
                 if let Some(expected) = expected_hash {
                     if normalize_cache_hash(expected) != body.hash {
@@ -1971,6 +1975,7 @@ fn execute_live_http_attempt(
     url: &str,
     query: &[(String, String)],
     timeout: Duration,
+    request_body: Option<&str>,
     body_size_limit: Option<usize>,
 ) -> Result<LiveHttpBody, RuntimeError> {
     let agent = ureq::AgentBuilder::new().timeout(timeout).build();
@@ -1978,9 +1983,14 @@ fn execute_live_http_attempt(
     for (key, value) in query {
         request = request.query(key, value);
     }
-    let response = request
-        .call()
-        .map_err(|error| live_http_error(url, error))?;
+    let response = match request_body {
+        Some(body) => request
+            .send_string(body)
+            .map_err(|error| live_http_error(url, error))?,
+        None => request
+            .call()
+            .map_err(|error| live_http_error(url, error))?,
+    };
     let status_code = response.status();
     let status_class = runtime_http_status_class(Some(status_code)).to_owned();
     let limit = body_size_limit.unwrap_or(10_000_000);
@@ -6890,6 +6900,7 @@ fn static_run_plan_json(
                 "retry": request.retry,
                 "cache": request.cache,
                 "timeout": &request.timeout,
+                "body_sha256": request.body.as_deref().map(eng_compiler::request_body_sha256),
                 "body_size_limit_bytes": request.body_size_limit_bytes,
                 "fixture": &request.fixture
             })],
@@ -8300,7 +8311,7 @@ fn external_boundary_records_for_network(
             command: request.method.clone(),
             target: request.url_value.clone(),
             tool_version: None,
-            args: network_query_args(&request.query),
+            args: network_request_args(request),
             env_keys: Vec::new(),
             cwd: String::new(),
             timeout: None,
@@ -8418,6 +8429,17 @@ fn network_query_args(query: &[eng_compiler::NetQueryParam]) -> Vec<String> {
             }
         })
         .collect()
+}
+
+fn network_request_args(request: &eng_compiler::NetRequestInfo) -> Vec<String> {
+    let mut args = network_query_args(&request.query);
+    if let Some(body) = &request.body {
+        args.push(format!(
+            "body_sha256={}",
+            eng_compiler::request_body_sha256(body)
+        ));
+    }
+    args
 }
 
 fn external_boundary_status_success(status: &str) -> bool {
@@ -15980,6 +16002,11 @@ fn network_boundaries_json(
             "        \"url\": \"{}\",\n",
             json_escape(&request.url_value)
         ));
+        let body_sha256 = request
+            .body
+            .as_deref()
+            .map(eng_compiler::request_body_sha256);
+        push_optional_json_string(&mut json, "body_sha256", body_sha256.as_deref(), 8);
         push_network_query_json(&mut json, &request.query, runtime_data, "        ");
         push_optional_json_string(&mut json, "response_hash", response_hash, 8);
         push_optional_json_string(
@@ -16643,9 +16670,28 @@ mod tests {
             let (mut stream, _) = listener.accept().expect("accept local http request");
             let mut buffer = [0_u8; 2048];
             let bytes_read = stream.read(&mut buffer).unwrap_or(0);
-            let request = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
-            let request_line = request.lines().next().unwrap_or_default().to_owned();
-            let _ = request_tx.send(request_line);
+            let mut request = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+            let content_length = request
+                .lines()
+                .find_map(|line| {
+                    line.split_once(':').and_then(|(key, value)| {
+                        key.eq_ignore_ascii_case("content-length")
+                            .then(|| value.trim().parse::<usize>().ok())
+                            .flatten()
+                    })
+                })
+                .unwrap_or(0);
+            while request
+                .split_once("\r\n\r\n")
+                .is_some_and(|(_headers, body)| body.len() < content_length)
+            {
+                let bytes_read = stream.read(&mut buffer).unwrap_or(0);
+                if bytes_read == 0 {
+                    break;
+                }
+                request.push_str(&String::from_utf8_lossy(&buffer[..bytes_read]));
+            }
+            let _ = request_tx.send(request);
             let response = format!(
                 "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                 body.len(),
@@ -22112,6 +22158,49 @@ mod tests {
             .cache_manifest_json
             .contains("\"lookup_status\": \"hit\""));
         assert!(cached_output.review_json.contains("\"status\": \"cached\""));
+    }
+
+    #[test]
+    fn run_file_sends_live_http_request_body() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-net-live-http-body");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-net-live-http-body-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let response_body = "{\"ok\":true}\n";
+        let expected_hash = sha256_bytes(response_body.as_bytes());
+        let request_body = "submitted=true";
+        let request_body_hash = eng_compiler::request_body_sha256(request_body);
+        let (url, request_rx) = spawn_one_shot_http_server(response_body);
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            format!(
+                "submitted = http post url(\"{url}\")\nwith {{\n    body = \"{request_body}\"\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n}}\n\nprint submitted.status\n"
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let request_text = request_rx.recv().expect("captured request");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(request_text.starts_with("POST "), "{request_text}");
+        assert!(request_text.contains(request_body), "{request_text}");
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/body_sha256")
+                .and_then(Value::as_str),
+            Some(request_body_hash.as_str())
+        );
+        assert!(!output.result_json.contains(request_body));
+        assert!(output.review_json.contains(&request_body_hash));
     }
 
     #[test]

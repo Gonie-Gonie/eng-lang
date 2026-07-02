@@ -1108,7 +1108,7 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "variable.other.property.englang",
+    "scope": "variable.parameter.property.englang",
     "text": "body ="
   },
   {

@@ -2590,6 +2590,7 @@ fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) ->
             "query",
             "retry",
             "cache",
+            "body",
             "expected_sha256",
             "timeout",
             "fixture",
