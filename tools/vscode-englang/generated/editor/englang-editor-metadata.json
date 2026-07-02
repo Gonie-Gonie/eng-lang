@@ -1219,6 +1219,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "cache entry time-to-live option",
+                                "kind":  "property",
+                                "label":  "cache_ttl",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "case identifier expression",
                                 "kind":  "property",
                                 "label":  "case_id",
@@ -1258,6 +1264,12 @@
                                 "detail":  "range end option",
                                 "kind":  "property",
                                 "label":  "end",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "MLP training epoch count",
+                                "kind":  "property",
+                                "label":  "epochs",
                                 "lsp_kind":  10
                             },
                             {
@@ -1522,6 +1534,12 @@
                                 "detail":  "solver convergence tolerance",
                                 "kind":  "property",
                                 "label":  "tolerance",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "SQLite transaction policy",
+                                "kind":  "property",
+                                "label":  "transaction",
                                 "lsp_kind":  10
                             },
                             {
@@ -2095,7 +2113,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  349,
+    "completion_seed_count":  352,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

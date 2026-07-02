@@ -5,6 +5,7 @@ use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
     ClassFieldInfo, Diagnostic, DomainTypeParameterInfo, FunctionInfo, SemanticProgram, Severity,
+    WithBlockInfo,
 };
 use serde_json::{json, Value};
 
@@ -461,6 +462,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("cache", "cache behavior option"),
     ("cache_dir", "cache storage directory option"),
     ("cache_key", "cache identity option"),
+    ("cache_ttl", "cache entry time-to-live option"),
     ("case_id", "case identifier expression"),
     ("confirm", "explicit filesystem mutation confirmation"),
     ("confidence_band", "plot confidence-band source"),
@@ -469,6 +471,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("duration", "solver or simulation duration"),
     ("env", "external command environment"),
     ("end", "range end option"),
+    ("epochs", "MLP training epoch count"),
     ("expected_sha256", "expected SHA-256 hash"),
     ("expected_outputs", "declared process outputs"),
     ("expected_step", "expected TimeSeries step"),
@@ -518,6 +521,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("title", "plot or report title"),
     ("tool_version", "external tool version"),
     ("tolerance", "solver convergence tolerance"),
+    ("transaction", "SQLite transaction policy"),
     ("unit", "display unit or plot axis option"),
     ("uncertainty", "uncertainty propagation policy"),
     ("values", "template value map"),
@@ -1358,45 +1362,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for block in &program.with_blocks {
         builder.push_keywords_on_line(block.line, &["with"], &[]);
         for option in &block.options {
-            let modifiers = match option.key.as_str() {
-                "cache" | "cache_key" | "cache_dir" => ["cache"].as_slice(),
-                "step" => ["workflowStep"].as_slice(),
-                "on_none" | "on_many" => ["validation"].as_slice(),
-                "sensor_std" | "confidence_band" => ["uncertain"].as_slice(),
-                "solver"
-                | "timestep"
-                | "duration"
-                | "tolerance"
-                | "initial"
-                | "initial_derivative"
-                | "initial_algebraic"
-                | "algebraic_initialization"
-                | "jacobian"
-                | "mass_matrix"
-                | "max_iter"
-                | "relaxation"
-                | "residual_scale"
-                | "residual_scales"
-                | "variable_scales" => ["solver"].as_slice(),
-                "overwrite" | "mode" => ["sideEffect"].as_slice(),
-                "query"
-                | "headers"
-                | "body"
-                | "fixture"
-                | "expected_sha256"
-                | "status_code"
-                | "status_class"
-                | "response_hash"
-                | "hash"
-                | "url"
-                | "body_size_limit"
-                | "response_body_limit"
-                | "retry"
-                | "timeout" => ["external"].as_slice(),
-                "algorithm" | "features" | "hidden" | "target" | "test" => ["model"].as_slice(),
-                _ if is_net_with_block(program, block.owner_line) => ["external"].as_slice(),
-                _ => [].as_slice(),
-            };
+            let modifiers = with_option_semantic_modifiers(program, block, &option.key);
             builder.push_on_line(option.line, &option.key, "property", modifiers);
         }
     }
@@ -1404,6 +1370,106 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     add_review_risk_semantic_tokens(report, &mut builder);
 
     builder.finish()
+}
+
+fn with_option_semantic_modifiers(
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+    key: &str,
+) -> &'static [&'static str] {
+    if key == "unit" || key.starts_with("unit ") {
+        return &["report"];
+    }
+    match key {
+        "cache" | "cache_key" | "cache_dir" | "cache_ttl" => &["cache"],
+        "key" | "transaction" => &["db"],
+        "on_none" | "on_many" | "expected_step" | "max_gap" | "status" => &["validation"],
+        "sensor_std" | "confidence_band" => &["uncertain"],
+        "mean" | "std" | "error" | "samples" | "scale" | "offset" | "uncertainty" => &["uncertain"],
+        "solver"
+        | "timestep"
+        | "duration"
+        | "tolerance"
+        | "initial"
+        | "initial_derivative"
+        | "initial_algebraic"
+        | "algebraic_initialization"
+        | "inputs"
+        | "jacobian"
+        | "mass_matrix"
+        | "max_iter"
+        | "relaxation"
+        | "residual_scale"
+        | "residual_scales"
+        | "variable_scales" => &["solver"],
+        "overwrite" | "mode" | "confirm" | "recursive" | "output" => &["sideEffect"],
+        "args"
+        | "query"
+        | "headers"
+        | "body"
+        | "fixture"
+        | "expected_sha256"
+        | "expected_outputs"
+        | "tool_version"
+        | "status_code"
+        | "status_class"
+        | "response_hash"
+        | "hash"
+        | "url"
+        | "body_size_limit"
+        | "response_body_limit"
+        | "retry"
+        | "timeout"
+        | "allow_failure"
+        | "cwd"
+        | "env" => &["external"],
+        "algorithm" | "features" | "hidden" | "target" | "test" | "epochs" | "split" | "seed"
+            if is_model_with_block(program, block.owner_line) =>
+        {
+            &["model"]
+        }
+        "count" | "seed" | "start" | "end" | "method"
+            if is_sample_with_block(program, block.owner_line) =>
+        {
+            &["workflowStep"]
+        }
+        "step" | "case_id" | "output_root" | "resume" | "template" | "values" | "artifact_kind"
+        | "year" | "return_column" => &["workflowStep"],
+        "title" => &["report"],
+        _ if is_db_write_with_block(program, block.owner_line) => &["db"],
+        _ if is_net_with_block(program, block.owner_line) => &["external"],
+        _ => &[],
+    }
+}
+
+fn is_db_write_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program
+        .writes
+        .iter()
+        .any(|write| write.line == owner_line && write.quantity_kind == "DbWrite")
+}
+
+fn is_model_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program
+        .ml_infos
+        .iter()
+        .any(|model| model.line == owner_line)
+}
+
+fn is_sample_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program
+        .sample_generations
+        .iter()
+        .any(|sample| sample.line == owner_line)
 }
 
 fn add_function_scoped_symbol_semantic_tokens(
@@ -4067,6 +4133,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "cache",
             "cache_key",
             "cache_dir",
+            "cache_ttl",
         ]);
     }
     if owner.starts_with("delete ") {
@@ -4074,6 +4141,9 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     }
     if owner.starts_with("move ") {
         return Some(&["confirm", "overwrite"]);
+    }
+    if owner.starts_with("write ") && owner.contains(" to ") && owner.contains(".table(") {
+        return Some(&["mode", "key", "transaction", "overwrite"]);
     }
     if owner.starts_with("copy ") || owner.starts_with("write ") || owner.starts_with("export ") {
         return Some(&["overwrite", "mode"]);
@@ -5103,10 +5173,16 @@ reg_model = regression(split, algorithm=linear)
 with {
     cache = true
     cache_key = ["model", "reg", "v1"]
+    epochs = 20
 }
 
 db = open sqlite file("outputs/results.sqlite")
 write sensor to db.table("sensor")
+with {
+    mode = upsert
+    key = time
+    transaction = commit
+}
 
 write standard_text sensor
 with {
@@ -5135,6 +5211,8 @@ with {
 report {
     plot Q_series over Time
     with {
+        unit y = kW
+        title = "Coil heat"
         confidence_band = sensor_std
     }
 }
@@ -5143,6 +5221,8 @@ cases = materialize sensor
 with {
     step = "prepare"
     output_root = dir("outputs/cases")
+    case_id = time
+    resume = true
 }
 
 upload = http get url("https://example.org/weather")
@@ -5166,15 +5246,24 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "reg_model", "model");
         assert_semantic_token_modifier(&snapshot, source, "reg_model", "cache");
         assert_semantic_token_modifier(&snapshot, source, "cache_key", "cache");
+        assert_semantic_token_modifier(&snapshot, source, "epochs", "model");
         assert_semantic_token_modifier(&snapshot, source, "db", "db");
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
+        assert_semantic_token_modifier(&snapshot, source, "key", "db");
+        assert_semantic_token_modifier(&snapshot, source, "transaction", "db");
         assert_semantic_token_modifier(&snapshot, source, "standard_text", "workflowStep");
+        assert_semantic_token_modifier(&snapshot, source, "output", "sideEffect");
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "step", "workflowStep");
+        assert_semantic_token_modifier(&snapshot, source, "output_root", "workflowStep");
+        assert_semantic_token_modifier(&snapshot, source, "case_id", "workflowStep");
+        assert_semantic_token_modifier(&snapshot, source, "resume", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
         assert_semantic_token_modifier(&snapshot, source, "on_many", "validation");
         assert_semantic_token_modifier(&snapshot, source, "sensor_std", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "confidence_band", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "unit y", "report");
+        assert_semantic_token_modifier(&snapshot, source, "title", "report");
         assert_semantic_token_modifier(&snapshot, source, "timestep", "solver");
         assert_semantic_token_modifier(&snapshot, source, "duration", "solver");
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
@@ -5821,6 +5910,78 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "transaction"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_db_write_context() {
+        let source = r#"write sensor to db.table("sensor")
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("db_write_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in ["mode", "key", "transaction", "overwrite"] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "DB write with-block completion should include {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_process_cache_context() {
+        let source = r#"process_result = run command "tool"
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("process_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "expected_outputs",
+            "tool_version",
+            "allow_failure",
+            "cache_ttl",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "process with-block completion should include {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "transaction"));
     }
 
     #[test]
@@ -5895,6 +6056,38 @@ with {
             .expect("apply with-block completion should include template");
         assert_eq!(template_completion.kind, "property");
         assert_eq!(template_completion.detail, "template source file");
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_model_training_context() {
+        let source = r#"model = mlp(split)
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("model_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in ["algorithm", "hidden", "epochs", "cache_key"] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "model training with-block completion should include {label}"
+            );
+        }
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));

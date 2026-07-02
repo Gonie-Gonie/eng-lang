@@ -2442,6 +2442,22 @@ string-shaped `write text` and into a native table artifact writer.
 - Added TextMate grammar, LSP completion/semantic token, compiler, runtime,
   workflow-doc, and stdlib registry coverage for the new public writer.
 
+## Batch 200: Workflow Option Highlighting Consistency
+
+Status: implemented to reduce VS Code completion/highlighting gaps for public
+workflow `with` options.
+
+- Added missing LSP workflow-option completions for implemented or contextual
+  options: `transaction`, `epochs`, and process `cache_ttl`.
+- Made with-option semantic token modifiers owner-aware so DB, model, sample,
+  case, template, report, solver, cache, and external-boundary options get
+  consistent semantic coloring.
+- Updated DB write, process, and model-training with-block completion tests, plus
+  semantic token coverage for DB transaction/key, model epochs, generated output,
+  case materialization, and report plot options.
+- Regenerated VS Code editor metadata and TextMate grammar after adding
+  `cache_ttl` to the grammar option vocabulary.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
