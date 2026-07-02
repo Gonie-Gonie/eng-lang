@@ -2289,6 +2289,17 @@ checks instead of isolated keywords inside ordinary expressions.
 - Added grammar expectations for assertion, golden-file, and top-level
   validation lines.
 
+## Batch 188: Status Condition Highlighting
+
+Status: implemented to make `on { status == ... }` checks readable as status
+conditions instead of a plain identifier plus a generic comparison.
+
+- Added `meta.workflow.status-condition.englang` for `status == <state>` and
+  `status != <state>` lines.
+- Scoped `status` as an option/property, the comparison as an operator, and
+  the lifecycle state as a language constant.
+- Added grammar expectations for the report/solver fixture's `on` block.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

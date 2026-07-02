@@ -240,6 +240,15 @@
             ]
           },
           {
+            "name": "meta.workflow.status-condition.englang",
+            "match": "^\\s*(status)\\s*(==|!=)\\s*(pending|running|passed|failed|succeeded|skipped|blocked|completed)\\b",
+            "captures": {
+              "1": { "name": "variable.parameter.property.englang" },
+              "2": { "name": "keyword.operator.englang" },
+              "3": { "name": "constant.language.englang" }
+            }
+          },
+          {
             "name": "meta.workflow.export-summary-csv.englang",
             "begin": "\\b(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
             "beginCaptures": {
