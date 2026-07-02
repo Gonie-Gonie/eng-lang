@@ -2223,6 +2223,16 @@ as model workflow actions instead of isolated builtin names.
 - Added `meta.workflow.model-summary-call.englang` for `evaluate(<model>)`,
   `model_card(<model>)`, and related single-model summary calls.
 
+## Batch 182: Runtime Message Phrase Highlighting
+
+Status: implemented to keep direct CLI/debug output and structured runtime log
+messages visibly grouped as side-effecting workflow statements.
+
+- Added `meta.workflow.print-message.englang` for `print "..."` lines.
+- Added `meta.workflow.log-message.englang` for `log <level> "..."` lines.
+- Scoped `debug`, `info`, `warn`, and `error` log levels as language constants
+  while preserving string interpolation scopes inside message strings.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -95,11 +95,13 @@ Current workflow phrase scopes:
 | `meta.workflow.integrate-call.englang` | `integrate(<series>, over=<axis>)` |
 | `meta.workflow.integrate-series.englang` | `integrate <series> over <axis>` |
 | `meta.workflow.join-table.englang` | `join <left> with <right>` |
+| `meta.workflow.log-message.englang` | `log <level> "..."` structured runtime message lines. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>)`, `model_card(<model>)`, and related model summary calls. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
+| `meta.workflow.print-message.englang` | `print "..."` runtime message lines. |
 | `meta.workflow.plot-distribution.englang` | `plot distribution(<distribution>)` |
 | `meta.workflow.plot-series.englang` | `plot <series> over <axis>` |
 | `meta.workflow.promote-csv.englang` | `promote csv <source> as <schema>` |

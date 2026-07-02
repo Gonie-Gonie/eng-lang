@@ -272,6 +272,24 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.print-message.englang",
+    "text": "print \"Q total = {Q_total: .2 kWh}\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.log-message.englang",
+    "text": "log info \"summary exported\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "info",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.export-summary-csv.englang",
     "text": "export summary to csv \"outputs/summary.csv\"",
     "fullMatch": true

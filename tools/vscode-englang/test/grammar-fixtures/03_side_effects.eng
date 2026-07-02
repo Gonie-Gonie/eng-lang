@@ -29,3 +29,5 @@ with {
 }
 
 write json "outputs/energy.json", E_coil
+print "Q total = {Q_total: .2 kWh}"
+log info "summary exported"

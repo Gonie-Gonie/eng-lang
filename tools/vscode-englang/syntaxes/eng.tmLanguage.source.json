@@ -171,6 +171,41 @@
       "workflowPhrases": {
         "patterns": [
           {
+            "name": "meta.workflow.print-message.englang",
+            "begin": "\\b(print)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.side-effect.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#strings" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#constants" },
+              { "include": "#numbers" },
+              { "include": "#units" },
+              { "include": "#punctuation" }
+            ]
+          },
+          {
+            "name": "meta.workflow.log-message.englang",
+            "begin": "\\b(log)\\s+(debug|info|warn|error)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.side-effect.englang" },
+              "2": { "name": "constant.language.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#strings" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#constants" },
+              { "include": "#numbers" },
+              { "include": "#units" },
+              { "include": "#punctuation" }
+            ]
+          },
+          {
             "name": "meta.workflow.export-summary-csv.englang",
             "begin": "\\b(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
             "beginCaptures": {
