@@ -2084,8 +2084,12 @@ function Assert-VscodeExtensionContract {
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
         throw "VS Code lintOnChange description must avoid editor-service implementation details"
     }
+    $LspPathDescription = [string]$Properties."englang.lspPath".description
+    if ($LspPathDescription -match "editor service") {
+        throw "VS Code lspPath description must describe live editor features instead of editor-service internals"
+    }
     $SemanticDescription = [string]$Properties."englang.semanticHighlighting.enabled".description
-    if ($SemanticDescription -match "eng-lsp|snapshot") {
+    if ($SemanticDescription -match "eng-lsp|snapshot|semantic tokens") {
         throw "VS Code semanticHighlighting description must avoid editor-service implementation details"
     }
     foreach ($ForbiddenEditorDocWording in @(
@@ -2305,6 +2309,14 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier") -or -not $ExtensionSource.Contains("token_samples_by_type") -or -not $ExtensionSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"
+    }
+    foreach ($RequiredHighlightDebugToken in @("highlight_count", "highlight_counts_by_category", "highlight_counts_by_detail", "highlight_samples_by_category", "highlight_samples_by_detail", "highlight_data")) {
+        if (-not $ExtensionSource.Contains($RequiredHighlightDebugToken)) {
+            throw "VS Code highlight inspection output missing user-facing token $RequiredHighlightDebugToken"
+        }
+    }
+    if ($ExtensionSource.Contains("No semantic token snapshot is available")) {
+        throw "VS Code highlight inspection warning must use highlight wording"
     }
     foreach ($RequiredRiskDecorationToken in @(
         "createReviewRiskDecorationTypes",

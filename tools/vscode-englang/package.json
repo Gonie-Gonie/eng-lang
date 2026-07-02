@@ -399,7 +399,7 @@
         "englang.lspPath": {
           "type": "string",
           "default": "",
-          "description": "Path to the EngLang editor service executable. Leave empty to use the bundled executable, workspace executable, or PATH."
+          "description": "Path to eng-lsp.exe for live editor features. Leave empty to use the bundled executable, workspace executable, or PATH."
         },
         "englang.problemsSource": {
           "type": "string",
@@ -456,7 +456,7 @@
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "Use compiler-backed semantic tokens for role-aware highlighting of variables, units, quantities, side effects, reports, validations, solver terms, and workflow boundaries."
+          "description": "Use compiler-backed role-aware colors for variables, units, quantities, side effects, reports, validations, solver terms, and workflow boundaries."
         },
         "englang.reviewRiskDecorations.enabled": {
           "type": "boolean",

@@ -1675,7 +1675,7 @@ async function showSemanticTokensDebug(context) {
   }
   const snapshot = await snapshotDocumentSource(document, context);
   if (!snapshot) {
-    vscode.window.showWarningMessage("No semantic token snapshot is available. See the EngLang output panel.");
+    vscode.window.showWarningMessage("No highlight data is available. See the EngLang output panel.");
     return;
   }
   reviewCache.set(document.uri.fsPath, snapshot);
@@ -1696,11 +1696,17 @@ async function showSemanticTokensDebug(context) {
   }
   const payload = {
     source: document.uri.fsPath,
+    highlight_count: semanticTokens.tokens?.length ?? 0,
+    highlight_counts_by_category: tokenCounts,
+    highlight_counts_by_detail: modifierCounts,
+    highlight_samples_by_category: tokenSamplesByType,
+    highlight_samples_by_detail: tokenSamplesByModifier,
     token_count: semanticTokens.tokens?.length ?? 0,
     token_counts_by_type: tokenCounts,
     token_counts_by_modifier: modifierCounts,
     token_samples_by_type: tokenSamplesByType,
     token_samples_by_modifier: tokenSamplesByModifier,
+    highlight_data: semanticTokens,
     semantic_tokens: semanticTokens
   };
   const debugDocument = await vscode.workspace.openTextDocument({

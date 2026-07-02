@@ -2703,6 +2703,19 @@ Native IDE Highlight panel.
 - Extended `ide-check` so the most confusing semantic-token UI phrases cannot
   reappear in the Native IDE.
 
+## Batch 219: VS Code Highlight Inspection Wording
+
+Status: implemented after reviewing VS Code setting descriptions and the
+Inspect Highlight Tokens output.
+
+- Reworded `englang.lspPath` and semantic highlighting setting descriptions so
+  they describe live editor features and role-aware colors instead of
+  editor-service or semantic-token internals.
+- Added user-facing `highlight_*` fields to the Inspect Highlight Tokens JSON
+  while keeping the existing semantic-token keys for compatibility.
+- Reworded the missing-data warning and README description around highlight
+  inspection, and extended `ide-check` to guard the new public wording.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
