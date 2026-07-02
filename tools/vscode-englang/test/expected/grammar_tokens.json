@@ -984,6 +984,30 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "storage.type.declaration.englang",
+    "text": "component",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "storage.type.function.englang",
+    "text": "method",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "storage.type.test.englang",
+    "text": "test",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "storage.modifier.englang",
+    "text": "operator",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.constant.englang",
     "text": "const cp_water",
     "fullMatch": true

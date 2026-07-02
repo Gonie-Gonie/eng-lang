@@ -3775,6 +3775,19 @@ uncertainty calls reference missing or deterministic sources.
 - Mirrored the repairs in the VS Code local quick-fix fallback and extended
   contract coverage for source-diagnostic quick-fix parity.
 
+## Batch 305: Declaration Keyword Fallback Highlighting
+
+Status: implemented to reduce VS Code TextMate highlighting gaps while users
+are still typing declarations or member roles.
+
+- Added fallback TextMate scopes for declaration keywords such as `schema`,
+  `class`, `system`, `domain`, and `component` outside complete declarations.
+- Added fallback scopes for `fn`, `method`, `test`, and declaration modifiers
+  such as `const`, `state`, `input`, `parameter`, `output`, `port`, `across`,
+  `through`, `operator`, and `index`.
+- Updated grammar fixtures, expected token coverage, semantic fallback scope
+  mapping, and editor token-scope documentation.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -167,6 +167,9 @@
           ],
           "keyword.declaration": [
             "storage.type.declaration.englang",
+            "storage.type.function.englang",
+            "storage.type.test.englang",
+            "storage.modifier.englang",
             "keyword.control.workflow.englang"
           ],
           "keyword.local": [

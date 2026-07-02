@@ -2353,7 +2353,10 @@ function Assert-VscodeExtensionContract {
         "expected_outputs", "artifact_kind", "cache_key", "allow_failure",
         "OutputManifest", "metadata_ready", "backend", "display_unit",
         "variable_scale", "consistency_tolerance", "meta.workflow.with-block.englang",
-        "variable.parameter.function.englang"
+        "variable.parameter.function.englang", "storage.type.function.englang",
+        "storage.type.test.englang", "storage.modifier.englang",
+        "\\b(schema|class|system|domain|component)\\b", "\\b(fn|method)\\b",
+        "\\b(const|state|input|parameter|output|port|across|through|operator|index)\\b"
     )) {
         if (-not $GrammarSource.Contains($RequiredGrammarToken)) {
             throw "VS Code grammar missing token $RequiredGrammarToken"

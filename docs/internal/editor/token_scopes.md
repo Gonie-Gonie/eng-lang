@@ -50,8 +50,10 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `punctuation.separator.*.englang` | Separators such as commas and colons. |
 | `punctuation.accessor.*.englang` | Accessor punctuation such as dots in paths or members. |
 | `storage.type.*.englang` | Block openers such as `args {`, `where {`, and declaration-level markers. |
+| `storage.type.function.englang` | `fn` and `method` keyword fallback coloring while declarations are incomplete. |
+| `storage.type.test.englang` | `test` keyword fallback coloring while test declarations are incomplete. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
-| `storage.modifier.englang` | State and input fallback coloring from semantic token mappings. |
+| `storage.modifier.englang` | State, input, port, and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
 | `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
@@ -280,6 +282,8 @@ keyword.control.workflow.englang
 markup.warning.englang
 meta.type.generic.englang
 storage.type.declaration.englang
+storage.type.function.englang
+storage.type.test.englang
 storage.modifier.englang
 support.function.builtin.englang
 support.namespace.module.englang

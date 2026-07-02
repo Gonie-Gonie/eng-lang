@@ -1903,6 +1903,22 @@
                                                              "match":  "\\b(script|struct)\\b"
                                                          },
                                                          {
+                                                             "name":  "storage.type.declaration.englang",
+                                                             "match":  "\\b(schema|class|system|domain|component)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "storage.type.function.englang",
+                                                             "match":  "\\b(fn|method)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "storage.type.test.englang",
+                                                             "match":  "\\b(test)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "storage.modifier.englang",
+                                                             "match":  "\\b(const|state|input|parameter|output|port|across|through|operator|index)\\b"
+                                                         },
+                                                         {
                                                              "name":  "keyword.control.report.englang",
                                                              "match":  "\\b(report|show|plot|line|bar|histogram|summarize|summary|distribution)\\b"
                                                          },
@@ -1924,7 +1940,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|port|across|through|input|parameter|state|output|model|return|if|else)\\b"
+                                                             "match":  "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else)\\b"
                                                          }
                                                      ]
                                     },
