@@ -3685,6 +3685,20 @@ short LSP code-action bridge has no payload.
 - Added `ide-check` contract coverage so the fallback and completion-seed
   wiring do not regress.
 
+## Batch 298: Semantic Highlight Constants
+
+Status: implemented to reduce cases where TextMate colored a public workflow
+constant but compiler-backed semantic tokens left it unclassified.
+
+- Added LSP lexical semantic tokens for language constants such as log levels,
+  execution profiles, cache statuses, case statuses, and solver algorithm
+  labels.
+- Mapped cache status constants to the `cache` modifier, case/workflow status
+  constants to `workflowStep`, and solver algorithm constants to `solver`.
+- Kept `distribution(...)` as an uncertainty helper while marking bare
+  `distribution T` report directives as report tokens.
+- Expanded semantic-token regression coverage for these constant labels.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -369,6 +369,58 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
 
+const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
+    "true",
+    "false",
+    "none",
+    "null",
+    "info",
+    "warn",
+    "debug",
+    "error",
+    "safe",
+    "normal",
+    "repro",
+    "append",
+    "insert",
+    "upsert",
+    "replace",
+    "commit",
+    "rollback",
+    "keep",
+    "empty",
+    "interpolate",
+    "monotonic",
+    "linear",
+    "pending",
+    "running",
+    "passed",
+    "failed",
+    "succeeded",
+    "skipped",
+    "blocked",
+    "completed",
+    "cached",
+    "stale",
+    "hit",
+    "miss",
+    "created",
+    "updated",
+    "metadata_ready",
+    "warnings_present",
+    "diagnostics_present",
+    "fixed_step",
+    "rk4",
+    "adaptive_heun",
+    "fixed_point",
+    "newton",
+    "implicit_euler_dae",
+    "dynamic_component_explicit_euler",
+    "dynamic_component_semi_implicit_euler",
+    "dynamic_component_adaptive_heun",
+    "trapezoidal",
+];
+
 const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("Bool", "Boolean value"),
     ("CsvFile", "CSV file path"),
@@ -3003,6 +3055,14 @@ impl<'a> SemanticTokenBuilder<'a> {
                         "keyword",
                         keyword_modifiers(token),
                     );
+                } else if LANGUAGE_CONSTANT_KEYWORDS.contains(&token) {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "keyword",
+                        language_constant_modifiers(token),
+                    );
                 } else if quantity_names.contains(token) {
                     self.push_byte_range(
                         line_index,
@@ -3453,6 +3513,26 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     }
 }
 
+fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
+    match keyword {
+        "cached" | "stale" | "hit" | "miss" => &["cache"],
+        "created" | "updated" | "metadata_ready" | "warnings_present" | "diagnostics_present" => {
+            &["workflowStep"]
+        }
+        "fixed_step"
+        | "rk4"
+        | "adaptive_heun"
+        | "fixed_point"
+        | "newton"
+        | "implicit_euler_dae"
+        | "dynamic_component_explicit_euler"
+        | "dynamic_component_semi_implicit_euler"
+        | "dynamic_component_adaptive_heun"
+        | "trapezoidal" => &["solver"],
+        _ => &[],
+    }
+}
+
 fn http_request_method_keyword(method: &str) -> &'static str {
     match method.to_ascii_uppercase().as_str() {
         "POST" => "post",
@@ -3508,6 +3588,11 @@ fn workflow_builtin_modifiers_for_line(
     {
         return &["defaultLibrary", "report"];
     }
+    if keyword == "distribution"
+        && next_non_whitespace_after(line, token_start + keyword.len()) != Some('(')
+    {
+        return &["defaultLibrary", "report"];
+    }
     if keyword == "join" && is_table_join_phrase(line, token_start) {
         return &["defaultLibrary", "workflowStep"];
     }
@@ -3558,6 +3643,12 @@ fn previous_identifier_before(line: &str, token_start: usize) -> Option<&str> {
         index -= 1;
     }
     (index < end && is_ident_start(bytes[index])).then_some(&line[index..end])
+}
+
+fn next_non_whitespace_after(line: &str, start: usize) -> Option<char> {
+    line.get(start..)?
+        .chars()
+        .find(|character| !character.is_whitespace())
 }
 
 fn token_candidates(label: &str) -> Vec<String> {
@@ -6425,6 +6516,21 @@ test "temperature stays bounded" {
 render template file("report.md") to file("report.html")
 response = http get url("https://example.org/weather")
 submitted = http post url("https://example.org/weather")
+log debug "debug details"
+log info "ready"
+log warn "slow"
+profile_safe = safe
+profile_repro = repro
+cache_status = cached
+cache_freshness = stale
+cache_lookup = hit
+cache_miss = miss
+case_created = created
+case_updated = updated
+case_metadata = metadata_ready
+case_warning = warnings_present
+case_diagnostics = diagnostics_present
+solver_mode = rk4
 
 script LegacyScript
 struct LegacyArgs
@@ -6452,6 +6558,38 @@ struct LegacyArgs
         for label in ["http", "get", "post"] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
+        for label in [
+            "debug",
+            "info",
+            "warn",
+            "safe",
+            "repro",
+            "cached",
+            "stale",
+            "hit",
+            "miss",
+            "created",
+            "updated",
+            "metadata_ready",
+            "warnings_present",
+            "diagnostics_present",
+            "rk4",
+        ] {
+            assert_semantic_token_type(&snapshot, source, label, "keyword");
+        }
+        for label in ["cached", "stale", "hit", "miss"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "cache");
+        }
+        for label in [
+            "created",
+            "updated",
+            "metadata_ready",
+            "warnings_present",
+            "diagnostics_present",
+        ] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        assert_semantic_token_modifier(&snapshot, source, "rk4", "solver");
         for label in ["script", "struct"] {
             assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }
