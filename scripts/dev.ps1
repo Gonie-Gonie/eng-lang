@@ -1818,6 +1818,7 @@ function Assert-VscodeExtensionContract {
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
+    $LspNavigationPath = Join-Path $ExtensionRoot "lspNavigation.js"
     $LspRangesPath = Join-Path $ExtensionRoot "lspRanges.js"
     $LspSemanticTokensPath = Join-Path $ExtensionRoot "lspSemanticTokens.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
@@ -1854,6 +1855,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LspKindsPath)) {
         throw "missing VS Code LSP kind bridge at $LspKindsPath"
+    }
+    if (-not (Test-Path $LspNavigationPath)) {
+        throw "missing VS Code LSP navigation bridge at $LspNavigationPath"
     }
     if (-not (Test-Path $LspRangesPath)) {
         throw "missing VS Code LSP range bridge at $LspRangesPath"
@@ -2218,6 +2222,7 @@ function Assert-VscodeExtensionContract {
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
+    $LspNavigationSource = Get-Content -LiteralPath $LspNavigationPath -Raw
     $LspRangesSource = Get-Content -LiteralPath $LspRangesPath -Raw
     $LspSemanticTokensSource = Get-Content -LiteralPath $LspSemanticTokensPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
@@ -2436,6 +2441,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing semantic symbol decoration token $RequiredSemanticSymbolDecorationToken"
         }
     }
+    $NavigationSource = $ExtensionSource + "`n" + $LspNavigationSource
     foreach ($RequiredDefinitionToken in @(
         "registerDefinitionProvider",
         "EngDefinitionProvider",
@@ -2445,7 +2451,7 @@ function Assert-VscodeExtensionContract {
         "vscode.Uri.parse",
         "definitionNameCandidates"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredDefinitionToken)) {
+        if (-not $NavigationSource.Contains($RequiredDefinitionToken)) {
             throw "VS Code extension missing live definition token $RequiredDefinitionToken"
         }
     }
@@ -2459,7 +2465,7 @@ function Assert-VscodeExtensionContract {
         "findLspRuntimeForRoot",
         "new vscode.SymbolInformation"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredWorkspaceSymbolToken)) {
+        if (-not $NavigationSource.Contains($RequiredWorkspaceSymbolToken)) {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
     }
@@ -2538,7 +2544,13 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./lspKinds")') -or -not $LspKindsSource.Contains("symbolKindFromLsp") -or -not $LspKindsSource.Contains("completionKindFromLsp") -or -not $LspKindsSource.Contains("foldingRangeKindFromLsp")) {
         throw "VS Code extension must share LSP kind conversion through lspKinds.js"
     }
-    if (-not $ExtensionSource.Contains('require("./lspRanges")') -or -not $LspCodeActionsSource.Contains('require("./lspRanges")') -or -not $LspRangesSource.Contains("vscodeRangeFromLsp")) {
+    if (-not $ExtensionSource.Contains('require("./lspNavigation")') -or -not $LspNavigationSource.Contains("definitionLocationFromLsp") -or -not $LspNavigationSource.Contains("definitionLocationFromSnapshotSymbols") -or -not $LspNavigationSource.Contains("documentSymbolsFromSnapshot") -or -not $LspNavigationSource.Contains("workspaceSymbolInformationFromLsp") -or -not $LspNavigationSource.Contains("definitionNameCandidates")) {
+        throw "VS Code extension must share LSP navigation conversion through lspNavigation.js"
+    }
+    if (-not $LspNavigationSource.Contains('require("./lspKinds")') -or -not $LspNavigationSource.Contains('require("./lspRanges")')) {
+        throw "VS Code LSP navigation bridge must reuse shared kind and range conversion"
+    }
+    if (-not $LspCodeActionsSource.Contains('require("./lspRanges")') -or -not $LspNavigationSource.Contains('require("./lspRanges")') -or -not $LspRangesSource.Contains("vscodeRangeFromLsp")) {
         throw "VS Code extension must share LSP range conversion through lspRanges.js"
     }
     if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
@@ -2549,6 +2561,9 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("function symbolKindFromLsp") -or $ExtensionSource.Contains("function completionKindFromLsp") -or $ExtensionSource.Contains("function foldingRangeKindFromLsp")) {
         throw "VS Code extension must keep LSP kind conversion in lspKinds.js"
+    }
+    if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
+        throw "VS Code extension must keep LSP navigation conversion in lspNavigation.js"
     }
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
         throw "VS Code extension must keep LSP range conversion in lspRanges.js"
@@ -2708,6 +2723,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspKindsPath
+            Invoke-Native $Node.Source "--check" $LspNavigationPath
             Invoke-Native $Node.Source "--check" $LspRangesPath
             Invoke-Native $Node.Source "--check" $LspSemanticTokensPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
@@ -3811,6 +3827,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspKinds.js"))) {
             throw "portable package did not include VS Code LSP kind bridge"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspNavigation.js"))) {
+            throw "portable package did not include VS Code LSP navigation bridge"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspRanges.js"))) {
             throw "portable package did not include VS Code LSP range bridge"
