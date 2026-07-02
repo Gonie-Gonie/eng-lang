@@ -1859,6 +1859,7 @@ function Assert-VscodeExtensionContract {
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
+    $CodeActionProviderPath = Join-Path $ExtensionRoot "codeActionProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
@@ -1899,6 +1900,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $HoverProviderPath)) {
         throw "missing VS Code hover provider at $HoverProviderPath"
+    }
+    if (-not (Test-Path $CodeActionProviderPath)) {
+        throw "missing VS Code code action provider at $CodeActionProviderPath"
     }
     if (-not (Test-Path $LocalCodeActionsPath)) {
         throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
@@ -2278,6 +2282,7 @@ function Assert-VscodeExtensionContract {
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
+    $CodeActionProviderSource = Get-Content -LiteralPath $CodeActionProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
@@ -2589,7 +2594,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing formatting token $RequiredFormattingToken"
         }
     }
-    $QuickFixSource = $ExtensionSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource
+    $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "--code-actions-stdin",
@@ -2646,11 +2651,14 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
         }
     }
-    if (-not $ExtensionSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
-        throw "VS Code extension must load local quick fix helpers from localCodeActions.js"
+    if (-not $ExtensionSource.Contains('require("./codeActionProvider")') -or -not $CodeActionProviderSource.Contains("EngCodeActionProvider") -or -not $CodeActionProviderSource.Contains("codeActionsForDocumentSource")) {
+        throw "VS Code extension must load code action orchestration from codeActionProvider.js"
     }
-    if (-not $ExtensionSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
-        throw "VS Code extension must load LSP quick fix bridge helpers from lspCodeActions.js"
+    if (-not $CodeActionProviderSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
+        throw "VS Code code action provider must load local quick fix helpers from localCodeActions.js"
+    }
+    if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
+        throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
     }
     if (-not $ExtensionSource.Contains('require("./lspKinds")') -or -not $LspKindsSource.Contains("symbolKindFromLsp") -or -not $LspKindsSource.Contains("completionKindFromLsp") -or -not $LspKindsSource.Contains("foldingRangeKindFromLsp")) {
         throw "VS Code extension must share LSP kind conversion through lspKinds.js"
@@ -2669,6 +2677,9 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
         throw "VS Code extension must keep local quick fix helpers in localCodeActions.js"
+    }
+    if ($ExtensionSource.Contains("class EngCodeActionProvider") -or $ExtensionSource.Contains("function mergeCodeActions") -or $ExtensionSource.Contains("function codeActionEditKey")) {
+        throw "VS Code extension must keep quick fix orchestration in codeActionProvider.js"
     }
     if ($ExtensionSource.Contains("function lspCodeActionsFromPayload") -or $ExtensionSource.Contains("function workspaceEditFromLspCodeAction") -or $ExtensionSource.Contains("function lspDiagnosticMatchesVscode")) {
         throw "VS Code extension must keep LSP quick fix bridge helpers in lspCodeActions.js"
@@ -3949,6 +3960,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\hoverProvider.js"))) {
             throw "portable package did not include VS Code hover provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\codeActionProvider.js"))) {
+            throw "portable package did not include VS Code code action provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
             throw "portable package did not include VS Code local quick fix provider"

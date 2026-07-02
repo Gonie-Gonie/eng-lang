@@ -9,11 +9,10 @@ const {
   EngDiagnosticsController,
   severityName
 } = require("./diagnosticsProvider");
+const { EngCodeActionProvider } = require("./codeActionProvider");
 const { EngHoverProvider } = require("./hoverProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
-const { localCodeActions } = require("./localCodeActions");
-const { lspCodeActionsFromPayload } = require("./lspCodeActions");
 const { foldingRangeKindFromLsp } = require("./lspKinds");
 const {
   definitionLocationFromLsp,
@@ -173,9 +172,13 @@ function activate(context) {
       LANGUAGE_ID,
       new EngFormattingProvider(context)
     ),
-    vscode.languages.registerCodeActionsProvider(LANGUAGE_ID, new EngCodeActionProvider(context), {
-      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
-    })
+    vscode.languages.registerCodeActionsProvider(
+      LANGUAGE_ID,
+      new EngCodeActionProvider(context, { codeActionsForDocumentSource }),
+      {
+        providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
+      }
+    )
   );
 
   for (const document of vscode.workspace.textDocuments) {
@@ -2087,63 +2090,6 @@ function fullDocumentRange(document) {
   }
   const lastLine = document.lineAt(document.lineCount - 1);
   return new vscode.Range(0, 0, lastLine.lineNumber, lastLine.text.length);
-}
-
-class EngCodeActionProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideCodeActions(document, _range, context, cancellationToken) {
-    const payload = await codeActionsForDocumentSource(document, this.context, cancellationToken);
-    const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
-    const localActions = localCodeActions(document, context);
-    return mergeCodeActions(lspActions, localActions);
-  }
-}
-
-function mergeCodeActions(primaryActions, fallbackActions) {
-  const merged = [];
-  const seen = new Set();
-  for (const action of [...primaryActions, ...fallbackActions]) {
-    if (!action) {
-      continue;
-    }
-    const key = codeActionKey(action);
-    if (seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    merged.push(action);
-  }
-  return merged;
-}
-
-function codeActionKey(action) {
-  const kind = action?.kind?.value ?? String(action?.kind ?? "");
-  return `${action?.title ?? ""}\n${kind}\n${codeActionEditKey(action?.edit)}`;
-}
-
-function codeActionEditKey(edit) {
-  if (!edit || typeof edit.entries !== "function") {
-    return "";
-  }
-  return edit.entries()
-    .map(([uri, edits]) => {
-      const editKeys = edits.map((textEdit) => {
-        const range = textEdit.range;
-        return [
-          range.start.line,
-          range.start.character,
-          range.end.line,
-          range.end.character,
-          textEdit.newText
-        ].join(":");
-      });
-      return `${uri.toString()}:${editKeys.join("|")}`;
-    })
-    .sort()
-    .join("\n");
 }
 
 function fullLineRange(document, lineNumber) {

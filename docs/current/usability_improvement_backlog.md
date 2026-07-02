@@ -3232,6 +3232,18 @@ native source and zero-process smoke contract.
   external-process wording that makes the native workflow look Python/process
   backed.
 
+## Batch 261: VS Code Code Action Provider Split
+
+Status: implemented after the quick-fix merge path made code-action
+orchestration nontrivial enough to own separately.
+
+- Moved VS Code code-action orchestration from `extension.js` into
+  `codeActionProvider.js`.
+- Kept local quick-fix generation and LSP code-action conversion in their
+  existing focused modules while the provider owns LSP-first fallback merging.
+- Extended extension and portable-package contract checks so the split provider
+  remains packaged and does not drift back into the entrypoint.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
