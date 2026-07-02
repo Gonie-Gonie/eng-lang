@@ -44,10 +44,12 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `punctuation.accessor.*.englang` | Accessor punctuation such as dots in paths or members. |
 | `storage.type.*.englang` | Block openers such as `args {` and declaration-level markers. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
+| `storage.modifier.englang` | State and input fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
 | `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
 | `entity.name.function.englang` | Captured `fn` and `method` names. |
+| `entity.name.function.workflow-step.englang` | Workflow step names and compiler-backed workflow-step semantic fallbacks. |
 | `meta.declaration.constant.englang` | Full `const` declaration phrases. |
 | `variable.other.constant.englang` | Captured `const` names. |
 | `meta.declaration.test.englang` | Full `test "..."` declaration phrases. |
@@ -73,6 +75,28 @@ Prefer adding a phrase-level `meta.workflow.*.englang` scope when a native
 workflow operation is more readable as a single action than as unrelated
 keywords. Examples include `sample lhs`, `predict model using`, `read json`,
 `open sqlite`, and `write ... to db.table(...)`.
+
+Current workflow phrase scopes:
+
+| Scope | Phrase |
+| --- | --- |
+| `meta.workflow.apply-step.englang` | `apply <step> over ...` |
+| `meta.workflow.check-coverage.englang` | `check coverage` |
+| `meta.workflow.collect-results.englang` | `collect results` |
+| `meta.workflow.db-write.englang` | `write <table> to <db>.table` |
+| `meta.workflow.derive-column.englang` | `derive <table> column ...` |
+| `meta.workflow.download-to.englang` | `download ... to ...` |
+| `meta.workflow.export-summary-csv.englang` | `export summary to csv` |
+| `meta.workflow.http-request.englang` | `http get`, `http post`, and other HTTP request phrases. |
+| `meta.workflow.materialize-cases.englang` | `materialize cases` |
+| `meta.workflow.open-sqlite.englang` | `open sqlite` |
+| `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
+| `meta.workflow.predict-model.englang` | `predict <model> using ...` |
+| `meta.workflow.promote-json-records.englang` | `promote json records` |
+| `meta.workflow.read-structured.englang` | `read json`, `read toml`, `read text`, and `read csv`. |
+| `meta.workflow.run-command.englang` | `run command ...` |
+| `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
+| `meta.workflow.write-text.englang` | `write text` |
 
 ## Semantic Token Legend
 
@@ -167,6 +191,32 @@ VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. `planned` remains reserved until a
 source-visible planned symbol path exists; current coverage is primarily
 bundled stdlib namespace tokens such as `namespace.internal`.
+
+The fallback map currently references these TextMate scopes directly:
+
+```text
+comment.line.number-sign.englang
+constant.language.englang
+constant.other.unit.englang
+entity.name.function.englang
+entity.name.function.workflow-step.englang
+invalid.deprecated.englang
+keyword.control.deprecated.englang
+keyword.control.external-boundary.englang
+keyword.control.report.englang
+keyword.control.side-effect.englang
+keyword.control.solver.englang
+keyword.control.validation.englang
+keyword.control.workflow.englang
+markup.warning.englang
+storage.modifier.englang
+support.function.builtin.englang
+support.namespace.module.englang
+support.type.englang
+variable.other.definition.englang
+variable.other.property.englang
+variable.parameter.property.englang
+```
 
 When a new semantic modifier is added, update all of these together:
 

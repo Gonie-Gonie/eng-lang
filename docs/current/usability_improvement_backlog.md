@@ -1874,6 +1874,19 @@ explicit native `eng.case` source surface.
 - Extended workflow smoke and docs so the explicit `CaseTable` binding cannot
   regress back to implicit-only case metadata.
 
+## Batch 154: Editor Token Scope Contract
+
+Status: implemented to keep VS Code highlighting taxonomy aligned with grammar
+and semantic fallback changes.
+
+- Documented every current `meta.workflow.*.englang` phrase scope, including
+  process/network boundary phrases such as `run command` and `download ... to`.
+- Documented the TextMate fallback scopes referenced by VS Code semantic token
+  mappings so theme-facing scope names are no longer implicit in `package.json`.
+- Extended `ide-check` so missing workflow phrase scopes, semantic modifiers,
+  or semantic fallback scopes in `docs/internal/editor/token_scopes.md` fail the
+  VS Code extension contract check.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

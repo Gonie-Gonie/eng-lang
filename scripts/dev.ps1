@@ -1815,6 +1815,7 @@ function Assert-VscodeExtensionContract {
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
     $SemanticLegendPath = Join-Path $ExtensionRoot "generated\editor\englang-semantic-legend.json"
     $CompletionsPath = Join-Path $ExtensionRoot "generated\editor\englang-completions.json"
+    $TokenScopesDocPath = Join-Path $RepoRoot "docs\internal\editor\token_scopes.md"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
@@ -1848,9 +1849,13 @@ function Assert-VscodeExtensionContract {
             throw "missing generated VS Code editor metadata at $RequiredMetadataPath"
         }
     }
+    if (-not (Test-Path $TokenScopesDocPath)) {
+        throw "missing editor token scope contract at $TokenScopesDocPath"
+    }
 
     $PackageSource = Get-Content -LiteralPath $PackageJsonPath -Raw
     $Package = $PackageSource | ConvertFrom-Json
+    $TokenScopesDoc = Get-Content -LiteralPath $TokenScopesDocPath -Raw
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -1903,6 +1908,15 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $GrammarSource.Contains($RequiredGrammarToken)) {
             throw "VS Code grammar missing token $RequiredGrammarToken"
+        }
+    }
+    $WorkflowPhraseScopes = [regex]::Matches(
+        $GrammarSource,
+        '"name"\s*:\s*"(?<scope>meta\.workflow\.[^"]+\.englang)"'
+    ) | ForEach-Object { $_.Groups["scope"].Value } | Sort-Object -Unique
+    foreach ($WorkflowPhraseScope in $WorkflowPhraseScopes) {
+        if (-not $TokenScopesDoc.Contains($WorkflowPhraseScope)) {
+            throw "editor token scope contract missing workflow phrase scope $WorkflowPhraseScope"
         }
     }
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
@@ -2006,6 +2020,11 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing semantic token modifier $RequiredSemanticModifier"
         }
     }
+    foreach ($SemanticModifier in $SemanticModifiers) {
+        if (-not $TokenScopesDoc.Contains($SemanticModifier)) {
+            throw "editor token scope contract missing semantic modifier $SemanticModifier"
+        }
+    }
     $SemanticScopeRule = @($Package.contributes.semanticTokenScopes | Where-Object { $_.language -eq "englang" }) | Select-Object -First 1
     if ($null -eq $SemanticScopeRule) {
         throw "VS Code extension missing englang semantic token scope mappings"
@@ -2024,6 +2043,14 @@ function Assert-VscodeExtensionContract {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
         if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {
             throw "VS Code extension missing semantic token scope mapping $RequiredTokenScope"
+        }
+    }
+    $SemanticFallbackScopes = $SemanticScopeRule.scopes.PSObject.Properties |
+        ForEach-Object { @($_.Value) } |
+        Sort-Object -Unique
+    foreach ($SemanticFallbackScope in $SemanticFallbackScopes) {
+        if (-not $TokenScopesDoc.Contains($SemanticFallbackScope)) {
+            throw "editor token scope contract missing semantic fallback scope $SemanticFallbackScope"
         }
     }
     $ConfigurationDefaults = $Package.contributes.configurationDefaults
