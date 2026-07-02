@@ -336,6 +336,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "run_case",
     "measured",
     "interval",
+    "distribution",
     "ensemble",
     "propagate",
     "probability",
@@ -461,6 +462,7 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("run_case", "Run one case with recorded inputs and outputs"),
     ("measured", "eng.uncertainty measured value helper"),
     ("interval", "eng.uncertainty interval helper"),
+    ("distribution", "eng.uncertainty distribution helper"),
     ("ensemble", "eng.uncertainty ensemble helper"),
     ("propagate", "eng.uncertainty propagation helper"),
     ("probability", "eng.uncertainty probability helper"),
@@ -517,6 +519,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("backend", "execution backend option"),
     ("body", "HTTP request body option"),
     ("body_size_limit", "HTTP response body size limit"),
+    ("bias", "uncertainty propagation offset alias"),
     ("cache", "cache behavior option"),
     ("cache_dir", "cache storage directory option"),
     ("cache_key", "cache identity option"),
@@ -543,31 +546,38 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
         "Pinned offline HTTP response used instead of live network",
     ),
     ("headers", "HTTP request headers"),
+    ("gain", "uncertainty propagation scale alias"),
     ("hidden", "MLP hidden layer option"),
     ("initial", "solver initial value"),
     ("initial_algebraic", "solver initial algebraic value"),
     ("initial_derivative", "solver initial derivative value"),
     ("inputs", "solver input source"),
     ("jacobian", "solver Jacobian policy"),
+    ("kind", "distribution kind option"),
     ("key", "database upsert key"),
     ("line_search_steps", "solver line-search step limit"),
+    ("lower", "lower uncertainty or range bound"),
     ("mass_matrix", "solver mass-matrix policy"),
     ("max_gap", "maximum allowed gap option"),
     ("max_iter", "solver maximum iteration count"),
+    ("mu", "uncertainty mean alias"),
     ("method", "fill or transform method"),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
+    ("n", "uncertainty sample count alias"),
     (
         "on_many",
         "What to do when `require_one` finds multiple rows",
     ),
     ("on_none", "What to do when `require_one` finds no rows"),
+    ("offset", "uncertainty propagation offset"),
     ("output", "generated output path"),
     ("output_root", "case output root directory"),
     ("overwrite", "output overwrite policy"),
     ("query", "HTTP query parameters"),
     ("recursive", "filesystem recursion option"),
     ("relaxation", "solver relaxation factor"),
+    ("relative_error", "relative uncertainty error option"),
     ("residual_scale", "solver residual scale"),
     ("residual_scales", "solver residual scale list"),
     ("resume", "case resume policy"),
@@ -575,8 +585,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("retry", "external command retry policy"),
     ("return_column", "projection return column"),
     ("samples", "uncertainty sample count"),
+    ("scale", "uncertainty propagation scale"),
     ("seed", "deterministic sampling seed"),
     ("sensor_std", "TimeSeries sensor standard deviation"),
+    ("sigma", "uncertainty standard deviation alias"),
     ("split", "Train/test split to evaluate or lint"),
     ("solver", "solver algorithm option"),
     ("start", "range start option"),
@@ -594,6 +606,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("transaction", "SQLite transaction policy"),
     ("type", "workflow display or command subtype option"),
     ("uncertainty", "uncertainty propagation policy"),
+    ("upper", "upper uncertainty or range bound"),
     ("values", "template value map"),
     ("variable_scale", "solver variable scale"),
     ("variable_scales", "solver variable scale list"),
@@ -1490,7 +1503,8 @@ fn with_option_semantic_modifiers(
         "key" | "transaction" => &["db"],
         "on_none" | "on_many" | "expected_step" | "max_gap" | "status" => &["validation"],
         "sensor_std" | "confidence_band" => &["uncertain"],
-        "samples" | "uncertainty" => &["uncertain"],
+        "bias" | "gain" | "kind" | "lower" | "mu" | "n" | "offset" | "relative_error"
+        | "samples" | "scale" | "sigma" | "uncertainty" | "upper" => &["uncertain"],
         "solver"
         | "timestep"
         | "duration"
@@ -3381,7 +3395,7 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         "filter" | "select" | "derive" | "sort" | "require_one" => {
             &["defaultLibrary", "workflowStep"]
         }
-        "normal" | "uniform" => &["defaultLibrary", "uncertain"],
+        "normal" | "uniform" | "distribution" => &["defaultLibrary", "uncertain"],
         "materialize" | "apply" | "collect" | "run_case" => &["defaultLibrary", "workflowStep"],
         "measured" | "interval" | "ensemble" | "propagate" | "probability" => {
             &["defaultLibrary", "uncertain"]
@@ -3410,6 +3424,11 @@ fn workflow_builtin_modifiers_for_line(
             .is_some_and(|previous| previous == "sample")
     {
         return &["defaultLibrary", "uncertain", "workflowStep"];
+    }
+    if keyword == "distribution"
+        && previous_identifier_before(line, token_start).is_some_and(|previous| previous == "plot")
+    {
+        return &["defaultLibrary", "report"];
     }
     if keyword == "join" && is_table_join_phrase(line, token_start) {
         return &["defaultLibrary", "workflowStep"];
@@ -5874,6 +5893,7 @@ with {
 }
 
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+Q_dist = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)
 with {
     sensor_std = 0.2 kW
 }
@@ -5888,6 +5908,7 @@ with {
 
 report {
     plot Q_series over Time
+    plot distribution(Q_dist)
     with {
         unit y = kW
         title = "Coil heat"
@@ -5953,6 +5974,23 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "error", "validation");
         assert_semantic_token_modifier(&snapshot, source, "sensor_std", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "confidence_band", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "Q_dist", "uncertain");
+        assert_eq!(
+            semantic_token_modifier_count(
+                &snapshot,
+                source,
+                "distribution",
+                "function",
+                "uncertain"
+            ),
+            1,
+            "`distribution(...)` should be an uncertainty builtin"
+        );
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "distribution", "function", "report"),
+            1,
+            "`plot distribution(...)` should keep report context"
+        );
         assert_semantic_token_modifier(&snapshot, source, "unit y", "report");
         assert_semantic_token_modifier(&snapshot, source, "title", "report");
         assert_semantic_token_modifier(&snapshot, source, "timestep", "solver");

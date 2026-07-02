@@ -2077,5 +2077,46 @@
     "fixture": "04_system_component.eng",
     "scope": "support.type.englang",
     "text": "LinearOperator"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "distribution(kind=uniform, lower=1 kW, upper=8 kW, samples=11)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "distribution"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "sigma",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "n",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "lower",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "upper",
+    "fullMatch": true
   }
 ]

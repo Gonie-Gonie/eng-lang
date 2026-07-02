@@ -18,6 +18,8 @@ schema MeasuredZoneData {
 
 T_supply_meas = measured(12 degC, std=0.2 K)
 Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_dist_alias = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)
+Q_range_alias = distribution(kind=uniform, lower=1 kW, upper=8 kW, samples=11)
 Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)
 Q_probability = probability(Q_total_unc < 10 kW)
 I_window = 850 W/m^2

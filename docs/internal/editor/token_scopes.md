@@ -96,7 +96,7 @@ Current workflow phrase scopes:
 | `meta.workflow.collect-results.englang` | `collect results <table>` |
 | `meta.workflow.db-write.englang` | `write <table> to <db>.table("<name>")` |
 | `meta.workflow.derive-column.englang` | `derive <table> column ...` |
-| `meta.workflow.distribution-call.englang` | `uniform(...)`, `normal(...)`, `measured(...)`, and `interval(...)` value distributions. |
+| `meta.workflow.distribution-call.englang` | `uniform(...)`, `normal(...)`, `distribution(...)`, `measured(...)`, and `interval(...)` value distributions. |
 | `meta.workflow.download-to.englang` | `download ... to ...` |
 | `meta.workflow.export-summary-csv.englang` | `export summary to csv <target>` |
 | `meta.workflow.fill-missing.englang` | `fill missing <series>` |

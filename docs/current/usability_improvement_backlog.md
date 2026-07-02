@@ -3388,6 +3388,19 @@ Status: implemented while tightening supported keyword highlighting parity.
 - Added grammar fixture/smoke expectations and editor token-scope docs so the
   alias does not drift out of VS Code highlighting again.
 
+## Batch 274: Distribution Helper Highlighting Parity
+
+Status: implemented while aligning compiler-supported uncertainty helpers with
+VS Code highlighting and completion metadata.
+
+- Added `distribution(...)` to LSP builtin completion and semantic-token
+  uncertainty modifiers while preserving `plot distribution(...)` as report
+  context.
+- Extended TextMate fallback highlighting so `distribution(...)` is scoped like
+  `normal(...)` and `uniform(...)`.
+- Added grammar coverage for compiler-supported uncertainty option aliases such
+  as `sigma`, `n`, `lower`, and `upper`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

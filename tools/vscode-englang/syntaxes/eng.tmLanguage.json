@@ -684,7 +684,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.distribution-call.englang",
-                                                                    "begin":  "\\b(measured|interval|normal|uniform)\\s*(\\()",
+                                                                    "begin":  "\\b(measured|interval|normal|uniform|distribution)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "support.function.builtin.englang"
@@ -701,7 +701,7 @@
                                                                                     },
                                                                     "patterns":  [
                                                                                      {
-                                                                                         "match":  "\\b(mean|std|error|samples)\\b\\s*(=)",
+                                                                                         "match":  "\\b(kind|distribution|mean|mu|std|sigma|uncertainty|error|relative_error|samples|n|lower|min|upper|max|method|scale|gain|offset|bias)\\b\\s*(=)",
                                                                                          "captures":  {
                                                                                                           "1":  {
                                                                                                                     "name":  "variable.parameter.property.englang"
@@ -1926,7 +1926,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "support.function.builtin.englang",
-                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|ann|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
+                                                             "match":  "\\b(file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|distribution|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|ann|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\b"
                                                          }
                                                      ]
                                     },
@@ -1934,7 +1934,7 @@
                                              "patterns":  [
                                                               {
                                                                   "name":  "meta.function-call.englang",
-                                                                  "begin":  "\\b(?!(?:file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|ann|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
+                                                                  "begin":  "\\b(?!(?:file|dir|join|parent|stem|extension|exists|url|secret|env|date|datetime|select_first_row|filter|select|derive|sort|require_one|check|coverage|fill|fill_missing|align|resample|sample|uniform|normal|grid|random|lhs|latin_hypercube|latin-hypercube|materialize|apply|collect|run_case|measured|interval|distribution|ensemble|propagate|probability|train_test_split|regression|regression_table|train_regression|mlp|ann|evaluate|model_card|leakage_lint|predict|mean|time_weighted_mean|min|max|median|std|p90|p95|rmse|duration_above|integrate|der|delay|sum)\\s*\\()([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
                                                                   "beginCaptures":  {
                                                                                         "1":  {
                                                                                                   "name":  "entity.name.function.call.englang"
@@ -2079,7 +2079,7 @@
                                                                                  },
                                                                                  {
                                                                                      "name":  "variable.parameter.property.englang",
-                                                                                     "match":  "\\b(args|backend|query|headers|body|fixture|status_code|expected_sha256|body_size_limit|response_body_limit|expected_outputs|artifact_kind|tool_version|values|template|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_dir|cache_key|cache_ttl|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|samples|uncertainty|sensor_std|timestep|duration|solver|tolerance|finite_difference_step|damping|initial|initial_derivative|initial_algebraic|algebraic_initialization|inputs|jacobian|mass_matrix|max_iter|line_search_steps|relaxation|residual_scale|residual_scales|consistency_tolerance|variable_scale|variable_scales|display_unit|title|confidence_band|on_none|on_many|split|transaction|type)\\b(?=\\s*=)"
+                                                                                     "match":  "\\b(args|backend|query|headers|body|fixture|status_code|expected_sha256|body_size_limit|response_body_limit|expected_outputs|artifact_kind|tool_version|values|template|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_dir|cache_key|cache_ttl|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|kind|lower|upper|mu|sigma|n|samples|uncertainty|relative_error|scale|gain|offset|bias|sensor_std|timestep|duration|solver|tolerance|finite_difference_step|damping|initial|initial_derivative|initial_algebraic|algebraic_initialization|inputs|jacobian|mass_matrix|max_iter|line_search_steps|relaxation|residual_scale|residual_scales|consistency_tolerance|variable_scale|variable_scales|display_unit|title|confidence_band|on_none|on_many|split|transaction|type)\\b(?=\\s*=)"
                                                                                  },
                                                                                  {
                                                                                      "name":  "variable.other.property.englang",

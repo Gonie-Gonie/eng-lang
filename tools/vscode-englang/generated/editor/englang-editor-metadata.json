@@ -433,6 +433,12 @@
                                 "lsp_kind":  3
                             },
                             {
+                                "detail":  "eng.uncertainty distribution helper",
+                                "kind":  "function",
+                                "label":  "distribution",
+                                "lsp_kind":  3
+                            },
+                            {
                                 "detail":  "eng.uncertainty ensemble helper",
                                 "kind":  "function",
                                 "label":  "ensemble",
@@ -730,12 +736,6 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "delete",
-                                "lsp_kind":  14
-                            },
-                            {
-                                "detail":  "EngLang keyword",
-                                "kind":  "keyword",
-                                "label":  "distribution",
                                 "lsp_kind":  14
                             },
                             {
@@ -1345,6 +1345,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "uncertainty propagation offset alias",
+                                "kind":  "property",
+                                "label":  "bias",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "cache behavior option",
                                 "kind":  "property",
                                 "label":  "cache",
@@ -1477,6 +1483,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "uncertainty propagation scale alias",
+                                "kind":  "property",
+                                "label":  "gain",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "MLP hidden layer option",
                                 "kind":  "property",
                                 "label":  "hidden",
@@ -1507,6 +1519,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "distribution kind option",
+                                "kind":  "property",
+                                "label":  "kind",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "database upsert key",
                                 "kind":  "property",
                                 "label":  "key",
@@ -1516,6 +1534,12 @@
                                 "detail":  "solver line-search step limit",
                                 "kind":  "property",
                                 "label":  "line_search_steps",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "lower uncertainty or range bound",
+                                "kind":  "property",
+                                "label":  "lower",
                                 "lsp_kind":  10
                             },
                             {
@@ -1537,6 +1561,18 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "uncertainty mean alias",
+                                "kind":  "property",
+                                "label":  "mu",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "uncertainty sample count alias",
+                                "kind":  "property",
+                                "label":  "n",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "What to do when `require_one` finds multiple rows",
                                 "kind":  "property",
                                 "label":  "on_many",
@@ -1546,6 +1582,12 @@
                                 "detail":  "What to do when `require_one` finds no rows",
                                 "kind":  "property",
                                 "label":  "on_none",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "uncertainty propagation offset",
+                                "kind":  "property",
+                                "label":  "offset",
                                 "lsp_kind":  10
                             },
                             {
@@ -1576,6 +1618,12 @@
                                 "detail":  "solver relaxation factor",
                                 "kind":  "property",
                                 "label":  "relaxation",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "relative uncertainty error option",
+                                "kind":  "property",
+                                "label":  "relative_error",
                                 "lsp_kind":  10
                             },
                             {
@@ -1621,6 +1669,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "uncertainty propagation scale",
+                                "kind":  "property",
+                                "label":  "scale",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "deterministic sampling seed",
                                 "kind":  "property",
                                 "label":  "seed",
@@ -1630,6 +1684,12 @@
                                 "detail":  "TimeSeries sensor standard deviation",
                                 "kind":  "property",
                                 "label":  "sensor_std",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "uncertainty standard deviation alias",
+                                "kind":  "property",
+                                "label":  "sigma",
                                 "lsp_kind":  10
                             },
                             {
@@ -1720,6 +1780,12 @@
                                 "detail":  "uncertainty propagation policy",
                                 "kind":  "property",
                                 "label":  "uncertainty",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "upper uncertainty or range bound",
+                                "kind":  "property",
+                                "label":  "upper",
                                 "lsp_kind":  10
                             },
                             {
@@ -2287,7 +2353,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  381,
+    "completion_seed_count":  392,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
