@@ -1816,6 +1816,7 @@ function Assert-VscodeExtensionContract {
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
+    $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
@@ -1844,6 +1845,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LocalCodeActionsPath)) {
         throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
+    }
+    if (-not (Test-Path $LspCodeActionsPath)) {
+        throw "missing VS Code LSP code action bridge at $LspCodeActionsPath"
     }
     if (-not (Test-Path $ArtifactRegistryPath)) {
         throw "missing VS Code artifact registry at $ArtifactRegistryPath"
@@ -2200,6 +2204,7 @@ function Assert-VscodeExtensionContract {
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
+    $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
@@ -2448,7 +2453,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing formatting token $RequiredFormattingToken"
         }
     }
-    $QuickFixSource = $ExtensionSource + "`n" + $LocalCodeActionsSource
+    $QuickFixSource = $ExtensionSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "--code-actions-stdin",
@@ -2505,8 +2510,14 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
         throw "VS Code extension must load local quick fix helpers from localCodeActions.js"
     }
+    if (-not $ExtensionSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
+        throw "VS Code extension must load LSP quick fix bridge helpers from lspCodeActions.js"
+    }
     if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
         throw "VS Code extension must keep local quick fix helpers in localCodeActions.js"
+    }
+    if ($ExtensionSource.Contains("function lspCodeActionsFromPayload") -or $ExtensionSource.Contains("function workspaceEditFromLspCodeAction") -or $ExtensionSource.Contains("function lspDiagnosticMatchesVscode")) {
+        throw "VS Code extension must keep LSP quick fix bridge helpers in lspCodeActions.js"
     }
     foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
         if (-not $ExtensionSource.Contains($RequiredProblemsSourceToken)) {
@@ -2661,6 +2672,7 @@ function Assert-VscodeExtensionContract {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
+            Invoke-Native $Node.Source "--check" $LspCodeActionsPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
@@ -3756,6 +3768,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
             throw "portable package did not include VS Code local quick fix provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspCodeActions.js"))) {
+            throw "portable package did not include VS Code LSP quick fix bridge"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
             throw "portable package did not include VS Code artifact registry"
