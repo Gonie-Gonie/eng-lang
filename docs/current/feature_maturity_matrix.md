@@ -254,9 +254,9 @@ separate.
   manifests, schema diagnostics, transaction status, and DB file hashes; native
   `train regression`/`regression_table` and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
-  `http://` GET/download execution materializes pinned response/download bodies
-  with cache replay; `Planned` for live HTTPS/TLS packaging, native case
-  apply/collect syntax, broad DB support, and broader model train syntax.
+  HTTP(S) GET/download execution materializes pinned response/download bodies
+  with cache replay; `Planned` for native case apply/collect syntax, broad DB
+  support, and broader model train syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -280,14 +280,14 @@ separate.
   model specs/cards, prediction manifests with output quantity/unit and
   confidence-column metadata, and DB write manifests with schema diagnostics,
   table records, and transaction status as reviewable native artifacts.
-- Not included: live HTTPS/TLS backend, request bodies/auth beyond `secret env`,
-  and broader cache invalidation/reuse API,
+- Not included: request bodies/auth beyond `secret env` and broader cache
+  invalidation/reuse API,
   general table derived-value execution/fill transforms,
   native case result collection and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
   parser, broad DB engines/query APIs/migrations, or ML framework
   support.
-- Next cleanup action: package a TLS backend for live HTTPS and grow
-  `eng.cache` beyond network response materialization/replay, then use the
+- Next cleanup action: grow `eng.cache` beyond network response
+  materialization/replay, then use the
   workflow skeletons to drive remaining `eng.case`, `eng.db`, and `eng.model`
   slices with artifacts and diagnostics.
 

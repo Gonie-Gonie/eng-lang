@@ -6,6 +6,7 @@ use std::fs;
 use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -1933,11 +1934,6 @@ fn execute_live_http(
     runtime_data: &RuntimeData,
     report: &CheckReport,
 ) -> Result<LiveHttpBody, RuntimeError> {
-    if url.trim_start().starts_with("https://") {
-        return Err(invalid_input(&format!(
-            "E-NET-TLS-UNAVAILABLE: live HTTPS `{url}` needs a packaged TLS backend; use offline_response/cache or an http:// endpoint in this build"
-        )));
-    }
     let timeout = timeout_label
         .map(parse_process_timeout_duration)
         .transpose()?
@@ -1978,7 +1974,16 @@ fn execute_live_http_attempt(
     request_body: Option<&str>,
     body_size_limit: Option<usize>,
 ) -> Result<LiveHttpBody, RuntimeError> {
-    let agent = ureq::AgentBuilder::new().timeout(timeout).build();
+    let mut agent_builder = ureq::AgentBuilder::new().timeout(timeout);
+    if url.trim_start().starts_with("https://") {
+        let tls_connector = ureq::native_tls::TlsConnector::new().map_err(|error| {
+            invalid_input(&format!(
+                "E-NET-HTTP-STATUS: live HTTPS connector initialization failed: {error}"
+            ))
+        })?;
+        agent_builder = agent_builder.tls_connector(Arc::new(tls_connector));
+    }
+    let agent = agent_builder.build();
     let mut request = agent.request(method, url);
     for (key, value) in query {
         request = request.query(key, value);

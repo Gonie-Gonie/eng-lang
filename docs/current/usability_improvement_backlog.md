@@ -2485,9 +2485,8 @@ preserving pinned fixture/cache workflows.
   review/run-log/output manifest integration.
 - Added regression coverage for live HTTP response-body JSON promotion and
   cache replay without Python or `run command`.
-- Kept live `https://` behind explicit `E-NET-TLS-UNAVAILABLE` behavior in
-  this local build because available TLS backends need missing Windows GNU
-  tooling; pinned HTTPS fixture/cache workflows remain supported.
+- Initially kept live `https://` behind an explicit local-build TLS diagnostic;
+  Batch 295 replaces that placeholder with native TLS-backed HTTP(S) execution.
 
 ## Batch 203: Live HTTP Hash Quick Fix
 
@@ -3650,14 +3649,25 @@ editor.
 - Keep CLI errors and setting descriptions action-oriented: what happened, why
   it matters, and the next valid command.
 
+## Batch 295: Native HTTPS Network Execution
+
+Status: implemented to remove the remaining live-network TLS placeholder from
+the native runtime path.
+
+- Enabled the existing `ureq` HTTP client with native TLS support.
+- Removed the runtime guard that rejected fixture-less live `https://` requests
+  with `E-NET-TLS-UNAVAILABLE`.
+- Updated workflow/module maturity docs so `eng.net` now describes live HTTP(S)
+  execution instead of HTTPS/TLS as a planned seed.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
   materialization/replay is implemented with hash checks; broader process/model
   replay and explicit invalidation remain to be designed around artifact safety.
-- Live network execution: live `http://` GET/download is implemented with
-  timeout, retry, body limit, SHA-256 verification, and cache replay; package a
-  TLS backend for live `https://` and broaden request body/auth policy.
+- Live network execution: live HTTP(S) GET/download is implemented with timeout,
+  retry, body limit, SHA-256 verification, and cache replay; broaden request
+  body/auth policy.
 - Model training surface: native `train regression <table>` now feeds the
   existing model-card, metrics, and prediction-table path; future work is
   broader algorithm coverage and clearer multi-model naming.
