@@ -846,6 +846,54 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.stat-axis-call.englang",
+                                                                    "match":  "\\b(mean|max|min|sum)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(,)\\s*(axis)\\s*(=)\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "punctuation.section.parens.begin.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "punctuation.separator.comma.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "keyword.operator.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "punctuation.section.parens.end.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.stat-series.englang",
+                                                                    "match":  "\\b(mean|max|min)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(over)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.summarize-series.englang",
                                                                     "begin":  "\\b(summarize)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(by)\\b",
                                                                     "beginCaptures":  {

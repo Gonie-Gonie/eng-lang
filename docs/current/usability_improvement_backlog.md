@@ -2187,6 +2187,19 @@ workflow phrases in VS Code fallback highlighting.
 - Added grammar fixture coverage for both function-style and command-style
   integration forms next to the existing TimeSeries fixture.
 
+## Batch 179: TimeSeries Statistic Phrase Highlighting
+
+Status: implemented to keep common TimeSeries statistic calls visibly tied to
+their series operand and axis.
+
+- Added `meta.workflow.stat-axis-call.englang` for
+  `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related
+  axis statistic calls.
+- Added `meta.workflow.stat-series.englang` for command-style statistic phrases
+  such as `mean <series> over <axis>`.
+- Added fixture expectations for function-style and command-style statistic
+  forms used by workflow 03 and the public TimeSeries syntax docs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

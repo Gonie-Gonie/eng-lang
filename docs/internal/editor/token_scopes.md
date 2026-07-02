@@ -112,6 +112,8 @@ Current workflow phrase scopes:
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.select-columns.englang` | `select <table> columns <columns>` |
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
+| `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |
+| `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |
 | `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
 | `meta.workflow.write-text.englang` | `write text <target>, <value>` |

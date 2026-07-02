@@ -1343,6 +1343,30 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "mean(Q_series, axis=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "max(Q_series, axis=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-series.englang",
+    "text": "mean Q_series over Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "axis",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
     "text": "validate"
   },
