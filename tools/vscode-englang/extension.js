@@ -3,7 +3,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
-const { LAST_RUN_ARTIFACTS } = require("./artifactRegistry");
+const { createArtifactOpeners } = require("./artifactOpeners");
 const { EngCompletionProvider } = require("./completionProvider");
 const { EngDiagnosticsController } = require("./diagnosticsProvider");
 const { EngCodeActionProvider } = require("./codeActionProvider");
@@ -47,6 +47,7 @@ const snapshotPromiseCache = new Map();
 let output;
 let reviewRiskDecorations;
 let semanticSymbolDecorations;
+let artifactOpeners;
 
 const editorMetadata = loadEditorMetadata(__dirname);
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
@@ -60,6 +61,7 @@ const semanticLegend = createSemanticLegend(
 
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
+  artifactOpeners = createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot });
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   reviewRiskDecorations = createReviewRiskDecorationTypes();
   semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
@@ -116,23 +118,23 @@ function activate(context) {
     vscode.commands.registerCommand("englang.switchProfile", () => switchExecutionProfile()),
     vscode.commands.registerCommand("englang.reviewFile", () => reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => openReviewPanel(context)),
-    vscode.commands.registerCommand("englang.openReport", () => openLastRunArtifact("report")),
-    vscode.commands.registerCommand("englang.openLastArtifact", openLastRunArtifactPicker),
-    vscode.commands.registerCommand("englang.openGeneratedOutput", openGeneratedOutputArtifactPicker),
-    vscode.commands.registerCommand("englang.openReviewJson", () => openLastRunArtifact("review")),
-    vscode.commands.registerCommand("englang.openResultArtifact", () => openLastRunArtifact("result")),
-    vscode.commands.registerCommand("englang.openReportSpec", () => openLastRunArtifact("reportSpec")),
-    vscode.commands.registerCommand("englang.openOutputManifest", () => openLastRunArtifact("outputManifest")),
-    vscode.commands.registerCommand("englang.openRunLog", () => openLastRunArtifact("runLog")),
-    vscode.commands.registerCommand("englang.openStaticRunPlan", () => openLastRunArtifact("staticRunPlan")),
-    vscode.commands.registerCommand("englang.openRunPlan", () => openLastRunArtifact("runPlan")),
-    vscode.commands.registerCommand("englang.openRunLock", () => openLastRunArtifact("runLock")),
-    vscode.commands.registerCommand("englang.openProcessResults", () => openLastRunArtifact("processResults")),
-    vscode.commands.registerCommand("englang.openCacheManifest", () => openLastRunArtifact("cacheManifest")),
-    vscode.commands.registerCommand("englang.openTestResults", () => openLastRunArtifact("testResults")),
-    vscode.commands.registerCommand("englang.openPlotSpec", () => openLastRunArtifact("plotSpec")),
-    vscode.commands.registerCommand("englang.openPlotManifest", () => openLastRunArtifact("plotManifest")),
-    vscode.commands.registerCommand("englang.openPlotSvg", () => openLastRunArtifact("plotSvg")),
+    vscode.commands.registerCommand("englang.openReport", () => artifactOpeners.openLastRunArtifact("report")),
+    vscode.commands.registerCommand("englang.openLastArtifact", () => artifactOpeners.openLastRunArtifactPicker()),
+    vscode.commands.registerCommand("englang.openGeneratedOutput", () => artifactOpeners.openGeneratedOutputArtifactPicker()),
+    vscode.commands.registerCommand("englang.openReviewJson", () => artifactOpeners.openLastRunArtifact("review")),
+    vscode.commands.registerCommand("englang.openResultArtifact", () => artifactOpeners.openLastRunArtifact("result")),
+    vscode.commands.registerCommand("englang.openReportSpec", () => artifactOpeners.openLastRunArtifact("reportSpec")),
+    vscode.commands.registerCommand("englang.openOutputManifest", () => artifactOpeners.openLastRunArtifact("outputManifest")),
+    vscode.commands.registerCommand("englang.openRunLog", () => artifactOpeners.openLastRunArtifact("runLog")),
+    vscode.commands.registerCommand("englang.openStaticRunPlan", () => artifactOpeners.openLastRunArtifact("staticRunPlan")),
+    vscode.commands.registerCommand("englang.openRunPlan", () => artifactOpeners.openLastRunArtifact("runPlan")),
+    vscode.commands.registerCommand("englang.openRunLock", () => artifactOpeners.openLastRunArtifact("runLock")),
+    vscode.commands.registerCommand("englang.openProcessResults", () => artifactOpeners.openLastRunArtifact("processResults")),
+    vscode.commands.registerCommand("englang.openCacheManifest", () => artifactOpeners.openLastRunArtifact("cacheManifest")),
+    vscode.commands.registerCommand("englang.openTestResults", () => artifactOpeners.openLastRunArtifact("testResults")),
+    vscode.commands.registerCommand("englang.openPlotSpec", () => artifactOpeners.openLastRunArtifact("plotSpec")),
+    vscode.commands.registerCommand("englang.openPlotManifest", () => artifactOpeners.openLastRunArtifact("plotManifest")),
+    vscode.commands.registerCommand("englang.openPlotSvg", () => artifactOpeners.openLastRunArtifact("plotSvg")),
     vscode.commands.registerCommand("englang.showSemanticTokensDebug", () => showSemanticTokensDebug(context)),
     vscode.languages.registerHoverProvider(
       LANGUAGE_ID,
@@ -577,7 +579,7 @@ async function openReviewPanel(context) {
       });
     }
     if (message?.type === "openArtifact") {
-      openLastRunArtifact(message.artifactId, result.document).catch((error) => {
+      artifactOpeners.openLastRunArtifact(message.artifactId, result.document).catch((error) => {
         output.appendLine(`Unable to open EngLang artifact: ${error.message}`);
       });
     }
@@ -671,160 +673,6 @@ async function openSourceLine(uri, line) {
 
 function reviewPanelNonce() {
   return crypto.randomBytes(16).toString("base64");
-}
-
-async function openLastRunArtifactPicker() {
-  const picked = await vscode.window.showQuickPick(
-    LAST_RUN_ARTIFACTS.map((artifact) => ({
-      label: artifact.label,
-      description: artifact.description,
-      artifact
-    })),
-    { placeHolder: "Open an artifact from build/result" }
-  );
-  if (picked) {
-    await openLastRunArtifact(picked.artifact.id);
-  }
-}
-
-async function openGeneratedOutputArtifactPicker() {
-  const root = currentWorkspaceRoot();
-  if (!root) {
-    vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
-    return;
-  }
-  const manifestPath = path.join(root, "build", "result", "output_manifest.json");
-  if (!fs.existsSync(manifestPath)) {
-    vscode.window.showWarningMessage("No build/result/output_manifest.json found yet. Run the current file first.");
-    return;
-  }
-
-  let manifest;
-  try {
-    manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"));
-  } catch (error) {
-    vscode.window.showWarningMessage(`Could not read output_manifest.json: ${error.message}`);
-    return;
-  }
-
-  const artifacts = outputManifestArtifactItems(manifest, root);
-  if (artifacts.length === 0) {
-    vscode.window.showWarningMessage("The last output_manifest.json does not list any existing generated files.");
-    return;
-  }
-  const picked = await vscode.window.showQuickPick(artifacts, {
-    placeHolder: "Open a generated file from the last run"
-  });
-  if (!picked) {
-    return;
-  }
-  const uri = vscode.Uri.file(picked.filePath);
-  if (picked.external) {
-    await vscode.env.openExternal(uri);
-    return;
-  }
-  const document = await vscode.workspace.openTextDocument(uri);
-  await vscode.window.showTextDocument(document, { preview: false });
-}
-
-async function openLastRunArtifact(artifactId, sourceDocument = undefined) {
-  const artifact = LAST_RUN_ARTIFACTS.find((item) => item.id === artifactId);
-  if (!artifact) {
-    vscode.window.showWarningMessage(`Unknown EngLang artifact: ${artifactId}`);
-    return;
-  }
-  const root = sourceDocument ? workspaceRoot(sourceDocument) : currentWorkspaceRoot();
-  if (!root) {
-    vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
-    return;
-  }
-  const artifactPath = path.join(root, ...artifact.relativePath);
-  if (!fs.existsSync(artifactPath)) {
-    vscode.window.showWarningMessage(`No ${artifact.description} found yet. Run the current file first.`);
-    return;
-  }
-  const uri = vscode.Uri.file(artifactPath);
-  if (artifact.external) {
-    await vscode.env.openExternal(uri);
-    return;
-  }
-  const document = await vscode.workspace.openTextDocument(uri);
-  await vscode.window.showTextDocument(document, { preview: false });
-}
-
-function outputManifestArtifactItems(manifest, root) {
-  const outputDir = outputManifestOutputDir(manifest, root);
-  const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
-  const seen = new Set();
-  const items = [];
-  for (const artifact of artifacts) {
-    if (!artifact || typeof artifact !== "object") {
-      continue;
-    }
-    const manifestPath = String(artifact.path ?? "").trim();
-    if (!manifestPath) {
-      continue;
-    }
-    const filePath = resolveOutputManifestPath(manifestPath, outputDir, root);
-    if (!filePath || seen.has(filePath) || !fs.existsSync(filePath)) {
-      continue;
-    }
-    seen.add(filePath);
-    const kind = String(artifact.kind ?? "artifact");
-    const artifactClass = String(artifact.class ?? "").trim();
-    const status = String(artifact.status ?? "").trim();
-    items.push({
-      label: outputManifestArtifactLabel(kind),
-      description: relativeDisplayPath(root, filePath),
-      detail: [artifactClass, status].filter(Boolean).join(" | "),
-      filePath,
-      external: shouldOpenArtifactExternally(filePath)
-    });
-  }
-  return items.sort((left, right) => {
-    const pathOrder = left.description.localeCompare(right.description);
-    return pathOrder !== 0 ? pathOrder : left.label.localeCompare(right.label);
-  });
-}
-
-function outputManifestOutputDir(manifest, root) {
-  const outputDir = String(manifest?.output_dir ?? "").trim();
-  if (!outputDir) {
-    return path.join(root, "build", "result");
-  }
-  if (path.isAbsolute(outputDir)) {
-    return outputDir;
-  }
-  return path.join(root, outputDir);
-}
-
-function resolveOutputManifestPath(manifestPath, outputDir, root) {
-  if (path.isAbsolute(manifestPath)) {
-    return manifestPath;
-  }
-  const normalized = manifestPath.replaceAll("\\", "/");
-  if (normalized === "build" || normalized.startsWith("build/")) {
-    return path.join(root, ...normalized.split("/"));
-  }
-  return path.join(outputDir, ...normalized.split("/"));
-}
-
-function outputManifestArtifactLabel(kind) {
-  return kind
-    .split("_")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function relativeDisplayPath(root, filePath) {
-  const relative = path.relative(root, filePath);
-  return relative && !relative.startsWith("..") ? relative : filePath;
-}
-
-function shouldOpenArtifactExternally(filePath) {
-  const extension = path.extname(filePath).toLowerCase();
-  return extension === ".html" || extension === ".svg";
 }
 
 async function showSemanticTokensDebug(context) {

@@ -1907,6 +1907,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+    $ArtifactOpenersPath = Join-Path $ExtensionRoot "artifactOpeners.js"
     $CompletionProviderPath = Join-Path $ExtensionRoot "completionProvider.js"
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
@@ -1948,6 +1949,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ExtensionJsPath)) {
         throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+    if (-not (Test-Path $ArtifactOpenersPath)) {
+        throw "missing VS Code artifact opener helpers at $ArtifactOpenersPath"
     }
     if (-not (Test-Path $CompletionProviderPath)) {
         throw "missing VS Code completion provider at $CompletionProviderPath"
@@ -2354,6 +2358,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    $ArtifactOpenersSource = Get-Content -LiteralPath $ArtifactOpenersPath -Raw
     $CompletionProviderSource = Get-Content -LiteralPath $CompletionProviderPath -Raw
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
@@ -2397,7 +2402,7 @@ function Assert-VscodeExtensionContract {
         "Plot Spec",
         "Plot Manifest"
     )) {
-        if ($PackageSource.Contains($ForbiddenCommandWording) -or $ExtensionSource.Contains($ForbiddenCommandWording) -or $ArtifactRegistrySource.Contains($ForbiddenCommandWording)) {
+        if ($PackageSource.Contains($ForbiddenCommandWording) -or $ExtensionSource.Contains($ForbiddenCommandWording) -or $ArtifactOpenersSource.Contains($ForbiddenCommandWording) -or $ArtifactRegistrySource.Contains($ForbiddenCommandWording)) {
             throw "VS Code command wording should use user-facing artifact names instead of '$ForbiddenCommandWording'"
         }
     }
@@ -2498,7 +2503,19 @@ function Assert-VscodeExtensionContract {
     if (-not $ReviewPanelSourceCombined.Contains("reviewPanelArtifacts") -or -not $ReviewPanelSourceCombined.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
         throw "VS Code extension review panel must expose clickable last-run artifacts"
     }
-    if (-not $ExtensionSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
+    $ArtifactOpenersCombined = $ExtensionSource + "`n" + $ArtifactOpenersSource
+    if (-not $ExtensionSource.Contains('require("./artifactOpeners")') -or -not $ArtifactOpenersSource.Contains("function createArtifactOpeners") -or -not $ArtifactOpenersSource.Contains("function outputManifestArtifactItems")) {
+        throw "VS Code extension must load artifact-opening helpers from artifactOpeners.js"
+    }
+    if ($ExtensionSource.Contains("function openLastRunArtifact") -or $ExtensionSource.Contains("function openGeneratedOutputArtifactPicker") -or $ExtensionSource.Contains("function outputManifestArtifactItems")) {
+        throw "VS Code extension must keep artifact-opening helpers in artifactOpeners.js"
+    }
+    foreach ($ForbiddenArtifactOpenerWording in @("No build/result/output_manifest.json", "last output_manifest.json")) {
+        if ($ArtifactOpenersCombined.Contains($ForbiddenArtifactOpenerWording)) {
+            throw "VS Code artifact opener should use user-facing generated output wording instead of '$ForbiddenArtifactOpenerWording'"
+        }
+    }
+    if (-not $ArtifactOpenersSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
         throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
@@ -3006,6 +3023,7 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $Node) {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
+            Invoke-Native $Node.Source "--check" $ArtifactOpenersPath
             Invoke-Native $Node.Source "--check" $CompletionProviderPath
             Invoke-Native $Node.Source "--check" $CodeActionProviderPath
             Invoke-Native $Node.Source "--check" $DiagnosticsProviderPath
@@ -4114,6 +4132,9 @@ function Invoke-PackageSmoke {
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactOpeners.js"))) {
+            throw "portable package did not include VS Code artifact opener helpers"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\completionProvider.js"))) {
             throw "portable package did not include VS Code completion provider"

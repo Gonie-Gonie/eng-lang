@@ -3365,6 +3365,18 @@ Status: implemented while continuing the VS Code entrypoint split.
 - Extended extension and portable-package contract checks so the review panel
   renderer stays packaged and does not drift back into `extension.js`.
 
+## Batch 272: VS Code Artifact Opener Split
+
+Status: implemented while continuing the VS Code entrypoint split.
+
+- Moved last-run artifact opening, generated-output picking, and output-list
+  path normalization into `artifactOpeners.js`.
+- Kept `extension.js` focused on command registration while artifact commands
+  use the shared artifact opener service.
+- Reworded generated-output empty/error messages away from raw
+  `output_manifest.json` wording and added contract checks so the helper stays
+  packaged.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
