@@ -1288,9 +1288,9 @@ function renderQualityPanel() {
     return `
       <div class="panel-title compact">Quality</div>
       ${panelArtifactEmptyState(
-        "No quality artifact data yet.",
+        "No quality results yet.",
         "Run a file with validations, schema constraints, or expectation suites.",
-        "result.engres typed_payload.quality_results[]"
+        "Quality results are saved with the run result data."
       )}
     `;
   }
@@ -1303,7 +1303,7 @@ function renderQualityPanel() {
     </div>
     <div class="scroll">
       ${renderQualityResults(results)}
-      ${rawJsonToggle("Raw quality JSON", quality)}
+      ${rawJsonToggle("Advanced quality data", quality)}
     </div>
   `;
 }
@@ -1316,9 +1316,9 @@ function renderKernelPanel() {
     return `
       <div class="panel-title compact">Kernel Plan</div>
       ${panelArtifactEmptyState(
-        "No kernel plan artifact data yet.",
+        "No kernel plan yet.",
         "Run a file with supported solver or state-space work.",
-        "report_spec.json kernel_plan"
+        "Kernel plan details are saved with the report data."
       )}
     `;
   }
@@ -1360,7 +1360,7 @@ function renderKernelPanel() {
         <thead><tr><th>Candidate</th><th>Kind</th><th>Source</th><th>Executor</th><th>Fallback</th><th>Estimate</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="6" class="muted">No kernel plan candidates.</td></tr>`}</tbody>
       </table>
-      ${rawJsonToggle("Raw kernel plan JSON", plan)}
+      ${rawJsonToggle("Advanced kernel plan data", plan)}
     </div>
   `;
 }
@@ -1439,9 +1439,9 @@ function renderWorkflowPanel() {
     return `
       <div class="panel-title compact">Workflow</div>
       ${panelArtifactEmptyState(
-        "No workflow plan artifact data yet.",
+        "No workflow graph yet.",
         "Run the current file to generate the workflow graph.",
-        "build/result/run_plan.json"
+        "Workflow graph details are saved after a successful run."
       )}
     `;
   }
@@ -1551,7 +1551,7 @@ function renderReviewPanel() {
       ${renderReviewFallbacks(fallbacks)}
       <div class="panel-title compact">Risks</div>
       ${renderReviewRisks(risks)}
-      ${rawJsonToggle("Raw review document JSON", doc)}
+      ${rawJsonToggle("Advanced review data", doc)}
     </div>
   `;
 }
@@ -2893,7 +2893,7 @@ function renderWorkflowNodeDetail(node, edges) {
       <div class="panel-title compact">Edges</div>
       ${renderWorkflowNodeEdges(incoming, outgoing)}
       <details class="raw-json-toggle">
-        <summary>Raw node JSON</summary>
+        <summary>Advanced node data</summary>
         <pre>${escapeHtml(JSON.stringify(node, null, 2))}</pre>
       </details>
     </div>
@@ -3097,9 +3097,9 @@ function renderEffectsPanel() {
     return `
       <div class="panel-title compact">Effects</div>
       ${panelArtifactEmptyState(
-        "No side-effect artifact data yet.",
+        "No side-effect records yet.",
         "Run a file with write/render/run/test/database operations.",
-        "output_manifest.json, process_results.json, test_results.json"
+        "Side-effect records are saved after a run with explicit effects."
       )}
     `;
   }
@@ -3117,7 +3117,7 @@ function renderEffectsPanel() {
       ${renderExternalBoundaryRecords(boundaries)}
       <div class="panel-title compact">External Process Results</div>
       ${renderProcessResults(processes)}
-      ${rawJsonToggle("Raw effects JSON", { effects, processResults })}
+      ${rawJsonToggle("Advanced effects data", { effects, processResults })}
     </div>
   `;
 }
@@ -3133,9 +3133,9 @@ function renderNetworkPanel() {
     return `
       <div class="panel-title compact">Network / Cache</div>
       ${panelArtifactEmptyState(
-        "No network/cache artifact data yet.",
+        "No network or cache records yet.",
         "Run a file with http/download/cache boundaries.",
-        "result.engres typed_payload.network_cache and run_log.json cache events"
+        "Network and cache records are saved after a run with HTTP, download, or cache boundaries."
       )}
     `;
   }
@@ -3154,7 +3154,7 @@ function renderNetworkPanel() {
       ${renderNetworkEvents(events, requests)}
       <div class="panel-title compact">Cache Events</div>
       ${renderCacheEvents(cacheEvents, caches)}
-      ${rawJsonToggle("Raw network/cache JSON", network)}
+      ${rawJsonToggle("Advanced network/cache data", network)}
     </div>
   `;
 }
@@ -3219,7 +3219,7 @@ function renderDbPanel() {
       ${renderDbManifests(manifests)}
       <div class="panel-title compact">Registry</div>
       ${renderDbRegistry(registry)}
-      ${rawJsonToggle("Raw DB JSON", db)}
+      ${rawJsonToggle("Advanced DB data", db)}
     </div>
   `;
 }
@@ -3266,7 +3266,7 @@ function renderModelPanel() {
       ${renderPredictionManifests(predictionManifests)}
       <div class="panel-title compact">Model Diagnostics</div>
       ${renderModelDiagnostics(diagnostics)}
-      ${rawJsonToggle("Raw model JSON", model)}
+      ${rawJsonToggle("Advanced model data", model)}
     </div>
   `;
 }
@@ -3304,7 +3304,7 @@ function renderCasePanel() {
       ${renderCaseDiagnostics(diagnostics)}
       <div class="panel-title compact">Failed Cases</div>
       ${renderFailedCases(failed)}
-      ${rawJsonToggle("Raw case JSON", caseData)}
+      ${rawJsonToggle("Advanced case data", caseData)}
     </div>
   `;
 }

@@ -2743,6 +2743,19 @@ backend names.
 - Updated the VS Code extension contract so the deprecated setting stays
   code-compatible but is not re-exposed in the Settings UI.
 
+## Batch 222: Native IDE Advanced Data Wording
+
+Status: implemented after reviewing Native IDE empty states and advanced data
+toggles for raw JSON/artifact wording.
+
+- Reworded Quality, Kernel Plan, Workflow, Effects, and Network/Cache empty
+  states from artifact-data phrasing to user task records/results.
+- Renamed closed raw JSON toggles across review, quality, kernel, workflow
+  node, effects, network/cache, DB, model, and case panels to `Advanced ... data`.
+- Reworded the user guide `eng-lsp.exe --smoke` paragraph away from
+  editor-service snapshot terminology and extended `ide-check` to guard the
+  old UI labels.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

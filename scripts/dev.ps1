@@ -1819,6 +1819,7 @@ function Assert-VscodeExtensionContract {
     $DevScriptPath = Join-Path $RepoRoot "scripts\dev.ps1"
     $VscodeReadmePath = Join-Path $ExtensionRoot "README.md"
     $NativeIdeHowtoPath = Join-Path $RepoRoot "docs\user\howto\use_native_ide.md"
+    $UserGuidePath = Join-Path $RepoRoot "docs\user\user_guide.md"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
@@ -1858,7 +1859,7 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $TokenScopesDocPath)) {
         throw "missing editor token scope contract at $TokenScopesDocPath"
     }
-    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath)) {
+    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserGuidePath)) {
         if (-not (Test-Path $RequiredDocPath)) {
             throw "missing VS Code install contract input at $RequiredDocPath"
         }
@@ -1870,6 +1871,7 @@ function Assert-VscodeExtensionContract {
     $DevScriptSource = Get-Content -LiteralPath $DevScriptPath -Raw
     $VscodeReadmeSource = Get-Content -LiteralPath $VscodeReadmePath -Raw
     $NativeIdeHowtoSource = Get-Content -LiteralPath $NativeIdeHowtoPath -Raw
+    $UserGuideSource = Get-Content -LiteralPath $UserGuidePath -Raw
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -2093,7 +2095,7 @@ function Assert-VscodeExtensionContract {
         "smoke/snapshot tooling",
         "stable persistent editor-service contract"
     )) {
-        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording)) {
+        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording)) {
             throw "User-facing editor docs must avoid internal wording: $ForbiddenEditorDocWording"
         }
     }
@@ -2640,7 +2642,7 @@ function Invoke-IdeCheck {
         "selectedWorkflowNodeId",
         "renderWorkflowNodeDetail",
         "panelArtifactEmptyState",
-        "No network/cache artifact data yet.",
+        "No network or cache records yet.",
         "sourceBreadcrumbs",
         "source-breadcrumbs",
         "rawJsonToggle",
@@ -2715,6 +2717,20 @@ function Invoke-IdeCheck {
         "No case artifact data yet.",
         "No case manifests.",
         "No DB write manifests.",
+        "No quality artifact data yet.",
+        "No kernel plan artifact data yet.",
+        "No workflow plan artifact data yet.",
+        "No side-effect artifact data yet.",
+        "No network/cache artifact data yet.",
+        "Raw quality JSON",
+        "Raw kernel plan JSON",
+        "Raw review document JSON",
+        "Raw node JSON",
+        "Raw effects JSON",
+        "Raw network/cache JSON",
+        "Raw DB JSON",
+        "Raw model JSON",
+        "Raw case JSON",
         "Raw semantic token JSON",
         "No semantic legend entries.",
         "No semantic tokens match the current filter.",
@@ -2726,6 +2742,11 @@ function Invoke-IdeCheck {
     )) {
         if ($IdeUiSource.Contains($ForbiddenIdeWording)) {
             throw "Native IDE UI should use task-oriented wording instead of '$ForbiddenIdeWording'"
+        }
+    }
+    foreach ($RequiredAdvancedDataLabel in @("Advanced quality data", "Advanced kernel plan data", "Advanced review data", "Advanced node data", "Advanced effects data", "Advanced network/cache data", "Advanced DB data", "Advanced model data", "Advanced case data")) {
+        if (-not $IdeUiSource.Contains($RequiredAdvancedDataLabel)) {
+            throw "Native IDE UI missing task-oriented advanced data label $RequiredAdvancedDataLabel"
         }
     }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {

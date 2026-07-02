@@ -30,8 +30,9 @@ That report is the fastest way to confirm that the runtime, typed CSV import,
 unit-aware calculations, PlotSpec/SVG generation, review metadata, and report
 writer are working from the portable folder.
 
-`eng-lsp.exe --smoke` is also bundled for internal editor-service snapshot
-checks. It is not a stable persistent editor-service contract.
+`eng-lsp.exe --smoke` is also bundled for editor-tooling smoke checks. It is
+intended for diagnostics, hover, completion, and highlighting verification, not
+as a first-user command.
 
 ## Package Contents
 
