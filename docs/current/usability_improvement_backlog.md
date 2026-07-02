@@ -2473,18 +2473,6 @@ display-only.
 - Cleaned workflow 02 expected docs to reflect eight generated case inputs and
   the args-backed SQLite boundary.
 
-## Batch 247: Typed SQLite Target Argument
-
-Status: implemented after reviewing workflow 02's public API surface for path
-arguments that were still exposed as plain strings.
-
-- Changed workflow 02's `database_target` argument from `String` to `FilePath`
-  and opened SQLite with `open sqlite args.database_target`.
-- Updated runtime regression coverage so typed path arguments feed SQLite
-  connection paths without wrapping the arg in `file(...)`.
-- Kept output/review artifact paths stable while removing an unnecessary
-  conversion from the visible workflow code.
-
 ## Batch 202: Live HTTP Runtime Boundary
 
 Status: implemented for native live `http://` GET/download execution while
@@ -3074,6 +3062,28 @@ by the compiler but not fully aligned in LSP/editor metadata.
   identifier scanner.
 - Updated TextMate builtin fallback, generated editor metadata, and grammar
   smoke expectations for the alias.
+
+## Batch 247: Typed SQLite Target Argument
+
+Status: implemented after reviewing workflow 02's public API surface for path
+arguments that were still exposed as plain strings.
+
+- Changed workflow 02's `database_target` argument from `String` to `FilePath`
+  and opened SQLite with `open sqlite args.database_target`.
+- Updated runtime regression coverage so typed path arguments feed SQLite
+  connection paths without wrapping the arg in `file(...)`.
+- Kept output/review artifact paths stable while removing an unnecessary
+  conversion from the visible workflow code.
+
+## Batch 248: Native Workflow Claim Wording
+
+Status: implemented after reviewing public workflow docs for weak or
+implementation-oriented wording.
+
+- Reworded the workflow examples README to state that workflows 01/02/03 run
+  without Python or external processes.
+- Replaced artifact reference wording about Jacobian sparsity placeholders with
+  Jacobian sparsity metadata.
 
 ## API And Wording Cleanup Candidates
 

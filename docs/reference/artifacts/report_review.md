@@ -102,7 +102,7 @@ entry is an object with `kind`, `name`, and `display` fields. For example,
 `Fluid[Medium M]` records `{ kind: "Medium", name: "M", display: "Medium M" }`.
 `assembly_summary` records connection-set metadata, generated across/through
 connection equations, variable/equation counts, residual graph dependencies,
-algebraic-loop candidates, Jacobian sparsity placeholders, and the current
+algebraic-loop candidates, Jacobian sparsity metadata, and the current
 solver-plan metadata. It also records `domain_count`,
 `domain_plans`, component-local expression counts, and the legacy-named
 `solver_preview` field for domain/component graphs. A graph with

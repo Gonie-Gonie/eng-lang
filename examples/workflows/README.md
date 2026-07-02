@@ -19,9 +19,9 @@ Current examples:
   CSV/text artifacts -> uncertainty metadata -> confidence-band report artifact.
 ```
 
-All three workflows should not call Python or any external process. Saved runs
-still write `process_results.json`, but its `process_count` is expected to be
-zero for these native workflows.
+All three workflows run without Python or external processes. Saved runs still
+write `process_results.json`, but its `process_count` is expected to be zero
+for these native workflows.
 
 Run them from the repository root:
 
