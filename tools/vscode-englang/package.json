@@ -285,6 +285,10 @@
             "support.function.builtin.englang",
             "entity.name.function.englang"
           ],
+          "keyword.model": [
+            "support.function.builtin.englang",
+            "entity.name.function.englang"
+          ],
           "property.model": [
             "entity.name.function.englang",
             "variable.other.property.englang"

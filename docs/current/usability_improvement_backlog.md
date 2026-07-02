@@ -2650,6 +2650,17 @@ the TextMate grammar for native workflow phrases.
   values, and extended LSP semantic-token regressions plus generated VS Code
   editor metadata.
 
+## Batch 215: VS Code Model Keyword Scope Fallback
+
+Status: implemented to keep VS Code theme fallback mapping aligned with the
+new model keyword semantic-token combinations.
+
+- Added a `keyword.model` semantic token scope mapping so model connective
+  tokens such as `using` can inherit the same rich fallback scopes as model
+  helper functions when semantic highlighting is enabled.
+- Extended the VS Code extension contract so future model keyword semantic
+  tokens cannot ship without a corresponding fallback scope mapping.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

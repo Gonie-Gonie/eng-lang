@@ -2119,7 +2119,7 @@ function Assert-VscodeExtensionContract {
         "keyword.report", "keyword.solver", "function.solver",
         "keyword.deprecated", "variable.state", "parameter.input", "variable.riskHigh",
         "variable.riskMedium", "variable.model", "variable.db",
-        "function.model", "function.defaultLibrary", "namespace.defaultLibrary",
+        "function.model", "keyword.model", "function.defaultLibrary", "namespace.defaultLibrary",
         "namespace.imported", "namespace.internal", "variable.cache", "keyword.workflowStep",
         "function.workflowStep"
     )) {
