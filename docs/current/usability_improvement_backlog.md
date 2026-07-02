@@ -2895,6 +2895,17 @@ full generic completion labels while source scanning works word-by-word.
 - Extended editor contract checks so the broad type semantic fallback mapping
   remains present.
 
+## Batch 234: Generic Parameter Signature Highlighting
+
+Status: implemented after reviewing function and method parameter declaration
+captures for generic type syntax.
+
+- Split TextMate parameter declaration type captures so `Table[T]` in a
+  function signature colors the container type, brackets, and inner type
+  argument separately.
+- Added a grammar fixture function with a generic table parameter and pinned
+  the function name, parameter name, container type, and type argument scopes.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

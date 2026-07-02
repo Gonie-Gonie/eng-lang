@@ -14,6 +14,10 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
     return Q
 }
 
+fn pass_predictions(predictions: Table[T]) -> Table[T] {
+    return predictions
+}
+
 Q_from_call = coil_heat(0.2 kg/s, 8 K)
 
 test "coil heat stays positive" {

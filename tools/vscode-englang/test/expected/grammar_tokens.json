@@ -920,6 +920,42 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.function.englang",
+    "text": "fn pass_predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.function.englang",
+    "text": "pass_predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.parameter.englang",
+    "text": "(predictions: Table[T]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "support.type.englang",
+    "text": "Table",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.type.englang",
+    "text": "T",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "return"
   },
