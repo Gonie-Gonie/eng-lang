@@ -7,8 +7,8 @@ use std::process::Command;
 use std::sync::Mutex;
 
 use eng_compiler::{
-    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source, CheckOptions,
-    CheckReport, Severity,
+    all_quantity_completions, all_unit_infos, bundled_module_registry, check_source, format_source,
+    CheckOptions, CheckReport, Severity,
 };
 use eng_runtime::{run_file, run_source, ExecutionProfile, RunOptions, RuntimeError};
 use serde::Serialize;
@@ -89,6 +89,13 @@ struct CompletionView {
     insert: String,
     detail: String,
     kind: String,
+}
+
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct FormatView {
+    source: String,
+    changed: bool,
 }
 
 #[derive(Clone, Serialize)]
@@ -380,6 +387,16 @@ fn ide_check(path: String, source: String) -> CheckView {
 }
 
 #[tauri::command]
+fn ide_format(path: String, source: String) -> FormatView {
+    let _ = path;
+    let result = format_source(&source);
+    FormatView {
+        source: result.formatted,
+        changed: result.changed,
+    }
+}
+
+#[tauri::command]
 fn ide_run(
     path: String,
     source: String,
@@ -659,6 +676,7 @@ fn main() {
             ide_open_file,
             ide_save_file,
             ide_check,
+            ide_format,
             ide_run,
             ide_terminal,
             ide_open_path,
@@ -4003,6 +4021,23 @@ mod tests {
         assert!(catalog["units"].as_array().is_some_and(|items| items
             .iter()
             .any(|item| item["label"].as_str() == Some("W/m^2"))));
+    }
+
+    #[test]
+    fn native_ide_format_uses_compiler_formatter() {
+        let formatted = ide_format(
+            "format.eng".to_owned(),
+            "report {\nplot Q over Time\nwith {\ntitle = \"Q\"\n}\n}\n".to_owned(),
+        );
+        assert!(formatted.changed);
+        assert_eq!(
+            formatted.source,
+            "report {\n    plot Q over Time\n    with {\n        title = \"Q\"\n    }\n}\n"
+        );
+
+        let clean = ide_format("format.eng".to_owned(), formatted.source.clone());
+        assert!(!clean.changed);
+        assert_eq!(clean.source, formatted.source);
     }
 
     #[test]

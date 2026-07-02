@@ -86,9 +86,10 @@ Editor
   Ctrl+/ toggles `#` line comments, Enter preserves block indentation, and
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an
   indented blank line aligns the brace with its block, and Backspace removes an
-  empty pair. The editor meta bar shows the current caret line, column,
-  highlight category, and quantity/unit detail when the caret is on a checked
-  token.
+  empty pair. Format applies the same compiler-owned formatter used by VS Code
+  and keeps the buffer dirty until you save or run. The editor meta bar shows
+  the current caret line, column, highlight category, and quantity/unit detail
+  when the caret is on a checked token.
 
 Right Sidebar
   Vars, Checks, Schema, Time, Tables, Reads, Plot, Review, Quality, Effects,

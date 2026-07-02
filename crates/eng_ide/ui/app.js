@@ -2,7 +2,7 @@ const invoke = window.__TAURI__?.core?.invoke;
 const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
-const EDITOR_INDENT = "  ";
+const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
 const FALLBACK_LEXICAL_KEYWORDS = [
@@ -301,6 +301,7 @@ function renderToolbar() {
       <div class="title-mark">EngLang</div>
       ${toolButton("runBtn", "Run", "Run current file", "play", true)}
       ${toolButton("checkBtn", "Check", "Check diagnostics", "check")}
+      ${toolButton("formatBtn", "Format", "Format current buffer", "format")}
       ${toolButton("saveBtn", "Save", "Save current file", "save")}
       <span class="toolbar-separator"></span>
       ${toolButton("reportBtn", "Report", "Open last report", "file")}
@@ -372,6 +373,7 @@ function icon(name) {
   const paths = {
     play: '<path d="M7 5v14l11-7z"/>',
     check: '<path d="M5 12.5l4 4L19 6"/>',
+    format: '<path d="M5 6h14"/><path d="M5 12h10"/><path d="M5 18h14"/>',
     save: '<path d="M5 5h12l2 2v12H5z"/><path d="M8 5v5h8V5"/><path d="M8 19v-5h8v5"/>',
     file: '<path d="M7 3h7l5 5v13H7z"/><path d="M14 3v6h5"/>',
     folder: '<path d="M3 6h7l2 2h9v10H3z"/><path d="M3 8h18"/>',
@@ -406,6 +408,7 @@ function bind() {
     updateCompletionOverlay();
   });
   byId("checkBtn").onclick = checkCurrent;
+  byId("formatBtn").onclick = formatCurrent;
   byId("saveBtn").onclick = saveCurrent;
   byId("runBtn").onclick = runCurrent;
   byId("reportBtn").onclick = () => openArtifact("report");
@@ -665,6 +668,31 @@ async function saveCurrent() {
       tab.dirty = false;
     }
     state.status = `Saved ${file.path}`;
+    render();
+  } catch (error) {
+    state.status = String(error);
+    appendTerminal("error", String(error));
+    render();
+  }
+}
+
+async function formatCurrent() {
+  try {
+    rememberCurrentTab();
+    const result = await call("ide_format", { path: state.currentPath, source: state.source });
+    if (!result.changed) {
+      state.status = "Already formatter-clean";
+      render();
+      return;
+    }
+    state.source = result.source;
+    state.dirty = true;
+    const tab = tabFor(state.currentPath);
+    if (tab) {
+      tab.source = state.source;
+      tab.dirty = true;
+    }
+    state.status = "Formatted current buffer";
     render();
   } catch (error) {
     state.status = String(error);

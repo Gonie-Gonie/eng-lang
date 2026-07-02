@@ -3193,7 +3193,11 @@ function Invoke-IdeCheck {
         "data-open-path",
         "ide_open_path",
         "EDITOR_INDENT",
+        'const EDITOR_INDENT = "    "',
         "EDITOR_PAIR_CLOSE",
+        "formatBtn",
+        "formatCurrent",
+        "Already formatter-clean",
         "editorHighlight",
         "renderHighlightedSource",
         "renderLexicalHighlightedLine",
@@ -3366,7 +3370,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "editor_completion_seed", "CompletionView::from_lsp", "native_insert_for_lsp_completion", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_seed", "CompletionView::from_lsp", "native_insert_for_lsp_completion", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

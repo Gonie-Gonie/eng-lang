@@ -3615,6 +3615,19 @@ language configuration basics.
 - Added `}` on-type indentation for blank indented lines, plus docs and
   `ide-check` contract coverage for the new editor helpers.
 
+## Batch 293: Native IDE Compiler Formatter Action
+
+Status: implemented to expose the compiler-owned source formatter in the
+native editor.
+
+- Added an `ide_format` Tauri command backed by `eng_compiler::format_source`,
+  so native IDE formatting uses the same compiler formatter as CLI and VS Code.
+- Added a toolbar Format action that formats the current unsaved buffer, marks
+  the tab dirty when the source changes, and reports formatter-clean buffers
+  without writing files.
+- Aligned native editor auto-indent to the formatter's four-space indentation
+  and extended Rust, docs, and `ide-check` coverage for the formatter path.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
