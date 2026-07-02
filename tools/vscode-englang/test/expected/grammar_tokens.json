@@ -1264,13 +1264,25 @@
   {
     "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.open-sqlite.englang",
-    "text": "open sqlite",
+    "text": "open sqlite file(\"outputs/results.sqlite\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"outputs/results.sqlite\"",
     "fullMatch": true
   },
   {
     "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.db-write.englang",
-    "text": "write process_result to db.table",
+    "text": "write process_result to db.table(\"runs\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"runs\"",
     "fullMatch": true
   },
   {

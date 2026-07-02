@@ -2082,6 +2082,18 @@ whole side-effect workflow phrases.
 - Added grammar expectations for write-text payload references, write-json
   output statements, and export-summary target paths.
 
+## Batch 170: SQLite Boundary Phrase Highlighting
+
+Status: implemented to keep native SQLite boundary statements readable as
+whole workflow phrases.
+
+- Extended `meta.workflow.open-sqlite.englang` from `open sqlite` to
+  `open sqlite <source>`.
+- Extended `meta.workflow.db-write.englang` from `write <table> to <db>.table`
+  to `write <table> to <db>.table("<name>")`.
+- Added grammar expectations for SQLite source paths and DB table-name strings
+  so workflow 02 DB boundaries do not render as disconnected fragments.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

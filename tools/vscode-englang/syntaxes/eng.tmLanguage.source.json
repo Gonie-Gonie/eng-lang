@@ -297,11 +297,30 @@
           },
           {
             "name": "meta.workflow.open-sqlite.englang",
-            "match": "\\b(open)\\s+(sqlite)\\b",
-            "captures": {
+            "begin": "\\b(open)\\s+(sqlite)\\b",
+            "beginCaptures": {
               "1": { "name": "keyword.control.external-boundary.englang" },
               "2": { "name": "keyword.control.external-boundary.englang" }
-            }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#strings" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#punctuation" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.run-command.englang",
@@ -322,14 +341,21 @@
           },
           {
             "name": "meta.workflow.db-write.englang",
-            "match": "\\b(write)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
-            "captures": {
+            "begin": "\\b(write)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
+            "beginCaptures": {
               "1": { "name": "keyword.control.side-effect.englang" },
               "2": { "name": "variable.other.local.englang" },
               "3": { "name": "keyword.operator.word.englang" },
               "4": { "name": "variable.other.local.englang" },
               "5": { "name": "support.function.builtin.englang" }
-            }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#strings" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#punctuation" }
+            ]
           },
           {
             "name": "meta.workflow.sample-method.englang",
