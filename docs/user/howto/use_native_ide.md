@@ -79,10 +79,11 @@ Editor
   by the VS Code extension, with only larger native IDE snippets added on top.
   Checked files use compiler-backed semantic tokens for colored keyword, unit,
   quantity, workflow, and review-risk highlighting. If the buffer has changed
-  since the last check, the overlay falls back to plain text until Check or Run
-  refreshes token ranges. The editor meta bar shows the current caret line,
-  column, highlight category, and quantity/unit detail when the caret is on a
-  checked token.
+  since the last check, the overlay falls back to metadata-backed lexical
+  coloring until Check or Run refreshes token ranges. The fallback vocabulary
+  comes from the same LSP editor syntax catalog used by the VS Code extension.
+  The editor meta bar shows the current caret line, column, highlight category,
+  and quantity/unit detail when the caret is on a checked token.
 
 Right Sidebar
   Vars, Schema, Time, Plot, Checks, Highlight, Artifacts, and Run tabs are the

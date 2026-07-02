@@ -2,7 +2,7 @@ const invoke = window.__TAURI__?.core?.invoke;
 const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
-const LEXICAL_KEYWORDS = new Set([
+const FALLBACK_LEXICAL_KEYWORDS = [
   "use", "import", "from", "as", "schema", "class", "system", "component", "domain",
   "args", "report", "test", "where", "with", "on", "const", "fn", "method",
   "state", "input", "parameter", "output", "operator", "port", "across", "through",
@@ -11,18 +11,23 @@ const LEXICAL_KEYWORDS = new Set([
   "fetch", "download", "simulate", "solve", "connect", "conservation", "equation",
   "validate", "assert", "golden", "show", "plot", "summarize", "summary", "return",
   "if", "else"
-]);
-const LEXICAL_OPERATOR_WORDS = new Set([
+];
+const FALLBACK_LEXICAL_OPERATOR_WORDS = [
   "eq", "is", "and", "or", "not", "between", "over", "by", "using", "in", "into",
   "of", "vs", "to", "within", "matches"
-]);
-const LEXICAL_CONSTANTS = new Set([
+];
+const FALLBACK_LEXICAL_CONSTANTS = [
   "true", "false", "none", "null", "safe", "normal", "repro", "append", "insert",
   "upsert", "replace", "commit", "rollback", "keep", "empty", "linear", "pending",
   "running", "passed", "failed", "succeeded", "skipped", "blocked", "completed",
   "cached", "stale", "hit", "miss", "adaptive_heun", "fixed_point", "newton"
-]);
-const LEXICAL_UNIT_PATTERN = /^(?:J\/kg\/K|people\/m2|person\/m2|W\/m\^2|W\/m2|kg\/s|W\/K|J\/K|kJ\/K|degC|kWh|kPa|kW|kJ|MJ|MB|KB|Wh|Pa|kg|cm|mm|m2|m3|min|K|m|s|h|W|J|B|%)(?![A-Za-z0-9_/])/;
+];
+const FALLBACK_LEXICAL_UNITS = [
+  "J/kg/K", "people/m2", "person/m2", "W/m^2", "W/m2", "kg/s", "W/K",
+  "J/K", "kJ/K", "degC", "kWh", "kPa", "kW", "kJ", "MJ", "MB", "KB",
+  "Wh", "Pa", "kg", "cm", "mm", "m2", "m3", "min", "K", "m", "s", "h",
+  "W", "J", "B", "%"
+];
 
 const state = {
   root: "",
@@ -31,6 +36,8 @@ const state = {
   completions: [],
   completionItems: [],
   completionIndex: 0,
+  syntaxCatalog: emptySyntaxCatalog(),
+  lexicalCatalog: buildLexicalCatalog(emptySyntaxCatalog()),
   modules: [],
   openDirs: new Set(["examples", "examples/official", "stdlib"]),
   currentPath: "",
@@ -104,6 +111,93 @@ function emptyInspectors() {
   };
 }
 
+function emptySyntaxCatalog() {
+  return {
+    keywords: [],
+    workflowBuiltins: [],
+    hyphenatedWorkflowBuiltins: [],
+    workflowOptions: [],
+    publicTypes: [],
+    quantities: [],
+    units: []
+  };
+}
+
+function normalizeSyntaxCatalog(catalog) {
+  const source = catalog && typeof catalog === "object" ? catalog : {};
+  return {
+    keywords: stringArray(source.keywords),
+    workflowBuiltins: stringArray(source.workflowBuiltins ?? source.workflow_builtins),
+    hyphenatedWorkflowBuiltins: stringArray(
+      source.hyphenatedWorkflowBuiltins ?? source.hyphenated_workflow_builtins
+    ),
+    workflowOptions: catalogItemLabels(source.workflowOptions ?? source.workflow_options),
+    publicTypes: catalogPublicTypeLabels(source.publicTypes ?? source.public_types),
+    quantities: catalogItemLabels(source.quantities),
+    units: catalogItemLabels(source.units)
+  };
+}
+
+function buildLexicalCatalog(catalog) {
+  const normalized = normalizeSyntaxCatalog(catalog);
+  const keywordSet = new Set([
+    ...FALLBACK_LEXICAL_KEYWORDS,
+    ...normalized.keywords,
+    ...normalized.workflowBuiltins,
+    ...normalized.hyphenatedWorkflowBuiltins
+  ]);
+  const unitLabels = uniqueStrings([...FALLBACK_LEXICAL_UNITS, ...normalized.units]);
+  return {
+    keywords: keywordSet,
+    operatorWords: new Set(FALLBACK_LEXICAL_OPERATOR_WORDS),
+    constants: new Set(FALLBACK_LEXICAL_CONSTANTS),
+    workflowOptions: new Set(normalized.workflowOptions),
+    publicTypes: new Set(normalized.publicTypes),
+    quantities: new Set(normalized.quantities),
+    units: new Set(unitLabels),
+    unitPattern: lexicalUnitPattern(unitLabels)
+  };
+}
+
+function stringArray(value) {
+  return arrayOrEmpty(value).map((item) => String(item || "").trim()).filter(Boolean);
+}
+
+function catalogItemLabels(value) {
+  return arrayOrEmpty(value)
+    .map((item) => {
+      if (typeof item === "string") return item;
+      if (item && typeof item === "object") return item.label || item.base || "";
+      return "";
+    })
+    .map((item) => String(item || "").trim())
+    .filter(Boolean);
+}
+
+function catalogPublicTypeLabels(value) {
+  return uniqueStrings(arrayOrEmpty(value).flatMap((item) => {
+    if (typeof item === "string") return [item];
+    if (!item || typeof item !== "object") return [];
+    return [item.label, item.base];
+  }));
+}
+
+function uniqueStrings(items) {
+  return [...new Set(items.map((item) => String(item || "").trim()).filter(Boolean))];
+}
+
+function lexicalUnitPattern(units) {
+  const escaped = uniqueStrings(units)
+    .sort((left, right) => right.length - left.length || left.localeCompare(right))
+    .map(escapeRegExp);
+  if (!escaped.length) return null;
+  return new RegExp(`^(?:${escaped.join("|")})(?![A-Za-z0-9_/^])`);
+}
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
 async function call(cmd, args = {}) {
   if (!invoke) throw new Error("Tauri invoke API is not available");
   return await invoke(cmd, args);
@@ -134,6 +228,8 @@ async function boot() {
     state.root = data.root;
     state.fileTree = data.fileTree;
     state.completions = data.completions ?? [];
+    state.syntaxCatalog = normalizeSyntaxCatalog(data.syntaxCatalog ?? data.syntax_catalog);
+    state.lexicalCatalog = buildLexicalCatalog(state.syntaxCatalog);
     state.modules = data.modules ?? [];
     state.runHistory = loadRunHistory(data.root);
     state.currentPath = data.current.path;
@@ -4096,7 +4192,7 @@ function renderLexicalHighlightedLine(line) {
       const unitRest = line.slice(index);
       const unitMatch = /^(\s+)(.+)$/.exec(unitRest);
       if (unitMatch) {
-        const unit = LEXICAL_UNIT_PATTERN.exec(unitMatch[2]);
+        const unit = state.lexicalCatalog.unitPattern?.exec(unitMatch[2]);
         if (unit) {
           html += escapeHtml(unitMatch[1]);
           html += lexicalSpan("hl-mod-unit", unit[0]);
@@ -4105,7 +4201,7 @@ function renderLexicalHighlightedLine(line) {
       }
       continue;
     }
-    const unitMatch = LEXICAL_UNIT_PATTERN.exec(rest);
+    const unitMatch = state.lexicalCatalog.unitPattern?.exec(rest);
     if (unitMatch) {
       html += lexicalSpan("hl-mod-unit", unitMatch[0]);
       index += unitMatch[0].length;
@@ -4208,9 +4304,13 @@ function renderLexicalInterpolation(text) {
 
 function lexicalClassForWord(word, line, index) {
   if (line[index - 1] === ".") return "hl-property";
-  if (LEXICAL_CONSTANTS.has(word)) return "hl-constant";
-  if (LEXICAL_OPERATOR_WORDS.has(word)) return "hl-operator";
-  if (LEXICAL_KEYWORDS.has(word)) return "hl-keyword";
+  const lexical = state.lexicalCatalog || buildLexicalCatalog(emptySyntaxCatalog());
+  if (lexical.constants.has(word)) return "hl-constant";
+  if (lexical.operatorWords.has(word)) return "hl-operator";
+  if (lexical.keywords.has(word)) return "hl-keyword";
+  if (lexical.workflowOptions.has(word)) return "hl-property";
+  if (lexical.publicTypes.has(word)) return "hl-type";
+  if (lexical.quantities.has(word)) return "hl-mod-quantity";
   return lexicalCompletionClass(word);
 }
 

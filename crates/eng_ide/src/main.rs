@@ -30,6 +30,7 @@ struct WorkspaceView {
     current_dir: String,
     check: CheckView,
     completions: Vec<CompletionView>,
+    syntax_catalog: Value,
     modules: Vec<ModuleView>,
 }
 
@@ -344,6 +345,7 @@ fn ide_bootstrap() -> Result<WorkspaceView, String> {
         current_dir: relative_to(&root, source_dir(&current_path)),
         check,
         completions: base_completion_items(),
+        syntax_catalog: eng_lsp::editor_syntax_catalog_json(),
         modules: module_browser_items(),
     })
 }
@@ -3977,6 +3979,30 @@ mod tests {
             .find(|completion| completion.label == "file(...)")
             .expect("file helper completion");
         assert_eq!(file_helper.insert, "file(\"data/input.csv\")");
+    }
+
+    #[test]
+    fn native_ide_bootstrap_exposes_lsp_syntax_catalog() {
+        let workspace = ide_bootstrap().expect("native IDE bootstrap");
+        let catalog = workspace.syntax_catalog;
+        assert!(catalog["keywords"].as_array().is_some_and(|items| items
+            .iter()
+            .any(|item| item.as_str() == Some("distribution"))));
+        assert!(catalog["workflow_builtins"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("train"))));
+        assert!(catalog["workflow_options"]
+            .as_array()
+            .is_some_and(|items| items
+                .iter()
+                .any(|item| item["label"].as_str() == Some("offline_response"))));
+        assert!(catalog["public_types"].as_array().is_some_and(|items| items
+            .iter()
+            .any(|item| item["base"].as_str() == Some("Table")
+                && item["label"].as_str() == Some("Table[T]"))));
+        assert!(catalog["units"].as_array().is_some_and(|items| items
+            .iter()
+            .any(|item| item["label"].as_str() == Some("W/m^2"))));
     }
 
     #[test]

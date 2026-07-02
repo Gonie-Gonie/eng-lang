@@ -3565,6 +3565,20 @@ Status: implemented to move workflow 02 away from helper-looking model calls.
 - Fixed parser ambiguity where `test = ...` inside a `with` block could be
   treated as a test-block start.
 
+## Batch 289: Native IDE Syntax Catalog Fallback
+
+Status: implemented to reduce native IDE and VS Code first-render highlight
+drift.
+
+- Added the LSP editor `syntax_catalog` to native IDE bootstrap data so the
+  native UI receives the same compiler-owned keyword, workflow helper, option,
+  type, quantity, and unit lists used by the VS Code extension.
+- Changed the native IDE stale-buffer lexical highlighter to build keyword,
+  type, quantity, workflow option, and unit matching from that catalog instead
+  of relying on UI-local token lists.
+- Updated docs and native IDE regression coverage so the metadata-backed
+  fallback remains part of the editor contract.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

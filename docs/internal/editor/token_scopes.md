@@ -14,6 +14,7 @@ the files that keep VS Code and the native IDE aligned.
 | Semantic token legend | `eng-lsp --editor-metadata` |
 | Generated editor metadata | `tools/vscode-englang/generated/editor/englang-editor-metadata.json` |
 | Generated syntax catalog | `tools/vscode-englang/generated/editor/englang-syntax.json` |
+| Native IDE lexical fallback catalog | `eng-lsp --editor-metadata` via `ide_bootstrap.syntaxCatalog` |
 | VS Code semantic fallback scopes | `tools/vscode-englang/package.json` |
 | Grammar smoke fixtures | `tools/vscode-englang/test/grammar-fixtures/*.eng` |
 | Grammar smoke expectations | `tools/vscode-englang/test/expected/grammar_tokens.json` |
