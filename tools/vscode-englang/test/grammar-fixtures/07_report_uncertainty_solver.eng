@@ -14,6 +14,8 @@ Q_probability = probability(Q_total_unc < 10 kW)
 I_window = 850 W/m^2
 occupant_density = 0.12 people/m2
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+E_series_call = integrate(Q_series, over=Time)
+E_series_command = integrate Q_series over Time
 with {
     sensor_std = 0.2 kW
 }

@@ -1320,6 +1320,29 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.integrate-call.englang",
+    "text": "integrate(Q_series, over=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.integrate-series.englang",
+    "text": "integrate Q_series over Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "integrate"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "over",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
     "text": "validate"
   },

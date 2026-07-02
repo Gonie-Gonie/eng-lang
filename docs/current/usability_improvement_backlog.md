@@ -2175,6 +2175,18 @@ single report workflow phrase.
 - Added grammar expectations against the uncertainty/report fixture so the
   report plot command stays covered with the summary command.
 
+## Batch 178: TimeSeries Integrate Phrase Highlighting
+
+Status: implemented to make common TimeSeries integration forms read as native
+workflow phrases in VS Code fallback highlighting.
+
+- Added `meta.workflow.integrate-call.englang` for
+  `integrate(<series>, over=<axis>)`.
+- Added `meta.workflow.integrate-series.englang` for
+  `integrate <series> over <axis>`.
+- Added grammar fixture coverage for both function-style and command-style
+  integration forms next to the existing TimeSeries fixture.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
