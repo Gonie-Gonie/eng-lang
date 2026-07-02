@@ -976,6 +976,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             );
         }
     }
+    add_function_scoped_symbol_semantic_tokens(&program.functions, &mut builder);
 
     for schema in &program.schemas {
         builder.push_on_line(schema.line, &schema.name, "class", &["declaration"]);
@@ -1330,6 +1331,35 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     add_review_risk_semantic_tokens(report, &mut builder);
 
     builder.finish()
+}
+
+fn add_function_scoped_symbol_semantic_tokens(
+    functions: &[FunctionInfo],
+    builder: &mut SemanticTokenBuilder<'_>,
+) {
+    for function in functions {
+        let Some(start_line) = function.line.checked_sub(1) else {
+            continue;
+        };
+        if builder.lines.get(start_line).is_none() {
+            continue;
+        }
+        let end_line = block_end_line(&builder.lines, start_line).unwrap_or(start_line);
+        let parameters = function
+            .parameters
+            .iter()
+            .map(|parameter| parameter.name.as_str())
+            .collect::<Vec<_>>();
+        let locals = function
+            .locals
+            .iter()
+            .map(|local| local.name.as_str())
+            .collect::<Vec<_>>();
+        for line in start_line..=end_line {
+            builder.push_identifiers_on_line(line, &parameters, "parameter", &[]);
+            builder.push_identifiers_on_line(line, &locals, "variable", &["local"]);
+        }
+    }
 }
 
 fn is_net_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
@@ -2591,6 +2621,46 @@ impl<'a> SemanticTokenBuilder<'a> {
             if let Some(start) = find_token_in_line(line, &candidate) {
                 self.push_byte_range(line_index, start, candidate.len(), token_type, modifiers);
                 return;
+            }
+        }
+    }
+
+    fn push_identifiers_on_line(
+        &mut self,
+        line_index: usize,
+        identifiers: &[&str],
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if identifiers.is_empty() {
+            return;
+        }
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let bytes = line.as_bytes();
+        for (range_start, range_end) in code_ranges(line) {
+            let mut index = range_start;
+            while index < range_end {
+                if index < bytes.len() && is_ident_start(bytes[index]) {
+                    let token_start = index;
+                    index += 1;
+                    while index < range_end && index < bytes.len() && is_ident_byte(bytes[index]) {
+                        index += 1;
+                    }
+                    let token = &line[token_start..index];
+                    if identifiers.iter().any(|identifier| *identifier == token) {
+                        self.push_byte_range(
+                            line_index,
+                            token_start,
+                            index - token_start,
+                            token_type,
+                            modifiers,
+                        );
+                    }
+                    continue;
+                }
+                index += 1;
             }
         }
     }
@@ -4459,6 +4529,50 @@ mod tests {
         );
     }
 
+    fn semantic_token_count(
+        snapshot: &LspSnapshot,
+        source: &str,
+        label: &str,
+        token_type: &str,
+    ) -> usize {
+        snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .filter(|token| {
+                source.lines().nth(token.line).is_some_and(|line| {
+                    line.get(token.start..token.start + token.length) == Some(label)
+                        && token.token_type == token_type
+                })
+            })
+            .count()
+    }
+
+    fn assert_semantic_token_on_line_without_modifier(
+        snapshot: &LspSnapshot,
+        source: &str,
+        line_needle: &str,
+        label: &str,
+        token_type: &str,
+        modifier: &str,
+    ) {
+        let line_index = source
+            .lines()
+            .position(|line| line.contains(line_needle))
+            .unwrap_or_else(|| panic!("source line `{line_needle}` should be present"));
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_index
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                            && token.token_type == token_type
+                            && !token.modifiers.iter().any(|item| item == modifier)
+                    })
+            }),
+            "semantic token `{label}` on `{line_needle}` should be `{token_type}` without modifier `{modifier}`"
+        );
+    }
+
     fn assert_first_diagnostic_underlines(source: &str, code: &str, expected_text: &str) {
         let snapshot = snapshot_for_source(Path::new("diagnostic_ranges.eng"), source);
         let json = snapshot_json(&snapshot);
@@ -5043,6 +5157,37 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
         assert_semantic_token_modifier(&snapshot, source, "m_dot", "declaration");
         assert_semantic_token_type(&snapshot, source, "Q", "variable");
         assert_semantic_token_modifier(&snapshot, source, "Q", "local");
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "m_dot", "parameter"),
+            2,
+            "function parameter declaration and body reference should both be semantic tokens"
+        );
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "dT", "parameter"),
+            2,
+            "second function parameter declaration and body reference should both be semantic tokens"
+        );
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "Q", "variable"),
+            2,
+            "function local declaration and return reference should both be semantic tokens"
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "Q = m_dot",
+            "m_dot",
+            "parameter",
+            "declaration",
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "return Q",
+            "Q",
+            "variable",
+            "declaration",
+        );
     }
 
     #[test]
