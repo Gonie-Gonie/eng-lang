@@ -2238,6 +2238,7 @@ function Assert-VscodeExtensionContract {
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
+        "E-NET-HASH-MISMATCH",
         "E-NET-RETRY-POLICY",
         "E-NET-TIMEOUT",
         "E-NET-BODY-SIZE-LIMIT",
@@ -2250,6 +2251,8 @@ function Assert-VscodeExtensionContract {
         "schemaAnnotationAction",
         "fileMutationConfirmAction",
         "recursiveDeleteAction",
+        "expectedSha256Action",
+        "expectedSha256FromDiagnostic",
         "optionQuickFix",
         "optionValueReplacementAction",
         "optionAssignmentRange"

@@ -630,6 +630,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-SAMPLING-SEED-MISSING" => {
             optional_code_action(lsp_sampling_seed_missing_code_action(uri, text, diagnostic))
         }
+        "E-NET-HASH-MISMATCH" => {
+            optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
+        }
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
             text,
@@ -1204,6 +1207,36 @@ fn lsp_option_value_replacement_code_action(
             fix.value
         )
     }))
+}
+
+fn lsp_expected_sha256_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let hash = expected_sha256_from_diagnostic(diagnostic)?;
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let assignment = option_assignment_range(line, &["expected_sha256"])?;
+    let replacement = format!("\"{hash}\"");
+    Some(json!({
+        "title": "Update expected_sha256 to pinned response SHA-256",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, assignment.value_start, assignment.value_end),
+            &replacement
+        )
+    }))
+}
+
+fn expected_sha256_from_diagnostic(diagnostic: &Value) -> Option<String> {
+    let message = diagnostic.get("message")?.as_str()?;
+    let (_, rest) = message.split_once("fixture SHA256 was `")?;
+    let (hash, _) = rest.split_once('`')?;
+    if hash.len() == 64 && hash.chars().all(|character| character.is_ascii_hexdigit()) {
+        Some(hash.to_ascii_lowercase())
+    } else {
+        None
+    }
 }
 
 struct OptionAssignmentRange {

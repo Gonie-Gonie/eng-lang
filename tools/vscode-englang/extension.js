@@ -2665,6 +2665,13 @@ function localCodeActions(document, context) {
           actions.push(action);
         }
       }
+      if (code === "E-NET-HASH-MISMATCH") {
+        const action = expectedSha256Action(document, diagnostic);
+        if (action) {
+          action.isPreferred = true;
+          actions.push(action);
+        }
+      }
       const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
       if (optionAction) {
         optionAction.isPreferred = true;
@@ -3024,6 +3031,35 @@ function optionValueReplacementAction(document, diagnostic, fix) {
     fix.value
   );
   return action;
+}
+
+function expectedSha256Action(document, diagnostic) {
+  const hash = expectedSha256FromDiagnostic(diagnostic);
+  if (!hash) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const assignment = optionAssignmentRange(line.text, ["expected_sha256"]);
+  if (!assignment) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    "Update expected_sha256 to pinned response SHA-256",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, assignment.valueStart, line.lineNumber, assignment.valueEnd),
+    `"${hash}"`
+  );
+  return action;
+}
+
+function expectedSha256FromDiagnostic(diagnostic) {
+  const match = /fixture SHA256 was `([0-9a-fA-F]{64})`/.exec(diagnostic.message ?? "");
+  return match ? match[1].toLowerCase() : undefined;
 }
 
 function optionAssignmentRange(lineText, optionNames) {

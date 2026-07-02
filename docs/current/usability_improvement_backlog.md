@@ -1801,6 +1801,19 @@ semantic overlays.
 - Extended the LSP semantic-token regression so pinned HTTP response options
   stay visibly grouped as external-boundary metadata in VS Code.
 
+## Batch 148: Pinned Response Hash Quick Fix
+
+Status: implemented after reviewing linter quick fixes for network boundary
+diagnostics.
+
+- Added an LSP-owned quick fix for `E-NET-HASH-MISMATCH` diagnostics that
+  rewrites `expected_sha256` to the actual pinned offline response hash when
+  the compiler diagnostic includes the fixture hash.
+- Mirrored the same quick fix in the VS Code local fallback path so snapshot
+  and fallback diagnostics expose the same repair.
+- Extended LSP stdio quick-fix coverage and VS Code extension contract checks
+  for the new network hash action.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

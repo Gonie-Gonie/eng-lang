@@ -29,6 +29,7 @@ embedding compiler logic in JavaScript.
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
   missing-unit suffix fixes for unit arithmetic diagnostics, schema column
   annotation migrations, required file-mutation `with` options, invalid
+  network retry/timeout/body-size policies, pinned response SHA-256 mismatches,
   sampling seed values, and missing repro-profile sampling seeds
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open current-file review data,

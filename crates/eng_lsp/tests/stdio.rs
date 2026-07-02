@@ -701,6 +701,13 @@ fn stdio_code_actions_offer_linter_quick_fixes() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/code_action_linter_fixes.eng");
     let uri = file_uri(&source_path);
+    let fixture_path = source_path
+        .parent()
+        .expect("code action source should have a parent")
+        .join("data/response.json");
+    std::fs::create_dir_all(fixture_path.parent().expect("fixture should have a parent"))
+        .expect("fixture directory should be writable");
+    std::fs::write(&fixture_path, "{\"ok\":true}\n").expect("fixture should be writable");
     let source = r#"power = 10 kW
 Q_total = 10 + 2 kW
 
@@ -713,6 +720,8 @@ delete dir("old")
 
 response = http get url("https://example.org/data.json")
 with {
+    fixture = file("data/response.json")
+    expected_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
     retry = many
     timeout = never
     body_size_limit = unlimited
@@ -798,6 +807,7 @@ with {
         "E-NET-RETRY-POLICY",
         "E-NET-TIMEOUT",
         "E-NET-BODY-SIZE-LIMIT",
+        "E-NET-HASH-MISMATCH",
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE",
@@ -880,6 +890,12 @@ with {
         &uri,
         "Set response body limit to 10 MB: body_size_limit = 10 MB",
         "10 MB",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Update expected_sha256 to pinned response SHA-256",
+        "\"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"",
     );
     assert_action_edit(
         actions,
