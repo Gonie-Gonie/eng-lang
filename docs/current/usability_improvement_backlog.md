@@ -2324,6 +2324,19 @@ schema/class field declarations.
 - Added grammar expectations for URL/secret typed bindings and a TimeSeries
   typed binding.
 
+## Batch 191: Function Parameter Highlighting
+
+Status: implemented to make function and method signatures readable in the
+fallback grammar when semantic tokens have not arrived yet.
+
+- Added `meta.declaration.parameter.englang` for function/method parameter
+  declaration fragments.
+- Scoped parameter names as `variable.parameter.function.englang`, with the
+  declared parameter type kept on `support.type.englang`.
+- Added VS Code semantic fallback mappings for `parameter.declaration` and
+  quantity-bearing parameters.
+- Added grammar expectations for `m_dot` and `dT` in the declaration fixture.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

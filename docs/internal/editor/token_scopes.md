@@ -62,8 +62,10 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `constant.other.unit*.englang` | Unit literals. |
 | `constant.language.englang` | Language constants and uncertainty/fallback words. |
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
+| `variable.parameter.function.englang` | Function and method parameter names. |
 | `variable.language.self.englang` | `self` references inside class methods. |
 | `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
+| `meta.declaration.parameter.englang` | Function and method parameter declaration fragments. |
 | `meta.declaration.typed-binding.englang` | Typed value declarations written with `name: Type = ...`. |
 | `meta.declaration.field.englang` | Field declarations written with `name:`. |
 | `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
@@ -203,6 +205,7 @@ in sync with the generated legend. Important pairings:
 | --- | --- |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
+| `parameter.declaration` | Function and args parameter declarations. |
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
 | `variable.timeseries`, `property.timeseries` | TimeSeries value emphasis. |
 | `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in functions and modules. |

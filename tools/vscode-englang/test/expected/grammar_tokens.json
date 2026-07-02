@@ -873,6 +873,23 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.parameter.englang",
+    "text": "(m_dot: MassFlowRate"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "m_dot",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "dT",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "return"
   },

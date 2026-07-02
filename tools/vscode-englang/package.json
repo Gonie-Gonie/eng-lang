@@ -145,8 +145,13 @@
             "support.type.englang"
           ],
           "parameter.quantity": [
+            "variable.parameter.function.englang",
             "variable.parameter.property.englang",
             "support.type.englang"
+          ],
+          "parameter.declaration": [
+            "variable.parameter.function.englang",
+            "variable.parameter.property.englang"
           ],
           "variable.axis": [
             "entity.name.function.workflow-step.englang",
