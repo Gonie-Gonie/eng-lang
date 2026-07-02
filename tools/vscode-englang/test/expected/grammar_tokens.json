@@ -1821,5 +1821,54 @@
     "fixture": "03_side_effects.eng",
     "scope": "variable.parameter.property.englang",
     "text": "overwrite ="
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "states RoomState"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "inputs RoomInput"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.type.declaration.englang",
+    "text": "outputs RoomOutput"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.system-member.englang",
+    "text": "operator A"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.type.generic.englang",
+    "text": "StateVector[RoomState]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.type.generic.englang",
+    "text": "InputVector[RoomInput]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.type.generic.englang",
+    "text": "OutputVector[RoomOutput]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.type.generic.englang",
+    "text": "Derivative[RoomState]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "support.type.englang",
+    "text": "LinearOperator"
   }
 ]

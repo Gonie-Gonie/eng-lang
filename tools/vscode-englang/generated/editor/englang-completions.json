@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  368,
+    "completion_seed_count":  378,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -45,6 +45,12 @@
                                 "lsp_kind":  7
                             },
                             {
+                                "detail":  "Derivative vector or scalar type",
+                                "kind":  "class",
+                                "label":  "Derivative[T]",
+                                "lsp_kind":  7
+                            },
+                            {
                                 "detail":  "Time duration",
                                 "kind":  "class",
                                 "label":  "Duration",
@@ -63,6 +69,12 @@
                                 "lsp_kind":  7
                             },
                             {
+                                "detail":  "State-space input vector",
+                                "kind":  "class",
+                                "label":  "InputVector[T]",
+                                "lsp_kind":  7
+                            },
+                            {
                                 "detail":  "Integer value",
                                 "kind":  "class",
                                 "label":  "Int",
@@ -72,6 +84,12 @@
                                 "detail":  "JSON file path",
                                 "kind":  "class",
                                 "label":  "JsonFile",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "State-space linear operator",
+                                "kind":  "class",
+                                "label":  "LinearOperator[From -\u003e To]",
                                 "lsp_kind":  7
                             },
                             {
@@ -99,6 +117,12 @@
                                 "lsp_kind":  7
                             },
                             {
+                                "detail":  "State-space output vector",
+                                "kind":  "class",
+                                "label":  "OutputVector[T]",
+                                "lsp_kind":  7
+                            },
+                            {
                                 "detail":  "Filesystem path",
                                 "kind":  "class",
                                 "label":  "Path",
@@ -123,9 +147,21 @@
                                 "lsp_kind":  7
                             },
                             {
+                                "detail":  "Report output file path",
+                                "kind":  "class",
+                                "label":  "ReportFile",
+                                "lsp_kind":  7
+                            },
+                            {
                                 "detail":  "Redacted string value",
                                 "kind":  "class",
                                 "label":  "Secret[String]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "State-space state vector",
+                                "kind":  "class",
+                                "label":  "StateVector[T]",
                                 "lsp_kind":  7
                             },
                             {
@@ -168,6 +204,12 @@
                                 "detail":  "HTTP or HTTPS URL",
                                 "kind":  "class",
                                 "label":  "Url",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Plot output file path",
+                                "kind":  "class",
+                                "label":  "PlotFile",
                                 "lsp_kind":  7
                             },
                             {
@@ -789,6 +831,12 @@
                                 "lsp_kind":  14
                             },
                             {
+                                "detail":  "solver input source",
+                                "kind":  "property",
+                                "label":  "inputs",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "insert",
@@ -911,6 +959,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "operator",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "or",
                                 "lsp_kind":  14
                             },
@@ -925,6 +979,12 @@
                                 "kind":  "property",
                                 "label":  "output",
                                 "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "outputs",
+                                "lsp_kind":  14
                             },
                             {
                                 "detail":  "EngLang keyword",
@@ -1092,6 +1152,12 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "state",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "states",
                                 "lsp_kind":  14
                             },
                             {
@@ -1416,12 +1482,6 @@
                                 "detail":  "solver initial derivative value",
                                 "kind":  "property",
                                 "label":  "initial_derivative",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "solver input source",
-                                "kind":  "property",
-                                "label":  "inputs",
                                 "lsp_kind":  10
                             },
                             {

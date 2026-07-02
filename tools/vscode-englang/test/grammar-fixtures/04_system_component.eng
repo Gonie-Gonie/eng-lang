@@ -28,3 +28,22 @@ component AmbientBoundary {
 
 connect RoomBoundary.heat -> Coil.heat
 connect Coil.heat -> AmbientBoundary.heat
+
+states RoomState {
+    T_air: AbsoluteTemperature [degC]
+}
+
+inputs RoomInput {
+    T_out: AbsoluteTemperature [degC]
+}
+
+outputs RoomOutput {
+    T_zone: AbsoluteTemperature [degC]
+}
+
+system StateSpaceFixture {
+    state x: StateVector[RoomState] = [22 degC]
+    input u: InputVector[RoomInput] = [8 degC]
+    output y: OutputVector[RoomOutput]
+    operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
+}

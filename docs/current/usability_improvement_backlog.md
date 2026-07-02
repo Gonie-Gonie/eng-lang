@@ -3010,6 +3010,22 @@ IDE tables.
 - Updated smoke expectations so report HTML verifies readable labels while
   raw contract status remains in JSON artifacts.
 
+## Batch 243: State-Space Type Highlighting Parity
+
+Status: implemented after comparing advanced solver examples against the
+VS Code/LSP public type vocabulary.
+
+- Added state-space declaration keywords `states`, `inputs`, `outputs`, and
+  `operator` to LSP completion and solver semantic-token classification.
+- Added public editor completions and TextMate fallback scopes for
+  `StateVector[T]`, `InputVector[T]`, `OutputVector[T]`, `Derivative[T]`,
+  `LinearOperator[From -> To]`, plus report/plot file path types.
+- Extended semantic-token scanning so nested type expressions such as
+  `LinearOperator[RoomState -> Derivative[RoomState]]` color their inner type
+  identifiers instead of only the outer base name.
+- Added VS Code grammar fixture coverage for state-space declarations and
+  generic solver type names.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

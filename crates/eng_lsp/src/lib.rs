@@ -203,6 +203,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "if",
     "import",
     "input",
+    "inputs",
     "insert",
     "integrate",
     "interpolate",
@@ -229,9 +230,11 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "null",
     "on",
     "open",
+    "operator",
     "or",
     "of",
     "output",
+    "outputs",
     "over",
     "package",
     "patch",
@@ -266,6 +269,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "sort",
     "sqlite",
     "state",
+    "states",
     "struct",
     "summary",
     "summarize",
@@ -364,20 +368,26 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("DbConnection", "SQLite connection handle"),
     ("DbTableRef", "SQLite table reference"),
     ("DirectoryPath", "Directory path"),
+    ("Derivative[T]", "Derivative vector or scalar type"),
     ("Duration", "Time duration"),
     ("FilePath", "Generic file path"),
     ("Float", "Floating-point value"),
+    ("InputVector[T]", "State-space input vector"),
     ("Int", "Integer value"),
     ("JsonFile", "JSON file path"),
+    ("LinearOperator[From -> To]", "State-space linear operator"),
     ("ModelArtifact", "Trained model artifact"),
     ("ModelCard", "Model-card review artifact"),
     ("Number", "Dimensionless numeric value"),
     ("Optional[T]", "Optional value"),
+    ("OutputVector[T]", "State-space output vector"),
     ("Path", "Filesystem path"),
     ("Prediction", "Prediction table row"),
     ("ProcessResult", "External command result metadata"),
     ("Report", "Report artifact request metadata"),
+    ("ReportFile", "Report output file path"),
     ("Secret[String]", "Redacted string value"),
+    ("StateVector[T]", "State-space state vector"),
     ("String", "String value"),
     ("Table[T]", "Typed table value"),
     ("TextFile", "UTF-8 text file path"),
@@ -385,6 +395,7 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("TimeSeries[T]", "Typed time-indexed series value"),
     ("TomlFile", "TOML file path"),
     ("Url", "HTTP or HTTPS URL"),
+    ("PlotFile", "Plot output file path"),
 ];
 
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
@@ -2762,29 +2773,36 @@ impl<'a> SemanticTokenBuilder<'a> {
                 continue;
             }
             cursor += 1;
-            cursor = skip_ascii_whitespace(bytes, cursor, end);
-            if cursor >= end || cursor >= bytes.len() || !is_ident_start(bytes[cursor]) {
-                continue;
+            let mut bracket_depth = 1usize;
+            while cursor < end && cursor < bytes.len() && bracket_depth > 0 {
+                match bytes[cursor] {
+                    b'[' => {
+                        bracket_depth += 1;
+                        cursor += 1;
+                    }
+                    b']' => {
+                        bracket_depth -= 1;
+                        cursor += 1;
+                    }
+                    byte if is_ident_start(byte) => {
+                        let argument_start = cursor;
+                        cursor += 1;
+                        while cursor < end && cursor < bytes.len() && is_ident_byte(bytes[cursor]) {
+                            cursor += 1;
+                        }
+                        self.push_byte_range(
+                            line_index,
+                            argument_start,
+                            cursor - argument_start,
+                            "type",
+                            &[],
+                        );
+                    }
+                    _ => {
+                        cursor += 1;
+                    }
+                }
             }
-
-            let argument_start = cursor;
-            cursor += 1;
-            while cursor < end && cursor < bytes.len() && is_ident_byte(bytes[cursor]) {
-                cursor += 1;
-            }
-            let argument_end = cursor;
-            cursor = skip_ascii_whitespace(bytes, cursor, end);
-            if cursor >= end || cursor >= bytes.len() || bytes[cursor] != b']' {
-                continue;
-            }
-
-            self.push_byte_range(
-                line_index,
-                argument_start,
-                argument_end - argument_start,
-                "type",
-                &[],
-            );
         }
     }
 
@@ -3085,7 +3103,8 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within" => {
             &["validation"]
         }
-        "simulate" | "solve" | "connect" | "conservation" | "equation" => &["solver"],
+        "simulate" | "solve" | "connect" | "conservation" | "equation" | "operator" | "states"
+        | "inputs" | "outputs" => &["solver"],
         "script" | "struct" => &["deprecated"],
         _ => &[],
     }
@@ -4552,7 +4571,9 @@ fn push_completion(
 }
 
 fn should_replace_completion(label: &str, existing_kind: &str, candidate_kind: &str) -> bool {
-    label == "output" && existing_kind == "keyword" && candidate_kind == "property"
+    matches!(label, "output" | "inputs")
+        && existing_kind == "keyword"
+        && candidate_kind == "property"
 }
 
 fn domain_signature(name: &str, parameters: &[DomainTypeParameterInfo]) -> String {
@@ -5288,8 +5309,11 @@ mod tests {
             ("read json", "stdlib"),
             ("eng.table", "stdlib"),
             ("HeatRate", "class"),
+            ("StateVector[T]", "class"),
+            ("LinearOperator[From -> To]", "class"),
             ("kW", "unit"),
             ("output", "property"),
+            ("inputs", "property"),
             ("split", "property"),
         ] {
             assert!(
@@ -5834,6 +5858,46 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
             "variable",
             "declaration",
         );
+    }
+
+    #[test]
+    fn snapshot_marks_state_space_type_arguments_as_semantic_tokens() {
+        let source = r#"states RoomState {
+    T_air: AbsoluteTemperature [degC]
+}
+
+inputs RoomInput {
+    T_out: AbsoluteTemperature [degC]
+}
+
+outputs RoomOutput {
+    T_zone: AbsoluteTemperature [degC]
+}
+
+system StateSpaceFixture {
+    state x: StateVector[RoomState] = [22 degC]
+    input u: InputVector[RoomInput] = [8 degC]
+    output y: OutputVector[RoomOutput]
+    operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("state_space_types.eng"), source);
+
+        for label in ["states", "inputs", "outputs", "operator"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "solver");
+        }
+        for label in [
+            "StateVector",
+            "InputVector",
+            "OutputVector",
+            "LinearOperator",
+            "Derivative",
+            "RoomState",
+            "RoomInput",
+            "RoomOutput",
+        ] {
+            assert_semantic_token_type(&snapshot, source, label, "type");
+        }
     }
 
     #[test]
