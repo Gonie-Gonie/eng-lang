@@ -193,11 +193,12 @@ process_results.json with process_count = 0
 deterministic LHS training and prediction sample tables
 sample table artifacts with case IDs, parameter ranges, duplicate checks, and row-hash records
 case manifest records for generated sample/case rows
-native template_render records for case input files
+CaseOutput rows from `apply case_input_template over cases`
+native case_input artifacts plus template_render_manifest records
 native regression_table model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
 native SQLite db_manifests[] records with table names, modes, schemas, row counts, hashes, and committed transaction status
-output_manifest.json entries for rendered inputs, workflow_summary.csv, model artifacts, DB writes, and report artifacts
+output_manifest.json entries for case inputs, workflow_summary.csv, model artifacts, DB writes, and report artifacts
 process_results.json with process_count = 0
 ```
 

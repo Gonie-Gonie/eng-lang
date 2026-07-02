@@ -8006,6 +8006,40 @@ mod tests {
     }
 
     #[test]
+    fn apply_case_template_lowers_with_case_output_contract() {
+        let report = check_source(
+            "ok.eng",
+            "case_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"outputs/{case_id}/input.txt\"\n    missing = error\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors());
+        assert_eq!(report.syntax_summary.command_styles, 1);
+        let command = &report.semantic_program.command_styles[0];
+        assert_eq!(command.verb, "apply");
+        assert_eq!(command.status, "lowered");
+        assert_eq!(command.owner.as_deref(), Some("case_inputs"));
+        assert_eq!(command.target, "case_input_template");
+        assert!(command
+            .clauses
+            .iter()
+            .any(|clause| clause.name == "over" && clause.value == "cases"));
+        let case_outputs = report
+            .inferred_declarations
+            .iter()
+            .find(|declaration| declaration.name == "case_inputs")
+            .expect("CaseOutput declaration");
+        assert_eq!(case_outputs.quantity_kind, "Table[CaseOutput]");
+        let with_options = &report.semantic_program.with_blocks[0].options;
+        assert!(with_options
+            .iter()
+            .any(|option| option.key == "template" && option.status == "accepted"));
+        assert!(with_options
+            .iter()
+            .any(|option| option.key == "output" && option.status == "accepted"));
+    }
+
+    #[test]
     fn records_args_block_metadata() {
         let report = check_source(
             "ok.eng",

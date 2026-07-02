@@ -3901,12 +3901,160 @@ fn render_template_outputs(
         ));
         records.push(record);
     }
+    let case_apply_output = render_case_apply_template_outputs(report, runtime_data, result_dir)?;
+    artifacts.extend(case_apply_output.artifacts);
+    records.extend(case_apply_output.records);
+    Ok(TemplateRenderOutput { artifacts, records })
+}
+
+fn render_case_apply_template_outputs(
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+) -> Result<TemplateRenderOutput, RuntimeError> {
+    let mut artifacts = Vec::new();
+    let mut records = Vec::new();
+    for command in report
+        .semantic_program
+        .command_styles
+        .iter()
+        .filter(|command| command.verb == "apply" && command.status == "lowered")
+    {
+        let Some(cases_binding) = command
+            .clauses
+            .iter()
+            .find(|clause| clause.name == "over")
+            .map(|clause| clause.value.trim())
+            .filter(|value| !value.is_empty())
+        else {
+            continue;
+        };
+        let cases_table = runtime_data
+            .tables
+            .iter()
+            .find(|table| table.binding == cases_binding)
+            .ok_or_else(|| {
+                invalid_input(&format!(
+                    "case apply source `{cases_binding}` is not a materialized table"
+                ))
+            })?;
+        let template_expression =
+            process_option(report, command.line, "template").ok_or_else(|| {
+                invalid_input("case apply requires `with { template = file(\"...\") }`")
+            })?;
+        let source_path_text = evaluate_runtime_path_expression(&template_expression, report)
+            .ok_or_else(|| {
+                invalid_input(&format!(
+                    "invalid case apply template source `{template_expression}`"
+                ))
+            })?;
+        let source_path =
+            runtime_resolve_source_relative_path(&source_path_text, report.source_path.parent());
+        let template_text = fs::read_to_string(&source_path)?;
+        let template_hash = hash_text(&template_text);
+        let output_pattern = process_option(report, command.line, "output")
+            .map(|value| strip_runtime_string_value(&value))
+            .unwrap_or_else(|| "outputs/{case_id}/input.txt".to_owned());
+        let missing_policy = template_missing_policy(report, command.line)?;
+        let explicit_values = template_values_for_owner(report, runtime_data, command.line)?;
+        let value_table = case_apply_source_table(cases_table, runtime_data).unwrap_or(cases_table);
+        let placeholders = template_placeholders(&template_text);
+        let overwrite_policy = overwrite_policy(report, command.line);
+        let artifact_kind = artifact_kind_for_owner(report, command.line, "case_input");
+
+        for row_index in 0..cases_table.row_count {
+            let case_id = case_table_text_value(cases_table, "case_id", row_index)
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| format!("row_{:03}", row_index + 1));
+            let case_dir = case_table_text_value(cases_table, "case_dir", row_index)
+                .filter(|value| !value.trim().is_empty())
+                .unwrap_or_else(|| format!("outputs/{case_id}"));
+            let output_path_text =
+                render_case_output_path_pattern(&output_pattern, &case_id, &case_dir, row_index);
+            let output_path =
+                export_output_path(result_dir, &output_path_text).ok_or_else(|| {
+                    invalid_input(&format!(
+                        "case apply output `{output_path_text}` is outside the output boundary"
+                    ))
+                })?;
+            let output_relative_path = relative_output_path(result_dir, &output_path);
+            let manifest_relative_path =
+                runtime_path_text(format!("{output_relative_path}.render_manifest.json"));
+            let manifest_path = export_output_path(result_dir, &manifest_relative_path)
+                .ok_or_else(|| {
+                    invalid_input(&format!(
+                        "case apply manifest `{manifest_relative_path}` is outside the output boundary"
+                    ))
+                })?;
+            let mut row_values = template_values_for_table_row(value_table, row_index);
+            row_values.extend(template_values_for_table_row(cases_table, row_index));
+            row_values.extend(explicit_values.clone());
+            let rendered = render_template_text_for_values(
+                &template_text,
+                &placeholders,
+                &row_values,
+                report,
+                runtime_data,
+                missing_policy,
+                command.line,
+            )?;
+
+            write_output_file(&output_path, &rendered.text, overwrite_policy.allowed)?;
+            let output_hash = hash_text(&rendered.text);
+            let values_hash = template_string_values_hash(&rendered.resolved_values);
+            let record = TemplateRenderRecord {
+                binding: command
+                    .owner
+                    .as_ref()
+                    .map(|owner| format!("{owner}:{case_id}"))
+                    .unwrap_or_else(|| format!("apply:{}:{case_id}", command.line)),
+                template_path: path_for_manifest(&source_path),
+                output_path: output_relative_path.clone(),
+                manifest_path: manifest_relative_path.clone(),
+                template_hash: template_hash.clone(),
+                values_hash,
+                output_hash,
+                placeholder_count: placeholders.len(),
+                substituted_count: rendered.substituted_count,
+                missing_count: rendered.missing_count,
+                placeholders: rendered.placeholder_records,
+                status: "rendered".to_owned(),
+                line: command.line,
+            };
+            let manifest_json = template_render_manifest_json(&record);
+            write_output_file(&manifest_path, &manifest_json, overwrite_policy.allowed)?;
+            artifacts.push(output_artifact_with_overwrite_policy(
+                &artifact_kind,
+                output_relative_path,
+                &rendered.text,
+                output_path,
+                overwrite_policy.label,
+            ));
+            artifacts.push(output_artifact_with_overwrite_policy(
+                "template_render_manifest",
+                manifest_relative_path,
+                &manifest_json,
+                manifest_path,
+                overwrite_policy.label,
+            ));
+            records.push(record);
+        }
+    }
     Ok(TemplateRenderOutput { artifacts, records })
 }
 
 #[derive(Clone, Debug, PartialEq)]
 struct TemplateValue {
     value: RuntimeFormatValue,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct RenderedTemplateText {
+    text: String,
+    placeholder_records: Vec<TemplatePlaceholderRecord>,
+    resolved_values: HashMap<String, String>,
+    substituted_count: usize,
+    missing_count: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -4010,6 +4158,161 @@ fn template_values_for_owner(
         values.insert(key, TemplateValue { value });
     }
     Ok(values)
+}
+
+fn render_template_text_for_values(
+    template_text: &str,
+    placeholders: &[TemplatePlaceholder],
+    explicit_values: &HashMap<String, TemplateValue>,
+    report: &CheckReport,
+    runtime_data: &RuntimeData,
+    missing_policy: TemplateMissingPolicy,
+    line: usize,
+) -> Result<RenderedTemplateText, RuntimeError> {
+    let mut rendered = String::new();
+    let mut cursor = 0usize;
+    let mut placeholder_records = Vec::new();
+    let mut substituted_count = 0usize;
+    let mut missing_count = 0usize;
+    let mut resolved_values = HashMap::new();
+    for placeholder in placeholders {
+        rendered.push_str(&template_text[cursor..placeholder.start]);
+        let replacement =
+            template_value_for_placeholder(placeholder, explicit_values, report, runtime_data);
+        match replacement {
+            Some(value) => {
+                rendered.push_str(&value);
+                substituted_count += 1;
+                resolved_values
+                    .entry(placeholder.name.clone())
+                    .or_insert_with(|| value.clone());
+                placeholder_records.push(TemplatePlaceholderRecord {
+                    name: placeholder.name.clone(),
+                    value: Some(value),
+                    status: "substituted".to_owned(),
+                });
+            }
+            None => match missing_policy {
+                TemplateMissingPolicy::Error => {
+                    return Err(invalid_input(&format!(
+                        "E-TEMPLATE-MISSING-VALUE: missing template value `{}` at line {}",
+                        placeholder.name, line
+                    )));
+                }
+                TemplateMissingPolicy::Keep => {
+                    rendered.push_str(&placeholder.raw);
+                    missing_count += 1;
+                    placeholder_records.push(TemplatePlaceholderRecord {
+                        name: placeholder.name.clone(),
+                        value: None,
+                        status: "missing_kept".to_owned(),
+                    });
+                }
+                TemplateMissingPolicy::Empty => {
+                    missing_count += 1;
+                    placeholder_records.push(TemplatePlaceholderRecord {
+                        name: placeholder.name.clone(),
+                        value: Some(String::new()),
+                        status: "missing_empty".to_owned(),
+                    });
+                }
+            },
+        }
+        cursor = placeholder.end;
+    }
+    rendered.push_str(&template_text[cursor..]);
+    Ok(RenderedTemplateText {
+        text: rendered,
+        placeholder_records,
+        resolved_values,
+        substituted_count,
+        missing_count,
+    })
+}
+
+fn template_values_for_table_row(
+    table: &RuntimeTable,
+    row_index: usize,
+) -> HashMap<String, TemplateValue> {
+    table
+        .columns
+        .iter()
+        .map(|column| {
+            (
+                column.name.clone(),
+                TemplateValue {
+                    value: table_cell_format_value(column, row_index),
+                },
+            )
+        })
+        .collect()
+}
+
+fn table_cell_format_value(
+    column: &runtime_data::RuntimeColumn,
+    row_index: usize,
+) -> RuntimeFormatValue {
+    match &column.values {
+        RuntimeValues::Number(values) => RuntimeFormatValue::Number {
+            value: values
+                .get(row_index)
+                .and_then(|value| *value)
+                .unwrap_or_default(),
+            quantity_kind: column.type_name.clone(),
+            unit: column
+                .unit
+                .clone()
+                .or_else(|| column.canonical_unit.clone())
+                .unwrap_or_default(),
+        },
+        RuntimeValues::Text(values) => {
+            RuntimeFormatValue::Text(values.get(row_index).cloned().unwrap_or_default())
+        }
+    }
+}
+
+fn case_apply_source_table<'a>(
+    cases_table: &RuntimeTable,
+    runtime_data: &'a RuntimeData,
+) -> Option<&'a RuntimeTable> {
+    let source_binding = cases_table
+        .source
+        .trim()
+        .strip_prefix("materialize cases ")?
+        .trim();
+    runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == source_binding)
+}
+
+fn case_table_text_value(
+    table: &RuntimeTable,
+    column_name: &str,
+    row_index: usize,
+) -> Option<String> {
+    table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case(column_name))
+        .and_then(|column| match &column.values {
+            RuntimeValues::Text(values) => values.get(row_index).cloned(),
+            RuntimeValues::Number(values) => values
+                .get(row_index)
+                .and_then(|value| value.map(|number| number.to_string())),
+        })
+}
+
+fn render_case_output_path_pattern(
+    pattern: &str,
+    case_id: &str,
+    case_dir: &str,
+    row_index: usize,
+) -> String {
+    pattern
+        .replace("{case_id}", case_id)
+        .replace("{case_dir}", case_dir.trim_end_matches(&['/', '\\'][..]))
+        .replace("{row}", &(row_index + 1).to_string())
 }
 
 fn template_value_for_placeholder(
@@ -15702,12 +16005,21 @@ mod tests {
             .contains("outputs/case_001/input.txt"));
         assert!(surrogate_output
             .output_manifest_json
+            .contains("\"kind\": \"case_input\""));
+        assert!(surrogate_output
+            .output_manifest_json
             .contains("outputs/workflow_summary.csv"));
         let surrogate_summary_csv =
             fs::read_to_string(&surrogate_output.csv_export_paths[0]).expect("surrogate summary");
         assert!(!surrogate_summary_csv.contains("12800.0,14.2,0.0"));
         assert!(surrogate_summary_csv.contains("11090.8,13.2,1.4"));
         assert!(surrogate_output.result_json.contains("\"case_manifests\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"binding\": \"case_inputs\""));
+        assert!(surrogate_output
+            .result_json
+            .contains("\"schema_name\": \"CaseOutput\""));
         assert!(surrogate_output.result_json.contains("\"model_cards\""));
         assert!(surrogate_output
             .result_json
@@ -15970,6 +16282,97 @@ mod tests {
             "produces"
         ));
         assert!(output.review_json.contains("\"render_manifests\""));
+    }
+
+    #[test]
+    fn run_file_applies_template_over_cases_natively() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-case-apply-template");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-case-apply-template-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("model")).expect("model dir");
+        fs::write(
+            source_dir.join("model").join("case_template.txt"),
+            "CASE={{case_id}}\nE={{annual_electricity: kWh}}\nPEAK={{peak_cooling: kW}}\n",
+        )
+        .expect("template");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "designs = sample lhs\n",
+                "with {\n",
+                "    count = 2\n",
+                "    seed = 42\n",
+                "    annual_electricity = uniform(10000 kWh, 12000 kWh)\n",
+                "    peak_cooling = uniform(10 kW, 14 kW)\n",
+                "}\n\n",
+                "cases = materialize cases designs\n",
+                "case_inputs = apply case_input_template over cases\n",
+                "with {\n",
+                "    template = file(\"model/case_template.txt\")\n",
+                "    output = \"{case_dir}/input.txt\"\n",
+                "    missing = error\n",
+                "    overwrite = true\n",
+                "}\n\n",
+                "print \"case inputs={case_inputs.rows}\"\n",
+                "report {\n",
+                "    show case_inputs.rows\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("run file");
+
+        let case_001_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("case_001")
+            .join("input.txt");
+        let case_002_path = build_root
+            .join("result")
+            .join("outputs")
+            .join("case_002")
+            .join("input.txt");
+        assert_saved_artifact(&case_001_path, "case_001 input");
+        assert_saved_artifact(&case_002_path, "case_002 input");
+        let case_001 = fs::read_to_string(case_001_path).expect("case_001 input");
+        assert!(case_001.contains("CASE=case_001"));
+        assert!(case_001.contains("E="));
+        assert!(case_001.contains("PEAK="));
+        assert!(output.stdout.contains("case inputs=2"));
+        assert!(output.result_json.contains("\"binding\": \"case_inputs\""));
+        assert!(output
+            .result_json
+            .contains("\"schema_name\": \"CaseOutput\""));
+        assert!(output
+            .result_json
+            .contains("\"source\": \"apply(case_input_template, over=cases)\""));
+        assert!(output
+            .result_json
+            .contains("\"binding\": \"case_inputs:case_001\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"case_input\""));
+        assert!(output
+            .output_manifest_json
+            .contains("outputs/case_002/input.txt.render_manifest.json"));
+        assert!(output.process_results_json.contains("\"process_count\": 0"));
     }
 
     #[test]

@@ -6508,6 +6508,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"schema_name\": \"CaseTable\"")
+                || !output.result_json.contains("\"binding\": \"case_inputs\"")
+                || !output
+                    .result_json
+                    .contains("\"schema_name\": \"CaseOutput\"")
+                || !output
+                    .result_json
+                    .contains("\"source\": \"apply(case_input_template, over=cases)\"")
                 || !output
                     .result_json
                     .contains("\"source\": \"materialize cases training_results\"")
@@ -6528,7 +6535,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("outputs/case_001/input.txt")
                 || !output
                     .output_manifest_json
-                    .contains("\"kind\": \"template_render\"")
+                    .contains("\"kind\": \"case_input\"")
+                || !output
+                    .output_manifest_json
+                    .contains("outputs/case_003/input.txt.render_manifest.json")
                 || !output
                     .output_manifest_json
                     .contains("outputs/workflow_summary.csv")
@@ -6564,6 +6574,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.output_manifest_json.contains("\"model_artifacts\"")
                 || !output.review_json.contains("database_target")
                 || !output.review_json.contains("cases.rows")
+                || !output.review_json.contains("case_inputs.rows")
                 || !output.review_json.contains("predictions.rows")
                 || !output.review_json.contains("db_tables_written")
                 || !output

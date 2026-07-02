@@ -273,13 +273,13 @@ separate.
   inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
   The external simulation surrogate workflow now records native sample rows,
-  template-rendered case inputs, surrogate model specs/cards, prediction
-  manifests with output quantity/unit and confidence-column metadata, and DB
-  write manifests with schema diagnostics, table records, and transaction
-  status as reviewable native artifacts.
+  CaseOutput rows from `apply ... over cases`, case_input artifacts, surrogate
+  model specs/cards, prediction manifests with output quantity/unit and
+  confidence-column metadata, and DB write manifests with schema diagnostics,
+  table records, and transaction status as reviewable native artifacts.
 - Not included: live HTTP execution and broader cache invalidation/reuse API,
   general table derived-value execution/fill transforms,
-  native case apply/collect syntax and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
+  native case result collection and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
   parser, broad DB engines/query APIs/migrations, or ML framework
   support.
 - Next cleanup action: extend `eng.net` beyond fixture execution and grow

@@ -1887,6 +1887,21 @@ and semantic fallback changes.
   or semantic fallback scopes in `docs/internal/editor/token_scopes.md` fail the
   VS Code extension contract check.
 
+## Batch 155: Native Case Template Apply
+
+Status: implemented to replace row-by-row workflow 02 template rendering with a
+native apply-over-cases workflow step.
+
+- Added compiler, semantic, and runtime support for
+  `case_inputs = apply case_input_template over cases` as `Table[CaseOutput]`.
+- Rendered per-case input files from the original materialized case source rows
+  without spawning Python or external processes, while still emitting
+  `case_input` artifacts and render manifests for every case.
+- Updated workflow 02, smoke expectations, and workflow docs so the native case
+  input generation contract is exposed through `case_inputs.rows`.
+- Added LSP with-block option completion labels for `apply` template/output
+  settings so editor guidance matches the new workflow API surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

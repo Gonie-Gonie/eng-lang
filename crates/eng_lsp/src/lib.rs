@@ -3963,6 +3963,16 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "cache_dir",
         ]);
     }
+    if owner.contains("apply ") || owner.contains("apply(") {
+        return Some(&[
+            "template",
+            "values",
+            "output",
+            "missing",
+            "overwrite",
+            "artifact_kind",
+        ]);
+    }
     if owner.contains("materialize ") {
         return Some(&[
             "step",

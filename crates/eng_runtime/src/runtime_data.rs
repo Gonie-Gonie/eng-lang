@@ -3063,6 +3063,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.tables.extend(derived_tables);
     let explicit_case_tables = materialize_explicit_case_tables(report, &data.tables);
     data.tables.extend(explicit_case_tables);
+    let case_apply_output_tables = materialize_case_apply_output_tables(report, &data.tables);
+    data.tables.extend(case_apply_output_tables);
     data.time_axes = materialize_time_axes(&data.tables);
     data.timeseries_coverage =
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
@@ -7236,6 +7238,156 @@ fn materialize_cases_source_table(expression: &str) -> Option<&str> {
     } else {
         None
     }
+}
+
+fn materialize_case_apply_output_tables(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTable> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter(|declaration| declaration.quantity_kind == "Table[CaseOutput]")
+        .filter_map(|declaration| {
+            let cases_binding = case_apply_cases_binding(&declaration.expression)?;
+            let cases_table = tables.iter().find(|table| table.binding == cases_binding)?;
+            Some(materialize_case_apply_output_table(
+                report,
+                declaration,
+                cases_table,
+            ))
+        })
+        .collect()
+}
+
+fn materialize_case_apply_output_table(
+    report: &CheckReport,
+    declaration: &eng_compiler::InferredDeclaration,
+    cases_table: &RuntimeTable,
+) -> RuntimeTable {
+    let options = report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .find(|block| block.owner_line == Some(declaration.line))
+        .map(|block| block.options.as_slice())
+        .unwrap_or(&[]);
+    let output_pattern = option_value(options, "output")
+        .map(strip_runtime_string_literal)
+        .unwrap_or_else(|| "outputs/{case_id}/input.txt".to_owned());
+    let template_path = option_value(options, "template")
+        .map(|value| case_apply_template_path(value, report))
+        .unwrap_or_default();
+    let case_ids = text_column_values_by_name(cases_table, "case_id").unwrap_or_default();
+    let case_dirs = text_column_values_by_name(cases_table, "case_dir").unwrap_or_default();
+    let statuses = text_column_values_by_name(cases_table, "status").unwrap_or_default();
+
+    let mut output_case_ids = Vec::new();
+    let mut output_case_dirs = Vec::new();
+    let mut output_paths = Vec::new();
+    let mut manifest_paths = Vec::new();
+    let mut output_statuses = Vec::new();
+    for row_index in 0..cases_table.row_count {
+        let case_id = case_ids
+            .get(row_index)
+            .map(|value| value.trim().to_owned())
+            .unwrap_or_default();
+        let case_dir = case_dirs
+            .get(row_index)
+            .map(|value| value.trim().to_owned())
+            .filter(|value| !value.is_empty())
+            .unwrap_or_else(|| default_case_dir(&case_id));
+        let output_path =
+            render_case_output_pattern(&output_pattern, &case_id, &case_dir, row_index);
+        output_case_ids.push(case_id);
+        output_case_dirs.push(case_dir);
+        manifest_paths.push(format!("{output_path}.render_manifest.json"));
+        output_paths.push(output_path);
+        output_statuses.push(
+            statuses
+                .get(row_index)
+                .filter(|status| status.trim() == "failed")
+                .map(|_| "blocked")
+                .unwrap_or("planned")
+                .to_owned(),
+        );
+    }
+    let hash_payload = format!(
+        "{}|{}|{}|{}|{}",
+        declaration.name,
+        declaration.expression,
+        cases_table.source_hash.clone().unwrap_or_default(),
+        template_path,
+        output_paths.join(",")
+    );
+    RuntimeTable {
+        binding: declaration.name.clone(),
+        schema_name: "CaseOutput".to_owned(),
+        source: declaration.expression.clone(),
+        source_hash: Some(stable_hash_text(&hash_payload)),
+        row_count: cases_table.row_count,
+        columns: vec![
+            text_runtime_column("case_id", "String", output_case_ids),
+            text_runtime_column("case_dir", "DirectoryPath", output_case_dirs),
+            text_runtime_column("output_path", "FilePath", output_paths),
+            text_runtime_column("manifest_path", "FilePath", manifest_paths),
+            text_runtime_column("status", "String", output_statuses),
+            text_runtime_column(
+                "template",
+                "TemplateFile",
+                vec![template_path; cases_table.row_count],
+            ),
+        ],
+        parse_failures: Vec::new(),
+        line: declaration.line,
+    }
+}
+
+fn case_apply_cases_binding(expression: &str) -> Option<&str> {
+    let inner = expression
+        .trim()
+        .strip_prefix("apply(")?
+        .strip_suffix(')')?;
+    inner.split(',').find_map(|part| {
+        part.trim()
+            .strip_prefix("over=")
+            .map(str::trim)
+            .filter(|value| is_simple_binding_name(value))
+    })
+}
+
+fn case_apply_template_path(expression: &str, report: &CheckReport) -> String {
+    crate::evaluate_runtime_path_expression(expression, report)
+        .unwrap_or_else(|| strip_runtime_string_literal(expression))
+}
+
+fn text_column_values_by_name<'a>(table: &'a RuntimeTable, name: &str) -> Option<&'a [String]> {
+    table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case(name))
+        .and_then(text_column_values)
+}
+
+fn strip_runtime_string_literal(value: &str) -> String {
+    let trimmed = value.trim();
+    trimmed
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+        .unwrap_or(trimmed)
+        .to_owned()
+}
+
+fn render_case_output_pattern(
+    pattern: &str,
+    case_id: &str,
+    case_dir: &str,
+    row_index: usize,
+) -> String {
+    pattern
+        .replace("{case_id}", case_id)
+        .replace("{case_dir}", case_dir.trim_end_matches(&['/', '\\'][..]))
+        .replace("{row}", &(row_index + 1).to_string())
 }
 
 fn is_simple_binding_name(value: &str) -> bool {

@@ -15,7 +15,7 @@ The current executable workflow uses:
 eng.sampling  deterministic LHS training-design and prediction sample tables
 eng.table     native derive transforms for surrogate simulation-result columns
 eng.case      explicit `materialize cases` table plus generated case manifests from sample-style tables
-eng.template  native template rendering for three case input files from selected derived result rows
+eng.template  native `apply ... over cases` template rendering for per-case input files
 eng.model     regression_table(...) and predict model using samples
 eng.db        native SQLite writes for training results and predictions
 eng.artifact  output manifest records for rendered inputs, DB, model, and report
@@ -27,19 +27,20 @@ Expected saved-run properties:
 process_results.json has process_count = 0
 typed_payload.sample_tables includes training_designs and designs
 object_store.tables includes the explicit CaseTable binding `cases`
+object_store.tables includes the CaseOutput binding `case_inputs`
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
-output_manifest.json records rendered case inputs and workflow_summary.csv
+output_manifest.json records case_input artifacts and workflow_summary.csv
 workflow_summary.csv records values pulled from the selected native derived-result row, not fixed literals
 ```
 
 The training-design table is produced by EngLang's native sampler. The result
 metrics are then calculated with native `derive` table transforms before the
-model, case rendering, CSV export, and SQLite write steps consume them. Domain
-adapters can replace the deterministic surrogate formulas later, but they
-should still enter EngLang through typed tables, model cards, prediction
-manifests, and explicit side-effect records.
+case table, case-input apply step, model, CSV export, and SQLite write steps
+consume them. Domain adapters can replace the deterministic surrogate formulas
+later, but they should still enter EngLang through typed tables, model cards,
+prediction manifests, and explicit side-effect records.
 
 Run:
 

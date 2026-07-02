@@ -5,7 +5,7 @@ Source example: `examples/workflows/02_external_simulation_surrogate/main.eng`
 This workflow demonstrates a native surrogate pattern:
 
 ```text
-LHS training samples -> explicit CaseTable -> LHS prediction samples -> rendered case inputs -> regression_table -> predict -> SQLite
+LHS training samples -> explicit CaseTable -> apply template over cases -> LHS prediction samples -> regression_table -> predict -> SQLite
 ```
 
 Run:
@@ -18,7 +18,8 @@ What it proves:
 
 - deterministic native `sample lhs` tables for training and prediction inputs
 - explicit native `materialize cases training_results` CaseTable materialization
-- native template rendering and summary values from selected sample rows
+- native `apply case_input_template over cases` CaseOutput materialization
+- native case_input artifact rendering plus summary values from case_001
 - native table-based `regression_table(...)` model training
 - native `predict surrogate_model using designs` prediction table materialization
 - native SQLite writes to `simulation_results` and `predictions`
@@ -28,13 +29,14 @@ Expected review surfaces:
 
 - `typed_payload.sample_tables[]`
 - `typed_payload.case_manifests[]`
+- object-store `CaseOutput` table `case_inputs`
 - `typed_payload.render_manifests[]`
 - `typed_payload.model_specs[]`
 - `typed_payload.model_cards[]`
 - `typed_payload.prediction_manifests[]`
 - `typed_payload.db_manifests[]`
 - `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
-- `output_manifest.json` records for rendered inputs, summary export, DB, model
+- `output_manifest.json` records for case_input artifacts, summary export, DB, model
   artifacts, and report artifacts
 
 This is not an EnergyPlus, CFD, FEM, Modelica, or vendor ML framework adapter

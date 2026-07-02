@@ -2301,6 +2301,7 @@ fn analyze_with_blocks(
                 command_styles,
                 block.owner_line,
             ));
+            extra_known_options.extend(with_owner_apply_options(command_styles, block.owner_line));
             extra_known_options.extend(with_owner_process_options(program, block.owner_line));
             extra_known_options.extend(with_owner_sample_options(program, block.owner_line));
             extra_known_options.extend(with_owner_db_write_options(program, block.owner_line));
@@ -2443,6 +2444,35 @@ fn with_owner_template_options(
         .into_iter()
         .map(str::to_owned)
         .collect()
+}
+
+fn with_owner_apply_options(
+    command_styles: &[CommandStyleInfo],
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let Some(command) = command_styles
+        .iter()
+        .find(|command| command.line == owner_line)
+    else {
+        return HashSet::new();
+    };
+    if command.verb != "apply" {
+        return HashSet::new();
+    }
+    [
+        "template",
+        "values",
+        "output",
+        "missing",
+        "overwrite",
+        "artifact_kind",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 
 fn with_owner_process_options(
@@ -5983,6 +6013,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "align"
             | "resample"
             | "render"
+            | "apply"
             | "file"
             | "dir"
             | "join"
@@ -11782,6 +11813,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Table[Case]", "eng.case");
     }
 
+    if case_apply_cases_binding(expression).is_some() {
+        return semantic_type("Table[CaseOutput]", "eng.case");
+    }
+
     if lowered_expression.contains("promote csv")
         || lowered_expression.contains("promote json records")
     {
@@ -11921,6 +11956,19 @@ fn materialize_cases_source_table(expression: &str) -> Option<&str> {
     } else {
         None
     }
+}
+
+fn case_apply_cases_binding(expression: &str) -> Option<&str> {
+    let inner = expression
+        .trim()
+        .strip_prefix("apply(")?
+        .strip_suffix(')')?;
+    inner.split(',').find_map(|part| {
+        part.trim()
+            .strip_prefix("over=")
+            .map(str::trim)
+            .filter(|value| is_simple_binding_name(value))
+    })
 }
 
 fn is_simple_binding_name(value: &str) -> bool {

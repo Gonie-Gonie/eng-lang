@@ -2338,6 +2338,7 @@ fn is_command_style_verb(verb: &str) -> bool {
             | "align"
             | "resample"
             | "render"
+            | "apply"
     )
 }
 

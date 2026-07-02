@@ -14,12 +14,13 @@ outputs/surrogate_results.sqlite.db_write_manifest.json
 outputs/workflow_summary.csv
 ```
 
-The per-case inputs should be classified as `template_render` generated files.
-The SQLite database and DB write manifest should be classified as `db_write`.
-Native model, model-card, metric, and prediction records are represented in the
-output manifest's `model_artifacts` section as `model://...` artifacts rather
-than as files produced by an external process. `process_results.json` should
-show `process_count = 0`.
+The per-case inputs should be classified as `case_input` generated files, with
+render manifests classified as `template_render_manifest`. The SQLite database
+and DB write manifest should be classified as `db_write`. Native model,
+model-card, metric, and prediction records are represented in the output
+manifest's `model_artifacts` section as `model://...` artifacts rather than as
+files produced by an external process. `process_results.json` should show
+`process_count = 0`.
 
 The manifest should also include normal EngLang runtime artifacts when the
 example is run with `--save-artifacts`.

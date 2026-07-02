@@ -20,6 +20,13 @@ cooling_results = derive electricity_results column annual_cooling = 3200 kWh + 
 peak_cooling_results = derive cooling_results column peak_cooling = 7 kW + envelope_load_index * 7 kW + occupancy_schedule_index * 2 kW - cooling_cop * 0.6 kW
 training_results = derive peak_cooling_results column unmet_hours = 3 h + envelope_load_index * 1.2 h - cooling_cop * 0.7 h
 cases = materialize cases training_results
+case_inputs = apply case_input_template over cases
+with {
+    template = file("model/native_case_template.txt")
+    output = "{case_dir}/input.txt"
+    missing = error
+    overwrite = true
+}
 
 designs = sample lhs
 with {
@@ -44,47 +51,11 @@ where {
 }
 case_001 = require_one case_001_rows
 
-case_002_rows = filter training_results
-where {
-    case_id == "case_002"
-}
-case_002 = require_one case_002_rows
-
-case_003_rows = filter training_results
-where {
-    case_id == "case_003"
-}
-case_003 = require_one case_003_rows
-
-case_001_input = render template file("model/native_case_template.txt")
-with {
-    values = { case_id = case_001.case_id, annual_electricity = case_001.annual_electricity, peak_cooling = case_001.peak_cooling }
-    output = "outputs/case_001/input.txt"
-    missing = error
-    overwrite = true
-}
-
-case_002_input = render template file("model/native_case_template.txt")
-with {
-    values = { case_id = case_002.case_id, annual_electricity = case_002.annual_electricity, peak_cooling = case_002.peak_cooling }
-    output = "outputs/case_002/input.txt"
-    missing = error
-    overwrite = true
-}
-
-case_003_input = render template file("model/native_case_template.txt")
-with {
-    values = { case_id = case_003.case_id, annual_electricity = case_003.annual_electricity, peak_cooling = case_003.peak_cooling }
-    output = "outputs/case_003/input.txt"
-    missing = error
-    overwrite = true
-}
-
 summary_case_id: String = case_001.case_id
 annual_electricity: Energy [kWh] = case_001.annual_electricity
 peak_cooling: HeatRate [kW] = case_001.peak_cooling
 unmet_hours: Duration [h] = case_001.unmet_hours
-native_case_status = "case inputs and summary metrics rendered natively from selected derived result rows"
+native_case_status = "case inputs rendered by applying a native template step over the materialized case table"
 native_model_status = "training designs, derived results, regression model, predictions, and DB writes materialized natively"
 db = open sqlite file("outputs/surrogate_results.sqlite")
 write training_results to db.table("simulation_results")
@@ -102,6 +73,7 @@ db_tables_written = "simulation_results,predictions"
 print "Design samples = {designs.rows}"
 print "Training result rows = {training_results.rows}"
 print "Case table rows = {cases.rows}"
+print "Case inputs = {case_inputs.rows}"
 print "Predictions = {predictions.rows}"
 log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
@@ -119,6 +91,7 @@ report {
     show designs.rows
     show training_results.rows
     show cases.rows
+    show case_inputs.rows
     show predictions.rows
     show native_case_status
     show native_model_status

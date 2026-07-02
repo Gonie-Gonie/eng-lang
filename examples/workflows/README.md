@@ -11,8 +11,8 @@ Current examples:
   generated standard weather artifact.
 
 02_external_simulation_surrogate
-  native LHS input samples -> native derived result table -> native template
-  renders -> table-based regression -> native prediction table -> SQLite writes.
+  native LHS input samples -> native derived result table -> native case
+  template apply -> table-based regression -> native prediction table -> SQLite writes.
 
 03_uncertain_sensor_report
   typed sensor data -> native coverage/summary bindings -> generated
