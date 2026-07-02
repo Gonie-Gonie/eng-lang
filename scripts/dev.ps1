@@ -1809,6 +1809,7 @@ function Assert-VscodeExtensionContract {
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
     $ModuleStatusPath = Join-Path $ExtensionRoot "moduleStatus.js"
+    $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
@@ -1839,6 +1840,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ModuleStatusPath)) {
         throw "missing VS Code module status wording registry at $ModuleStatusPath"
+    }
+    if (-not (Test-Path $SnippetsPath)) {
+        throw "missing VS Code snippets at $SnippetsPath"
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing eng_lsp source at $LspSourcePath"
@@ -1910,6 +1914,28 @@ function Assert-VscodeExtensionContract {
     }
     if ($LanguageConfiguration.indentationRules.decreaseIndentPattern -ne '^\s*\}') {
         throw "VS Code extension language configuration must outdent block closers"
+    }
+    $Snippets = Get-Content -LiteralPath $SnippetsPath -Raw | ConvertFrom-Json
+    foreach ($RequiredSnippet in @(
+        @{ Name = "Native HTTP GET"; Tokens = @("http get", "fixture", "expected_sha256", "cache_key") },
+        @{ Name = "Native HTTP POST body"; Tokens = @("http post", "body =", "expected_sha256", "cache_key") },
+        @{ Name = "Sample LHS table"; Tokens = @("sample lhs", "count =", "seed =", "uniform(") },
+        @{ Name = "Apply case template"; Tokens = @("apply", "over", "template = file", "{case_dir}") },
+        @{ Name = "Regression prediction table"; Tokens = @("regression_table", "model_card", "evaluate", "predict") },
+        @{ Name = "SQLite table write"; Tokens = @("open sqlite", ".table", "transaction = commit") },
+        @{ Name = "Standard text artifact"; Tokens = @("write standard_text", "output = join", "overwrite = true") },
+        @{ Name = "Plot line"; Tokens = @("plot", "unit y =", "title =") }
+    )) {
+        $SnippetProperty = $Snippets.PSObject.Properties[$RequiredSnippet.Name]
+        if ($null -eq $SnippetProperty) {
+            throw "VS Code snippets missing native snippet $($RequiredSnippet.Name)"
+        }
+        $SnippetBody = (@($SnippetProperty.Value.body) -join "`n")
+        foreach ($RequiredSnippetToken in $RequiredSnippet.Tokens) {
+            if (-not $SnippetBody.Contains($RequiredSnippetToken)) {
+                throw "VS Code snippet $($RequiredSnippet.Name) missing token $RequiredSnippetToken"
+            }
+        }
     }
     foreach ($RequiredVscodeInstallPattern in @(
         '(?m)^\s+"vscode-package"\s*\{\s*Invoke-VscodePackage\s*\}',

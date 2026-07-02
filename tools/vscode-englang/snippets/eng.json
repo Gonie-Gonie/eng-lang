@@ -32,6 +32,110 @@
     ],
     "description": "Create a structured runtime log message."
   },
+  "Native HTTP GET": {
+    "prefix": "http get",
+    "body": [
+      "${1:response} = http get ${2:args.api_url}",
+      "with {",
+      "    query = {",
+      "        ${3:station} = ${4:args.station_id}",
+      "    }",
+      "    fixture = file(\"${5:data/response.json}\")",
+      "    expected_sha256 = \"${6:sha256}\"",
+      "    retry = ${7:2}",
+      "    timeout = ${8:30 s}",
+      "    body_size_limit = ${9:2 MB}",
+      "    cache = true",
+      "    cache_key = [\"${10:http}\", ${11:args.year}]",
+      "}"
+    ],
+    "description": "Create a native pinned HTTP GET boundary."
+  },
+  "Native HTTP POST body": {
+    "prefix": "http post",
+    "body": [
+      "${1:response} = http post ${2:args.api_url}",
+      "with {",
+      "    headers = {",
+      "        content_type = \"application/json\"",
+      "    }",
+      "    body = ${3:request_body}",
+      "    fixture = file(\"${4:data/response.json}\")",
+      "    expected_sha256 = \"${5:sha256}\"",
+      "    timeout = ${6:30 s}",
+      "    body_size_limit = ${7:2 MB}",
+      "    cache = true",
+      "    cache_key = [\"${8:post}\", ${9:args.case_id}]",
+      "}"
+    ],
+    "description": "Create a native HTTP POST boundary with a request body."
+  },
+  "Sample LHS table": {
+    "prefix": "sample lhs",
+    "body": [
+      "${1:designs} = sample lhs",
+      "with {",
+      "    count = ${2:8}",
+      "    seed = ${3:42}",
+      "    ${4:cooling_cop} = uniform(${5:2.5}, ${6:5.0})",
+      "    ${7:load_index} = uniform(${8:0.85}, ${9:1.20})",
+      "}"
+    ],
+    "description": "Create a deterministic native LHS sample table."
+  },
+  "Materialize cases": {
+    "prefix": "materialize cases",
+    "body": [
+      "${1:cases} = materialize cases ${2:training_results}"
+    ],
+    "description": "Materialize native case rows from a table."
+  },
+  "Apply case template": {
+    "prefix": "apply cases",
+    "body": [
+      "${1:case_inputs} = apply ${2:case_input_template} over ${3:cases}",
+      "with {",
+      "    template = file(\"${4:model/native_case_template.txt}\")",
+      "    output = \"{case_dir}/${5:input.txt}\"",
+      "    missing = error",
+      "    overwrite = true",
+      "}"
+    ],
+    "description": "Render per-case input files with the native template workflow."
+  },
+  "Regression prediction table": {
+    "prefix": "predict table",
+    "body": [
+      "${1:model} = regression_table(${2:training_results}, target=${3:annual_electricity}, features=[${4:cooling_cop}], test=${5:0.25}, seed=${6:7})",
+      "${7:model_card_summary} = model_card(${1:model})",
+      "${8:model_metrics} = evaluate(${1:model})",
+      "${9:predictions} = predict ${1:model} using ${10:designs}"
+    ],
+    "description": "Create a native regression model and prediction table."
+  },
+  "SQLite table write": {
+    "prefix": "write sqlite",
+    "body": [
+      "${1:db} = open sqlite file(${2:args.database_target})",
+      "write ${3:predictions} to ${1:db}.table(\"${4:predictions}\")",
+      "with {",
+      "    mode = ${5|replace,append,upsert|}",
+      "    transaction = commit",
+      "}"
+    ],
+    "description": "Write a native table to SQLite with reviewable DB metadata."
+  },
+  "Standard text artifact": {
+    "prefix": "write standard_text",
+    "body": [
+      "write standard_text ${1:weather}",
+      "with {",
+      "    output = join(${2:args.output}, \"${3:standard_weather_file.txt}\")",
+      "    overwrite = true",
+      "}"
+    ],
+    "description": "Write a deterministic standard_text artifact from a table."
+  },
   "Run command": {
     "prefix": "run command",
     "body": [
@@ -127,8 +231,12 @@
     "body": [
       "report {",
       "    plot ${1:series} over Time",
+      "    with {",
+      "        unit y = ${2:kW}",
+      "        title = \"${3:Series over time}\"",
+      "    }",
       "}"
     ],
-    "description": "Create a report line plot request."
+    "description": "Create a report line plot request with axis options."
   }
 }

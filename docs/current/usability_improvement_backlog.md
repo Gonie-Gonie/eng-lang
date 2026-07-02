@@ -2596,6 +2596,19 @@ Status: implemented to remove an invalid IDE suggestion from plot workflows.
 - Taught assigned-option tracking to recognize spaced unit-axis keys, so an
   existing `unit y = ...` no longer reappears as a duplicate completion.
 
+## Batch 211: Native Workflow Snippet Starters
+
+Status: implemented to make VS Code starter snippets match the native workflow
+surface used by the shipped examples.
+
+- Added snippets for native `http get`, `http post` bodies, deterministic
+  `sample lhs`, case materialization/template application, regression
+  prediction tables, SQLite table writes, and `write standard_text` artifacts.
+- Updated the plot snippet to show compiler-supported `unit y =` axis options
+  instead of leaving axis configuration implicit.
+- Extended the VS Code extension contract check so these native workflow
+  snippet starters and their key tokens are guarded by `ide-check`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
