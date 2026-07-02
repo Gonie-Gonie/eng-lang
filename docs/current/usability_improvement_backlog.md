@@ -1980,6 +1980,18 @@ regressing after the source-checkout installer was added.
 - Kept the guard text-specific so missing install commands, hidden help output,
   or stale docs fail the existing editor contract gate.
 
+## Batch 162: JSON Promotion Phrase Highlighting
+
+Status: implemented to keep typed JSON promotion boundaries visibly scoped in
+first-render TextMate highlighting.
+
+- Extended `meta.workflow.promote-json-records.englang` to cover
+  `promote json records <source> as <schema>` instead of stopping after
+  `records`.
+- Scoped the source record path as `variable.other.property.englang` and the
+  target schema name as `entity.name.type.englang`.
+- Added grammar expectations for the full promotion phrase and schema capture.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

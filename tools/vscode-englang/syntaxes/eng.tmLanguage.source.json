@@ -313,11 +313,14 @@
           },
           {
             "name": "meta.workflow.promote-json-records.englang",
-            "match": "\\b(promote)\\s+(json)\\s+(records)\\b",
+            "match": "\\b(promote)\\s+(json)\\s+(records)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
               "2": { "name": "keyword.control.workflow.englang" },
-              "3": { "name": "keyword.control.workflow.englang" }
+              "3": { "name": "keyword.control.workflow.englang" },
+              "4": { "name": "variable.other.property.englang" },
+              "5": { "name": "keyword.operator.word.englang" },
+              "6": { "name": "entity.name.type.englang" }
             }
           },
           {
