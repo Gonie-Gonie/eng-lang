@@ -6056,6 +6056,7 @@ fn is_builtin_function(name: &str) -> bool {
             | "regression_table"
             | "train_regression"
             | "mlp"
+            | "ann"
             | "evaluate"
             | "model_card"
             | "leakage_lint"

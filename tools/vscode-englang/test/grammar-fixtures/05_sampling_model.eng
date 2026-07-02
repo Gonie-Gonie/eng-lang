@@ -14,6 +14,7 @@ split = train_test_split(designs, target=annual_electricity, features=[people_de
 trained = train_regression(designs, target=annual_electricity, features=[people_density], algorithm="linear", seed=7)
 compact_model = regression(split)
 neural_model = mlp(split, hidden=[8], epochs=20)
+ann_model = ann(split, hidden=[8], epochs=20)
 metrics = evaluate(model)
 split_metrics = evaluate(model, split=split)
 card = model_card(model)

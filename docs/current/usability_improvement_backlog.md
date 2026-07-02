@@ -3377,6 +3377,17 @@ Status: implemented while continuing the VS Code entrypoint split.
   `output_manifest.json` wording and added contract checks so the helper stays
   packaged.
 
+## Batch 273: ANN Model Alias Highlighting Parity
+
+Status: implemented while tightening supported keyword highlighting parity.
+
+- Added the compiler-supported `ann(...)` model-training alias to LSP keyword
+  completion, semantic-token model modifiers, and with-block option completion.
+- Added TextMate fallback coverage so `ann(...)` is colored like `mlp(...)`
+  before semantic tokens arrive.
+- Added grammar fixture/smoke expectations and editor token-scope docs so the
+  alias does not drift out of VS Code highlighting again.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

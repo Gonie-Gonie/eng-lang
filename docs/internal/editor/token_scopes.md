@@ -108,7 +108,7 @@ Current workflow phrase scopes:
 | `meta.workflow.log-message.englang` | `log <level> "..."` structured runtime message lines. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>[, split=...])`, `model_card(<model>)`, and related model summary calls. |
-| `meta.workflow.model-train-call.englang` | `train_test_split(...)`, `train_regression(...)`, `regression(...)`, and `mlp(...)` model-training calls. |
+| `meta.workflow.model-train-call.englang` | `train_test_split(...)`, `train_regression(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.with-block.englang` | `with { ... }` option blocks scoped separately from top-level bindings. |

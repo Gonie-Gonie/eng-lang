@@ -570,6 +570,18 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-train-call.englang",
+    "text": "ann(split, hidden=[8], epochs=20)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "ann",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "variable.parameter.property.englang",
     "text": "target",
     "fullMatch": true

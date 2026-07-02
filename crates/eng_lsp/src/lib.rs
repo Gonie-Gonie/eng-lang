@@ -154,6 +154,7 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
 const COMPLETION_KEYWORDS: &[&str] = &[
     "across",
     "and",
+    "ann",
     "append",
     "apply",
     "args",
@@ -343,6 +344,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "regression_table",
     "train_regression",
     "mlp",
+    "ann",
     "evaluate",
     "model_card",
     "leakage_lint",
@@ -476,6 +478,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
         "Train a regression model with explicit options",
     ),
     ("mlp", "Train a small deterministic neural-network model"),
+    (
+        "ann",
+        "Train a small deterministic neural-network model alias",
+    ),
     ("evaluate", "Compute model evaluation metrics"),
     ("model_card", "Create a model-card review artifact"),
     ("leakage_lint", "Check model features for leakage risk"),
@@ -3381,7 +3387,9 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
             &["defaultLibrary", "uncertain"]
         }
         "train_test_split" | "regression" | "regression_table" | "train_regression" | "mlp"
-        | "evaluate" | "model_card" | "leakage_lint" | "predict" => &["defaultLibrary", "model"],
+        | "ann" | "evaluate" | "model_card" | "leakage_lint" | "predict" => {
+            &["defaultLibrary", "model"]
+        }
         "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
         "fill" => &["defaultLibrary", "validation", "workflowStep"],
         "check" | "coverage" | "fill_missing" | "align" | "resample" | "rmse" => {
@@ -4669,7 +4677,10 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     if owner.contains("train_test_split") {
         return Some(&["target", "features", "test", "seed", "cache", "cache_key"]);
     }
-    if owner.contains("regression(") || owner.contains("train_regression") || owner.contains("mlp(")
+    if owner.contains("regression(")
+        || owner.contains("train_regression")
+        || owner.contains("mlp(")
+        || owner.contains("ann(")
     {
         return Some(&[
             "algorithm",
@@ -6215,6 +6226,7 @@ with {
 
 case_row = require_one designs
 surrogate = regression_table(designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
+ann_model = ann(split_alias, hidden=[8], epochs=10)
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
 predictions = predict surrogate using designs
@@ -6248,6 +6260,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "apply",
             "collect",
             "regression_table",
+            "ann",
             "evaluate",
             "model_card",
             "predict",
@@ -6258,7 +6271,13 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_type(&snapshot, source, label, "function");
             assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
         }
-        for label in ["regression_table", "evaluate", "model_card", "predict"] {
+        for label in [
+            "regression_table",
+            "ann",
+            "evaluate",
+            "model_card",
+            "predict",
+        ] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
         assert_semantic_token_modifier(&snapshot, source, "using", "model");

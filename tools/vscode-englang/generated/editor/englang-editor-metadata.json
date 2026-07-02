@@ -481,6 +481,12 @@
                                 "lsp_kind":  3
                             },
                             {
+                                "detail":  "Train a small deterministic neural-network model alias",
+                                "kind":  "function",
+                                "label":  "ann",
+                                "lsp_kind":  3
+                            },
+                            {
                                 "detail":  "Compute model evaluation metrics",
                                 "kind":  "function",
                                 "label":  "evaluate",
@@ -2281,7 +2287,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  380,
+    "completion_seed_count":  381,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
