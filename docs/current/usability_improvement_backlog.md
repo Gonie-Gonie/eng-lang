@@ -2245,6 +2245,16 @@ readable as value-distribution calls in VS Code fallback highlighting.
 - Added grammar expectations for workflow 02 sampling ranges and workflow 03
   uncertainty distribution calls.
 
+## Batch 184: Where Block Highlighting
+
+Status: implemented to make `where { ... }` condition blocks render like other
+first-class EngLang blocks in VS Code fallback highlighting.
+
+- Added `where` to the TextMate block opener scope alongside `args`, `with`,
+  `report`, and related block keywords.
+- Added grammar fixture coverage for a table `filter` followed by a `where`
+  condition block, matching workflow 01/02 and command-style examples.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

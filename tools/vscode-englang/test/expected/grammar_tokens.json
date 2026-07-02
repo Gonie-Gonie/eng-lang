@@ -507,6 +507,11 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "storage.type.block.englang",
+    "text": "where {"
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.select-columns.englang",
     "text": "select designs columns people_density, cooling_cop",
     "fullMatch": true

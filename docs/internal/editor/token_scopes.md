@@ -42,7 +42,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `punctuation.section.*.englang` | Block, bracket, and parenthesis delimiters. |
 | `punctuation.separator.*.englang` | Separators such as commas and colons. |
 | `punctuation.accessor.*.englang` | Accessor punctuation such as dots in paths or members. |
-| `storage.type.*.englang` | Block openers such as `args {` and declaration-level markers. |
+| `storage.type.*.englang` | Block openers such as `args {`, `where {`, and declaration-level markers. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
 | `storage.modifier.englang` | State and input fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
