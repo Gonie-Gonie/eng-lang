@@ -2621,16 +2621,16 @@ fn report_behavior_node_detail(node: &ReportComponentGraphBehaviorNode) -> Strin
         parts.push(format!("delay_s={delay_s}"));
     }
     if let Some(status) = &node.relationship_status {
-        parts.push(format!("relationship={status}"));
+        parts.push(format!("relationship={}", report_status_label(status)));
     }
     if let Some(status) = &node.contract_status {
-        parts.push(format!("contract={status}"));
+        parts.push(format!("contract={}", report_status_label(status)));
     }
     if let Some(policy) = &node.jacobian_policy {
-        parts.push(format!("jacobian={policy}"));
+        parts.push(format!("jacobian={}", report_status_label(policy)));
     }
     if let Some(policy) = &node.profile_policy {
-        parts.push(format!("profile={policy}"));
+        parts.push(format!("profile={}", report_status_label(policy)));
     }
     if !node.contract_inputs.is_empty() {
         parts.push(format!(
@@ -2651,7 +2651,7 @@ fn report_behavior_node_detail(node: &ReportComponentGraphBehaviorNode) -> Strin
         ));
     }
     if let Some(status) = &node.runtime_warning_status {
-        parts.push(format!("runtime_warnings={status}"));
+        parts.push(format!("runtime_warnings={}", report_status_label(status)));
     }
     if parts.is_empty() {
         "-".to_owned()
@@ -2670,11 +2670,54 @@ fn report_behavior_signal_contracts_detail(contracts: &[ReportBehaviorSignalCont
                 contract.name,
                 contract.quantity_kind,
                 contract.display_unit,
-                contract.status
+                report_status_label(&contract.status)
             )
         })
         .collect::<Vec<_>>()
         .join("|")
+}
+
+fn report_status_label(status: &str) -> &str {
+    match status {
+        "algebraic_only_seed" => "algebraic-only preview",
+        "algebraic_split_seed" => "algebraic split preview",
+        "component_local_signal_resolved" => "component-local signal resolved",
+        "dae_split_seed_deferred" => "DAE split deferred",
+        "delay_call_runtime_buffer_seed_not_integrated" => {
+            "delay runtime buffer not connected to this language-level solve"
+        }
+        "delay_relationship_metadata_only" => "delay relationship metadata",
+        "external_behavior_contract_metadata_seed" => "external behavior contract metadata",
+        "external_behavior_wrapper_seed_not_integrated" => {
+            "external behavior adapter not connected to this language-level solve"
+        }
+        "external_output_typed_identity_contract" => "external output typed from input",
+        "mixed_state_algebraic_seed" => "mixed state/algebraic preview",
+        "no_jit_speed_claim" => "no JIT speed claim",
+        "not_adaptive" => "not adaptive",
+        "not_full_dae" => "not a full DAE solve",
+        "not_general_nonlinear" => "not a general nonlinear solve",
+        "not_production_multi_domain" => "not production multi-domain",
+        "predictor_call_contract_seed_not_integrated" => {
+            "Predictor contract not connected to this language-level solve"
+        }
+        "predictor_contract_metadata_seed" => "Predictor contract metadata",
+        "predictor_output_typed_identity_contract" => "Predictor output typed from input",
+        "safe_repro_profile_policy_seed" => "safe/repro profile policy metadata",
+        "solver_policy_not_integrated" => "solver policy not connected",
+        "symbolic_residual_seed_no_nonlinear_iteration" => {
+            "symbolic residual preview, no nonlinear iteration"
+        }
+        other => other,
+    }
+}
+
+fn report_status_list_label(values: &[String]) -> String {
+    values
+        .iter()
+        .map(|value| report_status_label(value))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 fn report_domain_argument_labels(
@@ -6427,7 +6470,7 @@ fn render_html_inner(
             html_escape(&node.name),
             html_escape(&node.behavior_kind),
             html_escape(&node.expression),
-            html_escape(&node.status),
+            html_escape(report_status_label(&node.status)),
             html_escape(&detail)
         ));
         component_behavior.push_str("</tr>");
@@ -6486,7 +6529,7 @@ fn render_html_inner(
                 spec_assembly.solver_preview.delay_history.as_str(),
                 spec_assembly.solver_preview.predictor.as_str(),
                 spec_assembly.solver_preview.external_adapter.as_str(),
-                spec_assembly.solver_preview.limitations.join(", "),
+                report_status_list_label(&spec_assembly.solver_preview.limitations),
             )
         } else {
             (
@@ -6498,7 +6541,7 @@ fn render_html_inner(
                 assembly.solver_preview.delay_history.as_str(),
                 assembly.solver_preview.predictor.as_str(),
                 assembly.solver_preview.external_adapter.as_str(),
-                assembly.solver_preview.limitations.join(", "),
+                report_status_list_label(&assembly.solver_preview.limitations),
             )
         };
         assembly_summary.push_str("<tr>");
@@ -6558,12 +6601,12 @@ fn render_html_inner(
             assembly.line,
             html_escape(preview_status),
             html_escape(preview_method),
-            html_escape(preview_mixed),
-            html_escape(preview_nonlinear),
-            html_escape(preview_dae),
-            html_escape(preview_delay),
-            html_escape(preview_predictor),
-            html_escape(preview_external),
+            html_escape(report_status_label(preview_mixed)),
+            html_escape(report_status_label(preview_nonlinear)),
+            html_escape(report_status_label(preview_dae)),
+            html_escape(report_status_label(preview_delay)),
+            html_escape(report_status_label(preview_predictor)),
+            html_escape(report_status_label(preview_external)),
             html_escape(&preview_limitations)
         ));
         assembly_summary.push_str("</tr>");
@@ -9130,10 +9173,12 @@ mod tests {
         assert!(html.contains("pressure_seed"));
         assert!(html.contains("signal=outlet.m_dot"));
         assert!(html.contains("delay_s=5"));
-        assert!(html.contains("relationship=delay_relationship_metadata_only"));
+        assert!(html.contains("relationship=delay relationship metadata"));
         assert!(html.contains("inputs=input:outlet.m_dot:MassFlowRate"));
         assert!(html.contains("outputs=output:pressure_seed:MassFlowRate"));
         assert!(html.contains("diagnostics=delay_history_underflow_failure"));
+        assert!(!html.contains("delay_call_runtime_buffer_seed_not_integrated"));
+        assert!(html.contains("delay runtime buffer not connected to this language-level solve"));
         assert!(html.contains("Connections"));
         assert!(html.contains("Component Assembly"));
         assert!(html.contains("constraint check"));

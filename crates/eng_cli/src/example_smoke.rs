@@ -4812,10 +4812,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.report_spec_json.contains(
                     "behavior graph nodes are present but not yet integrated into numeric residual evaluation",
                 )
-                || !output.report_html.contains("solver_policy_not_integrated")
+                || !output.report_html.contains("solver policy not connected")
                 || !output
                     .report_html
-                    .contains("safe_repro_profile_policy_seed")
+                    .contains("safe/repro profile policy metadata")
             {
                 eprintln!(
                     "expected component behavior fixture to expose delay, Predictor, and external behavior nodes"

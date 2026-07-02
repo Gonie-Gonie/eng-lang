@@ -2920,6 +2920,7 @@ fn smoke() -> Result<(), String> {
     if root.join("crates/eng_ide").exists() && !ui_index.exists() {
         return Err(format!("missing Tauri UI asset {}", ui_index.display()));
     }
+    assert_native_ide_ui_behavior_status_labels(&root)?;
     let review_example = root.join("examples/official/01_csv_plot/main.eng");
     let review_output = run_file(
         &review_example,
@@ -3826,6 +3827,31 @@ fn smoke() -> Result<(), String> {
     Ok(())
 }
 
+fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String> {
+    let app_js = read_utf8(
+        &root
+            .join("crates")
+            .join("eng_ide")
+            .join("ui")
+            .join("app.js"),
+    )?;
+    for required in [
+        "function statusLabel(status)",
+        "delay runtime buffer not connected to this language-level solve",
+        "Predictor contract not connected to this language-level solve",
+        "safe/repro profile policy metadata",
+        "statusLabel(node.status || \"-\")",
+        "relationship=${statusLabel(relationship)}",
+    ] {
+        if !app_js.contains(required) {
+            return Err(format!(
+                "native IDE app.js should map behavior preview status label `{required}`"
+            ));
+        }
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3951,6 +3977,12 @@ mod tests {
             .find(|completion| completion.label == "file(...)")
             .expect("file helper completion");
         assert_eq!(file_helper.insert, "file(\"data/input.csv\")");
+    }
+
+    #[test]
+    fn native_ide_ui_maps_behavior_preview_status_labels() {
+        let root = workspace_root();
+        assert_native_ide_ui_behavior_status_labels(&root).expect("native IDE UI labels");
     }
 
     #[test]

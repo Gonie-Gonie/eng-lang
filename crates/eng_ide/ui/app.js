@@ -2590,9 +2590,7 @@ function renderAssemblies() {
       ? assembly.connection_sets.length
       : (assembly.connectionSets?.length ?? 0);
     const domainCount = assembly.domain_count ?? assembly.domainCount ?? 0;
-    const limitations = Array.isArray(solverPreview.limitations)
-      ? solverPreview.limitations.join(", ")
-      : "-";
+    const limitations = statusListLabel(solverPreview.limitations);
     const solverResult = assembly.solver_result || assembly.solverResult || {};
     const solverMethod = solverResult.method
       || solverPreview.method
@@ -2618,11 +2616,11 @@ function renderAssemblies() {
     const iterations = `${solverResult.iteration_count ?? solverResult.iterationCount ?? "-"} / ${solverResult.max_iterations ?? solverResult.maxIterations ?? "-"}`;
     return `
       <tr>
-        <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(assembly.status || "-")}</div></td>
+        <td><strong>${escapeHtml(assembly.name || "-")}</strong><div class="muted">${escapeHtml(statusLabel(assembly.status || "-"))}</div></td>
         <td>${escapeHtml(assembly.component_count ?? assembly.componentCount ?? 0)} / ${escapeHtml(assembly.port_count ?? assembly.portCount ?? 0)}</td>
         <td>${escapeHtml(setCount)}<div class="muted">domains ${escapeHtml(domainCount)}</div></td>
         <td>${escapeHtml(Array.isArray(assembly.equations) ? assembly.equations.length : 0)}<div class="muted">component ${escapeHtml(assembly.component_equation_count ?? assembly.componentEquationCount ?? 0)}</div><div class="muted">unknowns ${escapeHtml(boundary.unknown_count ?? boundary.unknownCount ?? 0)}</div></td>
-        <td>${escapeHtml(solverStatus)}<div class="muted">${escapeHtml(solverMethod)}</div><div class="muted">${escapeHtml(limitations)}</div></td>
+        <td>${escapeHtml(statusLabel(solverStatus))}<div class="muted">${escapeHtml(statusLabel(solverMethod))}</div><div class="muted">${escapeHtml(limitations)}</div></td>
         <td>${metricCell(solverResult.residual_norm ?? solverResult.residualNorm)}<div class="muted">tol ${escapeHtml(tolerance)}</div><div class="muted">iter ${escapeHtml(iterations)}</div></td>
         <td>${escapeHtml(componentSolverVariableSummary(solverResult.variables))}</td>
         <td>${escapeHtml(componentSolverTrajectorySummary(solverResult.trajectories))}</td>
@@ -2799,7 +2797,7 @@ function renderComponentGraph() {
     <tr>
       <td><strong>${escapeHtml(node.component || "-")}.${escapeHtml(node.name || "-")}</strong><div class="muted">${escapeHtml(node.behavior_kind || node.behaviorKind || "-")}</div></td>
       <td><code>${escapeHtml(node.expression || "-")}</code></td>
-      <td>${escapeHtml(node.status || "-")}</td>
+      <td>${escapeHtml(statusLabel(node.status || "-"))}</td>
       <td>${escapeHtml(behaviorNodeDetails(node))}</td>
       <td>${sourceLineButton(node)}</td>
     </tr>
@@ -3020,10 +3018,10 @@ function behaviorNodeDetails(node) {
   const runtimeWarnings = node.runtime_warning_status ?? node.runtimeWarningStatus;
   if (signal) parts.push(`signal=${signal}`);
   if (delayS !== null && delayS !== undefined) parts.push(`delay_s=${delayS}`);
-  if (relationship) parts.push(`relationship=${relationship}`);
-  if (contract) parts.push(`contract=${contract}`);
-  if (jacobian) parts.push(`jacobian=${jacobian}`);
-  if (profile) parts.push(`profile=${profile}`);
+  if (relationship) parts.push(`relationship=${statusLabel(relationship)}`);
+  if (contract) parts.push(`contract=${statusLabel(contract)}`);
+  if (jacobian) parts.push(`jacobian=${statusLabel(jacobian)}`);
+  if (profile) parts.push(`profile=${statusLabel(profile)}`);
   if (Array.isArray(contractInputs) && contractInputs.length) {
     parts.push(`inputs=${behaviorContractDetails(contractInputs)}`);
   }
@@ -3033,7 +3031,7 @@ function behaviorNodeDetails(node) {
   if (Array.isArray(diagnostics) && diagnostics.length) {
     parts.push(`diagnostics=${diagnostics.join("|")}`);
   }
-  if (runtimeWarnings) parts.push(`runtime_warnings=${runtimeWarnings}`);
+  if (runtimeWarnings) parts.push(`runtime_warnings=${statusLabel(runtimeWarnings)}`);
   return parts.length ? parts.join(", ") : "-";
 }
 
@@ -3043,7 +3041,7 @@ function behaviorContractDetails(contracts) {
     const name = contract.name || "-";
     const quantity = contract.quantity_kind || contract.quantityKind || "-";
     const unit = contract.display_unit || contract.displayUnit || "-";
-    const status = contract.status || "-";
+    const status = statusLabel(contract.status || "-");
     return `${role}:${name}:${quantity}[${unit}]/${status}`;
   }).join("|");
 }
@@ -4237,6 +4235,61 @@ function validationSummary(validations) {
   const passed = validations.filter((validation) => validation.status === "passed").length;
   const failed = validations.filter((validation) => validation.status === "failed").length;
   return `${passed} passed / ${failed} failed`;
+}
+
+function statusLabel(status) {
+  switch (String(status ?? "-")) {
+    case "algebraic_only_seed":
+      return "algebraic-only preview";
+    case "algebraic_split_seed":
+      return "algebraic split preview";
+    case "component_local_signal_resolved":
+      return "component-local signal resolved";
+    case "dae_split_seed_deferred":
+      return "DAE split deferred";
+    case "delay_call_runtime_buffer_seed_not_integrated":
+      return "delay runtime buffer not connected to this language-level solve";
+    case "delay_relationship_metadata_only":
+      return "delay relationship metadata";
+    case "external_behavior_contract_metadata_seed":
+      return "external behavior contract metadata";
+    case "external_behavior_wrapper_seed_not_integrated":
+      return "external behavior adapter not connected to this language-level solve";
+    case "external_output_typed_identity_contract":
+      return "external output typed from input";
+    case "mixed_state_algebraic_seed":
+      return "mixed state/algebraic preview";
+    case "no_jit_speed_claim":
+      return "no JIT speed claim";
+    case "not_adaptive":
+      return "not adaptive";
+    case "not_full_dae":
+      return "not a full DAE solve";
+    case "not_general_nonlinear":
+      return "not a general nonlinear solve";
+    case "not_production_multi_domain":
+      return "not production multi-domain";
+    case "predictor_call_contract_seed_not_integrated":
+      return "Predictor contract not connected to this language-level solve";
+    case "predictor_contract_metadata_seed":
+      return "Predictor contract metadata";
+    case "predictor_output_typed_identity_contract":
+      return "Predictor output typed from input";
+    case "safe_repro_profile_policy_seed":
+      return "safe/repro profile policy metadata";
+    case "solver_policy_not_integrated":
+      return "solver policy not connected";
+    case "symbolic_residual_seed_no_nonlinear_iteration":
+      return "symbolic residual preview, no nonlinear iteration";
+    default:
+      return String(status ?? "-");
+  }
+}
+
+function statusListLabel(values) {
+  return Array.isArray(values) && values.length
+    ? values.map(statusLabel).join(", ")
+    : "-";
 }
 
 function sourceLineButton(item) {

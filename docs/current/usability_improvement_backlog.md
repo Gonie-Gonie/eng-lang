@@ -2996,6 +2996,20 @@ TextMate fallback but absent from the LSP keyword/completion vocabulary.
 - Preserved the more specific `output` workflow-option completion detail when
   the same label is also present as a declaration keyword.
 
+## Batch 242: Behavior Preview Status Display Labels
+
+Status: implemented after auditing internal component behavior artifacts for
+raw `_seed_not_integrated` status strings leaking into user-facing report and
+IDE tables.
+
+- Kept report-spec JSON contract statuses stable, but mapped component behavior
+  and solver-preview HTML cells to readable labels such as "Predictor contract
+  not connected to this language-level solve".
+- Applied the same display mapping in the Native IDE assembly and component
+  behavior inspectors.
+- Updated smoke expectations so report HTML verifies readable labels while
+  raw contract status remains in JSON artifacts.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
