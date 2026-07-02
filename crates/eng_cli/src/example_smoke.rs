@@ -6504,6 +6504,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"binding\": \"training_results\"")
+                || !output.result_json.contains("\"binding\": \"cases\"")
+                || !output
+                    .result_json
+                    .contains("\"schema_name\": \"CaseTable\"")
+                || !output
+                    .result_json
+                    .contains("\"source\": \"materialize cases training_results\"")
                 || !output
                     .result_json
                     .contains("\"generation\": \"sample_lhs\"")
@@ -6556,6 +6563,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"transaction_status\": \"committed\"")
                 || !output.output_manifest_json.contains("\"model_artifacts\"")
                 || !output.review_json.contains("database_target")
+                || !output.review_json.contains("cases.rows")
                 || !output.review_json.contains("predictions.rows")
                 || !output.review_json.contains("db_tables_written")
                 || !output

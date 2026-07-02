@@ -1861,6 +1861,19 @@ native workflow boundary statements.
 - Added grammar smoke expectations for both phrase scopes so future keyword
   changes do not silently fall back to one-word highlighting.
 
+## Batch 153: Explicit Native Case Materialization
+
+Status: implemented to move workflow 02 from implicit case records toward an
+explicit native `eng.case` source surface.
+
+- Added compiler/runtime support for `materialize cases <table>` as a real
+  `Table[Case]` binding with case IDs, case directories, status, failure
+  reasons, and sample row hashes.
+- Updated workflow 02 to bind `cases = materialize cases training_results` and
+  report the case row count without Python or external process calls.
+- Extended workflow smoke and docs so the explicit `CaseTable` binding cannot
+  regress back to implicit-only case metadata.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

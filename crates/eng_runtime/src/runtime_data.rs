@@ -3061,6 +3061,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     let derived_tables = materialize_table_transform_tables(report, &data.tables);
     data.tables.extend(derived_tables);
+    let explicit_case_tables = materialize_explicit_case_tables(report, &data.tables);
+    data.tables.extend(explicit_case_tables);
     data.time_axes = materialize_time_axes(&data.tables);
     data.timeseries_coverage =
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
@@ -7115,6 +7117,134 @@ fn table_diagnostic_status(
     } else {
         "ok".to_owned()
     }
+}
+
+fn materialize_explicit_case_tables(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTable> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter(|declaration| declaration.quantity_kind == "Table[Case]")
+        .filter_map(|declaration| {
+            let source_name = materialize_cases_source_table(&declaration.expression)?;
+            let source_table = tables.iter().find(|table| table.binding == source_name)?;
+            Some(materialize_explicit_case_table(declaration, source_table))
+        })
+        .collect()
+}
+
+fn materialize_explicit_case_table(
+    declaration: &eng_compiler::InferredDeclaration,
+    source_table: &RuntimeTable,
+) -> RuntimeTable {
+    let case_id_column = source_table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case("case_id"));
+    let case_id_values = case_id_column.and_then(text_column_values);
+    let duplicate_ids = case_id_values
+        .map(duplicate_case_ids)
+        .unwrap_or_default()
+        .into_iter()
+        .collect::<HashSet<_>>();
+
+    let mut case_ids = Vec::new();
+    let mut case_dirs = Vec::new();
+    let mut statuses = Vec::new();
+    let mut failure_reasons = Vec::new();
+    let mut row_hashes = Vec::new();
+    for row_index in 0..source_table.row_count {
+        let case_id = case_id_values
+            .and_then(|values| values.get(row_index))
+            .map(|value| value.trim().to_owned())
+            .unwrap_or_default();
+        let (status, failure_reason, case_dir) = if case_id.is_empty() {
+            (
+                "failed",
+                "case_id is missing for sample row".to_owned(),
+                String::new(),
+            )
+        } else if duplicate_ids.contains(&case_id) {
+            (
+                "failed",
+                format!(
+                    "duplicate case_id `{case_id}` in sample table `{}`",
+                    source_table.binding
+                ),
+                default_case_dir(&case_id),
+            )
+        } else {
+            ("pending", "none".to_owned(), default_case_dir(&case_id))
+        };
+        case_ids.push(case_id);
+        case_dirs.push(case_dir);
+        statuses.push(status.to_owned());
+        failure_reasons.push(failure_reason);
+        row_hashes.push(sample_row_hash(source_table, row_index));
+    }
+
+    let source = format!("materialize cases {}", source_table.binding);
+    let hash_payload = format!(
+        "{}|{}|{}|{}",
+        declaration.name,
+        source,
+        source_table.source_hash.clone().unwrap_or_default(),
+        row_hashes.join(",")
+    );
+    RuntimeTable {
+        binding: declaration.name.clone(),
+        schema_name: "CaseTable".to_owned(),
+        source,
+        source_hash: Some(stable_hash_text(&hash_payload)),
+        row_count: source_table.row_count,
+        columns: vec![
+            text_runtime_column("case_id", "String", case_ids),
+            text_runtime_column("case_dir", "DirectoryPath", case_dirs),
+            text_runtime_column("status", "String", statuses),
+            text_runtime_column("failure_reason", "String", failure_reasons),
+            text_runtime_column("sample_row_hash", "String", row_hashes),
+        ],
+        parse_failures: Vec::new(),
+        line: declaration.line,
+    }
+}
+
+fn text_runtime_column(name: &str, type_name: &str, values: Vec<String>) -> RuntimeColumn {
+    let missing_count = values
+        .iter()
+        .filter(|value| value.trim().is_empty())
+        .count();
+    RuntimeColumn {
+        name: name.to_owned(),
+        type_name: type_name.to_owned(),
+        unit: None,
+        canonical_unit: None,
+        is_index: false,
+        values: RuntimeValues::Text(values),
+        canonical_values: Vec::new(),
+        missing_count,
+        conversion_failures: Vec::new(),
+    }
+}
+
+fn materialize_cases_source_table(expression: &str) -> Option<&str> {
+    let source = expression.trim().strip_prefix("materialize cases ")?.trim();
+    if is_simple_binding_name(source) {
+        Some(source)
+    } else {
+        None
+    }
+}
+
+fn is_simple_binding_name(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn materialize_sample_tables(

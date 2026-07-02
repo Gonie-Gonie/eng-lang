@@ -11778,6 +11778,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Table[Sample]", "schema-defined");
     }
 
+    if materialize_cases_source_table(expression).is_some() {
+        return semantic_type("Table[Case]", "eng.case");
+    }
+
     if lowered_expression.contains("promote csv")
         || lowered_expression.contains("promote json records")
     {
@@ -11908,6 +11912,24 @@ fn path_helper_semantic_type(expression: &str) -> Option<SemanticType> {
         return semantic_type("String", "");
     }
     None
+}
+
+fn materialize_cases_source_table(expression: &str) -> Option<&str> {
+    let source = expression.trim().strip_prefix("materialize cases ")?.trim();
+    if is_simple_binding_name(source) {
+        Some(source)
+    } else {
+        None
+    }
+}
+
+fn is_simple_binding_name(value: &str) -> bool {
+    let mut chars = value.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    (first.is_ascii_alphabetic() || first == '_')
+        && chars.all(|character| character.is_ascii_alphanumeric() || character == '_')
 }
 
 fn db_connection_semantic_type(expression: &str) -> Option<SemanticType> {

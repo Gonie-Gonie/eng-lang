@@ -17921,6 +17921,53 @@ mod tests {
     }
 
     #[test]
+    fn run_source_materializes_explicit_case_table() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-explicit-case-table");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-explicit-case-table-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let virtual_path = source_dir.join("__ide_terminal__.eng");
+
+        let output = run_source(
+            &virtual_path,
+            concat!(
+                "designs = sample lhs\n",
+                "with {\n",
+                "    count = 3\n",
+                "    seed = 42\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n\n",
+                "cases = materialize cases designs\n",
+                "print \"cases={cases.rows}\"\n",
+            ),
+            &build_root,
+            &RunOptions::default(),
+        )
+        .expect("explicit case table run");
+
+        assert!(output.result_json.contains("\"binding\": \"cases\""));
+        assert!(output
+            .result_json
+            .contains("\"schema_name\": \"CaseTable\""));
+        assert!(output
+            .result_json
+            .contains("\"source\": \"materialize cases designs\""));
+        assert!(output.result_json.contains("\"case_dir\""));
+        assert!(output.result_json.contains("\"sample_row_hash\""));
+        assert!(output.result_json.contains("\"status\""));
+        assert!(output.result_json.contains("\"case_id\": \"case_001\""));
+        assert!(output.stdout.contains("cases=3"));
+        assert!(!virtual_path.exists());
+    }
+
+    #[test]
     fn run_file_repro_profile_requires_generated_random_sample_seed() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
