@@ -240,7 +240,7 @@ eng.weather.tmy
 Those adapters should remain above the generic `eng.net`, `eng.cache`,
 `eng.table`, `eng.timeseries`, and `eng.artifact` layers.
 
-## External Simulation Surrogate Pattern
+## Native Surrogate Adapter Pattern
 
 Generic pattern:
 

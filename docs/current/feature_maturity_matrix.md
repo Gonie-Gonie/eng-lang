@@ -275,7 +275,7 @@ separate.
   data-quality diagnostics for invalid sample rows, IDE table transform
   inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
-  The external simulation surrogate workflow now records native sample rows,
+  The native surrogate workflow now records native sample rows,
   CaseOutput rows from `apply ... over cases`, case_input artifacts, surrogate
   model specs/cards, prediction manifests with output quantity/unit and
   confidence-column metadata, and DB write manifests with schema diagnostics,

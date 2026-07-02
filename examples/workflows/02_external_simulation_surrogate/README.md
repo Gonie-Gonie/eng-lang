@@ -1,7 +1,8 @@
-# External Simulation Surrogate
+# Native Simulation Surrogate
 
-This workflow demonstrates a native surrogate-workflow pattern without
-claiming that EngLang core embeds any particular external simulator:
+This workflow demonstrates the native surrogate half of an external-simulator
+adapter pattern. The current executable example does not run an external
+simulator or Python process:
 
 ```text
 native input samples -> native result derivation -> case input templates ->

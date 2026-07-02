@@ -12,7 +12,7 @@ and keep this page focused on workflow examples and their shared contracts.
 Current examples:
 
 - [Weather API to standard file](weather_api_to_standard_file.md)
-- [External simulation surrogate](external_simulation_surrogate.md)
+- [Native simulation surrogate](external_simulation_surrogate.md)
 - [Uncertain sensor report](uncertain_sensor_report.md)
 
 ## Shared Contract

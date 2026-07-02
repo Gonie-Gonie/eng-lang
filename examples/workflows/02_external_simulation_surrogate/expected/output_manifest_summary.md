@@ -24,7 +24,8 @@ is eight. The SQLite database target comes from `args.database_target`, and the
 database plus DB write manifest should be classified as `db_write`. Native
 model, model-card, metric, and prediction records are represented in the output
 manifest's `model_artifacts` section as `model://...` artifacts rather than as
-opaque tool outputs. `process_results.json` should show `process_count = 0`.
+external-process or opaque-tool outputs. `process_results.json` should show
+`process_count = 0`.
 
 The manifest should also include normal EngLang runtime artifacts when the
 example is run with `--save-artifacts`.

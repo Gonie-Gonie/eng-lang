@@ -3123,6 +3123,18 @@ process label for native workflows with `process_count = 0`.
 - Updated the `eng run` reference output and added unit coverage for the
   process-result label selection.
 
+## Batch 252: Native Surrogate Workflow Wording
+
+Status: implemented after reviewing workflow 02 labels for wording that still
+made the native surrogate example sound like it executed an external simulator.
+
+- Reworded workflow 02 public titles from external-simulation-first wording to
+  native surrogate wording while keeping the existing path stable.
+- Clarified that external simulator adapters can feed the same contracts later,
+  but the current executable workflow has zero external process adapters.
+- Updated smoke failure text and expected artifact summaries to avoid
+  external-process or opaque-tool implications.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

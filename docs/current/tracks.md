@@ -124,7 +124,7 @@ and next cleanup action.
   output-manifest
   `artifact_registry` summaries, and
   model specs/cards/prediction-manifest summaries are supported as artifact
-  seeds.
+  evidence.
 - Next cleanup: maintain artifact-first side-effect documentation and add
   module slices only with review/output-manifest evidence.
 
@@ -134,7 +134,7 @@ and next cleanup action.
   cards, database writes, and reports without making domain adapters core
   language identity.
 - Public scope: supported side-effect primitives and workflow skeletons only.
-- Main internal: weather API to standard file and external simulation surrogate
+- Main internal: weather API to standard file and native surrogate
   native examples define contracts for generic modules, including
   promoted table diagnostics, deterministic promoted-table row selection,
   filter/select/derive/sort/require_one/join table transform records,

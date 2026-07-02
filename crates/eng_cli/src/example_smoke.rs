@@ -6591,7 +6591,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"display_unit\": \"person/m2\"")
             {
                 eprintln!(
-                    "expected external simulation surrogate workflow to produce case, prediction, DB, review, output manifest, and report artifacts"
+                    "expected native surrogate workflow to produce case, prediction, DB, review, output manifest, and report artifacts"
                 );
                 return ExitCode::from(2);
             }
@@ -6600,7 +6600,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             );
         }
         Err(error) => {
-            eprintln!("external simulation surrogate workflow example failed: {error}");
+            eprintln!("native surrogate workflow example failed: {error}");
             return ExitCode::from(2);
         }
     }

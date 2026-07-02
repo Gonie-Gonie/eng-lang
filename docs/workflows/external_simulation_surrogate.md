@@ -1,8 +1,10 @@
-# External Simulation Surrogate
+# Native Simulation Surrogate
 
 Source example: `examples/workflows/02_external_simulation_surrogate/main.eng`
 
-This workflow demonstrates a native surrogate pattern:
+This workflow demonstrates a native surrogate workflow that an external
+simulator adapter could feed later. The current executable example runs with
+zero external process adapters:
 
 ```text
 LHS training samples -> explicit CaseTable -> apply template over cases -> LHS prediction samples -> regression_table -> predict -> SQLite
