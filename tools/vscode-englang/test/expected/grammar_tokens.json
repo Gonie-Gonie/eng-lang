@@ -322,13 +322,13 @@
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.predict-model.englang",
-    "text": "predict model using",
+    "text": "predict model using designs",
     "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.predict-model.englang",
-    "text": "predict surrogate_model using",
+    "text": "predict surrogate_model using designs",
     "fullMatch": true
   },
   {
@@ -396,7 +396,7 @@
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.materialize-cases.englang",
-    "text": "materialize cases",
+    "text": "materialize cases designs",
     "fullMatch": true
   },
   {
@@ -473,7 +473,13 @@
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.collect-results.englang",
-    "text": "collect results",
+    "text": "collect results case_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.local.englang",
+    "text": "case_results",
     "fullMatch": true
   },
   {

@@ -1942,6 +1942,20 @@ the canonical `apply(..., over=...)` form.
 - Added grammar fixture expectations for the full command-style apply phrase and
   table reference.
 
+## Batch 159: Workflow Reference Phrase Highlighting
+
+Status: implemented to keep native workflow source/reference bindings visibly
+scoped inside first-render TextMate phrase highlighting.
+
+- Extended `materialize cases <table>` so the source table is part of
+  `meta.workflow.materialize-cases.englang`.
+- Extended `predict <model> using <table>` so both model and input table
+  references are scoped as local bindings inside the phrase.
+- Extended `collect results <table>` so collected result bindings are included
+  in `meta.workflow.collect-results.englang`.
+- Added grammar expectations for these full phrases and their local-binding
+  references.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -84,16 +84,16 @@ Current workflow phrase scopes:
 | `meta.workflow.apply-call.englang` | `apply(<step>, over=<table>)` |
 | `meta.workflow.apply-step.englang` | `apply <step> over <table>` |
 | `meta.workflow.check-coverage.englang` | `check coverage` |
-| `meta.workflow.collect-results.englang` | `collect results` |
+| `meta.workflow.collect-results.englang` | `collect results <table>` |
 | `meta.workflow.db-write.englang` | `write <table> to <db>.table` |
 | `meta.workflow.derive-column.englang` | `derive <table> column ...` |
 | `meta.workflow.download-to.englang` | `download ... to ...` |
 | `meta.workflow.export-summary-csv.englang` | `export summary to csv` |
 | `meta.workflow.http-request.englang` | `http get`, `http post`, and other HTTP request phrases. |
-| `meta.workflow.materialize-cases.englang` | `materialize cases` |
+| `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.open-sqlite.englang` | `open sqlite` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
-| `meta.workflow.predict-model.englang` | `predict <model> using ...` |
+| `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
 | `meta.workflow.promote-json-records.englang` | `promote json records` |
 | `meta.workflow.read-structured.englang` | `read json`, `read toml`, `read text`, and `read csv`. |
 | `meta.workflow.run-command.englang` | `run command ...` |
