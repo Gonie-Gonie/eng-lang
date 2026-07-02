@@ -99,6 +99,7 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
 | `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, `read text <source>`, and `read csv <source>`. |
+| `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.render-template.englang` | `render template <source>` |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |

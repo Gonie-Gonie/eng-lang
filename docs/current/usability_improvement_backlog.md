@@ -2105,6 +2105,16 @@ workflow phrases before semantic tokens arrive.
 - Added grammar expectations for `http get api_url`, `http get args.api_url`,
   and `http post api_url`.
 
+## Batch 172: Require-One Phrase Highlighting
+
+Status: implemented to keep native table row-selection helpers readable as
+workflow phrases in first-render TextMate highlighting.
+
+- Added `meta.workflow.require-one.englang` for `require_one <table>`.
+- Scoped the source table operand as a workflow-local reference.
+- Added grammar expectations for `require_one designs` so filter/require-one
+  table workflows do not render as isolated builtin words.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

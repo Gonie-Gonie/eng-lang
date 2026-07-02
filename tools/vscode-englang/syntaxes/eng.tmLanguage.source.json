@@ -405,6 +405,14 @@
             }
           },
           {
+            "name": "meta.workflow.require-one.englang",
+            "match": "\\b(require_one)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "captures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.local.englang" }
+            }
+          },
+          {
             "name": "meta.workflow.apply-call.englang",
             "match": "\\b(apply)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(,)\\s*(over)\\s*(=)\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
             "captures": {
