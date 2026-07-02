@@ -1636,6 +1636,9 @@ fn definition_for_request(request: &Value, documents: &HashMap<String, String>) 
         .or_else(|| std::fs::read_to_string(&path).ok())?;
     let snapshot = snapshot_for_source(&path, &text);
     let symbol = symbol_at_position(&text, line_zero_based, character)?;
+    if let Some(target) = stdlib_module_definition_target(&symbol) {
+        return Some(definition_location_json(&target));
+    }
     let hover = hover_for_symbol(&snapshot.hovers, &symbol)?;
     let label = definition_label_for_hover_name(&hover.name);
     let target = definition_target_in_source(uri, &text, &label, hover.line)
@@ -1787,6 +1790,56 @@ fn imported_definition_target_from_program(
         visited.remove(&import_path);
     }
     None
+}
+
+fn stdlib_module_definition_target(symbol: &str) -> Option<DefinitionTarget> {
+    if !symbol
+        .strip_prefix("eng.")
+        .is_some_and(|name| !name.is_empty() && !name.contains('.'))
+    {
+        return None;
+    }
+    let repo_root = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .and_then(Path::parent)?;
+    let module_name = symbol.strip_prefix("eng.")?;
+    let module_path = repo_root
+        .join("stdlib")
+        .join("eng")
+        .join(format!("{module_name}.eng"));
+    if module_path.exists() {
+        return stdlib_module_file_definition_target(&module_path, symbol);
+    }
+    let registry_path = repo_root.join("stdlib").join("eng").join("modules.toml");
+    stdlib_module_registry_definition_target(&registry_path, symbol)
+}
+
+fn stdlib_module_file_definition_target(
+    path: &Path,
+    module_name: &str,
+) -> Option<DefinitionTarget> {
+    let source = std::fs::read_to_string(path).ok()?;
+    let uri = file_uri_from_path(&path.canonicalize().unwrap_or_else(|_| path.to_path_buf()));
+    let line = source
+        .lines()
+        .position(|line| line.contains(&format!("module: {module_name}")))
+        .map(|line| line + 1)
+        .unwrap_or(1);
+    definition_target_on_line(&uri, &source, line, module_name)
+}
+
+fn stdlib_module_registry_definition_target(
+    path: &Path,
+    module_name: &str,
+) -> Option<DefinitionTarget> {
+    let source = std::fs::read_to_string(path).ok()?;
+    let uri = file_uri_from_path(&path.canonicalize().unwrap_or_else(|_| path.to_path_buf()));
+    let header = format!("[module.\"{module_name}\"]");
+    let line = source
+        .lines()
+        .position(|line| line.trim() == header)
+        .map(|line| line + 1)?;
+    definition_target_on_line(&uri, &source, line, module_name)
 }
 
 fn resolve_static_import_path(base_dir: &Path, target: &str) -> Option<PathBuf> {

@@ -1348,6 +1348,73 @@ fn definition_stdin_follows_static_imports() {
 }
 
 #[test]
+fn definition_stdin_follows_stdlib_modules() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root().join("build/editor-tests/stdlib_module_definition.eng");
+    let source = "use eng.net\n";
+    let module_char = source
+        .lines()
+        .next()
+        .expect("source line should exist")
+        .find("net")
+        .expect("source should import eng.net")
+        + 1;
+
+    let mut child = Command::new(server)
+        .arg("--definition-stdin")
+        .arg(&source_path)
+        .arg("0")
+        .arg(module_char.to_string())
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp definition-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("definition-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "definition-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let definition: Value =
+        serde_json::from_slice(&output.stdout).expect("definition stdout should be JSON");
+    let module_path = repo_root()
+        .join("stdlib/eng/net.eng")
+        .canonicalize()
+        .expect("stdlib module source should exist");
+    let module_uri = file_uri(&module_path);
+    let module_source =
+        std::fs::read_to_string(&module_path).expect("stdlib module should be readable");
+    let module_line = module_source
+        .lines()
+        .position(|line| line.contains("module: eng.net"))
+        .expect("stdlib module should declare its module name");
+    let module_char = module_source
+        .lines()
+        .nth(module_line)
+        .expect("module line should exist")
+        .find("eng.net")
+        .expect("module line should contain eng.net");
+
+    assert_eq!(definition["uri"], module_uri);
+    assert_eq!(definition["range"]["start"]["line"], module_line);
+    assert_eq!(definition["range"]["start"]["character"], module_char);
+    assert_eq!(
+        definition["range"]["end"]["character"],
+        module_char + "eng.net".len()
+    );
+}
+
+#[test]
 fn editor_metadata_cli_exports_editor_contract() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let output = Command::new(server)

@@ -2501,6 +2501,19 @@ fixture and live HTTP hash mismatch diagnostics.
 - Added LSP stdio regression coverage for the live HTTP observed-hash message
   shape while keeping the existing fixture-backed quick fix.
 
+## Batch 204: Stdlib Module Definition Navigation
+
+Status: implemented for LSP-backed go-to-definition on bundled stdlib module
+imports.
+
+- Routed `textDocument/definition` and `--definition-stdin` requests on
+  `use eng.<module>` symbols to `stdlib/eng/<module>.eng` when a module source
+  file exists.
+- Kept a registry fallback to `stdlib/eng/modules.toml` for modules that are
+  documented in the registry but do not have a dedicated `.eng` source file.
+- Added an LSP stdio regression test for `use eng.net` navigation to the
+  bundled `stdlib/eng/net.eng` module declaration.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
