@@ -15,7 +15,7 @@ This area contains lookup material for EngLang syntax and semantic rules.
 - [Plotting](plotting.md)
 - [Side-effect policy](side_effect_policy.md)
 
-## Planned Skeleton Pages
+## Focused Lookup Pages
 
 - [Types](types.md)
 - [Units](units.md)

@@ -2943,6 +2943,18 @@ implementation-oriented module wording.
 - Extended LSP completion tests so `require_one`, `regression_table`, `predict`,
   and `fixture` details stay action-oriented.
 
+## Batch 238: Reference Skeleton Cleanup
+
+Status: implemented after auditing public reference docs for placeholder pages.
+
+- Replaced language reference skeleton pages for types, units, schemas, report
+  language, and diagnostics with short current lookup material and links to the
+  detailed source-of-truth pages.
+- Replaced the diagnostics reference skeleton with a stable index and diagnostic
+  wording contract.
+- Renamed the language index section from planned skeletons to focused lookup
+  pages so public docs no longer advertise unfinished placeholders.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
