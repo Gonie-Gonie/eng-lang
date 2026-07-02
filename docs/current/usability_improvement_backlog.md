@@ -3097,6 +3097,19 @@ editor vocabulary.
 - Extended grammar fixture and editor metadata coverage for the public
   TimeSeries fill workflow.
 
+## Batch 250: Schema Quality Semantic Tokens
+
+Status: implemented after checking workflow 01/03 schema quality blocks
+against the LSP semantic token overlay.
+
+- Marked schema `constraints` and `missing` quality keywords with the
+  validation semantic modifier.
+- Added semantic validation coverage for constraint words such as `between` and
+  `monotonic`, plus missing-policy tokens such as `interpolate`, `max_gap`, and
+  `error`.
+- Extended LSP snapshot coverage so schema quality blocks stay as colorful and
+  meaningful as workflow validation lines.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

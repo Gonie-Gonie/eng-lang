@@ -1056,6 +1056,18 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 builder.push_on_line(column.line, unit, "type", &["unit"]);
             }
         }
+        for constraint in &schema.constraints {
+            builder.push_keywords_on_line(
+                constraint.line,
+                &["between", "monotonic", "is", "none", "and", "or"],
+                &["validation"],
+            );
+        }
+        for policy in &schema.missing_policies {
+            builder.push_on_line(policy.line, &policy.column, "property", &["validation"]);
+            builder.push_on_line(policy.line, "max_gap", "property", &["validation"]);
+            builder.push_keywords_on_line(policy.line, &["interpolate", "error"], &["validation"]);
+        }
     }
 
     for promotion in &program.csv_promotions {
@@ -3146,9 +3158,8 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "print" | "log" => &["report"],
-        "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within" => {
-            &["validation"]
-        }
+        "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within"
+        | "constraints" | "missing" | "interpolate" | "monotonic" | "between" => &["validation"],
         "simulate" | "solve" | "connect" | "conservation" | "equation" | "operator" | "states"
         | "inputs" | "outputs" => &["solver"],
         "script" | "struct" => &["deprecated"],
@@ -5619,6 +5630,16 @@ system RoomThermal {
     T_supply: AbsoluteTemperature [degC]
     T_return: AbsoluteTemperature [degC]
     m_dot: MassFlowRate [kg/s]
+
+    constraints {
+        time is monotonic
+        T_supply between 0 degC and 60 degC
+    }
+
+    missing {
+        T_supply: interpolate max_gap=10 min
+        T_return: error
+    }
 }
 
 sensor = promote csv file("data/sensor.csv") as SensorData
@@ -5719,6 +5740,13 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "resume", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
         assert_semantic_token_modifier(&snapshot, source, "on_many", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "constraints", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "monotonic", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "between", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "interpolate", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "max_gap", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "error", "validation");
         assert_semantic_token_modifier(&snapshot, source, "sensor_std", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "confidence_band", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "unit y", "report");
