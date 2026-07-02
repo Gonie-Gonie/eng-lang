@@ -747,13 +747,34 @@
           },
           {
             "name": "meta.workflow.model-summary-call.englang",
-            "match": "\\b(evaluate|model_card|leakage_lint)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
-            "captures": {
+            "begin": "\\b(evaluate|model_card|leakage_lint)\\s*(\\()",
+            "beginCaptures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "punctuation.section.parens.begin.englang" },
-              "3": { "name": "variable.other.local.englang" },
-              "4": { "name": "punctuation.section.parens.end.englang" }
-            }
+              "2": { "name": "punctuation.section.parens.begin.englang" }
+            },
+            "end": "\\)",
+            "endCaptures": {
+              "0": { "name": "punctuation.section.parens.end.englang" }
+            },
+            "patterns": [
+              {
+                "match": "\\b(split)\\b\\s*(=)",
+                "captures": {
+                  "1": { "name": "variable.parameter.property.englang" },
+                  "2": { "name": "keyword.operator.englang" }
+                }
+              },
+              { "include": "#strings" },
+              { "include": "#builtins" },
+              { "include": "#constants" },
+              { "include": "#numbers" },
+              { "include": "#operators" },
+              { "include": "#punctuation" },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_.]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.require-one.englang",

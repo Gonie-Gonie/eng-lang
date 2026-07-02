@@ -15,7 +15,9 @@ trained = train_regression(designs, target=annual_electricity, features=[people_
 compact_model = regression(split)
 neural_model = mlp(split, hidden=[8], epochs=20)
 metrics = evaluate(model)
+split_metrics = evaluate(model, split=split)
 card = model_card(model)
+leakage = leakage_lint(split)
 predictions = predict model using designs
 surrogate_predictions = predict surrogate_model using designs
 filtered_designs = filter designs

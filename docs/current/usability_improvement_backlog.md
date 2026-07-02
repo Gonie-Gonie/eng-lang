@@ -3304,6 +3304,18 @@ Status: implemented while improving workflow phrase highlighting consistency.
 - Updated the editor token-scope contract so the new model-training scope is
   documented and checked with the rest of the workflow phrase scopes.
 
+## Batch 267: VS Code Model Summary Option Highlighting
+
+Status: implemented while tightening native model API phrase highlighting.
+
+- Expanded `meta.workflow.model-summary-call.englang` from single-argument
+  matches to full parenthesized calls so `evaluate(model, split=split)` remains
+  highlighted as one model workflow action.
+- Added grammar fixture and token expectations for option-bearing `evaluate`
+  calls and `leakage_lint(...)`.
+- Updated the token-scope contract wording to document the supported optional
+  split argument form.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
