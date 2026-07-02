@@ -16,10 +16,8 @@ $GrammarSourcePath = Join-Path $ExtensionRoot "syntaxes\eng.tmLanguage.source.js
 $GrammarPath = Join-Path $ExtensionRoot "syntaxes\eng.tmLanguage.json"
 $ExpectedPath = Join-Path $ExtensionRoot "test\expected\grammar_tokens.json"
 $FixtureRoot = Join-Path $ExtensionRoot "test\grammar-fixtures"
-$LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
-$CompilerUnitsPath = Join-Path $RepoRoot "crates\eng_compiler\src\units.rs"
-$CompilerQuantitiesPath = Join-Path $RepoRoot "crates\eng_compiler\src\quantities.rs"
-foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $FixtureRoot, $LspSourcePath, $CompilerUnitsPath, $CompilerQuantitiesPath)) {
+$EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
+foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $FixtureRoot, $EditorMetadataPath)) {
     if (-not (Test-Path -LiteralPath $RequiredPath)) {
         throw "missing grammar test input at $RequiredPath"
     }
@@ -28,9 +26,11 @@ foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $Fi
 $GrammarSourceRaw = Get-Content -LiteralPath $GrammarSourcePath -Raw -Encoding UTF8
 $Grammar = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $ExpectedJson = Get-Content -LiteralPath $ExpectedPath -Raw -Encoding UTF8 | ConvertFrom-Json
-$LspSource = Get-Content -LiteralPath $LspSourcePath -Raw -Encoding UTF8
-$CompilerUnitsSource = Get-Content -LiteralPath $CompilerUnitsPath -Raw -Encoding UTF8
-$CompilerQuantitiesSource = Get-Content -LiteralPath $CompilerQuantitiesPath -Raw -Encoding UTF8
+$EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$SyntaxCatalog = $EditorMetadata.syntax_catalog
+if ($null -eq $SyntaxCatalog) {
+    throw "generated editor metadata is missing syntax_catalog. Run .\dev.bat vscode-build-editor-metadata"
+}
 $Expected = New-Object System.Collections.Generic.List[object]
 if ($ExpectedJson -is [System.Array]) {
     foreach ($item in $ExpectedJson) {
@@ -166,50 +166,6 @@ function Test-PatternMatchesText {
         return [regex]::IsMatch($Text, [string] $patternNode.begin) -and [regex]::IsMatch($Text, [string] $patternNode.end)
     }
     return $false
-}
-
-function Read-RustStringSliceConst {
-    param(
-        [Parameter(Mandatory = $true)][string] $Source,
-        [Parameter(Mandatory = $true)][string] $Name
-    )
-
-    $pattern = "const\s+$([regex]::Escape($Name))\s*:\s*&\[\&str\]\s*=\s*&\[(?<body>.*?)\];"
-    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
-    if (-not $match.Success) {
-        throw "missing Rust string slice constant $Name"
-    }
-    return @([regex]::Matches($match.Groups["body"].Value, '"([^"]+)"') | ForEach-Object { $_.Groups[1].Value })
-}
-
-function Read-RustTupleFirstStringsConst {
-    param(
-        [Parameter(Mandatory = $true)][string] $Source,
-        [Parameter(Mandatory = $true)][string] $Name
-    )
-
-    $pattern = "const\s+$([regex]::Escape($Name))\s*:\s*&\[\(\&str,\s*\&str\)\]\s*=\s*&\[(?<body>.*?)\];"
-    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
-    if (-not $match.Success) {
-        throw "missing Rust tuple string constant $Name"
-    }
-    return @([regex]::Matches($match.Groups["body"].Value, '\(\s*"([^"]+)"\s*,') | ForEach-Object { $_.Groups[1].Value })
-}
-
-function Read-RustStructFieldStringsConst {
-    param(
-        [Parameter(Mandatory = $true)][string] $Source,
-        [Parameter(Mandatory = $true)][string] $Name,
-        [Parameter(Mandatory = $true)][string] $FieldName
-    )
-
-    $pattern = "(?:pub\s+)?const\s+$([regex]::Escape($Name))\s*:\s*&\[[^\]]+\]\s*=\s*&\[(?<body>.*?)\];"
-    $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
-    if (-not $match.Success) {
-        throw "missing Rust struct array constant $Name"
-    }
-    $fieldPattern = [regex]::Escape($FieldName) + '\s*:\s*"([^"]+)"'
-    return @([regex]::Matches($match.Groups["body"].Value, $fieldPattern) | ForEach-Object { $_.Groups[1].Value })
 }
 
 function Read-GrammarWorkflowOptionLabels {
@@ -431,21 +387,21 @@ function Assert-AnyScopeMatchesLabels {
     }
 }
 
-$CompletionKeywords = Read-RustStringSliceConst -Source $LspSource -Name "COMPLETION_KEYWORDS"
-$WorkflowBuiltins = Read-RustStringSliceConst -Source $LspSource -Name "WORKFLOW_BUILTIN_KEYWORDS"
-$WorkflowOptions = Read-RustTupleFirstStringsConst -Source $LspSource -Name "WORKFLOW_OPTION_COMPLETIONS"
+$CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
+$WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
+$WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 $GrammarWorkflowOptions = Read-GrammarWorkflowOptionLabels
-$PublicTypeLabels = @(Read-RustTupleFirstStringsConst -Source $LspSource -Name "PUBLIC_TYPE_COMPLETIONS")
+$PublicTypeLabels = @($SyntaxCatalog.public_types | ForEach-Object { [string]$_.label })
 $PublicGenericTypes = @($PublicTypeLabels | Where-Object {
     $_ -match "\[[^\]]+\]"
 })
 $PublicTypes = @($PublicTypeLabels | ForEach-Object {
     ($_ -replace "\[.*$", "")
 } | Select-Object -Unique)
-$CompilerUnitSymbols = @(Read-RustStructFieldStringsConst -Source $CompilerUnitsSource -Name "UNIT_INFOS" -FieldName "symbol" | Where-Object {
+$CompilerUnitSymbols = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Where-Object {
     $_ -cmatch '^[\x20-\x7E]+$'
 } | Select-Object -Unique)
-$CompilerQuantityKinds = @(Read-RustStructFieldStringsConst -Source $CompilerQuantitiesSource -Name "QUANTITY_COMPLETIONS" -FieldName "quantity_kind" | Select-Object -Unique)
+$CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
 
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
 Assert-GrammarSourceContainsLabels -Source $GrammarSourceRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"

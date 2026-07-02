@@ -163,8 +163,8 @@ Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated
 completion catalog from `generated/editor/englang-editor-metadata.json`. The
-same generated metadata also supplies the semantic highlighting catalog used by
-editor contract checks.
+same generated metadata also supplies the semantic highlighting legend and
+syntax catalog used by editor contract checks.
 
 Format Document uses the current unsaved buffer, so VS Code and the command-line
 formatter share the compiler-owned formatting rules. JavaScript does not
@@ -192,11 +192,14 @@ The grammar smoke writes token-check output under
 
 ## Editor Metadata
 
-The extension loads its semantic-token legend through `editorMetadata.js` from
-`generated/editor/englang-editor-metadata.json`, generated from
-`eng-lsp --editor-metadata`. The same metadata file also provides the static
-completion fallback used when live LSP completion is unavailable. Regenerate it
-after LSP completion or semantic legend changes:
+The extension loads its semantic-token legend and syntax catalog through
+`editorMetadata.js` from `generated/editor/englang-editor-metadata.json`,
+generated from `eng-lsp --editor-metadata`. Split generated files are also
+written for review: `englang-semantic-legend.json`,
+`englang-completions.json`, and `englang-syntax.json`. The same metadata file
+provides the static completion fallback used when live completion is
+unavailable. Regenerate it after LSP completion, keyword, option, type, unit,
+or semantic legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata

@@ -10,6 +10,7 @@ $OutputRoot = Join-Path $ExtensionRoot "generated\editor"
 $FullMetadataPath = Join-Path $OutputRoot "englang-editor-metadata.json"
 $SemanticLegendPath = Join-Path $OutputRoot "englang-semantic-legend.json"
 $CompletionsPath = Join-Path $OutputRoot "englang-completions.json"
+$SyntaxCatalogPath = Join-Path $OutputRoot "englang-syntax.json"
 $Cargo = Get-Command cargo -ErrorAction SilentlyContinue
 if ($null -eq $Cargo) {
     throw "Cargo not found. Run .\dev.bat setup."
@@ -46,11 +47,16 @@ $Completions = [ordered]@{
     completion_seed_count = $Metadata.completion_seed_count
     completion_seed = $Metadata.completion_seed
 }
+$SyntaxCatalog = [ordered]@{
+    format = $Metadata.format
+    syntax_catalog = $Metadata.syntax_catalog
+}
 
 $ExpectedFiles = @(
     @{ Path = $FullMetadataPath; Content = ConvertTo-StableJson $Metadata },
     @{ Path = $SemanticLegendPath; Content = ConvertTo-StableJson $SemanticLegend },
-    @{ Path = $CompletionsPath; Content = ConvertTo-StableJson $Completions }
+    @{ Path = $CompletionsPath; Content = ConvertTo-StableJson $Completions },
+    @{ Path = $SyntaxCatalogPath; Content = ConvertTo-StableJson $SyntaxCatalog }
 )
 
 if ($Check) {

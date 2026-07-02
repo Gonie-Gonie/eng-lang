@@ -13,6 +13,7 @@ the files that keep VS Code and the native IDE aligned.
 | Generated TextMate grammar | `tools/vscode-englang/syntaxes/eng.tmLanguage.json` |
 | Semantic token legend | `eng-lsp --editor-metadata` |
 | Generated editor metadata | `tools/vscode-englang/generated/editor/englang-editor-metadata.json` |
+| Generated syntax catalog | `tools/vscode-englang/generated/editor/englang-syntax.json` |
 | VS Code semantic fallback scopes | `tools/vscode-englang/package.json` |
 | Grammar smoke fixtures | `tools/vscode-englang/test/grammar-fixtures/*.eng` |
 | Grammar smoke expectations | `tools/vscode-englang/test/expected/grammar_tokens.json` |
@@ -290,8 +291,9 @@ When a new semantic modifier is added, update all of these together:
 2. `tools/vscode-englang/package.json`
 3. `tools/vscode-englang/generated/editor/englang-editor-metadata.json`
 4. `tools/vscode-englang/generated/editor/englang-semantic-legend.json`
-5. This document
-6. `.\dev.bat ide-check`
+5. `tools/vscode-englang/generated/editor/englang-syntax.json`
+6. This document
+7. `.\dev.bat ide-check`
 
 ## Coverage Rules
 

@@ -876,8 +876,50 @@ pub fn editor_metadata_json() -> Value {
     json!({
         "format": LSP_EDITOR_METADATA_FORMAT,
         "semantic_token_legend": semantic_legend_json(&semantic_legend()),
+        "syntax_catalog": editor_syntax_catalog_json(),
         "completion_seed_count": completions.len(),
         "completion_seed": completions.iter().map(editor_completion_json).collect::<Vec<_>>(),
+    })
+}
+
+pub fn editor_syntax_catalog_json() -> Value {
+    json!({
+        "keywords": COMPLETION_KEYWORDS,
+        "workflow_builtins": WORKFLOW_BUILTIN_KEYWORDS,
+        "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
+        "workflow_options": WORKFLOW_OPTION_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
+        "public_types": PUBLIC_TYPE_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+                "base": public_type_completion_base(label),
+            }))
+            .collect::<Vec<_>>(),
+        "quantities": all_quantity_completions()
+            .iter()
+            .map(|quantity| json!({
+                "label": quantity.quantity_kind,
+                "canonical_unit": quantity.canonical_unit,
+                "dimension": quantity.dimension,
+                "detail": quantity.description,
+            }))
+            .collect::<Vec<_>>(),
+        "units": all_unit_infos()
+            .iter()
+            .map(|unit| json!({
+                "label": unit.symbol,
+                "canonical_unit": unit.canonical_unit,
+                "quantity_hint": unit.quantity_hint,
+                "dimension": unit.dimension,
+            }))
+            .collect::<Vec<_>>(),
     })
 }
 
@@ -5866,6 +5908,28 @@ mod tests {
         assert_eq!(
             metadata["semantic_token_legend"]["token_modifiers"][0],
             SEMANTIC_TOKEN_MODIFIERS[0]
+        );
+        let syntax_catalog = &metadata["syntax_catalog"];
+        assert_eq!(syntax_catalog["keywords"][0], COMPLETION_KEYWORDS[0]);
+        assert!(
+            syntax_catalog["workflow_builtins"]
+                .as_array()
+                .is_some_and(|labels| labels.iter().any(|label| label == "train")),
+            "syntax catalog should expose workflow builtin labels"
+        );
+        assert!(
+            syntax_catalog["workflow_options"]
+                .as_array()
+                .is_some_and(|options| options
+                    .iter()
+                    .any(|option| option["label"] == "offline_response")),
+            "syntax catalog should expose with-block option labels"
+        );
+        assert!(
+            syntax_catalog["units"]
+                .as_array()
+                .is_some_and(|units| units.iter().any(|unit| unit["label"] == "kW")),
+            "syntax catalog should expose compiler unit labels"
         );
 
         let completions = metadata["completion_seed"]

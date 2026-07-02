@@ -7,6 +7,8 @@ prefer the VS Code extension, native IDE, or `eng.exe check`.
 IDE, and automated smoke-test consumers that need compiler diagnostics,
 completion metadata, hover metadata, semantic highlighting data, document
 symbols, and folding ranges without starting a long-lived editor session.
+`eng-lsp.exe --editor-metadata` emits the static editor catalog used by the VS
+Code extension and grammar smoke checks.
 
 The current format marker is:
 
@@ -57,6 +59,16 @@ it has a clear compatibility rule so tools can be built against it safely:
 `folding_ranges` are always arrays. `semantic_tokens` always has a legend and a
 token array. These arrays may be empty when the source legitimately has no
 diagnostics or no semantic metadata.
+
+## Static Editor Metadata
+
+`--editor-metadata` uses `eng-lsp-editor-metadata-v1` and contains:
+
+- `semantic_token_legend`: token types and modifiers shared with VS Code.
+- `syntax_catalog`: keyword, workflow builtin, with-option, public type,
+  quantity, and unit labels used by grammar and highlight checks.
+- `completion_seed`: fallback completions used when live completion is
+  unavailable.
 
 ## Diagnostics
 

@@ -2439,5 +2439,1067 @@
                                                       "operator",
                                                       "comment"
                                                   ]
-                              }
+                              },
+    "syntax_catalog":  {
+                           "hyphenated_workflow_builtins":  [
+                                                                "latin-hypercube"
+                                                            ],
+                           "keywords":  [
+                                            "across",
+                                            "and",
+                                            "ann",
+                                            "append",
+                                            "apply",
+                                            "args",
+                                            "as",
+                                            "assert",
+                                            "bar",
+                                            "between",
+                                            "by",
+                                            "cases",
+                                            "check",
+                                            "class",
+                                            "command",
+                                            "commit",
+                                            "component",
+                                            "connect",
+                                            "const",
+                                            "constraints",
+                                            "conservation",
+                                            "collect",
+                                            "column",
+                                            "columns",
+                                            "copy",
+                                            "coverage",
+                                            "csv",
+                                            "delete",
+                                            "derive",
+                                            "der",
+                                            "distribution",
+                                            "domain",
+                                            "download",
+                                            "eq",
+                                            "equation",
+                                            "else",
+                                            "evaluate",
+                                            "export",
+                                            "false",
+                                            "fetch",
+                                            "fill",
+                                            "filter",
+                                            "fn",
+                                            "from",
+                                            "golden",
+                                            "grid",
+                                            "head",
+                                            "histogram",
+                                            "get",
+                                            "http",
+                                            "if",
+                                            "import",
+                                            "input",
+                                            "inputs",
+                                            "insert",
+                                            "integrate",
+                                            "interpolate",
+                                            "in",
+                                            "into",
+                                            "is",
+                                            "json",
+                                            "leakage_lint",
+                                            "lhs",
+                                            "line",
+                                            "log",
+                                            "matches",
+                                            "materialize",
+                                            "method",
+                                            "missing",
+                                            "mlp",
+                                            "mode",
+                                            "model",
+                                            "model_card",
+                                            "monotonic",
+                                            "move",
+                                            "not",
+                                            "none",
+                                            "null",
+                                            "on",
+                                            "open",
+                                            "operator",
+                                            "or",
+                                            "of",
+                                            "output",
+                                            "outputs",
+                                            "over",
+                                            "package",
+                                            "patch",
+                                            "parameter",
+                                            "plot",
+                                            "policy",
+                                            "port",
+                                            "post",
+                                            "predict",
+                                            "print",
+                                            "promote",
+                                            "put",
+                                            "random",
+                                            "read",
+                                            "records",
+                                            "regression",
+                                            "render",
+                                            "replace",
+                                            "request",
+                                            "report",
+                                            "return",
+                                            "results",
+                                            "rollback",
+                                            "run",
+                                            "sample",
+                                            "schema",
+                                            "script",
+                                            "select",
+                                            "show",
+                                            "simulate",
+                                            "solve",
+                                            "sort",
+                                            "sqlite",
+                                            "state",
+                                            "states",
+                                            "struct",
+                                            "summary",
+                                            "summarize",
+                                            "system",
+                                            "template",
+                                            "test",
+                                            "text",
+                                            "through",
+                                            "to",
+                                            "toml",
+                                            "train_test_split",
+                                            "true",
+                                            "uniform",
+                                            "upsert",
+                                            "use",
+                                            "using",
+                                            "validate",
+                                            "version",
+                                            "vs",
+                                            "where",
+                                            "with",
+                                            "within",
+                                            "write"
+                                        ],
+                           "public_types":  [
+                                                {
+                                                    "base":  "Bool",
+                                                    "detail":  "Boolean value",
+                                                    "label":  "Bool"
+                                                },
+                                                {
+                                                    "base":  "CsvFile",
+                                                    "detail":  "CSV file path",
+                                                    "label":  "CsvFile"
+                                                },
+                                                {
+                                                    "base":  "Date",
+                                                    "detail":  "Calendar date",
+                                                    "label":  "Date"
+                                                },
+                                                {
+                                                    "base":  "DateTime",
+                                                    "detail":  "Timestamp value",
+                                                    "label":  "DateTime"
+                                                },
+                                                {
+                                                    "base":  "DbConnection",
+                                                    "detail":  "SQLite connection handle",
+                                                    "label":  "DbConnection"
+                                                },
+                                                {
+                                                    "base":  "DbTableRef",
+                                                    "detail":  "SQLite table reference",
+                                                    "label":  "DbTableRef"
+                                                },
+                                                {
+                                                    "base":  "DirectoryPath",
+                                                    "detail":  "Directory path",
+                                                    "label":  "DirectoryPath"
+                                                },
+                                                {
+                                                    "base":  "Derivative",
+                                                    "detail":  "Derivative vector or scalar type",
+                                                    "label":  "Derivative[T]"
+                                                },
+                                                {
+                                                    "base":  "Duration",
+                                                    "detail":  "Time duration",
+                                                    "label":  "Duration"
+                                                },
+                                                {
+                                                    "base":  "FilePath",
+                                                    "detail":  "Generic file path",
+                                                    "label":  "FilePath"
+                                                },
+                                                {
+                                                    "base":  "Float",
+                                                    "detail":  "Floating-point value",
+                                                    "label":  "Float"
+                                                },
+                                                {
+                                                    "base":  "InputVector",
+                                                    "detail":  "State-space input vector",
+                                                    "label":  "InputVector[T]"
+                                                },
+                                                {
+                                                    "base":  "Int",
+                                                    "detail":  "Integer value",
+                                                    "label":  "Int"
+                                                },
+                                                {
+                                                    "base":  "JsonFile",
+                                                    "detail":  "JSON file path",
+                                                    "label":  "JsonFile"
+                                                },
+                                                {
+                                                    "base":  "LinearOperator",
+                                                    "detail":  "State-space linear operator",
+                                                    "label":  "LinearOperator[From -\u003e To]"
+                                                },
+                                                {
+                                                    "base":  "ModelArtifact",
+                                                    "detail":  "Trained model artifact",
+                                                    "label":  "ModelArtifact"
+                                                },
+                                                {
+                                                    "base":  "ModelCard",
+                                                    "detail":  "Model-card review artifact",
+                                                    "label":  "ModelCard"
+                                                },
+                                                {
+                                                    "base":  "Number",
+                                                    "detail":  "Dimensionless numeric value",
+                                                    "label":  "Number"
+                                                },
+                                                {
+                                                    "base":  "Optional",
+                                                    "detail":  "Optional value",
+                                                    "label":  "Optional[T]"
+                                                },
+                                                {
+                                                    "base":  "OutputVector",
+                                                    "detail":  "State-space output vector",
+                                                    "label":  "OutputVector[T]"
+                                                },
+                                                {
+                                                    "base":  "Path",
+                                                    "detail":  "Filesystem path",
+                                                    "label":  "Path"
+                                                },
+                                                {
+                                                    "base":  "Prediction",
+                                                    "detail":  "Prediction table row",
+                                                    "label":  "Prediction"
+                                                },
+                                                {
+                                                    "base":  "ProcessResult",
+                                                    "detail":  "External command result metadata",
+                                                    "label":  "ProcessResult"
+                                                },
+                                                {
+                                                    "base":  "Report",
+                                                    "detail":  "Report artifact request metadata",
+                                                    "label":  "Report"
+                                                },
+                                                {
+                                                    "base":  "ReportFile",
+                                                    "detail":  "Report output file path",
+                                                    "label":  "ReportFile"
+                                                },
+                                                {
+                                                    "base":  "Secret",
+                                                    "detail":  "Redacted string value",
+                                                    "label":  "Secret[String]"
+                                                },
+                                                {
+                                                    "base":  "StateVector",
+                                                    "detail":  "State-space state vector",
+                                                    "label":  "StateVector[T]"
+                                                },
+                                                {
+                                                    "base":  "String",
+                                                    "detail":  "String value",
+                                                    "label":  "String"
+                                                },
+                                                {
+                                                    "base":  "Table",
+                                                    "detail":  "Typed table value",
+                                                    "label":  "Table[T]"
+                                                },
+                                                {
+                                                    "base":  "TextFile",
+                                                    "detail":  "UTF-8 text file path",
+                                                    "label":  "TextFile"
+                                                },
+                                                {
+                                                    "base":  "TimeSeries",
+                                                    "detail":  "Time-indexed series value",
+                                                    "label":  "TimeSeries[Time]"
+                                                },
+                                                {
+                                                    "base":  "TimeSeries",
+                                                    "detail":  "Typed time-indexed series value",
+                                                    "label":  "TimeSeries[T]"
+                                                },
+                                                {
+                                                    "base":  "TomlFile",
+                                                    "detail":  "TOML file path",
+                                                    "label":  "TomlFile"
+                                                },
+                                                {
+                                                    "base":  "Url",
+                                                    "detail":  "HTTP or HTTPS URL",
+                                                    "label":  "Url"
+                                                },
+                                                {
+                                                    "base":  "PlotFile",
+                                                    "detail":  "Plot output file path",
+                                                    "label":  "PlotFile"
+                                                }
+                                            ],
+                           "quantities":  [
+                                              {
+                                                  "canonical_unit":  "K",
+                                                  "detail":  "Affine absolute thermodynamic temperature.",
+                                                  "dimension":  "Temperature",
+                                                  "label":  "AbsoluteTemperature"
+                                              },
+                                              {
+                                                  "canonical_unit":  "K",
+                                                  "detail":  "Temperature interval or difference.",
+                                                  "dimension":  "Temperature",
+                                                  "label":  "TemperatureDelta"
+                                              },
+                                              {
+                                                  "canonical_unit":  "m",
+                                                  "detail":  "Linear distance.",
+                                                  "dimension":  "Length",
+                                                  "label":  "Length"
+                                              },
+                                              {
+                                                  "canonical_unit":  "W/K",
+                                                  "detail":  "Thermal conductance.",
+                                                  "dimension":  "Power/Temperature",
+                                                  "label":  "Conductance"
+                                              },
+                                              {
+                                                  "canonical_unit":  "J/K",
+                                                  "detail":  "Thermal capacitance or lumped heat capacity.",
+                                                  "dimension":  "Energy/Temperature",
+                                                  "label":  "HeatCapacity"
+                                              },
+                                              {
+                                                  "canonical_unit":  "J/kg/K",
+                                                  "detail":  "Specific heat capacity.",
+                                                  "dimension":  "Energy/Mass/Temperature",
+                                                  "label":  "SpecificHeat"
+                                              },
+                                              {
+                                                  "canonical_unit":  "W",
+                                                  "detail":  "Thermal power or heat flow rate.",
+                                                  "dimension":  "Power",
+                                                  "label":  "HeatRate"
+                                              },
+                                              {
+                                                  "canonical_unit":  "W",
+                                                  "detail":  "Electrical power.",
+                                                  "dimension":  "Power",
+                                                  "label":  "ElectricPower"
+                                              },
+                                              {
+                                                  "canonical_unit":  "W",
+                                                  "detail":  "Mechanical shaft or fluid power.",
+                                                  "dimension":  "Power",
+                                                  "label":  "MechanicalPower"
+                                              },
+                                              {
+                                                  "canonical_unit":  "J",
+                                                  "detail":  "Energy, heat, or work quantity.",
+                                                  "dimension":  "Energy",
+                                                  "label":  "Energy"
+                                              },
+                                              {
+                                                  "canonical_unit":  "s",
+                                                  "detail":  "Elapsed time duration.",
+                                                  "dimension":  "Time",
+                                                  "label":  "Duration"
+                                              },
+                                              {
+                                                  "canonical_unit":  "W/m2",
+                                                  "detail":  "Radiant power incident per unit area.",
+                                                  "dimension":  "Power/Area",
+                                                  "label":  "Irradiance"
+                                              },
+                                              {
+                                                  "canonical_unit":  "person/m2",
+                                                  "detail":  "Occupant count per unit floor area.",
+                                                  "dimension":  "Count/Area",
+                                                  "label":  "PeopleDensity"
+                                              },
+                                              {
+                                                  "canonical_unit":  "Pa",
+                                                  "detail":  "Static or differential pressure.",
+                                                  "dimension":  "Pressure",
+                                                  "label":  "Pressure"
+                                              },
+                                              {
+                                                  "canonical_unit":  "kg/s",
+                                                  "detail":  "Mass flow rate.",
+                                                  "dimension":  "Mass/Time",
+                                                  "label":  "MassFlowRate"
+                                              },
+                                              {
+                                                  "canonical_unit":  "1",
+                                                  "detail":  "Dimensionless ratio.",
+                                                  "dimension":  "Dimensionless",
+                                                  "label":  "Ratio"
+                                              },
+                                              {
+                                                  "canonical_unit":  "1",
+                                                  "detail":  "Plain dimensionless numeric value.",
+                                                  "dimension":  "Dimensionless",
+                                                  "label":  "DimensionlessNumber"
+                                              },
+                                              {
+                                                  "canonical_unit":  "1",
+                                                  "detail":  "Dimensionless Reynolds number.",
+                                                  "dimension":  "Dimensionless",
+                                                  "label":  "ReynoldsNumber"
+                                              }
+                                          ],
+                           "units":  [
+                                         {
+                                             "canonical_unit":  "m",
+                                             "dimension":  "Length",
+                                             "label":  "m",
+                                             "quantity_hint":  "Length"
+                                         },
+                                         {
+                                             "canonical_unit":  "m",
+                                             "dimension":  "Length",
+                                             "label":  "cm",
+                                             "quantity_hint":  "Length"
+                                         },
+                                         {
+                                             "canonical_unit":  "m",
+                                             "dimension":  "Length",
+                                             "label":  "mm",
+                                             "quantity_hint":  "Length"
+                                         },
+                                         {
+                                             "canonical_unit":  "K",
+                                             "dimension":  "Temperature",
+                                             "label":  "K",
+                                             "quantity_hint":  "TemperatureDelta"
+                                         },
+                                         {
+                                             "canonical_unit":  "K",
+                                             "dimension":  "Temperature",
+                                             "label":  "degC",
+                                             "quantity_hint":  "AbsoluteTemperature"
+                                         },
+                                         {
+                                             "canonical_unit":  "K",
+                                             "dimension":  "Temperature",
+                                             "label":  "°C",
+                                             "quantity_hint":  "AbsoluteTemperature"
+                                         },
+                                         {
+                                             "canonical_unit":  "W",
+                                             "dimension":  "Power",
+                                             "label":  "W",
+                                             "quantity_hint":  "Power"
+                                         },
+                                         {
+                                             "canonical_unit":  "W",
+                                             "dimension":  "Power",
+                                             "label":  "kW",
+                                             "quantity_hint":  "Power"
+                                         },
+                                         {
+                                             "canonical_unit":  "J",
+                                             "dimension":  "Energy",
+                                             "label":  "J",
+                                             "quantity_hint":  "Energy"
+                                         },
+                                         {
+                                             "canonical_unit":  "J",
+                                             "dimension":  "Energy",
+                                             "label":  "Wh",
+                                             "quantity_hint":  "Energy"
+                                         },
+                                         {
+                                             "canonical_unit":  "J",
+                                             "dimension":  "Energy",
+                                             "label":  "kWh",
+                                             "quantity_hint":  "Energy"
+                                         },
+                                         {
+                                             "canonical_unit":  "J",
+                                             "dimension":  "Energy",
+                                             "label":  "MJ",
+                                             "quantity_hint":  "Energy"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/K",
+                                             "dimension":  "Power/Temperature",
+                                             "label":  "W/K",
+                                             "quantity_hint":  "Conductance"
+                                         },
+                                         {
+                                             "canonical_unit":  "J/kg/K",
+                                             "dimension":  "Energy/Mass/Temperature",
+                                             "label":  "J/kg/K",
+                                             "quantity_hint":  "SpecificHeat"
+                                         },
+                                         {
+                                             "canonical_unit":  "J/K",
+                                             "dimension":  "Energy/Temperature",
+                                             "label":  "J/K",
+                                             "quantity_hint":  "HeatCapacity"
+                                         },
+                                         {
+                                             "canonical_unit":  "J/K",
+                                             "dimension":  "Energy/Temperature",
+                                             "label":  "kJ/K",
+                                             "quantity_hint":  "HeatCapacity"
+                                         },
+                                         {
+                                             "canonical_unit":  "Pa",
+                                             "dimension":  "Pressure",
+                                             "label":  "Pa",
+                                             "quantity_hint":  "Pressure"
+                                         },
+                                         {
+                                             "canonical_unit":  "Pa",
+                                             "dimension":  "Pressure",
+                                             "label":  "kPa",
+                                             "quantity_hint":  "Pressure"
+                                         },
+                                         {
+                                             "canonical_unit":  "s",
+                                             "dimension":  "Time",
+                                             "label":  "s",
+                                             "quantity_hint":  "Duration"
+                                         },
+                                         {
+                                             "canonical_unit":  "s",
+                                             "dimension":  "Time",
+                                             "label":  "min",
+                                             "quantity_hint":  "Duration"
+                                         },
+                                         {
+                                             "canonical_unit":  "s",
+                                             "dimension":  "Time",
+                                             "label":  "h",
+                                             "quantity_hint":  "Duration"
+                                         },
+                                         {
+                                             "canonical_unit":  "kg/s",
+                                             "dimension":  "Mass/Time",
+                                             "label":  "kg/s",
+                                             "quantity_hint":  "MassFlowRate"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2",
+                                             "dimension":  "Power/Area",
+                                             "label":  "W/m2",
+                                             "quantity_hint":  "Irradiance"
+                                         },
+                                         {
+                                             "canonical_unit":  "W/m2",
+                                             "dimension":  "Power/Area",
+                                             "label":  "W/m^2",
+                                             "quantity_hint":  "Irradiance"
+                                         },
+                                         {
+                                             "canonical_unit":  "person/m2",
+                                             "dimension":  "Count/Area",
+                                             "label":  "person/m2",
+                                             "quantity_hint":  "PeopleDensity"
+                                         },
+                                         {
+                                             "canonical_unit":  "person/m2",
+                                             "dimension":  "Count/Area",
+                                             "label":  "people/m2",
+                                             "quantity_hint":  "PeopleDensity"
+                                         }
+                                     ],
+                           "workflow_builtins":  [
+                                                     "file",
+                                                     "dir",
+                                                     "join",
+                                                     "parent",
+                                                     "stem",
+                                                     "extension",
+                                                     "exists",
+                                                     "url",
+                                                     "secret",
+                                                     "env",
+                                                     "date",
+                                                     "datetime",
+                                                     "select_first_row",
+                                                     "filter",
+                                                     "select",
+                                                     "derive",
+                                                     "sort",
+                                                     "require_one",
+                                                     "check",
+                                                     "coverage",
+                                                     "fill",
+                                                     "fill_missing",
+                                                     "align",
+                                                     "resample",
+                                                     "sample",
+                                                     "uniform",
+                                                     "normal",
+                                                     "grid",
+                                                     "random",
+                                                     "lhs",
+                                                     "latin_hypercube",
+                                                     "latin-hypercube",
+                                                     "materialize",
+                                                     "apply",
+                                                     "collect",
+                                                     "run_case",
+                                                     "measured",
+                                                     "interval",
+                                                     "distribution",
+                                                     "ensemble",
+                                                     "propagate",
+                                                     "probability",
+                                                     "train",
+                                                     "train_test_split",
+                                                     "regression",
+                                                     "regression_table",
+                                                     "train_regression",
+                                                     "mlp",
+                                                     "ann",
+                                                     "evaluate",
+                                                     "model_card",
+                                                     "leakage_lint",
+                                                     "predict",
+                                                     "mean",
+                                                     "time_weighted_mean",
+                                                     "min",
+                                                     "max",
+                                                     "median",
+                                                     "std",
+                                                     "p90",
+                                                     "p95",
+                                                     "rmse",
+                                                     "duration_above",
+                                                     "integrate",
+                                                     "der",
+                                                     "delay",
+                                                     "sum"
+                                                 ],
+                           "workflow_options":  [
+                                                    {
+                                                        "detail":  "solver algebraic initialization policy",
+                                                        "label":  "algebraic_initialization"
+                                                    },
+                                                    {
+                                                        "detail":  "model training option",
+                                                        "label":  "algorithm"
+                                                    },
+                                                    {
+                                                        "detail":  "Whether an external command failure can continue",
+                                                        "label":  "allow_failure"
+                                                    },
+                                                    {
+                                                        "detail":  "expected artifact kind",
+                                                        "label":  "artifact_kind"
+                                                    },
+                                                    {
+                                                        "detail":  "external command argument list",
+                                                        "label":  "args"
+                                                    },
+                                                    {
+                                                        "detail":  "execution backend option",
+                                                        "label":  "backend"
+                                                    },
+                                                    {
+                                                        "detail":  "HTTP request body option",
+                                                        "label":  "body"
+                                                    },
+                                                    {
+                                                        "detail":  "HTTP response body size limit",
+                                                        "label":  "body_size_limit"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty propagation offset alias",
+                                                        "label":  "bias"
+                                                    },
+                                                    {
+                                                        "detail":  "cache behavior option",
+                                                        "label":  "cache"
+                                                    },
+                                                    {
+                                                        "detail":  "cache storage directory option",
+                                                        "label":  "cache_dir"
+                                                    },
+                                                    {
+                                                        "detail":  "cache identity option",
+                                                        "label":  "cache_key"
+                                                    },
+                                                    {
+                                                        "detail":  "cache entry time-to-live option",
+                                                        "label":  "cache_ttl"
+                                                    },
+                                                    {
+                                                        "detail":  "case identifier expression",
+                                                        "label":  "case_id"
+                                                    },
+                                                    {
+                                                        "detail":  "explicit filesystem mutation confirmation",
+                                                        "label":  "confirm"
+                                                    },
+                                                    {
+                                                        "detail":  "plot confidence-band source",
+                                                        "label":  "confidence_band"
+                                                    },
+                                                    {
+                                                        "detail":  "solver consistency tolerance",
+                                                        "label":  "consistency_tolerance"
+                                                    },
+                                                    {
+                                                        "detail":  "sample count option",
+                                                        "label":  "count"
+                                                    },
+                                                    {
+                                                        "detail":  "external command working directory",
+                                                        "label":  "cwd"
+                                                    },
+                                                    {
+                                                        "detail":  "solver or simulation duration",
+                                                        "label":  "duration"
+                                                    },
+                                                    {
+                                                        "detail":  "solver damping factor",
+                                                        "label":  "damping"
+                                                    },
+                                                    {
+                                                        "detail":  "display unit option",
+                                                        "label":  "display_unit"
+                                                    },
+                                                    {
+                                                        "detail":  "external command environment",
+                                                        "label":  "env"
+                                                    },
+                                                    {
+                                                        "detail":  "range end option",
+                                                        "label":  "end"
+                                                    },
+                                                    {
+                                                        "detail":  "MLP training epoch count",
+                                                        "label":  "epochs"
+                                                    },
+                                                    {
+                                                        "detail":  "expected SHA-256 hash",
+                                                        "label":  "expected_sha256"
+                                                    },
+                                                    {
+                                                        "detail":  "declared process outputs",
+                                                        "label":  "expected_outputs"
+                                                    },
+                                                    {
+                                                        "detail":  "expected TimeSeries step",
+                                                        "label":  "expected_step"
+                                                    },
+                                                    {
+                                                        "detail":  "model feature columns",
+                                                        "label":  "features"
+                                                    },
+                                                    {
+                                                        "detail":  "solver finite difference step",
+                                                        "label":  "finite_difference_step"
+                                                    },
+                                                    {
+                                                        "detail":  "Pinned offline HTTP response used instead of live network",
+                                                        "label":  "offline_response"
+                                                    },
+                                                    {
+                                                        "detail":  "Legacy alias for offline_response",
+                                                        "label":  "fixture"
+                                                    },
+                                                    {
+                                                        "detail":  "HTTP request headers",
+                                                        "label":  "headers"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty propagation scale alias",
+                                                        "label":  "gain"
+                                                    },
+                                                    {
+                                                        "detail":  "MLP hidden layer option",
+                                                        "label":  "hidden"
+                                                    },
+                                                    {
+                                                        "detail":  "solver initial value",
+                                                        "label":  "initial"
+                                                    },
+                                                    {
+                                                        "detail":  "solver initial algebraic value",
+                                                        "label":  "initial_algebraic"
+                                                    },
+                                                    {
+                                                        "detail":  "solver initial derivative value",
+                                                        "label":  "initial_derivative"
+                                                    },
+                                                    {
+                                                        "detail":  "solver input source",
+                                                        "label":  "inputs"
+                                                    },
+                                                    {
+                                                        "detail":  "solver Jacobian policy",
+                                                        "label":  "jacobian"
+                                                    },
+                                                    {
+                                                        "detail":  "distribution kind option",
+                                                        "label":  "kind"
+                                                    },
+                                                    {
+                                                        "detail":  "database upsert key",
+                                                        "label":  "key"
+                                                    },
+                                                    {
+                                                        "detail":  "MLP hidden layer option alias",
+                                                        "label":  "layers"
+                                                    },
+                                                    {
+                                                        "detail":  "solver line-search step limit",
+                                                        "label":  "line_search_steps"
+                                                    },
+                                                    {
+                                                        "detail":  "lower uncertainty or range bound",
+                                                        "label":  "lower"
+                                                    },
+                                                    {
+                                                        "detail":  "solver mass-matrix policy",
+                                                        "label":  "mass_matrix"
+                                                    },
+                                                    {
+                                                        "detail":  "maximum allowed gap option",
+                                                        "label":  "max_gap"
+                                                    },
+                                                    {
+                                                        "detail":  "solver maximum iteration count",
+                                                        "label":  "max_iter"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty mean alias",
+                                                        "label":  "mu"
+                                                    },
+                                                    {
+                                                        "detail":  "fill or transform method",
+                                                        "label":  "method"
+                                                    },
+                                                    {
+                                                        "detail":  "missing value policy",
+                                                        "label":  "missing"
+                                                    },
+                                                    {
+                                                        "detail":  "write mode",
+                                                        "label":  "mode"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty sample count alias",
+                                                        "label":  "n"
+                                                    },
+                                                    {
+                                                        "detail":  "What to do when `require_one` finds multiple rows",
+                                                        "label":  "on_many"
+                                                    },
+                                                    {
+                                                        "detail":  "What to do when `require_one` finds no rows",
+                                                        "label":  "on_none"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty propagation offset",
+                                                        "label":  "offset"
+                                                    },
+                                                    {
+                                                        "detail":  "generated output path",
+                                                        "label":  "output"
+                                                    },
+                                                    {
+                                                        "detail":  "case output root directory",
+                                                        "label":  "output_root"
+                                                    },
+                                                    {
+                                                        "detail":  "output overwrite policy",
+                                                        "label":  "overwrite"
+                                                    },
+                                                    {
+                                                        "detail":  "HTTP query parameters",
+                                                        "label":  "query"
+                                                    },
+                                                    {
+                                                        "detail":  "filesystem recursion option",
+                                                        "label":  "recursive"
+                                                    },
+                                                    {
+                                                        "detail":  "solver relaxation factor",
+                                                        "label":  "relaxation"
+                                                    },
+                                                    {
+                                                        "detail":  "relative uncertainty error option",
+                                                        "label":  "relative_error"
+                                                    },
+                                                    {
+                                                        "detail":  "solver residual scale",
+                                                        "label":  "residual_scale"
+                                                    },
+                                                    {
+                                                        "detail":  "solver residual scale list",
+                                                        "label":  "residual_scales"
+                                                    },
+                                                    {
+                                                        "detail":  "case resume policy",
+                                                        "label":  "resume"
+                                                    },
+                                                    {
+                                                        "detail":  "HTTP download body size limit",
+                                                        "label":  "response_body_limit"
+                                                    },
+                                                    {
+                                                        "detail":  "external command retry policy",
+                                                        "label":  "retry"
+                                                    },
+                                                    {
+                                                        "detail":  "projection return column",
+                                                        "label":  "return_column"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty sample count",
+                                                        "label":  "samples"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty propagation scale",
+                                                        "label":  "scale"
+                                                    },
+                                                    {
+                                                        "detail":  "deterministic sampling seed",
+                                                        "label":  "seed"
+                                                    },
+                                                    {
+                                                        "detail":  "TimeSeries sensor standard deviation",
+                                                        "label":  "sensor_std"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty standard deviation alias",
+                                                        "label":  "sigma"
+                                                    },
+                                                    {
+                                                        "detail":  "Train/test split to evaluate or lint",
+                                                        "label":  "split"
+                                                    },
+                                                    {
+                                                        "detail":  "solver algorithm option",
+                                                        "label":  "solver"
+                                                    },
+                                                    {
+                                                        "detail":  "range start option",
+                                                        "label":  "start"
+                                                    },
+                                                    {
+                                                        "detail":  "case or validation status",
+                                                        "label":  "status"
+                                                    },
+                                                    {
+                                                        "detail":  "expected HTTP status code",
+                                                        "label":  "status_code"
+                                                    },
+                                                    {
+                                                        "detail":  "case workflow step",
+                                                        "label":  "step"
+                                                    },
+                                                    {
+                                                        "detail":  "model train/test split option",
+                                                        "label":  "test"
+                                                    },
+                                                    {
+                                                        "detail":  "model train/test split option alias",
+                                                        "label":  "test_fraction"
+                                                    },
+                                                    {
+                                                        "detail":  "model target column",
+                                                        "label":  "target"
+                                                    },
+                                                    {
+                                                        "detail":  "template source file",
+                                                        "label":  "template"
+                                                    },
+                                                    {
+                                                        "detail":  "external command timeout",
+                                                        "label":  "timeout"
+                                                    },
+                                                    {
+                                                        "detail":  "solver or simulation time step",
+                                                        "label":  "timestep"
+                                                    },
+                                                    {
+                                                        "detail":  "plot or report title",
+                                                        "label":  "title"
+                                                    },
+                                                    {
+                                                        "detail":  "external tool version",
+                                                        "label":  "tool_version"
+                                                    },
+                                                    {
+                                                        "detail":  "solver convergence tolerance",
+                                                        "label":  "tolerance"
+                                                    },
+                                                    {
+                                                        "detail":  "SQLite transaction policy",
+                                                        "label":  "transaction"
+                                                    },
+                                                    {
+                                                        "detail":  "workflow display or command subtype option",
+                                                        "label":  "type"
+                                                    },
+                                                    {
+                                                        "detail":  "uncertainty propagation policy",
+                                                        "label":  "uncertainty"
+                                                    },
+                                                    {
+                                                        "detail":  "upper uncertainty or range bound",
+                                                        "label":  "upper"
+                                                    },
+                                                    {
+                                                        "detail":  "template value map",
+                                                        "label":  "values"
+                                                    },
+                                                    {
+                                                        "detail":  "solver variable scale",
+                                                        "label":  "variable_scale"
+                                                    },
+                                                    {
+                                                        "detail":  "solver variable scale list",
+                                                        "label":  "variable_scales"
+                                                    },
+                                                    {
+                                                        "detail":  "model feature column alias",
+                                                        "label":  "x"
+                                                    },
+                                                    {
+                                                        "detail":  "model target column alias",
+                                                        "label":  "y"
+                                                    },
+                                                    {
+                                                        "detail":  "calendar year option",
+                                                        "label":  "year"
+                                                    }
+                                                ]
+                       }
 }

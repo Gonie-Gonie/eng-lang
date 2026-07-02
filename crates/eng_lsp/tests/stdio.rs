@@ -1617,6 +1617,16 @@ fn editor_metadata_cli_exports_editor_contract() {
         .expect("token modifiers should be an array")
         .iter()
         .any(|modifier| modifier == "workflowStep"));
+    assert!(metadata["syntax_catalog"]["workflow_options"]
+        .as_array()
+        .expect("workflow options should be an array")
+        .iter()
+        .any(|option| option["label"] == "offline_response"));
+    assert!(metadata["syntax_catalog"]["units"]
+        .as_array()
+        .expect("units should be an array")
+        .iter()
+        .any(|unit| unit["label"] == "kW"));
     let completions = metadata["completion_seed"]
         .as_array()
         .expect("completion seed should be an array");

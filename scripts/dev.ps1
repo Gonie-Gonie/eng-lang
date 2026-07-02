@@ -1937,6 +1937,7 @@ function Assert-VscodeExtensionContract {
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
     $SemanticLegendPath = Join-Path $ExtensionRoot "generated\editor\englang-semantic-legend.json"
     $CompletionsPath = Join-Path $ExtensionRoot "generated\editor\englang-completions.json"
+    $SyntaxCatalogPath = Join-Path $ExtensionRoot "generated\editor\englang-syntax.json"
     $TokenScopesDocPath = Join-Path $RepoRoot "docs\internal\editor\token_scopes.md"
     $DevScriptPath = Join-Path $RepoRoot "scripts\dev.ps1"
     $VscodeReadmePath = Join-Path $ExtensionRoot "README.md"
@@ -2034,7 +2035,7 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $LspCliSourcePath)) {
         throw "missing eng_lsp CLI source at $LspCliSourcePath"
     }
-    foreach ($RequiredMetadataPath in @($EditorMetadataPath, $SemanticLegendPath, $CompletionsPath)) {
+    foreach ($RequiredMetadataPath in @($EditorMetadataPath, $SemanticLegendPath, $CompletionsPath, $SyntaxCatalogPath)) {
         if (-not (Test-Path $RequiredMetadataPath)) {
             throw "missing generated VS Code editor metadata at $RequiredMetadataPath"
         }
@@ -2643,8 +2644,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed")) {
-        throw "VS Code editor metadata loader must read generated semantic legend and completion seed metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, and completion seed metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"

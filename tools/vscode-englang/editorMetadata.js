@@ -13,17 +13,22 @@ function loadEditorMetadata(extensionRoot) {
   const semanticTokenTypes = legend.token_types;
   const semanticTokenModifiers = legend.token_modifiers;
   const completionSeed = metadata.completion_seed;
+  const syntaxCatalog = metadata.syntax_catalog ?? {};
   if (
     !Array.isArray(semanticTokenTypes) ||
     !Array.isArray(semanticTokenModifiers) ||
-    !Array.isArray(completionSeed)
+    !Array.isArray(completionSeed) ||
+    !Array.isArray(syntaxCatalog.keywords) ||
+    !Array.isArray(syntaxCatalog.workflow_builtins) ||
+    !Array.isArray(syntaxCatalog.workflow_options)
   ) {
     throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
   }
   return {
     semanticTokenTypes,
     semanticTokenModifiers,
-    completionSeed
+    completionSeed,
+    syntaxCatalog
   };
 }
 
