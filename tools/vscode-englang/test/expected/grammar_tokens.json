@@ -2104,6 +2104,18 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "probability(Q_total_unc < 10 kW)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.function.builtin.englang",
     "text": "distribution"
   },
@@ -2129,6 +2141,24 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "upper",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "method",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "scale",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "offset",
     "fullMatch": true
   }
 ]

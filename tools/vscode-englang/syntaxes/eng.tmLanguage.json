@@ -684,7 +684,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.distribution-call.englang",
-                                                                    "begin":  "\\b(measured|interval|normal|uniform|distribution)\\s*(\\()",
+                                                                    "begin":  "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "support.function.builtin.englang"

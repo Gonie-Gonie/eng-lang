@@ -3739,6 +3739,19 @@ constructor mistakes used by the native uncertainty workflow path.
 - Mirrored the same repairs in the VS Code local quick-fix fallback and
   extended contract coverage so LSP/local quick-fix parity does not drift.
 
+## Batch 302: Uncertainty Call Grammar Coverage
+
+Status: implemented to reduce VS Code TextMate highlighting gaps for
+uncertainty workflow helpers beyond constructor calls.
+
+- Extended the uncertainty-call grammar block to cover `propagate(...)`,
+  `ensemble(...)`, and `probability(...)` in addition to measured, interval,
+  normal, uniform, and distribution constructors.
+- Added grammar fixture expectations for `propagate(...)` and `probability(...)`
+  so propagation options such as `method`, `scale`, and `offset` stay colored as
+  function arguments before semantic tokens arrive.
+- Regenerated the packaged TextMate grammar from the source grammar.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
