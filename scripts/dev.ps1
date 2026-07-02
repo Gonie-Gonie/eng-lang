@@ -1805,6 +1805,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+    $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
@@ -1816,6 +1817,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ExtensionJsPath)) {
         throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+    if (-not (Test-Path $EditorMetadataLoaderPath)) {
+        throw "missing VS Code editor metadata loader at $EditorMetadataLoaderPath"
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing eng_lsp source at $LspSourcePath"
@@ -2012,6 +2016,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
         "Last Run Review JSON",
@@ -2118,8 +2123,11 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing live hover snapshot token $RequiredHoverToken"
         }
     }
-    if (-not $ExtensionSource.Contains("loadEditorMetadata") -or -not $ExtensionSource.Contains("englang-editor-metadata.json")) {
-        throw "VS Code extension must load semantic legend from generated editor metadata"
+    if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
+        throw "VS Code extension must load editor metadata through editorMetadata.js"
+    }
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed")) {
+        throw "VS Code editor metadata loader must read generated semantic legend and completion seed metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
@@ -2351,11 +2359,12 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $Node) {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
+            Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
         } catch {
-            Write-Host "Node found but not executable; skipped extension.js syntax check. $($_.Exception.Message)"
+            Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
         }
     } else {
-        Write-Host "Node not found; skipped extension.js syntax check."
+        Write-Host "Node not found; skipped VS Code JavaScript syntax check."
     }
 
     Write-Host "VS Code extension contract check passed."
@@ -3369,6 +3378,9 @@ function Invoke-PackageSmoke {
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\editorMetadata.js"))) {
+            throw "portable package did not include VS Code editor metadata loader"
         }
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"

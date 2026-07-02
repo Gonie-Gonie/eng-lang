@@ -166,7 +166,7 @@ The grammar smoke writes token-check output under
 
 ## Editor Metadata
 
-The extension loads its semantic-token legend from
+The extension loads its semantic-token legend through `editorMetadata.js` from
 `generated/editor/englang-editor-metadata.json`, generated from
 `eng-lsp --editor-metadata`. The same metadata file also provides the static
 completion fallback used when live LSP completion is unavailable. Regenerate it

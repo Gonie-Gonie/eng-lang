@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
+const { loadEditorMetadata } = require("./editorMetadata");
 
 const LANGUAGE_ID = "englang";
 const CHECK_DEBOUNCE_MS = 350;
@@ -125,7 +126,7 @@ const LAST_RUN_ARTIFACTS = [
   }
 ];
 
-const editorMetadata = loadEditorMetadata();
+const editorMetadata = loadEditorMetadata(__dirname);
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_SEED = editorMetadata.completionSeed;
@@ -134,32 +135,6 @@ const semanticLegend = new vscode.SemanticTokensLegend(
   SEMANTIC_TOKEN_TYPES,
   SEMANTIC_TOKEN_MODIFIERS
 );
-
-function loadEditorMetadata() {
-  const metadataPath = path.join(
-    __dirname,
-    "generated",
-    "editor",
-    "englang-editor-metadata.json"
-  );
-  const metadata = JSON.parse(fs.readFileSync(metadataPath, "utf8"));
-  const legend = metadata.semantic_token_legend ?? {};
-  const semanticTokenTypes = legend.token_types;
-  const semanticTokenModifiers = legend.token_modifiers;
-  const completionSeed = metadata.completion_seed;
-  if (
-    !Array.isArray(semanticTokenTypes) ||
-    !Array.isArray(semanticTokenModifiers) ||
-    !Array.isArray(completionSeed)
-  ) {
-    throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
-  }
-  return {
-    semanticTokenTypes,
-    semanticTokenModifiers,
-    completionSeed
-  };
-}
 
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
