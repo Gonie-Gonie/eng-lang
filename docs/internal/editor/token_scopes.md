@@ -124,6 +124,7 @@ Current workflow phrase scopes:
 | `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |
 | `meta.workflow.summary-field.englang` | `<value> as <unit> with "<format>"` summary CSV fields. |
 | `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
+| `meta.workflow.validation.englang` | `validate ...`, `assert ...`, and `golden ... matches ...` validation lines. |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
 | `meta.workflow.write-text.englang` | `write text <target>, <value>` |
 

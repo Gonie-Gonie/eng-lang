@@ -2277,6 +2277,18 @@ artifact field rows instead of disconnected identifiers and keywords.
   the display unit, including dimensionless `1`, as a unit token.
 - Added grammar expectations for the side-effect/export fixture.
 
+## Batch 187: Validation Phrase Highlighting
+
+Status: implemented to make validation and test statements read as review
+checks instead of isolated keywords inside ordinary expressions.
+
+- Added `meta.workflow.validation.englang` for `validate`, `assert`, and
+  `golden ... matches ...` lines.
+- Kept `matches` and `within` scoped as validation keywords inside validation
+  phrases.
+- Added grammar expectations for assertion, golden-file, and top-level
+  validation lines.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

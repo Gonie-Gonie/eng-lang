@@ -872,6 +872,36 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.validation.englang",
+    "text": "assert cp_water > 0 J/kg/K",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.validation.englang",
+    "text": "assert cp_water == 4.18 kJ/K within 0.01 kJ/K",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "within",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.validation.englang",
+    "text": "golden \"summary.csv\" matches file(\"golden/summary.csv\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "matches",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.declaration.test.englang",
     "text": "test \"coil heat stays positive\"",
     "fullMatch": true
@@ -1468,8 +1498,15 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.validation.englang",
+    "text": "validate Q_probability > 0.95",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
-    "text": "validate"
+    "text": "validate",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
