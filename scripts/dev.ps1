@@ -2066,6 +2066,13 @@ function Assert-VscodeExtensionContract {
     if ($Package.main -ne "./extension.js") {
         throw "VS Code extension main must be ./extension.js"
     }
+    $PackageDescription = [string]$Package.description
+    if ($PackageDescription -match "run commands" -or -not $PackageDescription.Contains("program execution")) {
+        throw "VS Code extension description must say program execution instead of run commands"
+    }
+    if ($DevScriptSource -notmatch '<Description[^>]*>EngLang editor tooling with diagnostics, hover, completion, and program execution\.</Description>' -or $DevScriptSource -match '<Description[^>]*>EngLang editor tooling with diagnostics, hover, completion, and run commands\.</Description>') {
+        throw "VS Code generated VSIX manifest description source must say program execution instead of run commands"
+    }
     $ActivationEvents = @($Package.activationEvents)
     foreach ($RequiredActivationEvent in @("onLanguage:englang", "workspaceContains:**/*.eng")) {
         if ($ActivationEvents -notcontains $RequiredActivationEvent) {
@@ -2268,6 +2275,10 @@ function Assert-VscodeExtensionContract {
     }
     if ($null -ne $Properties."englang.diagnosticsBackend") {
         throw "VS Code extension must not expose deprecated diagnosticsBackend in Settings; keep it as a code-only compatibility alias"
+    }
+    $ExecutionProfileDescription = [string]$Properties."englang.executionProfile".description
+    if ($ExecutionProfileDescription -match "run commands" -or -not $ExecutionProfileDescription.Contains("program runs")) {
+        throw "VS Code executionProfile description must say program runs instead of run commands"
     }
     $LintOnChangeDescription = [string]$Properties."englang.lintOnChange".description
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
@@ -3734,7 +3745,7 @@ function New-VsixManifest {
   <Metadata>
     <Identity Language="en-US" Id="englang" Version="$Version" Publisher="englang" />
     <DisplayName>EngLang</DisplayName>
-    <Description xml:space="preserve">EngLang editor tooling with diagnostics, hover, completion, and run commands.</Description>
+    <Description xml:space="preserve">EngLang editor tooling with diagnostics, hover, completion, and program execution.</Description>
     <Tags>EngLang, language, engineering</Tags>
     <Categories>Programming Languages</Categories>
     <GalleryFlags>Public</GalleryFlags>

@@ -1,7 +1,7 @@
 {
   "name": "englang",
   "displayName": "EngLang",
-  "description": "EngLang editor tooling with diagnostics, hover, completion, and run commands.",
+  "description": "EngLang editor tooling with diagnostics, hover, completion, and program execution.",
   "version": "0.1.0",
   "publisher": "englang",
   "license": "MIT",
@@ -521,7 +521,7 @@
             "Reject workflows with explicit write, export, process, file, or DB mutation effects.",
             "Require reproducibility metadata for sampling, network, and cache boundaries."
           ],
-          "description": "Execution profile used by EngLang run commands. normal runs declared effects; safe rejects side effects; repro requires reproducibility metadata for sampling, network, and cache boundaries."
+          "description": "Execution profile used by EngLang program runs. normal runs declared effects; safe rejects side effects; repro requires reproducibility metadata for sampling, network, and cache boundaries."
         },
         "englang.lintOnSave": {
           "type": "boolean",

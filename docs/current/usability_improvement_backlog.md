@@ -3660,6 +3660,18 @@ the native runtime path.
 - Updated workflow/module maturity docs so `eng.net` now describes live HTTP(S)
   execution instead of HTTPS/TLS as a planned seed.
 
+## Batch 296: VS Code Run Wording Cleanup
+
+Status: implemented to reduce user-facing confusion between VS Code run actions
+and the EngLang `run command` external-process syntax.
+
+- Reworded the VS Code extension description from "run commands" to "program
+  execution".
+- Reworded the execution-profile setting description from "EngLang run
+  commands" to "EngLang program runs".
+- Updated the generated VSIX manifest description source to use the same
+  wording.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
