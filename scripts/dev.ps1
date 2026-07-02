@@ -2713,7 +2713,15 @@ function Invoke-IdeCheck {
         "No prediction manifests.",
         "No case artifact data yet.",
         "No case manifests.",
-        "No DB write manifests."
+        "No DB write manifests.",
+        "Raw semantic token JSON",
+        "No semantic legend entries.",
+        "No semantic tokens match the current filter.",
+        "No semantic tokens for the current check.",
+        "Filter by token text, type, modifier",
+        'Showing first 120 of ${escapeHtml(String(tokens.length))} tokens.',
+        "<th>Type</th><th>Count</th>",
+        "<th>Range</th><th>Text</th><th>Type</th><th>Modifiers</th>"
     )) {
         if ($IdeUiSource.Contains($ForbiddenIdeWording)) {
             throw "Native IDE UI should use task-oriented wording instead of '$ForbiddenIdeWording'"

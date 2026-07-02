@@ -2690,6 +2690,19 @@ internal editor-service wording.
 - Added an `ide-check` guard for the most confusing internal editor-service
   phrases in user-facing editor docs.
 
+## Batch 218: Native IDE Highlight Panel Wording
+
+Status: implemented after finding semantic-token implementation labels in the
+Native IDE Highlight panel.
+
+- Renamed Highlight panel badges, filters, section titles, table headings, and
+  empty states from semantic-token/type/modifier wording to highlight
+  categories and details.
+- Renamed the advanced raw data toggle from `Raw semantic token JSON` to `Raw
+  highlight data`.
+- Extended `ide-check` so the most confusing semantic-token UI phrases cannot
+  reappear in the Native IDE.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

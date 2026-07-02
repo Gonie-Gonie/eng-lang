@@ -1214,27 +1214,27 @@ function renderHighlightPanel() {
   const modifierCounts = countSemanticTokens(filteredTokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
   const tokenCurrent = state.source === state.highlightSource;
   return `
-    <div class="panel-title compact">Highlight Tokens</div>
+    <div class="panel-title compact">Highlights</div>
     <div class="badges">
-      <span class="badge">Tokens ${tokens.length}</span>
+      <span class="badge">Highlights ${tokens.length}</span>
       <span class="badge">Shown ${filteredTokens.length}</span>
-      <span class="badge">Types ${arrayOrEmpty(legend.token_types || legend.tokenTypes).length}</span>
-      <span class="badge">Modifiers ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
+      <span class="badge">Categories ${arrayOrEmpty(legend.token_types || legend.tokenTypes).length}</span>
+      <span class="badge">Details ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
       <span class="badge ${tokenCurrent ? "" : "warn"}">${tokenCurrent ? "Current" : "Check needed"}</span>
     </div>
     <div class="scroll highlight-panel">
       <div class="module-toolbar">
-        <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlight tokens" title="Filter by token text, type, modifier, or source line" />
+        <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlights" title="Filter by text, category, detail, or source line" />
         <button id="clearHighlightTokenFilter">Clear</button>
         <span class="muted">${filteredTokens.length} of ${tokens.length}</span>
       </div>
-      <div class="panel-title compact">Token Types</div>
+      <div class="panel-title compact">Categories</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_types || legend.tokenTypes), typeCounts, "type")}
-      <div class="panel-title compact">Modifiers</div>
+      <div class="panel-title compact">Details</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers), modifierCounts, "modifier")}
-      <div class="panel-title compact">Current File Tokens</div>
+      <div class="panel-title compact">Current File Highlights</div>
       ${renderSemanticTokenRows(filteredTokens, Boolean(state.highlightTokenQuery.trim()))}
-      ${rawJsonToggle("Raw semantic token JSON", semantic)}
+      ${rawJsonToggle("Raw highlight data", semantic)}
     </div>
   `;
 }
@@ -1248,8 +1248,8 @@ function renderSemanticLegendTable(items, counts, kind) {
   `).join("");
   return `
     <table class="var-table semantic-legend-table">
-      <thead><tr><th>${escapeHtml(kind === "type" ? "Type" : "Modifier")}</th><th>Count</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="2" class="muted">No semantic legend entries.</td></tr>`}</tbody>
+      <thead><tr><th>${escapeHtml(kind === "type" ? "Category" : "Detail")}</th><th>Count</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="2" class="muted">No highlight categories for the current check.</td></tr>`}</tbody>
     </table>
   `;
 }
@@ -1268,11 +1268,11 @@ function renderSemanticTokenRows(tokens, filtered = false) {
       </tr>
     `;
   }).join("");
-  const hidden = tokens.length > 120 ? `<div class="empty-state">Showing first 120 of ${escapeHtml(String(tokens.length))} tokens.</div>` : "";
-  const empty = filtered ? "No semantic tokens match the current filter." : "No semantic tokens for the current check.";
+  const hidden = tokens.length > 120 ? `<div class="empty-state">Showing first 120 of ${escapeHtml(String(tokens.length))} highlights.</div>` : "";
+  const empty = filtered ? "No highlights match the current filter." : "No highlights for the current check.";
   return `
     <table class="var-table semantic-token-table">
-      <thead><tr><th>Range</th><th>Text</th><th>Type</th><th>Modifiers</th></tr></thead>
+      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="4" class="muted">${escapeHtml(empty)}</td></tr>`}</tbody>
     </table>
     ${hidden}
