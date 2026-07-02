@@ -197,6 +197,10 @@
             "support.namespace.module.englang",
             "comment.line.number-sign.englang"
           ],
+          "namespace.planned": [
+            "support.namespace.module.englang",
+            "comment.line.number-sign.englang"
+          ],
           "variable.uncertain": [
             "constant.language.englang",
             "variable.other.definition.englang"

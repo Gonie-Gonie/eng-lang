@@ -197,10 +197,13 @@ Core semantic role expectations:
 | Deprecated `script`/`struct` keyword | `keyword` with `deprecated`. |
 | Deprecated `script`/`struct` declaration name | `class` with `declaration` and `deprecated`. |
 | Bundled stdlib domain namespace | `namespace` with `defaultLibrary` and `internal`. |
+| Supported/native `eng.*` module import | `namespace` with `declaration`, `imported`, and `defaultLibrary`. |
+| Planned `eng.*` module import | `namespace` with `declaration`, `imported`, `defaultLibrary`, and `planned`. |
+| Internal `eng.*` module import | `namespace` with `declaration`, `imported`, `defaultLibrary`, and `internal`. |
 
-`planned` is currently reserved for future source-visible module or workflow
-symbols. Add LSP regression coverage and a VS Code fallback mapping in the same
-change that starts emitting it from source.
+`planned` is currently emitted for source-visible planned stdlib module imports
+such as `use eng.stats`; internal stdlib imports such as `use eng.system` carry
+`internal`.
 
 ## VS Code Fallback Mapping
 
@@ -231,12 +234,11 @@ in sync with the generated legend. Important pairings:
 | `variable.cache`, `keyword.cache`, `property.cache` | Cache keys, cache option values, and records. |
 | `keyword.workflowStep`, `function.workflowStep`, `variable.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
-| `variable.planned`, `variable.internal`, `namespace.internal` | Planned/internal symbol visibility. |
+| `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
 VS Code also applies a token-range dotted underline decoration for semantic
-tokens carrying `planned` or `internal`. `planned` remains reserved until a
-source-visible planned symbol path exists; current coverage is primarily
-bundled stdlib namespace tokens such as `namespace.internal`.
+tokens carrying `planned` or `internal`. Current namespace coverage includes
+source-visible stdlib module imports plus bundled stdlib namespace tokens.
 
 The fallback map currently references these TextMate scopes directly:
 

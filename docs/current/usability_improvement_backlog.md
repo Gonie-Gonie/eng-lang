@@ -3195,6 +3195,18 @@ Status: implemented after adding registry-aware stdlib import diagnostics.
 - Extended VS Code/IDE contract checks and LSP stdio coverage for the new
   quick fix path.
 
+## Batch 258: Stdlib Import Status Semantic Tokens
+
+Status: implemented after turning `eng.*` module imports into registry-aware
+diagnostics and quick fixes.
+
+- Marked source-visible registered `eng.*` module imports as `namespace`
+  semantic tokens with `defaultLibrary`, `declaration`, and `imported`.
+- Added `planned` and `internal` modifiers for planned/internal stdlib imports
+  such as `use eng.stats` and `use eng.system`.
+- Added VS Code fallback mapping and contract coverage for `namespace.planned`
+  so planned module imports remain visible even without semantic-theme support.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

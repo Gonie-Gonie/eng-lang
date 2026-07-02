@@ -990,12 +990,8 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     let program = &report.semantic_program;
 
     for import in &program.imports {
-        builder.push_on_line(
-            import.line,
-            &import.target,
-            "namespace",
-            &["declaration", "imported"],
-        );
+        let modifiers = stdlib_import_semantic_modifiers(&import.target);
+        builder.push_on_line(import.line, &import.target, "namespace", &modifiers);
     }
 
     for constant in &program.consts {
@@ -2775,6 +2771,26 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
     }
     if quantity_kind.contains("Table[Case") || quantity_kind.contains("CaseOutput") {
         modifiers.push("workflowStep");
+    }
+    modifiers
+}
+
+fn stdlib_import_semantic_modifiers(target: &str) -> Vec<&'static str> {
+    let mut modifiers = vec!["declaration", "imported"];
+    if !target.starts_with("eng.") {
+        return modifiers;
+    }
+    let Ok(registry) = bundled_module_registry() else {
+        return modifiers;
+    };
+    let Some(module) = registry.modules.iter().find(|module| module.name == target) else {
+        return modifiers;
+    };
+    modifiers.push("defaultLibrary");
+    match module.status.as_str() {
+        "planned" => modifiers.push("planned"),
+        "internal" | "internal_planned" => modifiers.push("internal"),
+        _ => {}
     }
     modifiers
 }
@@ -6029,6 +6045,8 @@ struct LegacyArgs
     #[test]
     fn snapshot_marks_core_symbol_roles_as_semantic_tokens() {
         let source = r#"import eng.table
+use eng.stats
+use eng.system
 
 const cp_water: SpecificHeat [J/kg/K] = 4180 J/kg/K
 
@@ -6060,6 +6078,13 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
         assert_semantic_token_type(&snapshot, source, "eng.table", "namespace");
         assert_semantic_token_modifier(&snapshot, source, "eng.table", "imported");
         assert_semantic_token_modifier(&snapshot, source, "eng.table", "declaration");
+        assert_semantic_token_modifier(&snapshot, source, "eng.table", "defaultLibrary");
+        assert_semantic_token_type(&snapshot, source, "eng.stats", "namespace");
+        assert_semantic_token_modifier(&snapshot, source, "eng.stats", "planned");
+        assert_semantic_token_modifier(&snapshot, source, "eng.stats", "defaultLibrary");
+        assert_semantic_token_type(&snapshot, source, "eng.system", "namespace");
+        assert_semantic_token_modifier(&snapshot, source, "eng.system", "internal");
+        assert_semantic_token_modifier(&snapshot, source, "eng.system", "defaultLibrary");
         assert_semantic_token_type(&snapshot, source, "cp_water", "variable");
         assert_semantic_token_modifier(&snapshot, source, "cp_water", "readonly");
         assert_semantic_token_modifier(&snapshot, source, "cp_water", "declaration");
