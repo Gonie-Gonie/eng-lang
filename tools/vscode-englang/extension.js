@@ -11,6 +11,7 @@ const {
 } = require("./diagnosticsProvider");
 const { EngCodeActionProvider } = require("./codeActionProvider");
 const { EngHoverProvider } = require("./hoverProvider");
+const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
 const { foldingRangeKindFromLsp } = require("./lspKinds");
@@ -25,8 +26,7 @@ const {
   addSemanticTokenDebugSample,
   createSemanticLegend,
   semanticTokenDebugSample,
-  semanticTokenRange,
-  semanticTokensFromSnapshot
+  semanticTokenRange
 } = require("./lspSemanticTokens");
 const {
   moduleStatusDisplay,
@@ -150,7 +150,15 @@ function activate(context) {
     ),
     vscode.languages.registerDocumentSemanticTokensProvider(
       LANGUAGE_ID,
-      new EngSemanticTokensProvider(context),
+      new EngSemanticTokensProvider(context, {
+        isEngDocument,
+        snapshotDocumentSource,
+        cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
+        updateSemanticSymbolDecorations,
+        semanticLegend,
+        semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
+        semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
+      }),
       semanticLegend
     ),
     vscode.languages.registerDocumentSymbolProvider(
@@ -1571,35 +1579,6 @@ async function showSemanticTokensDebug(context) {
     content: JSON.stringify(payload, null, 2)
   });
   await vscode.window.showTextDocument(debugDocument, { preview: false });
-}
-
-class EngSemanticTokensProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideDocumentSemanticTokens(document, cancellationToken) {
-    if (!isEngDocument(document)) {
-      return new vscode.SemanticTokens(new Uint32Array());
-    }
-    const config = vscode.workspace.getConfiguration("englang", document.uri);
-    if (!config.get("semanticHighlighting.enabled", true)) {
-      return new vscode.SemanticTokens(new Uint32Array());
-    }
-
-    const snapshot = await snapshotDocumentSource(document, this.context, cancellationToken);
-    if (!snapshot) {
-      return new vscode.SemanticTokens(new Uint32Array());
-    }
-    reviewCache.set(document.uri.fsPath, snapshot);
-    updateSemanticSymbolDecorations(document, snapshot);
-    return semanticTokensFromSnapshot(
-      snapshot,
-      semanticLegend,
-      SEMANTIC_TOKEN_TYPES,
-      SEMANTIC_TOKEN_MODIFIERS
-    );
-  }
 }
 
 function snapshotDocumentSource(document, context, cancellationToken) {

@@ -3244,6 +3244,19 @@ orchestration nontrivial enough to own separately.
 - Extended extension and portable-package contract checks so the split provider
   remains packaged and does not drift back into the entrypoint.
 
+## Batch 262: VS Code Semantic Token Provider Split
+
+Status: implemented while continuing to reduce `extension.js` ownership of
+editor feature providers.
+
+- Moved VS Code semantic-token provider orchestration into
+  `semanticTokensProvider.js`.
+- Kept low-level LSP semantic-token conversion in `lspSemanticTokens.js`, while
+  the provider owns the VS Code setting check, snapshot request, cache update,
+  and planned/internal decoration refresh.
+- Extended extension and portable-package contract checks so the semantic-token
+  provider remains packaged and does not drift back into the entrypoint.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

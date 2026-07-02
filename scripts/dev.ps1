@@ -1860,6 +1860,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
     $CodeActionProviderPath = Join-Path $ExtensionRoot "codeActionProvider.js"
+    $SemanticTokensProviderPath = Join-Path $ExtensionRoot "semanticTokensProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
@@ -1903,6 +1904,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CodeActionProviderPath)) {
         throw "missing VS Code code action provider at $CodeActionProviderPath"
+    }
+    if (-not (Test-Path $SemanticTokensProviderPath)) {
+        throw "missing VS Code semantic tokens provider at $SemanticTokensProviderPath"
     }
     if (-not (Test-Path $LocalCodeActionsPath)) {
         throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
@@ -2283,6 +2287,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
     $CodeActionProviderSource = Get-Content -LiteralPath $CodeActionProviderPath -Raw
+    $SemanticTokensProviderSource = Get-Content -LiteralPath $SemanticTokensProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
@@ -2479,13 +2484,17 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing completion provider token $RequiredCompletionToken"
         }
     }
+    $SemanticProviderSource = $ExtensionSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
     if (-not $ExtensionSource.Contains("showSemanticTokensDebug") -or -not $ExtensionSource.Contains("token_counts_by_type") -or -not $ExtensionSource.Contains("token_counts_by_modifier") -or -not $ExtensionSource.Contains("token_samples_by_type") -or -not $ExtensionSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"
     }
-    if (-not $ExtensionSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample")) {
+    if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
+        throw "VS Code extension must load semantic token provider orchestration from semanticTokensProvider.js"
+    }
+    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample")) {
         throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
     }
-    if ($ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {
+    if ($ExtensionSource.Contains("class EngSemanticTokensProvider") -or $ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {
         throw "VS Code extension must keep LSP semantic token conversion in lspSemanticTokens.js"
     }
     foreach ($RequiredHighlightDebugToken in @("highlight_count", "highlight_counts_by_category", "highlight_counts_by_detail", "highlight_samples_by_category", "highlight_samples_by_detail", "highlight_data")) {
@@ -3963,6 +3972,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\codeActionProvider.js"))) {
             throw "portable package did not include VS Code code action provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\semanticTokensProvider.js"))) {
+            throw "portable package did not include VS Code semantic tokens provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
             throw "portable package did not include VS Code local quick fix provider"
