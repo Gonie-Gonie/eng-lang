@@ -3026,6 +3026,19 @@ VS Code/LSP public type vocabulary.
 - Added VS Code grammar fixture coverage for state-space declarations and
   generic solver type names.
 
+## Batch 244: Public Preview And Fixture Wording Cleanup
+
+Status: implemented after scanning public README and scope documents for
+product-facing `preview`, `seed`, and generic `fixture` wording.
+
+- Renamed the VS Code extension README heading and opening sentence so the
+  extension is described as supported editor tooling, not a preview object.
+- Reworded the root README's solver-heavy repository note from smoke fixtures
+  to advanced/internal validation examples.
+- Replaced public scope references to implementation seeds and generic
+  fixtures with implementation tracks, validation examples, or narrower test
+  discovery wording.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

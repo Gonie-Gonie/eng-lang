@@ -96,8 +96,8 @@ Composite workflow examples live under `examples/workflows`. They demonstrate
 generic API/file/process/model/DB/report workflows through adapter boundaries,
 not domain-specific core language claims.
 
-Solver-heavy examples remain in the repository as advanced/internal smoke
-fixtures until their paths can be moved without breaking package and IDE gates.
+Solver-heavy examples remain in the repository as advanced/internal validation
+examples until their paths can be moved without breaking package and IDE gates.
 See [examples/README.md](examples/README.md).
 
 ## Current Commands

@@ -299,7 +299,7 @@ Use these labels consistently in public docs:
 |---|---|
 | Typed TimeSeries producer | Preferred product-facing description for scoped simulation paths. |
 | Solver metadata | Review/result/report-spec metadata for scoped equation evidence and failure diagnostics. |
-| Narrow solver smoke | A testable implementation fixture with explicit limits. |
+| Narrow solver smoke | A testable validation example with explicit limits. |
 | General solver | Planned only. Do not use for current package claims. |
 | Component graph solver | Narrow constrained scopes only unless a current status document says otherwise. |
 
@@ -308,5 +308,5 @@ Use these labels consistently in public docs:
 A feature is not complete merely because an example passes. A feature is
 complete only when its language rule, parser/AST support, semantic/type/unit
 check, runtime/check behavior, diagnostics, IDE metadata or inspector support,
-report/review artifact, official example or internal fixture, tests, and
+report/review artifact, official example or internal validation example, tests, and
 documentation are aligned for the stated scope.

@@ -57,7 +57,7 @@ breaking-change policy.
 
 ## Outside The Public Package Claim
 
-The repository may contain supported features or internal implementation seeds
+The repository may contain supported features or internal implementation tracks
 on `main` that are newer than the published `v0.1.0` assets:
 
 - General nonlinear/DAE simulation, broad behavior graph solving, broad
@@ -68,7 +68,7 @@ on `main` that are newer than the published `v0.1.0` assets:
 - LSP/VS Code as a stable persistent editor-service contract.
 - Uncertainty and data-driven modeling engines as stable features.
 - Full filesystem/network support and full process sandboxing.
-- Workspace-wide test discovery, filtering, and fixtures.
+- Workspace-wide test discovery and filtering.
 
 Scoped solver examples on `main` must stay described by their actual evidence:
 source syntax, compiler checks, runtime numerical result, residual/RHS/failure

@@ -1,6 +1,6 @@
-# EngLang VS Code Extension Preview
+# EngLang VS Code Extension
 
-This extension is the VS Code preview for EngLang editing and local workflow
+This extension provides VS Code support for EngLang editing and local workflow
 checks. It intentionally uses the shipped EngLang executables instead of
 embedding compiler logic in JavaScript.
 
