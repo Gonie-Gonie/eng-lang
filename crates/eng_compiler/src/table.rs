@@ -271,7 +271,9 @@ fn parse_require_one_expression(expression: &str) -> Option<String> {
 
 fn parse_select_expression(expression: &str) -> Option<(String, Vec<String>)> {
     let source = expression.trim().strip_prefix("select ")?.trim();
-    let (source_table, columns) = source.split_once(" columns ")?;
+    let (source_table, columns) = source
+        .split_once(" columns ")
+        .or_else(|| source.split_once(" column "))?;
     Some((simple_identifier(source_table)?, parse_column_list(columns)))
 }
 

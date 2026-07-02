@@ -783,7 +783,8 @@ Each legacy selection entry records the source table, return column, filters,
 matched row count, selected row values, status, reason, and source line.
 
 `filter <table>` with a `where { ... }` predicate block,
-`select <table> columns a, b`, `derive <table> column name = expression`,
+`select <table> column a` or `select <table> columns a, b`,
+`derive <table> column name = expression`,
 `sort <table> by column`, `require_one <source>`, and
 `join <left> with <right>` with an `on { left.key == right.key }` block now
 are the preferred table workflow surface and add schema-aware transform records:

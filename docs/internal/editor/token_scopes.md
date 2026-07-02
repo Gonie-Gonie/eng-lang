@@ -137,7 +137,7 @@ Current workflow phrase scopes:
 | `meta.workflow.return-statement.englang` | `return <value>` function return lines. |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
-| `meta.workflow.select-columns.englang` | `select <table> columns <columns>` |
+| `meta.workflow.select-columns.englang` | `select <table> column <column>` or `select <table> columns <columns>` |
 | `meta.workflow.show-report.englang` | `show <value>` and optional report display suffixes. |
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |

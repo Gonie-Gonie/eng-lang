@@ -3838,6 +3838,17 @@ Status: implemented to reduce local install and linting setup ambiguity.
 - Extended `ide-check` contract coverage so the command, manifest title, and
   status payload fields cannot drift silently.
 
+## Batch 310: Select Column API/Highlighting Parity
+
+Status: implemented to align the native table API with the VS Code grammar.
+
+- Let `select <table> column <name>` parse and execute as the single-column
+  form of the existing `select <table> columns ...` table transform.
+- Added compiler and runtime regression coverage so singular and plural select
+  forms both produce native table-transform review/result artifacts.
+- Added a VS Code grammar fixture expectation and reference docs wording so the
+  highlighted `column` keyword is not only an editor-only affordance.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

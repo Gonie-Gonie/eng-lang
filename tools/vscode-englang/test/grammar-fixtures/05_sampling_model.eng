@@ -33,6 +33,7 @@ where {
     cooling_cop > 3.0
 }
 selected_designs = select designs columns people_density, cooling_cop
+selected_single = select designs column people_density
 sorted_designs = sort designs by cooling_cop desc
 joined_designs = join designs with predictions
 derived = derive designs column annual_electricity = cooling_cop * 100 kWh

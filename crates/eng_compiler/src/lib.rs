@@ -12567,6 +12567,7 @@ system Envelope {
                 "}\n\n",
                 "stations = promote csv args.station_map as StationMap\n",
                 "station_fields = select stations columns station_id, latitude\n",
+                "station_id_only = select stations column station_id\n",
             ),
         )
         .expect("source");
@@ -12585,10 +12586,22 @@ system Envelope {
         assert_eq!(transform.selected_columns.len(), 2);
         assert_eq!(transform.selected_columns[0].name, "station_id");
         assert_eq!(transform.selected_columns[1].name, "latitude");
+        let singular_transform = report
+            .semantic_program
+            .table_transforms
+            .iter()
+            .find(|transform| transform.binding == "station_id_only")
+            .expect("singular select transform");
+        assert_eq!(singular_transform.operation, "select");
+        assert_eq!(singular_transform.source_table, "stations");
+        assert_eq!(singular_transform.selected_columns.len(), 1);
+        assert_eq!(singular_transform.selected_columns[0].name, "station_id");
 
         let review = review_json(&report);
         assert!(review.contains("\"operation\": \"select\""));
         assert!(review.contains("\"selected_column_count\": 2"));
+        assert!(review.contains("\"binding\": \"station_id_only\""));
+        assert!(review.contains("\"selected_column_count\": 1"));
         assert!(review.contains("\"name\": \"station_id\""));
     }
 

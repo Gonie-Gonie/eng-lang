@@ -18830,6 +18830,7 @@ mod tests {
                 "}\n\n",
                 "stations = promote csv args.station_map as StationMap\n",
                 "station_fields = select stations columns station_id, latitude\n",
+                "station_id_only = select stations column station_id\n",
                 "report {\n",
                 "    show station_fields\n",
                 "}\n",
@@ -18847,8 +18848,12 @@ mod tests {
         assert!(output.result_json.contains("\"output_row_count\": 2"));
         assert!(output.result_json.contains("\"selected_columns\""));
         assert!(output.result_json.contains("\"name\": \"station_id\""));
+        assert!(output
+            .result_json
+            .contains("\"binding\": \"station_id_only\""));
         assert!(output.review_json.contains("\"operation\": \"select\""));
         assert!(output.review_json.contains("\"selected_column_count\": 2"));
+        assert!(output.review_json.contains("\"selected_column_count\": 1"));
         assert!(!virtual_path.exists());
     }
 

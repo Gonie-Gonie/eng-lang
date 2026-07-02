@@ -671,6 +671,18 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.select-columns.englang",
+    "text": "select designs column people_density",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "column",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "columns",
     "fullMatch": true
