@@ -3354,6 +3354,17 @@ Status: implemented while continuing the VS Code entrypoint split.
 - Extended extension and portable-package contract checks so runtime discovery
   stays packaged and does not drift back into `extension.js`.
 
+## Batch 271: VS Code Review Panel Renderer Split
+
+Status: implemented while continuing the VS Code entrypoint split.
+
+- Moved review-panel HTML rendering, source-line normalization, and last-run
+  artifact link availability shaping into `reviewPanelRenderer.js`.
+- Kept `extension.js` responsible for VS Code command wiring, webview message
+  handling, artifact opening, source navigation, and review-risk decorations.
+- Extended extension and portable-package contract checks so the review panel
+  renderer stays packaged and does not drift back into `extension.js`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

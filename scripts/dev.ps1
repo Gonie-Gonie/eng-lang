@@ -1926,6 +1926,7 @@ function Assert-VscodeExtensionContract {
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
     $ModuleStatusPath = Join-Path $ExtensionRoot "moduleStatus.js"
     $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
+    $ReviewPanelRendererPath = Join-Path $ExtensionRoot "reviewPanelRenderer.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
@@ -2004,6 +2005,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $RuntimeDiscoveryPath)) {
         throw "missing VS Code runtime discovery helper at $RuntimeDiscoveryPath"
+    }
+    if (-not (Test-Path $ReviewPanelRendererPath)) {
+        throw "missing VS Code review panel renderer at $ReviewPanelRendererPath"
     }
     if (-not (Test-Path $SnippetsPath)) {
         throw "missing VS Code snippets at $SnippetsPath"
@@ -2369,6 +2373,7 @@ function Assert-VscodeExtensionContract {
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
     $ModuleStatusSource = Get-Content -LiteralPath $ModuleStatusPath -Raw
     $RuntimeDiscoverySource = Get-Content -LiteralPath $RuntimeDiscoveryPath -Raw
+    $ReviewPanelRendererSource = Get-Content -LiteralPath $ReviewPanelRendererPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
@@ -2396,11 +2401,11 @@ function Assert-VscodeExtensionContract {
             throw "VS Code command wording should use user-facing artifact names instead of '$ForbiddenCommandWording'"
         }
     }
-    if (-not $ExtensionSource.Contains('require("./moduleStatus")')) {
+    if (-not $ReviewPanelRendererSource.Contains('require("./moduleStatus")')) {
         throw "VS Code workflow module panel must load wording helpers from moduleStatus.js"
     }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleStatusDetailDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
-        if (-not ($ExtensionSource.Contains($RequiredModuleWordingToken) -or $ModuleStatusSource.Contains($RequiredModuleWordingToken))) {
+        if (-not ($ExtensionSource.Contains($RequiredModuleWordingToken) -or $ReviewPanelRendererSource.Contains($RequiredModuleWordingToken) -or $ModuleStatusSource.Contains($RequiredModuleWordingToken))) {
             throw "VS Code workflow module panel missing wording token $RequiredModuleWordingToken"
         }
     }
@@ -2432,7 +2437,8 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function findRuntime") -or $ExtensionSource.Contains("function findLspRuntime") -or $ExtensionSource.Contains("function findLspRuntimeForRoot") -or $ExtensionSource.Contains("function workspaceRoot") -or $ExtensionSource.Contains("function currentWorkspaceRoot") -or $ExtensionSource.Contains("function engConfig")) {
         throw "VS Code extension must keep runtime discovery helpers in runtimeDiscovery.js"
     }
-    if ($ExtensionSource.Contains('reviewValue(module, "backing")')) {
+    $ReviewPanelSourceCombined = $ExtensionSource + "`n" + $ReviewPanelRendererSource
+    if ($ReviewPanelSourceCombined.Contains('reviewValue(module, "backing")')) {
         throw "VS Code workflow module panel must not display raw registry backing keys"
     }
     if ($ExtensionSource.Contains("--entry") -or $ExtensionSource.Contains("runEntry")) {
@@ -2456,19 +2462,25 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('"review", document.uri.fsPath, "--json"')) {
         throw "VS Code extension must expose a current-file review JSON command"
     }
-    if (-not $ExtensionSource.Contains("openReviewPanel") -or -not $ExtensionSource.Contains("createWebviewPanel") -or -not $ExtensionSource.Contains("renderReviewSummaryHtml")) {
+    if (-not $ExtensionSource.Contains('require("./reviewPanelRenderer")') -or -not $ReviewPanelRendererSource.Contains("function renderReviewSummaryHtml") -or -not $ReviewPanelRendererSource.Contains("function reviewPanelArtifacts")) {
+        throw "VS Code extension must load review panel rendering helpers from reviewPanelRenderer.js"
+    }
+    if ($ExtensionSource.Contains("function renderReviewSummaryHtml") -or $ExtensionSource.Contains("function renderReviewTable") -or $ExtensionSource.Contains("function lineValue(item)") -or $ExtensionSource.Contains("function reviewPanelArtifacts")) {
+        throw "VS Code extension must keep review panel rendering helpers in reviewPanelRenderer.js"
+    }
+    if (-not $ExtensionSource.Contains("openReviewPanel") -or -not $ExtensionSource.Contains("createWebviewPanel") -or -not $ReviewPanelSourceCombined.Contains("renderReviewSummaryHtml")) {
         throw "VS Code extension must expose a current-file review summary panel"
     }
-    if (-not $ExtensionSource.Contains("<h2>Inputs</h2>") -or -not $ExtensionSource.Contains("<h2>Schemas</h2>") -or -not $ExtensionSource.Contains("<h2>Units And Quantities</h2>") -or -not $ExtensionSource.Contains("<h2>Derived Values</h2>") -or -not $ExtensionSource.Contains("<h2>Caches</h2>")) {
+    if (-not $ReviewPanelSourceCombined.Contains("<h2>Inputs</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Schemas</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Units And Quantities</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Derived Values</h2>") -or -not $ReviewPanelSourceCombined.Contains("<h2>Caches</h2>")) {
         throw "VS Code extension review panel must expose core ReviewDocument sections"
     }
-    if (-not $ExtensionSource.Contains("<h2>Review Fingerprint</h2>")) {
+    if (-not $ReviewPanelSourceCombined.Contains("<h2>Review Fingerprint</h2>")) {
         throw "VS Code extension review panel must label semantic_hash as Review Fingerprint"
     }
-    if ($ExtensionSource.Contains("<h2>Semantic Hash</h2>")) {
+    if ($ReviewPanelSourceCombined.Contains("<h2>Semantic Hash</h2>")) {
         throw "VS Code extension review panel must not expose internal Semantic Hash wording"
     }
-    if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ExtensionSource.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
+    if (-not $ExtensionSource.Contains("onDidReceiveMessage") -or -not $ReviewPanelSourceCombined.Contains("data-source-line") -or -not $ExtensionSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }
     foreach ($RequiredSourceLineToken in @(
@@ -2479,11 +2491,11 @@ function Assert-VscodeExtensionContract {
         "sourceLine",
         "reviewRiskLineNumber"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredSourceLineToken)) {
+        if (-not $ReviewPanelSourceCombined.Contains($RequiredSourceLineToken)) {
             throw "VS Code extension review panel missing normalized source-line token $RequiredSourceLineToken"
         }
     }
-    if (-not $ExtensionSource.Contains("reviewPanelArtifacts") -or -not $ExtensionSource.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
+    if (-not $ReviewPanelSourceCombined.Contains("reviewPanelArtifacts") -or -not $ReviewPanelSourceCombined.Contains("data-artifact-id") -or -not $ExtensionSource.Contains("openArtifact")) {
         throw "VS Code extension review panel must expose clickable last-run artifacts"
     }
     if (-not $ExtensionSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
@@ -3013,6 +3025,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
             Invoke-Native $Node.Source "--check" $ModuleStatusPath
             Invoke-Native $Node.Source "--check" $RuntimeDiscoveryPath
+            Invoke-Native $Node.Source "--check" $ReviewPanelRendererPath
         } catch {
             Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
         }
@@ -4158,6 +4171,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\runtimeDiscovery.js"))) {
             throw "portable package did not include VS Code runtime discovery helper"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\reviewPanelRenderer.js"))) {
+            throw "portable package did not include VS Code review panel renderer"
         }
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"
