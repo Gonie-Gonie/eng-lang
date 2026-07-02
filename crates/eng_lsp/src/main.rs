@@ -674,7 +674,7 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
         "E-WITH-OPTION-001" => {
-            optional_code_action(lsp_plot_unit_option_code_action(uri, text, diagnostic))
+            optional_code_action(lsp_with_option_rename_code_action(uri, text, diagnostic))
         }
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
@@ -1271,15 +1271,21 @@ fn lsp_expected_sha256_code_action(uri: &str, text: &str, diagnostic: &Value) ->
     }))
 }
 
-fn lsp_plot_unit_option_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
-    if unknown_with_option_name(diagnostic_message(diagnostic))? != "unit" {
-        return None;
-    }
+fn lsp_with_option_rename_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let unknown_option = unknown_with_option_name(diagnostic_message(diagnostic))?;
+    let (replacement, title) = match unknown_option {
+        "unit" => ("unit y", "Use plot y-axis option: unit y ="),
+        "confidence" => (
+            "confidence_band",
+            "Use confidence band option: confidence_band =",
+        ),
+        _ => return None,
+    };
     let line_number = diagnostic_line(diagnostic)?;
     let line = text.lines().nth(line_number)?;
     let name_start = line_indent(line).len();
     let rest = &line[name_start..];
-    let after_name = rest.strip_prefix("unit")?;
+    let after_name = rest.strip_prefix(unknown_option)?;
     if !after_name
         .chars()
         .next()
@@ -1292,14 +1298,14 @@ fn lsp_plot_unit_option_code_action(uri: &str, text: &str, diagnostic: &Value) -
         return None;
     }
     Some(json!({
-        "title": "Use plot y-axis option: unit y =",
+        "title": title,
         "kind": "quickfix",
         "isPreferred": true,
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(
             uri,
-            line_byte_range(line_number, line, name_start, name_start + "unit".len()),
-            "unit y"
+            line_byte_range(line_number, line, name_start, name_start + unknown_option.len()),
+            replacement
         )
     }))
 }

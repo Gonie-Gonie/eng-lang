@@ -757,6 +757,7 @@ report {
     plot Q_plot over Time
     with {
         unit = kW
+        confidence = sensor_std
     }
 }
 "#;
@@ -945,6 +946,12 @@ report {
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
     assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Use confidence band option: confidence_band =",
+        "confidence_band",
+    );
 
     write_message(
         &mut stdin,
@@ -1001,6 +1008,7 @@ report {
     plot Q_plot over Time
     with {
         unit = kW
+        confidence = sensor_std
     }
 }
 "#;
@@ -1057,6 +1065,12 @@ report {
     );
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Use confidence band option: confidence_band =",
+        "confidence_band",
+    );
 }
 
 #[test]

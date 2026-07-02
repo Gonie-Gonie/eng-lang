@@ -78,6 +78,11 @@ function localCodeActions(document, context) {
         action.isPreferred = true;
         actions.push(action);
       }
+      const confidenceAction = confidenceBandOptionAction(document, diagnostic);
+      if (confidenceAction) {
+        confidenceAction.isPreferred = true;
+        actions.push(confidenceAction);
+      }
     }
     const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
     if (optionAction) {
@@ -367,25 +372,39 @@ function expectedSha256FromDiagnostic(diagnostic) {
 }
 
 function plotUnitOptionAction(document, diagnostic) {
-  if (unknownWithOptionName(diagnostic.message) !== "unit") {
+  return withOptionRenameAction(document, diagnostic, {
+    from: "unit",
+    to: "unit y",
+    title: "Use plot y-axis option: unit y ="
+  });
+}
+
+function confidenceBandOptionAction(document, diagnostic) {
+  return withOptionRenameAction(document, diagnostic, {
+    from: "confidence",
+    to: "confidence_band",
+    title: "Use confidence band option: confidence_band ="
+  });
+}
+
+function withOptionRenameAction(document, diagnostic, fix) {
+  if (unknownWithOptionName(diagnostic.message) !== fix.from) {
     return undefined;
   }
   const line = document.lineAt(diagnostic.range.start.line);
-  const match = /^(\s*)unit(\s*=)/.exec(stripLineComment(line.text));
+  const pattern = new RegExp(`^(\\s*)${escapeRegExp(fix.from)}(\\s*=)`);
+  const match = pattern.exec(stripLineComment(line.text));
   if (!match) {
     return undefined;
   }
   const startCharacter = match[1].length;
-  const action = new vscode.CodeAction(
-    "Use plot y-axis option: unit y =",
-    vscode.CodeActionKind.QuickFix
-  );
+  const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
   action.diagnostics = [diagnostic];
   action.edit = new vscode.WorkspaceEdit();
   action.edit.replace(
     document.uri,
-    new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, startCharacter + "unit".length),
-    "unit y"
+    new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, startCharacter + fix.from.length),
+    fix.to
   );
   return action;
 }

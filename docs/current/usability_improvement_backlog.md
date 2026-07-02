@@ -2917,6 +2917,19 @@ some TextMate traversal paths.
 - Strengthened the VS Code grammar smoke harness so builtin helper labels from
   the LSP registry cannot be captured as `entity.name.function.call.englang`.
 
+## Batch 236: Confidence Band Option Quick Fix
+
+Status: implemented after reviewing `E-WITH-OPTION-001` quick fixes for plot
+and report option naming mistakes.
+
+- Added an LSP-owned quick fix that renames `confidence = ...` to
+  `confidence_band = ...` for unknown with-option diagnostics.
+- Mirrored the same rename in the VS Code local quick-fix fallback.
+- Extended stdio and `--code-actions-stdin` quick-fix tests so the repair stays
+  available for persistent and short-lived editor flows.
+- Extended the VS Code extension contract so the local fallback keeps the
+  confidence-band repair alongside the existing `unit =` to `unit y =` repair.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
