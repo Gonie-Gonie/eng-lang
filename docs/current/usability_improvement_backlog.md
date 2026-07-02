@@ -2676,6 +2676,20 @@ VS Code fallback scope gaps.
 - Strengthened `dev.bat lsp-check` so the full `eng_lsp` test suite, including
   this cross-editor scope coverage guard, runs before LSP smoke checks.
 
+## Batch 217: Editor User Wording Cleanup
+
+Status: implemented after reviewing VS Code and Native IDE first-user docs for
+internal editor-service wording.
+
+- Reworded the VS Code extension README around live checks, hover, completion,
+  formatting, and go-to-definition so the public path explains user behavior
+  instead of backend process shape.
+- Reworded the Native IDE how-to VS Code section so it describes shared
+  compiler-backed editor data without presenting the LSP/snapshot status as a
+  user-facing limitation.
+- Added an `ide-check` guard for the most confusing internal editor-service
+  phrases in user-facing editor docs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

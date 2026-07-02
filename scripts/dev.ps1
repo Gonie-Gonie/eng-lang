@@ -2088,6 +2088,21 @@ function Assert-VscodeExtensionContract {
     if ($SemanticDescription -match "eng-lsp|snapshot") {
         throw "VS Code semanticHighlighting description must avoid editor-service implementation details"
     }
+    foreach ($ForbiddenEditorDocWording in @(
+        "LSP-client extension",
+        "editor-service smoke checks",
+        "short editor-service bridge",
+        "editor-service snapshot",
+        "smoke/snapshot tooling",
+        "stable persistent editor-service contract"
+    )) {
+        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording)) {
+            throw "User-facing editor docs must avoid internal wording: $ForbiddenEditorDocWording"
+        }
+    }
+    if ($NativeIdeHowtoSource.Contains("semantic-token legend") -or $NativeIdeHowtoSource.Contains("semantic token type/modifiers")) {
+        throw "Native IDE user how-to must describe highlight UI in user-facing terms"
+    }
     $RiskDecorationDescription = [string]$Properties."englang.reviewRiskDecorations.enabled".description
     if ($RiskDecorationDescription -notmatch "review risks") {
         throw "VS Code reviewRiskDecorations setting must describe review-risk markers"

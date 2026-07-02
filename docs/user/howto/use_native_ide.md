@@ -81,8 +81,8 @@ Editor
   quantity, workflow, and review-risk highlighting. If the buffer has changed
   since the last check, the overlay falls back to plain text until Check or Run
   refreshes token ranges. The editor meta bar shows the current caret line,
-  column, semantic token type/modifiers, and quantity/unit hover detail when
-  the caret is on a checked token.
+  column, highlight category, and quantity/unit detail when the caret is on a
+  checked token.
 
 Right Sidebar
   Vars, Schema, Time, Plot, Checks, Highlight, Artifacts, and Run tabs are the
@@ -90,12 +90,11 @@ Right Sidebar
   variables, Args values, schema summaries, unit conversions, TimeSeries
   ranges/statistics, metrics, validations, uncertainty summaries/propagation
   metadata, time alignments, artifact paths, and JSON artifact outlines are
-  summarized in tables. The Highlight tab shows the semantic-token legend,
-  token type/modifier counts, and source ranges from the current check. The Net
-  tab summarizes network boundaries, network events, cache events, hashes, and
-  cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
-  bindings also appear in the variable view with their representation and
-  summary values.
+  summarized in tables. The Highlight tab shows highlight categories, token
+  counts, and source ranges from the current check. The Net tab summarizes
+  network boundaries, network events, cache events, hashes, and cache keys for
+  workflows that use `eng.net` or `eng.cache`. Uncertain scalar bindings also
+  appear in the variable view with their representation and summary values.
 
 Advanced panels
   Assembly, dependency, residual, component graph, system, and solver result
@@ -171,7 +170,7 @@ The VS Code extension defaults to quieter file checks for the Problems panel.
 Set `"englang.problemsSource": "live"` to update Problems while typing from the
 current unsaved buffer.
 
-The extension shares the compiler-facing diagnostic/hover/completion shape, but
-it is secondary for the current release. The primary no-install user test path
-is `eng-ide.exe`. The LSP remains smoke/snapshot tooling until a status
-document declares a stable persistent editor-service contract.
+The extension shares the same compiler-backed diagnostics, hover, completion,
+and semantic highlighting data as the native IDE. It is useful when you prefer
+VS Code, while `eng-ide.exe` remains the primary no-install review path for the
+current release.

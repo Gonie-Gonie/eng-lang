@@ -10,7 +10,7 @@ embedding compiler logic in JavaScript.
   schema/types, units, built-in functions, with-block options, and literals
 - stable file diagnostics from the EngLang CLI checker
 - optional live editor diagnostics, hover, completion, document/workspace
-  symbols, and folding from the EngLang editor service
+  symbols, and folding for the current unsaved buffer
 - debounced diagnostics for unsaved buffers after a short typing pause
 - semantic highlighting for unsaved buffers, covering roles such as
   variables, parameters, properties, built-in workflow helpers, module
@@ -19,8 +19,8 @@ embedding compiler logic in JavaScript.
 - packaged semantic token modifier and TextMate fallback scope metadata so
   themes can color EngLang roles consistently
 - subtle review-risk line and overview-ruler markers for high and medium risks
-- highlight-token inspection command that opens the current token payload as JSON
-  for theme/highlighting inspection
+- highlight-token inspection command for checking how the current file is
+  colored
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols
@@ -50,8 +50,8 @@ embedding compiler logic in JavaScript.
 4. Open the extracted folder or any EngLang project folder.
 5. Open a `.eng` file and run `EngLang: Check Current File`.
 
-The packaged VSIX contains `eng.exe` and the EngLang editor service, so no Rust
-setup is required for diagnostics or editor-service smoke checks. The default
+The packaged VSIX contains the EngLang command-line and editor tooling, so no
+Rust setup is required for diagnostics or live editor checks. The default
 Problems source uses stable file checks. In Settings, switch EngLang diagnostics
 to live editor checks to update Problems while typing. In `settings.json`, set:
 
@@ -93,13 +93,14 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 ## Current Scope
 
-This is not a persistent VS Code LSP-client extension yet. The `eng-lsp`
-executable exposes a stdio LSP protocol for external clients, but this
-extension uses short editor-service bridge calls for live Problems, hover,
-completion, document symbols, workspace symbols, folding, semantic tokens,
-definition, formatting, and quick fixes. The default Problems source runs
-stable file checks on open/save and manual check. Set `englang.problemsSource`
-to `live` to update Problems from the current unsaved buffer while typing. The legacy
+The extension is a local editor client for the bundled EngLang tooling. It uses
+short-lived editor requests for live Problems, hover, completion, document
+symbols, workspace symbols, folding, semantic tokens, definition, formatting,
+and quick fixes. This keeps VS Code behavior aligned with the compiler while
+the long-running editor protocol continues to evolve. The default Problems
+source runs stable file checks on open/save and manual check. Set
+`englang.problemsSource` to `live` to update Problems from the current unsaved
+buffer while typing. The legacy
 `englang.diagnosticsBackend` setting is still accepted for older workspaces,
 but new settings should use `englang.problemsSource`.
 `EngLang: Run Current File`
@@ -134,9 +135,8 @@ annotations, schema column annotations, side-effect confirmations, and invalid
 network/process options such as retry, timeout, body-size, and allow-failure
 values.
 
-Hover uses the current unsaved buffer through the editor-service snapshot, so
-quantity, unit, kind, and status details stay aligned with live diagnostics and
-semantic highlighting.
+Hover is computed from the current unsaved buffer, so quantity, unit, kind, and
+status details stay aligned with live diagnostics and semantic highlighting.
 
 Semantic highlighting also works on unsaved edits, so role-aware token colors do
 not have to wait for a file save. The extension declares EngLang-specific
@@ -159,25 +159,20 @@ keeping diagnostics and semantic highlighting enabled.
 Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated
-completion seed from `generated/editor/englang-editor-metadata.json`.
-`eng-lsp.exe --editor-metadata` exposes that completion seed and the
-semantic-token legend used by editor contract checks.
+completion catalog from `generated/editor/englang-editor-metadata.json`. The
+same generated metadata also supplies the semantic highlighting catalog used by
+editor contract checks.
 
-Format Document uses `eng-lsp --format-stdin` on the current unsaved buffer, so
-VS Code and the command-line formatter share the compiler-owned formatting
-rules. JavaScript does not maintain a separate indentation or block-formatting
-implementation.
+Format Document uses the current unsaved buffer, so VS Code and the command-line
+formatter share the compiler-owned formatting rules. JavaScript does not
+maintain a separate indentation or block-formatting implementation.
 
-Go-to-definition asks `eng-lsp --definition-stdin` about the current unsaved
-buffer, so static file imports and bundled `use eng.<module>` imports can
-resolve to their source files. If live definition lookup is unavailable, the
-extension falls back to document symbols from the current buffer for top-level
-symbols and nested symbols such as schema fields, class fields, component
-ports, and object members. Persistent LSP clients can also call
-`workspace/symbol` to search symbols from open documents and `.eng` files under
-the initialized workspace roots. VS Code's workspace symbol search uses
-`eng-lsp --workspace-symbols` to search `.eng` files under each open workspace
-folder.
+Go-to-definition uses the current unsaved buffer, so static file imports and
+bundled `use eng.<module>` imports can resolve to their source files. If live
+definition lookup is unavailable, the extension falls back to document symbols
+from the current buffer for top-level symbols and nested symbols such as schema
+fields, class fields, component ports, and object members. VS Code's workspace
+symbol search scans `.eng` files under each open workspace folder.
 
 ## Grammar Maintenance
 
