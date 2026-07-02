@@ -1838,6 +1838,17 @@ semantic overlays.
   parameter keys do not lose external-boundary coloring under semantic
   highlighting.
 
+## Batch 151: VS Code Local Quick Fix Split
+
+Status: implemented while continuing the VS Code extension split checklist.
+
+- Moved the JavaScript fallback quick-fix provider out of `extension.js` into
+  `localCodeActions.js`.
+- Kept `diagnosticCode` shared between LSP action matching and fallback quick
+  fixes through the new module.
+- Extended `ide-check` contract coverage so local quick-fix tokens and portable
+  packaging include the split module.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

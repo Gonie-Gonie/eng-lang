@@ -1805,6 +1805,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
+    $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
@@ -1820,6 +1821,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ExtensionJsPath)) {
         throw "missing VS Code extension entrypoint at $ExtensionJsPath"
+    }
+    if (-not (Test-Path $LocalCodeActionsPath)) {
+        throw "missing VS Code local quick fix provider at $LocalCodeActionsPath"
     }
     if (-not (Test-Path $ArtifactRegistryPath)) {
         throw "missing VS Code artifact registry at $ArtifactRegistryPath"
@@ -2034,6 +2038,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
+    $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
@@ -2230,6 +2235,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing formatting token $RequiredFormattingToken"
         }
     }
+    $QuickFixSource = $ExtensionSource + "`n" + $LocalCodeActionsSource
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "--code-actions-stdin",
@@ -2268,9 +2274,15 @@ function Assert-VscodeExtensionContract {
         "optionValueReplacementAction",
         "optionAssignmentRange"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredQuickFixToken)) {
+        if (-not $QuickFixSource.Contains($RequiredQuickFixToken)) {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
         }
+    }
+    if (-not $ExtensionSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
+        throw "VS Code extension must load local quick fix helpers from localCodeActions.js"
+    }
+    if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
+        throw "VS Code extension must keep local quick fix helpers in localCodeActions.js"
     }
     $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)
     foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {
@@ -2398,6 +2410,7 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $Node) {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
+            Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
@@ -3420,6 +3433,9 @@ function Invoke-PackageSmoke {
         $Version = Get-WorkspaceVersion
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\extension.js"))) {
             throw "portable package did not include VS Code extension source"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\localCodeActions.js"))) {
+            throw "portable package did not include VS Code local quick fix provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
             throw "portable package did not include VS Code artifact registry"
