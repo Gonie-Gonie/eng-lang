@@ -34,7 +34,7 @@ what was read, and what external state influenced the result.
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
 | Test checks | `test { assert ...; golden ... }` | Runtime verification plus structured `test_results.json` metadata |
-| Network | `download url(...) to file(...)` | Offline/fixture boundary records; repro profile requires fixture and `expected_sha256` |
+| Network | `http get/post/put/patch/head/request/fetch ...`, `download url(...) to file(...)` | Offline/fixture boundary records; repro profile requires fixture and `expected_sha256` |
 
 ## Types
 
@@ -343,7 +343,7 @@ eng.config   promote toml/json as schema
 eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
 eng.test     test/assert/golden support
-eng.net      offline/fixture network boundary records and SHA-256 checks now; live download later
+eng.net      offline/fixture HTTP/download boundary records and SHA-256 checks now; live network later
 eng.cache    explicit cache-key records and hit/miss manifests now; replay/invalidation later
 ```
 

@@ -2566,7 +2566,7 @@ fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) ->
     };
     let is_net_owner = program.items.iter().any(|item| match item {
         AstItem::FastBinding(binding) if binding.line == owner_line => {
-            crate::net::is_http_get_expression(&binding.expression)
+            crate::net::is_http_request_expression(&binding.expression)
         }
         AstItem::NetDownload(download) => download.line == owner_line,
         _ => false,
@@ -11827,7 +11827,7 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("ConfigObject", "schema-defined");
     }
 
-    if lowered_expression.starts_with("http get ") {
+    if crate::net::is_http_request_expression(&lowered_expression) {
         return semantic_type("HttpResponse", "eng.net");
     }
 

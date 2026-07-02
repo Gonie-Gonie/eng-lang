@@ -1526,9 +1526,10 @@ fn push_network_events_json(json: &mut String, records: &[ExternalBoundaryRecord
         }
         first = false;
         json.push_str(&format!("{indent}{{\n"));
+        let event_kind = run_log_network_event_kind(record);
         json.push_str(&format!(
             "{indent}  \"kind\": \"{}\",\n",
-            json_escape(run_log_network_event_kind(record))
+            json_escape(&event_kind)
         ));
         if !record.binding.is_empty() {
             json.push_str(&format!(
@@ -1565,12 +1566,16 @@ fn is_network_boundary_record(record: &ExternalBoundaryRecord) -> bool {
     matches!(record.kind.as_str(), "network_request" | "network_download")
 }
 
-fn run_log_network_event_kind(record: &ExternalBoundaryRecord) -> &str {
+fn run_log_network_event_kind(record: &ExternalBoundaryRecord) -> String {
     match record.kind.as_str() {
-        "network_request" => "http_get",
-        "network_download" => "download",
-        _ => record.kind.as_str(),
+        "network_request" => network_request_kind(&record.command),
+        "network_download" => "download".to_owned(),
+        _ => record.kind.clone(),
     }
+}
+
+fn network_request_kind(method: &str) -> String {
+    format!("http_{}", method.to_ascii_lowercase())
 }
 
 #[derive(Clone, Debug)]
@@ -7654,7 +7659,10 @@ fn push_output_manifest_network_requests_json(
             json.push_str(",\n");
         }
         json.push_str("      {\n");
-        json.push_str("        \"kind\": \"http_get\",\n");
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&network_request_kind(&record.command))
+        ));
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
             json_escape(&record.binding)
@@ -11000,6 +11008,13 @@ fn enrich_runtime_review_boundaries(
         object.insert("status".to_owned(), Value::String(record.status.clone()));
         object.insert("target".to_owned(), Value::String(record.target.clone()));
         object.insert("outputs".to_owned(), json!(record.output_paths));
+        if record.kind == "network_request" {
+            object.insert("method".to_owned(), Value::String(record.command.clone()));
+            object.insert(
+                "side_effects".to_owned(),
+                json!([network_request_kind(&record.command)]),
+            );
+        }
         object.insert(
             "expected_output_status".to_owned(),
             Value::String(record.expected_output_status.clone()),
@@ -15173,10 +15188,17 @@ fn network_boundaries_json(
         }
         first = false;
         json.push_str("      {\n");
-        json.push_str("        \"kind\": \"http_get\",\n");
+        json.push_str(&format!(
+            "        \"kind\": \"{}\",\n",
+            json_escape(&network_request_kind(&request.method))
+        ));
         json.push_str(&format!(
             "        \"binding\": \"{}\",\n",
             json_escape(&request.binding)
+        ));
+        json.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&request.method)
         ));
         json.push_str(&format!(
             "        \"url\": \"{}\",\n",
@@ -21093,6 +21115,73 @@ mod tests {
             .cache_manifest_json
             .contains("\"status\": \"hit\""));
         assert!(cached_output.review_json.contains("\"status\": \"cached\""));
+    }
+
+    #[test]
+    fn run_file_records_non_get_http_request_kind() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-net-method-boundary");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-net-method-boundary-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("source data dir");
+        fs::write(
+            source_dir.join("data").join("response.json"),
+            "{\"ok\":true}\n",
+        )
+        .expect("response");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nprint submitted.status\n",
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+        let review_json_value =
+            serde_json::from_str::<Value>(&output.review_json).expect("review json");
+
+        assert!(output.stdout.contains("fixture"));
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/method")
+                .and_then(Value::as_str),
+            Some("POST")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/status_code")
+                .and_then(Value::as_u64),
+            Some(201)
+        );
+        assert!(output.result_json.contains("\"kind\": \"http_post\""));
+        assert!(output.run_log_json.contains("\"kind\": \"http_post\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"kind\": \"http_post\""));
+        let network_boundary = review_json_value
+            .pointer("/review_document/external_boundaries")
+            .and_then(Value::as_array)
+            .and_then(|boundaries| {
+                boundaries.iter().find(|boundary| {
+                    boundary.get("kind").and_then(Value::as_str) == Some("network_request")
+                })
+            })
+            .expect("network request boundary");
+        assert!(network_boundary
+            .get("side_effects")
+            .and_then(Value::as_array)
+            .is_some_and(|effects| effects
+                .iter()
+                .any(|effect| effect.as_str() == Some("http_post"))));
+
+        fs::remove_file(source_dir.join("data").join("response.json")).expect("remove response");
     }
 
     #[test]

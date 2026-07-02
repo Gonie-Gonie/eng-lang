@@ -1105,7 +1105,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             HTTP_RESPONSE_FIELD_COMPLETIONS,
             &["external"],
         );
-        builder.push_keywords_on_line(request.line, &["http", "get"], &["sideEffect", "external"]);
+        builder.push_keywords_on_line(
+            request.line,
+            &["http", http_request_method_keyword(&request.method)],
+            &["sideEffect", "external"],
+        );
     }
 
     for download in &program.net_downloads {
@@ -1501,7 +1505,11 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
     for request in &program.net_requests {
         if let Some(modifier) = review_risk_modifier("medium") {
             builder.push_on_line(request.line, &request.binding, "variable", &[modifier]);
-            builder.push_keywords_on_line(request.line, &["http", "get"], &[modifier]);
+            builder.push_keywords_on_line(
+                request.line,
+                &["http", http_request_method_keyword(&request.method)],
+                &[modifier],
+            );
         }
     }
 
@@ -1771,7 +1779,7 @@ fn document_symbols(report: &CheckReport, source: &str) -> Vec<LspDocumentSymbol
             &mut seen,
             &lines,
             request.binding.clone(),
-            "http get".to_owned(),
+            format!("http {}", http_request_method_keyword(&request.method)),
             SYMBOL_KIND_VARIABLE,
             request.line,
             Vec::new(),
@@ -2895,6 +2903,18 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     }
 }
 
+fn http_request_method_keyword(method: &str) -> &'static str {
+    match method.to_ascii_uppercase().as_str() {
+        "POST" => "post",
+        "PUT" => "put",
+        "PATCH" => "patch",
+        "HEAD" => "head",
+        "REQUEST" => "request",
+        "FETCH" => "fetch",
+        _ => "get",
+    }
+}
+
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "sample" | "grid" | "random" | "lhs" | "latin_hypercube" => {
@@ -3991,7 +4011,7 @@ fn with_block_completion_context(source: &str, line: usize) -> Option<WithBlockC
 
 fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]> {
     let owner = owner_text.trim();
-    if owner.contains("http get ") {
+    if is_http_request_owner_text(owner) {
         return Some(&[
             "query",
             "headers",
@@ -4145,6 +4165,20 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
         return Some(&["count", "seed", "start", "end", "method"]);
     }
     None
+}
+
+fn is_http_request_owner_text(owner: &str) -> bool {
+    let Some(index) = owner.find("http ") else {
+        return false;
+    };
+    let rest = owner[index + "http ".len()..].trim_start();
+    let Some(method) = rest.split_whitespace().next() else {
+        return false;
+    };
+    matches!(
+        method,
+        "get" | "post" | "put" | "patch" | "head" | "request" | "fetch"
+    )
 }
 
 fn workflow_option_completion_detail(label: &str) -> Option<&'static str> {
@@ -5166,6 +5200,7 @@ test "temperature stays bounded" {
 
 render template file("report.md") to file("report.html")
 response = http get url("https://example.org/weather")
+submitted = http post url("https://example.org/weather")
 
 script LegacyScript
 struct LegacyArgs
@@ -5187,7 +5222,7 @@ struct LegacyArgs
         for label in ["export", "write", "render", "template"] {
             assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
         }
-        for label in ["http", "get"] {
+        for label in ["http", "get", "post"] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
         for label in ["script", "struct"] {
@@ -5581,7 +5616,7 @@ Q = sensor.T
 
     #[test]
     fn with_block_completion_uses_owner_context() {
-        let source = r#"response = http get url("https://api.example.org/hourly")
+        let source = r#"response = http post url("https://api.example.org/hourly")
 with {
     
 }

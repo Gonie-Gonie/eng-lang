@@ -6945,7 +6945,10 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str("        \"inputs\": [],\n");
         json.push_str("        \"outputs\": [],\n");
-        json.push_str("        \"side_effects\": [\"http_get\"],\n");
+        json.push_str(&format!(
+            "        \"side_effects\": [\"http_{}\"],\n",
+            json_escape(&request.method.to_ascii_lowercase())
+        ));
         push_optional_json_string(json, "provenance", request.response_hash.as_deref(), 8);
         json.push_str("        \"success\": null,\n");
         json.push_str("        \"risk_level\": \"medium\",\n");
@@ -13490,6 +13493,60 @@ system Envelope {
                     == Some("external_boundary")
                 && risk.get("level").and_then(serde_json::Value::as_str) == Some("high")
         }));
+    }
+
+    #[test]
+    fn records_public_http_request_methods_as_network_boundaries() {
+        let root = env::temp_dir().join(format!(
+            "englang-net-method-boundary-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n")
+            .expect("response fixture");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "submitted = http post url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    status_code = 201\n}\n\nchecked = http head url(\"https://api.example.org/submit\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n\nsubmitted_text = submitted.body\nchecked_code = checked.status_code\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert_eq!(report.semantic_program.net_requests.len(), 2);
+        assert_eq!(report.semantic_program.net_requests[0].method, "POST");
+        assert_eq!(
+            report.semantic_program.net_requests[0].status_code,
+            Some(201)
+        );
+        assert_eq!(
+            report.semantic_program.net_requests[0].status_class,
+            "success"
+        );
+        assert_eq!(report.semantic_program.net_requests[1].method, "HEAD");
+        let submitted = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "submitted")
+            .expect("submitted binding");
+        assert_eq!(submitted.semantic_type.quantity_kind, "HttpResponse");
+        let checked_code = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "checked_code")
+            .expect("checked_code binding");
+        assert_eq!(
+            checked_code.semantic_type.quantity_kind,
+            "DimensionlessNumber"
+        );
+        let review = review_json(&report);
+        assert!(review.contains("\"method\": \"POST\""));
+        assert!(review.contains("\"method\": \"HEAD\""));
+        assert!(review.contains("\"side_effects\": [\"http_post\"]"));
     }
 
     #[test]

@@ -2410,6 +2410,21 @@ primary VS Code linting configuration.
 - Extended `ide-check` contract coverage so the new setting cannot disappear
   and legacy wording does not return to the primary user path.
 
+## Batch 198: Native HTTP Request Method Boundaries
+
+Status: implemented to align the public HTTP request vocabulary with native
+network boundary analysis and editor highlighting.
+
+- Generalized compiler network request analysis from `http get` only to
+  `http get/post/put/patch/head/request/fetch`.
+- Kept the offline fixture/reproducibility policy unchanged while recording
+  the actual request method in review, run-plan, run-log, result, and output
+  manifest artifacts.
+- Updated LSP semantic tokens, document symbols, and with-block completion
+  owner detection so non-GET HTTP requests keep external-boundary colors and
+  network options.
+- Added compiler, runtime, and LSP regressions for non-GET request methods.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

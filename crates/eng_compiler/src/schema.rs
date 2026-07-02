@@ -774,7 +774,7 @@ pub(crate) fn response_body_fixture_sources(
             continue;
         };
         if binding.context != ParseContext::TopLevel
-            || !binding.expression.trim().starts_with("http get ")
+            || !crate::net::is_http_request_expression(&binding.expression)
         {
             continue;
         }

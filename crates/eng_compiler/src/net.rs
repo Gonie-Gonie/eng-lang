@@ -9,6 +9,15 @@ use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
 use crate::Diagnostic;
 
 const MAX_RETRY_ATTEMPTS: usize = 5;
+const HTTP_REQUEST_METHODS: &[(&str, &str)] = &[
+    ("get", "GET"),
+    ("post", "POST"),
+    ("put", "PUT"),
+    ("patch", "PATCH"),
+    ("head", "HEAD"),
+    ("request", "REQUEST"),
+    ("fetch", "FETCH"),
+];
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NetQueryParam {
@@ -73,12 +82,15 @@ pub fn analyze_net_boundaries(
     for item in &parsed.items {
         match item {
             AstItem::FastBinding(binding) => {
-                let Some(url_literal) = parse_http_get_expression(&binding.expression) else {
+                let Some((method, url_literal)) =
+                    parse_http_request_expression(&binding.expression)
+                else {
                     continue;
                 };
                 let options = net_options_for_owner(program, binding.line);
                 let boundary = build_request(
                     &binding.name,
+                    &method,
                     &url_literal,
                     binding.line,
                     &options,
@@ -107,23 +119,33 @@ pub fn analyze_net_boundaries(
     analysis
 }
 
-pub fn is_http_get_expression(expression: &str) -> bool {
-    parse_http_get_expression(expression).is_some()
+pub fn is_http_request_expression(expression: &str) -> bool {
+    parse_http_request_expression(expression).is_some()
 }
 
-fn parse_http_get_expression(expression: &str) -> Option<String> {
+fn parse_http_request_expression(expression: &str) -> Option<(String, String)> {
     let trimmed = expression.trim();
-    let rest = trimmed.strip_prefix("http get ")?;
+    let rest = trimmed.strip_prefix("http ")?;
+    let method_label = rest.split_whitespace().next()?;
+    let method = http_method_label(method_label)?;
+    let rest = rest[method_label.len()..].trim();
     let source = rest
         .split_once(" with ")
         .map(|(left, _)| left)
         .unwrap_or(rest)
         .trim();
-    (!source.is_empty()).then(|| source.to_owned())
+    (!source.is_empty()).then(|| (method.to_owned(), source.to_owned()))
+}
+
+fn http_method_label(label: &str) -> Option<&'static str> {
+    HTTP_REQUEST_METHODS
+        .iter()
+        .find_map(|(syntax, method)| label.eq_ignore_ascii_case(syntax).then_some(*method))
 }
 
 fn build_request(
     binding: &str,
+    method: &str,
     url_literal: &str,
     line: usize,
     options: &[WithOptionInfo],
@@ -156,7 +178,7 @@ fn build_request(
         .or_else(|| fixture_read.as_ref().map(|_| 200));
     NetRequestInfo {
         binding: binding.to_owned(),
-        method: "GET".to_owned(),
+        method: method.to_owned(),
         url_literal: url_literal.to_owned(),
         url_value,
         query: query_params(options, arg_values),
