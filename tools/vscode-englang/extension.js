@@ -13,16 +13,14 @@ const { EngCodeActionProvider } = require("./codeActionProvider");
 const { EngFoldingRangeProvider } = require("./foldingRangeProvider");
 const { EngFormattingProvider } = require("./formattingProvider");
 const { EngHoverProvider } = require("./hoverProvider");
+const {
+  EngDefinitionProvider,
+  EngDocumentSymbolProvider,
+  EngWorkspaceSymbolProvider
+} = require("./navigationProviders");
 const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
-const {
-  definitionLocationFromLsp,
-  definitionLocationFromSnapshotSymbols,
-  definitionNameCandidates,
-  documentSymbolsFromSnapshot,
-  workspaceSymbolInformationFromLsp
-} = require("./lspNavigation");
 const {
   addSemanticTokenDebugSample,
   createSemanticLegend,
@@ -164,14 +162,28 @@ function activate(context) {
     ),
     vscode.languages.registerDocumentSymbolProvider(
       LANGUAGE_ID,
-      new EngDocumentSymbolProvider(context)
+      new EngDocumentSymbolProvider(context, {
+        isEngDocument,
+        snapshotDocumentSource,
+        cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
+      })
     ),
     vscode.languages.registerWorkspaceSymbolProvider(
-      new EngWorkspaceSymbolProvider(context)
+      new EngWorkspaceSymbolProvider(context, {
+        workspaceSymbolsForQuery,
+        appendOutputLine
+      })
     ),
     vscode.languages.registerDefinitionProvider(
       LANGUAGE_ID,
-      new EngDefinitionProvider(context)
+      new EngDefinitionProvider(context, {
+        isEngDocument,
+        definitionSnapshotForPosition,
+        snapshotDocumentSource,
+        cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath),
+        cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
+        appendOutputLine
+      })
     ),
     vscode.languages.registerFoldingRangeProvider(
       LANGUAGE_ID,
@@ -1953,68 +1965,6 @@ function codeActionsForDocumentSource(document, context, cancellationToken) {
 
 function appendOutputLine(message) {
   output?.appendLine(message);
-}
-
-class EngDocumentSymbolProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideDocumentSymbols(document, cancellationToken) {
-    if (!isEngDocument(document)) {
-      return [];
-    }
-    const snapshot = await snapshotDocumentSource(document, this.context, cancellationToken);
-    if (!snapshot) {
-      return [];
-    }
-    reviewCache.set(document.uri.fsPath, snapshot);
-    return documentSymbolsFromSnapshot(snapshot);
-  }
-}
-
-class EngWorkspaceSymbolProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideWorkspaceSymbols(query, cancellationToken) {
-    const symbols = await workspaceSymbolsForQuery(query, this.context, cancellationToken);
-    return symbols
-      .map((symbol) => workspaceSymbolInformationFromLsp(symbol, appendOutputLine))
-      .filter((symbol) => symbol !== undefined);
-  }
-}
-
-class EngDefinitionProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideDefinition(document, position, cancellationToken) {
-    if (!isEngDocument(document)) {
-      return undefined;
-    }
-    const liveDefinition = definitionLocationFromLsp(
-      await definitionSnapshotForPosition(document, position, this.context, cancellationToken),
-      document.uri,
-      appendOutputLine
-    );
-    if (liveDefinition) {
-      return liveDefinition;
-    }
-
-    const snapshot =
-      (await snapshotDocumentSource(document, this.context, cancellationToken)) ??
-      reviewCache.get(document.uri.fsPath);
-    if (!snapshot) {
-      return undefined;
-    }
-    reviewCache.set(document.uri.fsPath, snapshot);
-
-    const candidates = definitionNameCandidates(document, position);
-    return definitionLocationFromSnapshotSymbols(snapshot.document_symbols ?? [], candidates, document.uri);
-  }
 }
 
 function fullLineRange(document, lineNumber) {

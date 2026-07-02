@@ -1862,6 +1862,7 @@ function Assert-VscodeExtensionContract {
     $CodeActionProviderPath = Join-Path $ExtensionRoot "codeActionProvider.js"
     $FoldingRangeProviderPath = Join-Path $ExtensionRoot "foldingRangeProvider.js"
     $FormattingProviderPath = Join-Path $ExtensionRoot "formattingProvider.js"
+    $NavigationProvidersPath = Join-Path $ExtensionRoot "navigationProviders.js"
     $SemanticTokensProviderPath = Join-Path $ExtensionRoot "semanticTokensProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
@@ -1912,6 +1913,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $FormattingProviderPath)) {
         throw "missing VS Code formatting provider at $FormattingProviderPath"
+    }
+    if (-not (Test-Path $NavigationProvidersPath)) {
+        throw "missing VS Code navigation providers at $NavigationProvidersPath"
     }
     if (-not (Test-Path $SemanticTokensProviderPath)) {
         throw "missing VS Code semantic tokens provider at $SemanticTokensProviderPath"
@@ -2297,6 +2301,7 @@ function Assert-VscodeExtensionContract {
     $CodeActionProviderSource = Get-Content -LiteralPath $CodeActionProviderPath -Raw
     $FoldingRangeProviderSource = Get-Content -LiteralPath $FoldingRangeProviderPath -Raw
     $FormattingProviderSource = Get-Content -LiteralPath $FormattingProviderPath -Raw
+    $NavigationProvidersSource = Get-Content -LiteralPath $NavigationProvidersPath -Raw
     $SemanticTokensProviderSource = Get-Content -LiteralPath $SemanticTokensProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
@@ -2573,7 +2578,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing semantic symbol decoration token $RequiredSemanticSymbolDecorationToken"
         }
     }
-    $NavigationSource = $ExtensionSource + "`n" + $LspNavigationSource
+    $NavigationSource = $ExtensionSource + "`n" + $NavigationProvidersSource + "`n" + $LspNavigationSource
     foreach ($RequiredDefinitionToken in @(
         "registerDefinitionProvider",
         "EngDefinitionProvider",
@@ -2600,6 +2605,12 @@ function Assert-VscodeExtensionContract {
         if (-not $NavigationSource.Contains($RequiredWorkspaceSymbolToken)) {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
+    }
+    if (-not $ExtensionSource.Contains('require("./navigationProviders")') -or -not $NavigationProvidersSource.Contains("EngDocumentSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngWorkspaceSymbolProvider") -or -not $NavigationProvidersSource.Contains("EngDefinitionProvider")) {
+        throw "VS Code extension must load navigation provider orchestration from navigationProviders.js"
+    }
+    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp")) {
+        throw "VS Code navigation providers must reuse shared LSP navigation conversion"
     }
     $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource
     foreach ($RequiredFormattingToken in @(
@@ -2715,7 +2726,7 @@ function Assert-VscodeExtensionContract {
     if (-not $FoldingRangeProviderSource.Contains('require("./lspKinds")')) {
         throw "VS Code folding provider must reuse shared LSP kind conversion"
     }
-    if (-not $ExtensionSource.Contains('require("./lspNavigation")') -or -not $LspNavigationSource.Contains("definitionLocationFromLsp") -or -not $LspNavigationSource.Contains("definitionLocationFromSnapshotSymbols") -or -not $LspNavigationSource.Contains("documentSymbolsFromSnapshot") -or -not $LspNavigationSource.Contains("workspaceSymbolInformationFromLsp") -or -not $LspNavigationSource.Contains("definitionNameCandidates")) {
+    if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $LspNavigationSource.Contains("definitionLocationFromLsp") -or -not $LspNavigationSource.Contains("definitionLocationFromSnapshotSymbols") -or -not $LspNavigationSource.Contains("documentSymbolsFromSnapshot") -or -not $LspNavigationSource.Contains("workspaceSymbolInformationFromLsp") -or -not $LspNavigationSource.Contains("definitionNameCandidates")) {
         throw "VS Code extension must share LSP navigation conversion through lspNavigation.js"
     }
     if (-not $LspNavigationSource.Contains('require("./lspKinds")') -or -not $LspNavigationSource.Contains('require("./lspRanges")')) {
@@ -2738,6 +2749,9 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("class EngCompletionProvider") -or $ExtensionSource.Contains("function addCompletion") -or $ExtensionSource.Contains("function completionItemsFromPayload")) {
         throw "VS Code extension must keep completion provider helpers in completionProvider.js"
+    }
+    if ($ExtensionSource.Contains("class EngDocumentSymbolProvider") -or $ExtensionSource.Contains("class EngWorkspaceSymbolProvider") -or $ExtensionSource.Contains("class EngDefinitionProvider")) {
+        throw "VS Code extension must keep navigation provider orchestration in navigationProviders.js"
     }
     if ($ExtensionSource.Contains("function definitionLocationFromLsp") -or $ExtensionSource.Contains("function definitionLocationFromSnapshotSymbols") -or $ExtensionSource.Contains("function workspaceSymbolInformationFromLsp") -or $ExtensionSource.Contains("function documentSymbolsFromSnapshot") -or $ExtensionSource.Contains("function definitionNameCandidates") -or $ExtensionSource.Contains("function identifierPathRangeAt")) {
         throw "VS Code extension must keep LSP navigation conversion in lspNavigation.js"
@@ -2900,8 +2914,13 @@ function Assert-VscodeExtensionContract {
         try {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $CompletionProviderPath
+            Invoke-Native $Node.Source "--check" $CodeActionProviderPath
             Invoke-Native $Node.Source "--check" $DiagnosticsProviderPath
+            Invoke-Native $Node.Source "--check" $FoldingRangeProviderPath
+            Invoke-Native $Node.Source "--check" $FormattingProviderPath
             Invoke-Native $Node.Source "--check" $HoverProviderPath
+            Invoke-Native $Node.Source "--check" $NavigationProvidersPath
+            Invoke-Native $Node.Source "--check" $SemanticTokensProviderPath
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspKindsPath
@@ -4018,6 +4037,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\formattingProvider.js"))) {
             throw "portable package did not include VS Code formatting provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\navigationProviders.js"))) {
+            throw "portable package did not include VS Code navigation providers"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\semanticTokensProvider.js"))) {
             throw "portable package did not include VS Code semantic tokens provider"

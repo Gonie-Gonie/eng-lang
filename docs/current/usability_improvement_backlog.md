@@ -3279,6 +3279,18 @@ Status: implemented while continuing the VS Code entrypoint split.
 - Extended extension and portable-package contract checks so folding helpers
   remain packaged and do not drift back into the entrypoint.
 
+## Batch 265: VS Code Navigation Provider Split
+
+Status: implemented while continuing the VS Code entrypoint split.
+
+- Moved VS Code document-symbol, workspace-symbol, and definition provider
+  orchestration into `navigationProviders.js`.
+- Kept live compiler/LSP process calls in `extension.js`, while the provider
+  module owns cancellation-aware VS Code provider methods and shared snapshot
+  cache handoff.
+- Extended extension and portable-package contract checks so navigation
+  providers stay packaged and keep reusing `lspNavigation.js`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
