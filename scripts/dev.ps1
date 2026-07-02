@@ -2113,14 +2113,16 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing englang semantic token scope mappings"
     }
     foreach ($RequiredTokenScope in @(
-        "type.unit", "property.unit", "variable.quantity", "function.external",
-        "method.sideEffect", "variable.validation", "variable.report",
+        "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
+        "method.sideEffect", "property.sideEffect", "variable.validation", "variable.report",
         "keyword.sideEffect", "keyword.external", "keyword.validation",
         "keyword.report", "keyword.solver", "function.solver",
-        "keyword.deprecated", "variable.state", "parameter.input", "variable.riskHigh",
-        "variable.riskMedium", "variable.model", "variable.db",
+        "property.external", "property.solver", "keyword.deprecated", "variable.state",
+        "parameter.input", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
+        "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
+        "property.riskMedium", "variable.model", "variable.db",
         "function.model", "keyword.model", "function.defaultLibrary", "namespace.defaultLibrary",
-        "namespace.imported", "namespace.internal", "variable.cache", "keyword.workflowStep",
+        "namespace.imported", "namespace.internal", "type.axis", "variable.cache", "keyword.workflowStep",
         "function.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
@@ -2770,7 +2772,7 @@ function Invoke-LspCheck {
         Write-Host "Cargo not found. Run .\dev.bat setup."
         exit 1
     }
-    Invoke-Native $cargo "test" "-p" "eng_lsp" "--test" "stdio" "--" "--nocapture"
+    Invoke-Native $cargo "test" "-p" "eng_lsp" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--smoke"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--snapshot-check" "examples\official\01_csv_plot\main.eng"
     $EditorMetadataOutput = & $cargo "run" "-p" "eng_lsp" "--quiet" "--" "--editor-metadata"

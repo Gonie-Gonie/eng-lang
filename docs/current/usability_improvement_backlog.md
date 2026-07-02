@@ -2661,6 +2661,21 @@ new model keyword semantic-token combinations.
 - Extended the VS Code extension contract so future model keyword semantic
   tokens cannot ship without a corresponding fallback scope mapping.
 
+## Batch 216: Semantic Scope Coverage Guard
+
+Status: implemented after fixture-based semantic-token coverage found several
+VS Code fallback scope gaps.
+
+- Added an `eng_lsp` regression test that snapshots the VS Code grammar
+  fixtures and verifies every emitted custom semantic modifier pair has a
+  corresponding `semanticTokenScopes` fallback mapping in the extension
+  package.
+- Filled missing mappings for quantity/type tokens, axis tokens,
+  property-level side-effect/external/solver tokens, and keyword/class/property
+  review-risk tokens.
+- Strengthened `dev.bat lsp-check` so the full `eng_lsp` test suite, including
+  this cross-editor scope coverage guard, runs before LSP smoke checks.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

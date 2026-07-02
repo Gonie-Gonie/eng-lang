@@ -4754,6 +4754,7 @@ fn is_ident_byte(byte: u8) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::path::PathBuf;
 
     fn assert_semantic_token_modifier(
         snapshot: &LspSnapshot,
@@ -4770,6 +4771,43 @@ mod tests {
             }),
             "semantic token `{label}` should include modifier `{modifier}`"
         );
+    }
+
+    fn repo_root_for_tests() -> PathBuf {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .and_then(Path::parent)
+            .expect("eng_lsp crate should live under crates/eng_lsp")
+            .to_path_buf()
+    }
+
+    fn read_json_file(path: &Path) -> serde_json::Value {
+        let content = std::fs::read_to_string(path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+        serde_json::from_str(&content)
+            .unwrap_or_else(|error| panic!("failed to parse {}: {error}", path.display()))
+    }
+
+    fn package_custom_semantic_modifiers(package: &serde_json::Value) -> BTreeSet<&str> {
+        package["contributes"]["semanticTokenModifiers"]
+            .as_array()
+            .expect("package should declare semanticTokenModifiers")
+            .iter()
+            .filter_map(|modifier| modifier["id"].as_str())
+            .collect()
+    }
+
+    fn package_semantic_scope_keys(package: &serde_json::Value) -> BTreeSet<&str> {
+        package["contributes"]["semanticTokenScopes"]
+            .as_array()
+            .expect("package should declare semanticTokenScopes")
+            .iter()
+            .find(|scope| scope["language"] == "englang")
+            .and_then(|scope| scope["scopes"].as_object())
+            .expect("package should declare englang semanticTokenScopes")
+            .keys()
+            .map(String::as_str)
+            .collect()
     }
 
     fn assert_semantic_token_type(
@@ -5118,6 +5156,70 @@ mod tests {
                 .is_some_and(|detail| detail.contains("pinned network response cache")),
             "eng.cache completion detail should describe pinned network response cache, got {}",
             cache_completion["detail"]
+        );
+    }
+
+    #[test]
+    fn vscode_scope_mapping_covers_fixture_custom_semantic_token_pairs() {
+        let root = repo_root_for_tests();
+        let package = read_json_file(
+            &root
+                .join("tools")
+                .join("vscode-englang")
+                .join("package.json"),
+        );
+        let custom_modifiers = package_custom_semantic_modifiers(&package);
+        let scope_keys = package_semantic_scope_keys(&package);
+        let fixture_dir = root
+            .join("tools")
+            .join("vscode-englang")
+            .join("test")
+            .join("grammar-fixtures");
+        let mut fixtures = std::fs::read_dir(&fixture_dir)
+            .unwrap_or_else(|error| {
+                panic!(
+                    "failed to read grammar fixture dir {}: {error}",
+                    fixture_dir.display()
+                )
+            })
+            .map(|entry| {
+                entry
+                    .expect("grammar fixture entry should be readable")
+                    .path()
+            })
+            .filter(|path| path.extension().is_some_and(|extension| extension == "eng"))
+            .collect::<Vec<_>>();
+        fixtures.sort();
+
+        let mut missing = BTreeSet::new();
+        for fixture in fixtures {
+            let source = std::fs::read_to_string(&fixture).unwrap_or_else(|error| {
+                panic!(
+                    "failed to read grammar fixture {}: {error}",
+                    fixture.display()
+                )
+            });
+            let snapshot = snapshot_for_source(&fixture, &source);
+            let fixture_name = fixture
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or("<fixture>");
+            for token in &snapshot.semantic_tokens.tokens {
+                for modifier in &token.modifiers {
+                    if custom_modifiers.contains(modifier.as_str()) {
+                        let scope_key = format!("{}.{}", token.token_type, modifier);
+                        if !scope_keys.contains(scope_key.as_str()) {
+                            missing.insert(format!("{fixture_name}: {scope_key}"));
+                        }
+                    }
+                }
+            }
+        }
+
+        assert!(
+            missing.is_empty(),
+            "VS Code semanticTokenScopes missing fallback mappings for fixture token pairs: {}",
+            missing.into_iter().collect::<Vec<_>>().join(", ")
         );
     }
 

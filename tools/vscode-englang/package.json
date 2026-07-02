@@ -133,6 +133,9 @@
             "constant.other.unit.englang",
             "support.type.englang"
           ],
+          "type.quantity": [
+            "support.type.englang"
+          ],
           "property.unit": [
             "constant.other.unit.englang",
             "variable.other.property.englang"
@@ -161,6 +164,10 @@
           "property.axis": [
             "entity.name.function.workflow-step.englang",
             "variable.other.property.englang"
+          ],
+          "type.axis": [
+            "entity.name.function.workflow-step.englang",
+            "support.type.englang"
           ],
           "variable.timeseries": [
             "entity.name.function.englang",
@@ -208,6 +215,10 @@
             "keyword.control.side-effect.englang",
             "variable.other.definition.englang"
           ],
+          "property.sideEffect": [
+            "keyword.control.side-effect.englang",
+            "variable.other.property.englang"
+          ],
           "function.external": [
             "keyword.control.external-boundary.englang"
           ],
@@ -220,6 +231,10 @@
           "variable.external": [
             "keyword.control.external-boundary.englang",
             "variable.other.definition.englang"
+          ],
+          "property.external": [
+            "keyword.control.external-boundary.englang",
+            "variable.other.property.englang"
           ],
           "keyword.validation": [
             "keyword.control.validation.englang"
@@ -257,6 +272,10 @@
           "variable.solver": [
             "keyword.control.solver.englang",
             "variable.other.definition.englang"
+          ],
+          "property.solver": [
+            "keyword.control.solver.englang",
+            "variable.other.property.englang"
           ],
           "keyword.deprecated": [
             "keyword.control.deprecated.englang"
@@ -327,9 +346,31 @@
             "invalid.deprecated.englang",
             "variable.other.definition.englang"
           ],
+          "keyword.riskHigh": [
+            "invalid.deprecated.englang"
+          ],
+          "class.riskHigh": [
+            "invalid.deprecated.englang",
+            "entity.name.type.englang"
+          ],
+          "property.riskHigh": [
+            "invalid.deprecated.englang",
+            "variable.other.property.englang"
+          ],
           "variable.riskMedium": [
             "markup.warning.englang",
             "variable.other.definition.englang"
+          ],
+          "keyword.riskMedium": [
+            "markup.warning.englang"
+          ],
+          "class.riskMedium": [
+            "markup.warning.englang",
+            "entity.name.type.englang"
+          ],
+          "property.riskMedium": [
+            "markup.warning.englang",
+            "variable.other.property.englang"
           ],
           "variable.planned": [
             "comment.line.number-sign.englang",
