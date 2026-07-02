@@ -91,6 +91,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(confidenceAction);
       }
     }
+    if (code === "E-WHERE-FWD-001") {
+      const action = reorderWhereLocalDefinitionAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (typeof code === "string" && code.startsWith("E-UNC-ARGS-")) {
       actions.push(...uncertaintyArgumentActions(document, diagnostic));
     }
@@ -880,6 +887,88 @@ function isIdentifier(value) {
 
 function isIdentifierCharacter(value) {
   return typeof value === "string" && /^[A-Za-z0-9_]$/.test(value);
+}
+
+function reorderWhereLocalDefinitionAction(document, diagnostic) {
+  const name = firstBacktickPayload(diagnostic.message);
+  if (!isIdentifier(name)) {
+    return undefined;
+  }
+  const useLine = diagnostic.range.start.line;
+  const block = whereBlockRange(document, useLine);
+  if (!block) {
+    return undefined;
+  }
+  const definitionLine = whereLocalDefinitionLine(document, name, useLine + 1, block.endLine);
+  if (definitionLine === undefined) {
+    return undefined;
+  }
+  const definitionText = document.lineAt(definitionLine).text;
+  const definitionCode = stripLineComment(definitionText);
+  if (definitionCode.includes("{") || definitionCode.includes("}")) {
+    return undefined;
+  }
+
+  const action = new vscode.CodeAction(
+    `Move ${name} definition before first use`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.insert(
+    document.uri,
+    new vscode.Position(useLine, 0),
+    `${definitionText}${documentNewline(document)}`
+  );
+  action.edit.delete(document.uri, fullLineRange(document, definitionLine));
+  return action;
+}
+
+function firstBacktickPayload(message) {
+  return /`([^`]+)`/.exec(String(message ?? ""))?.[1]?.trim();
+}
+
+function whereBlockRange(document, lineNumber) {
+  for (let startLine = lineNumber; startLine >= 0; startLine -= 1) {
+    if (!isWhereBlockStart(document.lineAt(startLine).text)) {
+      continue;
+    }
+    const endLine = findMatchingBlockEnd(document, startLine);
+    if (endLine !== undefined && endLine > lineNumber) {
+      return { startLine, endLine };
+    }
+  }
+  return undefined;
+}
+
+function isWhereBlockStart(text) {
+  const trimmed = stripLineComment(text).trim();
+  if (!trimmed.startsWith("where")) {
+    return false;
+  }
+  return trimmed.slice("where".length).trim() === "{";
+}
+
+function whereLocalDefinitionLine(document, name, startLine, endLine) {
+  for (let lineNumber = startLine; lineNumber < endLine; lineNumber += 1) {
+    const code = stripLineComment(document.lineAt(lineNumber).text);
+    if (whereLocalDefinitionMatches(code, name)) {
+      return lineNumber;
+    }
+  }
+  return undefined;
+}
+
+function whereLocalDefinitionMatches(text, name) {
+  const trimmed = text.trimStart();
+  if (!trimmed.startsWith(name)) {
+    return false;
+  }
+  const rest = trimmed.slice(name.length);
+  if (isIdentifierCharacter(rest[0])) {
+    return false;
+  }
+  return rest.trimStart().startsWith("=");
 }
 
 function commandTargetParenthesesAction(document, diagnostic) {

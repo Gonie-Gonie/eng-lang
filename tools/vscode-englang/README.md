@@ -36,6 +36,8 @@ embedding compiler logic in JavaScript.
   source definition/conversion repairs. LSP-backed
   quick fixes are shown first and merged with local fallback repairs so partial
   LSP responses do not hide available fixes.
+- quick fixes for simple same-block `where` local ordering mistakes where a
+  later local definition can be moved before its first use
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open current-file review data,
   open the latest generated report, and inspect last-run review data, result
@@ -143,7 +145,9 @@ live open/save analysis.
 Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid
 network/process options such as retry, timeout, body-size, and allow-failure
-values. Uncertainty diagnostics can also repair common constructor mistakes
+values. Simple same-block `where` local ordering diagnostics can move the later
+definition before its first use. Uncertainty diagnostics can also repair common
+constructor mistakes
 such as unsupported distribution kind, unsupported propagation method, invalid
 sample count, missing constructor arguments, unknown sources, missing source
 arguments, and deterministic sources that should be `measured(...)`.

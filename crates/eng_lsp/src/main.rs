@@ -676,6 +676,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-OPTION-001" => {
             optional_code_action(lsp_with_option_rename_code_action(uri, text, diagnostic))
         }
+        "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
+            uri, text, diagnostic,
+        )),
         "E-UNC-SOURCE-001" | "E-UNC-SOURCE-002" => {
             lsp_uncertainty_source_code_actions(uri, text, diagnostic)
         }
@@ -1620,6 +1623,92 @@ fn is_uncertainty_call_expression(expression: &str) -> bool {
     ]
     .iter()
     .any(|prefix| trimmed.starts_with(prefix))
+}
+
+fn lsp_reorder_where_local_definition_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let name = first_backtick_payload(diagnostic_message(diagnostic))?.trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    let use_line = diagnostic_line(diagnostic)?;
+    let block = where_block_range(text, use_line)?;
+    let definition_line = where_local_definition_line(text, name, use_line + 1, block.end)?;
+    let definition_text = text.lines().nth(definition_line)?;
+    let definition_code = strip_line_comment(definition_text);
+    if definition_code.contains('{') || definition_code.contains('}') {
+        return None;
+    }
+
+    Some(json!({
+        "title": format!("Move {name} definition before first use"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": workspace_edit_for_edits(
+            uri,
+            json!([
+                {
+                    "range": zero_width_range(use_line, 0),
+                    "newText": format!("{}{}", definition_text, document_newline(text))
+                },
+                {
+                    "range": full_line_range(text, definition_line),
+                    "newText": ""
+                }
+            ])
+        )
+    }))
+}
+
+struct LineBlock {
+    end: usize,
+}
+
+fn where_block_range(text: &str, line_number: usize) -> Option<LineBlock> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let start = (0..=line_number)
+        .rev()
+        .find(|index| is_where_block_start(lines.get(*index).copied().unwrap_or("")))?;
+    let end = matching_block_end_line(&lines, start)?;
+    (end > line_number).then_some(LineBlock { end })
+}
+
+fn is_where_block_start(line: &str) -> bool {
+    let trimmed = strip_line_comment(line).trim();
+    let Some(rest) = trimmed.strip_prefix("where") else {
+        return false;
+    };
+    rest.trim() == "{"
+}
+
+fn where_local_definition_line(
+    text: &str,
+    name: &str,
+    start_line: usize,
+    end_line: usize,
+) -> Option<usize> {
+    text.lines()
+        .enumerate()
+        .skip(start_line)
+        .take(end_line.saturating_sub(start_line))
+        .find_map(|(line_number, line)| {
+            where_local_definition_matches(strip_line_comment(line), name).then_some(line_number)
+        })
+}
+
+fn where_local_definition_matches(line: &str, name: &str) -> bool {
+    let trimmed = line.trim_start();
+    let Some(rest) = trimmed.strip_prefix(name) else {
+        return false;
+    };
+    if rest.chars().next().is_some_and(is_identifier_character) {
+        return false;
+    }
+    rest.trim_start().starts_with('=')
 }
 
 fn uncertainty_call_example_from_diagnostic(message: &str) -> Option<&str> {

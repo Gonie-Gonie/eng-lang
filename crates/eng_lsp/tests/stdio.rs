@@ -714,6 +714,11 @@ Q_total = 10 + 2 kW
 Q1 = 1 kW
 Q2 = 2 kW
 E_total = integrate Q1 + Q2 over Time
+E_where = integrate Q_before over Time
+where {
+    Q_before = Q_after
+    Q_after = 2 kW
+}
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -825,6 +830,7 @@ report {
         "W-QTY-AMBIG-001",
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
+        "E-WHERE-FWD-001",
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
@@ -919,6 +925,12 @@ report {
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Move Q_after definition before first use",
+        "    Q_after = 2 kW\n",
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1036,6 +1048,11 @@ Q_total = 10 + 2 kW
 Q1 = 1 kW
 Q2 = 2 kW
 E_total = integrate Q1 + Q2 over Time
+E_where = integrate Q_before over Time
+where {
+    Q_before = Q_after
+    Q_after = 2 kW
+}
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -1112,6 +1129,12 @@ report {
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Move Q_after definition before first use",
+        "    Q_after = 2 kW\n",
+    );
     assert_action_edit(
         actions,
         &uri,
