@@ -2139,6 +2139,18 @@ their checked series operand.
 - Added grammar fixture and expectation coverage for
   `check coverage measured.T_zone`.
 
+## Batch 175: TimeSeries Alignment Phrase Highlighting
+
+Status: implemented to keep explicit TimeSeries alignment and resampling hooks
+readable as workflow phrases.
+
+- Added `meta.workflow.align-series.englang` for
+  `align <series> with <series>`.
+- Added `meta.workflow.resample-series.englang` for
+  `resample <series> to <series>`.
+- Scoped both source and target series operands as property references and
+  pinned grammar expectations for dotted TimeSeries operands.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

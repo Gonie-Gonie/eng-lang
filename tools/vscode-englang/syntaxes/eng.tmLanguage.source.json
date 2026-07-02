@@ -492,6 +492,26 @@
             }
           },
           {
+            "name": "meta.workflow.align-series.englang",
+            "match": "\\b(align)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(with)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "captures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.property.englang" },
+              "3": { "name": "keyword.operator.word.englang" },
+              "4": { "name": "variable.other.property.englang" }
+            }
+          },
+          {
+            "name": "meta.workflow.resample-series.englang",
+            "match": "\\b(resample)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "captures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.property.englang" },
+              "3": { "name": "keyword.operator.word.englang" },
+              "4": { "name": "variable.other.property.englang" }
+            }
+          },
+          {
             "name": "meta.workflow.promote-csv.englang",
             "begin": "\\b(promote)\\s+(csv)\\b",
             "beginCaptures": {
