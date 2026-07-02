@@ -2043,7 +2043,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Internal: Constructor, propagation, and uncertainty review vocabulary.",
+                                "detail":  "Native workflow support: Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
                                 "kind":  "stdlib",
                                 "label":  "eng.uncertainty",
                                 "lsp_kind":  9

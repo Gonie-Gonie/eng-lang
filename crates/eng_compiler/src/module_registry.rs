@@ -328,6 +328,14 @@ mod tests {
             .any(|module| module.name == "eng.workflow"
                 && module.status == "native_preview"
                 && module.backing == "compiler_runtime_builtin"));
+        assert!(registry.modules.iter().any(|module| {
+            module.name == "eng.uncertainty"
+                && module.status == "native_preview"
+                && module
+                    .artifacts
+                    .iter()
+                    .any(|artifact| artifact == "report_spec.confidence_band")
+        }));
         assert!(registry
             .modules
             .iter()

@@ -5904,6 +5904,10 @@ mod tests {
         assert!(snapshot.completions.iter().any(|completion| {
             completion.label == "eng.cache" && completion.detail.contains("Native workflow support")
         }));
+        assert!(snapshot.completions.iter().any(|completion| {
+            completion.label == "eng.uncertainty"
+                && completion.detail.contains("Native workflow support")
+        }));
         for (label, detail_part) in [
             ("require_one", "exactly one row"),
             ("uniform", "eng.sampling"),

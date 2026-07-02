@@ -1,11 +1,14 @@
 # module: eng.uncertainty
-# status: internal
-# purpose: uncertainty constructors, propagation policy, validation semantics, and uncertainty review vocabulary.
+# status: native_preview
+# purpose: narrow native uncertainty constructors, propagation policy,
+# validation semantics, TimeSeries review metadata, and report confidence-band
+# vocabulary.
 #
 # Current implementation:
-#   compiler/runtime-recognized internal seeds exist for measured, interval,
-#   normal, uniform, ensemble, propagate, uncertainty report metadata, and
-#   histogram artifacts.
+#   compiler/runtime-recognized support exists for measured, interval, normal,
+#   uniform, ensemble, propagate, uncertainty report metadata, probability and
+#   statistic validation, sensor_std TimeSeries review metadata, confidence-band
+#   PlotSpec artifacts, and histogram artifacts.
 #
 # Target constructor vocabulary:
 #   measured(value, std=...)
@@ -17,5 +20,6 @@
 #   propagate(source, method=linear, ...)
 #
 # Non-goal:
-#   do not promote uncertainty to public support until runtime propagation,
-#   review/report artifacts, IDE projection, and tests align.
+#   this native preview does not claim broad probabilistic TimeSeries
+#   propagation, stable Monte Carlo/Jacobian propagation, or arbitrary
+#   uncertainty modeling support.

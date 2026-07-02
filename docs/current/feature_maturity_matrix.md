@@ -180,11 +180,12 @@ separate.
 
 ### Uncertainty Track
 
-- Public package: `Internal`
-- Main status: `Internal`
-- User-facing scope: none until a supported workflow has language, runtime,
-  report/review, IDE, and tests aligned.
-- Evidence: internal uncertainty example, diagnostics, deterministic samples,
+- Public package: narrow `Native workflow support`
+- Main status: narrow native preview for current workflow/report artifacts
+- User-facing scope: workflow 03 style uncertainty metadata, explicit scalar
+  constructors, linear propagation metadata, probability/statistic validation,
+  and report confidence-band artifacts.
+- Evidence: workflow 03, diagnostics, deterministic samples,
   scalar `typed_payload.numeric_values`, narrow measured/interval arithmetic
   artifacts, propagation metadata, validated
   `with { uncertainty = ... }` review policy metadata, direct-compare
@@ -199,8 +200,9 @@ separate.
 - Not included: stable Monte Carlo/Jacobian propagation contract, full
   probabilistic TimeSeries uncertainty propagation/statistics, broad
   deterministic scalar-binding value propagation, or public IDE support claim.
-- Next cleanup action: route probabilistic TimeSeries uncertainty semantics
-  into runtime/report/IDE artifacts before promoting the track beyond internal.
+- Next cleanup action: route broader probabilistic TimeSeries uncertainty
+  semantics into runtime/report/IDE artifacts before promoting the track beyond
+  narrow native workflow support.
 
 ### Data-Driven Modeling Track
 

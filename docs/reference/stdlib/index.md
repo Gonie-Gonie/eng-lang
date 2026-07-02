@@ -14,8 +14,8 @@ is checked by `dev.bat docs-check` against the registry.
 | Area | Current scope |
 |---|---|
 | Core built-ins | `eng.path`, `eng.io`, `eng.fs`, `eng.log`, `eng.process`, `eng.test`, and `eng.config` expose supported or supported-narrow compiler/runtime behavior. |
-| Native workflow support | `eng.table`, `eng.timeseries`, `eng.sampling`, `eng.case`, `eng.artifact`, `eng.review`, `eng.model`, `eng.db`, `eng.net`, `eng.cache`, `eng.quality`, `eng.template`, `eng.workflow`, `eng.report`, and `eng.plot` preserve typed workflow records, artifacts, and review metadata in the documented scopes. |
-| Planned/internal boundaries | `eng.stats`, `eng.building`, `eng.system`, `eng.ml`, and `eng.uncertainty` remain planned or internal unless a current status document says otherwise. |
+| Native workflow support | `eng.table`, `eng.timeseries`, `eng.sampling`, `eng.case`, `eng.artifact`, `eng.review`, `eng.model`, `eng.db`, `eng.net`, `eng.cache`, `eng.quality`, `eng.template`, `eng.workflow`, `eng.report`, `eng.plot`, and `eng.uncertainty` preserve typed workflow records, artifacts, and review metadata in the documented scopes. |
+| Planned/internal boundaries | `eng.stats`, `eng.building`, `eng.system`, and `eng.ml` remain planned or internal unless a current status document says otherwise. |
 
 ## Source Files
 

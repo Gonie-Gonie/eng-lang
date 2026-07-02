@@ -87,7 +87,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.building` | Planned | No executable backing | `review.objects` | `planned` | `planned_building_examples` | `planned_building_tests` |
 | `eng.system` | Internal planned | Internal | `review.systems`<br>`system_ir` | `solver_or_numeric` | `examples/advanced_solver/31_external_behavior_solver` | `cargo test -p eng_runtime system` |
 | `eng.ml` | Internal | Compiler/runtime | `typed_payload.ml`<br>`typed_payload.model_specs`<br>`typed_payload.model_cards` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING` | `examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model` |
-| `eng.uncertainty` | Internal | Compiler/runtime | `typed_payload.uncertainties`<br>`review.uncertainty` | `W-UNC-INDEPENDENCE-ASSUMED`<br>`W-WITH-UNCERTAINTY-SEED-001` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_compiler uncertainty`<br>`cargo test -p eng_runtime uncertainty` |
+| `eng.uncertainty` | Native workflow support | Compiler/runtime | `typed_payload.uncertainties`<br>`review.uncertainty`<br>`timeseries_uncertainty`<br>`report_spec.confidence_band`<br>`plot_spec.confidence_band` | `W-UNC-INDEPENDENCE-ASSUMED`<br>`W-WITH-UNCERTAINTY-SEED-001` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_compiler uncertainty`<br>`cargo test -p eng_runtime uncertainty` |
 <!-- module-registry-table:end -->
 
 These names describe module boundaries. The current implementation may expose

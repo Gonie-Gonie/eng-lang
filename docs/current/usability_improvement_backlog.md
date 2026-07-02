@@ -3788,6 +3788,21 @@ are still typing declarations or member roles.
 - Updated grammar fixtures, expected token coverage, semantic fallback scope
   mapping, and editor token-scope documentation.
 
+## Batch 306: Uncertainty Module Maturity Wording
+
+Status: implemented to reduce public API confusion around workflow 03
+uncertainty support.
+
+- Promoted `eng.uncertainty` registry wording from internal-only to narrow
+  native workflow support for the current constructor, linear propagation
+  metadata, sensor_std TimeSeries review, probability/statistic validation, and
+  confidence-band report artifact surface.
+- Kept the non-goal explicit: broad probabilistic TimeSeries propagation,
+  stable Monte Carlo/Jacobian propagation, and arbitrary uncertainty modeling
+  remain outside the current support claim.
+- Updated stdlib reference docs, feature maturity docs, registry tests, and LSP
+  completion status coverage so the public wording stays consistent.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

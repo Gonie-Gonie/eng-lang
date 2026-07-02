@@ -57,7 +57,7 @@ APIs unless a status document says so.
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
 | `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |
 | `eng.model` | Supported model-spec and predict-table scope | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
-| `eng.uncertainty` | Internal | Constructor, propagation, and uncertainty review vocabulary. |
+| `eng.uncertainty` | Native workflow support | Narrow uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |
 | `eng.system` | Internal/planned | Solver-facing adapters, not the public identity of stdlib. |
 | `eng.ml` | Internal | Data-driven modeling review vocabulary, target contracts, model specs, and model-card artifacts. |

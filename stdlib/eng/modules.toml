@@ -239,10 +239,10 @@ examples = ["examples/internal/05_data_driven_modeling"]
 tests = ["cargo test -p eng_runtime model"]
 
 [module."eng.uncertainty"]
-status = "internal"
+status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Constructor, propagation, and uncertainty review vocabulary."
-artifacts = ["typed_payload.uncertainties", "review.uncertainty"]
+purpose = "Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned."
+artifacts = ["typed_payload.uncertainties", "review.uncertainty", "timeseries_uncertainty", "report_spec.confidence_band", "plot_spec.confidence_band"]
 diagnostics = ["W-UNC-INDEPENDENCE-ASSUMED", "W-WITH-UNCERTAINTY-SEED-001"]
 examples = ["examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_compiler uncertainty", "cargo test -p eng_runtime uncertainty"]
