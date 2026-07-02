@@ -3861,6 +3861,17 @@ Status: implemented to reduce valid-but-dim TimeSeries workflow phrases.
 - Updated reference and editor-scope docs to distinguish preferred spellings
   from accepted aliases.
 
+## Batch 312: Where Local Escape Quick Fix
+
+Status: implemented to make `where` scoping errors repairable from the editor.
+
+- Added an LSP-owned quick fix for `E-NAME-LOCAL-001` that promotes a simple
+  escaped `where` local binding to the top level before its owner expression.
+- Mirrored the same conservative repair in the VS Code local fallback so
+  partial LSP responses do not hide the quick fix.
+- Extended LSP stdio and `--code-actions-stdin` coverage plus VS Code
+  extension contract checks.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

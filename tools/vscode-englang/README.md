@@ -38,6 +38,8 @@ embedding compiler logic in JavaScript.
   LSP responses do not hide available fixes.
 - quick fixes for simple same-block `where` local ordering mistakes where a
   later local definition can be moved before its first use
+- quick fixes for simple escaped `where` locals where a reused local binding
+  can be promoted to a top-level binding
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open current-file review data,
   open the latest generated report, and inspect last-run review data, result

@@ -679,6 +679,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
         )),
+        "E-NAME-LOCAL-001" => {
+            optional_code_action(lsp_promote_where_local_code_action(uri, text, diagnostic))
+        }
         "E-UNC-SOURCE-001" | "E-UNC-SOURCE-002" => {
             lsp_uncertainty_source_code_actions(uri, text, diagnostic)
         }
@@ -1665,6 +1668,7 @@ fn lsp_reorder_where_local_definition_code_action(
 }
 
 struct LineBlock {
+    start: usize,
     end: usize,
 }
 
@@ -1674,7 +1678,84 @@ fn where_block_range(text: &str, line_number: usize) -> Option<LineBlock> {
         .rev()
         .find(|index| is_where_block_start(lines.get(*index).copied().unwrap_or("")))?;
     let end = matching_block_end_line(&lines, start)?;
-    (end > line_number).then_some(LineBlock { end })
+    (end > line_number).then_some(LineBlock { start, end })
+}
+
+fn lsp_promote_where_local_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let name = first_backtick_payload(diagnostic_message(diagnostic))?.trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    let escape_line = diagnostic_line(diagnostic)?;
+    let (block, definition_line) = where_block_defining_before(text, name, escape_line)?;
+    let definition_text = text.lines().nth(definition_line)?;
+    let definition_code = strip_line_comment(definition_text);
+    if definition_code.contains('{') || definition_code.contains('}') {
+        return None;
+    }
+    let owner_line = block.start.checked_sub(1)?;
+    let promoted_definition = definition_text.trim_start();
+    if promoted_definition.is_empty() {
+        return None;
+    }
+    let removal_range = if where_block_meaningful_line_count(text, block.start, block.end) == 1 {
+        full_line_block_range(text, block.start, block.end)
+    } else {
+        full_line_range(text, definition_line)
+    };
+
+    Some(json!({
+        "title": format!("Promote {name} to top-level binding"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": workspace_edit_for_edits(
+            uri,
+            json!([
+                {
+                    "range": zero_width_range(owner_line, 0),
+                    "newText": format!("{}{}", promoted_definition, document_newline(text))
+                },
+                {
+                    "range": removal_range,
+                    "newText": ""
+                }
+            ])
+        )
+    }))
+}
+
+fn where_block_defining_before(
+    text: &str,
+    name: &str,
+    line_limit: usize,
+) -> Option<(LineBlock, usize)> {
+    let lines = text.lines().collect::<Vec<_>>();
+    let mut selected = None;
+    for start in 0..line_limit {
+        if !is_where_block_start(lines.get(start).copied().unwrap_or("")) {
+            continue;
+        }
+        let Some(end) = matching_block_end_line(&lines, start) else {
+            continue;
+        };
+        if end >= line_limit {
+            continue;
+        }
+        if let Some(definition_line) = where_local_definition_line(text, name, start + 1, end) {
+            selected = Some((LineBlock { start, end }, definition_line));
+        }
+    }
+    selected
+}
+
+fn where_block_meaningful_line_count(text: &str, start_line: usize, end_line: usize) -> usize {
+    text.lines()
+        .enumerate()
+        .skip(start_line + 1)
+        .take(end_line.saturating_sub(start_line + 1))
+        .filter(|(_line_number, line)| !strip_line_comment(line).trim().is_empty())
+        .count()
 }
 
 fn is_where_block_start(line: &str) -> bool {
@@ -2204,6 +2285,25 @@ fn full_line_range(text: &str, line_number: usize) -> Value {
     json!({
         "start": { "line": line_number, "character": 0 },
         "end": { "line": line_number, "character": utf16_len(line) }
+    })
+}
+
+fn full_line_block_range(text: &str, start_line: usize, end_line: usize) -> Value {
+    let lines = text.split('\n').collect::<Vec<_>>();
+    if end_line + 1 < lines.len() {
+        return json!({
+            "start": { "line": start_line, "character": 0 },
+            "end": { "line": end_line + 1, "character": 0 }
+        });
+    }
+    let line = lines
+        .get(end_line)
+        .copied()
+        .unwrap_or("")
+        .trim_end_matches('\r');
+    json!({
+        "start": { "line": start_line, "character": 0 },
+        "end": { "line": end_line, "character": utf16_len(line) }
     })
 }
 

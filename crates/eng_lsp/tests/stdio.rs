@@ -719,6 +719,11 @@ where {
     Q_before = Q_after
     Q_after = 2 kW
 }
+E_escape = integrate Q_escape over Time
+where {
+    Q_escape = 3 kW
+}
+print "escape={Q_escape: .2 kW}"
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -831,6 +836,7 @@ report {
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
         "E-WHERE-FWD-001",
+        "E-NAME-LOCAL-001",
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
@@ -930,6 +936,12 @@ report {
         &uri,
         "Move Q_after definition before first use",
         "    Q_after = 2 kW\n",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Promote Q_escape to top-level binding",
+        "Q_escape = 3 kW\n",
     );
     assert_action_edit(
         actions,
@@ -1053,6 +1065,11 @@ where {
     Q_before = Q_after
     Q_after = 2 kW
 }
+E_escape = integrate Q_escape over Time
+where {
+    Q_escape = 3 kW
+}
+print "escape={Q_escape: .2 kW}"
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -1134,6 +1151,12 @@ report {
         &uri,
         "Move Q_after definition before first use",
         "    Q_after = 2 kW\n",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Promote Q_escape to top-level binding",
+        "Q_escape = 3 kW\n",
     );
     assert_action_edit(
         actions,

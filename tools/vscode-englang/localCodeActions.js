@@ -98,6 +98,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-NAME-LOCAL-001") {
+      const action = promoteWhereLocalAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (typeof code === "string" && code.startsWith("E-UNC-ARGS-")) {
       actions.push(...uncertaintyArgumentActions(document, diagnostic));
     }
@@ -924,6 +931,77 @@ function reorderWhereLocalDefinitionAction(document, diagnostic) {
   return action;
 }
 
+function promoteWhereLocalAction(document, diagnostic) {
+  const name = firstBacktickPayload(diagnostic.message);
+  if (!isIdentifier(name)) {
+    return undefined;
+  }
+  const escapeLine = diagnostic.range.start.line;
+  const match = whereBlockDefiningBefore(document, name, escapeLine);
+  if (!match) {
+    return undefined;
+  }
+  const definitionText = document.lineAt(match.definitionLine).text;
+  const definitionCode = stripLineComment(definitionText);
+  if (definitionCode.includes("{") || definitionCode.includes("}")) {
+    return undefined;
+  }
+  const ownerLine = match.block.startLine - 1;
+  if (ownerLine < 0) {
+    return undefined;
+  }
+  const promotedDefinition = definitionText.trimStart();
+  if (!promotedDefinition) {
+    return undefined;
+  }
+  const removalRange =
+    whereBlockMeaningfulLineCount(document, match.block.startLine, match.block.endLine) === 1
+      ? fullLineBlockRange(document, match.block.startLine, match.block.endLine)
+      : fullLineRange(document, match.definitionLine);
+
+  const action = new vscode.CodeAction(
+    `Promote ${name} to top-level binding`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.insert(
+    document.uri,
+    new vscode.Position(ownerLine, 0),
+    `${promotedDefinition}${documentNewline(document)}`
+  );
+  action.edit.delete(document.uri, removalRange);
+  return action;
+}
+
+function whereBlockDefiningBefore(document, name, lineLimit) {
+  let selected;
+  for (let startLine = 0; startLine < lineLimit; startLine += 1) {
+    if (!isWhereBlockStart(document.lineAt(startLine).text)) {
+      continue;
+    }
+    const endLine = findMatchingBlockEnd(document, startLine);
+    if (endLine === undefined || endLine >= lineLimit) {
+      continue;
+    }
+    const definitionLine = whereLocalDefinitionLine(document, name, startLine + 1, endLine);
+    if (definitionLine !== undefined) {
+      selected = { block: { startLine, endLine }, definitionLine };
+    }
+  }
+  return selected;
+}
+
+function whereBlockMeaningfulLineCount(document, startLine, endLine) {
+  let count = 0;
+  for (let lineNumber = startLine + 1; lineNumber < endLine; lineNumber += 1) {
+    if (stripLineComment(document.lineAt(lineNumber).text).trim()) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 function firstBacktickPayload(message) {
   return /`([^`]+)`/.exec(String(message ?? ""))?.[1]?.trim();
 }
@@ -1217,6 +1295,14 @@ function fullLineRange(document, lineNumber) {
     return new vscode.Range(lineNumber, 0, lineNumber + 1, 0);
   }
   return new vscode.Range(lineNumber, 0, lineNumber, line.text.length);
+}
+
+function fullLineBlockRange(document, startLine, endLine) {
+  const end = document.lineAt(endLine);
+  if (endLine + 1 < document.lineCount) {
+    return new vscode.Range(startLine, 0, endLine + 1, 0);
+  }
+  return new vscode.Range(startLine, 0, endLine, end.text.length);
 }
 
 module.exports = {

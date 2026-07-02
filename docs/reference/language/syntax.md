@@ -753,7 +753,9 @@ print "Q = {Q_local: .2 kW}"
 ```
 
 The diagnostic is `E-NAME-LOCAL-001`. If a value should be printed, exported,
-or reused in multiple expressions, make it a top-level binding instead.
+or reused in multiple expressions, make it a top-level binding instead. VS Code
+and the LSP can offer `Promote <name> to top-level binding` for simple same-file
+cases.
 
 ## `with` Blocks
 
