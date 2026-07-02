@@ -1860,6 +1860,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsProviderPath = Join-Path $ExtensionRoot "diagnosticsProvider.js"
     $HoverProviderPath = Join-Path $ExtensionRoot "hoverProvider.js"
     $CodeActionProviderPath = Join-Path $ExtensionRoot "codeActionProvider.js"
+    $FormattingProviderPath = Join-Path $ExtensionRoot "formattingProvider.js"
     $SemanticTokensProviderPath = Join-Path $ExtensionRoot "semanticTokensProvider.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
@@ -1904,6 +1905,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $CodeActionProviderPath)) {
         throw "missing VS Code code action provider at $CodeActionProviderPath"
+    }
+    if (-not (Test-Path $FormattingProviderPath)) {
+        throw "missing VS Code formatting provider at $FormattingProviderPath"
     }
     if (-not (Test-Path $SemanticTokensProviderPath)) {
         throw "missing VS Code semantic tokens provider at $SemanticTokensProviderPath"
@@ -2287,6 +2291,7 @@ function Assert-VscodeExtensionContract {
     $DiagnosticsProviderSource = Get-Content -LiteralPath $DiagnosticsProviderPath -Raw
     $HoverProviderSource = Get-Content -LiteralPath $HoverProviderPath -Raw
     $CodeActionProviderSource = Get-Content -LiteralPath $CodeActionProviderPath -Raw
+    $FormattingProviderSource = Get-Content -LiteralPath $FormattingProviderPath -Raw
     $SemanticTokensProviderSource = Get-Content -LiteralPath $SemanticTokensProviderPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
@@ -2591,6 +2596,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
         }
     }
+    $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource
     foreach ($RequiredFormattingToken in @(
         "registerDocumentFormattingEditProvider",
         "EngFormattingProvider",
@@ -2599,9 +2605,15 @@ function Assert-VscodeExtensionContract {
         "fullDocumentRange",
         "vscode.TextEdit.replace"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredFormattingToken)) {
+        if (-not $FormattingSource.Contains($RequiredFormattingToken)) {
             throw "VS Code extension missing formatting token $RequiredFormattingToken"
         }
+    }
+    if (-not $ExtensionSource.Contains('require("./formattingProvider")') -or -not $FormattingProviderSource.Contains("EngFormattingProvider") -or -not $FormattingProviderSource.Contains("formatDocumentSource")) {
+        throw "VS Code extension must load formatting provider orchestration from formattingProvider.js"
+    }
+    if ($ExtensionSource.Contains("class EngFormattingProvider") -or $ExtensionSource.Contains("function fullDocumentRange")) {
+        throw "VS Code extension must keep formatting provider helpers in formattingProvider.js"
     }
     $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource
     foreach ($RequiredQuickFixToken in @(
@@ -3972,6 +3984,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\codeActionProvider.js"))) {
             throw "portable package did not include VS Code code action provider"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\formattingProvider.js"))) {
+            throw "portable package did not include VS Code formatting provider"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\semanticTokensProvider.js"))) {
             throw "portable package did not include VS Code semantic tokens provider"

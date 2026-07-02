@@ -3257,6 +3257,17 @@ editor feature providers.
 - Extended extension and portable-package contract checks so the semantic-token
   provider remains packaged and does not drift back into the entrypoint.
 
+## Batch 263: VS Code Formatting Provider Split
+
+Status: implemented while continuing the VS Code entrypoint split.
+
+- Moved VS Code document-formatting provider orchestration into
+  `formattingProvider.js`.
+- Kept the compiler/LSP stdin formatting request in `extension.js`, while the
+  provider owns document filtering and the full-document `TextEdit` conversion.
+- Extended extension and portable-package contract checks so formatting helpers
+  remain packaged and do not drift back into the entrypoint.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

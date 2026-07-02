@@ -10,6 +10,7 @@ const {
   severityName
 } = require("./diagnosticsProvider");
 const { EngCodeActionProvider } = require("./codeActionProvider");
+const { EngFormattingProvider } = require("./formattingProvider");
 const { EngHoverProvider } = require("./hoverProvider");
 const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
@@ -178,7 +179,10 @@ function activate(context) {
     ),
     vscode.languages.registerDocumentFormattingEditProvider(
       LANGUAGE_ID,
-      new EngFormattingProvider(context)
+      new EngFormattingProvider(context, {
+        isEngDocument,
+        formatDocumentSource
+      })
     ),
     vscode.languages.registerCodeActionsProvider(
       LANGUAGE_ID,
@@ -2027,23 +2031,6 @@ class EngFoldingRangeProvider {
   }
 }
 
-class EngFormattingProvider {
-  constructor(context) {
-    this.context = context;
-  }
-
-  async provideDocumentFormattingEdits(document, _options, cancellationToken) {
-    if (!isEngDocument(document)) {
-      return [];
-    }
-    const payload = await formatDocumentSource(document, this.context, cancellationToken);
-    if (!payload?.changed || typeof payload.formatted !== "string") {
-      return [];
-    }
-    return [vscode.TextEdit.replace(fullDocumentRange(document), payload.formatted)];
-  }
-}
-
 function foldingRangesFromSnapshot(snapshot) {
   return (snapshot.folding_ranges ?? [])
     .map(foldingRangeFromSnapshot)
@@ -2061,14 +2048,6 @@ function foldingRangeFromSnapshot(range) {
     return new vscode.FoldingRange(startLine, endLine, kind);
   }
   return new vscode.FoldingRange(startLine, endLine);
-}
-
-function fullDocumentRange(document) {
-  if (document.lineCount === 0) {
-    return new vscode.Range(0, 0, 0, 0);
-  }
-  const lastLine = document.lineAt(document.lineCount - 1);
-  return new vscode.Range(0, 0, lastLine.lineNumber, lastLine.text.length);
 }
 
 function fullLineRange(document, lineNumber) {
