@@ -247,6 +247,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "request",
     "report",
     "return",
+    "results",
     "run",
     "sample",
     "schema",
@@ -2567,6 +2568,9 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
     if quantity_kind.contains("Db") {
         modifiers.push("db");
     }
+    if quantity_kind.contains("Table[Case") || quantity_kind.contains("CaseOutput") {
+        modifiers.push("workflowStep");
+    }
     modifiers
 }
 
@@ -2977,8 +2981,10 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
         | "fetch" | "download" => &["sideEffect", "external"],
         "write" | "export" | "copy" | "move" | "delete" | "render" | "template" => &["sideEffect"],
-        "materialize" | "apply" | "collect" | "promote" | "records" | "cases" | "text" | "csv"
-        | "json" | "toml" => &["workflowStep"],
+        "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
+        | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
+        | "text" | "csv" | "json" | "toml" => &["workflowStep"],
+        "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "print" | "log" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within" => {
@@ -3005,6 +3011,9 @@ fn http_request_method_keyword(method: &str) -> &'static str {
 fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "sample" | "grid" | "random" | "lhs" | "latin_hypercube" => {
+            &["defaultLibrary", "workflowStep"]
+        }
+        "filter" | "select" | "derive" | "sort" | "require_one" => {
             &["defaultLibrary", "workflowStep"]
         }
         "normal" | "uniform" => &["defaultLibrary", "uncertain"],
@@ -3034,7 +3043,43 @@ fn workflow_builtin_modifiers_for_line(
     {
         return &["defaultLibrary", "uncertain", "workflowStep"];
     }
+    if keyword == "join" && is_table_join_phrase(line, token_start) {
+        return &["defaultLibrary", "workflowStep"];
+    }
     workflow_builtin_modifiers(keyword)
+}
+
+fn is_table_join_phrase(line: &str, token_start: usize) -> bool {
+    let Some(after_join) = line.get(token_start + "join".len()..) else {
+        return false;
+    };
+    let mut parts = after_join.split_whitespace();
+    let Some(left_table) = parts.next() else {
+        return false;
+    };
+    let Some(with_keyword) = parts.next() else {
+        return false;
+    };
+    let Some(right_table) = parts.next() else {
+        return false;
+    };
+    is_simple_identifier_path(left_table)
+        && with_keyword == "with"
+        && is_simple_identifier_path(right_table)
+}
+
+fn is_simple_identifier_path(value: &str) -> bool {
+    let mut segments = value.split('.');
+    segments.next().is_some_and(is_simple_identifier_segment)
+        && segments.all(is_simple_identifier_segment)
+}
+
+fn is_simple_identifier_segment(value: &str) -> bool {
+    let mut bytes = value.bytes();
+    let Some(first) = bytes.next() else {
+        return false;
+    };
+    is_ident_start(first) && bytes.all(is_ident_byte)
 }
 
 fn previous_identifier_before(line: &str, token_start: usize) -> Option<&str> {
@@ -5363,7 +5408,7 @@ struct LegacyArgs
         for label in ["summarize", "summary", "distribution", "line"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
         }
-        for label in ["csv", "json", "toml", "text"] {
+        for label in ["read", "csv", "json", "toml", "text"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for label in ["assert", "matches", "within"] {
@@ -5481,8 +5526,16 @@ surrogate = regression_table(designs, target=annual_electricity, features=[peopl
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
 predictions = predict surrogate using designs
+filtered = filter designs
+selected = select designs columns people_density, cooling_cop
+sorted = sort designs by cooling_cop desc
+joined = join designs with predictions
 derived = derive designs column annual_electricity = people_density * 1 kWh
 derived_many = derive designs columns annual_cooling = cooling_cop * 1 kWh
+cases = materialize cases designs
+case_results = apply run_case over designs
+case_inputs = apply(case_input_template, over=cases)
+collected = collect results case_results
 legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
@@ -5492,7 +5545,14 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "lhs",
             "uniform",
             "latin_hypercube",
+            "filter",
+            "select",
+            "sort",
+            "join",
             "require_one",
+            "materialize",
+            "apply",
+            "collect",
             "regression_table",
             "evaluate",
             "model_card",
@@ -5506,6 +5566,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
         for label in ["regression_table", "evaluate", "model_card", "predict"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
+        assert_semantic_token_modifier(&snapshot, source, "using", "model");
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "surrogate", "variable", "model"),
             4,
@@ -5519,10 +5580,43 @@ legacy_station = select_first_row(stations, return_column="station_id")
         for label in ["annual_electricity", "people_density"] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
-        for label in ["sample", "lhs", "uniform", "latin_hypercube"] {
+        for label in [
+            "sample",
+            "lhs",
+            "uniform",
+            "latin_hypercube",
+            "filter",
+            "select",
+            "sort",
+            "join",
+            "require_one",
+            "materialize",
+            "apply",
+            "collect",
+            "derive",
+        ] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for label in ["designs", "case_row", "derived", "derived_many"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "cases", "variable", "workflowStep"),
+            1,
+            "materialized case table binding should be a workflow-step semantic token"
+        );
+        assert_eq!(
+            semantic_token_modifier_count(
+                &snapshot,
+                source,
+                "case_inputs",
+                "variable",
+                "workflowStep"
+            ),
+            1,
+            "case apply output binding should be a workflow-step semantic token"
+        );
+        for label in ["column", "columns", "results"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for label in [

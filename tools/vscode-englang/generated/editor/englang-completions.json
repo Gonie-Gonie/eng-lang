@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  360,
+    "completion_seed_count":  361,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -996,6 +996,12 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "return",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "results",
                                 "lsp_kind":  14
                             },
                             {

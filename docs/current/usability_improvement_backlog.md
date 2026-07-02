@@ -2635,6 +2635,21 @@ plot `unit =` option from completions/highlighting.
 - Extended LSP stdio code-action regressions and the VS Code extension
   contract so this quick fix remains covered.
 
+## Batch 214: Native Workflow Semantic Token Color Parity
+
+Status: implemented to make compiler-backed semantic highlighting closer to
+the TextMate grammar for native workflow phrases.
+
+- Marked native workflow keywords such as `read`, table transforms,
+  `column`/`columns`, `results`, and model `using` with role-specific semantic
+  modifiers instead of leaving them as generic keywords.
+- Classified table helpers such as `filter`, `select`, `sort`, `derive`, and
+  `require_one` as workflow-step built-ins, with context-aware table `join`
+  handling that does not recolor path helper calls.
+- Marked `Table[Case]` and `Table[CaseOutput]` bindings as workflow-step
+  values, and extended LSP semantic-token regressions plus generated VS Code
+  editor metadata.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
