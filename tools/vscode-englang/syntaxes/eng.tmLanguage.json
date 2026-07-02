@@ -483,24 +483,54 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.promote-csv.englang",
-                                                                    "match":  "\\b(promote)\\s+(csv)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "keyword.operator.word.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "entity.name.type.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(promote)\\s+(csv)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "meta.promote-csv-target.englang",
+                                                                                         "match":  "\\b(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                                                                                         "captures":  {
+                                                                                                          "1":  {
+                                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                                },
+                                                                                                          "2":  {
+                                                                                                                    "name":  "entity.name.type.englang"
+                                                                                                                }
+                                                                                                      }
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.promote-json.englang",
@@ -528,14 +558,6 @@
                                                                                                       }
                                                                                      },
                                                                                      {
-                                                                                         "name":  "variable.other.property.englang",
-                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
-                                                                                     },
-                                                                                     {
-                                                                                         "name":  "variable.other.local.englang",
-                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-                                                                                     },
-                                                                                     {
                                                                                          "include":  "#strings"
                                                                                      },
                                                                                      {
@@ -546,6 +568,14 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      }
                                                                                  ]
                                                                 },

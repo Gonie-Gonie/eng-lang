@@ -15,6 +15,8 @@ args {
 }
 
 sensor = promote csv args.input as SensorData
+sensor_from_path = promote csv "data/sensor.csv" as SensorData
+sensor_from_file = promote csv file("data/sensor.csv") as SensorData
 raw = read json file("data/config.json")
 message = "Q = {sensor.T_supply: .2 degC}"
 

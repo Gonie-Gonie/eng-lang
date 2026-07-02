@@ -2017,6 +2017,20 @@ and JSON-record promotion forms in first-render TextMate highlighting.
 - Added grammar fixture and expectation coverage for
   `promote json payload as WeatherApiPayload`.
 
+## Batch 165: CSV Promotion Source Expression Highlighting
+
+Status: implemented to keep CSV promotion coloring consistent across argument
+paths, string paths, and `file(...)` source expressions.
+
+- Changed `meta.workflow.promote-csv.englang` from an identifier-only match to
+  a phrase scope that reaches the end of the promotion expression.
+- Scoped `args.*` sources, string path sources, `file(...)` helpers, and target
+  schema names inside the CSV promotion phrase.
+- Reordered JSON object promotion internals so source helpers such as `file(...)`
+  keep builtin highlighting before generic local-name fallback matching.
+- Added grammar fixture and expectation coverage for string and `file(...)`
+  CSV promotion sources.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -70,6 +70,30 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.promote-csv-target.englang",
+    "text": "as SensorData",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.promote-csv.englang",
+    "text": "promote csv \"data/sensor.csv\" as SensorData",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.promote-csv.englang",
+    "text": "promote csv file(\"data/sensor.csv\") as SensorData",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"data/sensor.csv\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.declaration.binding.englang",
     "text": "sensor ="
   },
