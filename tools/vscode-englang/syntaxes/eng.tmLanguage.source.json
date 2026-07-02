@@ -366,6 +366,31 @@
             }
           },
           {
+            "name": "meta.workflow.filter-table.englang",
+            "match": "\\b(filter)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "captures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.local.englang" }
+            }
+          },
+          {
+            "name": "meta.workflow.select-columns.englang",
+            "begin": "\\b(select)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(columns?)\\b",
+            "beginCaptures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.local.englang" },
+              "3": { "name": "keyword.control.workflow.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              { "include": "#punctuation" }
+            ]
+          },
+          {
             "name": "meta.workflow.derive-column.englang",
             "match": "\\b(derive)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
             "captures": {
@@ -374,6 +399,27 @@
               "3": { "name": "keyword.control.workflow.englang" },
               "4": { "name": "variable.other.property.englang" },
               "5": { "name": "keyword.operator.englang" }
+            }
+          },
+          {
+            "name": "meta.workflow.sort-table.englang",
+            "match": "\\b(sort)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(by)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(asc|desc))?\\b",
+            "captures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.local.englang" },
+              "3": { "name": "keyword.operator.word.englang" },
+              "4": { "name": "variable.other.property.englang" },
+              "5": { "name": "constant.language.englang" }
+            }
+          },
+          {
+            "name": "meta.workflow.join-table.englang",
+            "match": "\\b(join)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(with)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "captures": {
+              "1": { "name": "support.function.builtin.englang" },
+              "2": { "name": "variable.other.local.englang" },
+              "3": { "name": "keyword.operator.word.englang" },
+              "4": { "name": "variable.other.local.englang" }
             }
           },
           {

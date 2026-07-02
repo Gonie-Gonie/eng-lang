@@ -2115,6 +2115,18 @@ workflow phrases in first-render TextMate highlighting.
 - Added grammar expectations for `require_one designs` so filter/require-one
   table workflows do not render as isolated builtin words.
 
+## Batch 173: Table Transform Phrase Highlighting
+
+Status: implemented to keep native table transform helpers visibly grouped in
+first-render TextMate highlighting.
+
+- Added phrase scopes for `filter <table>`, `select <table> columns ...`,
+  `sort <table> by <column> [asc|desc]`, and `join <left> with <right>`.
+- Scoped table operands as workflow-local references and selected/sort columns
+  as table properties.
+- Added grammar fixture and expectation coverage for the table transform forms
+  documented in the public table-transform surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

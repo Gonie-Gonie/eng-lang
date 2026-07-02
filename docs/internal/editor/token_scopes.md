@@ -89,7 +89,9 @@ Current workflow phrase scopes:
 | `meta.workflow.derive-column.englang` | `derive <table> column ...` |
 | `meta.workflow.download-to.englang` | `download ... to ...` |
 | `meta.workflow.export-summary-csv.englang` | `export summary to csv <target>` |
+| `meta.workflow.filter-table.englang` | `filter <table>` |
 | `meta.workflow.http-request.englang` | `http get <target>`, `http post <target>`, and other HTTP request phrases. |
+| `meta.workflow.join-table.englang` | `join <left> with <right>` |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
@@ -103,6 +105,8 @@ Current workflow phrase scopes:
 | `meta.workflow.render-template.englang` | `render template <source>` |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
+| `meta.workflow.select-columns.englang` | `select <table> columns <columns>` |
+| `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
 | `meta.workflow.write-text.englang` | `write text <target>, <value>` |
 

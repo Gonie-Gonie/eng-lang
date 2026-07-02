@@ -14,6 +14,10 @@ metrics = evaluate(model)
 card = model_card(model)
 predictions = predict model using designs
 surrogate_predictions = predict surrogate_model using designs
+filtered_designs = filter designs
+selected_designs = select designs columns people_density, cooling_cop
+sorted_designs = sort designs by cooling_cop desc
+joined_designs = join designs with predictions
 derived = derive designs column annual_electricity = cooling_cop * 100 kWh
 derived_columns = derive designs columns annual_cooling = cooling_cop * 50 kWh
 first_design = require_one designs

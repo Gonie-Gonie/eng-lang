@@ -447,6 +447,48 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.filter-table.englang",
+    "text": "filter designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.select-columns.englang",
+    "text": "select designs columns people_density, cooling_cop",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "columns",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "people_density",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sort-table.englang",
+    "text": "sort designs by cooling_cop desc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "desc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.join-table.englang",
+    "text": "join designs with predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "require_one",
     "fullMatch": true
