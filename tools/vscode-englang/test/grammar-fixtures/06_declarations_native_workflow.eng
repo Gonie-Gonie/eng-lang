@@ -14,6 +14,8 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
     return Q
 }
 
+Q_from_call = coil_heat(0.2 kg/s, 8 K)
+
 test "coil heat stays positive" {
     assert cp_water > 0 J/kg/K
     assert cp_water == 4.18 kJ/K within 0.01 kJ/K

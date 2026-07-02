@@ -50,6 +50,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
 | `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
 | `entity.name.function.englang` | Captured `fn` and `method` names. |
+| `entity.name.function.call.englang` | User-defined function call names. |
 | `entity.name.function.workflow-step.englang` | Workflow step names and compiler-backed workflow-step semantic fallbacks. |
 | `meta.declaration.constant.englang` | Full `const` declaration phrases. |
 | `variable.other.constant.englang` | Captured `const` names. |

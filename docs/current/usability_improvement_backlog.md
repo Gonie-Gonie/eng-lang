@@ -2337,6 +2337,17 @@ fallback grammar when semantic tokens have not arrived yet.
   quantity-bearing parameters.
 - Added grammar expectations for `m_dot` and `dT` in the declaration fixture.
 
+## Batch 192: User Function Call Highlighting
+
+Status: implemented to make user-defined function calls visible before
+semantic tokens resolve symbols.
+
+- Added `entity.name.function.call.englang` for identifiers followed by `(`.
+- Kept built-in helper scopes earlier in the grammar so public built-ins such
+  as `file(...)`, `uniform(...)`, and `integrate(...)` keep their existing
+  highlighting.
+- Added grammar fixture coverage for `coil_heat(...)`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

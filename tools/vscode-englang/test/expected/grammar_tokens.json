@@ -907,6 +907,12 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "entity.name.function.call.englang",
+    "text": "coil_heat",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "meta.workflow.validation.englang",
     "text": "assert cp_water > 0 J/kg/K",
     "fullMatch": true

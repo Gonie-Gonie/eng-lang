@@ -39,6 +39,9 @@
                          "include":  "#builtins"
                      },
                      {
+                         "include":  "#functionCalls"
+                     },
+                     {
                          "include":  "#constants"
                      },
                      {
@@ -1743,6 +1746,22 @@
                                                          }
                                                      ]
                                     },
+                       "functionCalls":  {
+                                             "patterns":  [
+                                                              {
+                                                                  "name":  "meta.function-call.englang",
+                                                                  "match":  "\\b([A-Za-z_][A-Za-z0-9_]*)(\\s*\\()",
+                                                                  "captures":  {
+                                                                                   "1":  {
+                                                                                             "name":  "entity.name.function.call.englang"
+                                                                                         },
+                                                                                   "2":  {
+                                                                                             "name":  "punctuation.section.parens.begin.englang"
+                                                                                         }
+                                                                               }
+                                                              }
+                                                          ]
+                                         },
                        "withOptions":  {
                                            "patterns":  [
                                                             {
