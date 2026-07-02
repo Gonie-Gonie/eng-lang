@@ -1,5 +1,6 @@
 const vscode = require("vscode");
 const { diagnosticCode } = require("./localCodeActions");
+const { vscodeRangeFromLsp } = require("./lspRanges");
 
 function lspCodeActionsFromPayload(document, payload, contextDiagnostics) {
   const lspActions = Array.isArray(payload?.actions)
@@ -103,18 +104,6 @@ function lspDiagnosticMatchesVscode(lspDiagnostic, diagnostic) {
     lspRange.start.character === diagnostic.range.start.character &&
     lspRange.end.line === diagnostic.range.end.line &&
     lspRange.end.character === diagnostic.range.end.character
-  );
-}
-
-function vscodeRangeFromLsp(range) {
-  if (!range?.start || !range?.end) {
-    return undefined;
-  }
-  return new vscode.Range(
-    Number(range.start.line ?? 0),
-    Number(range.start.character ?? 0),
-    Number(range.end.line ?? range.start.line ?? 0),
-    Number(range.end.character ?? range.start.character ?? 0)
   );
 }
 

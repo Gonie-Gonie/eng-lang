@@ -1817,6 +1817,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $LocalCodeActionsPath = Join-Path $ExtensionRoot "localCodeActions.js"
     $LspCodeActionsPath = Join-Path $ExtensionRoot "lspCodeActions.js"
+    $LspRangesPath = Join-Path $ExtensionRoot "lspRanges.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
@@ -1848,6 +1849,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LspCodeActionsPath)) {
         throw "missing VS Code LSP code action bridge at $LspCodeActionsPath"
+    }
+    if (-not (Test-Path $LspRangesPath)) {
+        throw "missing VS Code LSP range bridge at $LspRangesPath"
     }
     if (-not (Test-Path $ArtifactRegistryPath)) {
         throw "missing VS Code artifact registry at $ArtifactRegistryPath"
@@ -2205,6 +2209,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $LocalCodeActionsSource = Get-Content -LiteralPath $LocalCodeActionsPath -Raw
     $LspCodeActionsSource = Get-Content -LiteralPath $LspCodeActionsPath -Raw
+    $LspRangesSource = Get-Content -LiteralPath $LspRangesPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
@@ -2513,11 +2518,17 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code extension must load LSP quick fix bridge helpers from lspCodeActions.js"
     }
+    if (-not $ExtensionSource.Contains('require("./lspRanges")') -or -not $LspCodeActionsSource.Contains('require("./lspRanges")') -or -not $LspRangesSource.Contains("vscodeRangeFromLsp")) {
+        throw "VS Code extension must share LSP range conversion through lspRanges.js"
+    }
     if ($ExtensionSource.Contains("function localCodeActions") -or $ExtensionSource.Contains("function optionQuickFix") -or $ExtensionSource.Contains("function quantityAnnotationActions") -or $ExtensionSource.Contains("function removeScriptWrapperAction")) {
         throw "VS Code extension must keep local quick fix helpers in localCodeActions.js"
     }
     if ($ExtensionSource.Contains("function lspCodeActionsFromPayload") -or $ExtensionSource.Contains("function workspaceEditFromLspCodeAction") -or $ExtensionSource.Contains("function lspDiagnosticMatchesVscode")) {
         throw "VS Code extension must keep LSP quick fix bridge helpers in lspCodeActions.js"
+    }
+    if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
+        throw "VS Code extension must keep LSP range conversion in lspRanges.js"
     }
     foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
         if (-not $ExtensionSource.Contains($RequiredProblemsSourceToken)) {
@@ -2673,6 +2684,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
             Invoke-Native $Node.Source "--check" $LspCodeActionsPath
+            Invoke-Native $Node.Source "--check" $LspRangesPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
@@ -3771,6 +3783,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspCodeActions.js"))) {
             throw "portable package did not include VS Code LSP quick fix bridge"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspRanges.js"))) {
+            throw "portable package did not include VS Code LSP range bridge"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\artifactRegistry.js"))) {
             throw "portable package did not include VS Code artifact registry"
