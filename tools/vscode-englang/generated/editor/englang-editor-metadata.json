@@ -861,6 +861,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "model",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "monotonic",
                                 "lsp_kind":  14
                             },
@@ -891,6 +897,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "on",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "open",
                                 "lsp_kind":  14
                             },
@@ -905,6 +917,12 @@
                                 "kind":  "keyword",
                                 "label":  "of",
                                 "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "generated output path",
+                                "kind":  "property",
+                                "label":  "output",
+                                "lsp_kind":  10
                             },
                             {
                                 "detail":  "EngLang keyword",
@@ -1450,12 +1468,6 @@
                                 "detail":  "What to do when `require_one` finds no rows",
                                 "kind":  "property",
                                 "label":  "on_none",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "generated output path",
-                                "kind":  "property",
-                                "label":  "output",
                                 "lsp_kind":  10
                             },
                             {
@@ -2197,7 +2209,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  366,
+    "completion_seed_count":  368,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

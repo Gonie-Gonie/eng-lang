@@ -541,6 +541,10 @@ predictions = predict reg using csv_table
 selected = select_first_row(csv_table)
 filtered = filter csv_table
 projected = select csv_table
+joined = join csv_table with filtered
+on {
+    csv_table.time == filtered.time
+}
 derived = derive csv_table column copy = value
 sorted = sort csv_table by value
 one = require_one filtered
@@ -581,6 +585,7 @@ report {
 simulate GuardSystem
 solve GuardSystem
 if true else false
+model = reg
 none null and or not between over by using in into is where of vs
 append insert upsert replace commit rollback keep empty interpolate monotonic safe normal repro
 '@

@@ -220,15 +220,18 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "missing",
     "mlp",
     "mode",
+    "model",
     "model_card",
     "monotonic",
     "move",
     "not",
     "none",
     "null",
+    "on",
     "open",
     "or",
     "of",
+    "output",
     "over",
     "package",
     "patch",
@@ -3709,7 +3712,7 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
 }
 
 pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
-    let mut seen = BTreeSet::new();
+    let mut seen = BTreeMap::new();
     let mut items = Vec::new();
 
     for (type_name, detail) in PUBLIC_TYPE_COMPLETIONS.iter().copied() {
@@ -4046,7 +4049,7 @@ pub fn completion_items_at(
     character: usize,
 ) -> Vec<LspCompletion> {
     if let Some(context) = with_block_completion_context(source, line) {
-        let mut seen = BTreeSet::new();
+        let mut seen = BTreeMap::new();
         let mut items = Vec::new();
         if let Some(labels) = with_block_option_labels(&context.owner_text) {
             for label in labels {
@@ -4070,7 +4073,7 @@ pub fn completion_items_at(
             .iter()
             .find(|class_info| class_info.name == context.class_name)
         {
-            let mut seen = BTreeSet::new();
+            let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             for field in &class_info.fields {
                 if context.assigned_fields.contains(&field.name) {
@@ -4101,7 +4104,7 @@ pub fn completion_items_at(
                 binding.name == receiver && binding.semantic_type.quantity_kind == "HttpResponse"
             })
         {
-            let mut seen = BTreeSet::new();
+            let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             for (field, detail) in HTTP_RESPONSE_FIELD_COMPLETIONS {
                 if prefix.is_empty() || field.starts_with(&prefix) {
@@ -4117,7 +4120,7 @@ pub fn completion_items_at(
                 .iter()
                 .find(|schema| schema.name == schema_name)
             {
-                let mut seen = BTreeSet::new();
+                let mut seen = BTreeMap::new();
                 let mut items = Vec::new();
                 for column in &schema.columns {
                     if prefix.is_empty() || column.name.starts_with(&prefix) {
@@ -4152,7 +4155,7 @@ pub fn completion_items_at(
                 .iter()
                 .find(|schema| schema.name == schema_name)
             {
-                let mut seen = BTreeSet::new();
+                let mut seen = BTreeMap::new();
                 let mut items = Vec::new();
                 for column in &schema.columns {
                     if prefix.is_empty() || column.name.starts_with(&prefix) {
@@ -4180,7 +4183,7 @@ pub fn completion_items_at(
             .iter()
             .find(|object| object.name == receiver)
         {
-            let mut seen = BTreeSet::new();
+            let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             if let Some(class_info) = report
                 .semantic_program
@@ -4528,18 +4531,28 @@ pub fn severity_to_lsp(severity: &Severity) -> u8 {
 
 fn push_completion(
     items: &mut Vec<LspCompletion>,
-    seen: &mut BTreeSet<String>,
+    seen: &mut BTreeMap<String, usize>,
     label: &str,
     kind: &str,
     detail: &str,
 ) {
-    if seen.insert(label.to_owned()) {
-        items.push(LspCompletion {
-            label: label.to_owned(),
-            kind: kind.to_owned(),
-            detail: detail.to_owned(),
-        });
+    let completion = LspCompletion {
+        label: label.to_owned(),
+        kind: kind.to_owned(),
+        detail: detail.to_owned(),
+    };
+    if let Some(index) = seen.get(label).copied() {
+        if should_replace_completion(label, &items[index].kind, kind) {
+            items[index] = completion;
+        }
+    } else {
+        seen.insert(label.to_owned(), items.len());
+        items.push(completion);
     }
+}
+
+fn should_replace_completion(label: &str, existing_kind: &str, candidate_kind: &str) -> bool {
+    label == "output" && existing_kind == "keyword" && candidate_kind == "property"
 }
 
 fn domain_signature(name: &str, parameters: &[DomainTypeParameterInfo]) -> String {
@@ -4919,6 +4932,55 @@ mod tests {
             .collect()
     }
 
+    fn collect_textmate_keyword_words(value: &serde_json::Value, words: &mut BTreeSet<String>) {
+        match value {
+            serde_json::Value::Array(items) => {
+                for item in items {
+                    collect_textmate_keyword_words(item, words);
+                }
+            }
+            serde_json::Value::Object(object) => {
+                if object
+                    .get("name")
+                    .and_then(|name| name.as_str())
+                    .is_some_and(|name| name.starts_with("keyword."))
+                {
+                    if let Some(pattern) = object.get("match").and_then(|pattern| pattern.as_str())
+                    {
+                        for word in textmate_word_alternatives(pattern) {
+                            words.insert(word);
+                        }
+                    }
+                }
+                for child in object.values() {
+                    collect_textmate_keyword_words(child, words);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    fn textmate_word_alternatives(pattern: &str) -> Vec<String> {
+        let mut words = Vec::new();
+        let mut rest = pattern;
+        while let Some(start) = rest.find("\\b(") {
+            let after_start = &rest[start + 3..];
+            let Some(end) = after_start.find(")\\b") else {
+                break;
+            };
+            for alternative in after_start[..end].split('|') {
+                if alternative
+                    .chars()
+                    .all(|ch| ch == '_' || ch.is_ascii_alphanumeric())
+                {
+                    words.push(alternative.to_owned());
+                }
+            }
+            rest = &after_start[end + 3..];
+        }
+        words
+    }
+
     fn assert_semantic_token_type(
         snapshot: &LspSnapshot,
         source: &str,
@@ -5227,6 +5289,7 @@ mod tests {
             ("eng.table", "stdlib"),
             ("HeatRate", "class"),
             ("kW", "unit"),
+            ("output", "property"),
             ("split", "property"),
         ] {
             assert!(
@@ -5265,6 +5328,33 @@ mod tests {
                 .is_some_and(|detail| detail.contains("pinned network response cache")),
             "eng.cache completion detail should describe pinned network response cache, got {}",
             cache_completion["detail"]
+        );
+    }
+
+    #[test]
+    fn lsp_keyword_completions_cover_textmate_keyword_fallback_words() {
+        let root = repo_root_for_tests();
+        let grammar = read_json_file(
+            &root
+                .join("tools")
+                .join("vscode-englang")
+                .join("syntaxes")
+                .join("eng.tmLanguage.json"),
+        );
+        let mut textmate_words = BTreeSet::new();
+        collect_textmate_keyword_words(&grammar, &mut textmate_words);
+
+        let completion_keywords = COMPLETION_KEYWORDS.iter().copied().collect::<BTreeSet<_>>();
+        let missing = textmate_words
+            .iter()
+            .filter(|word| !completion_keywords.contains(word.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "TextMate keyword fallback words missing from LSP keyword completions: {}",
+            missing.join(", ")
         );
     }
 
@@ -5579,6 +5669,7 @@ with {
     fn snapshot_marks_richer_keyword_semantic_modifiers() {
         let source = r#"system RoomThermal {
     state T: AbsoluteTemperature = 20 degC
+    output Q_load: HeatRate = 1 kW
     equation balance:
         der(T) eq 0 K/s
 }
@@ -5600,6 +5691,15 @@ payload = read json file("payload.json")
 settings = read toml file("settings.toml")
 choice = if true else false
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+schema JoinRow {
+    id: String
+}
+left = promote csv file("left.csv") as JoinRow
+right = promote csv file("right.csv") as JoinRow
+joined = join left with right
+on {
+    left.id == right.id
+}
 export summary to csv "summary.csv" {
     T as degC
 }
@@ -5624,7 +5724,7 @@ struct LegacyArgs
         for label in ["summarize", "summary", "distribution", "line"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
         }
-        for label in ["else", "of", "vs"] {
+        for label in ["else", "of", "on", "output", "vs"] {
             assert_semantic_token_type(&snapshot, source, label, "keyword");
         }
         for label in ["read", "csv", "json", "toml", "text"] {

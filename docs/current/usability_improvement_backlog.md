@@ -2980,6 +2980,22 @@ the LSP keyword vocabulary.
 - Regenerated editor completion metadata so VS Code and Native IDE completion
   fallback data includes the same keyword surface.
 
+## Batch 241: TextMate Keyword Completion Guard
+
+Status: implemented after finding `model`, `output`, and `on` still colored by
+TextMate fallback but absent from the LSP keyword/completion vocabulary.
+
+- Added `model`, `output`, and `on` to the LSP keyword/completion vocabulary so
+  workflow model phrases, system output declarations, and join predicate blocks
+  receive consistent semantic coloring and completion fallback.
+- Extended semantic-token tests with actual `output` and `on { ... }` source
+  examples instead of only checking registry membership.
+- Added an LSP regression test that reads the VS Code TextMate grammar and
+  fails when word-like `keyword.*` fallback scopes are missing from LSP keyword
+  completions.
+- Preserved the more specific `output` workflow-option completion detail when
+  the same label is also present as a declaration keyword.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
