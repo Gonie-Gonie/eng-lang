@@ -1808,6 +1808,7 @@ function Assert-VscodeExtensionContract {
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
+    $ModuleStatusPath = Join-Path $ExtensionRoot "moduleStatus.js"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
@@ -1828,6 +1829,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ExecutionProfilesPath)) {
         throw "missing VS Code execution profiles registry at $ExecutionProfilesPath"
+    }
+    if (-not (Test-Path $ModuleStatusPath)) {
+        throw "missing VS Code module status wording registry at $ModuleStatusPath"
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing eng_lsp source at $LspSourcePath"
@@ -2033,6 +2037,7 @@ function Assert-VscodeExtensionContract {
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
+    $ModuleStatusSource = Get-Content -LiteralPath $ModuleStatusPath -Raw
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
         "Last Run Review JSON",
@@ -2059,10 +2064,16 @@ function Assert-VscodeExtensionContract {
             throw "VS Code command wording should use user-facing artifact names instead of '$ForbiddenCommandWording'"
         }
     }
+    if (-not $ExtensionSource.Contains('require("./moduleStatus")')) {
+        throw "VS Code workflow module panel must load wording helpers from moduleStatus.js"
+    }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleStatusDetailDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
-        if (-not $ExtensionSource.Contains($RequiredModuleWordingToken)) {
+        if (-not ($ExtensionSource.Contains($RequiredModuleWordingToken) -or $ModuleStatusSource.Contains($RequiredModuleWordingToken))) {
             throw "VS Code workflow module panel missing wording token $RequiredModuleWordingToken"
         }
+    }
+    if ($ExtensionSource.Contains("function moduleStatusDisplay") -or $ExtensionSource.Contains("function moduleBackingLabel")) {
+        throw "VS Code extension must keep workflow module wording helpers in moduleStatus.js"
     }
     if ($ExtensionSource.Contains('reviewValue(module, "backing")')) {
         throw "VS Code workflow module panel must not display raw registry backing keys"
@@ -2390,6 +2401,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
+            Invoke-Native $Node.Source "--check" $ModuleStatusPath
         } catch {
             Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
         }
@@ -3417,6 +3429,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\executionProfiles.js"))) {
             throw "portable package did not include VS Code execution profiles registry"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\moduleStatus.js"))) {
+            throw "portable package did not include VS Code module status wording registry"
         }
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"

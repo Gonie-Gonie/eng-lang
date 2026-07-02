@@ -1814,6 +1814,19 @@ diagnostics.
 - Extended LSP stdio quick-fix coverage and VS Code extension contract checks
   for the new network hash action.
 
+## Batch 149: VS Code Module Status Wording Split
+
+Status: implemented while continuing the VS Code extension split checklist.
+
+- Moved workflow module status/backing wording helpers out of `extension.js`
+  into `moduleStatus.js`.
+- Extended the VS Code extension contract so module status labels such as
+  `Native workflow support`, `Compiler/runtime`, and `No executable backing`
+  stay in the dedicated wording module instead of drifting back into the
+  extension entrypoint.
+- Synced the new module into local VS Code extension copies so the installed
+  extension uses the same wording helpers as the repository source.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
