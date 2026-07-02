@@ -2804,6 +2804,19 @@ selection/navigation ergonomics.
 - Extended `ide-check` so the language configuration must keep dotted symbol
   word selection coverage.
 
+## Batch 227: Native Workflow Output Wording Guard
+
+Status: implemented after rechecking workflow 01/02/03 sources and expected
+docs for stale Python/process assumptions.
+
+- Reworded workflow 02's expected output-manifest summary so native model and
+  prediction records are not described as files produced by an external
+  process.
+- Extended `workflows-test` to scan workflow public docs for that stale
+  external-process output phrase, alongside the existing source guards that
+  reject Python markers, `run command`, legacy `select_first_row(...)`, and
+  nonzero process execution.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -371,6 +371,17 @@ function Invoke-WorkflowsTest {
     if ($WorkflowSourcePaths.Count -lt 3) {
         throw "Native workflow smoke expected at least workflow 01/02/03 main.eng files"
     }
+    $WorkflowPublicDocPaths = @(Get-ChildItem -LiteralPath $WorkflowRoot -Recurse -File -Include "*.md", "*.txt" | Sort-Object FullName)
+    foreach ($WorkflowPublicDocPath in $WorkflowPublicDocPaths) {
+        $WorkflowPublicDoc = Get-Content -LiteralPath $WorkflowPublicDocPath.FullName -Raw
+        foreach ($ForbiddenWorkflowDocWording in @(
+            "files produced by an external process"
+        )) {
+            if ($WorkflowPublicDoc.Contains($ForbiddenWorkflowDocWording)) {
+                throw "Native workflow public docs must not describe native artifacts as external-process output: $($WorkflowPublicDocPath.FullName)"
+            }
+        }
+    }
     foreach ($WorkflowSourcePath in $WorkflowSourcePaths) {
         $Workflow = $WorkflowSourcePath.Substring($RepoRoot.Length).TrimStart('\')
         $WorkflowSource = Get-Content -LiteralPath $WorkflowSourcePath -Raw
