@@ -23,6 +23,7 @@ with {
 
 export summary to csv "outputs/summary.csv" {
     Q_total as kWh with ".2"
+    eta as 1 with ".3"
 }
 with {
     overwrite = true

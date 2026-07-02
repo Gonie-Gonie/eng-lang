@@ -2266,6 +2266,17 @@ the local VS Code extension.
   existing `#` comment and `///` continuation checks.
 - Documented `language-configuration.json` as an editor source of truth.
 
+## Batch 186: Summary CSV Field Phrase Highlighting
+
+Status: implemented to make durable summary CSV field declarations readable as
+artifact field rows instead of disconnected identifiers and keywords.
+
+- Added `meta.workflow.summary-field.englang` for
+  `<value> as <unit> with "<format>"` rows inside summary export blocks.
+- Scoped the exported value as a property, `as`/`with` as word operators, and
+  the display unit, including dimensionless `1`, as a unit token.
+- Added grammar expectations for the side-effect/export fixture.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -296,6 +296,30 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.summary-field.englang",
+    "text": "Q_total as kWh with \".2\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.summary-field.englang",
+    "text": "eta as 1 with \".3\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "1",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "as",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "keyword.control.report.englang",
     "text": "summary",
     "fullMatch": true

@@ -122,6 +122,7 @@ Current workflow phrase scopes:
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |
 | `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |
+| `meta.workflow.summary-field.englang` | `<value> as <unit> with "<format>"` summary CSV fields. |
 | `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
 | `meta.workflow.write-text.englang` | `write text <target>, <value>` |
