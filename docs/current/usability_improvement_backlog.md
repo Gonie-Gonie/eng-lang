@@ -2211,6 +2211,18 @@ complete report actions in first-render VS Code highlighting.
 - Added report fixture expectations so workflow 01/02/03-style `show` rows and
   workflow 03-style TimeSeries plots stay covered.
 
+## Batch 181: Native Model Call Phrase Highlighting
+
+Status: implemented to keep workflow 02's native model-building calls readable
+as model workflow actions instead of isolated builtin names.
+
+- Added `meta.workflow.regression-table.englang` for
+  `regression_table(<table>, target=..., features=..., ...)`.
+- Scoped model option names such as `target` and `features` as parameter
+  properties inside the regression call.
+- Added `meta.workflow.model-summary-call.englang` for `evaluate(<model>)`,
+  `model_card(<model>)`, and related single-model summary calls.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

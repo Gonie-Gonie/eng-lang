@@ -96,6 +96,7 @@ Current workflow phrase scopes:
 | `meta.workflow.integrate-series.englang` | `integrate <series> over <axis>` |
 | `meta.workflow.join-table.englang` | `join <left> with <right>` |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
+| `meta.workflow.model-summary-call.englang` | `evaluate(<model>)`, `model_card(<model>)`, and related model summary calls. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
@@ -106,6 +107,7 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
 | `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, `read text <source>`, and `read csv <source>`. |
+| `meta.workflow.regression-table.englang` | `regression_table(<table>, target=..., features=..., ...)` |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` |
 | `meta.workflow.render-template.englang` | `render template <source>` |
