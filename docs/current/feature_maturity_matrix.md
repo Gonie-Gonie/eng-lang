@@ -33,7 +33,7 @@ separate.
 - Public package: `Stable`
 - Main status: `Stable` plus data-quality fixtures
 - User-facing scope: schema/promote, CSV import, DateTime index metadata,
-  source hashes, typed args paths, missing policy seeds.
+  source hashes, typed args paths, and missing-value policies.
 - Evidence: `examples/official/01_csv_plot`, data-quality diagnostics,
   runtime artifacts, report/review metadata.
 - Not included: arbitrary table formulas, richer data source types, general

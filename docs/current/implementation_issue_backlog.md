@@ -592,7 +592,7 @@ Current coverage:
   underdetermined/overdetermined assembly, and algebraic-loop warnings.
 - `EquationAssembly::dynamic_component_split` validates state/algebraic/input/
   parameter role splits, rejects duplicate or inconsistent variable
-  classifications, and produces solver layouts for the dynamic-component seed
+  classifications, and produces solver layouts for the dynamic-component metadata
   boundary.
 
 Title: `assembly: harden generated equations and residual graph artifacts`
@@ -601,10 +601,10 @@ Definition of Done:
 
 - Collect component instances, ports, connection sets, and generated connection
   equations.
-- Preserve component-local boundary equation seeds with RHS literals for
+- Preserve component-local boundary equation records with RHS literals for
   internal square algebraic fixtures.
 - Record state/algebraic/input/output classification, equation count, unknown
-  count, residual list, dependency graph, algebraic-loop seed, sparsity
+  count, residual list, dependency graph, algebraic-loop metadata, sparsity
   placeholder, solver-plan placeholder, and runtime parameter references with
   stable indices separate from solved variables.
 - Report and IDE show generated equations, source-line links, generated
@@ -634,8 +634,8 @@ Definition of Done:
 Current coverage:
 
 - Compiler semantic assembly records component instances, ports, connection
-  sets, generated connection equations, boundary RHS equation seeds, equation
-  and unknown counts, residual lists, dependency rows, algebraic-loop seeds,
+  sets, generated connection equations, boundary RHS equation records, equation
+  and unknown counts, residual lists, dependency rows, algebraic-loop metadata,
   jacobian-sparsity placeholders, solver-plan placeholders, and domain plans.
 - `assembly_summary` and `component_graph` review/report artifacts preserve
   generated reasons, source-line navigation data, residual graph status,

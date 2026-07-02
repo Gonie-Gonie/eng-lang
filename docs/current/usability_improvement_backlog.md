@@ -2716,6 +2716,19 @@ Inspect Highlight Tokens output.
 - Reworded the missing-data warning and README description around highlight
   inspection, and extended `ide-check` to guard the new public wording.
 
+## Batch 220: Current Architecture Seed Wording Cleanup
+
+Status: implemented after auditing current architecture docs for stale
+implementation-seed wording.
+
+- Replaced `native VM seed`, `bytecode VM seed`, and unit-registry seed wording
+  with current native runtime and registry terms.
+- Updated runtime artifact examples from stale `sampled_seed` and
+  `trained_seed` statuses to current `uncertainty_attached` and
+  `trained_linear` artifact vocabulary.
+- Reworded current data-boundary docs from missing policy seeds to
+  missing-value policies.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

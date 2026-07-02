@@ -17,7 +17,7 @@ and next cleanup action.
 
 - Purpose: make source data explicit, typed, and provenance-visible.
 - Public scope: schema/promote, CSV import, DateTime index metadata, source
-  hashes, missing policy seeds, and typed path args.
+  hashes, missing-value policies, and typed path args.
 - Main internal: data-quality diagnostics and policy fixtures.
 - Next cleanup: keep schema/promote as the first public data story.
 

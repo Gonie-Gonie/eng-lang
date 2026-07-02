@@ -30,7 +30,7 @@ build/
 Purpose:
 
 ```text
-checked source -> bytecode v1 -> native VM seed
+checked source -> bytecode v1 -> native VM execution
 ```
 
 Current v0.9 header:
@@ -108,7 +108,7 @@ already evaluates to JSON-looking text.
 
 ## Explicit File Operations
 
-`copy`, `move`, and `delete` provide a constrained filesystem mutation seed.
+`copy`, `move`, and `delete` provide a constrained filesystem mutation path.
 Generated-output mutation targets remain under `build/result`; `move` and
 `delete` require explicit confirmation metadata.
 
@@ -368,14 +368,14 @@ Current result fields:
     "uncertainties": [
       {
         "kind": "Distribution",
-        "status": "sampled_seed",
+        "status": "uncertainty_attached",
         "sample_count": 31
       }
     ],
     "ml": [
       {
         "kind": "RegressionModel",
-        "status": "trained_seed",
+        "status": "trained_linear",
         "rmse": 41.79,
         "r2": 0.94
       }
@@ -535,7 +535,7 @@ the parameter kind (`Medium`, `Frame`, `Axis`) from the local parameter name
 used in a package declaration.
 
 `assembly_summary` stores component graph connection sets, generated
-across/through equation seeds, residual graph metadata, `domain_plans`,
+across/through equation records, residual graph metadata, `domain_plans`,
 `solver_preview`, and component-local expression counts.
 `component_summary.local_expressions` keeps those component-owned
 `name = expr` metadata records separate from top-level workflow bindings. A graph with more than one generated domain plan is labeled

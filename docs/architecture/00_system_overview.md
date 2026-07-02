@@ -15,8 +15,8 @@ EngLang's official execution path is:
 ```
 
 The current runtime implements this path incrementally: `eng run` builds
-bytecode, decodes it, executes a native VM seed, and returns a typed result
-object from the VM execution record. `--save-artifacts` writes the corresponding
+bytecode, decodes it, executes native VM instructions, and returns a typed
+result object from the VM execution record. `--save-artifacts` writes the corresponding
 `.engbc`, `.engres`, PlotSpec, SVG, report, and review files. The supported surface includes
 TimeSeries/statistics metadata, PlotSpec v1, SVG rendering, plot manifests,
 review/report artifacts, minimal physical `system` and `eq` metadata, runtime
@@ -37,13 +37,13 @@ eng_jit
   Internal hot-kernel detection and numeric lowering-plan metadata.
 
 eng_runtime
-  Run/build orchestration, bytecode VM seed, object store, result.engres generation, and doctor checks.
+  Run/build orchestration, bytecode VM execution, object store, result.engres generation, and doctor checks.
 
 eng_report
   PlotSpec, SVG, ReportSpec, and HTML review artifact generation.
 
 stdlib
-  Repo-local prelude and unit registry seed.
+  Repo-local prelude and unit registry.
 ```
 
 ## Current Runtime Boundary
@@ -104,7 +104,7 @@ equation unit consistency diagnostics
 residual metadata in review/report/result artifacts
 system_ir dependency metadata in review/report/result artifacts
 solver_boundary status = unsolved
-solver_plan metadata-only solve_order and Jacobian seed columns
+solver_plan metadata-only solve_order and Jacobian setup columns
 ```
 
 Current system runtime support adds:
@@ -120,7 +120,7 @@ Runtime optimization track planning adds:
 ```text
 eng-kernel-plan-v1
 hot-kernel candidates for TimeSeries arithmetic/statistics/integration
-system residual interface seeds for future RHS/Jacobian kernels
+system residual interface metadata for future RHS/Jacobian kernels
 backend = interpreter-fallback
 ```
 
@@ -137,7 +137,7 @@ Schema columns remain public boundary metadata. They are not emitted as runtime 
 
 System variables are also boundary metadata. They appear in review/report
 variable tables, system summaries, the system IR dependency list, and
-solver_plan seed metadata. The current system runtime support additionally
+solver_plan metadata. The current system runtime support additionally
 recognizes the official one-state thermal ODE and records a fixed-step runtime
 result in run artifacts.
 
