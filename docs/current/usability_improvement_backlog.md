@@ -3422,6 +3422,16 @@ workflow helpers.
 - Added regression tests for uncertainty and model argument contexts, including
   filtering already-assigned named arguments.
 
+## Batch 277: Multi-Line Helper Argument Completion
+
+Status: implemented while tightening native workflow helper completion in
+normal formatted code.
+
+- Extended helper-call argument completion to inspect the source prefix up to
+  the cursor, so multi-line calls such as `distribution(` followed by indented
+  named arguments keep the same contextual suggestions as single-line calls.
+- Added regression coverage for multi-line uncertainty and model helper calls.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

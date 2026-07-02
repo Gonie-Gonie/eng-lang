@@ -4784,8 +4784,7 @@ fn function_argument_completion_context(
     line: usize,
     character: usize,
 ) -> Option<FunctionArgumentCompletionContext> {
-    let line_text = source.lines().nth(line)?;
-    let before_cursor = line_text.chars().take(character).collect::<String>();
+    let before_cursor = source_prefix_at_position(source, line, character)?;
     let open_paren = last_unmatched_open_paren(&before_cursor)?;
     let function_name = function_name_before_open_paren(&before_cursor, open_paren)?;
     let arguments = &before_cursor[open_paren + 1..];
@@ -4797,6 +4796,23 @@ fn function_argument_completion_context(
         prefix: current_argument_prefix(arguments),
         assigned_options: assigned_function_argument_options(arguments),
     })
+}
+
+fn source_prefix_at_position(source: &str, line: usize, character: usize) -> Option<String> {
+    let mut prefix = String::new();
+    for (line_index, line_text) in source.lines().enumerate() {
+        if line_index < line {
+            prefix.push_str(line_text);
+            prefix.push('\n');
+            continue;
+        }
+        if line_index == line {
+            prefix.extend(line_text.chars().take(character));
+            return Some(prefix);
+        }
+        break;
+    }
+    None
 }
 
 fn function_argument_option_labels(function_name: &str) -> Option<&'static [&'static str]> {
@@ -6973,6 +6989,24 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "cache_key"));
+
+        let source = r#"Q = distribution(
+    kind=normal,
+    sig"#;
+        let line = 2;
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("multiline_distribution_arg_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "sigma" && completion.kind == "property"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "kind"));
     }
 
     #[test]
@@ -6999,6 +7033,24 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "cache_key"));
+
+        let source = r#"model = regression(
+    split,
+    fe"#;
+        let line = 2;
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("multiline_model_arg_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+        assert!(completions
+            .iter()
+            .any(|completion| completion.label == "features" && completion.kind == "property"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "sigma"));
     }
 
     #[test]
