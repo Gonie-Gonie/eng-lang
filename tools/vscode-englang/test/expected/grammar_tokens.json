@@ -157,13 +157,43 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.definition.string.begin.englang",
+    "text": "\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.definition.string.end.englang",
+    "text": "\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.interpolation.englang",
     "text": "{sensor.T_supply: .2 degC}"
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.definition.interpolation.begin.englang",
+    "text": "{",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.definition.interpolation.end.englang",
+    "text": "}",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "variable.other.interpolation.englang",
     "text": "sensor.T_supply",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.separator.format.englang",
+    "text": ":",
     "fullMatch": true
   },
   {

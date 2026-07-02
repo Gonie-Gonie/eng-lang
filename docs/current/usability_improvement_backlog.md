@@ -2781,6 +2781,18 @@ inventory text, and current status docs for stale implementation wording.
 - Extended `ide-check` so the editor documentation wording guard also covers
   current status docs and blocks stale implementation wording there.
 
+## Batch 225: String Interpolation Scope Coverage
+
+Status: implemented after checking TextMate string interpolation coverage
+against the syntax-highlighting TODO.
+
+- Added TextMate scopes for double-quoted string delimiters so themes can color
+  string boundaries separately from string contents.
+- Pinned interpolation braces and format separators in the grammar smoke
+  expectations alongside interpolation variables, precision, and unit-format
+  scopes.
+- Regenerated the packaged TextMate grammar from the source grammar.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

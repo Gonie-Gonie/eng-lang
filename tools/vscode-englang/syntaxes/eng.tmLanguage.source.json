@@ -42,6 +42,12 @@
             "name": "string.quoted.double.englang",
             "begin": "\"",
             "end": "\"",
+            "beginCaptures": {
+              "0": { "name": "punctuation.definition.string.begin.englang" }
+            },
+            "endCaptures": {
+              "0": { "name": "punctuation.definition.string.end.englang" }
+            },
             "patterns": [
               {
                 "name": "constant.character.escape.englang",
