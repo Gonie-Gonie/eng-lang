@@ -3019,6 +3019,45 @@ function Invoke-IdePackage {
     Write-Host "VSIX prepared at $VsixPath"
 }
 
+function Get-VscodeCli {
+    $CodeCmd = Get-Command "code.cmd" -ErrorAction SilentlyContinue
+    if ($null -ne $CodeCmd) {
+        return $CodeCmd.Source
+    }
+    $Code = Get-Command "code" -ErrorAction SilentlyContinue
+    if ($null -ne $Code) {
+        return $Code.Source
+    }
+    return $null
+}
+
+function Invoke-VscodePackage {
+    Set-DevEnvironment
+    $cargo = Get-Cargo
+    if ($null -eq $cargo) {
+        Write-Host "Cargo not found. Run .\dev.bat setup."
+        exit 1
+    }
+    Invoke-Native $cargo "build" "--release" "-p" "eng_cli" "-p" "eng_lsp"
+    $PackageRoot = Join-Path $RepoRoot "dist\local-vscode"
+    New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
+    Invoke-IdePackage -PackageRoot $PackageRoot
+    $VsixPath = Join-Path (Join-Path $PackageRoot "tools") (Get-VsixFileName)
+    Write-Host "Local VS Code VSIX ready: $VsixPath"
+    return $VsixPath
+}
+
+function Invoke-VscodeInstall {
+    $VsixPath = Invoke-VscodePackage
+    $Code = Get-VscodeCli
+    if ($null -eq $Code) {
+        throw "VS Code CLI not found. Install the VSIX manually from $VsixPath, or add the VS Code 'code' command to PATH."
+    }
+    Invoke-Native $Code "--install-extension" $VsixPath "--force"
+    Write-Host "Installed EngLang VS Code extension from $VsixPath"
+    Write-Host "Reload VS Code windows that already had EngLang files open."
+}
+
 function Escape-PdfText {
     param([Parameter(Mandatory = $true)][string] $Text)
     return $Text.Replace('\', '\\').Replace('(', '\(').Replace(')', '\)')
@@ -3616,6 +3655,8 @@ Usage:
   .\dev.bat vscode-build-grammar Regenerate VS Code TextMate grammar from source JSON
   .\dev.bat vscode-build-editor-metadata Regenerate VS Code editor metadata from eng-lsp
   .\dev.bat vscode-grammar-test  Check VS Code TextMate grammar source, generated output, and token fixtures
+  .\dev.bat vscode-package Build a local installable VS Code extension VSIX
+  .\dev.bat vscode-install Build and install the EngLang VS Code extension with the code CLI
   .\dev.bat ide-check      Validate the Tauri IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
@@ -3650,6 +3691,8 @@ switch ($Command) {
     "vscode-build-grammar" { Invoke-VscodeBuildGrammar }
     "vscode-build-editor-metadata" { Invoke-VscodeBuildEditorMetadata }
     "vscode-grammar-test" { Invoke-VscodeGrammarTest }
+    "vscode-package" { Invoke-VscodePackage }
+    "vscode-install" { Invoke-VscodeInstall }
     "ide-check" { Invoke-IdeCheck }
     "lsp-check" { Invoke-LspCheck }
     "jit-check" { Invoke-JitCheck }

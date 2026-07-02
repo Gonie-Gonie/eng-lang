@@ -157,6 +157,16 @@ The release zip also contains a VS Code extension:
 tools/englang-vscode-<version>.vsix
 ```
 
+From a source checkout, build and install the local VSIX with:
+
+```bat
+.\dev.bat vscode-install
+```
+
+Use `.\dev.bat vscode-package` to only write
+`dist\local-vscode\tools\englang-vscode-<version>.vsix` and install it through
+VS Code's `Extensions: Install from VSIX...` command.
+
 The extension shares the compiler-facing diagnostic/hover/completion shape, but
 it is secondary for the current release. The primary no-install user test path
 is `eng-ide.exe`. The LSP remains smoke/snapshot tooling until a status

@@ -60,13 +60,28 @@ englang.diagnosticsBackend = lsp-snapshot
 
 ## Install From Source
 
-Build the CLI first:
+To build and install the extension from the current checkout:
 
 ```bat
-.\dev.bat build
+.\dev.bat vscode-install
 ```
 
-Then open this folder as an extension development host, or set:
+This builds a release `eng.exe` and `eng-lsp.exe`, packages
+`dist\local-vscode\tools\englang-vscode-<version>.vsix`, and installs it with
+the VS Code `code` CLI. Reload any VS Code windows that already had `.eng`
+files open.
+
+To build the VSIX without installing it:
+
+```bat
+.\dev.bat vscode-package
+```
+
+If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
+Code and select the generated VSIX. For extension-host development instead of
+local installation, open `tools\vscode-englang` in VS Code and launch the
+extension development host. If you run directly from source without packaging,
+set:
 
 ```text
 englang.runtimePath = C:\path\to\eng.exe

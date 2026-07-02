@@ -1956,6 +1956,18 @@ scoped inside first-render TextMate phrase highlighting.
 - Added grammar expectations for these full phrases and their local-binding
   references.
 
+## Batch 160: Local VS Code Extension Install Command
+
+Status: implemented to make local VS Code linting/highlighting installation a
+repeatable source-checkout workflow.
+
+- Added `.\dev.bat vscode-package` to build release `eng.exe`/`eng-lsp.exe` and
+  write `dist\local-vscode\tools\englang-vscode-<version>.vsix`.
+- Added `.\dev.bat vscode-install` to package the VSIX and install it through
+  the VS Code `code` CLI with `--force`.
+- Updated VS Code extension and user IDE docs with the source checkout install
+  path and manual VSIX fallback.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
