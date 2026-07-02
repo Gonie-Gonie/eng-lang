@@ -2930,6 +2930,19 @@ and report option naming mistakes.
 - Extended the VS Code extension contract so the local fallback keeps the
   confidence-band repair alongside the existing `unit =` to `unit y =` repair.
 
+## Batch 237: Workflow Completion Wording Cleanup
+
+Status: implemented after reviewing public workflow completion details for
+implementation-oriented module wording.
+
+- Reworded table, case, model, fixture, and `require_one` option completion
+  details so the editor explains the user action instead of exposing helper
+  implementation names.
+- Regenerated VS Code editor metadata so completion fallback text matches the
+  LSP source of truth.
+- Extended LSP completion tests so `require_one`, `regression_table`, `predict`,
+  and `fixture` details stay action-oriented.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

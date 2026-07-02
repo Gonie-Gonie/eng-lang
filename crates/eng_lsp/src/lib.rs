@@ -392,16 +392,25 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("secret", "redacted secret constructor"),
     ("stem", "eng.path filename stem helper"),
     ("url", "HTTP or HTTPS URL constructor"),
-    ("filter", "eng.table row filter helper"),
-    ("select", "eng.table column selection helper"),
-    ("derive", "eng.table derived-column helper"),
-    ("sort", "eng.table sort helper"),
-    ("require_one", "eng.table single-row assertion helper"),
-    ("check", "eng.table validation helper"),
-    ("coverage", "eng.timeseries coverage check"),
-    ("fill_missing", "eng.timeseries missing-value fill helper"),
-    ("align", "eng.timeseries alignment helper"),
-    ("resample", "eng.timeseries resampling helper"),
+    ("filter", "Filter table rows with a `where` block"),
+    ("select", "Select named columns from a table"),
+    ("derive", "Add a derived column to a table"),
+    ("sort", "Sort table rows by a column"),
+    (
+        "require_one",
+        "Require exactly one row from a filtered table",
+    ),
+    ("check", "Start a data-quality check"),
+    (
+        "coverage",
+        "TimeSeries coverage target for `check coverage`",
+    ),
+    (
+        "fill_missing",
+        "Fill missing TimeSeries values with an explicit policy",
+    ),
+    ("align", "Align TimeSeries values onto a shared axis"),
+    ("resample", "Resample a TimeSeries onto a new step"),
     ("sample", "eng.sampling sample set helper"),
     ("uniform", "eng.sampling uniform distribution helper"),
     ("normal", "eng.sampling normal distribution helper"),
@@ -409,30 +418,36 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("random", "eng.sampling random generator helper"),
     ("lhs", "eng.sampling Latin hypercube helper"),
     ("latin_hypercube", "eng.sampling Latin hypercube helper"),
-    ("materialize", "eng.case materialize case inputs"),
-    ("apply", "eng.case apply a workflow step over rows"),
-    ("collect", "eng.case collect case results"),
-    ("run_case", "eng.case single-case execution helper"),
+    (
+        "materialize",
+        "Create reviewable case rows and case directories",
+    ),
+    ("apply", "Apply a template or step across case rows"),
+    ("collect", "Collect per-case outputs into a table"),
+    ("run_case", "Run one case with recorded inputs and outputs"),
     ("measured", "eng.uncertainty measured value helper"),
     ("interval", "eng.uncertainty interval helper"),
     ("ensemble", "eng.uncertainty ensemble helper"),
     ("propagate", "eng.uncertainty propagation helper"),
     ("probability", "eng.uncertainty probability helper"),
-    ("train_test_split", "eng.model train/test split helper"),
-    ("regression", "eng.model regression training helper"),
+    (
+        "train_test_split",
+        "Create a deterministic train/test split",
+    ),
+    ("regression", "Train a small deterministic regression model"),
     (
         "regression_table",
-        "eng.model regression result table helper",
+        "Train a regression model from table columns",
     ),
     (
         "train_regression",
-        "eng.model explicit regression training helper",
+        "Train a regression model with explicit options",
     ),
-    ("mlp", "eng.model neural network training helper"),
-    ("evaluate", "eng.model evaluation helper"),
-    ("model_card", "eng.model model-card artifact helper"),
-    ("leakage_lint", "eng.model leakage lint helper"),
-    ("predict", "eng.model prediction helper"),
+    ("mlp", "Train a small deterministic neural-network model"),
+    ("evaluate", "Compute model evaluation metrics"),
+    ("model_card", "Create a model-card review artifact"),
+    ("leakage_lint", "Check model features for leakage risk"),
+    ("predict", "Create predictions from a model and input table"),
     ("mean", "eng.timeseries mean"),
     ("time_weighted_mean", "eng.timeseries time-weighted mean"),
     ("min", "eng.timeseries minimum"),
@@ -455,7 +470,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
         "solver algebraic initialization policy",
     ),
     ("algorithm", "model training option"),
-    ("allow_failure", "external command failure policy"),
+    (
+        "allow_failure",
+        "Whether an external command failure can continue",
+    ),
     ("artifact_kind", "expected artifact kind"),
     ("args", "external command argument list"),
     ("backend", "execution backend option"),
@@ -482,7 +500,10 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("expected_step", "expected TimeSeries step"),
     ("features", "model feature columns"),
     ("finite_difference_step", "solver finite difference step"),
-    ("fixture", "pinned offline response input"),
+    (
+        "fixture",
+        "Pinned offline HTTP response used instead of live network",
+    ),
     ("headers", "HTTP request headers"),
     ("hidden", "MLP hidden layer option"),
     ("initial", "solver initial value"),
@@ -498,8 +519,11 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("method", "fill or transform method"),
     ("missing", "missing value policy"),
     ("mode", "write mode"),
-    ("on_many", "require_one multiple-row failure policy"),
-    ("on_none", "require_one no-row failure policy"),
+    (
+        "on_many",
+        "What to do when `require_one` finds multiple rows",
+    ),
+    ("on_none", "What to do when `require_one` finds no rows"),
     ("output", "generated output path"),
     ("output_root", "case output root directory"),
     ("overwrite", "output overwrite policy"),
@@ -515,7 +539,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("samples", "uncertainty sample count"),
     ("seed", "deterministic sampling seed"),
     ("sensor_std", "TimeSeries sensor standard deviation"),
-    ("split", "model train/test split reference"),
+    ("split", "Train/test split to evaluate or lint"),
     ("solver", "solver algorithm option"),
     ("start", "range start option"),
     ("status", "case or validation status"),
@@ -3728,7 +3752,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("write json", "eng.io JSON output"),
         (
             "write standard_text",
-            "eng.artifact standard table text output",
+            "Write a stable text artifact from table rows",
         ),
         ("export summary to csv", "eng.io one-row summary CSV export"),
         ("copy file", "eng.fs copy generated output"),
@@ -5087,10 +5111,10 @@ mod tests {
             completion.label == "eng.cache" && completion.detail.contains("Native workflow support")
         }));
         for (label, detail_part) in [
-            ("require_one", "eng.table"),
+            ("require_one", "exactly one row"),
             ("uniform", "eng.sampling"),
-            ("regression_table", "eng.model"),
-            ("predict", "eng.model"),
+            ("regression_table", "regression model"),
+            ("predict", "predictions"),
             ("time_weighted_mean", "eng.timeseries"),
         ] {
             let completion = snapshot
@@ -5212,7 +5236,7 @@ mod tests {
             .expect("editor metadata should include fixture option completion");
         assert_eq!(
             fixture_completion["detail"],
-            "pinned offline response input"
+            "Pinned offline HTTP response used instead of live network"
         );
         let net_completion = completions
             .iter()
@@ -6495,7 +6519,10 @@ with {
             .find(|completion| completion.label == "split")
             .expect("model evaluation with-block completion should include split");
         assert_eq!(split_completion.kind, "property");
-        assert_eq!(split_completion.detail, "model train/test split reference");
+        assert_eq!(
+            split_completion.detail,
+            "Train/test split to evaluate or lint"
+        );
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));

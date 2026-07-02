@@ -243,61 +243,61 @@
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.table row filter helper",
+                                "detail":  "Filter table rows with a `where` block",
                                 "kind":  "function",
                                 "label":  "filter",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.table column selection helper",
+                                "detail":  "Select named columns from a table",
                                 "kind":  "function",
                                 "label":  "select",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.table derived-column helper",
+                                "detail":  "Add a derived column to a table",
                                 "kind":  "function",
                                 "label":  "derive",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.table sort helper",
+                                "detail":  "Sort table rows by a column",
                                 "kind":  "function",
                                 "label":  "sort",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.table single-row assertion helper",
+                                "detail":  "Require exactly one row from a filtered table",
                                 "kind":  "function",
                                 "label":  "require_one",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.table validation helper",
+                                "detail":  "Start a data-quality check",
                                 "kind":  "function",
                                 "label":  "check",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.timeseries coverage check",
+                                "detail":  "TimeSeries coverage target for `check coverage`",
                                 "kind":  "function",
                                 "label":  "coverage",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.timeseries missing-value fill helper",
+                                "detail":  "Fill missing TimeSeries values with an explicit policy",
                                 "kind":  "function",
                                 "label":  "fill_missing",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.timeseries alignment helper",
+                                "detail":  "Align TimeSeries values onto a shared axis",
                                 "kind":  "function",
                                 "label":  "align",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.timeseries resampling helper",
+                                "detail":  "Resample a TimeSeries onto a new step",
                                 "kind":  "function",
                                 "label":  "resample",
                                 "lsp_kind":  3
@@ -345,25 +345,25 @@
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.case materialize case inputs",
+                                "detail":  "Create reviewable case rows and case directories",
                                 "kind":  "function",
                                 "label":  "materialize",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.case apply a workflow step over rows",
+                                "detail":  "Apply a template or step across case rows",
                                 "kind":  "function",
                                 "label":  "apply",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.case collect case results",
+                                "detail":  "Collect per-case outputs into a table",
                                 "kind":  "function",
                                 "label":  "collect",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.case single-case execution helper",
+                                "detail":  "Run one case with recorded inputs and outputs",
                                 "kind":  "function",
                                 "label":  "run_case",
                                 "lsp_kind":  3
@@ -399,55 +399,55 @@
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model train/test split helper",
+                                "detail":  "Create a deterministic train/test split",
                                 "kind":  "function",
                                 "label":  "train_test_split",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model regression training helper",
+                                "detail":  "Train a small deterministic regression model",
                                 "kind":  "function",
                                 "label":  "regression",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model regression result table helper",
+                                "detail":  "Train a regression model from table columns",
                                 "kind":  "function",
                                 "label":  "regression_table",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model explicit regression training helper",
+                                "detail":  "Train a regression model with explicit options",
                                 "kind":  "function",
                                 "label":  "train_regression",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model neural network training helper",
+                                "detail":  "Train a small deterministic neural-network model",
                                 "kind":  "function",
                                 "label":  "mlp",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model evaluation helper",
+                                "detail":  "Compute model evaluation metrics",
                                 "kind":  "function",
                                 "label":  "evaluate",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model model-card artifact helper",
+                                "detail":  "Create a model-card review artifact",
                                 "kind":  "function",
                                 "label":  "model_card",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model leakage lint helper",
+                                "detail":  "Check model features for leakage risk",
                                 "kind":  "function",
                                 "label":  "leakage_lint",
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "eng.model prediction helper",
+                                "detail":  "Create predictions from a model and input table",
                                 "kind":  "function",
                                 "label":  "predict",
                                 "lsp_kind":  3
@@ -1185,7 +1185,7 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "external command failure policy",
+                                "detail":  "Whether an external command failure can continue",
                                 "kind":  "property",
                                 "label":  "allow_failure",
                                 "lsp_kind":  10
@@ -1335,7 +1335,7 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "pinned offline response input",
+                                "detail":  "Pinned offline HTTP response used instead of live network",
                                 "kind":  "property",
                                 "label":  "fixture",
                                 "lsp_kind":  10
@@ -1413,13 +1413,13 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "require_one multiple-row failure policy",
+                                "detail":  "What to do when `require_one` finds multiple rows",
                                 "kind":  "property",
                                 "label":  "on_many",
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "require_one no-row failure policy",
+                                "detail":  "What to do when `require_one` finds no rows",
                                 "kind":  "property",
                                 "label":  "on_none",
                                 "lsp_kind":  10
@@ -1515,7 +1515,7 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "model train/test split reference",
+                                "detail":  "Train/test split to evaluate or lint",
                                 "kind":  "property",
                                 "label":  "split",
                                 "lsp_kind":  10
@@ -1863,7 +1863,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "eng.artifact standard table text output",
+                                "detail":  "Write a stable text artifact from table rows",
                                 "kind":  "stdlib",
                                 "label":  "write standard_text",
                                 "lsp_kind":  9
