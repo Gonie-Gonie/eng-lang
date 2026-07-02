@@ -1404,6 +1404,24 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.show-report.englang",
+    "text": "show Q_total_unc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.show-report.englang",
+    "text": "show coverage.status",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-series.englang",
+    "text": "plot Q_series over Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.plot-distribution.englang",
     "text": "plot distribution(Q_coil_dist)",
     "fullMatch": true

@@ -100,6 +100,7 @@ Current workflow phrase scopes:
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
 | `meta.workflow.plot-distribution.englang` | `plot distribution(<distribution>)` |
+| `meta.workflow.plot-series.englang` | `plot <series> over <axis>` |
 | `meta.workflow.promote-csv.englang` | `promote csv <source> as <schema>` |
 | `meta.workflow.promote-json.englang` | `promote json <source> as <schema>` |
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
@@ -111,6 +112,7 @@ Current workflow phrase scopes:
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.select-columns.englang` | `select <table> columns <columns>` |
+| `meta.workflow.show-report.englang` | `show <value>` and optional report display suffixes. |
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |
 | `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |

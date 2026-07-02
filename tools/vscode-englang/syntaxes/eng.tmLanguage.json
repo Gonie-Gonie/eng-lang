@@ -954,6 +954,63 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.plot-series.englang",
+                                                                    "match":  "\\b(plot)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(over)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "keyword.control.report.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.show-report.englang",
+                                                                    "begin":  "\\b(show)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.report.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.promote-csv.englang",
                                                                     "begin":  "\\b(promote)\\s+(csv)\\b",
                                                                     "beginCaptures":  {

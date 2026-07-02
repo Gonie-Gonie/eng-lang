@@ -61,6 +61,9 @@ on {
 
 report {
     summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]
+    show Q_total_unc
+    show coverage.status
+    plot Q_series over Time
     plot distribution(Q_coil_dist)
     with {
         unit y = kW

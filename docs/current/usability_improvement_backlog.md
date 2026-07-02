@@ -2200,6 +2200,17 @@ their series operand and axis.
 - Added fixture expectations for function-style and command-style statistic
   forms used by workflow 03 and the public TimeSeries syntax docs.
 
+## Batch 180: Report Show And Plot Phrase Highlighting
+
+Status: implemented to make the common report block output lines read as
+complete report actions in first-render VS Code highlighting.
+
+- Added `meta.workflow.plot-series.englang` for `plot <series> over <axis>`.
+- Added `meta.workflow.show-report.englang` for `show <value>` report entries,
+  including dotted values such as `coverage.status`.
+- Added report fixture expectations so workflow 01/02/03-style `show` rows and
+  workflow 03-style TimeSeries plots stay covered.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
