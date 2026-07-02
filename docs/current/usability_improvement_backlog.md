@@ -2233,6 +2233,18 @@ messages visibly grouped as side-effecting workflow statements.
 - Scoped `debug`, `info`, `warn`, and `error` log levels as language constants
   while preserving string interpolation scopes inside message strings.
 
+## Batch 183: Distribution Call Phrase Highlighting
+
+Status: implemented to keep sampling ranges and uncertainty distributions
+readable as value-distribution calls in VS Code fallback highlighting.
+
+- Added `meta.workflow.distribution-call.englang` for `uniform(...)`,
+  `normal(...)`, `measured(...)`, and `interval(...)`.
+- Scoped distribution option keys such as `mean`, `std`, `error`, and
+  `samples` as parameter properties inside the call.
+- Added grammar expectations for workflow 02 sampling ranges and workflow 03
+  uncertainty distribution calls.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

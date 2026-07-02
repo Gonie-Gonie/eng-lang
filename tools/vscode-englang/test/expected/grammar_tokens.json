@@ -423,6 +423,12 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "uniform(0.03 person/m2, 0.12 person/m2)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "latin_hypercube",
     "fullMatch": true
@@ -1358,6 +1364,24 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.quantity.literal.englang",
     "text": "0.12 people/m2",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "measured(12 degC, std=0.2 K)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "normal(mean=5 kW, std=0.8 kW, samples=31)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "samples",
     "fullMatch": true
   },
   {

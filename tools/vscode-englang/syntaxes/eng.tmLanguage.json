@@ -413,6 +413,59 @@
                                                                                  ]
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.distribution-call.englang",
+                                                                    "begin":  "\\b(measured|interval|normal|uniform)\\s*(\\()",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "punctuation.section.parens.begin.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "\\)",
+                                                                    "endCaptures":  {
+                                                                                        "0":  {
+                                                                                                  "name":  "punctuation.section.parens.end.englang"
+                                                                                              }
+                                                                                    },
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "match":  "\\b(mean|std|error|samples)\\b\\s*(=)",
+                                                                                         "captures":  {
+                                                                                                          "1":  {
+                                                                                                                    "name":  "variable.parameter.property.englang"
+                                                                                                                },
+                                                                                                          "2":  {
+                                                                                                                    "name":  "keyword.operator.englang"
+                                                                                                                }
+                                                                                                      }
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_.]*\\b"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.render-template.englang",
                                                                     "begin":  "\\b(render)\\s+(template)\\b",
                                                                     "beginCaptures":  {
