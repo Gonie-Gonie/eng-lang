@@ -2462,6 +2462,7 @@ function Assert-VscodeExtensionContract {
         "localCodeActions",
         "E-SYNTAX-DECL-001",
         "E-STRUCT-ARGS-001",
+        "E-EQ-BOOL-001",
         "E-SCRIPT-001",
         "W-QTY-AMBIG-001",
         "E-DIM-ADD-",

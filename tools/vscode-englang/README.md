@@ -26,7 +26,7 @@ embedding compiler logic in JavaScript.
 - current-file go-to-definition from document symbols
 - workspace symbol search across `.eng` files in the open workspace
 - snippets from `snippets/eng.json`
-- quick fixes for `:=`, stale `struct Args`, removable `script` wrapper
+- quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
   missing-unit suffix fixes for unit arithmetic diagnostics, schema column
   annotation migrations, required file-mutation `with` options, invalid

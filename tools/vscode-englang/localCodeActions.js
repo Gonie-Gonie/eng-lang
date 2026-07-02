@@ -24,6 +24,13 @@ function localCodeActions(document, context) {
         actions.push(action);
       }
     }
+    if (code === "E-EQ-BOOL-001") {
+      const action = replacementAction(document, diagnostic, "==", "eq", "Replace == with eq");
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-SCRIPT-001") {
       const action = removeScriptWrapperAction(document, diagnostic);
       if (action) {
