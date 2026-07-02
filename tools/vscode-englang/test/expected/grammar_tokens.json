@@ -1137,6 +1137,18 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.check-coverage.englang",
+    "text": "check coverage measured.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.property.englang",
+    "text": "measured.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "std="
   },

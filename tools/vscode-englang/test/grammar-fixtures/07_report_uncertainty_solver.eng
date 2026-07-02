@@ -17,6 +17,7 @@ Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
 with {
     sensor_std = 0.2 kW
 }
+coverage = check coverage measured.T_zone
 
 sim = simulate RoomThermal
 with {

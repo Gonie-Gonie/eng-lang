@@ -2127,6 +2127,18 @@ first-render TextMate highlighting.
 - Added grammar fixture and expectation coverage for the table transform forms
   documented in the public table-transform surface.
 
+## Batch 174: Coverage Target Phrase Highlighting
+
+Status: implemented to keep TimeSeries coverage checks visibly grouped with
+their checked series operand.
+
+- Extended `meta.workflow.check-coverage.englang` from `check coverage` to
+  `check coverage <series>`.
+- Scoped dotted TimeSeries operands such as `measured.T_zone` as property
+  references inside the phrase.
+- Added grammar fixture and expectation coverage for
+  `check coverage measured.T_zone`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

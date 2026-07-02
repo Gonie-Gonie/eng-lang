@@ -484,10 +484,11 @@
           },
           {
             "name": "meta.workflow.check-coverage.englang",
-            "match": "\\b(check)\\s+(coverage)\\b",
+            "match": "\\b(check)\\s+(coverage)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "support.function.builtin.englang" }
+              "2": { "name": "support.function.builtin.englang" },
+              "3": { "name": "variable.other.property.englang" }
             }
           },
           {
