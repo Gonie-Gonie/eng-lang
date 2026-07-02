@@ -1319,6 +1319,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 | "retry"
                 | "timeout" => ["external"].as_slice(),
                 "algorithm" | "features" | "hidden" | "target" | "test" => ["model"].as_slice(),
+                _ if is_net_with_block(program, block.owner_line) => ["external"].as_slice(),
                 _ => [].as_slice(),
             };
             builder.push_on_line(option.line, &option.key, "property", modifiers);
@@ -1328,6 +1329,20 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     add_review_risk_semantic_tokens(report, &mut builder);
 
     builder.finish()
+}
+
+fn is_net_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program
+        .net_requests
+        .iter()
+        .any(|request| request.line == owner_line)
+        || program
+            .net_downloads
+            .iter()
+            .any(|download| download.line == owner_line)
 }
 
 fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticTokenBuilder<'_>) {
@@ -4904,6 +4919,7 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
         assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
         assert_semantic_token_modifier(&snapshot, source, "query", "external");
+        assert_semantic_token_modifier(&snapshot, source, "station", "external");
         assert_semantic_token_modifier(&snapshot, source, "fixture", "external");
         assert_semantic_token_modifier(&snapshot, source, "expected_sha256", "external");
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");

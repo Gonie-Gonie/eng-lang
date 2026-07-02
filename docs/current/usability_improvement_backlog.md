@@ -1827,6 +1827,17 @@ Status: implemented while continuing the VS Code extension split checklist.
 - Synced the new module into local VS Code extension copies so the installed
   extension uses the same wording helpers as the repository source.
 
+## Batch 150: Query Parameter Semantic Coloring
+
+Status: implemented after checking TextMate query-map highlighting against LSP
+semantic overlays.
+
+- Marked custom HTTP/download `with` option keys as `external` semantic tokens
+  when the owner line is a native network request or download.
+- Added regression coverage for `query = { station = ... }` so request
+  parameter keys do not lose external-boundary coloring under semantic
+  highlighting.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
