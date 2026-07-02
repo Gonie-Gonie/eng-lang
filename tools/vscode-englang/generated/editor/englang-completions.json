@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  363,
+    "completion_seed_count":  366,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -707,6 +707,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "else",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "export",
                                 "lsp_kind":  14
                             },
@@ -894,6 +900,12 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "or",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "of",
                                 "lsp_kind":  14
                             },
                             {
@@ -1158,6 +1170,12 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "version",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "vs",
                                 "lsp_kind":  14
                             },
                             {

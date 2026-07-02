@@ -2968,6 +2968,18 @@ keyword coverage.
 - Extended grammar fixtures and semantic-token tests to cover both transaction
   values.
 
+## Batch 240: Operator Keyword Semantic Parity
+
+Status: implemented after comparing TextMate workflow/operator keywords against
+the LSP keyword vocabulary.
+
+- Added `else`, `of`, and `vs` to the LSP keyword/completion vocabulary so
+  semantic highlighting no longer falls behind TextMate fallback coloring.
+- Extended semantic-token tests for conditional, typed TimeSeries, and plot
+  comparison phrases that already had TextMate coverage.
+- Regenerated editor completion metadata so VS Code and Native IDE completion
+  fallback data includes the same keyword surface.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -186,6 +186,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "download",
     "eq",
     "equation",
+    "else",
     "evaluate",
     "export",
     "false",
@@ -227,6 +228,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "null",
     "open",
     "or",
+    "of",
     "over",
     "package",
     "patch",
@@ -279,6 +281,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "using",
     "validate",
     "version",
+    "vs",
     "where",
     "with",
     "within",
@@ -5595,6 +5598,8 @@ report {
 
 payload = read json file("payload.json")
 settings = read toml file("settings.toml")
+choice = if true else false
+Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
 export summary to csv "summary.csv" {
     T as degC
 }
@@ -5618,6 +5623,9 @@ struct LegacyArgs
         }
         for label in ["summarize", "summary", "distribution", "line"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
+        }
+        for label in ["else", "of", "vs"] {
+            assert_semantic_token_type(&snapshot, source, label, "keyword");
         }
         for label in ["read", "csv", "json", "toml", "text"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
