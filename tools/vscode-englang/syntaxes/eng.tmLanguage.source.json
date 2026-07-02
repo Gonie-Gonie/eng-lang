@@ -531,6 +531,17 @@
             ]
           },
           {
+            "name": "meta.workflow.plot-distribution.englang",
+            "match": "\\b(plot)\\s+(distribution)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+            "captures": {
+              "1": { "name": "keyword.control.report.englang" },
+              "2": { "name": "keyword.control.report.englang" },
+              "3": { "name": "punctuation.section.parens.begin.englang" },
+              "4": { "name": "variable.other.property.englang" },
+              "5": { "name": "punctuation.section.parens.end.englang" }
+            }
+          },
+          {
             "name": "meta.workflow.promote-csv.englang",
             "begin": "\\b(promote)\\s+(csv)\\b",
             "beginCaptures": {

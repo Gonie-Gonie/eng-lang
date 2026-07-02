@@ -2163,6 +2163,18 @@ statistics workflow phrase instead of disconnected report keywords and builtins.
 - Kept statistic names such as `mean`, `time_weighted_mean`, `p90`, and `p95`
   on built-in function scopes inside the summary list.
 
+## Batch 177: Plot Distribution Phrase Highlighting
+
+Status: implemented to keep uncertainty distribution plots readable as a
+single report workflow phrase.
+
+- Added `meta.workflow.plot-distribution.englang` for
+  `plot distribution(<distribution>)`.
+- Kept `plot` and `distribution` on report keyword scopes while scoping the
+  plotted distribution operand as a property reference.
+- Added grammar expectations against the uncertainty/report fixture so the
+  report plot command stays covered with the summary command.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

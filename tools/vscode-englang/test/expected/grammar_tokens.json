@@ -1357,8 +1357,20 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-distribution.englang",
+    "text": "plot distribution(Q_coil_dist)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.report.englang",
     "text": "distribution"
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.property.englang",
+    "text": "Q_coil_dist",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
