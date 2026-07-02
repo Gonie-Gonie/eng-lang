@@ -445,6 +445,11 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "template ="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "run_case",
     "fullMatch": true

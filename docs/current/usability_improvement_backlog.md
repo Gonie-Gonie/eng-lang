@@ -1915,6 +1915,21 @@ consistently in VS Code before semantic tokens arrive.
 - Documented the new scope and the local-binding reference scope used inside
   workflow phrases in `docs/internal/editor/token_scopes.md`.
 
+## Batch 157: Template Option Completion Parity
+
+Status: implemented to align apply/render template with-block completions with
+the compiler/runtime option contract.
+
+- Added `template` to the LSP workflow option detail registry so
+  `apply ... over ...` with-block completions no longer silently drop the
+  template source option.
+- Added `missing` and `artifact_kind` to render-template with-block completions,
+  matching the options already accepted by semantic analysis and runtime.
+- Added TextMate option-key highlighting for `template =` and grammar fixture
+  coverage on the native case-template apply form.
+- Added LSP regression tests for apply and render-template with-block option
+  completions.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

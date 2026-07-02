@@ -512,6 +512,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("step", "case workflow step"),
     ("test", "model train/test split option"),
     ("target", "model target column"),
+    ("template", "template source file"),
     ("timeout", "external command timeout"),
     ("timestep", "solver or simulation time step"),
     ("title", "plot or report title"),
@@ -3957,7 +3958,9 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
         return Some(&[
             "values",
             "output",
+            "missing",
             "overwrite",
+            "artifact_kind",
             "cache",
             "cache_key",
             "cache_dir",
@@ -5511,6 +5514,83 @@ with {
         assert!(completions
             .iter()
             .any(|completion| completion.label == "mode"));
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_render_template_context() {
+        let source = r#"render template file("model/base.txt")
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("render_template_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in ["values", "output", "missing", "overwrite", "artifact_kind"] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "render template with-block completion should include {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "expected_sha256"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_apply_template_context() {
+        let source = r#"case_inputs = apply case_input_template over cases
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("apply_template_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "template",
+            "values",
+            "output",
+            "missing",
+            "overwrite",
+            "artifact_kind",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "apply with-block completion should include {label}"
+            );
+        }
+        let template_completion = completions
+            .iter()
+            .find(|completion| completion.label == "template")
+            .expect("apply with-block completion should include template");
+        assert_eq!(template_completion.kind, "property");
+        assert_eq!(template_completion.detail, "template source file");
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "expected_sha256"));

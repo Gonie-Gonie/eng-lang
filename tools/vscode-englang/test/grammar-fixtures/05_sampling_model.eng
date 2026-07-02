@@ -35,5 +35,10 @@ with {
 }
 
 case_inputs = apply(case_input_template, over=cases)
+with {
+    template = file("model/native_case_template.txt")
+    missing = error
+    artifact_kind = "case_input"
+}
 
 collected = collect results case_results
