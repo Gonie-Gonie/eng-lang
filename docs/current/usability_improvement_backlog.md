@@ -3699,6 +3699,20 @@ constant but compiler-backed semantic tokens left it unclassified.
   `distribution T` report directives as report tokens.
 - Expanded semantic-token regression coverage for these constant labels.
 
+## Batch 299: Native Workflow Artifact Contract Smoke
+
+Status: implemented to make workflow 01/03 smoke tests prove native artifact
+contracts rather than only checking that the examples run.
+
+- Added workflow 01 `workflows-test` checks for native network boundaries,
+  pinned offline-response status, cache manifest records, typed JSON promotion,
+  and standard-file output manifest entries.
+- Added workflow 03 `workflows-test` checks for native uncertainty propagation,
+  sensor standard-deviation review records, CSV/text outputs, plot specs,
+  plot manifests, and report-spec links.
+- Kept the existing zero-external-process assertion across workflow 01/02/03 so
+  these examples cannot silently reintroduce Python or shell process execution.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

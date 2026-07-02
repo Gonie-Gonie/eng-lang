@@ -448,6 +448,84 @@ function Invoke-WorkflowsTest {
         if ($ProcessCount -ne 0 -or $ProcessListCount -ne 0) {
             throw "Native workflow smoke must not execute external processes: $Workflow"
         }
+        if ($Workflow -like "*01_weather_api_to_standard_file*") {
+            $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
+            $ReviewPath = Join-Path $RepoRoot "build\result\review.json"
+            $OutputManifestPath = Join-Path $RepoRoot "build\result\output_manifest.json"
+            $CacheManifestPath = Join-Path $RepoRoot "build\result\cache_manifest.json"
+            $RunLogPath = Join-Path $RepoRoot "build\result\run_log.json"
+            foreach ($RequiredWorkflowArtifactPath in @($ResultPath, $ReviewPath, $OutputManifestPath, $CacheManifestPath, $RunLogPath)) {
+                if (-not (Test-Path -LiteralPath $RequiredWorkflowArtifactPath)) {
+                    throw "Workflow 01 native contract smoke missing artifact: $RequiredWorkflowArtifactPath"
+                }
+            }
+            $ResultJson = Get-Content -LiteralPath $ResultPath -Raw
+            $ReviewJson = Get-Content -LiteralPath $ReviewPath -Raw
+            $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
+            $CacheManifestJson = Get-Content -LiteralPath $CacheManifestPath -Raw
+            $RunLogJson = Get-Content -LiteralPath $RunLogPath -Raw
+            foreach ($RequiredWeatherResultToken in @(
+                '"network_boundaries"',
+                '"network_boundary_count": 1',
+                '"binding": "api_response"',
+                '"status": "offline_response"',
+                '"expected_sha256"',
+                '"schema_name": "WeatherApiRecord"',
+                '"schema_name": "WeatherApiPayload"',
+                '"source_value": "api_response.body"',
+                '"timeseries_coverage"'
+            )) {
+                if (-not $ResultJson.Contains($RequiredWeatherResultToken)) {
+                    throw "Workflow 01 native result missing token $RequiredWeatherResultToken"
+                }
+            }
+            foreach ($RequiredWeatherReviewToken in @(
+                '"owner_kind": "network_request"',
+                '"owner_name": "api_response"',
+                '"expression": "read json api_response.body"',
+                '"expression": "promote json records api_payload.records as WeatherApiRecord"',
+                '"kind": "uses_cache"',
+                '"offline_response": "data/offline_weather_response.json"',
+                '"expected_sha256"'
+            )) {
+                if (-not $ReviewJson.Contains($RequiredWeatherReviewToken)) {
+                    throw "Workflow 01 native review missing token $RequiredWeatherReviewToken"
+                }
+            }
+            foreach ($RequiredWeatherOutputToken in @(
+                '"kind": "standard_file"',
+                '"path": "outputs/standard_weather_file.txt"',
+                '"network_requests"',
+                '"caches"',
+                '"binding": "api_response"',
+                '"status": "offline_response"'
+            )) {
+                if (-not $OutputManifestJson.Contains($RequiredWeatherOutputToken)) {
+                    throw "Workflow 01 native output manifest missing token $RequiredWeatherOutputToken"
+                }
+            }
+            foreach ($RequiredWeatherCacheToken in @(
+                '"cache_record_count": 1',
+                '"owner_kind": "network_request"',
+                '"owner_name": "api_response"',
+                '"expected_hash"',
+                '"observed_hash"'
+            )) {
+                if (-not $CacheManifestJson.Contains($RequiredWeatherCacheToken)) {
+                    throw "Workflow 01 native cache manifest missing token $RequiredWeatherCacheToken"
+                }
+            }
+            foreach ($RequiredWeatherRunLogToken in @(
+                '"network_event_count": 1',
+                '"cache_event_count": 1',
+                '"binding": "api_response"',
+                '"status": "offline_response"'
+            )) {
+                if (-not $RunLogJson.Contains($RequiredWeatherRunLogToken)) {
+                    throw "Workflow 01 native run log missing token $RequiredWeatherRunLogToken"
+                }
+            }
+        }
         if ($Workflow -like "*02_external_simulation_surrogate*") {
             $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
             $ReviewPath = Join-Path $RepoRoot "build\result\review.json"
@@ -496,6 +574,101 @@ function Invoke-WorkflowsTest {
             )) {
                 if (-not $OutputManifestJson.Contains($RequiredSurrogateOutputToken)) {
                     throw "Workflow 02 native output manifest missing token $RequiredSurrogateOutputToken"
+                }
+            }
+        }
+        if ($Workflow -like "*03_uncertain_sensor_report*") {
+            $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
+            $ReviewPath = Join-Path $RepoRoot "build\result\review.json"
+            $OutputManifestPath = Join-Path $RepoRoot "build\result\output_manifest.json"
+            $ReportSpecPath = Join-Path $RepoRoot "build\result\report_spec.json"
+            $PlotSpecPath = Join-Path $RepoRoot "build\result\plots\plot_spec.json"
+            $PlotManifestPath = Join-Path $RepoRoot "build\result\plots\plot_manifest.json"
+            foreach ($RequiredWorkflowArtifactPath in @($ResultPath, $ReviewPath, $OutputManifestPath, $ReportSpecPath, $PlotSpecPath, $PlotManifestPath)) {
+                if (-not (Test-Path -LiteralPath $RequiredWorkflowArtifactPath)) {
+                    throw "Workflow 03 native contract smoke missing artifact: $RequiredWorkflowArtifactPath"
+                }
+            }
+            $ResultJson = Get-Content -LiteralPath $ResultPath -Raw
+            $ReviewJson = Get-Content -LiteralPath $ReviewPath -Raw
+            $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
+            $ReportSpecJson = Get-Content -LiteralPath $ReportSpecPath -Raw
+            $PlotSpecJson = Get-Content -LiteralPath $PlotSpecPath -Raw
+            $PlotManifestJson = Get-Content -LiteralPath $PlotManifestPath -Raw
+            foreach ($RequiredSensorResultToken in @(
+                '"timeseries_uncertainty_calculations"',
+                '"sensor_std": 0.2',
+                '"sensor_std_unit": "kW"',
+                '"method": "independent_pointwise_sensor_std_mean"',
+                '"method": "independent_pointwise_sensor_std_trapezoidal"',
+                '"status": "propagated_sensor_std"',
+                '"timeseries_coverage"',
+                '"uncertainties"'
+            )) {
+                if (-not $ResultJson.Contains($RequiredSensorResultToken)) {
+                    throw "Workflow 03 native result missing token $RequiredSensorResultToken"
+                }
+            }
+            foreach ($RequiredSensorReviewToken in @(
+                '"timeseries_uncertainty"',
+                '"timeseries_uncertainty_calculations"',
+                '"sensor_std": "0.2 kW"',
+                '"source": "Q_sensor"',
+                '"key": "confidence_band"',
+                '"value": "sensor_std"',
+                '"kind": "timeseries_coverage"'
+            )) {
+                if (-not $ReviewJson.Contains($RequiredSensorReviewToken)) {
+                    throw "Workflow 03 native review missing token $RequiredSensorReviewToken"
+                }
+            }
+            foreach ($RequiredSensorOutputToken in @(
+                '"kind": "csv_export"',
+                '"path": "outputs/sensor_summary.csv"',
+                '"kind": "write_text"',
+                '"path": "outputs/sensor_quality_summary.txt"',
+                '"kind": "plot_spec"',
+                '"path": "plots/plot_spec.json"',
+                '"kind": "plot_svg"',
+                '"path": "plots/timeseries.svg"',
+                '"kind": "plot_manifest"',
+                '"path": "plots/plot_manifest.json"'
+            )) {
+                if (-not $OutputManifestJson.Contains($RequiredSensorOutputToken)) {
+                    throw "Workflow 03 native output manifest missing token $RequiredSensorOutputToken"
+                }
+            }
+            foreach ($RequiredSensorReportToken in @(
+                '"uncertainty"',
+                '"plot_manifest"',
+                '"path": "plots/plot_manifest.json"',
+                '"source": "Q_sensor"',
+                '"operations": ["load_timeseries:Q_sensor", "integrate_over:Time", "store:E_sensor"]'
+            )) {
+                if (-not $ReportSpecJson.Contains($RequiredSensorReportToken)) {
+                    throw "Workflow 03 native report spec missing token $RequiredSensorReportToken"
+                }
+            }
+            foreach ($RequiredSensorPlotSpecToken in @(
+                '"format": "eng-plotspec-v1"',
+                '"plot_type": "line"',
+                '"name": "Q_sensor"',
+                '"confidence_band"',
+                '"method": "pointwise_measured_std"',
+                '"source": "sensor_std"'
+            )) {
+                if (-not $PlotSpecJson.Contains($RequiredSensorPlotSpecToken)) {
+                    throw "Workflow 03 native plot spec missing token $RequiredSensorPlotSpecToken"
+                }
+            }
+            foreach ($RequiredSensorPlotManifestToken in @(
+                '"format": "eng-plot-manifest-v1"',
+                '"plot_spec_version": 1',
+                '"svg": "timeseries.svg"',
+                '"series": ["Q_sensor"]'
+            )) {
+                if (-not $PlotManifestJson.Contains($RequiredSensorPlotManifestToken)) {
+                    throw "Workflow 03 native plot manifest missing token $RequiredSensorPlotManifestToken"
                 }
             }
         }
