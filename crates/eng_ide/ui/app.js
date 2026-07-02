@@ -4332,6 +4332,7 @@ function renderCursorInsight() {
   const position = editorCursorPosition(source, editor?.selectionStart ?? 0);
   const token = editor ? semanticTokenAtCaret(editor, position) : null;
   const hover = token ? hoverForSemanticToken(token, position.line) : null;
+  const bracket = editor ? editorBracketMatch(source, editor.selectionStart) : null;
   const parts = [`L${position.line + 1}:C${position.column + 1}`];
   if (state.source !== state.highlightSource) {
     parts.push("Check needed");
@@ -4344,6 +4345,11 @@ function renderCursorInsight() {
     }
   } else {
     parts.push("plain");
+  }
+  if (bracket?.matched) {
+    parts.push(`${bracket.open}${bracket.close} match L${bracket.line + 1}:C${bracket.column + 1}`);
+  } else if (bracket) {
+    parts.push(`unmatched ${bracket.char}`);
   }
   const title = hover ? hoverTitle(hover) : parts.join(" / ");
   return `
@@ -4368,6 +4374,74 @@ function editorCursorPosition(source, offset) {
     column: lines[lines.length - 1].length,
     offset: safeOffset
   };
+}
+
+function editorBracketMatch(source, offset) {
+  const bracket = editorBracketAtCaret(source, offset);
+  if (!bracket) return null;
+  const matchOffset = matchingBracketOffset(source, bracket.offset, bracket.char);
+  if (matchOffset < 0) {
+    return { ...bracket, matched: false };
+  }
+  const position = editorCursorPosition(source, matchOffset);
+  return {
+    ...bracket,
+    matched: true,
+    line: position.line,
+    column: position.column
+  };
+}
+
+function editorBracketAtCaret(source, offset) {
+  const safeOffset = Math.max(0, Math.min(Number(offset) || 0, source.length));
+  for (const candidateOffset of [safeOffset, safeOffset - 1]) {
+    if (candidateOffset < 0 || candidateOffset >= source.length) continue;
+    const char = source[candidateOffset];
+    if (!isEditorBracket(char)) continue;
+    return {
+      char,
+      offset: candidateOffset,
+      open: EDITOR_PAIR_OPEN[char] || char,
+      close: EDITOR_PAIR_CLOSE[char] || char
+    };
+  }
+  return null;
+}
+
+function isEditorBracket(char) {
+  return char === "{" || char === "}" || char === "[" || char === "]" || char === "(" || char === ")";
+}
+
+function matchingBracketOffset(source, offset, char) {
+  if (EDITOR_PAIR_CLOSE[char] && char !== "\"") {
+    return scanBracketForward(source, offset, char, EDITOR_PAIR_CLOSE[char]);
+  }
+  if (EDITOR_PAIR_OPEN[char] && char !== "\"") {
+    return scanBracketBackward(source, offset, char, EDITOR_PAIR_OPEN[char]);
+  }
+  return -1;
+}
+
+function scanBracketForward(source, offset, open, close) {
+  let depth = 0;
+  for (let index = offset; index < source.length; index += 1) {
+    const char = source[index];
+    if (char === open) depth += 1;
+    if (char === close) depth -= 1;
+    if (depth === 0) return index;
+  }
+  return -1;
+}
+
+function scanBracketBackward(source, offset, close, open) {
+  let depth = 0;
+  for (let index = offset; index >= 0; index -= 1) {
+    const char = source[index];
+    if (char === close) depth += 1;
+    if (char === open) depth -= 1;
+    if (depth === 0) return index;
+  }
+  return -1;
 }
 
 function semanticTokenAtCaret(editor, position) {

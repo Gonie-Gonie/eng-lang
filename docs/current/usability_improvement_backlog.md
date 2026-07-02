@@ -3628,6 +3628,17 @@ native editor.
 - Aligned native editor auto-indent to the formatter's four-space indentation
   and extended Rust, docs, and `ide-check` coverage for the formatter path.
 
+## Batch 294: Native IDE Bracket Match Insight
+
+Status: implemented to add first-pass bracket matching feedback to the native
+editor.
+
+- Added caret-adjacent `{}`, `[]`, and `()` matching in the editor meta bar.
+- Shows the matching bracket line/column when found and an unmatched marker
+  when the bracket has no counterpart.
+- Updated user docs and `ide-check` contract coverage for the new caret
+  insight helpers.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
