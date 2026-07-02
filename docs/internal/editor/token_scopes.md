@@ -57,6 +57,8 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.declaration.test.englang` | Full `test "..."` declaration phrases. |
 | `entity.name.section.englang` | Captured quoted test names. |
 | `support.type.englang` | Quantity/type names. |
+| `meta.type.generic.englang` | Generic type expressions such as `Table[T]`, `Optional[DirectoryPath]`, and `TimeSeries[Time]`. |
+| `variable.parameter.type.englang` | Generic type arguments inside bracketed type expressions. |
 | `support.function.builtin.englang` | Built-in functions and helpers. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |
 | `constant.numeric*.englang` | Numeric literals and format precision fragments. |

@@ -1245,6 +1245,16 @@
       "types": {
         "patterns": [
           {
+            "name": "meta.type.generic.englang",
+            "match": "\\b(Table|SampleTable|CaseTable|Secret|Optional|TimeSeries)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\])",
+            "captures": {
+              "1": { "name": "support.type.englang" },
+              "2": { "name": "punctuation.section.brackets.begin.englang" },
+              "3": { "name": "variable.parameter.type.englang" },
+              "4": { "name": "punctuation.section.brackets.end.englang" }
+            }
+          },
+          {
             "name": "support.type.englang",
             "match": "\\b(Report|ReviewDocument|RunPlan|RunLog|RunLock|OutputManifest|CacheManifest|ProcessResult|HttpResponse|CoverageResult|QualityResult|Table|TableRow|SampleTable|CaseTable|CaseManifest|TimeSeries|Time|Prediction|PredictionManifest|ModelCard|ModelArtifact|DbConnection|DbTableRef|DbWriteManifest|NetworkCache|ArtifactManifest|Path|FilePath|DirectoryPath|CsvFile|TextFile|JsonFile|TomlFile|Url|Secret|Optional|Bool|Int|Float|Number|String|Date|DateTime|Duration|DimensionlessNumber|AbsoluteTemperature|TemperatureDelta|Length|Area|Volume|Conductance|HeatCapacity|SpecificHeat|HeatRate|ElectricPower|MechanicalPower|Energy|Mass|MassFlowRate|Pressure|Irradiance|PeopleDensity|Ratio|ReynoldsNumber)\\b"
           }

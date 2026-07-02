@@ -2855,6 +2855,19 @@ how-to docs for stale editor-service and smoke/snapshot wording.
 - Extended `ide-check` editor-doc wording guards to cover `status.md` and
   `tracks.md`.
 
+## Batch 231: Generic Type TextMate Scopes
+
+Status: implemented after reviewing generic type highlighting for class/object
+and workflow artifact declarations.
+
+- Added a `meta.type.generic.englang` TextMate scope for bracketed generic
+  type expressions such as `Table[T]`, `Optional[DirectoryPath]`, and
+  `TimeSeries[Time]`.
+- Added a `variable.parameter.type.englang` scope for generic type arguments so
+  themes can distinguish container types from inner type parameters.
+- Pinned grammar expectations for the public declaration fixture and documented
+  the new scopes in the editor token-scope contract.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
