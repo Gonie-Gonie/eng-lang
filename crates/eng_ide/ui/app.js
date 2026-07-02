@@ -4079,7 +4079,7 @@ function renderLexicalHighlightedLine(line) {
     }
     if (rest[0] === "\"") {
       const end = scanStringEnd(line, index);
-      html += lexicalSpan("hl-string", line.slice(index, end));
+      html += renderLexicalString(line.slice(index, end));
       index = end;
       continue;
     }
@@ -4148,6 +4148,62 @@ function scanStringEnd(line, start) {
     }
   }
   return line.length;
+}
+
+function renderLexicalString(text) {
+  let index = 0;
+  let html = "";
+  while (index < text.length) {
+    if (text[index] === "\\") {
+      const next = Math.min(index + 2, text.length);
+      html += lexicalSpan("hl-string", text.slice(index, next));
+      index = next;
+      continue;
+    }
+    if (text[index] === "{") {
+      const end = scanInterpolationEnd(text, index);
+      if (end > index) {
+        html += lexicalSpan("hl-interpolation", text[index]);
+        html += renderLexicalInterpolation(text.slice(index + 1, end));
+        html += lexicalSpan("hl-interpolation", text[end]);
+        index = end + 1;
+        continue;
+      }
+    }
+    const next = nextStringSpecial(text, index);
+    html += lexicalSpan("hl-string", text.slice(index, next));
+    index = next;
+  }
+  return html;
+}
+
+function scanInterpolationEnd(text, start) {
+  for (let index = start + 1; index < text.length; index += 1) {
+    if (text[index] === "\\") {
+      index += 1;
+      continue;
+    }
+    if (text[index] === "}") {
+      return index;
+    }
+    if (text[index] === "\"") {
+      index = scanStringEnd(text, index) - 1;
+    }
+  }
+  return -1;
+}
+
+function nextStringSpecial(text, start) {
+  for (let index = start + 1; index < text.length; index += 1) {
+    if (text[index] === "\\" || text[index] === "{") {
+      return index;
+    }
+  }
+  return text.length;
+}
+
+function renderLexicalInterpolation(text) {
+  return renderLexicalHighlightedLine(text);
 }
 
 function lexicalClassForWord(word, line, index) {

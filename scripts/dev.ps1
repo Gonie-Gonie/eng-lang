@@ -3189,6 +3189,9 @@ function Invoke-IdeCheck {
         "editorHighlight",
         "renderHighlightedSource",
         "renderLexicalHighlightedLine",
+        "renderLexicalString",
+        "renderLexicalInterpolation",
+        "scanInterpolationEnd",
         "lexicalClassForWord",
         "lexicalCompletionClass",
         "LEXICAL_KEYWORDS",
@@ -3294,7 +3297,7 @@ function Invoke-IdeCheck {
         throw "Native IDE Modules view must not display raw registry status/backing keys"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", "token-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }

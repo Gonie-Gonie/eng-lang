@@ -579,6 +579,11 @@ button:hover {
   color: #14714f;
 }
 
+.hl-interpolation {
+  color: #0b6bcb;
+  font-weight: 650;
+}
+
 .hl-number {
   color: #7c3aed;
 }
