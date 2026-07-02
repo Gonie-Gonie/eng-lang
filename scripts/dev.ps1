@@ -1872,6 +1872,12 @@ function Assert-VscodeExtensionContract {
     if ($Package.main -ne "./extension.js") {
         throw "VS Code extension main must be ./extension.js"
     }
+    $ActivationEvents = @($Package.activationEvents)
+    foreach ($RequiredActivationEvent in @("onLanguage:englang", "workspaceContains:**/*.eng")) {
+        if ($ActivationEvents -notcontains $RequiredActivationEvent) {
+            throw "VS Code extension activationEvents missing $RequiredActivationEvent"
+        }
+    }
     $Language = $Package.contributes.languages | Select-Object -First 1
     if ($Language.id -ne "englang") {
         throw "VS Code extension must contribute englang language id"
@@ -2299,6 +2305,20 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing live definition token $RequiredDefinitionToken"
         }
     }
+    foreach ($RequiredWorkspaceSymbolToken in @(
+        "registerWorkspaceSymbolProvider",
+        "EngWorkspaceSymbolProvider",
+        "workspaceSymbolsForQuery",
+        "workspaceSymbolsForFolder",
+        "--workspace-symbols",
+        "workspaceSymbolInformationFromLsp",
+        "findLspRuntimeForRoot",
+        "new vscode.SymbolInformation"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredWorkspaceSymbolToken)) {
+            throw "VS Code extension missing workspace symbol token $RequiredWorkspaceSymbolToken"
+        }
+    }
     foreach ($RequiredFormattingToken in @(
         "registerDocumentFormattingEditProvider",
         "EngFormattingProvider",
@@ -2414,6 +2434,19 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $LspCliSource.Contains($RequiredLspSemanticToken)) {
             throw "eng-lsp CLI missing semantic token protocol token $RequiredLspSemanticToken"
+        }
+    }
+    foreach ($RequiredLspWorkspaceSymbolToken in @(
+        "workspaceSymbolProvider",
+        "workspace/symbol",
+        "--workspace-symbols",
+        "command_workspace_symbols",
+        "workspace_symbols_for_request",
+        "MAX_WORKSPACE_SYMBOL_FILES",
+        "MAX_WORKSPACE_SYMBOL_RESULTS"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspWorkspaceSymbolToken)) {
+            throw "eng-lsp CLI missing workspace symbol token $RequiredLspWorkspaceSymbolToken"
         }
     }
     foreach ($RequiredLspCodeActionToken in @(

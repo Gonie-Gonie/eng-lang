@@ -2526,6 +2526,19 @@ lookup.
 - Added an LSP stdio regression test that finds an unopened `.eng` file's
   schema symbol through `rootUri` workspace search.
 
+## Batch 206: VS Code Workspace Symbol Bridge
+
+Status: implemented for VS Code users invoking workspace-wide symbol search.
+
+- Added `eng-lsp --workspace-symbols <workspace-root> [query]` so short-bridge
+  editor clients can reuse the same bounded `.eng` workspace symbol search as
+  persistent LSP clients.
+- Registered a VS Code `WorkspaceSymbolProvider` that searches each open
+  workspace folder and converts LSP workspace symbols into VS Code symbol
+  results.
+- Extended `ide-check` contract coverage and LSP stdio tests so the bridge,
+  provider wiring, and CLI command stay present.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

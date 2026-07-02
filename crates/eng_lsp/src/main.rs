@@ -43,6 +43,9 @@ fn main() -> std::process::ExitCode {
     if args.first().map(String::as_str) == Some("--definition-stdin") {
         return command_definition_stdin(args.get(1), args.get(2), args.get(3));
     }
+    if args.first().map(String::as_str) == Some("--workspace-symbols") {
+        return command_workspace_symbols(args.get(1), args.get(2));
+    }
 
     match run_lsp() {
         Ok(()) => std::process::ExitCode::SUCCESS,
@@ -341,6 +344,33 @@ fn completion_payload_json(items: Vec<eng_lsp::LspCompletion>) -> Value {
         "format": LSP_SNAPSHOT_FORMAT,
         "completions": items.iter().map(completion_json).collect::<Vec<_>>()
     })
+}
+
+fn command_workspace_symbols(
+    root: Option<&String>,
+    query: Option<&String>,
+) -> std::process::ExitCode {
+    let Some(root) = root else {
+        eprintln!("usage: eng-lsp --workspace-symbols <workspace-root> [query]");
+        return std::process::ExitCode::from(2);
+    };
+    let root = Path::new(root)
+        .canonicalize()
+        .unwrap_or_else(|_| PathBuf::from(root));
+    let request = json!({
+        "params": {
+            "query": query.map(String::as_str).unwrap_or("")
+        }
+    });
+    let symbols = workspace_symbols_for_request(&request, &HashMap::new(), &[root]);
+    println!(
+        "{}",
+        json!({
+            "format": LSP_SNAPSHOT_FORMAT,
+            "symbols": symbols
+        })
+    );
+    std::process::ExitCode::SUCCESS
 }
 
 fn run_lsp() -> io::Result<()> {

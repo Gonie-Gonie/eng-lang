@@ -12,7 +12,8 @@
     "Programming Languages"
   ],
   "activationEvents": [
-    "onLanguage:englang"
+    "onLanguage:englang",
+    "workspaceContains:**/*.eng"
   ],
   "main": "./extension.js",
   "contributes": {

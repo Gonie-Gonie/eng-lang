@@ -1508,6 +1508,46 @@ fn stdio_workspace_symbol_searches_workspace_roots() {
 }
 
 #[test]
+fn workspace_symbols_cli_searches_workspace_root() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let workspace_root = repo_root().join("build/editor-tests/workspace_symbols_cli");
+    std::fs::create_dir_all(&workspace_root).expect("workspace root should be writable");
+    let source_path = workspace_root.join("bridge.eng");
+    std::fs::write(
+        &source_path,
+        "schema WorkspaceBridgeThing {\n    value: Float\n}\n\nbridge_value = 1\n",
+    )
+    .expect("workspace symbol source should be writable");
+    let source_uri = file_uri(
+        &source_path
+            .canonicalize()
+            .expect("workspace source should exist"),
+    );
+
+    let output = Command::new(server)
+        .arg("--workspace-symbols")
+        .arg(&workspace_root)
+        .arg("WorkspaceBridgeThing")
+        .output()
+        .expect("eng-lsp workspace symbol CLI should run");
+
+    assert!(
+        output.status.success(),
+        "workspace-symbols failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let payload: Value =
+        serde_json::from_slice(&output.stdout).expect("workspace-symbols stdout should be JSON");
+    assert_eq!(payload["format"], "eng-lsp-snapshot-v1");
+    let symbols = payload["symbols"]
+        .as_array()
+        .expect("workspace symbols should be an array");
+    assert!(symbols.iter().any(|symbol| {
+        symbol["name"] == "WorkspaceBridgeThing" && symbol["location"]["uri"] == source_uri
+    }));
+}
+
+#[test]
 fn editor_metadata_cli_exports_editor_contract() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let output = Command::new(server)

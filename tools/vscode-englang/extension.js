@@ -113,6 +113,9 @@ function activate(context) {
       LANGUAGE_ID,
       new EngDocumentSymbolProvider(context)
     ),
+    vscode.languages.registerWorkspaceSymbolProvider(
+      new EngWorkspaceSymbolProvider(context)
+    ),
     vscode.languages.registerDefinitionProvider(
       LANGUAGE_ID,
       new EngDefinitionProvider(context)
@@ -1819,6 +1822,85 @@ function snapshotCacheKey(document) {
   return `${document.uri.toString()}@${document.version}`;
 }
 
+async function workspaceSymbolsForQuery(query, context, cancellationToken) {
+  const folders = (vscode.workspace.workspaceFolders ?? [])
+    .filter((folder) => folder.uri.scheme === "file");
+  if (folders.length === 0 || cancellationToken?.isCancellationRequested) {
+    return [];
+  }
+
+  const results = await Promise.all(
+    folders.map((folder) => workspaceSymbolsForFolder(folder, query, context, cancellationToken))
+  );
+  const seen = new Set();
+  const symbols = [];
+  for (const symbol of results.flat()) {
+    const uri = symbol?.location?.uri ?? "";
+    const line = symbol?.location?.range?.start?.line ?? 0;
+    const key = `${symbol?.name ?? ""}\n${uri}\n${line}`;
+    if (!symbol?.name || seen.has(key)) {
+      continue;
+    }
+    seen.add(key);
+    symbols.push(symbol);
+  }
+  return symbols;
+}
+
+function workspaceSymbolsForFolder(folder, query, context, cancellationToken) {
+  return new Promise((resolve) => {
+    if (cancellationToken?.isCancellationRequested) {
+      resolve([]);
+      return;
+    }
+
+    const root = folder.uri.fsPath;
+    const runtime = findLspRuntimeForRoot(context, root);
+    let settled = false;
+    const finish = (value) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(value);
+    };
+
+    const child = cp.execFile(
+      runtime,
+      ["--workspace-symbols", root, query ?? ""],
+      { cwd: root, maxBuffer: 10 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (settled) {
+          return;
+        }
+        if (stderr && stderr.trim().length > 0) {
+          output.appendLine(stderr.trim());
+        }
+        if (error) {
+          output.appendLine(`workspace symbol lookup failed: ${error.message}`);
+          finish([]);
+          return;
+        }
+        try {
+          const payload = JSON.parse(stdout);
+          const symbols = Array.isArray(payload)
+            ? payload
+            : (Array.isArray(payload.symbols) ? payload.symbols : []);
+          finish(symbols);
+        } catch (parseError) {
+          output.appendLine(`Unable to parse EngLang workspace symbols: ${parseError.message}`);
+          finish([]);
+        }
+      }
+    );
+
+    cancellationToken?.onCancellationRequested(() => {
+      child.kill();
+      finish([]);
+    });
+  });
+}
+
 function completionSnapshotForPosition(document, position, context, cancellationToken) {
   return new Promise((resolve) => {
     if (!isEngDocument(document)) {
@@ -2075,6 +2157,19 @@ class EngDocumentSymbolProvider {
   }
 }
 
+class EngWorkspaceSymbolProvider {
+  constructor(context) {
+    this.context = context;
+  }
+
+  async provideWorkspaceSymbols(query, cancellationToken) {
+    const symbols = await workspaceSymbolsForQuery(query, this.context, cancellationToken);
+    return symbols
+      .map(workspaceSymbolInformationFromLsp)
+      .filter((symbol) => symbol !== undefined);
+  }
+}
+
 class EngDefinitionProvider {
   constructor(context) {
     this.context = context;
@@ -2163,6 +2258,28 @@ function definitionLocationFromLsp(payload, fallbackUri) {
     return new vscode.Location(uri, range);
   } catch (error) {
     output.appendLine(`Unable to parse EngLang definition URI: ${error.message}`);
+    return undefined;
+  }
+}
+
+function workspaceSymbolInformationFromLsp(symbol) {
+  if (!symbol?.name) {
+    return undefined;
+  }
+  const range = vscodeRangeFromLsp(symbol.location?.range);
+  const uriText = symbol.location?.uri;
+  if (!range || !uriText) {
+    return undefined;
+  }
+  try {
+    return new vscode.SymbolInformation(
+      symbol.name,
+      symbolKindFromLsp(symbol.kind),
+      symbol.containerName ?? "",
+      new vscode.Location(vscode.Uri.parse(uriText), range)
+    );
+  } catch (error) {
+    output.appendLine(`Unable to parse EngLang workspace symbol URI: ${error.message}`);
     return undefined;
   }
 }
@@ -2798,14 +2915,23 @@ function findRuntime(context, document) {
 }
 
 function findLspRuntime(context, document) {
+  return findLspRuntimeForRoot(context, workspaceRoot(document), document);
+}
+
+function findLspRuntimeForRoot(context, root, document) {
   const configPath = engConfig(document).get("lspPath", "");
+  const rootCandidates = root
+    ? [
+        path.join(root, "eng-lsp.exe"),
+        path.join(root, "target", "debug", "eng-lsp.exe"),
+        path.join(root, "target", "release", "eng-lsp.exe")
+      ]
+    : [];
   const candidates = [
     configPath,
     path.join(context.extensionPath, "bin", "eng-lsp.exe"),
     path.join(context.extensionPath, "..", "..", "eng-lsp.exe"),
-    path.join(workspaceRoot(document), "eng-lsp.exe"),
-    path.join(workspaceRoot(document), "target", "debug", "eng-lsp.exe"),
-    path.join(workspaceRoot(document), "target", "release", "eng-lsp.exe")
+    ...rootCandidates
   ].filter((candidate) => candidate && candidate.trim().length > 0);
 
   for (const candidate of candidates) {

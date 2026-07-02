@@ -9,8 +9,8 @@ embedding compiler logic in JavaScript.
 - `.eng` language registration and syntax highlighting for workflow keywords,
   schema/types, units, built-in functions, with-block options, and literals
 - stable file diagnostics from the EngLang CLI checker
-- optional live editor diagnostics, hover, completion, symbols, and folding from
-  the EngLang editor service
+- optional live editor diagnostics, hover, completion, document/workspace
+  symbols, and folding from the EngLang editor service
 - debounced diagnostics for unsaved buffers after a short typing pause
 - semantic highlighting for unsaved buffers, covering roles such as
   variables, parameters, properties, built-in workflow helpers, module
@@ -24,6 +24,7 @@ embedding compiler logic in JavaScript.
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols
+- workspace symbol search across `.eng` files in the open workspace
 - snippets from `snippets/eng.json`
 - quick fixes for `:=`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
@@ -95,10 +96,10 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 This is not a persistent VS Code LSP-client extension yet. The `eng-lsp`
 executable exposes a stdio LSP protocol for external clients, but this
 extension uses short editor-service bridge calls for live Problems, hover,
-completion, symbols, folding, semantic tokens, definition, formatting, and
-quick fixes. The default Problems source runs stable file checks on open/save
-and manual check. Set `englang.problemsSource` to `live` to update Problems
-from the current unsaved buffer while typing. The legacy
+completion, document symbols, workspace symbols, folding, semantic tokens,
+definition, formatting, and quick fixes. The default Problems source runs
+stable file checks on open/save and manual check. Set `englang.problemsSource`
+to `live` to update Problems from the current unsaved buffer while typing. The legacy
 `englang.diagnosticsBackend` setting is still accepted for older workspaces,
 but new settings should use `englang.problemsSource`.
 `EngLang: Run Current File`
@@ -174,7 +175,9 @@ extension falls back to document symbols from the current buffer for top-level
 symbols and nested symbols such as schema fields, class fields, component
 ports, and object members. Persistent LSP clients can also call
 `workspace/symbol` to search symbols from open documents and `.eng` files under
-the initialized workspace roots.
+the initialized workspace roots. VS Code's workspace symbol search uses
+`eng-lsp --workspace-symbols` to search `.eng` files under each open workspace
+folder.
 
 ## Grammar Maintenance
 
