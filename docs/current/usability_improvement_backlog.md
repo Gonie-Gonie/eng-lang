@@ -3341,6 +3341,19 @@ Status: implemented while tightening native workflow verification.
 - Kept the guard focused on generated artifacts from the public workflow smoke
   so stale external-process or opaque-tool regressions fail during dev checks.
 
+## Batch 270: VS Code Runtime Discovery Split
+
+Status: implemented while continuing the VS Code entrypoint split.
+
+- Moved VS Code runtime and LSP executable discovery, workspace-root lookup,
+  current-workspace lookup, and EngLang configuration lookup into
+  `runtimeDiscovery.js`.
+- Kept the extension entrypoint focused on command/provider registration while
+  diagnostics, run/review commands, and live editor requests reuse the shared
+  runtime-discovery helpers.
+- Extended extension and portable-package contract checks so runtime discovery
+  stays packaged and does not drift back into `extension.js`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

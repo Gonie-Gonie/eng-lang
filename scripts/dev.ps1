@@ -1925,6 +1925,7 @@ function Assert-VscodeExtensionContract {
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
     $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
     $ModuleStatusPath = Join-Path $ExtensionRoot "moduleStatus.js"
+    $RuntimeDiscoveryPath = Join-Path $ExtensionRoot "runtimeDiscovery.js"
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
@@ -2000,6 +2001,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $ModuleStatusPath)) {
         throw "missing VS Code module status wording registry at $ModuleStatusPath"
+    }
+    if (-not (Test-Path $RuntimeDiscoveryPath)) {
+        throw "missing VS Code runtime discovery helper at $RuntimeDiscoveryPath"
     }
     if (-not (Test-Path $SnippetsPath)) {
         throw "missing VS Code snippets at $SnippetsPath"
@@ -2364,6 +2368,7 @@ function Assert-VscodeExtensionContract {
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
     $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
     $ModuleStatusSource = Get-Content -LiteralPath $ModuleStatusPath -Raw
+    $RuntimeDiscoverySource = Get-Content -LiteralPath $RuntimeDiscoveryPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
@@ -2401,6 +2406,31 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("function moduleStatusDisplay") -or $ExtensionSource.Contains("function moduleBackingLabel")) {
         throw "VS Code extension must keep workflow module wording helpers in moduleStatus.js"
+    }
+    $RuntimeDiscoverySourceCombined = $ExtensionSource + "`n" + $RuntimeDiscoverySource
+    foreach ($RequiredRuntimeDiscoveryToken in @(
+        'require("./runtimeDiscovery")',
+        "workspaceRoot(document)",
+        "currentWorkspaceRoot",
+        "engConfig(document)",
+        "findRuntime(context, document)",
+        "findLspRuntime(context, document)",
+        "findLspRuntimeForRoot(context, root, document)",
+        'englang", uri',
+        '"runtimePath"',
+        '"lspPath"',
+        'path.join(context.extensionPath, "bin", "eng.exe")',
+        'path.join(context.extensionPath, "bin", "eng-lsp.exe")'
+    )) {
+        if (-not $RuntimeDiscoverySourceCombined.Contains($RequiredRuntimeDiscoveryToken)) {
+            throw "VS Code extension missing runtime discovery token $RequiredRuntimeDiscoveryToken"
+        }
+    }
+    if (-not $ExtensionSource.Contains('require("./runtimeDiscovery")') -or -not $RuntimeDiscoverySource.Contains("findRuntime") -or -not $RuntimeDiscoverySource.Contains("findLspRuntimeForRoot")) {
+        throw "VS Code extension must load runtime discovery helpers from runtimeDiscovery.js"
+    }
+    if ($ExtensionSource.Contains("function findRuntime") -or $ExtensionSource.Contains("function findLspRuntime") -or $ExtensionSource.Contains("function findLspRuntimeForRoot") -or $ExtensionSource.Contains("function workspaceRoot") -or $ExtensionSource.Contains("function currentWorkspaceRoot") -or $ExtensionSource.Contains("function engConfig")) {
+        throw "VS Code extension must keep runtime discovery helpers in runtimeDiscovery.js"
     }
     if ($ExtensionSource.Contains('reviewValue(module, "backing")')) {
         throw "VS Code workflow module panel must not display raw registry backing keys"
@@ -2982,6 +3012,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
             Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
             Invoke-Native $Node.Source "--check" $ModuleStatusPath
+            Invoke-Native $Node.Source "--check" $RuntimeDiscoveryPath
         } catch {
             Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
         }
@@ -4124,6 +4155,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\moduleStatus.js"))) {
             throw "portable package did not include VS Code module status wording registry"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\runtimeDiscovery.js"))) {
+            throw "portable package did not include VS Code runtime discovery helper"
         }
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"

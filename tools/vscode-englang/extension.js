@@ -22,6 +22,14 @@ const { EngSemanticTokensProvider } = require("./semanticTokensProvider");
 const { loadEditorMetadata } = require("./editorMetadata");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
 const {
+  currentWorkspaceRoot,
+  engConfig,
+  findLspRuntime,
+  findLspRuntimeForRoot,
+  findRuntime,
+  workspaceRoot
+} = require("./runtimeDiscovery");
+const {
   addSemanticTokenDebugSample,
   createSemanticLegend,
   semanticTokenDebugSample,
@@ -1979,24 +1987,6 @@ function isEngDocument(document) {
   return document.languageId === LANGUAGE_ID || document.fileName.endsWith(".eng");
 }
 
-function workspaceRoot(document) {
-  return vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath ?? path.dirname(document.uri.fsPath);
-}
-
-function currentWorkspaceRoot() {
-  const document = vscode.window.activeTextEditor?.document;
-  if (document) {
-    const folder = vscode.workspace.getWorkspaceFolder(document.uri);
-    if (folder) {
-      return folder.uri.fsPath;
-    }
-    if (isEngDocument(document)) {
-      return path.dirname(document.uri.fsPath);
-    }
-  }
-  return vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-}
-
 function findExampleFiles(root) {
   const groups = [
     { kind: "official", dir: path.join(root, "examples", "official") },
@@ -2036,13 +2026,6 @@ function collectExampleMainFiles(dir, root, kind, examples) {
       label: relativePath.replace(/^examples\//, "").replace(/\/main\.eng$/, "")
     });
   }
-}
-
-function engConfig(document) {
-  const uri = document?.uri;
-  return uri
-    ? vscode.workspace.getConfiguration("englang", uri)
-    : vscode.workspace.getConfiguration("englang");
 }
 
 function executionProfile(document) {
@@ -2089,55 +2072,6 @@ function explicitlyConfiguredEngValue(config, key) {
     }
   }
   return undefined;
-}
-
-function findRuntime(context, document) {
-  const configPath = engConfig(document).get("runtimePath", "");
-  const candidates = [
-    configPath,
-    path.join(context.extensionPath, "bin", "eng.exe"),
-    path.join(context.extensionPath, "..", "..", "eng.exe"),
-    path.join(workspaceRoot(document), "eng.exe"),
-    path.join(workspaceRoot(document), "target", "debug", "eng.exe"),
-    path.join(workspaceRoot(document), "target", "release", "eng.exe")
-  ].filter((candidate) => candidate && candidate.trim().length > 0);
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return "eng.exe";
-}
-
-function findLspRuntime(context, document) {
-  return findLspRuntimeForRoot(context, workspaceRoot(document), document);
-}
-
-function findLspRuntimeForRoot(context, root, document) {
-  const configPath = engConfig(document).get("lspPath", "");
-  const rootCandidates = root
-    ? [
-        path.join(root, "eng-lsp.exe"),
-        path.join(root, "target", "debug", "eng-lsp.exe"),
-        path.join(root, "target", "release", "eng-lsp.exe")
-      ]
-    : [];
-  const candidates = [
-    configPath,
-    path.join(context.extensionPath, "bin", "eng-lsp.exe"),
-    path.join(context.extensionPath, "..", "..", "eng-lsp.exe"),
-    ...rootCandidates
-  ].filter((candidate) => candidate && candidate.trim().length > 0);
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) {
-      return candidate;
-    }
-  }
-
-  return "eng-lsp.exe";
 }
 
 module.exports = {
