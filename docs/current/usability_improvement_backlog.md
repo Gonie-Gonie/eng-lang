@@ -2057,6 +2057,17 @@ argument, and dotted source references.
   `read json file(...)`, `read text args.notes`, `read toml args.config_toml`,
   and `read json api_response.body`.
 
+## Batch 168: Render Template Phrase Highlighting
+
+Status: implemented to make template rendering read as one side-effect workflow
+statement in first-render TextMate highlighting.
+
+- Added `meta.workflow.render-template.englang` for
+  `render template <source>`.
+- Scoped template source helpers such as `file(...)` inside the render phrase.
+- Added grammar expectations for `render template file("model/base.txt")` so
+  template rendering does not fall back to disconnected keyword coloring.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

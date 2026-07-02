@@ -263,6 +263,45 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.render-template.englang",
+                                                                    "begin":  "\\b(render)\\s+(template)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.side-effect.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.read-structured.englang",
                                                                     "begin":  "\\b(read)\\s+(json|toml|text|csv)\\b",
                                                                     "beginCaptures":  {

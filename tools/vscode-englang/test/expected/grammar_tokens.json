@@ -207,6 +207,24 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.render-template.englang",
+    "text": "render template file(\"model/base.txt\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "file",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"model/base.txt\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "variable.parameter.property.englang",
     "text": "values ="
   },
