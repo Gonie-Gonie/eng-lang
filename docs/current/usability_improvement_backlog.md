@@ -3328,6 +3328,19 @@ Status: implemented while reducing API wording/highlighting confusion.
 - Added a grammar smoke guard so `read csv file(...)` cannot silently become a
   highlighted raw-read workflow phrase again.
 
+## Batch 269: Workflow 02 Native Artifact Smoke Gate
+
+Status: implemented while tightening native workflow verification.
+
+- Extended `workflows-test` so workflow 02 must emit native sample, case,
+  model-card, prediction-manifest, and DB-manifest records, not only
+  `process_count = 0`.
+- Added output-manifest checks for `case_input`, template render manifests,
+  SQLite database/write manifests, `model://surrogate_model`, and
+  `model://predictions` artifacts.
+- Kept the guard focused on generated artifacts from the public workflow smoke
+  so stale external-process or opaque-tool regressions fail during dev checks.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

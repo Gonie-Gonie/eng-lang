@@ -448,6 +448,57 @@ function Invoke-WorkflowsTest {
         if ($ProcessCount -ne 0 -or $ProcessListCount -ne 0) {
             throw "Native workflow smoke must not execute external processes: $Workflow"
         }
+        if ($Workflow -like "*02_external_simulation_surrogate*") {
+            $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
+            $ReviewPath = Join-Path $RepoRoot "build\result\review.json"
+            $OutputManifestPath = Join-Path $RepoRoot "build\result\output_manifest.json"
+            foreach ($RequiredWorkflowArtifactPath in @($ResultPath, $ReviewPath, $OutputManifestPath)) {
+                if (-not (Test-Path -LiteralPath $RequiredWorkflowArtifactPath)) {
+                    throw "Workflow 02 native contract smoke missing artifact: $RequiredWorkflowArtifactPath"
+                }
+            }
+            $ResultJson = Get-Content -LiteralPath $ResultPath -Raw
+            $ReviewJson = Get-Content -LiteralPath $ReviewPath -Raw
+            $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
+            foreach ($RequiredSurrogateResultToken in @(
+                '"sample_tables"',
+                '"case_manifests"',
+                '"binding": "case_inputs"',
+                '"schema_name": "CaseOutput"',
+                '"model_cards"',
+                '"prediction_manifests"',
+                '"schema_name": "PredictionResult"',
+                '"db_manifests"',
+                '"transaction_status": "committed"'
+            )) {
+                if (-not $ResultJson.Contains($RequiredSurrogateResultToken)) {
+                    throw "Workflow 02 native result missing token $RequiredSurrogateResultToken"
+                }
+            }
+            foreach ($RequiredSurrogateReviewToken in @(
+                '"model_cards"',
+                '"prediction_manifests"',
+                '"db_manifests"',
+                '"binding": "case_inputs:case_001"'
+            )) {
+                if (-not $ReviewJson.Contains($RequiredSurrogateReviewToken)) {
+                    throw "Workflow 02 native review missing token $RequiredSurrogateReviewToken"
+                }
+            }
+            foreach ($RequiredSurrogateOutputToken in @(
+                '"kind": "case_input"',
+                '"kind": "template_render_manifest"',
+                '"kind": "sqlite_database"',
+                '"kind": "db_write_manifest"',
+                '"path": "model://surrogate_model"',
+                '"path": "model://predictions"',
+                '"kind": "PredictionResult"'
+            )) {
+                if (-not $OutputManifestJson.Contains($RequiredSurrogateOutputToken)) {
+                    throw "Workflow 02 native output manifest missing token $RequiredSurrogateOutputToken"
+                }
+            }
+        }
     }
 }
 
