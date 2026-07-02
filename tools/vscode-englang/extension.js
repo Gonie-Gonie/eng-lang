@@ -5,26 +5,10 @@ const path = require("path");
 const vscode = require("vscode");
 const { LAST_RUN_ARTIFACTS } = require("./artifactRegistry");
 const { loadEditorMetadata } = require("./editorMetadata");
+const { EXECUTION_PROFILES } = require("./executionProfiles");
 
 const LANGUAGE_ID = "englang";
 const CHECK_DEBOUNCE_MS = 350;
-const EXECUTION_PROFILES = [
-  {
-    id: "normal",
-    description: "Default workflow execution",
-    detail: "Runs declared effects and writes the standard review artifacts."
-  },
-  {
-    id: "safe",
-    description: "Reject side effects",
-    detail: "Fails workflows with explicit write, export, process, file, or DB mutation effects."
-  },
-  {
-    id: "repro",
-    description: "Require reproducibility metadata",
-    detail: "Records environment dependencies and rejects unseeded sampling or unpinned network/cache reads."
-  }
-];
 const reviewCache = new Map();
 const snapshotPromiseCache = new Map();
 const changeTimers = new Map();

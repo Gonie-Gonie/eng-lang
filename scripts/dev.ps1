@@ -1807,6 +1807,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionJsPath = Join-Path $ExtensionRoot "extension.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
+    $ExecutionProfilesPath = Join-Path $ExtensionRoot "executionProfiles.js"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
@@ -1824,6 +1825,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $EditorMetadataLoaderPath)) {
         throw "missing VS Code editor metadata loader at $EditorMetadataLoaderPath"
+    }
+    if (-not (Test-Path $ExecutionProfilesPath)) {
+        throw "missing VS Code execution profiles registry at $ExecutionProfilesPath"
     }
     if (-not (Test-Path $LspSourcePath)) {
         throw "missing eng_lsp source at $LspSourcePath"
@@ -2028,6 +2032,7 @@ function Assert-VscodeExtensionContract {
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
+    $ExecutionProfilesSource = Get-Content -LiteralPath $ExecutionProfilesPath -Raw
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
         "Last Run Review JSON",
@@ -2070,6 +2075,12 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ExtensionSource.Contains("--profile") -or -not $ExtensionSource.Contains("executionProfile") -or -not $ExtensionSource.Contains("switchExecutionProfile")) {
         throw "VS Code extension run command must expose and pass an execution profile"
+    }
+    if (-not $ExtensionSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {
+        throw "VS Code extension must load user-facing execution profiles from executionProfiles.js"
+    }
+    if ($ExtensionSource.Contains("const EXECUTION_PROFILES = [")) {
+        throw "VS Code extension must keep execution profile labels in executionProfiles.js"
     }
     if (-not $ExtensionSource.Contains("runExample") -or -not $ExtensionSource.Contains("findExampleFiles") -or -not $ExtensionSource.Contains('"official"') -or -not $ExtensionSource.Contains('"workflows"')) {
         throw "VS Code extension must expose an example runner for official and workflow examples"
@@ -2375,6 +2386,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $ExtensionJsPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
+            Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
         } catch {
             Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
         }
@@ -3399,6 +3411,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\editorMetadata.js"))) {
             throw "portable package did not include VS Code editor metadata loader"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\executionProfiles.js"))) {
+            throw "portable package did not include VS Code execution profiles registry"
         }
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"
