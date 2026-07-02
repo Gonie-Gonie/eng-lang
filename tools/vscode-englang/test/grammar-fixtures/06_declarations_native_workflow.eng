@@ -69,6 +69,12 @@ with {
     status_code = 201
 }
 
+updated = http put api_url
+patched = http patch api_url
+probed = http head api_url
+raw_request = http request api_url
+fetched = http fetch api_url
+
 download url("https://example.org/file.csv") to file("outputs/file.csv")
 with {
     cache = true

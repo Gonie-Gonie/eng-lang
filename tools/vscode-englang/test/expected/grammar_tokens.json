@@ -1125,6 +1125,61 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.external-boundary.englang",
+    "text": "put"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http put api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "patch"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http patch api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "head"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http head api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "request"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http request api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "fetch"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http fetch api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
     "text": "download"
   },
   {
