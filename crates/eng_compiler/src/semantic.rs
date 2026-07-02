@@ -1458,6 +1458,8 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &systems,
         &mut diagnostics,
     );
+    crate::ml::apply_with_blocks(&mut ml_infos, &with_blocks);
+    diagnostics.extend(crate::ml::with_block_argument_diagnostics(&ml_infos));
     validate_file_operation_options(&file_operations, &with_blocks, &mut diagnostics);
     validate_process_options(&process_runs, &with_blocks, &mut diagnostics);
     let sample_generations = analyze_sample_generations(program, &with_blocks, &mut diagnostics);
@@ -2305,6 +2307,7 @@ fn analyze_with_blocks(
             extra_known_options.extend(with_owner_apply_options(command_styles, block.owner_line));
             extra_known_options.extend(with_owner_process_options(program, block.owner_line));
             extra_known_options.extend(with_owner_sample_options(program, block.owner_line));
+            extra_known_options.extend(with_owner_model_options(program, block.owner_line));
             extra_known_options.extend(with_owner_db_write_options(program, block.owner_line));
             let mut options = with_options_for_owner(program, block.owner_line)
                 .into_iter()
@@ -2559,6 +2562,40 @@ fn with_owner_sample_options(
     options.insert("count".to_owned());
     options.insert("seed".to_owned());
     options
+}
+
+fn with_owner_model_options(program: &ParsedProgram, owner_line: Option<usize>) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let is_model_owner = program.items.iter().any(|item| match item {
+        AstItem::FastBinding(binding) if binding.line == owner_line => {
+            crate::ml::is_model_with_options_owner(&binding.expression)
+        }
+        _ => false,
+    });
+    if !is_model_owner {
+        return HashSet::new();
+    }
+    [
+        "algorithm",
+        "features",
+        "x",
+        "target",
+        "y",
+        "test",
+        "test_fraction",
+        "hidden",
+        "layers",
+        "epochs",
+        "split",
+        "seed",
+        "cache",
+        "cache_key",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 
 fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) -> HashSet<String> {

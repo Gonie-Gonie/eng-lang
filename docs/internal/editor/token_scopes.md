@@ -109,6 +109,7 @@ Current workflow phrase scopes:
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>[, split=...])`, `model_card(<model>)`, and related model summary calls. |
 | `meta.workflow.model-train-call.englang` | `train_test_split(...)`, `train_regression(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
+| `meta.workflow.train-regression.englang` | `train regression <table>` and `train regression from <table>` table-model training phrases. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.with-block.englang` | `with { ... }` option blocks scoped separately from top-level bindings. |
@@ -121,7 +122,7 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
 | `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads. Use `promote csv <source> as <schema>` for CSV tables. |
-| `meta.workflow.regression-table.englang` | `regression_table(<table>, target=..., features=..., ...)` |
+| `meta.workflow.regression-table.englang` | Legacy `regression_table(<table>, target=..., features=..., ...)` table-model training calls. |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` |
 | `meta.workflow.render-template.englang` | `render template <source>` |

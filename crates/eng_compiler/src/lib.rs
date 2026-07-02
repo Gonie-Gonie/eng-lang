@@ -10940,7 +10940,7 @@ system Envelope {
     fn accepts_derived_table_for_table_regression_source() {
         let report = check_source(
             "ok.eng",
-            "designs = sample lhs\nwith {\n    count = 4\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nresults = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\nsurrogate_model = regression_table(results, target=annual_electricity, features=[cooling_cop], test=0.25, seed=7)\ndb = open sqlite file(\"outputs/results.sqlite\")\nwrite results to db.table(\"simulation_results\")\nprint \"Rows = {results.rows}\"\n",
+            "designs = sample lhs\nwith {\n    count = 4\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nresults = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\nsurrogate_model = train regression results\nwith {\n    target = annual_electricity\n    features = [cooling_cop]\n    test = 0.25\n    seed = 7\n}\ndb = open sqlite file(\"outputs/results.sqlite\")\nwrite results to db.table(\"simulation_results\")\nprint \"Rows = {results.rows}\"\n",
             &CheckOptions::default(),
         );
 
@@ -10953,6 +10953,31 @@ system Envelope {
             .unwrap();
         assert_eq!(model.kind, "RegressionModel");
         assert_eq!(model.source.as_deref(), Some("results"));
+        assert_eq!(model.target.as_deref(), Some("annual_electricity"));
+        assert_eq!(model.features, vec!["cooling_cop".to_owned()]);
+        assert_eq!(model.test_fraction.as_deref(), Some("0.25"));
+        assert_eq!(model.seed.as_deref(), Some("7"));
+    }
+
+    #[test]
+    fn accepts_train_regression_alias_options() {
+        let report = check_source(
+            "ok.eng",
+            "designs = sample lhs\nwith {\n    count = 4\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nresults = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\nsurrogate_model = train regression from results\nwith {\n    y = annual_electricity\n    x = [cooling_cop]\n    test_fraction = 25%\n    seed = 7\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let model = report
+            .semantic_program
+            .ml_infos
+            .iter()
+            .find(|info| info.binding == "surrogate_model")
+            .unwrap();
+        assert_eq!(model.source.as_deref(), Some("results"));
+        assert_eq!(model.target.as_deref(), Some("annual_electricity"));
+        assert_eq!(model.features, vec!["cooling_cop".to_owned()]);
+        assert_eq!(model.test_fraction.as_deref(), Some("25%"));
     }
 
     #[test]

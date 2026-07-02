@@ -252,7 +252,7 @@ separate.
   process adapters; deterministic grid/random/LHS sampling materializes
   `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes include
   manifests, schema diagnostics, transaction status, and DB file hashes; native
-  `regression_table` and `predict <model> using <table>` materialize
+  `train regression`/`regression_table` and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   `http://` GET/download execution materializes pinned response/download bodies
   with cache replay; `Planned` for live HTTPS/TLS packaging, native case

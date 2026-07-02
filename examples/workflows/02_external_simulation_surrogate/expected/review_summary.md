@@ -9,7 +9,7 @@ explicit native `materialize cases training_results` CaseTable rows with case di
 native `apply case_input_template over cases` CaseOutput rows for per-case template inputs
 native filter/require_one transforms selecting case_001 for summary metrics
 summary metrics derived from the selected case_001 derived-result row rather than fixed literals
-native `regression_table` model with feature, target, split, residual, training-hash, and model-hash metadata
+native `train regression` model with feature, target, split, residual, training-hash, and model-hash metadata
 native `model_card`, `evaluate`, and `predict ... using ...` records
 PredictionResult schema with predicted_annual_electricity and confidence columns
 eight generated case_input files plus render manifests

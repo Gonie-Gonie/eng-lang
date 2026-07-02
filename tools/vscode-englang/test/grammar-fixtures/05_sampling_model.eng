@@ -9,7 +9,14 @@ with {
     cooling_cop = uniform(2.5, 5.0)
 }
 
-model = regression_table(designs, target=annual_electricity, features=[people_density, cooling_cop], test=0.25, seed=7)
+model = train regression designs
+with {
+    target = annual_electricity
+    features = [people_density, cooling_cop]
+    test = 0.25
+    seed = 7
+}
+legacy_model = regression_table(designs, target=annual_electricity, features=[people_density, cooling_cop], test=0.25, seed=7)
 split = train_test_split(designs, target=annual_electricity, features=[people_density, cooling_cop], test=0.25, seed=7)
 trained = train_regression(designs, target=annual_electricity, features=[people_density], algorithm="linear", seed=7)
 compact_model = regression(split)

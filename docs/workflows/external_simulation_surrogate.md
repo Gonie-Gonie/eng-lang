@@ -7,7 +7,7 @@ workflow. Future simulator adapters can feed the same typed contracts, but the
 current executable example runs with zero external process adapters:
 
 ```text
-LHS training samples -> explicit CaseTable -> apply template over cases -> LHS prediction samples -> regression_table -> predict -> SQLite
+LHS training samples -> explicit CaseTable -> apply template over cases -> LHS prediction samples -> train regression -> predict -> SQLite
 ```
 
 Run:
@@ -22,7 +22,7 @@ What it proves:
 - explicit native `materialize cases training_results` CaseTable materialization
 - native `apply case_input_template over cases` CaseOutput materialization
 - native case_input artifact rendering plus summary values from case_001
-- native table-based `regression_table(...)` model training
+- native table-based `train regression <table>` model training with explicit `with` options
 - native `predict surrogate_model using designs` prediction table materialization
 - native SQLite writes to `simulation_results` and `predictions`
 - `process_results.json` has `process_count = 0`

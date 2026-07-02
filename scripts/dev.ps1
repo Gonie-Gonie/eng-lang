@@ -2113,7 +2113,7 @@ function Assert-VscodeExtensionContract {
         @{ Name = "Native HTTP POST body"; Tokens = @("http post", "body =", "expected_sha256", "cache_key") },
         @{ Name = "Sample LHS table"; Tokens = @("sample lhs", "count =", "seed =", "uniform(") },
         @{ Name = "Apply case template"; Tokens = @("apply", "over", "template = file", "{case_dir}") },
-        @{ Name = "Regression prediction table"; Tokens = @("regression_table", "model_card", "evaluate", "predict") },
+        @{ Name = "Regression prediction table"; Tokens = @("train regression", "model_card", "evaluate", "predict") },
         @{ Name = "SQLite table write"; Tokens = @('open sqlite ${2:args.database_target}', ".table", "transaction = commit") },
         @{ Name = "Standard text artifact"; Tokens = @("write standard_text", "output = join", "overwrite = true") },
         @{ Name = "Plot line"; Tokens = @("plot", "unit y =", "title =") }
@@ -2165,7 +2165,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
         "post", "check", "coverage", "sample", "lhs", "uniform",
-        "require_one", "regression_table", "support.namespace.module.englang",
+        "require_one", "regression_table", "meta.workflow.train-regression.englang", "support.namespace.module.englang",
         "materialize", "apply", "collect", "case_id", "output_root", "resume", "step",
         "run_case", "train_test_split", "regression", "predict", "model_card",
         "CsvFile", "JsonFile", "DirectoryPath", "DimensionlessNumber",

@@ -106,7 +106,13 @@
   "Regression prediction table": {
     "prefix": "predict table",
     "body": [
-      "${1:model} = regression_table(${2:training_results}, target=${3:annual_electricity}, features=[${4:cooling_cop}], test=${5:0.25}, seed=${6:7})",
+      "${1:model} = train regression ${2:training_results}",
+      "with {",
+      "    target = ${3:annual_electricity}",
+      "    features = [${4:cooling_cop}]",
+      "    test = ${5:0.25}",
+      "    seed = ${6:7}",
+      "}",
       "${7:model_card_summary} = model_card(${1:model})",
       "${8:model_metrics} = evaluate(${1:model})",
       "${9:predictions} = predict ${1:model} using ${10:designs}"

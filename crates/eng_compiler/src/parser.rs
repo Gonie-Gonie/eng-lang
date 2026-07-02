@@ -512,7 +512,7 @@ pub fn parse_source(source: &str) -> ParsedProgram {
             }
         }
 
-        if starts_with_keyword(&tokens, Keyword::Test) {
+        if starts_with_keyword(&tokens, Keyword::Test) && !contains_symbol(&tokens, Symbol::Equal) {
             test_depth += brace_delta(&tokens);
             if test_depth == 0 {
                 test_depth = 1;
@@ -2389,6 +2389,7 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "summarize"
             | "system"
             | "test"
+            | "train"
             | "use"
             | "write"
     )
@@ -3011,6 +3012,9 @@ fn is_process_run_rhs(rhs: &str) -> bool {
 }
 
 fn parse_test_decl(tokens: &[Token], context: ParseContext) -> Option<TestDecl> {
+    if context == ParseContext::With {
+        return None;
+    }
     let first = tokens.first()?;
     if !matches!(first.kind, TokenKind::Keyword(Keyword::Test)) {
         return None;

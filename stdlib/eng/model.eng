@@ -16,10 +16,11 @@
 #   Table[Prediction] rows with case IDs, predicted target values, confidence,
 #   and typed_payload.prediction_manifests[] metadata.
 #
-# Planned helper vocabulary:
-#   train regression
+# Native helper vocabulary:
+#   train regression <table> with { target = ..., features = [...] }
 #   model_card
-#   residual_summary
+#   evaluate
+#   predict <model> using <table>
 #
 # Review contract:
 #   model kind, features, target quantity/unit, split policy, seed, metrics,

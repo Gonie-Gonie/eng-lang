@@ -24585,7 +24585,13 @@ with {
 energy_results = derive training_designs column annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh - cooling_cop * 750 kWh
 peak_cooling_results = derive energy_results column peak_cooling = 7 kW + envelope_load_index * 7 kW - cooling_cop * 0.6 kW
 training_results = derive peak_cooling_results column unmet_hours = 3 h - cooling_cop * 0.2 h
-surrogate_model = regression_table(training_results, target=annual_electricity, features=[cooling_cop, envelope_load_index], test=0.25, seed=7)
+surrogate_model = train regression training_results
+with {
+    target = annual_electricity
+    features = [cooling_cop, envelope_load_index]
+    test = 0.25
+    seed = 7
+}
 "#;
         let report = check_source("derived_regression.eng", source, &CheckOptions::default());
         assert!(!report.has_errors(), "{:?}", report.diagnostics);

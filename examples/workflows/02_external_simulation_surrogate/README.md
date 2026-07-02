@@ -18,7 +18,7 @@ eng.sampling  deterministic LHS training-design and prediction sample tables
 eng.table     native derive transforms for surrogate simulation-result columns
 eng.case      explicit `materialize cases` table plus generated case manifests from sample-style tables
 eng.template  native `apply ... over cases` template rendering for per-case input files
-eng.model     regression_table(...) and predict model using samples
+eng.model     train regression ... with { ... } and predict model using samples
 eng.db        native SQLite writes for training results and predictions
 eng.artifact  output manifest records for rendered inputs, DB, model, and report
 ```

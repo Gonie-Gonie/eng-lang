@@ -3551,6 +3551,20 @@ Status: implemented to keep workflow 01 filenames aligned with API wording.
   docs no longer describe the network repro boundary with the legacy `fixture`
   option.
 
+## Batch 288: Native Train Regression Surface
+
+Status: implemented to move workflow 02 away from helper-looking model calls.
+
+- Added `train regression <table>` as a native table-regression workflow phrase
+  backed by the existing compiler `MlInfo` and runtime linear-training path.
+- Let model `with` blocks supply `target`/`features`/`test`/`seed`, with
+  `y`/`x` and `test_fraction` aliases for users coming from modeling notation.
+- Updated workflow 02, snippets, TextMate phrase scopes, LSP completions,
+  semantic tokens, and docs so the public path reads as a workflow step while
+  legacy `regression_table(...)` remains supported.
+- Fixed parser ambiguity where `test = ...` inside a `with` block could be
+  treated as a test-block start.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -3570,9 +3584,9 @@ Status: implemented to keep workflow 01 filenames aligned with API wording.
 - Live network execution: live `http://` GET/download is implemented with
   timeout, retry, body limit, SHA-256 verification, and cache replay; package a
   TLS backend for live `https://` and broaden request body/auth policy.
-- Model training surface: current native prediction table exists; broaden
-  training syntax only after model-card and feature/target contracts stay
-  stable across examples.
+- Model training surface: native `train regression <table>` now feeds the
+  existing model-card, metrics, and prediction-table path; future work is
+  broader algorithm coverage and clearer multi-model naming.
 - Case orchestration: current case manifests are materialized through workflow
   records; a native `apply/run cases` surface needs scheduler, resume, cache,
   and failure policy.

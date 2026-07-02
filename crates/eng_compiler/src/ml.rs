@@ -1,5 +1,5 @@
 use crate::ast::FastBinding;
-use crate::semantic::TypedBinding;
+use crate::semantic::{TypedBinding, WithBlockInfo, WithOptionInfo};
 use crate::Diagnostic;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -56,12 +56,12 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
         source,
         prediction_input: prediction_arguments.map(|(_, input)| input),
         target: (kind != "PredictionResult")
-            .then(|| named_value(expression, &["target"]))
+            .then(|| named_value(expression, &["target", "y"]))
             .flatten(),
         features: if kind == "PredictionResult" {
             Vec::new()
         } else {
-            list_value(expression, "features")
+            list_value(expression, &["features", "x"])
         },
         algorithm: named_value(expression, &["algorithm"]).or_else(|| default_algorithm(kind)),
         test_fraction: named_value(expression, &["test", "test_fraction"]),
@@ -73,6 +73,39 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
         expression: binding.expression.clone(),
         line: binding.line,
     })
+}
+
+pub fn apply_with_blocks(ml_infos: &mut [MlInfo], with_blocks: &[WithBlockInfo]) {
+    for info in ml_infos {
+        let line = info.line;
+        for block in with_blocks
+            .iter()
+            .filter(|block| block.owner_line == Some(line))
+        {
+            apply_with_options(info, &block.options);
+        }
+    }
+}
+
+pub fn with_block_argument_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
+    ml_infos
+        .iter()
+        .filter(|info| is_train_regression_phrase(&info.expression))
+        .flat_map(argument_diagnostics_for_info)
+        .collect()
+}
+
+pub fn is_model_with_options_owner(expression: &str) -> bool {
+    let lowered = expression.trim_start().to_ascii_lowercase();
+    lowered.starts_with("train_test_split(")
+        || lowered.starts_with("regression(")
+        || is_table_regression_expression(expression)
+        || lowered.starts_with("mlp(")
+        || lowered.starts_with("ann(")
+        || lowered.starts_with("evaluate(")
+        || lowered.starts_with("metrics(")
+        || lowered.starts_with("leakage_lint(")
+        || predict_model_arguments(expression).is_some()
 }
 
 pub fn source_diagnostics(
@@ -95,11 +128,18 @@ pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
     let Some(info) = ml_info(binding) else {
         return Vec::new();
     };
+    if is_train_regression_phrase(&info.expression) {
+        return Vec::new();
+    }
+    argument_diagnostics_for_info(&info)
+}
+
+pub fn argument_diagnostics_for_info(info: &MlInfo) -> Vec<Diagnostic> {
     let mut diagnostics = Vec::new();
     match info.kind.as_str() {
-        "TrainTestSplit" => validate_train_test_split_arguments(&info, &mut diagnostics),
-        "RegressionModel" => validate_regression_arguments(&info, &mut diagnostics),
-        "MlpModel" => validate_mlp_arguments(&info, &mut diagnostics),
+        "TrainTestSplit" => validate_train_test_split_arguments(info, &mut diagnostics),
+        "RegressionModel" => validate_regression_arguments(info, &mut diagnostics),
+        "MlpModel" => validate_mlp_arguments(info, &mut diagnostics),
         _ => {}
     }
     diagnostics
@@ -313,7 +353,7 @@ fn expected_source_help(expected: ExpectedMlSource) -> &'static str {
             "Create `reg_model = regression(split, ...)` or `mlp_model = mlp(split, ...)` first."
         }
         ExpectedMlSource::Table => {
-            "Promote, generate, or derive a table first, then pass it as `predict model using samples` or `regression_table(table, ...)`."
+            "Promote, generate, or derive a table first, then pass it as `predict model using samples` or `train regression table`."
         }
     }
 }
@@ -322,6 +362,8 @@ fn ml_call_name(expression: &str) -> &'static str {
     let lowered = expression.trim_start().to_ascii_lowercase();
     if lowered.starts_with("train_test_split(") {
         "train_test_split"
+    } else if is_train_regression_phrase(expression) {
+        "train regression"
     } else if is_table_regression_expression(expression) {
         "regression_table"
     } else if lowered.starts_with("regression(") {
@@ -392,11 +434,12 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
         )),
     }
 
-    validate_optional_integer(&info.expression, "seed", info.line, diagnostics);
+    validate_optional_integer_value(info.seed.as_deref(), "seed", info.line, diagnostics);
 }
 
 fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
     if is_table_regression_expression(&info.expression) {
+        let call = regression_call_label(&info.expression);
         if info
             .target
             .as_deref()
@@ -406,16 +449,16 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-001",
                 info.line,
-                "`regression_table` requires `target=<column>`.",
-                Some("Pass the target table column, for example `target=annual_electricity`."),
+                &format!("`{call}` requires `target=<column>` or `y=<column>`."),
+                Some("Pass the target table column, for example `with { target = annual_electricity }`."),
             ));
         }
         if info.features.is_empty() {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-001",
                 info.line,
-                "`regression_table` requires `features=[...]`.",
-                Some("List feature columns such as `features=[people_density, cooling_cop]`."),
+                &format!("`{call}` requires `features=[...]` or `x=[...]`."),
+                Some("List feature columns such as `with { features = [people_density, cooling_cop] }`."),
             ));
         } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
             diagnostics.push(Diagnostic::error(
@@ -435,9 +478,9 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
                 ));
             }
         }
-        validate_optional_integer(&info.expression, "seed", info.line, diagnostics);
+        validate_optional_integer_value(info.seed.as_deref(), "seed", info.line, diagnostics);
     }
-    if let Some(algorithm) = named_value(&info.expression, &["algorithm"]) {
+    if let Some(algorithm) = info.algorithm.as_deref().map(unquote_value) {
         if algorithm != "linear" {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-003",
@@ -482,7 +525,7 @@ fn validate_mlp_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
         )),
     }
 
-    validate_optional_integer(&info.expression, "seed", info.line, diagnostics);
+    validate_optional_integer_value(info.seed.as_deref(), "seed", info.line, diagnostics);
 }
 
 fn parse_test_fraction(value: &str) -> Option<f64> {
@@ -495,13 +538,13 @@ fn parse_test_fraction(value: &str) -> Option<f64> {
     (parsed > 0.0 && parsed < 1.0).then_some(parsed)
 }
 
-fn validate_optional_integer(
-    expression: &str,
+fn validate_optional_integer_value(
+    value: Option<&str>,
     name: &str,
     line: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) {
-    if let Some(value) = named_value(expression, &[name]) {
+    if let Some(value) = value {
         if value.trim().parse::<usize>().is_err() {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-002",
@@ -546,13 +589,48 @@ fn first_argument(expression: &str) -> Option<String> {
 
 fn is_table_regression_expression(expression: &str) -> bool {
     let lowered = expression.trim_start().to_ascii_lowercase();
-    lowered.starts_with("regression_table(") || lowered.starts_with("train_regression(")
+    lowered.starts_with("regression_table(")
+        || lowered.starts_with("train_regression(")
+        || is_train_regression_phrase(expression)
 }
 
 fn table_regression_source(expression: &str) -> Option<String> {
-    is_table_regression_expression(expression)
-        .then(|| first_argument(expression))
-        .flatten()
+    train_regression_phrase_source(expression).or_else(|| {
+        is_table_regression_expression(expression)
+            .then(|| first_argument(expression))
+            .flatten()
+    })
+}
+
+fn is_train_regression_phrase(expression: &str) -> bool {
+    train_regression_phrase_source(expression).is_some()
+}
+
+fn train_regression_phrase_source(expression: &str) -> Option<String> {
+    let trimmed = expression.trim_start();
+    let lowered = trimmed.to_ascii_lowercase();
+    let prefix = "train regression";
+    if !lowered.starts_with(prefix) {
+        return None;
+    }
+    let after_prefix = &trimmed[prefix.len()..];
+    if !after_prefix.chars().next().is_some_and(char::is_whitespace) {
+        return None;
+    }
+    let mut rest = after_prefix.trim_start();
+    let rest_lower = rest.to_ascii_lowercase();
+    if rest_lower.starts_with("from ") {
+        rest = rest[5..].trim_start();
+    } else if rest_lower.starts_with("on ") {
+        rest = rest[3..].trim_start();
+    }
+    rest.split(|character: char| {
+        !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+    })
+    .next()
+    .map(str::trim)
+    .filter(|source| is_identifier_path(source))
+    .map(str::to_owned)
 }
 
 fn predict_model_arguments(expression: &str) -> Option<(String, String)> {
@@ -596,8 +674,8 @@ fn named_value(expression: &str, names: &[&str]) -> Option<String> {
     None
 }
 
-fn list_value(expression: &str, name: &str) -> Vec<String> {
-    named_value(expression, &[name])
+fn list_value(expression: &str, names: &[&str]) -> Vec<String> {
+    named_value(expression, names)
         .map(|value| list_items(&value).into_iter().map(str::to_owned).collect())
         .unwrap_or_default()
 }
@@ -643,4 +721,56 @@ fn call_inside(expression: &str) -> Option<&str> {
     let open = expression.find('(')?;
     let close = expression.rfind(')')?;
     (close > open).then(|| &expression[open + 1..close])
+}
+
+fn apply_with_options(info: &mut MlInfo, options: &[WithOptionInfo]) {
+    if !is_model_with_options_owner(&info.expression) {
+        return;
+    }
+    if let Some(value) = with_option_value(options, &["target", "y"]) {
+        info.target = Some(value);
+    }
+    if let Some(value) = with_option_value(options, &["features", "x"]) {
+        info.features = list_items(&value).into_iter().map(str::to_owned).collect();
+    }
+    if let Some(value) = with_option_value(options, &["algorithm"]) {
+        info.algorithm = Some(value);
+    }
+    if let Some(value) = with_option_value(options, &["test", "test_fraction"]) {
+        info.test_fraction = Some(value);
+    }
+    if let Some(value) = with_option_value(options, &["seed"]) {
+        info.seed = Some(value);
+    }
+    if let Some(value) = with_option_value(options, &["hidden", "layers"]) {
+        info.hidden_layers = parse_usize_list(&value);
+    }
+    if let Some(value) = with_option_value(options, &["epochs"]) {
+        info.epochs = value.parse::<usize>().ok();
+    }
+}
+
+fn with_option_value(options: &[WithOptionInfo], names: &[&str]) -> Option<String> {
+    options.iter().find_map(|option| {
+        names
+            .iter()
+            .any(|name| option.key.eq_ignore_ascii_case(name))
+            .then(|| option.value.trim().to_owned())
+    })
+}
+
+fn regression_call_label(expression: &str) -> &'static str {
+    if is_train_regression_phrase(expression) {
+        "train regression"
+    } else {
+        "regression_table"
+    }
+}
+
+fn unquote_value(value: &str) -> &str {
+    value.trim().trim_matches('"').trim_matches('\'')
+}
+
+fn is_identifier_path(value: &str) -> bool {
+    !value.is_empty() && value.split('.').all(is_identifier)
 }

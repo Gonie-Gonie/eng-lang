@@ -190,7 +190,7 @@ is not mistaken for public module support.
   - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
     DB table summaries. Current native model evidence includes
-    `regression_table`, `model_card`, `evaluate`, `predict ... using ...`,
+    `train regression`, `regression_table`, `model_card`, `evaluate`, `predict ... using ...`,
     ModelSpec/FeatureSpec/TargetSpec summaries,
     prediction schema/output metadata, confidence-column metadata, and hashes.
   - Keep domain adapters layered above generic module contracts and avoid

@@ -340,6 +340,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "ensemble",
     "propagate",
     "probability",
+    "train",
     "train_test_split",
     "regression",
     "regression_table",
@@ -470,6 +471,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
         "train_test_split",
         "Create a deterministic train/test split",
     ),
+    (
+        "train regression",
+        "Train a regression model from table columns",
+    ),
     ("regression", "Train a small deterministic regression model"),
     (
         "regression_table",
@@ -556,6 +561,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("jacobian", "solver Jacobian policy"),
     ("kind", "distribution kind option"),
     ("key", "database upsert key"),
+    ("layers", "MLP hidden layer option alias"),
     ("line_search_steps", "solver line-search step limit"),
     ("lower", "lower uncertainty or range bound"),
     ("mass_matrix", "solver mass-matrix policy"),
@@ -597,6 +603,7 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("status_code", "expected HTTP status code"),
     ("step", "case workflow step"),
     ("test", "model train/test split option"),
+    ("test_fraction", "model train/test split option alias"),
     ("target", "model target column"),
     ("template", "template source file"),
     ("timeout", "external command timeout"),
@@ -611,6 +618,8 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("values", "template value map"),
     ("variable_scale", "solver variable scale"),
     ("variable_scales", "solver variable scale list"),
+    ("x", "model feature column alias"),
+    ("y", "model target column alias"),
     ("year", "calendar year option"),
 ];
 
@@ -1546,7 +1555,8 @@ fn with_option_semantic_modifiers(
         | "allow_failure"
         | "cwd"
         | "env" => &["external"],
-        "algorithm" | "features" | "hidden" | "target" | "test" | "epochs" | "split" | "seed"
+        "algorithm" | "features" | "x" | "hidden" | "layers" | "target" | "y" | "test"
+        | "test_fraction" | "epochs" | "split" | "seed"
             if is_model_with_block(program, block.owner_line) =>
         {
             &["model"]
@@ -1571,6 +1581,14 @@ fn add_with_option_value_semantic_token(
     block: &WithBlockInfo,
     option: &WithOptionInfo,
 ) {
+    if matches!(option.key.as_str(), "features" | "x")
+        && is_model_with_block(program, block.owner_line)
+    {
+        for value in option_list_value_identifiers(&option.value) {
+            builder.push_on_line(option.line, value, "property", &["model"]);
+        }
+        return;
+    }
     let Some(value) = leading_option_value_identifier(&option.value) else {
         return;
     };
@@ -1593,6 +1611,19 @@ fn leading_option_value_identifier(value: &str) -> Option<&str> {
         end += 1;
     }
     Some(&value[..end])
+}
+
+fn option_list_value_identifiers(value: &str) -> Vec<&str> {
+    value
+        .trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .map(str::trim)
+        .filter(|value| {
+            value.bytes().next().is_some_and(is_ident_start) && value.bytes().all(is_ident_byte)
+        })
+        .collect()
 }
 
 fn with_option_value_semantic_class(
@@ -1664,6 +1695,9 @@ fn with_option_value_semantic_class(
                 && matches!(value, "linear" | "regression" | "mlp") =>
         {
             Some(("keyword", &["model"]))
+        }
+        "target" | "y" if is_model_with_block(program, block.owner_line) => {
+            Some(("property", &["model"]))
         }
         "step" if matches!(value, "run_case") => {
             Some(("function", &["defaultLibrary", "workflowStep"]))
@@ -3402,8 +3436,8 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         "measured" | "interval" | "ensemble" | "propagate" | "probability" => {
             &["defaultLibrary", "uncertain"]
         }
-        "train_test_split" | "regression" | "regression_table" | "train_regression" | "mlp"
-        | "ann" | "evaluate" | "model_card" | "leakage_lint" | "predict" => {
+        "train" | "train_test_split" | "regression" | "regression_table" | "train_regression"
+        | "mlp" | "ann" | "evaluate" | "model_card" | "leakage_lint" | "predict" => {
             &["defaultLibrary", "model"]
         }
         "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
@@ -4721,7 +4755,8 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     if owner.contains("train_test_split") {
         return Some(&["target", "features", "test", "seed", "cache", "cache_key"]);
     }
-    if owner.contains("regression(")
+    if owner.contains("train regression")
+        || owner.contains("regression(")
         || owner.contains("train_regression")
         || owner.contains("mlp(")
         || owner.contains("ann(")
@@ -4729,8 +4764,13 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
         return Some(&[
             "algorithm",
             "features",
+            "x",
             "target",
+            "y",
+            "test",
+            "test_fraction",
             "hidden",
+            "layers",
             "epochs",
             "cache",
             "cache_key",
@@ -4821,13 +4861,22 @@ fn source_prefix_at_position(source: &str, line: usize, character: usize) -> Opt
 
 fn function_argument_option_labels(function_name: &str) -> Option<&'static [&'static str]> {
     match function_name {
-        "train_test_split" => Some(&["target", "features", "test", "test_fraction", "seed"]),
-        "regression" | "regression_table" | "train_regression" => {
-            Some(&["target", "features", "algorithm", "test", "seed"])
-        }
+        "train_test_split" => Some(&["target", "features", "x", "test", "test_fraction", "seed"]),
+        "regression" | "regression_table" | "train_regression" => Some(&[
+            "target",
+            "y",
+            "features",
+            "x",
+            "algorithm",
+            "test",
+            "test_fraction",
+            "seed",
+        ]),
         "mlp" | "ann" => Some(&[
             "target",
+            "y",
             "features",
+            "x",
             "algorithm",
             "hidden",
             "layers",
@@ -6521,7 +6570,13 @@ with {
 }
 
 case_row = require_one designs
-surrogate = regression_table(designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
+surrogate = train regression designs
+with {
+    target = annual_electricity
+    features = [people_density]
+    test = 0.25
+    seed = 7
+}
 ann_model = ann(split_alias, hidden=[8], epochs=10)
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
@@ -6555,7 +6610,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "materialize",
             "apply",
             "collect",
-            "regression_table",
+            "train",
+            "regression",
             "ann",
             "evaluate",
             "model_card",
@@ -6568,7 +6624,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
         }
         for label in [
-            "regression_table",
+            "train",
+            "regression",
             "ann",
             "evaluate",
             "model_card",

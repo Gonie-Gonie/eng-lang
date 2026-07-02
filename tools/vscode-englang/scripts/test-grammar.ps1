@@ -550,6 +550,7 @@ samples = sample lhs
 uniform_samples = sample uniform
 split = train_test_split(Q, target=Q, features=[Q], test=0.25, seed=7)
 reg = regression(split)
+trained_table = train regression csv_table
 reg_table = regression_table(csv_table, target=Q, features=[value], test=0.25, seed=7)
 nn = mlp(split)
 metrics = evaluate(reg, split=split)

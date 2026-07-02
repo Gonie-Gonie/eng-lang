@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  393,
+    "completion_seed_count":  398,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -462,6 +462,12 @@
                                 "detail":  "Create a deterministic train/test split",
                                 "kind":  "function",
                                 "label":  "train_test_split",
+                                "lsp_kind":  3
+                            },
+                            {
+                                "detail":  "Train a regression model from table columns",
+                                "kind":  "function",
+                                "label":  "train regression",
                                 "lsp_kind":  3
                             },
                             {
@@ -1539,6 +1545,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "MLP hidden layer option alias",
+                                "kind":  "property",
+                                "label":  "layers",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "solver line-search step limit",
                                 "kind":  "property",
                                 "label":  "line_search_steps",
@@ -1737,6 +1749,12 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "model train/test split option alias",
+                                "kind":  "property",
+                                "label":  "test_fraction",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "model target column",
                                 "kind":  "property",
                                 "label":  "target",
@@ -1812,6 +1830,18 @@
                                 "detail":  "solver variable scale list",
                                 "kind":  "property",
                                 "label":  "variable_scales",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "model feature column alias",
+                                "kind":  "property",
+                                "label":  "x",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "model target column alias",
+                                "kind":  "property",
+                                "label":  "y",
                                 "lsp_kind":  10
                             },
                             {
