@@ -24,7 +24,7 @@ The examples repeat a small set of contracts:
 - generated artifact and hash path
 - static/runtime workflow plan and run-lock artifacts
 - report/review artifact
-- deterministic fixture/native execution for smoke runs
+- deterministic pinned-input/native execution for smoke runs
 - zero `run command` or Python process execution
 
 These contracts define the generic workflow module surface for `eng.net`,

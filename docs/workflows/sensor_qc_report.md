@@ -1,7 +1,7 @@
 # Sensor QC Report
 
 This page is the workflow-book name for the current uncertain sensor report
-fixture.
+workflow.
 
 Start with [Uncertain sensor report](uncertain_sensor_report.md), which covers:
 

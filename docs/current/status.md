@@ -1,7 +1,7 @@
 # Current Project Status
 
 This page is the authoritative short-form status layer for contributors and LLM
-agents. It describes the public package first. Internal implementation seeds
+agents. It describes the public package first. Internal implementation tracks
 are summarized separately in [main_internal_status.md](main_internal_status.md).
 
 ## Release State
@@ -137,14 +137,14 @@ visible:
   validation, metadata methods, copy-with metadata, diagnostics, report/review
   serialization, IDE summaries, and LSP metadata.
 
-Detailed solver, state-space, component, JIT, uncertainty, ML, and LSP seeds
+Detailed solver, state-space, component, JIT, uncertainty, ML, and LSP tracks
 are tracked in [main_internal_status.md](main_internal_status.md) and
 [tracks.md](tracks.md).
 
 ## Checklist Track Scope Snapshot
 
 The uncertainty, reviewability, and composite workflow checklist work should
-move implementation seeds toward evidence-backed support without widening the
+move implementation tracks toward evidence-backed support without widening the
 public package claim prematurely. The current test and CI mapping for these
 tracks is recorded in [test_ci_gates.md](test_ci_gates.md) so fixture evidence
 is not mistaken for public module support.
@@ -175,7 +175,7 @@ is not mistaken for public module support.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
-    diagnostics, native network/cache fixture boundaries, native JSON API
+    diagnostics, native pinned offline network/cache boundaries, native JSON API
     payload contract promotion in the weather workflow, native sample-table
     artifacts, native template-rendered case input artifacts, optional JSON/TOML
     config field policy, native SQLite append/upsert/replace write records in
@@ -201,7 +201,8 @@ is not mistaken for public module support.
 - General table derived-value execution, fill transforms, and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Native composite workflow modules beyond the current network/cache fixture,
+- Native composite workflow modules beyond the current pinned offline
+  network/cache boundary,
   sampling, table-regression, prediction, template, and SQLite write support:
   live network execution, broader cache invalidation/reuse APIs, native case
   runner, broad database support, and public model train/predict workflows.

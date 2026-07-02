@@ -1776,6 +1776,20 @@ consistency.
   of plain workflow bindings.
 - Extended grammar fixture expectations for custom HTTP query keys.
 
+## Batch 146: Workflow Docs Wording Cleanup
+
+Status: implemented after reviewing public workflow/module docs for
+implementation-stage wording.
+
+- Reworded public status docs from implementation `seed` language to
+  implementation tracks, while leaving deterministic sampling `seed` terms
+  intact where they name the actual language option.
+- Replaced workflow-module `preview` and fixture-first wording with review
+  records, pinned offline response boundaries, and deterministic generation
+  settings.
+- Updated workflow guide pages to describe pinned inputs and workflow examples
+  instead of generic fixtures.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

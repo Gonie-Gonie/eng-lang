@@ -22,7 +22,8 @@ keys, matched pair counts, row counts, Date/DateTime predicate comparison, and
 `row_diagnostics[]`. Promoted
 `sample grid`, `sample random`, `sample lhs`, and DesignSample-style CSV tables
 now emit `typed_payload.sample_tables[]` with case ID, parameter range,
-duplicate-case, seed, generation, and row-hash preview metadata, plus
+duplicate-case checks, deterministic generation settings, and row-hash review
+metadata, plus
 `typed_payload.case_tables[]` summaries and `typed_payload.case_manifests[]`
 case row manifests with pending/succeeded/failed/skipped status, sample row
 hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
@@ -175,8 +176,8 @@ review records directly; they are not domain-adapter claims.
 ```text
 typed station schema and WeatherApiRecord JSON-record table schema
 reviewable filter/require_one station transform from promoted station map
-explicit API fixture boundary
-native network/cache record for the API fixture
+explicit pinned offline API response boundary
+native network/cache record for the pinned API response
 native JSON schema promotion for the WeatherApiPayload API contract
 native JSON records table promotion for api_payload.records
 explicit generic DateTime coverage check
@@ -190,7 +191,7 @@ process_results.json with process_count = 0
 
 ```text
 deterministic LHS training and prediction sample tables
-sample table artifacts with case IDs, parameter ranges, duplicate checks, and row-hash previews
+sample table artifacts with case IDs, parameter ranges, duplicate checks, and row-hash records
 case manifest records for generated sample/case rows
 native template_render records for case input files
 native regression_table model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
@@ -257,7 +258,7 @@ feed into.
 
 ## Case Manifest Target
 
-The current case artifact preview records `case_id`, source row, sample row
+The current case artifact record contains `case_id`, source row, sample row
 number, sample row hash, default case directory, pending/succeeded/failed/skipped
 status, result collection status, cache hit/miss counts, scheduler hooks,
 duplicate diagnostics, and
