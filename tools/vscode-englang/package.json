@@ -287,6 +287,9 @@
           "keyword.deprecated": [
             "keyword.control.deprecated.englang"
           ],
+          "class.deprecated": [
+            "entity.name.type.englang"
+          ],
           "variable.state": [
             "storage.modifier.englang",
             "variable.other.definition.englang"

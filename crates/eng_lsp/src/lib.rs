@@ -2711,6 +2711,7 @@ impl<'a> SemanticTokenBuilder<'a> {
 
             for (start, end) in code_ranges(line) {
                 self.scan_word_tokens(line_index, start, end, &quantity_names, &public_types);
+                self.scan_legacy_declaration_names(line_index, start, end);
                 self.scan_hyphenated_workflow_builtin_tokens(line_index, start, end);
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
                 self.scan_unit_tokens(line_index, start, end, &units);
@@ -2768,6 +2769,43 @@ impl<'a> SemanticTokenBuilder<'a> {
                 continue;
             }
             index += 1;
+        }
+    }
+
+    fn scan_legacy_declaration_names(&mut self, line_index: usize, start: usize, end: usize) {
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        for keyword in ["script", "struct"] {
+            let mut search_start = start;
+            while search_start < end {
+                let Some(relative_start) = line[search_start..end].find(keyword) else {
+                    break;
+                };
+                let keyword_start = search_start + relative_start;
+                let keyword_end = keyword_start + keyword.len();
+                search_start = keyword_end;
+                if !is_identifier_boundary(line, keyword_start, keyword_end) {
+                    continue;
+                }
+                let name_start = skip_ascii_whitespace(bytes, keyword_end, end);
+                if name_start >= end
+                    || name_start >= bytes.len()
+                    || !is_ident_start(bytes[name_start])
+                {
+                    continue;
+                }
+                let mut name_end = name_start + 1;
+                while name_end < end && name_end < bytes.len() && is_ident_byte(bytes[name_end]) {
+                    name_end += 1;
+                }
+                self.push_byte_range(
+                    line_index,
+                    name_start,
+                    name_end - name_start,
+                    "class",
+                    &["declaration", "deprecated"],
+                );
+            }
         }
     }
 
@@ -5839,6 +5877,11 @@ struct LegacyArgs
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
         for label in ["script", "struct"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
+        }
+        for label in ["LegacyScript", "LegacyArgs"] {
+            assert_semantic_token_type(&snapshot, source, label, "class");
+            assert_semantic_token_modifier(&snapshot, source, label, "declaration");
             assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }
     }

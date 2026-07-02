@@ -195,6 +195,7 @@ Core semantic role expectations:
 | Function parameter | `parameter` with `declaration`. |
 | Function-local binding | `variable` with `local`. |
 | Deprecated `script`/`struct` keyword | `keyword` with `deprecated`. |
+| Deprecated `script`/`struct` declaration name | `class` with `declaration` and `deprecated`. |
 | Bundled stdlib domain namespace | `namespace` with `defaultLibrary` and `internal`. |
 
 `planned` is currently reserved for future source-visible module or workflow
@@ -222,6 +223,7 @@ in sync with the generated legend. Important pairings:
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |
 | `keyword.report`, `variable.report`, `property.report` | Report and plot operations. |
 | `function.solver`, `keyword.solver`, `variable.solver` | Solver and equation operations. |
+| `class.deprecated` | Deprecated legacy declaration names. |
 | `variable.state`, `property.state` | System state tokens. |
 | `variable.input`, `parameter.input` | System inputs and input parameters. |
 | `variable.model`, `function.model`, `property.model` | Model and prediction artifacts. |

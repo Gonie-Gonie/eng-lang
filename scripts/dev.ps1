@@ -2186,7 +2186,7 @@ function Assert-VscodeExtensionContract {
         "method.sideEffect", "property.sideEffect", "variable.validation", "variable.report",
         "keyword.sideEffect", "keyword.external", "keyword.validation",
         "keyword.report", "keyword.solver", "function.solver",
-        "property.external", "property.solver", "keyword.deprecated", "variable.state",
+        "property.external", "property.solver", "keyword.deprecated", "class.deprecated", "variable.state",
         "parameter.input", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "property.db",
