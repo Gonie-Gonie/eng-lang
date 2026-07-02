@@ -2276,6 +2276,30 @@ function Assert-VscodeExtensionContract {
     if (([regex]::Matches($ExtensionSource, [regex]::Escape("clearSnapshotCache(document)"))).Count -lt 3) {
         throw "VS Code extension must clear shared LSP snapshot cache on document changes and close"
     }
+    foreach ($RequiredLiveEditorOutputToken in @(
+        "Live editor check failed:",
+        "Unable to parse EngLang live editor data:",
+        "Completion lookup failed:",
+        "Unable to parse EngLang completion data:",
+        "Definition lookup failed:",
+        "Unable to parse EngLang definition data:"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredLiveEditorOutputToken)) {
+            throw "VS Code extension missing user-facing live editor output token $RequiredLiveEditorOutputToken"
+        }
+    }
+    foreach ($ForbiddenLiveEditorOutputToken in @(
+        "LSP snapshot failed:",
+        "Unable to parse EngLang LSP snapshot:",
+        "completion snapshot failed:",
+        "Unable to parse EngLang completion snapshot:",
+        "definition snapshot failed:",
+        "Unable to parse EngLang definition snapshot:"
+    )) {
+        if ($ExtensionSource.Contains($ForbiddenLiveEditorOutputToken)) {
+            throw "VS Code extension output must use live editor wording, not $ForbiddenLiveEditorOutputToken"
+        }
+    }
     foreach ($RequiredHoverToken in @(
         "new EngHoverProvider(context)",
         "async provideHover",

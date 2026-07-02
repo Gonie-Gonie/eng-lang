@@ -1798,14 +1798,14 @@ function snapshotDocumentSource(document, context, cancellationToken) {
           output.appendLine(stderr.trim());
         }
         if (error) {
-          output.appendLine(`LSP snapshot failed: ${error.message}`);
+          output.appendLine(`Live editor check failed: ${error.message}`);
           finish(undefined);
           return;
         }
         try {
           finish(JSON.parse(stdout));
         } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang LSP snapshot: ${parseError.message}`);
+          output.appendLine(`Unable to parse EngLang live editor data: ${parseError.message}`);
           finish(undefined);
         }
       }
@@ -1939,7 +1939,7 @@ function completionSnapshotForPosition(document, position, context, cancellation
           output.appendLine(stderr.trim());
         }
         if (error) {
-          output.appendLine(`completion snapshot failed: ${error.message}`);
+          output.appendLine(`Completion lookup failed: ${error.message}`);
           finish(undefined);
           return;
         }
@@ -1951,7 +1951,7 @@ function completionSnapshotForPosition(document, position, context, cancellation
           }
           finish(payload);
         } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang completion snapshot: ${parseError.message}`);
+          output.appendLine(`Unable to parse EngLang completion data: ${parseError.message}`);
           finish(undefined);
         }
       }
@@ -2000,14 +2000,14 @@ function definitionSnapshotForPosition(document, position, context, cancellation
           output.appendLine(stderr.trim());
         }
         if (error) {
-          output.appendLine(`definition lookup failed: ${error.message}`);
+          output.appendLine(`Definition lookup failed: ${error.message}`);
           finish(undefined);
           return;
         }
         try {
           finish(JSON.parse(stdout));
         } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang definition lookup: ${parseError.message}`);
+          output.appendLine(`Unable to parse EngLang definition data: ${parseError.message}`);
           finish(undefined);
         }
       }

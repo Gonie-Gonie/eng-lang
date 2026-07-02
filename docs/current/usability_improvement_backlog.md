@@ -2756,6 +2756,19 @@ toggles for raw JSON/artifact wording.
   editor-service snapshot terminology and extended `ide-check` to guard the
   old UI labels.
 
+## Batch 223: VS Code Live Editor Output Wording
+
+Status: implemented after reviewing VS Code Output panel messages emitted by
+live editor checks, completion, and definition lookups.
+
+- Reworded live-buffer check failures from LSP snapshot phrasing to `Live
+  editor check failed`.
+- Reworded completion and definition subprocess failures to task-oriented
+  lookup/data messages.
+- Extended the VS Code extension contract so old snapshot-worded Output panel
+  messages cannot return while the internal CLI bridge names remain available
+  for compatibility.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
