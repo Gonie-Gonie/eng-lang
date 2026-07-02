@@ -289,9 +289,10 @@ separate.
   parser, broad DB engines/query APIs/migrations, or ML framework
   support.
 - Next cleanup action: grow `eng.cache` beyond network response
-  materialization/replay, then use the
-  workflow skeletons to drive remaining `eng.case`, `eng.db`, and `eng.model`
-  slices with artifacts and diagnostics.
+  materialization/replay, then extend the existing native workflow artifact
+  snapshots to cover broader `eng.case` collection/scheduling, `eng.db`
+  query/migration, and `eng.model` framework-adapter slices with artifacts and
+  diagnostics.
 
 ## Solver Vocabulary
 

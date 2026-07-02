@@ -967,6 +967,27 @@ function Test-ExamplesReferenceDocs {
     Write-Host "Examples README wording check passed."
 }
 
+function Test-PublicWorkflowDocs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths
+    )
+
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "missing public workflow doc at $path"
+        }
+        $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+        foreach ($stalePhrase in @("workflow skeletons", "External process seed", "implementation seed")) {
+            if ($text.Contains($stalePhrase)) {
+                throw "public workflow doc still contains stale phrase '$stalePhrase' at $path"
+            }
+        }
+    }
+
+    Write-Host "Public workflow docs wording check passed."
+}
+
 function Convert-ModuleRegistryStatusLabel {
     param([string] $Status)
     switch ($Status) {
@@ -1057,6 +1078,11 @@ function Invoke-DocsCheck {
         -ReferencePath (Join-Path $RepoRoot "docs\reference\stdlib\index.md")
     Test-ExamplesReferenceDocs `
         -ExamplesReadmePath (Join-Path $RepoRoot "examples\README.md")
+    Test-PublicWorkflowDocs -Paths @(
+        (Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"),
+        (Join-Path $RepoRoot "docs\current\workflow_modules.md"),
+        (Join-Path $RepoRoot "docs\workflows\index.md")
+    )
 
     $checked = 0
     $skipped = 0
