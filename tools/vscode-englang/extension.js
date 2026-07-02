@@ -4,6 +4,7 @@ const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
 const { createArtifactOpeners } = require("./artifactOpeners");
+const { createLspRequests } = require("./lspRequests");
 const { EngCompletionProvider } = require("./completionProvider");
 const { EngDiagnosticsController } = require("./diagnosticsProvider");
 const { EngCodeActionProvider } = require("./codeActionProvider");
@@ -43,11 +44,11 @@ const {
 
 const LANGUAGE_ID = "englang";
 const reviewCache = new Map();
-const snapshotPromiseCache = new Map();
 let output;
 let reviewRiskDecorations;
 let semanticSymbolDecorations;
 let artifactOpeners;
+let lspRequests;
 
 const editorMetadata = loadEditorMetadata(__dirname);
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
@@ -62,13 +63,20 @@ const semanticLegend = createSemanticLegend(
 function activate(context) {
   output = vscode.window.createOutputChannel("EngLang");
   artifactOpeners = createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot });
+  lspRequests = createLspRequests({
+    isEngDocument,
+    findLspRuntime,
+    findLspRuntimeForRoot,
+    workspaceRoot,
+    appendOutputLine
+  });
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   reviewRiskDecorations = createReviewRiskDecorationTypes();
   semanticSymbolDecorations = createSemanticSymbolDecorationTypes();
   const diagnosticController = new EngDiagnosticsController(context, diagnostics, {
     output,
     isEngDocument,
-    clearSnapshotCache,
+    clearSnapshotCache: lspRequests.clearSnapshotCache,
     diagnosticsBackend,
     diagnosticsBackendLabel,
     findLspRuntime,
@@ -97,7 +105,7 @@ function activate(context) {
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       diagnosticController.clearPendingCheck(document);
-      clearSnapshotCache(document);
+      lspRequests.clearSnapshotCache(document);
       diagnostics.delete(document.uri);
       updateReviewRiskDecorations(document, undefined);
       updateSemanticSymbolDecorations(document, undefined);
@@ -140,7 +148,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngHoverProvider(context, {
         isEngDocument,
-        snapshotDocumentSource,
+        snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath),
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
       })
@@ -149,7 +157,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngCompletionProvider(context, {
         completionSeed: COMPLETION_SEED,
-        completionSnapshotForPosition,
+        completionSnapshotForPosition: lspRequests.completionSnapshotForPosition,
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath)
       }),
       ":",
@@ -161,7 +169,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngSemanticTokensProvider(context, {
         isEngDocument,
-        snapshotDocumentSource,
+        snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
         updateSemanticSymbolDecorations,
         semanticLegend,
@@ -174,13 +182,13 @@ function activate(context) {
       LANGUAGE_ID,
       new EngDocumentSymbolProvider(context, {
         isEngDocument,
-        snapshotDocumentSource,
+        snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
       })
     ),
     vscode.languages.registerWorkspaceSymbolProvider(
       new EngWorkspaceSymbolProvider(context, {
-        workspaceSymbolsForQuery,
+        workspaceSymbolsForQuery: lspRequests.workspaceSymbolsForQuery,
         appendOutputLine
       })
     ),
@@ -188,8 +196,8 @@ function activate(context) {
       LANGUAGE_ID,
       new EngDefinitionProvider(context, {
         isEngDocument,
-        definitionSnapshotForPosition,
-        snapshotDocumentSource,
+        definitionSnapshotForPosition: lspRequests.definitionSnapshotForPosition,
+        snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath),
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
         appendOutputLine
@@ -199,7 +207,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngFoldingRangeProvider(context, {
         isEngDocument,
-        snapshotDocumentSource,
+        snapshotDocumentSource: lspRequests.snapshotDocumentSource,
         cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot)
       })
     ),
@@ -207,12 +215,14 @@ function activate(context) {
       LANGUAGE_ID,
       new EngFormattingProvider(context, {
         isEngDocument,
-        formatDocumentSource
+        formatDocumentSource: lspRequests.formatDocumentSource
       })
     ),
     vscode.languages.registerCodeActionsProvider(
       LANGUAGE_ID,
-      new EngCodeActionProvider(context, { codeActionsForDocumentSource }),
+      new EngCodeActionProvider(context, {
+        codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource
+      }),
       {
         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]
       }
@@ -258,10 +268,6 @@ function createSemanticSymbolDecorationTypes() {
       opacity: "0.75"
     })
   };
-}
-
-function clearSnapshotCache(document) {
-  snapshotPromiseCache.delete(snapshotCacheKey(document));
 }
 
 function updateReviewRiskDecorations(document, review) {
@@ -681,7 +687,7 @@ async function showSemanticTokensDebug(context) {
     vscode.window.showWarningMessage("Open an EngLang .eng file first.");
     return;
   }
-  const snapshot = await snapshotDocumentSource(document, context);
+  const snapshot = await lspRequests.snapshotDocumentSource(document, context);
   if (!snapshot) {
     vscode.window.showWarningMessage("No highlight data is available. See the EngLang output panel.");
     return;
@@ -722,368 +728,6 @@ async function showSemanticTokensDebug(context) {
     content: JSON.stringify(payload, null, 2)
   });
   await vscode.window.showTextDocument(debugDocument, { preview: false });
-}
-
-function snapshotDocumentSource(document, context, cancellationToken) {
-  const key = snapshotCacheKey(document);
-  const cached = snapshotPromiseCache.get(key);
-  if (cached) {
-    return cached;
-  }
-
-  const promise = new Promise((resolve) => {
-    const runtime = findLspRuntime(context, document);
-    const cwd = workspaceRoot(document);
-    const documentVersion = document.version;
-    let settled = false;
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      if (document.version !== documentVersion) {
-        snapshotPromiseCache.delete(key);
-        resolve(undefined);
-        return;
-      }
-      resolve(value);
-    };
-
-    const child = cp.execFile(
-      runtime,
-      ["--snapshot-stdin", document.uri.fsPath],
-      { cwd, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (stderr && stderr.trim().length > 0) {
-          output.appendLine(stderr.trim());
-        }
-        if (error) {
-          output.appendLine(`Live editor check failed: ${error.message}`);
-          finish(undefined);
-          return;
-        }
-        try {
-          finish(JSON.parse(stdout));
-        } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang live editor data: ${parseError.message}`);
-          finish(undefined);
-        }
-      }
-    );
-
-    if (child.stdin) {
-      child.stdin.end(document.getText());
-    }
-  });
-  snapshotPromiseCache.set(key, promise);
-  promise.finally(() => {
-    if (snapshotPromiseCache.get(key) === promise) {
-      snapshotPromiseCache.delete(key);
-    }
-  });
-  return promise;
-}
-
-function snapshotCacheKey(document) {
-  return `${document.uri.toString()}@${document.version}`;
-}
-
-async function workspaceSymbolsForQuery(query, context, cancellationToken) {
-  const folders = (vscode.workspace.workspaceFolders ?? [])
-    .filter((folder) => folder.uri.scheme === "file");
-  if (folders.length === 0 || cancellationToken?.isCancellationRequested) {
-    return [];
-  }
-
-  const results = await Promise.all(
-    folders.map((folder) => workspaceSymbolsForFolder(folder, query, context, cancellationToken))
-  );
-  const seen = new Set();
-  const symbols = [];
-  for (const symbol of results.flat()) {
-    const uri = symbol?.location?.uri ?? "";
-    const line = symbol?.location?.range?.start?.line ?? 0;
-    const key = `${symbol?.name ?? ""}\n${uri}\n${line}`;
-    if (!symbol?.name || seen.has(key)) {
-      continue;
-    }
-    seen.add(key);
-    symbols.push(symbol);
-  }
-  return symbols;
-}
-
-function workspaceSymbolsForFolder(folder, query, context, cancellationToken) {
-  return new Promise((resolve) => {
-    if (cancellationToken?.isCancellationRequested) {
-      resolve([]);
-      return;
-    }
-
-    const root = folder.uri.fsPath;
-    const runtime = findLspRuntimeForRoot(context, root);
-    let settled = false;
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(value);
-    };
-
-    const child = cp.execFile(
-      runtime,
-      ["--workspace-symbols", root, query ?? ""],
-      { cwd: root, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (settled) {
-          return;
-        }
-        if (stderr && stderr.trim().length > 0) {
-          output.appendLine(stderr.trim());
-        }
-        if (error) {
-          output.appendLine(`workspace symbol lookup failed: ${error.message}`);
-          finish([]);
-          return;
-        }
-        try {
-          const payload = JSON.parse(stdout);
-          const symbols = Array.isArray(payload)
-            ? payload
-            : (Array.isArray(payload.symbols) ? payload.symbols : []);
-          finish(symbols);
-        } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang workspace symbols: ${parseError.message}`);
-          finish([]);
-        }
-      }
-    );
-
-    cancellationToken?.onCancellationRequested(() => {
-      child.kill();
-      finish([]);
-    });
-  });
-}
-
-function completionSnapshotForPosition(document, position, context, cancellationToken) {
-  return new Promise((resolve) => {
-    if (!isEngDocument(document)) {
-      resolve(undefined);
-      return;
-    }
-
-    const runtime = findLspRuntime(context, document);
-    const cwd = workspaceRoot(document);
-    let settled = false;
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(value);
-    };
-
-    const child = cp.execFile(
-      runtime,
-      [
-        "--completion-stdin",
-        document.uri.fsPath,
-        String(position.line),
-        String(position.character)
-      ],
-      { cwd, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (stderr && stderr.trim().length > 0) {
-          output.appendLine(stderr.trim());
-        }
-        if (error) {
-          output.appendLine(`Completion lookup failed: ${error.message}`);
-          finish(undefined);
-          return;
-        }
-        try {
-          const payload = JSON.parse(stdout);
-          if (Array.isArray(payload)) {
-            finish({ completions: payload });
-            return;
-          }
-          finish(payload);
-        } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang completion data: ${parseError.message}`);
-          finish(undefined);
-        }
-      }
-    );
-
-    cancellationToken?.onCancellationRequested(() => {
-      child.kill();
-      finish(undefined);
-    });
-
-    if (child.stdin) {
-      child.stdin.end(document.getText());
-    }
-  });
-}
-
-function definitionSnapshotForPosition(document, position, context, cancellationToken) {
-  return new Promise((resolve) => {
-    if (!isEngDocument(document)) {
-      resolve(undefined);
-      return;
-    }
-
-    const runtime = findLspRuntime(context, document);
-    const cwd = workspaceRoot(document);
-    let settled = false;
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(value);
-    };
-
-    const child = cp.execFile(
-      runtime,
-      [
-        "--definition-stdin",
-        document.uri.fsPath,
-        String(position.line),
-        String(position.character)
-      ],
-      { cwd, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (stderr && stderr.trim().length > 0) {
-          output.appendLine(stderr.trim());
-        }
-        if (error) {
-          output.appendLine(`Definition lookup failed: ${error.message}`);
-          finish(undefined);
-          return;
-        }
-        try {
-          finish(JSON.parse(stdout));
-        } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang definition data: ${parseError.message}`);
-          finish(undefined);
-        }
-      }
-    );
-
-    cancellationToken?.onCancellationRequested(() => {
-      child.kill();
-      finish(undefined);
-    });
-
-    if (child.stdin) {
-      child.stdin.end(document.getText());
-    }
-  });
-}
-
-function formatDocumentSource(document, context, cancellationToken) {
-  return new Promise((resolve) => {
-    if (!isEngDocument(document)) {
-      resolve(undefined);
-      return;
-    }
-
-    const runtime = findLspRuntime(context, document);
-    const cwd = workspaceRoot(document);
-    let settled = false;
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(value);
-    };
-
-    const child = cp.execFile(
-      runtime,
-      ["--format-stdin", document.uri.fsPath],
-      { cwd, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (stderr && stderr.trim().length > 0) {
-          output.appendLine(stderr.trim());
-        }
-        if (error) {
-          output.appendLine(`formatting failed: ${error.message}`);
-          finish(undefined);
-          return;
-        }
-        try {
-          finish(JSON.parse(stdout));
-        } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang formatting result: ${parseError.message}`);
-          finish(undefined);
-        }
-      }
-    );
-
-    cancellationToken?.onCancellationRequested(() => {
-      child.kill();
-      finish(undefined);
-    });
-
-    if (child.stdin) {
-      child.stdin.end(document.getText());
-    }
-  });
-}
-
-function codeActionsForDocumentSource(document, context, cancellationToken) {
-  return new Promise((resolve) => {
-    if (!isEngDocument(document)) {
-      resolve(undefined);
-      return;
-    }
-
-    const runtime = findLspRuntime(context, document);
-    const cwd = workspaceRoot(document);
-    let settled = false;
-    const finish = (value) => {
-      if (settled) {
-        return;
-      }
-      settled = true;
-      resolve(value);
-    };
-
-    const child = cp.execFile(
-      runtime,
-      ["--code-actions-stdin", document.uri.fsPath],
-      { cwd, maxBuffer: 10 * 1024 * 1024 },
-      (error, stdout, stderr) => {
-        if (stderr && stderr.trim().length > 0) {
-          output.appendLine(stderr.trim());
-        }
-        if (error) {
-          output.appendLine(`code action lookup failed: ${error.message}`);
-          finish(undefined);
-          return;
-        }
-        try {
-          finish(JSON.parse(stdout));
-        } catch (parseError) {
-          output.appendLine(`Unable to parse EngLang code actions: ${parseError.message}`);
-          finish(undefined);
-        }
-      }
-    );
-
-    cancellationToken?.onCancellationRequested(() => {
-      child.kill();
-      finish(undefined);
-    });
-
-    if (child.stdin) {
-      child.stdin.end(document.getText());
-    }
-  });
 }
 
 function appendOutputLine(message) {

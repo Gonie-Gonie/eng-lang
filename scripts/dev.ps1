@@ -1921,6 +1921,7 @@ function Assert-VscodeExtensionContract {
     $LspKindsPath = Join-Path $ExtensionRoot "lspKinds.js"
     $LspNavigationPath = Join-Path $ExtensionRoot "lspNavigation.js"
     $LspRangesPath = Join-Path $ExtensionRoot "lspRanges.js"
+    $LspRequestsPath = Join-Path $ExtensionRoot "lspRequests.js"
     $LspSemanticTokensPath = Join-Path $ExtensionRoot "lspSemanticTokens.js"
     $ArtifactRegistryPath = Join-Path $ExtensionRoot "artifactRegistry.js"
     $EditorMetadataLoaderPath = Join-Path $ExtensionRoot "editorMetadata.js"
@@ -1991,6 +1992,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not (Test-Path $LspRangesPath)) {
         throw "missing VS Code LSP range bridge at $LspRangesPath"
+    }
+    if (-not (Test-Path $LspRequestsPath)) {
+        throw "missing VS Code LSP request bridge at $LspRequestsPath"
     }
     if (-not (Test-Path $LspSemanticTokensPath)) {
         throw "missing VS Code LSP semantic token bridge at $LspSemanticTokensPath"
@@ -2372,6 +2376,7 @@ function Assert-VscodeExtensionContract {
     $LspKindsSource = Get-Content -LiteralPath $LspKindsPath -Raw
     $LspNavigationSource = Get-Content -LiteralPath $LspNavigationPath -Raw
     $LspRangesSource = Get-Content -LiteralPath $LspRangesPath -Raw
+    $LspRequestsSource = Get-Content -LiteralPath $LspRequestsPath -Raw
     $LspSemanticTokensSource = Get-Content -LiteralPath $LspSemanticTokensPath -Raw
     $ArtifactRegistrySource = Get-Content -LiteralPath $ArtifactRegistryPath -Raw
     $EditorMetadataLoaderSource = Get-Content -LiteralPath $EditorMetadataLoaderPath -Raw
@@ -2521,6 +2526,10 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
+    $LspRequestSourceCombined = $ExtensionSource + "`n" + $LspRequestsSource
+    if (-not $ExtensionSource.Contains('require("./lspRequests")') -or -not $LspRequestsSource.Contains("function createLspRequests")) {
+        throw "VS Code extension must load LSP request helpers from lspRequests.js"
+    }
     foreach ($RequiredSnapshotReuseToken in @(
         "const snapshotPromiseCache = new Map();",
         "const cached = snapshotPromiseCache.get(key);",
@@ -2530,22 +2539,22 @@ function Assert-VscodeExtensionContract {
         "document.version !== documentVersion",
         "snapshotPromiseCache.delete(key)"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredSnapshotReuseToken)) {
+        if (-not $LspRequestsSource.Contains($RequiredSnapshotReuseToken)) {
             throw "VS Code extension missing shared LSP snapshot reuse token $RequiredSnapshotReuseToken"
         }
     }
-    if (-not $ExtensionSource.Contains("clearSnapshotCache,") -or -not $DiagnosticsProviderSource.Contains("this.clearSnapshotCache(document)") -or ([regex]::Matches($DiagnosticsSource, [regex]::Escape("clearSnapshotCache(document)"))).Count -lt 3) {
+    if (-not $ExtensionSource.Contains("clearSnapshotCache: lspRequests.clearSnapshotCache") -or -not $DiagnosticsProviderSource.Contains("this.clearSnapshotCache(document)") -or -not $LspRequestsSource.Contains("function clearSnapshotCache(document)")) {
         throw "VS Code extension must clear shared LSP snapshot cache on document changes and close"
     }
     foreach ($RequiredLiveEditorOutputToken in @(
         "Live editor check failed:",
         "Unable to parse EngLang live editor data:",
-        "Completion lookup failed:",
-        "Unable to parse EngLang completion data:",
-        "Definition lookup failed:",
-        "Unable to parse EngLang definition data:"
+        "Completion lookup failed",
+        "Unable to parse EngLang completion data",
+        "Definition lookup failed",
+        "Unable to parse EngLang definition data"
     )) {
-        if (-not $ExtensionSource.Contains($RequiredLiveEditorOutputToken)) {
+        if (-not $LspRequestsSource.Contains($RequiredLiveEditorOutputToken)) {
             throw "VS Code extension missing user-facing live editor output token $RequiredLiveEditorOutputToken"
         }
     }
@@ -2557,8 +2566,22 @@ function Assert-VscodeExtensionContract {
         "definition snapshot failed:",
         "Unable to parse EngLang definition snapshot:"
     )) {
-        if ($ExtensionSource.Contains($ForbiddenLiveEditorOutputToken)) {
+        if ($LspRequestSourceCombined.Contains($ForbiddenLiveEditorOutputToken)) {
             throw "VS Code extension output must use live editor wording, not $ForbiddenLiveEditorOutputToken"
+        }
+    }
+    foreach ($ForbiddenLspRequestEntrypointToken in @(
+        "function snapshotDocumentSource",
+        "function workspaceSymbolsForQuery",
+        "function workspaceSymbolsForFolder",
+        "function completionSnapshotForPosition",
+        "function definitionSnapshotForPosition",
+        "function formatDocumentSource",
+        "function codeActionsForDocumentSource",
+        "function snapshotCacheKey"
+    )) {
+        if ($ExtensionSource.Contains($ForbiddenLspRequestEntrypointToken)) {
+            throw "VS Code extension must keep LSP subprocess request helpers in lspRequests.js"
         }
     }
     $HoverSource = $ExtensionSource + "`n" + $HoverProviderSource
@@ -2592,7 +2615,7 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
     }
-    $CompletionSource = $ExtensionSource + "`n" + $CompletionProviderSource
+    $CompletionSource = $ExtensionSource + "`n" + $CompletionProviderSource + "`n" + $LspRequestsSource
     if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $CompletionProviderSource.Contains("completion.lsp_kind")) {
         throw "VS Code extension must use generated completion seed metadata as the completion fallback"
     }
@@ -2688,7 +2711,7 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing semantic symbol decoration token $RequiredSemanticSymbolDecorationToken"
         }
     }
-    $NavigationSource = $ExtensionSource + "`n" + $NavigationProvidersSource + "`n" + $LspNavigationSource
+    $NavigationSource = $ExtensionSource + "`n" + $NavigationProvidersSource + "`n" + $LspNavigationSource + "`n" + $LspRequestsSource
     foreach ($RequiredDefinitionToken in @(
         "registerDefinitionProvider",
         "EngDefinitionProvider",
@@ -2722,7 +2745,7 @@ function Assert-VscodeExtensionContract {
     if (-not $NavigationProvidersSource.Contains('require("./lspNavigation")') -or -not $NavigationProvidersSource.Contains("workspaceSymbolInformationFromLsp") -or -not $NavigationProvidersSource.Contains("documentSymbolsFromSnapshot") -or -not $NavigationProvidersSource.Contains("definitionLocationFromLsp")) {
         throw "VS Code navigation providers must reuse shared LSP navigation conversion"
     }
-    $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource
+    $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource + "`n" + $LspRequestsSource
     foreach ($RequiredFormattingToken in @(
         "registerDocumentFormattingEditProvider",
         "EngFormattingProvider",
@@ -2761,7 +2784,7 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("class EngFoldingRangeProvider") -or $ExtensionSource.Contains("function foldingRangesFromSnapshot") -or $ExtensionSource.Contains("function foldingRangeFromSnapshot")) {
         throw "VS Code extension must keep folding provider helpers in foldingRangeProvider.js"
     }
-    $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource
+    $QuickFixSource = $ExtensionSource + "`n" + $CodeActionProviderSource + "`n" + $LocalCodeActionsSource + "`n" + $LspCodeActionsSource + "`n" + $LspRequestsSource
     foreach ($RequiredQuickFixToken in @(
         "registerCodeActionsProvider",
         "--code-actions-stdin",
@@ -3037,6 +3060,7 @@ function Assert-VscodeExtensionContract {
             Invoke-Native $Node.Source "--check" $LspKindsPath
             Invoke-Native $Node.Source "--check" $LspNavigationPath
             Invoke-Native $Node.Source "--check" $LspRangesPath
+            Invoke-Native $Node.Source "--check" $LspRequestsPath
             Invoke-Native $Node.Source "--check" $LspSemanticTokensPath
             Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
             Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
@@ -4174,6 +4198,9 @@ function Invoke-PackageSmoke {
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspRanges.js"))) {
             throw "portable package did not include VS Code LSP range bridge"
+        }
+        if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspRequests.js"))) {
+            throw "portable package did not include VS Code LSP request bridge"
         }
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\lspSemanticTokens.js"))) {
             throw "portable package did not include VS Code LSP semantic token bridge"

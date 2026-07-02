@@ -3432,6 +3432,18 @@ normal formatted code.
   named arguments keep the same contextual suggestions as single-line calls.
 - Added regression coverage for multi-line uncertainty and model helper calls.
 
+## Batch 278: VS Code LSP Request Split
+
+Status: implemented while continuing the VS Code thin-client split.
+
+- Moved live editor snapshot, completion, definition, formatting, code-action,
+  and workspace-symbol subprocess calls into `lspRequests.js`.
+- Kept `extension.js` focused on command/provider wiring while the LSP request
+  bridge owns snapshot promise reuse, cancellation, stdin payloads, and
+  user-facing live-editor error wording.
+- Extended extension and portable-package contract checks so LSP request
+  helpers stay packaged and do not drift back into `extension.js`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
