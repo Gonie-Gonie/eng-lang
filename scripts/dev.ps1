@@ -1816,6 +1816,9 @@ function Assert-VscodeExtensionContract {
     $SemanticLegendPath = Join-Path $ExtensionRoot "generated\editor\englang-semantic-legend.json"
     $CompletionsPath = Join-Path $ExtensionRoot "generated\editor\englang-completions.json"
     $TokenScopesDocPath = Join-Path $RepoRoot "docs\internal\editor\token_scopes.md"
+    $DevScriptPath = Join-Path $RepoRoot "scripts\dev.ps1"
+    $VscodeReadmePath = Join-Path $ExtensionRoot "README.md"
+    $NativeIdeHowtoPath = Join-Path $RepoRoot "docs\user\howto\use_native_ide.md"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
@@ -1852,10 +1855,18 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $TokenScopesDocPath)) {
         throw "missing editor token scope contract at $TokenScopesDocPath"
     }
+    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath)) {
+        if (-not (Test-Path $RequiredDocPath)) {
+            throw "missing VS Code install contract input at $RequiredDocPath"
+        }
+    }
 
     $PackageSource = Get-Content -LiteralPath $PackageJsonPath -Raw
     $Package = $PackageSource | ConvertFrom-Json
     $TokenScopesDoc = Get-Content -LiteralPath $TokenScopesDocPath -Raw
+    $DevScriptSource = Get-Content -LiteralPath $DevScriptPath -Raw
+    $VscodeReadmeSource = Get-Content -LiteralPath $VscodeReadmePath -Raw
+    $NativeIdeHowtoSource = Get-Content -LiteralPath $NativeIdeHowtoPath -Raw
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -1888,6 +1899,29 @@ function Assert-VscodeExtensionContract {
     $LanguageConfiguration = Get-Content -LiteralPath $LanguageConfigurationPath -Raw | ConvertFrom-Json
     if ($LanguageConfiguration.comments.lineComment -ne "#") {
         throw "VS Code extension language configuration must keep # as line comment"
+    }
+    foreach ($RequiredVscodeInstallPattern in @(
+        '(?m)^\s+"vscode-package"\s*\{\s*Invoke-VscodePackage\s*\}',
+        '(?m)^\s+"vscode-install"\s*\{\s*Invoke-VscodeInstall\s*\}',
+        '(?m)^\s+\.\\dev\.bat vscode-package Build a local installable VS Code extension VSIX\s*$',
+        '(?m)^\s+\.\\dev\.bat vscode-install Build and install the EngLang VS Code extension with the code CLI\s*$'
+    )) {
+        if ($DevScriptSource -notmatch $RequiredVscodeInstallPattern) {
+            throw "dev wrapper missing VS Code local install contract pattern $RequiredVscodeInstallPattern"
+        }
+    }
+    foreach ($RequiredVscodeInstallDocToken in @(
+        ".\dev.bat vscode-install",
+        ".\dev.bat vscode-package",
+        "dist\local-vscode\tools\englang-vscode-<version>.vsix",
+        "Extensions: Install from VSIX..."
+    )) {
+        if (-not $VscodeReadmeSource.Contains($RequiredVscodeInstallDocToken)) {
+            throw "VS Code README missing local install token $RequiredVscodeInstallDocToken"
+        }
+        if (-not $NativeIdeHowtoSource.Contains($RequiredVscodeInstallDocToken)) {
+            throw "native IDE how-to missing VS Code install token $RequiredVscodeInstallDocToken"
+        }
     }
     $DocCommentEnterRule = @($LanguageConfiguration.onEnterRules) | Where-Object {
         $_.beforeText -eq "^\s*///.*$" -and $_.action.appendText -eq "/// "

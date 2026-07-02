@@ -1968,6 +1968,18 @@ repeatable source-checkout workflow.
 - Updated VS Code extension and user IDE docs with the source checkout install
   path and manual VSIX fallback.
 
+## Batch 161: VS Code Install Contract Guard
+
+Status: implemented to keep the local VS Code packaging/install workflow from
+regressing after the source-checkout installer was added.
+
+- Extended `ide-check` to require `vscode-package` and `vscode-install` switch
+  entries plus help text in `scripts/dev.ps1`.
+- Extended the same contract check to require source-install instructions in
+  both the VS Code extension README and native IDE how-to page.
+- Kept the guard text-specific so missing install commands, hidden help output,
+  or stale docs fail the existing editor contract gate.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
