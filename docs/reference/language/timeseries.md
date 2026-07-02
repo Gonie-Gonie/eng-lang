@@ -45,7 +45,7 @@ E_coil
 }
 ```
 
-Promoted CSV tables also expose the schema index as an axis seed:
+Promoted CSV tables also expose the schema index as an axis source:
 
 ```json
 {

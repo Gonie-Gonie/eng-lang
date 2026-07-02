@@ -3135,6 +3135,17 @@ made the native surrogate example sound like it executed an external simulator.
 - Updated smoke failure text and expected artifact summaries to avoid
   external-process or opaque-tool implications.
 
+## Batch 253: Public Seed Wording Cleanup
+
+Status: implemented after scanning current public docs for seed wording that
+did not describe deterministic sampling.
+
+- Reworded TimeSeries axis provenance from an axis seed to an axis source.
+- Reworded the completion philosophy rule from implementation seeds to
+  implementation evidence.
+- Left deterministic sampling `seed` wording unchanged where it is the public
+  reproducibility API.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

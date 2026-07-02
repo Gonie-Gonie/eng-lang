@@ -252,4 +252,4 @@ documentation
 release note or maturity entry
 ```
 
-Public claims must stay narrower than implementation seeds on `main`.
+Public claims must stay narrower than implementation evidence on `main`.
