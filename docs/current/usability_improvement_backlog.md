@@ -3803,6 +3803,17 @@ uncertainty support.
 - Updated stdlib reference docs, feature maturity docs, registry tests, and LSP
   completion status coverage so the public wording stays consistent.
 
+## Batch 307: Examples Index Seed Wording Cleanup
+
+Status: implemented to remove stale implementation-style wording from the
+public examples index.
+
+- Reworded the official process example from an "External process seed" to an
+  "External process surface" so the examples index describes supported
+  ProcessResult behavior instead of an implementation placeholder.
+- Added a docs-check guard that rejects the stale phrase in `examples/README.md`
+  and requires the current ProcessResult/process_results wording.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

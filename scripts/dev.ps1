@@ -942,6 +942,31 @@ function Test-StdlibReferenceDocs {
     Write-Host "Stdlib reference docs wording check passed."
 }
 
+function Test-ExamplesReferenceDocs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $ExamplesReadmePath
+    )
+
+    if (-not (Test-Path -LiteralPath $ExamplesReadmePath -PathType Leaf)) {
+        throw "missing examples README at $ExamplesReadmePath"
+    }
+
+    $text = Get-Content -LiteralPath $ExamplesReadmePath -Raw -Encoding UTF8
+    foreach ($stalePhrase in @("External process seed", "implementation seed")) {
+        if ($text.Contains($stalePhrase)) {
+            throw "examples README still contains stale phrase: $stalePhrase"
+        }
+    }
+    foreach ($requiredPhrase in @("External process surface", "ProcessResult", "process_results.json")) {
+        if (-not $text.Contains($requiredPhrase)) {
+            throw "examples README missing required process example phrase: $requiredPhrase"
+        }
+    }
+
+    Write-Host "Examples README wording check passed."
+}
+
 function Convert-ModuleRegistryStatusLabel {
     param([string] $Status)
     switch ($Status) {
@@ -1030,6 +1055,8 @@ function Invoke-DocsCheck {
         -WorkflowDocsPath (Join-Path $RepoRoot "docs\current\workflow_modules.md")
     Test-StdlibReferenceDocs `
         -ReferencePath (Join-Path $RepoRoot "docs\reference\stdlib\index.md")
+    Test-ExamplesReferenceDocs `
+        -ExamplesReadmePath (Join-Path $RepoRoot "examples\README.md")
 
     $checked = 0
     $skipped = 0
