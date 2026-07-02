@@ -534,7 +534,7 @@
         "englang.lintOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "Update EngLang diagnostics for unsaved .eng buffers after a short typing pause."
+          "description": "When Problems source is live, update EngLang diagnostics for unsaved .eng buffers after a short typing pause."
         },
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",

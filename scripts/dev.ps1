@@ -2489,6 +2489,9 @@ function Assert-VscodeExtensionContract {
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
         throw "VS Code lintOnChange description must avoid editor-service implementation details"
     }
+    if (-not $LintOnChangeDescription.Contains("Problems source is live")) {
+        throw "VS Code lintOnChange description must say it applies when Problems source is live"
+    }
     $LspPathDescription = [string]$Properties."englang.lspPath".description
     if ($LspPathDescription -match "editor service") {
         throw "VS Code lspPath description must describe live editor features instead of editor-service internals"
