@@ -427,6 +427,24 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.apply-call.englang",
+    "text": "apply(case_input_template, over=cases)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "entity.name.function.workflow-step.englang",
+    "text": "case_input_template",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.local.englang",
+    "text": "cases",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "run_case",
     "fullMatch": true

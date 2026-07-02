@@ -413,6 +413,36 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.apply-call.englang",
+                                                                    "match":  "\\b(apply)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(,)\\s*(over)\\s*(=)\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "punctuation.section.parens.begin.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "entity.name.function.workflow-step.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "punctuation.separator.comma.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "keyword.operator.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "punctuation.section.parens.end.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.apply-step.englang",
                                                                     "match":  "\\b(apply)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(over)\\b",
                                                                     "captures":  {

@@ -1902,6 +1902,19 @@ native apply-over-cases workflow step.
 - Added LSP with-block option completion labels for `apply` template/output
   settings so editor guidance matches the new workflow API surface.
 
+## Batch 156: Canonical Apply Highlighting
+
+Status: implemented to make lowered/native workflow apply calls color
+consistently in VS Code before semantic tokens arrive.
+
+- Added a dedicated TextMate phrase scope for
+  `apply(<step>, over=<table>)`, matching the canonical expression form exposed
+  by compiler lowering and runtime result data.
+- Added grammar fixture coverage for `apply(case_input_template, over=cases)`
+  so the workflow step name and case-table reference stay visibly scoped.
+- Documented the new scope and the local-binding reference scope used inside
+  workflow phrases in `docs/internal/editor/token_scopes.md`.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

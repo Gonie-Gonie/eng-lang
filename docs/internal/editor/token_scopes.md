@@ -61,6 +61,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `constant.other.unit*.englang` | Unit literals. |
 | `constant.language.englang` | Language constants and uncertainty/fallback words. |
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
+| `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
 | `meta.declaration.field.englang` | Field declarations written with `name:`. |
 | `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
 | `variable.other.definition.englang` | Runtime binding names written with `name = ...`. |
@@ -80,6 +81,7 @@ Current workflow phrase scopes:
 
 | Scope | Phrase |
 | --- | --- |
+| `meta.workflow.apply-call.englang` | `apply(<step>, over=<table>)` |
 | `meta.workflow.apply-step.englang` | `apply <step> over ...` |
 | `meta.workflow.check-coverage.englang` | `check coverage` |
 | `meta.workflow.collect-results.englang` | `collect results` |
