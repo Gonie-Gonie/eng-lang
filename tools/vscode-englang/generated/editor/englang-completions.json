@@ -1641,7 +1641,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Pinned offline HTTP GET and download boundary records with redacted Secret[T] query values and artifact summaries.",
+                                "detail":  "Native workflow support: Live http:// GET/download execution plus pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries; live HTTPS currently requires fixture/cache in this build.",
                                 "kind":  "stdlib",
                                 "label":  "eng.net",
                                 "lsp_kind":  9

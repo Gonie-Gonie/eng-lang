@@ -2474,6 +2474,22 @@ display-only.
 - Cleaned workflow 02 expected docs to reflect eight generated case inputs and
   the args-backed SQLite boundary.
 
+## Batch 202: Live HTTP Runtime Boundary
+
+Status: implemented for native live `http://` GET/download execution while
+preserving pinned fixture/cache workflows.
+
+- Allowed fixture-less `response.body` JSON sources to compile as runtime-bound
+  sources and resolve once the runtime materializes the HTTP response body.
+- Added runtime live `http://` request/download execution with retry, timeout,
+  body-size limit, SHA-256 verification, cache hit replay, and
+  review/run-log/output manifest integration.
+- Added regression coverage for live HTTP response-body JSON promotion and
+  cache replay without Python or `run command`.
+- Kept live `https://` behind explicit `E-NET-TLS-UNAVAILABLE` behavior in
+  this local build because available TLS backends need missing Windows GNU
+  tooling; pinned HTTPS fixture/cache workflows remain supported.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
@@ -2490,9 +2506,9 @@ display-only.
 - Cache replay/invalidation: network fixture cache materialization/replay is
   implemented with hash checks; broader process/model replay and explicit
   invalidation remain to be designed around artifact safety.
-- Live network execution: current network support is fixture/offline-first;
-  add live HTTP only with timeout, retry, body limit, secret redaction, and
-  reproducible pinning policy.
+- Live network execution: live `http://` GET/download is implemented with
+  timeout, retry, body limit, SHA-256 verification, and cache replay; package a
+  TLS backend for live `https://` and broaden request body/auth policy.
 - Model training surface: current native prediction table exists; broaden
   training syntax only after model-card and feature/target contracts stay
   stable across examples.

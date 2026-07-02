@@ -107,6 +107,7 @@ struct RawConfigSource {
     format: String,
     source_value: String,
     resolved_path: PathBuf,
+    runtime_bound: bool,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -331,20 +332,30 @@ pub fn analyze_schema(
                 };
                 let source_value = raw_source.source_value.clone();
                 let resolved_path = raw_source.resolved_path.clone();
-                match read_json_records_header(&resolved_path, records_field) {
-                    Ok(json) => {
-                        headers = json.headers;
-                        row_count = json.row_count;
-                        source_hash = Some(json.source_hash);
+                if raw_source.runtime_bound {
+                    if let Some(schema) = schema {
+                        headers = schema
+                            .columns
+                            .iter()
+                            .map(|column| column.name.clone())
+                            .collect();
                     }
-                    Err(error) => diagnostics.push(Diagnostic::error(
-                        "E-SCHEMA-JSON-001",
-                        binding.line,
-                        &format!(
-                            "Cannot read JSON records source `{source_literal}` from `{source_value}`: {error}."
-                        ),
-                        Some("Check that the JSON path resolves to an array of record objects."),
-                    )),
+                } else {
+                    match read_json_records_header(&resolved_path, records_field) {
+                        Ok(json) => {
+                            headers = json.headers;
+                            row_count = json.row_count;
+                            source_hash = Some(json.source_hash);
+                        }
+                        Err(error) => diagnostics.push(Diagnostic::error(
+                            "E-SCHEMA-JSON-001",
+                            binding.line,
+                            &format!(
+                                "Cannot read JSON records source `{source_literal}` from `{source_value}`: {error}."
+                            ),
+                            Some("Check that the JSON path resolves to an array of record objects."),
+                        )),
+                    }
                 }
                 (source_value, resolved_path)
             }
@@ -486,19 +497,24 @@ pub fn analyze_schema(
         let mut fields = Vec::new();
         let mut status = "validated".to_owned();
 
-        match read_config_fields(&format, &resolved_path) {
-            Ok(config) => {
-                source_hash = Some(config.source_hash);
-                fields = config.fields;
-            }
-            Err(error) => {
-                status = "source_error".to_owned();
-                diagnostics.push(Diagnostic::error(
-                    "E-CONFIG-SOURCE-001",
-                    binding.line,
-                    &format!("Cannot read config source `{source_value}`: {error}."),
-                    Some("Check that the path is relative to the .eng source file and is valid UTF-8."),
-                ));
+        let runtime_bound = raw_source.is_some_and(|source| source.runtime_bound);
+        if runtime_bound {
+            status = "runtime_pending".to_owned();
+        } else {
+            match read_config_fields(&format, &resolved_path) {
+                Ok(config) => {
+                    source_hash = Some(config.source_hash);
+                    fields = config.fields;
+                }
+                Err(error) => {
+                    status = "source_error".to_owned();
+                    diagnostics.push(Diagnostic::error(
+                        "E-CONFIG-SOURCE-001",
+                        binding.line,
+                        &format!("Cannot read config source `{source_value}`: {error}."),
+                        Some("Check that the path is relative to the .eng source file and is valid UTF-8."),
+                    ));
+                }
             }
         }
 
@@ -506,9 +522,13 @@ pub fn analyze_schema(
             .iter()
             .map(|field| field.name.clone())
             .collect::<Vec<_>>();
-        let validation = schema
-            .map(|schema| config_schema_validation(schema, &schemas, &fields, ""))
-            .unwrap_or_default();
+        let validation = if runtime_bound {
+            ConfigValidation::default()
+        } else {
+            schema
+                .map(|schema| config_schema_validation(schema, &schemas, &fields, ""))
+                .unwrap_or_default()
+        };
         let ConfigValidation {
             missing_fields,
             unknown_fields,
@@ -723,7 +743,7 @@ fn collect_raw_config_sources(
     arg_values: &[ArgValueInfo],
 ) -> HashMap<String, RawConfigSource> {
     let mut sources = HashMap::new();
-    let response_body_sources = response_body_fixture_sources(program, source_base, arg_values);
+    let response_body_sources = response_body_sources(program, source_base, arg_values);
     for item in &program.items {
         let AstItem::FastBinding(binding) = item else {
             continue;
@@ -742,8 +762,9 @@ fn collect_raw_config_sources(
                 binding.name.clone(),
                 RawConfigSource {
                     format: format.to_owned(),
-                    resolved_path: resolved_path.clone(),
+                    resolved_path: resolved_path.resolved_path.clone(),
                     source_value: path_expression.trim().to_owned(),
+                    runtime_bound: resolved_path.runtime_bound,
                 },
             );
             continue;
@@ -757,17 +778,24 @@ fn collect_raw_config_sources(
                 format: format.to_owned(),
                 resolved_path: resolve_source_path(source_base, &source_value),
                 source_value,
+                runtime_bound: false,
             },
         );
     }
     sources
 }
 
-pub(crate) fn response_body_fixture_sources(
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct ResponseBodySource {
+    resolved_path: PathBuf,
+    runtime_bound: bool,
+}
+
+fn response_body_sources(
     program: &crate::parser::ParsedProgram,
     source_base: Option<&Path>,
     arg_values: &[ArgValueInfo],
-) -> HashMap<String, PathBuf> {
+) -> HashMap<String, ResponseBodySource> {
     let mut sources = HashMap::new();
     for item in &program.items {
         let AstItem::FastBinding(binding) = item else {
@@ -778,17 +806,36 @@ pub(crate) fn response_body_fixture_sources(
         {
             continue;
         }
-        let Some(fixture_expression) = with_option_value(program, binding.line, "fixture") else {
-            continue;
-        };
-        let Ok(fixture_value) = resolve_source_value(fixture_expression, arg_values) else {
-            continue;
-        };
-        let resolved_path = resolve_source_path(source_base, &fixture_value);
-        sources.insert(format!("{}.body", binding.name), resolved_path.clone());
-        sources.insert(format!("{}.text", binding.name), resolved_path);
+        let source =
+            if let Some(fixture_expression) = with_option_value(program, binding.line, "fixture") {
+                let Ok(fixture_value) = resolve_source_value(fixture_expression, arg_values) else {
+                    continue;
+                };
+                ResponseBodySource {
+                    resolved_path: resolve_source_path(source_base, &fixture_value),
+                    runtime_bound: false,
+                }
+            } else {
+                ResponseBodySource {
+                    resolved_path: PathBuf::from(format!("runtime:{}.body", binding.name)),
+                    runtime_bound: true,
+                }
+            };
+        sources.insert(format!("{}.body", binding.name), source.clone());
+        sources.insert(format!("{}.text", binding.name), source);
     }
     sources
+}
+
+pub(crate) fn response_body_fixture_sources(
+    program: &crate::parser::ParsedProgram,
+    source_base: Option<&Path>,
+    arg_values: &[ArgValueInfo],
+) -> HashMap<String, PathBuf> {
+    response_body_sources(program, source_base, arg_values)
+        .into_iter()
+        .filter_map(|(key, source)| (!source.runtime_bound).then_some((key, source.resolved_path)))
+        .collect()
 }
 
 fn with_option_value<'a>(

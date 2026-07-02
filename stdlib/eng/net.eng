@@ -9,23 +9,27 @@
 #   with query fields, retry, cache, timeout, status_code, expected_sha256
 #
 # Current implementation:
-#   records offline/fixture network boundaries in review.json, result.engres,
-#   run_log.json, and output_manifest.json. Query values using `secret env(...)`
-#   or Args fields typed as `Secret[T]` are redacted in artifacts. `retry`
-#   accepts integer retry counts from 0 to 5, `timeout` accepts positive
-#   finite durations with ms/s/min/h units, and `body_size_limit` /
-#   `response_body_limit` accept positive byte sizes with B/KB/MB/GB or
-#   KiB/MiB/GiB units. Offline fixture response hashes are SHA-256 values and
-#   `expected_sha256` is checked when provided. Fixture-backed `http get`
-#   bindings expose `.body`, `.status`, `.status_code`, `.status_class`,
-#   `.response_hash`, `.hash`, and `.url` fields for downstream native
-#   workflow steps. The runtime does not perform live HTTP requests yet. The
-#   repro profile rejects unpinned network boundaries that lack fixture or
-#   expected_sha256.
+#   records pinned offline/fixture and live `http://` network boundaries in
+#   review.json, result.engres, run_log.json, and output_manifest.json. Query
+#   values using `secret env(...)` or Args fields typed as `Secret[T]` are
+#   redacted in artifacts. `retry` accepts integer retry counts from 0 to 5,
+#   `timeout` accepts positive finite durations with ms/s/min/h units, and
+#   `body_size_limit` / `response_body_limit` accept positive byte sizes with
+#   B/KB/MB/GB or KiB/MiB/GiB units. Pinned offline fixture and live `http://`
+#   response hashes are SHA-256 values and `expected_sha256` is checked when
+#   provided. Fixture-backed and live `http get` bindings expose `.body`,
+#   `.status`, `.status_code`, `.status_class`, `.response_hash`, `.hash`, and
+#   `.url` fields for downstream native workflow steps. Live `http://`
+#   requests/downloads materialize response or target files with retry,
+#   timeout, body-size-limit, expected-hash, cache miss materialization, and
+#   cache replay support. Live `https://` currently needs a packaged TLS
+#   backend in this local build; use pinned fixtures or cache replay for HTTPS
+#   boundaries. The repro profile rejects unpinned network boundaries that lack
+#   fixture or expected_sha256.
 #
 # Planned helper vocabulary:
-#   live HTTP execution
-#   cache integration
+#   packaged TLS backend for live HTTPS
+#   broader request methods, request bodies, and cache invalidation API
 #
 # Review contract:
 #   method, URL, query, headers policy, cache key, expected hash, observed hash,

@@ -3,6 +3,7 @@ use std::env;
 use std::error::Error;
 use std::fmt;
 use std::fs;
+use std::io::Read;
 use std::path::{Component, Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::thread;
@@ -438,7 +439,7 @@ pub fn run_source(
     build_root: &Path,
     options: &RunOptions,
 ) -> Result<RunOutput, RuntimeError> {
-    let check_report = check_source(
+    let mut check_report = check_source(
         path,
         source,
         &CheckOptions {
@@ -558,6 +559,13 @@ pub fn run_source(
         fs::write(&static_run_plan_path, &static_run_plan_json)?;
     }
 
+    let preliminary_runtime_data = materialize_runtime_data(&check_report, source);
+    execute_live_network_boundaries(
+        &mut check_report,
+        &preliminary_runtime_data,
+        &result_dir,
+        build_root,
+    )?;
     let bytecode = build_bytecode(&check_report, source);
     let bytecode_hash = hash_text(&bytecode);
     let bytecode_program = parse_bytecode(&bytecode)?;
@@ -1727,6 +1735,684 @@ struct DbManifestTableRecord {
     key: Vec<String>,
     schema: Vec<String>,
     row_count: Option<u64>,
+}
+
+#[derive(Clone, Debug)]
+struct NetworkCacheHit {
+    path: PathBuf,
+    hash: String,
+}
+
+#[derive(Clone, Debug)]
+struct LiveNetworkResponse {
+    body_path: PathBuf,
+    hash: String,
+    status_code: u16,
+    status_class: String,
+    status: String,
+}
+
+fn execute_live_network_boundaries(
+    report: &mut CheckReport,
+    runtime_data: &RuntimeData,
+    result_dir: &Path,
+    build_root: &Path,
+) -> Result<(), RuntimeError> {
+    let cache_hits = network_cache_hits(report, build_root);
+    let request_count = report.semantic_program.net_requests.len();
+    for index in 0..request_count {
+        if report.semantic_program.net_requests[index]
+            .fixture
+            .is_some()
+        {
+            continue;
+        }
+        let request = report.semantic_program.net_requests[index].clone();
+        let response = if let Some(hit) =
+            cache_hits.get(&("network_request".to_owned(), request.binding.clone()))
+        {
+            LiveNetworkResponse {
+                body_path: hit.path.clone(),
+                hash: hit.hash.clone(),
+                status_code: request.status_code.unwrap_or(200),
+                status_class: runtime_http_status_class(request.status_code.or(Some(200)))
+                    .to_owned(),
+                status: "cached".to_owned(),
+            }
+        } else {
+            execute_live_http_request(&request, runtime_data, report, result_dir)?
+        };
+        bind_runtime_network_response(report, &request.binding, response);
+    }
+
+    let download_count = report.semantic_program.net_downloads.len();
+    for index in 0..download_count {
+        if report.semantic_program.net_downloads[index]
+            .fixture
+            .is_some()
+        {
+            continue;
+        }
+        let download = report.semantic_program.net_downloads[index].clone();
+        let target_path_text =
+            evaluate_runtime_output_path_expression(&download.target_value, report)
+                .unwrap_or_else(|| runtime_path_text(download.target_value.clone()));
+        let target_path = export_output_path(result_dir, &target_path_text).ok_or_else(|| {
+            invalid_input(&format!(
+                "E-NET-DOWNLOAD-TARGET: download target `{target_path_text}` is outside the output root"
+            ))
+        })?;
+        let response = if let Some(hit) =
+            cache_hits.get(&("network_download".to_owned(), download.target_value.clone()))
+        {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&hit.path, &target_path)?;
+            LiveNetworkResponse {
+                body_path: target_path.clone(),
+                hash: hit.hash.clone(),
+                status_code: download.status_code.unwrap_or(200),
+                status_class: runtime_http_status_class(download.status_code.or(Some(200)))
+                    .to_owned(),
+                status: "cached".to_owned(),
+            }
+        } else {
+            execute_live_http_download(&download, runtime_data, report, &target_path)?
+        };
+        bind_runtime_network_download(report, &download.target_value, response);
+    }
+
+    Ok(())
+}
+
+fn network_cache_hits(
+    report: &CheckReport,
+    build_root: &Path,
+) -> HashMap<(String, String), NetworkCacheHit> {
+    let mut hits = HashMap::new();
+    for record in &report.semantic_program.cache_records {
+        if !network_cache_owner(&record.owner_kind) {
+            continue;
+        }
+        let path = resolve_cache_path(build_root, &record.cache_path);
+        let Some(hash) = sha256_file_if_exists(&path) else {
+            continue;
+        };
+        if cache_hash_mismatch(record.expected_hash.as_deref(), Some(&hash)) {
+            continue;
+        }
+        hits.insert(
+            (record.owner_kind.clone(), record.owner_name.clone()),
+            NetworkCacheHit { path, hash },
+        );
+    }
+    hits
+}
+
+fn execute_live_http_request(
+    request: &eng_compiler::NetRequestInfo,
+    runtime_data: &RuntimeData,
+    report: &CheckReport,
+    result_dir: &Path,
+) -> Result<LiveNetworkResponse, RuntimeError> {
+    let body = execute_live_http(
+        &request.method,
+        &request.url_value,
+        &request.query,
+        request.line,
+        request.retry.unwrap_or(0),
+        request.timeout.as_deref(),
+        request.body_size_limit_bytes,
+        request.expected_sha256.as_deref(),
+        runtime_data,
+        report,
+    )?;
+    let body_path = result_dir.join("network").join(format!(
+        "{}.body",
+        safe_artifact_file_stem(&request.binding)
+    ));
+    write_network_body(&body_path, &body.body)?;
+    Ok(LiveNetworkResponse {
+        body_path,
+        hash: body.hash,
+        status_code: body.status_code,
+        status_class: body.status_class,
+        status: "live".to_owned(),
+    })
+}
+
+fn execute_live_http_download(
+    download: &eng_compiler::NetDownloadInfo,
+    runtime_data: &RuntimeData,
+    report: &CheckReport,
+    target_path: &Path,
+) -> Result<LiveNetworkResponse, RuntimeError> {
+    let body = execute_live_http(
+        "GET",
+        &download.url_value,
+        &download.query,
+        download.line,
+        download.retry.unwrap_or(0),
+        download.timeout.as_deref(),
+        download.body_size_limit_bytes,
+        download.expected_sha256.as_deref(),
+        runtime_data,
+        report,
+    )?;
+    write_network_body(target_path, &body.body)?;
+    Ok(LiveNetworkResponse {
+        body_path: target_path.to_path_buf(),
+        hash: body.hash,
+        status_code: body.status_code,
+        status_class: body.status_class,
+        status: "live".to_owned(),
+    })
+}
+
+#[derive(Clone, Debug)]
+struct LiveHttpBody {
+    body: Vec<u8>,
+    hash: String,
+    status_code: u16,
+    status_class: String,
+}
+
+fn execute_live_http(
+    method: &str,
+    url: &str,
+    query: &[eng_compiler::NetQueryParam],
+    owner_line: usize,
+    retry: usize,
+    timeout_label: Option<&str>,
+    body_size_limit: Option<usize>,
+    expected_hash: Option<&str>,
+    runtime_data: &RuntimeData,
+    report: &CheckReport,
+) -> Result<LiveHttpBody, RuntimeError> {
+    if url.trim_start().starts_with("https://") {
+        return Err(invalid_input(&format!(
+            "E-NET-TLS-UNAVAILABLE: live HTTPS `{url}` needs a packaged TLS backend; use an offline fixture/cache or an http:// endpoint in this build"
+        )));
+    }
+    let timeout = timeout_label
+        .map(parse_process_timeout_duration)
+        .transpose()?
+        .unwrap_or_else(|| Duration::from_secs(30));
+    let query = live_network_query_pairs(query, runtime_data, report, owner_line)?;
+    let mut last_error = None;
+    for attempt in 0..=retry {
+        match execute_live_http_attempt(method, url, &query, timeout, body_size_limit) {
+            Ok(body) => {
+                if let Some(expected) = expected_hash {
+                    if normalize_cache_hash(expected) != body.hash {
+                        return Err(invalid_input(&format!(
+                            "E-NET-HASH-MISMATCH: live HTTP `{url}` expected SHA256 `{}` but observed `{}`",
+                            normalize_cache_hash(expected),
+                            body.hash
+                        )));
+                    }
+                }
+                return Ok(body);
+            }
+            Err(error) => {
+                last_error = Some(error);
+                if attempt == retry {
+                    break;
+                }
+            }
+        }
+    }
+    Err(last_error.unwrap_or_else(|| invalid_input("E-NET-HTTP-STATUS: live HTTP request failed")))
+}
+
+fn execute_live_http_attempt(
+    method: &str,
+    url: &str,
+    query: &[(String, String)],
+    timeout: Duration,
+    body_size_limit: Option<usize>,
+) -> Result<LiveHttpBody, RuntimeError> {
+    let agent = ureq::AgentBuilder::new().timeout(timeout).build();
+    let mut request = agent.request(method, url);
+    for (key, value) in query {
+        request = request.query(key, value);
+    }
+    let response = request
+        .call()
+        .map_err(|error| live_http_error(url, error))?;
+    let status_code = response.status();
+    let status_class = runtime_http_status_class(Some(status_code)).to_owned();
+    let limit = body_size_limit.unwrap_or(10_000_000);
+    let mut reader = response.into_reader().take(limit as u64 + 1);
+    let mut body = Vec::new();
+    reader.read_to_end(&mut body)?;
+    if body.len() > limit {
+        return Err(invalid_input(&format!(
+            "E-NET-BODY-SIZE-LIMIT: live HTTP `{url}` response exceeded {limit} byte(s)"
+        )));
+    }
+    let hash = sha256_bytes(&body);
+    Ok(LiveHttpBody {
+        body,
+        hash,
+        status_code,
+        status_class,
+    })
+}
+
+fn live_http_error(url: &str, error: ureq::Error) -> RuntimeError {
+    match error {
+        ureq::Error::Status(status, _response) => {
+            let status_class = runtime_http_status_class(Some(status));
+            invalid_input(&format!(
+                "E-NET-HTTP-STATUS: live HTTP `{url}` returned status {status} ({status_class})"
+            ))
+        }
+        ureq::Error::Transport(error) => invalid_input(&format!(
+            "E-NET-HTTP-STATUS: live HTTP `{url}` failed: {error}"
+        )),
+    }
+}
+
+fn runtime_http_status_class(status_code: Option<u16>) -> &'static str {
+    match status_code {
+        Some(100..=199) => "informational",
+        Some(200..=299) => "success",
+        Some(300..=399) => "redirect",
+        Some(400..=499) => "client_error",
+        Some(500..=599) => "server_error",
+        Some(_) | None => "unknown",
+    }
+}
+
+fn live_network_query_pairs(
+    query: &[eng_compiler::NetQueryParam],
+    runtime_data: &RuntimeData,
+    report: &CheckReport,
+    owner_line: usize,
+) -> Result<Vec<(String, String)>, RuntimeError> {
+    query
+        .iter()
+        .map(|param| {
+            let value = if param.redacted {
+                live_secret_query_value(report, owner_line, &param.key)?
+            } else {
+                resolved_network_query_value(param, runtime_data)
+            };
+            Ok((param.key.clone(), value))
+        })
+        .collect()
+}
+
+fn live_secret_query_value(
+    report: &CheckReport,
+    owner_line: usize,
+    key: &str,
+) -> Result<String, RuntimeError> {
+    let raw = report
+        .semantic_program
+        .with_blocks
+        .iter()
+        .find(|block| block.owner_line == Some(owner_line))
+        .and_then(|block| {
+            block
+                .options
+                .iter()
+                .find(|option| option.key == key && option.status == "accepted")
+        })
+        .map(|option| option.value.trim().to_owned())
+        .ok_or_else(|| {
+            invalid_input(&format!(
+                "E-NET-SECRET-LIVE: live HTTP secret query `{key}` cannot be resolved"
+            ))
+        })?;
+    if let Some(env_name) = runtime_secret_env_name(&raw) {
+        return env::var(&env_name).map_err(|_| {
+            invalid_input(&format!(
+                "E-NET-SECRET-LIVE: environment variable `{env_name}` for live HTTP query `{key}` is not set"
+            ))
+        });
+    }
+    if let Some(arg_name) = raw.strip_prefix("args.") {
+        if let Some(default_value) = report
+            .semantic_program
+            .args_blocks
+            .iter()
+            .flat_map(|block| &block.fields)
+            .find(|field| field.name == arg_name.trim())
+            .and_then(|field| field.default_value.as_deref())
+        {
+            if let Some(env_name) = runtime_secret_env_name(default_value) {
+                return env::var(&env_name).map_err(|_| {
+                    invalid_input(&format!(
+                        "E-NET-SECRET-LIVE: environment variable `{env_name}` for live HTTP query `{key}` is not set"
+                    ))
+                });
+            }
+        }
+    }
+    Err(invalid_input(&format!(
+        "E-NET-SECRET-LIVE: live HTTP query `{key}` is redacted; use `secret env(\"NAME\")` or a fixture/cache until secret injection can recover the value safely"
+    )))
+}
+
+fn runtime_secret_env_name(expression: &str) -> Option<String> {
+    let inner = runtime_strip_call_inner(expression.trim().strip_prefix("secret ")?.trim(), "env")?;
+    Some(strip_runtime_string_value(inner))
+}
+
+fn write_network_body(path: &Path, body: &[u8]) -> Result<(), RuntimeError> {
+    if let Some(parent) = path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(path, body)?;
+    Ok(())
+}
+
+fn bind_runtime_network_response(
+    report: &mut CheckReport,
+    binding: &str,
+    response: LiveNetworkResponse,
+) {
+    let body_path = response.body_path.display().to_string();
+    let body_expression = format!("{binding}.body");
+    let text_expression = format!("{binding}.text");
+    if let Some(request) = report
+        .semantic_program
+        .net_requests
+        .iter_mut()
+        .find(|request| request.binding == binding)
+    {
+        request.fixture = Some(body_path.clone());
+        request.response_hash = Some(response.hash.clone());
+        request.status_code = Some(response.status_code);
+        request.status_class = response.status_class.clone();
+        request.status = response.status.clone();
+    }
+    bind_runtime_response_body_source(
+        report,
+        &body_expression,
+        &text_expression,
+        &body_path,
+        &response.hash,
+    );
+}
+
+fn bind_runtime_network_download(
+    report: &mut CheckReport,
+    target_value: &str,
+    response: LiveNetworkResponse,
+) {
+    let body_path = response.body_path.display().to_string();
+    if let Some(download) = report
+        .semantic_program
+        .net_downloads
+        .iter_mut()
+        .find(|download| download.target_value == target_value)
+    {
+        download.fixture = Some(body_path);
+        download.response_hash = Some(response.hash);
+        download.status_code = Some(response.status_code);
+        download.status_class = response.status_class;
+        download.status = response.status;
+    }
+}
+
+fn bind_runtime_response_body_source(
+    report: &mut CheckReport,
+    body_expression: &str,
+    text_expression: &str,
+    body_path: &str,
+    body_hash: &str,
+) {
+    for dependency in &mut report.semantic_program.environment_dependencies {
+        if dependency.resolved_value == format!("runtime:{body_expression}")
+            || dependency.resolved_value == format!("runtime:{text_expression}")
+            || dependency.expression.trim().ends_with(body_expression)
+            || dependency.expression.trim().ends_with(text_expression)
+        {
+            dependency.resolved_value = body_path.to_owned();
+            dependency.source_hash = Some(body_hash.to_owned());
+            dependency.status = "read".to_owned();
+        }
+    }
+    let schemas = report.semantic_program.schemas.clone();
+    for promotion in &mut report.semantic_program.csv_promotions {
+        if promotion.resolved_path == format!("runtime:{body_expression}")
+            || promotion.resolved_path == format!("runtime:{text_expression}")
+            || promotion.source_value == body_expression
+            || promotion.source_value == text_expression
+        {
+            promotion.resolved_path = body_path.to_owned();
+            promotion.source_hash = Some(body_hash.to_owned());
+            refresh_runtime_json_records_promotion(promotion, &schemas);
+        }
+    }
+    let schema_lookup = schemas
+        .iter()
+        .map(|schema| (schema.name.clone(), schema.clone()))
+        .collect::<HashMap<_, _>>();
+    for promotion in &mut report.semantic_program.config_promotions {
+        if promotion.resolved_path == format!("runtime:{body_expression}")
+            || promotion.resolved_path == format!("runtime:{text_expression}")
+            || promotion.source_value == body_expression
+            || promotion.source_value == text_expression
+        {
+            promotion.resolved_path = body_path.to_owned();
+            promotion.source_hash = Some(body_hash.to_owned());
+            refresh_runtime_config_promotion(promotion, &schema_lookup);
+        }
+    }
+}
+
+fn refresh_runtime_json_records_promotion(
+    promotion: &mut eng_compiler::CsvPromotion,
+    schemas: &[eng_compiler::SchemaInfo],
+) {
+    if promotion.source_format != "json_records" {
+        return;
+    }
+    let Some(records_field) = promotion.json_records_field.as_deref() else {
+        return;
+    };
+    let Some(schema) = schemas
+        .iter()
+        .find(|schema| schema.name == promotion.schema_name)
+    else {
+        return;
+    };
+    promotion.headers = schema
+        .columns
+        .iter()
+        .map(|column| column.name.clone())
+        .collect();
+    let Ok(source) = fs::read_to_string(&promotion.resolved_path) else {
+        return;
+    };
+    let Ok(value) = serde_json::from_str::<Value>(&source) else {
+        return;
+    };
+    let records = json_path_array(&value, records_field);
+    promotion.row_count = records.map_or(0, Vec::len);
+    let mut missing = Vec::new();
+    if let Some(records) = records {
+        for column in schema.columns.iter().filter(|column| !column.optional) {
+            let present = records.iter().any(|record| {
+                record
+                    .as_object()
+                    .is_some_and(|object| object.contains_key(&column.name))
+            });
+            if !present {
+                missing.push(column.name.clone());
+            }
+        }
+    }
+    promotion.missing_columns = missing;
+    promotion.optional_missing_columns = schema
+        .columns
+        .iter()
+        .filter(|column| column.optional)
+        .filter(|column| {
+            let Some(records) = records else {
+                return true;
+            };
+            !records.iter().any(|record| {
+                record
+                    .as_object()
+                    .is_some_and(|object| object.contains_key(&column.name))
+            })
+        })
+        .map(|column| column.name.clone())
+        .collect();
+}
+
+fn refresh_runtime_config_promotion(
+    promotion: &mut eng_compiler::ConfigPromotion,
+    schemas: &HashMap<String, eng_compiler::SchemaInfo>,
+) {
+    let Some(schema) = schemas.get(&promotion.schema_name) else {
+        return;
+    };
+    let Ok(source) = fs::read_to_string(&promotion.resolved_path) else {
+        promotion.status = "source_error".to_owned();
+        return;
+    };
+    let parsed = match promotion.format.as_str() {
+        "json" => serde_json::from_str::<Value>(&source).ok(),
+        _ => None,
+    };
+    let Some(Value::Object(object)) = parsed else {
+        promotion.status = "source_error".to_owned();
+        return;
+    };
+    let field_names = object.keys().cloned().collect::<HashSet<_>>();
+    promotion.field_count = field_names.len();
+    promotion.missing_fields.clear();
+    promotion.unknown_fields.clear();
+    promotion.null_fields.clear();
+    promotion.optional_fields.clear();
+    promotion.optional_missing_fields.clear();
+    promotion.optional_null_fields.clear();
+    promotion.nested_object_fields.clear();
+    promotion.array_fields.clear();
+    promotion.default_fields.clear();
+    promotion.defaulted_fields.clear();
+    promotion.type_mismatches.clear();
+
+    let schema_fields = schema
+        .columns
+        .iter()
+        .map(|column| column.name.clone())
+        .collect::<HashSet<_>>();
+    promotion.unknown_fields = field_names
+        .difference(&schema_fields)
+        .cloned()
+        .collect::<Vec<_>>();
+    promotion.unknown_fields.sort();
+
+    for column in &schema.columns {
+        if column.optional {
+            promotion.optional_fields.push(column.name.clone());
+        }
+        if column.default_value.is_some() {
+            promotion.default_fields.push(column.name.clone());
+        }
+        let Some(value) = object.get(&column.name) else {
+            if column.default_value.is_some() {
+                promotion.defaulted_fields.push(column.name.clone());
+            } else if column.optional {
+                promotion.optional_missing_fields.push(column.name.clone());
+            } else {
+                promotion.missing_fields.push(column.name.clone());
+            }
+            continue;
+        };
+        if value.is_null() {
+            if column.optional {
+                promotion.optional_null_fields.push(column.name.clone());
+            } else {
+                promotion.null_fields.push(column.name.clone());
+            }
+            continue;
+        }
+        if value.is_array() {
+            promotion.array_fields.push(column.name.clone());
+        }
+        if value.is_object() {
+            promotion.nested_object_fields.push(column.name.clone());
+        }
+        if let Some(actual) = runtime_config_type_mismatch(value, &column.type_name) {
+            promotion
+                .type_mismatches
+                .push(eng_compiler::ConfigTypeMismatch {
+                    field: column.name.clone(),
+                    expected: column.type_name.clone(),
+                    actual,
+                });
+        }
+    }
+    promotion.status = if promotion.missing_fields.is_empty()
+        && promotion.unknown_fields.is_empty()
+        && promotion.null_fields.is_empty()
+        && promotion.type_mismatches.is_empty()
+    {
+        "runtime_validated".to_owned()
+    } else {
+        "invalid".to_owned()
+    };
+}
+
+fn runtime_config_type_mismatch(value: &Value, type_name: &str) -> Option<String> {
+    let normalized = type_name.trim();
+    let ok = match normalized {
+        "String" | "TextFile" | "JsonFile" | "TomlFile" | "CsvFile" | "DirectoryPath"
+        | "FilePath" | "Url" => value.is_string(),
+        "Int" => value.as_i64().is_some(),
+        "Float" | "DimensionlessNumber" | "Ratio" => value.as_f64().is_some(),
+        "Bool" => value.is_boolean(),
+        _ if normalized.starts_with("Array[") || normalized.starts_with("List[") => {
+            value.is_array()
+        }
+        _ => true,
+    };
+    (!ok).then(|| {
+        match value {
+            Value::Null => "null",
+            Value::Bool(_) => "Bool",
+            Value::Number(number) if number.as_i64().is_some() => "Int",
+            Value::Number(_) => "Float",
+            Value::String(_) => "String",
+            Value::Array(_) => "Array",
+            Value::Object(_) => "Object",
+        }
+        .to_owned()
+    })
+}
+
+fn json_path_array<'a>(value: &'a Value, path: &str) -> Option<&'a Vec<Value>> {
+    let mut current = value;
+    for segment in path.split('.').filter(|segment| !segment.is_empty()) {
+        current = current.get(segment)?;
+    }
+    current.as_array()
+}
+
+fn safe_artifact_file_stem(value: &str) -> String {
+    let mut text = value
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '_' || character == '-' {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect::<String>();
+    if text.is_empty() {
+        text.push_str("response");
+    }
+    text
 }
 
 fn execute_process_runs(report: &CheckReport) -> Result<Vec<ProcessExecutionRecord>, RuntimeError> {
@@ -15909,6 +16595,9 @@ fn open_path(path: &Path) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::io::Write as _;
+    use std::net::TcpListener;
+    use std::sync::mpsc;
 
     fn run_plan_has_node(run_plan: &Value, id: &str) -> bool {
         run_plan
@@ -15944,6 +16633,29 @@ mod tests {
             .and_then(Value::as_array)?
             .iter()
             .find(|item| item.get("binding").and_then(Value::as_str) == Some(binding))
+    }
+
+    fn spawn_one_shot_http_server(body: &'static str) -> (String, mpsc::Receiver<String>) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind local http server");
+        let address = listener.local_addr().expect("local addr");
+        let (request_tx, request_rx) = mpsc::channel();
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept local http request");
+            let mut buffer = [0_u8; 2048];
+            let bytes_read = stream.read(&mut buffer).unwrap_or(0);
+            let request = String::from_utf8_lossy(&buffer[..bytes_read]).to_string();
+            let request_line = request.lines().next().unwrap_or_default().to_owned();
+            let _ = request_tx.send(request_line);
+            let response = format!(
+                "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                body.len(),
+                body
+            );
+            stream
+                .write_all(response.as_bytes())
+                .expect("write local http response");
+        });
+        (format!("http://{address}/weather"), request_rx)
     }
 
     fn json_array_item_by_field<'a>(
@@ -21313,6 +22025,92 @@ mod tests {
         assert!(cached_output
             .cache_manifest_json
             .contains("\"status\": \"hit\""));
+        assert!(cached_output.review_json.contains("\"status\": \"cached\""));
+    }
+
+    #[test]
+    fn run_file_executes_live_http_response_body_json_source() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-net-live-http");
+        let build_root = repo_root.join("build").join("runtime-net-live-http-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(&source_dir).expect("source dir");
+        let response_body = "{ \"station_id\": \"STN001\", \"records\": [{ \"time\": \"2024-01-01T00:00:00Z\", \"value\": 1.5 }] }\n";
+        let expected_hash = sha256_bytes(response_body.as_bytes());
+        let (url, request_rx) = spawn_one_shot_http_server(response_body);
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            format!(
+                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\nprint \"status={{response_status}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\n"
+            ),
+        )
+        .expect("write source");
+
+        let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
+        let request_line = request_rx.recv().expect("captured request line");
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+
+        assert!(request_line.contains("station=108"), "{request_line}");
+        assert!(request_line.contains("year=2024"), "{request_line}");
+        assert!(output.stdout.contains("status=live code=200 rows=1"));
+        assert!(output.stdout.contains("\"station_id\": \"STN001\""));
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("live")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/response_hash")
+                .and_then(Value::as_str),
+            Some(expected_hash.as_str())
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/config_promotions/0/status")
+                .and_then(Value::as_str),
+            Some("runtime_validated")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/object_store/objects")
+                .and_then(Value::as_array)
+                .and_then(|objects| {
+                    objects.iter().find(|object| {
+                        object.get("name").and_then(Value::as_str) == Some("weather")
+                    })
+                })
+                .and_then(|object| object.get("row_count"))
+                .and_then(Value::as_u64),
+            Some(1)
+        );
+        assert!(output
+            .cache_manifest_json
+            .contains("\"status\": \"miss_materialized\""));
+        assert!(output.review_json.contains("\"status\": \"live\""));
+
+        let cached_output =
+            run_file(&source_path, &build_root, &RunOptions::default()).expect("cached run");
+        let cached_result_json =
+            serde_json::from_str::<Value>(&cached_output.result_json).expect("cached result json");
+        assert!(cached_output
+            .stdout
+            .contains("status=cached code=200 rows=1"));
+        assert_eq!(
+            cached_result_json
+                .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("cached")
+        );
+        assert!(cached_output
+            .cache_manifest_json
+            .contains("\"lookup_status\": \"hit\""));
         assert!(cached_output.review_json.contains("\"status\": \"cached\""));
     }
 

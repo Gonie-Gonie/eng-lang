@@ -31,16 +31,18 @@ contracts, and process-output enrichment when external processes are used. The
 workflow examples now exercise native network/cache, sampling, template,
 model-prediction, DB-write, and generated-artifact paths with zero external
 processes in workflows 01, 02, and 03. Native network and cache records now
-cover pinned offline response boundaries and cache records; cache records now
+cover pinned offline response boundaries, live `http://` response
+materialization, and cache records; cache records now
 share owner records across network, process, model, and case workflow surfaces,
 materialize/replay pinned network response cache entries, enforce observed cache hashes
 under the repro profile, and warn about stale cache entries. Native SQLite
 append/upsert/replace writes now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
-tables and manifests. Live network execution, broader cache invalidation/reuse,
-case runner, broad DB support, and broader model train syntax remain planned or
-internal until concrete language/runtime/artifact slices land.
+tables and manifests. Live HTTPS/TLS packaging, broader cache
+invalidation/reuse, case runner, broad DB support, and broader model train
+syntax remain planned or internal until concrete language/runtime/artifact
+slices land.
 
 ## Purpose
 
@@ -75,7 +77,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.model` | Native workflow support | Compiler/runtime | `typed_payload.model_specs`<br>`typed_payload.model_cards`<br>`typed_payload.prediction_manifests`<br>`typed_payload.model_diagnostics`<br>`model_card`<br>`model_metrics`<br>`output_manifest` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING`<br>`W-MODEL-EXTRAPOLATION` | `examples/workflows/02_external_simulation_surrogate`<br>`examples/internal/05_data_driven_modeling` | `cargo test -p eng_compiler records_data_driven_modeling_metadata`<br>`cargo test -p eng_runtime model`<br>`cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite` |
 | `eng.db` | Native workflow support | Compiler/runtime | `typed_payload.db_manifests`<br>`db_write_manifest`<br>`sqlite_database`<br>`review.external_boundaries` | `E-DB-CONNECT`<br>`E-DB-SCHEMA-MISMATCH`<br>`E-DB-KEY-MISSING`<br>`E-DB-TRANSACTION-FAILED`<br>`E-DB-SAFE-PROFILE`<br>`W-PROFILE-REPRO-DB` | `examples/workflows/02_external_simulation_surrogate` | `cargo test -p eng_compiler lowers_native_db_write_records`<br>`cargo test -p eng_runtime sqlite`<br>`cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write`<br>`cargo test -p eng_runtime run_file_repro_profile_records_native_db_write` |
 | `eng.config` | Supported narrow | Compiler/runtime | `typed_payload.config_promotions`<br>`review.config_promotions`<br>`output_manifest` | `E-CONFIG-SOURCE-001`<br>`E-CONFIG-MISSING-FIELD`<br>`E-CONFIG-UNKNOWN-FIELD`<br>`E-CONFIG-NULL-NOT-OPTIONAL`<br>`E-CONFIG-TYPE-MISMATCH` | `tests/runtime/config_optional_fields.eng` | `cargo test -p eng_compiler config_`<br>`cargo test -p eng_runtime config_` |
-| `eng.net` | Native workflow support | Compiler/runtime | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO` | `examples/workflows/01_weather_api_to_standard_file` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg` |
+| `eng.net` | Native workflow support | Compiler/runtime | `review.external_boundaries`<br>`typed_payload.network_boundaries`<br>`run_log.network_events`<br>`output_manifest` | `E-NET-INVALID-URL`<br>`E-NET-RETRY-POLICY`<br>`E-NET-TIMEOUT`<br>`E-NET-BODY-SIZE-LIMIT`<br>`E-NET-HASH-MISMATCH`<br>`E-NET-UNPINNED-REPRO`<br>`E-NET-TLS-UNAVAILABLE`<br>`E-NET-SECRET-LIVE` | `examples/workflows/01_weather_api_to_standard_file` | `cargo test -p eng_compiler net_`<br>`cargo test -p eng_runtime network`<br>`cargo test -p eng_runtime secret_arg`<br>`cargo test -p eng_runtime run_file_executes_live_http_response_body_json_source` |
 | `eng.cache` | Native workflow support | Compiler/runtime | `cache_manifest`<br>`review.caches`<br>`run_log.cache_events`<br>`output_manifest` | `E-CACHE-KEY-NONDETERMINISTIC`<br>`E-CACHE-HASH-MISMATCH`<br>`E-CACHE-UNHASHED-REPRO`<br>`W-CACHE-STALE` | `examples/workflows/01_weather_api_to_standard_file` | `cargo test -p eng_compiler cache_`<br>`cargo test -p eng_runtime cache` |
 | `eng.quality` | Native workflow support | Compiler/runtime | `typed_payload.expectation_suites`<br>`typed_payload.quality_results`<br>`typed_payload.validations`<br>`typed_payload.policy_results`<br>`review.expectation_suites`<br>`review.quality_results`<br>`review.validations`<br>`report_spec.quality_report`<br>`report_html.quality_report`<br>`ide.quality_inspector`<br>`output_manifest` | `E-TABLE-SCHEMA-MISMATCH`<br>`W-FALLBACK-USED` | `examples/diagnostics/data_quality` | `cargo test -p eng_compiler lowers_expectation_suite_records`<br>`cargo test -p eng_runtime run_file_records_common_quality_results_for_validation_and_schema_constraints` |
 | `eng.template` | Native workflow support | Compiler/runtime | `typed_payload.render_manifests`<br>`template_render_manifest`<br>`review.render_manifests`<br>`output_manifest` | `E-TEMPLATE-MISSING-VALUE` | `examples/workflows/02_external_simulation_surrogate` | `cargo test -p eng_compiler render_template_command_lowers_with_template_contract`<br>`cargo test -p eng_runtime template` |
@@ -160,10 +162,11 @@ sample/case table metadata, and `typed_payload.case_manifests[]` records one cas
 sample row with process-output enrichment from generated `case_manifest.json`
 files, `typed_payload.db_manifests[]` records generated and native SQLite DB
 write manifests, and current network/cache records capture pinned offline
-boundaries and cache hit/miss lookup records, including materialized/replayed
-pinned network response cache entries. Future live network execution, broader cache
-invalidation/reuse, native case runner, broad DB engines, and model modules
-should follow the same artifact pattern.
+boundaries, live `http://` response materialization, and cache hit/miss lookup
+records, including materialized/replayed pinned network response cache entries.
+Future live HTTPS/TLS packaging, broader cache invalidation/reuse, native case
+runner, broad DB engines, and model modules should follow the same artifact
+pattern.
 
 ## Native Artifact Evidence
 
@@ -177,7 +180,8 @@ review records directly; they are not domain-adapter claims.
 typed station schema and WeatherApiRecord JSON-record table schema
 reviewable filter/require_one station transform from promoted station map
 explicit pinned offline API response boundary
-native network/cache record for the pinned API response
+native network/cache record for the pinned API response, using the same
+runtime-bound response-body path as live `http://` requests
 native JSON schema promotion for the WeatherApiPayload API contract
 native JSON records table promotion for api_payload.records
 explicit generic DateTime coverage check

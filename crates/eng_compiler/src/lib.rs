@@ -909,7 +909,7 @@ fn collect_environment_dependencies(
         if let Some(observation) = evaluate_read_expression(
             &binding.expression,
             source_base,
-            &program.arg_values,
+            program,
             &response_body_sources,
         ) {
             dependencies.push(EnvironmentDependencyInfo {
@@ -976,7 +976,7 @@ fn evaluate_exists_expression(
 fn evaluate_read_expression(
     expression: &str,
     source_base: Option<&Path>,
-    arg_values: &[ArgValueInfo],
+    program: &SemanticProgram,
     response_body_sources: &HashMap<String, PathBuf>,
 ) -> Option<ReadObservation> {
     let (kind, path_expression) = semantic::read_only_io_expression(expression)?;
@@ -996,7 +996,20 @@ fn evaluate_read_expression(
             }),
         };
     }
-    let path_text = evaluate_path_expression(path_expression, arg_values)?;
+    if program.net_requests.iter().any(|request| {
+        let body = format!("{}.body", request.binding);
+        let text = format!("{}.text", request.binding);
+        request.fixture.is_none()
+            && matches!(path_expression.trim(), value if value == body || value == text)
+    }) {
+        return Some(ReadObservation {
+            kind: kind.to_owned(),
+            resolved_path: format!("runtime:{}", path_expression.trim()),
+            source_hash: None,
+            status: "runtime_pending".to_owned(),
+        });
+    }
+    let path_text = evaluate_path_expression(path_expression, &program.arg_values)?;
     let path = resolve_source_relative_path(&path_text, source_base);
     match fs::read_to_string(&path) {
         Ok(source) => Some(ReadObservation {
@@ -13187,6 +13200,60 @@ system Envelope {
             Some("records")
         );
         assert_eq!(table_promotion.row_count, 1);
+    }
+
+    #[test]
+    fn accepts_runtime_http_response_body_as_json_source() {
+        let root = env::temp_dir().join(format!(
+            "englang-runtime-http-body-json-source-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(&root).expect("root dir");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"http://127.0.0.1:9/weather\")\nwith {\n    timeout = 1 s\n    body_size_limit = 16 KB\n}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let dependency = report
+            .semantic_program
+            .environment_dependencies
+            .iter()
+            .find(|dependency| dependency.name == "payload")
+            .expect("payload structured read");
+        assert_eq!(dependency.kind, "filesystem_read_json");
+        assert_eq!(dependency.status, "runtime_pending");
+        assert_eq!(dependency.resolved_value, "runtime:response.body");
+
+        let promotion = report
+            .semantic_program
+            .config_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "contract")
+            .expect("config promotion");
+        assert_eq!(promotion.source_value, "response.body");
+        assert_eq!(promotion.status, "runtime_pending");
+        assert_eq!(promotion.resolved_path, "runtime:response.body");
+
+        let table_promotion = report
+            .semantic_program
+            .csv_promotions
+            .iter()
+            .find(|promotion| promotion.binding == "weather")
+            .expect("json records promotion");
+        assert_eq!(table_promotion.source_format, "json_records");
+        assert_eq!(table_promotion.source_value, "response.body");
+        assert_eq!(table_promotion.resolved_path, "runtime:response.body");
+        assert_eq!(table_promotion.row_count, 0);
+        assert_eq!(
+            table_promotion.headers,
+            vec!["time".to_owned(), "value".to_owned()]
+        );
     }
 
     #[test]
