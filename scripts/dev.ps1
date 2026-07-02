@@ -2055,7 +2055,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.problemsSource", "englang.diagnosticsBackend", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.problemsSource", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
@@ -2070,15 +2070,8 @@ function Assert-VscodeExtensionContract {
             throw "VS Code problemsSource enum descriptions must use user-facing wording, not implementation details"
         }
     }
-    $DiagnosticsDescription = [string]$Properties."englang.diagnosticsBackend".description
-    if ($DiagnosticsDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
-        throw "VS Code diagnosticsBackend description must use user-facing wording, not implementation details"
-    }
-    $DiagnosticsEnumDescriptions = @($Properties."englang.diagnosticsBackend".enumDescriptions)
-    foreach ($DiagnosticsEnumDescription in $DiagnosticsEnumDescriptions) {
-        if ([string]$DiagnosticsEnumDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
-            throw "VS Code diagnosticsBackend enum descriptions must use user-facing wording, not implementation details"
-        }
+    if ($null -ne $Properties."englang.diagnosticsBackend") {
+        throw "VS Code extension must not expose deprecated diagnosticsBackend in Settings; keep it as a code-only compatibility alias"
     }
     $LintOnChangeDescription = [string]$Properties."englang.lintOnChange".description
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
@@ -2455,14 +2448,10 @@ function Assert-VscodeExtensionContract {
     if (@($Properties."englang.problemsSource".enumDescriptions).Count -lt 2) {
         throw "VS Code extension problemsSource must include user-facing enum descriptions"
     }
-    $BackendEnum = @($Properties."englang.diagnosticsBackend".enum)
-    foreach ($RequiredBackend in @("eng-cli", "lsp-snapshot")) {
-        if ($BackendEnum -notcontains $RequiredBackend) {
-            throw "VS Code extension diagnosticsBackend missing enum value $RequiredBackend"
+    foreach ($RequiredLegacyProblemsToken in @('config.get("diagnosticsBackend", "eng-cli")', 'legacyBackend === "lsp-snapshot" ? "live" : "file"')) {
+        if (-not $ExtensionSource.Contains($RequiredLegacyProblemsToken)) {
+            throw "VS Code extension must keep diagnosticsBackend as a code-only compatibility alias"
         }
-    }
-    if (@($Properties."englang.diagnosticsBackend".enumDescriptions).Count -lt 2) {
-        throw "VS Code extension diagnosticsBackend must include user-facing enum descriptions"
     }
     $ProfileEnum = @($Properties."englang.executionProfile".enum)
     foreach ($RequiredProfile in @("normal", "safe", "repro")) {

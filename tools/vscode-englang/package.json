@@ -414,20 +414,6 @@
           ],
           "description": "Choose how the Problems panel is updated. File checks are quieter; live checks update while typing from the current unsaved buffer."
         },
-        "englang.diagnosticsBackend": {
-          "type": "string",
-          "default": "eng-cli",
-          "enum": [
-            "eng-cli",
-            "lsp-snapshot"
-          ],
-          "enumDescriptions": [
-            "Stable file checks on open, save, and manual check.",
-            "Live editor checks while typing, aligned with hover, completion, and the current unsaved buffer."
-          ],
-          "description": "Compatibility setting for older EngLang configurations. Prefer englang.problemsSource.",
-          "deprecationMessage": "Use englang.problemsSource instead."
-        },
         "englang.executionProfile": {
           "type": "string",
           "default": "normal",

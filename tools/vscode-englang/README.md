@@ -100,9 +100,10 @@ and quick fixes. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default Problems
 source runs stable file checks on open/save and manual check. Set
 `englang.problemsSource` to `live` to update Problems from the current unsaved
-buffer while typing. The legacy
-`englang.diagnosticsBackend` setting is still accepted for older workspaces,
-but new settings should use `englang.problemsSource`.
+buffer while typing. If an older workspace already has
+`englang.diagnosticsBackend`, the extension
+still accepts it as a compatibility alias. New workspaces should use
+`englang.problemsSource`.
 `EngLang: Run Current File`
 passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact

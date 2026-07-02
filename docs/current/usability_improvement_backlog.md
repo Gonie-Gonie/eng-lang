@@ -2729,6 +2729,20 @@ implementation-seed wording.
 - Reworded current data-boundary docs from missing policy seeds to
   missing-value policies.
 
+## Batch 221: Hide Deprecated VS Code Diagnostics Setting
+
+Status: implemented after reviewing VS Code Settings exposure for internal
+backend names.
+
+- Removed deprecated `englang.diagnosticsBackend` from the VS Code settings
+  contribution so new users only see `englang.problemsSource` with `file` and
+  `live` values.
+- Kept the extension's legacy `diagnosticsBackend` read path so older
+  workspaces that already have `eng-cli` or `lsp-snapshot` in `settings.json`
+  continue to behave correctly.
+- Updated the VS Code extension contract so the deprecated setting stays
+  code-compatible but is not re-exposed in the Settings UI.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
