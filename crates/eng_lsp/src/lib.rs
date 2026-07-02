@@ -171,6 +171,8 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "constraints",
     "conservation",
     "collect",
+    "column",
+    "columns",
     "copy",
     "coverage",
     "csv",
@@ -5021,6 +5023,8 @@ surrogate = regression_table(designs, target=annual_electricity, features=[peopl
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
 predictions = predict surrogate using designs
+derived = derive designs column annual_electricity = people_density * 1 kWh
+derived_many = derive designs columns annual_cooling = cooling_cop * 1 kWh
 legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
@@ -5035,6 +5039,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "evaluate",
             "model_card",
             "predict",
+            "derive",
             "select_first_row",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
@@ -5047,7 +5052,17 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_semantic_token_modifier(&snapshot, source, "uniform", "uncertain");
+        assert_semantic_token_type(&snapshot, source, "column", "keyword");
+        assert_semantic_token_type(&snapshot, source, "columns", "keyword");
         assert_semantic_token_modifier(&snapshot, source, "select_first_row", "deprecated");
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "column"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "columns"));
         assert!(!snapshot
             .completions
             .iter()

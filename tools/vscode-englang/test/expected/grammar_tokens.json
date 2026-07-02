@@ -343,6 +343,42 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.derive-column.englang",
+    "text": "derive designs column annual_electricity =",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.derive-column.englang",
+    "text": "derive designs columns annual_cooling =",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "column",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "columns",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "annual_electricity",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "annual_cooling",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "materialize"
   },

@@ -639,6 +639,18 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "column",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "columns",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "copy",
                                 "lsp_kind":  14
                             },
@@ -2077,7 +2089,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  346,
+    "completion_seed_count":  348,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

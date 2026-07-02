@@ -320,6 +320,27 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.derive-column.englang",
+                                                                    "match":  "\\b(derive)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.control.workflow.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.materialize-cases.englang",
                                                                     "match":  "\\b(materialize)\\s+(cases)\\b",
                                                                     "captures":  {
@@ -469,7 +490,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|records|to|policy|package|version|port|across|through|input|parameter|state|output|model|return|if|else)\\b"
+                                                             "match":  "\\b(const|promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|port|across|through|input|parameter|state|output|model|return|if|else)\\b"
                                                          }
                                                      ]
                                     },

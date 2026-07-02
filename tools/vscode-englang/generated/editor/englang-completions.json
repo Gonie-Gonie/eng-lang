@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  346,
+    "completion_seed_count":  348,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -636,6 +636,18 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "conservation",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "column",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "columns",
                                 "lsp_kind":  14
                             },
                             {
