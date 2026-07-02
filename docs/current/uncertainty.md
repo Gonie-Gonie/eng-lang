@@ -42,16 +42,17 @@ examples/diagnostics/error_messages/missing_uncertainty_source.eng
 crates/eng_compiler/src/uncertainty.rs
 ```
 
-The current seed supports deterministic uncertainty constructors, selected
-diagnostics, scalar runtime numeric payloads, histogram artifacts, and
-report/review projection for the internal fixture. `result.engres` now records
+The current implementation slice supports deterministic uncertainty
+constructors, selected diagnostics, scalar runtime numeric payloads, histogram
+artifacts, and report/review projection. `result.engres` now records
 `typed_payload.numeric_values` so certain scalars stay on the fast path while
 measured, interval, distribution, and ensemble scalars carry an uncertainty
 link. It is not yet a stable propagation contract for arbitrary arithmetic,
 TimeSeries uncertainty, or seeded Monte Carlo workflows.
-`examples/workflows/03_uncertain_sensor_report` is a workflow-shaped fixture
-for typed sensor data with `sensor_std`, summary/duration linkage, and
-confidence-band plot metadata while keeping the feature status internal.
+`examples/workflows/03_uncertain_sensor_report` is an executable native
+workflow example for typed sensor data with `sensor_std`, summary/duration
+linkage, and confidence-band plot metadata while keeping broad uncertainty
+propagation status internal.
 
 ## Representation Target
 

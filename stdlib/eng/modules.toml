@@ -185,10 +185,10 @@ examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/work
 tests = ["cargo test -p eng_runtime run_plan"]
 
 [module."eng.report"]
-status = "planned"
-backing = "none"
-purpose = "Report-facing helper vocabulary layered over existing report/review artifacts."
-artifacts = ["report", "review", "output_manifest"]
+status = "native_preview"
+backing = "eng_report"
+purpose = "Report block projection to report_spec/review/output manifests and HTML report artifacts; broader pure .eng report helper vocabulary remains planned."
+artifacts = ["report_spec", "report_html", "review", "output_manifest"]
 diagnostics = ["none_current"]
 examples = ["examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_report"]
@@ -203,12 +203,12 @@ examples = ["examples/official/01_csv_plot"]
 tests = ["cargo test -p eng_compiler stats"]
 
 [module."eng.plot"]
-status = "planned"
-backing = "none"
-purpose = "PlotSpec-oriented helper vocabulary above current plot built-ins."
-artifacts = ["plotspec", "plot_manifest", "output_manifest"]
+status = "native_preview"
+backing = "eng_report"
+purpose = "PlotSpec, plot manifest, and SVG artifact generation from report plot directives; broader pure .eng plot helper vocabulary remains planned."
+artifacts = ["plot_spec", "plot_manifest", "plot_svg", "output_manifest"]
 diagnostics = ["none_current"]
-examples = ["examples/official/01_csv_plot"]
+examples = ["examples/official/01_csv_plot", "examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_report plot"]
 
 [module."eng.building"]
