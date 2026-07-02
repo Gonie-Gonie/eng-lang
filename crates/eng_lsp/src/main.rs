@@ -1230,7 +1230,12 @@ fn lsp_expected_sha256_code_action(uri: &str, text: &str, diagnostic: &Value) ->
 
 fn expected_sha256_from_diagnostic(diagnostic: &Value) -> Option<String> {
     let message = diagnostic.get("message")?.as_str()?;
-    let (_, rest) = message.split_once("fixture SHA256 was `")?;
+    expected_sha256_after(message, "fixture SHA256 was `")
+        .or_else(|| expected_sha256_after(message, "observed `"))
+}
+
+fn expected_sha256_after(message: &str, marker: &str) -> Option<String> {
+    let (_, rest) = message.split_once(marker)?;
     let (hash, _) = rest.split_once('`')?;
     if hash.len() == 64 && hash.chars().all(|character| character.is_ascii_hexdigit()) {
         Some(hash.to_ascii_lowercase())

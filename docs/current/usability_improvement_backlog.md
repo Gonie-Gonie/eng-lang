@@ -2490,6 +2490,17 @@ preserving pinned fixture/cache workflows.
   this local build because available TLS backends need missing Windows GNU
   tooling; pinned HTTPS fixture/cache workflows remain supported.
 
+## Batch 203: Live HTTP Hash Quick Fix
+
+Status: implemented for VS Code/LSP linter quick-fix parity between pinned
+fixture and live HTTP hash mismatch diagnostics.
+
+- Extended `E-NET-HASH-MISMATCH` quick-fix parsing so `expected_sha256` can be
+  updated from both fixture SHA-256 diagnostics and live HTTP `observed` hash
+  diagnostics.
+- Added LSP stdio regression coverage for the live HTTP observed-hash message
+  shape while keeping the existing fixture-backed quick fix.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

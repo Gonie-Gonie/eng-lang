@@ -353,7 +353,9 @@ function expectedSha256Action(document, diagnostic) {
 }
 
 function expectedSha256FromDiagnostic(diagnostic) {
-  const match = /fixture SHA256 was `([0-9a-fA-F]{64})`/.exec(diagnostic.message ?? "");
+  const match = /(?:fixture SHA256 was|observed) `([0-9a-fA-F]{64})`/.exec(
+    diagnostic.message ?? ""
+  );
   return match ? match[1].toLowerCase() : undefined;
 }
 

@@ -838,6 +838,24 @@ with {
         "code": "E-SAMPLING-SEED-MISSING",
         "message": "repro profile requires sample `missing_seed_samples` to declare `seed`"
     }));
+    let expected_sha_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("expected_sha256"))
+        .expect("source should include expected_sha256");
+    let expected_sha_line_len = source
+        .lines()
+        .nth(expected_sha_line)
+        .expect("expected_sha256 line should exist")
+        .len();
+    diagnostics.push(json!({
+        "range": {
+            "start": { "line": expected_sha_line, "character": 4 },
+            "end": { "line": expected_sha_line, "character": expected_sha_line_len }
+        },
+        "severity": 1,
+        "code": "E-NET-HASH-MISMATCH",
+        "message": "E-NET-HASH-MISMATCH: live HTTP `http://127.0.0.1/weather` expected SHA256 `0000000000000000000000000000000000000000000000000000000000000000` but observed `aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa`"
+    }));
 
     write_message(
         &mut stdin,
@@ -896,6 +914,12 @@ with {
         &uri,
         "Update expected_sha256 to pinned response SHA-256",
         "\"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Update expected_sha256 to pinned response SHA-256",
+        "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
     );
     assert_action_edit(
         actions,
