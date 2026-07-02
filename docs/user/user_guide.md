@@ -234,7 +234,7 @@ unless current documentation marks them stable or supported for a narrow scope:
 - Full editor platform guarantees beyond the packaged smoke path.
 
 Internal examples, including system/solver examples, remain in the portable
-package because `eng-ide.exe --smoke`, internal LSP smoke, diagnostics, and
+package because `eng-ide.exe --smoke`, editor tooling checks, diagnostics, and
 regression checks use them. Treat those files as inspection-only examples, not
 as supported user tutorials.
 

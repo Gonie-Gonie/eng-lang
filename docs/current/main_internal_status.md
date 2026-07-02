@@ -1,6 +1,6 @@
 # Main Internal Status
 
-This page summarizes implementation seeds on `main` that are useful for
+This page summarizes implementation tracks on `main` that are useful for
 contributors but are not the first public package story.
 
 The public package line is still `v0.1.0`. Later work on `main` may be
@@ -10,11 +10,11 @@ implemented and tested without being part of the published release assets.
 
 | Area | Main status | Public positioning |
 |---|---|---|
-| Solver algorithms | Dense linear, fixed-point, Newton, DAE, adaptive ODE, dynamic component, and behavior-node seeds exist with targeted tests and artifacts. | Supporting implementation track. Not a general solver platform. |
+| Solver algorithms | Dense linear, fixed-point, Newton, DAE, adaptive ODE, dynamic component, and behavior-node tracks exist with targeted tests and artifacts. | Supporting implementation track. Not a general solver platform. |
 | State-space | Typed-block fixed-step workflows and additional internal runtime fixtures exist. | Use only for the documented narrow scope. |
 | Domain/component | Component metadata, residual assembly, constrained Thermal and Thermal/Fluid paths, report/review/IDE artifacts, and diagnostics exist. | Not production multi-domain simulation. |
 | JIT/AOT | Kernel planning, interpreter kernel IR, `jit-plan`, `jit-bench`, and benchmark catalog coverage exist. | No native speedup claim. |
-| LSP/VS Code | Smoke/snapshot tooling and optional VS Code source exist. | Not a stable persistent editor contract. |
+| LSP/VS Code | Smoke/editor-request tooling and optional VS Code source exist. | Not a stable long-running editor protocol contract. |
 | Uncertainty | Deterministic samples, diagnostics, propagation metadata, and histogram artifacts exist. | Internal track. |
 | Data-driven modeling | Train/test, metrics, model specs/cards, prediction manifests, parity/residual plots, and diagnostics exist. | Internal track. |
 | Class/domain objects | Typed fields/defaults, object literals, validation, metadata methods, copy-with, IDE/LSP metadata, and report artifacts exist. | Narrow supported authoring surface, not runtime object dispatch. |
@@ -32,7 +32,7 @@ README, user guide, or first-user examples as product claims.
 
 ## Acceptance Rule
 
-An internal seed becomes public-facing only when all of these line up for its
+An internal track becomes public-facing only when all of these line up for its
 stated scope:
 
 - source language rule

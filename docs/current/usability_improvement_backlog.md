@@ -2769,6 +2769,18 @@ live editor checks, completion, and definition lookups.
   messages cannot return while the internal CLI bridge names remain available
   for compatibility.
 
+## Batch 224: Package And Status Wording Cleanup
+
+Status: implemented after reviewing user guide, package guide text, asset
+inventory text, and current status docs for stale implementation wording.
+
+- Reworded package guide text from editor-service and language-seed phrasing
+  to editor tooling checks and standard library source files.
+- Reworded current status docs from implementation-seed and smoke/snapshot
+  phrasing to implementation tracks and editor-request checks.
+- Extended `ide-check` so the editor documentation wording guard also covers
+  current status docs and blocks stale implementation wording there.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

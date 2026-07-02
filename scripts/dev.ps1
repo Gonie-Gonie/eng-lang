@@ -1820,6 +1820,8 @@ function Assert-VscodeExtensionContract {
     $VscodeReadmePath = Join-Path $ExtensionRoot "README.md"
     $NativeIdeHowtoPath = Join-Path $RepoRoot "docs\user\howto\use_native_ide.md"
     $UserGuidePath = Join-Path $RepoRoot "docs\user\user_guide.md"
+    $FeatureMaturityPath = Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"
+    $MainInternalStatusPath = Join-Path $RepoRoot "docs\current\main_internal_status.md"
 
     if (-not (Test-Path $PackageJsonPath)) {
         throw "missing VS Code extension package.json at $PackageJsonPath"
@@ -1859,7 +1861,7 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $TokenScopesDocPath)) {
         throw "missing editor token scope contract at $TokenScopesDocPath"
     }
-    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserGuidePath)) {
+    foreach ($RequiredDocPath in @($DevScriptPath, $VscodeReadmePath, $NativeIdeHowtoPath, $UserGuidePath, $FeatureMaturityPath, $MainInternalStatusPath)) {
         if (-not (Test-Path $RequiredDocPath)) {
             throw "missing VS Code install contract input at $RequiredDocPath"
         }
@@ -1872,6 +1874,8 @@ function Assert-VscodeExtensionContract {
     $VscodeReadmeSource = Get-Content -LiteralPath $VscodeReadmePath -Raw
     $NativeIdeHowtoSource = Get-Content -LiteralPath $NativeIdeHowtoPath -Raw
     $UserGuideSource = Get-Content -LiteralPath $UserGuidePath -Raw
+    $FeatureMaturitySource = Get-Content -LiteralPath $FeatureMaturityPath -Raw
+    $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -2095,8 +2099,17 @@ function Assert-VscodeExtensionContract {
         "smoke/snapshot tooling",
         "stable persistent editor-service contract"
     )) {
-        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording)) {
+        if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording) -or $FeatureMaturitySource.Contains($ForbiddenEditorDocWording) -or $MainInternalStatusSource.Contains($ForbiddenEditorDocWording)) {
             throw "User-facing editor docs must avoid internal wording: $ForbiddenEditorDocWording"
+        }
+    }
+    foreach ($ForbiddenPublicStatusWording in @(
+        "implementation seed",
+        "internal syntax seeds",
+        "Smoke/snapshot tooling"
+    )) {
+        if ($FeatureMaturitySource.Contains($ForbiddenPublicStatusWording) -or $MainInternalStatusSource.Contains($ForbiddenPublicStatusWording)) {
+            throw "Current status docs must avoid stale implementation wording: $ForbiddenPublicStatusWording"
         }
     }
     if ($NativeIdeHowtoSource.Contains("semantic-token legend") -or $NativeIdeHowtoSource.Contains("semantic token type/modifiers")) {
@@ -3362,13 +3375,13 @@ function New-UserGuidePdf {
         @{ Kind = "subtitle"; Text = "Portable Windows package v$Version" },
         @{ Kind = "body"; Text = "EngLang is a native engineering language for workflows where units, physical quantities, schemas, axes, statistics, plots, reports, and provenance are checked as part of the program. This PDF is the curated user-facing guide for the portable package; developer notes and master plans stay in the repository." },
         @{ Kind = "h1"; Text = "1. Package Contents" },
-        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native IDE testing, eng-lsp.exe for editor-service smoke checks, WebView2Loader.dll for the IDE, official core workflow examples, stdlib language seeds, optional VS Code extension tooling, curated PDF docs, README.txt, and PACKAGE_ASSETS.txt. Advanced solver, compatibility, diagnostic, and internal regression fixtures stay in the source repository. The package intentionally does not ship the full developer documentation tree." },
+        @{ Kind = "body"; Text = "The portable folder contains eng.exe for command-line execution, eng-ide.exe for native IDE testing, eng-lsp.exe for editor tooling checks, WebView2Loader.dll for the IDE, official core workflow examples, standard library source files, optional VS Code extension tooling, curated PDF docs, README.txt, and PACKAGE_ASSETS.txt. Advanced solver, compatibility, diagnostic, and internal regression fixtures stay in the source repository. The package intentionally does not ship the full developer documentation tree." },
         @{ Kind = "h1"; Text = "2. First Smoke Test" },
         @{ Kind = "step"; Text = "Open a command prompt in the extracted folder." },
         @{ Kind = "step"; Text = "Run: eng.exe doctor" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe --smoke" },
         @{ Kind = "step"; Text = "Run: eng-lsp.exe --smoke" },
-        @{ Kind = "body"; Text = "All three commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable. The LSP smoke command verifies the experimental editor-service diagnostics, completion, and hover metadata path." },
+        @{ Kind = "body"; Text = "All three commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable. The editor tooling smoke command verifies diagnostics, completion, and hover metadata for editor integrations." },
         @{ Kind = "h1"; Text = "3. Tauri IDE Workflow" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe" },
         @{ Kind = "step"; Text = "Use Explorer to open examples/official/01_csv_plot/main.eng or create a scratch .eng file." },
@@ -3531,7 +3544,7 @@ Repo-only examples excluded from this portable package:
   diagnostic and data-quality fixtures
 
 Language support:
-  stdlib\                         packaged standard library source seeds
+  stdlib\                         packaged standard library source files
 
 Optional editor tooling:
   tools\vscode-englang\           VS Code extension source

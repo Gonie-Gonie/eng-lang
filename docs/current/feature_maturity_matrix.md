@@ -1,6 +1,6 @@
 # Feature Maturity Matrix
 
-Use this file to avoid treating an implementation seed as a public release
+Use this file to avoid treating an implementation track as a public release
 claim. Public package status and main-internal status are intentionally
 separate.
 
@@ -18,7 +18,7 @@ separate.
 ### Core Language
 
 - Public package: `Stable`
-- Main status: `Stable` plus internal syntax seeds
+- Main status: `Stable` with internal syntax experiments
 - User-facing scope: top-level execution, `args`, importable `const`, scalar
   `fn`, relative imports, fast `=`, `:=` rejection, unit diagnostics, and
   current formatter support.
@@ -158,7 +158,7 @@ separate.
 
 ## Internal Tracks
 
-### Solver Algorithm Seeds
+### Solver Algorithm Tracks
 
 - Public package: `Internal`
 - Main status: `Internal`
@@ -217,9 +217,11 @@ separate.
 
 - Public package: `Internal`
 - Main status: `Internal`
-- Evidence: `eng-lsp.exe` smoke/snapshot, stdio tests, optional VS Code source.
-- Not included: stable persistent editor-service contract.
-- Next cleanup action: keep LSP commands labeled as internal smoke.
+- Evidence: `eng-lsp.exe` smoke/editor-request checks, stdio tests, optional
+  VS Code source.
+- Not included: stable long-running editor protocol contract.
+- Next cleanup action: keep editor tooling commands labeled as internal smoke
+  and diagnostic checks.
 
 ### Runtime Optimization / JIT / AOT
 
