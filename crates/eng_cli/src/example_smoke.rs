@@ -4792,6 +4792,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .report_spec_json
                     .contains("\"quantity_kind\": \"HeatRate\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"predictor_output_typed_identity_contract\"")
+                || !output
+                    .report_spec_json
+                    .contains("\"external_output_typed_identity_contract\"")
                 || !output.report_spec_json.contains("\"diagnostic_channels\"")
                 || !output
                     .report_spec_json

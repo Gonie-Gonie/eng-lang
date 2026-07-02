@@ -2609,6 +2609,19 @@ surface used by the shipped examples.
 - Extended the VS Code extension contract check so these native workflow
   snippet starters and their key tokens are guarded by `ide-check`.
 
+## Batch 212: Behavior Wrapper Typed Output Contracts
+
+Status: implemented to replace a behavior-node seed placeholder with static
+typed contract data that the compiler/report already knows.
+
+- Static report behavior nodes now derive predictor and external adapter output
+  quantity/unit contracts from their resolved input signal, matching the
+  deterministic identity-wrapper runtime behavior.
+- Runtime behavior graph integration now labels those output contracts with
+  runtime wording instead of `*_seed` wording.
+- Extended report, CLI smoke, and native IDE smoke regressions so predictor and
+  external behavior nodes must expose typed output contracts.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

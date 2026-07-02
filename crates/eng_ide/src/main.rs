@@ -3015,6 +3015,15 @@ fn smoke() -> Result<(), String> {
                 })
             })
     };
+    let has_contract_status = |node: &Value, key: &str, status: &str| {
+        node.get(key)
+            .and_then(Value::as_array)
+            .is_some_and(|contracts| {
+                contracts.iter().any(|contract| {
+                    json_field_string(contract, "status").as_deref() == Some(status)
+                })
+            })
+    };
     let has_diagnostic_channel = |node: &Value, channel: &str| {
         node.get("diagnostic_channels")
             .and_then(Value::as_array)
@@ -3039,6 +3048,12 @@ fn smoke() -> Result<(), String> {
             && json_field_string(node, "contract_status").as_deref()
                 == Some("predictor_contract_metadata_seed")
             && has_contract_quantity(node, "contract_inputs", "AbsoluteTemperature")
+            && has_contract_quantity(node, "contract_outputs", "AbsoluteTemperature")
+            && has_contract_status(
+                node,
+                "contract_outputs",
+                "predictor_output_typed_identity_contract",
+            )
             && has_diagnostic_channel(node, "predictor_valid_range_warning")
             && node.get("source_span").is_some()
     });
@@ -3050,6 +3065,12 @@ fn smoke() -> Result<(), String> {
             && json_field_string(node, "contract_status").as_deref()
                 == Some("external_behavior_contract_metadata_seed")
             && has_contract_quantity(node, "contract_inputs", "HeatRate")
+            && has_contract_quantity(node, "contract_outputs", "HeatRate")
+            && has_contract_status(
+                node,
+                "contract_outputs",
+                "external_output_typed_identity_contract",
+            )
             && has_diagnostic_channel(node, "external_adapter_failure")
             && node.get("source_span").is_some()
     });

@@ -1021,7 +1021,7 @@ fn mark_behavior_graph_report_integrated(spec: &mut ReportSpec) {
                     Some("evaluated_in_language_behavior_graph".to_owned());
                 fill_behavior_output_contract_from_input(
                     node,
-                    "predictor_output_typed_identity_seed",
+                    "predictor_output_typed_identity_runtime",
                 );
             }
             "external" => {
@@ -1030,7 +1030,7 @@ fn mark_behavior_graph_report_integrated(spec: &mut ReportSpec) {
                     Some("evaluated_in_language_behavior_graph".to_owned());
                 fill_behavior_output_contract_from_input(
                     node,
-                    "external_output_typed_identity_seed",
+                    "external_output_typed_identity_runtime",
                 );
             }
             _ => {}

@@ -2297,7 +2297,7 @@ fn report_behavior_node_seeds(
         let signal = first_report_behavior_call_arguments(expression, "predictor")
             .or_else(|| first_report_behavior_call_arguments(expression, "predict"))
             .and_then(|arguments| arguments.first().cloned());
-        let contract_inputs = signal
+        let contract_inputs: Vec<ReportBehaviorSignalContract> = signal
             .as_deref()
             .map(|signal| {
                 report_behavior_signal_contract(report, component, local, "input", signal)
@@ -2313,15 +2313,13 @@ fn report_behavior_node_seeds(
             contract_status: Some("predictor_contract_metadata_seed".to_owned()),
             jacobian_policy: Some("solver_policy_not_integrated".to_owned()),
             profile_policy: None,
+            contract_outputs: report_behavior_identity_output_contract(
+                &contract_inputs,
+                &local.name,
+                "predictor_output_typed_identity_contract",
+                "predictor_output_contract_unresolved",
+            ),
             contract_inputs,
-            contract_outputs: vec![ReportBehaviorSignalContract {
-                role: "output".to_owned(),
-                name: local.name.clone(),
-                quantity_kind: "unspecified_by_seed".to_owned(),
-                display_unit: "unspecified".to_owned(),
-                canonical_unit: "unspecified".to_owned(),
-                status: "predictor_output_contract_metadata_pending".to_owned(),
-            }],
             diagnostic_channels: vec![
                 "predictor_valid_range_warning".to_owned(),
                 "predictor_output_layout_failure".to_owned(),
@@ -2335,7 +2333,7 @@ fn report_behavior_node_seeds(
         let signal = first_report_behavior_call_arguments(expression, "external")
             .or_else(|| first_report_behavior_call_arguments(expression, "adapter"))
             .and_then(|arguments| arguments.first().cloned());
-        let contract_inputs = signal
+        let contract_inputs: Vec<ReportBehaviorSignalContract> = signal
             .as_deref()
             .map(|signal| {
                 report_behavior_signal_contract(report, component, local, "input", signal)
@@ -2351,15 +2349,13 @@ fn report_behavior_node_seeds(
             contract_status: Some("external_behavior_contract_metadata_seed".to_owned()),
             jacobian_policy: None,
             profile_policy: Some("safe_repro_profile_policy_seed".to_owned()),
+            contract_outputs: report_behavior_identity_output_contract(
+                &contract_inputs,
+                &local.name,
+                "external_output_typed_identity_contract",
+                "external_output_contract_unresolved",
+            ),
             contract_inputs,
-            contract_outputs: vec![ReportBehaviorSignalContract {
-                role: "output".to_owned(),
-                name: local.name.clone(),
-                quantity_kind: "unspecified_by_seed".to_owned(),
-                display_unit: "unspecified".to_owned(),
-                canonical_unit: "unspecified".to_owned(),
-                status: "external_output_contract_metadata_pending".to_owned(),
-            }],
             diagnostic_channels: vec![
                 "external_profile_policy_failure".to_owned(),
                 "external_adapter_failure".to_owned(),
@@ -2370,6 +2366,32 @@ fn report_behavior_node_seeds(
         });
     }
     nodes
+}
+
+fn report_behavior_identity_output_contract(
+    contract_inputs: &[ReportBehaviorSignalContract],
+    output_name: &str,
+    resolved_status: &str,
+    unresolved_status: &str,
+) -> Vec<ReportBehaviorSignalContract> {
+    let Some(input) = contract_inputs.first() else {
+        return vec![ReportBehaviorSignalContract {
+            role: "output".to_owned(),
+            name: output_name.to_owned(),
+            quantity_kind: "unknown".to_owned(),
+            display_unit: "unknown".to_owned(),
+            canonical_unit: "unknown".to_owned(),
+            status: unresolved_status.to_owned(),
+        }];
+    };
+    vec![ReportBehaviorSignalContract {
+        role: "output".to_owned(),
+        name: output_name.to_owned(),
+        quantity_kind: input.quantity_kind.clone(),
+        display_unit: input.display_unit.clone(),
+        canonical_unit: input.canonical_unit.clone(),
+        status: resolved_status.to_owned(),
+    }]
 }
 
 fn report_behavior_signal_contract(
@@ -9197,13 +9219,23 @@ mod tests {
             predictor_node.contract_inputs[0].status,
             "delay_expression_signal_resolved"
         );
+        assert_eq!(
+            predictor_node.contract_outputs[0].quantity_kind,
+            "AbsoluteTemperature"
+        );
+        assert_eq!(
+            predictor_node.contract_outputs[0].status,
+            "predictor_output_typed_identity_contract"
+        );
         assert!(json.contains("\"type_status\": \"delay_output_matches_signal\""));
         assert!(json.contains("\"component_local_signal_resolved\""));
         assert!(json.contains("\"delay_expression_signal_resolved\""));
+        assert!(json.contains("\"predictor_output_typed_identity_contract\""));
         assert!(html.contains("signal=temperature_signal"));
         assert!(html.contains("signal=delay(out.T, 1 s)"));
         assert!(html.contains("inputs=input:temperature_signal:AbsoluteTemperature"));
         assert!(html.contains("inputs=input:delay(out.T, 1 s):AbsoluteTemperature"));
+        assert!(html.contains("outputs=output:predicted_temperature:AbsoluteTemperature"));
     }
 
     fn sample_plot_spec(plot_type: &str) -> PlotSpec {
