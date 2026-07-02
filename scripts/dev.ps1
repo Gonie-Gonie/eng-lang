@@ -1978,7 +1978,7 @@ function Assert-VscodeExtensionContract {
         @{ Name = "Sample LHS table"; Tokens = @("sample lhs", "count =", "seed =", "uniform(") },
         @{ Name = "Apply case template"; Tokens = @("apply", "over", "template = file", "{case_dir}") },
         @{ Name = "Regression prediction table"; Tokens = @("regression_table", "model_card", "evaluate", "predict") },
-        @{ Name = "SQLite table write"; Tokens = @("open sqlite", ".table", "transaction = commit") },
+        @{ Name = "SQLite table write"; Tokens = @('open sqlite ${2:args.database_target}', ".table", "transaction = commit") },
         @{ Name = "Standard text artifact"; Tokens = @("write standard_text", "output = join", "overwrite = true") },
         @{ Name = "Plot line"; Tokens = @("plot", "unit y =", "title =") }
     )) {
@@ -1991,6 +1991,9 @@ function Assert-VscodeExtensionContract {
             if (-not $SnippetBody.Contains($RequiredSnippetToken)) {
                 throw "VS Code snippet $($RequiredSnippet.Name) missing token $RequiredSnippetToken"
             }
+        }
+        if ($RequiredSnippet.Name -eq "SQLite table write" -and $SnippetBody.Contains('open sqlite file(${2:args.database_target})')) {
+            throw "VS Code SQLite snippet must pass FilePath args directly instead of wrapping args.database_target in file(...)"
         }
     }
     foreach ($RequiredVscodeInstallPattern in @(

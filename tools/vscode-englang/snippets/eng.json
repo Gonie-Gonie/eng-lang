@@ -116,7 +116,7 @@
   "SQLite table write": {
     "prefix": "write sqlite",
     "body": [
-      "${1:db} = open sqlite file(${2:args.database_target})",
+      "${1:db} = open sqlite ${2:args.database_target}",
       "write ${3:predictions} to ${1:db}.table(\"${4:predictions}\")",
       "with {",
       "    mode = ${5|replace,append,upsert|}",
