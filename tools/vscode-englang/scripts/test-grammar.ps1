@@ -390,6 +390,9 @@ function Assert-AnyScopeMatchesLabels {
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
+$GrammarOnlyWorkflowOptionAliases = @(
+    "fixture"
+)
 $GrammarWorkflowOptions = Read-GrammarWorkflowOptionLabels
 $PublicTypeLabels = @($SyntaxCatalog.public_types | ForEach-Object { [string]$_.label })
 $PublicGenericTypes = @($PublicTypeLabels | Where-Object {
@@ -406,11 +409,13 @@ $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowOptions -Description "LSP workflow option"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowOptionAliases -Description "grammar-only workflow option alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-WorkflowOptionsAreScopedToWithBlocks
-$GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $WorkflowOptions -notcontains $_ } | Sort-Object -Unique)
+$AllowedGrammarWorkflowOptions = @($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
+$GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $AllowedGrammarWorkflowOptions -notcontains $_ } | Sort-Object -Unique)
 if ($GrammarOptionsMissingFromLsp.Count -gt 0) {
     throw "TextMate workflow option labels are missing from LSP workflow options: $($GrammarOptionsMissingFromLsp -join ', ')"
 }

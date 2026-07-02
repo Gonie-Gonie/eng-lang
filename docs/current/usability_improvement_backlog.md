@@ -3872,6 +3872,18 @@ Status: implemented to make `where` scoping errors repairable from the editor.
 - Extended LSP stdio and `--code-actions-stdin` coverage plus VS Code
   extension contract checks.
 
+## Batch 313: Preferred Offline Response Completion
+
+Status: implemented to reduce fixture-like API wording in new editor flows.
+
+- Removed the legacy `fixture` alias from LSP/VS Code completion suggestions
+  for HTTP/download `with` blocks while keeping existing `fixture = ...` files
+  parseable and semantically highlighted as external boundaries.
+- Regenerated VS Code editor metadata while keeping TextMate compatibility
+  highlighting for existing legacy `fixture = ...` files.
+- Updated workflow-module evidence so workflows 01, 02, and 03 are all listed
+  as native zero-external-process examples.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

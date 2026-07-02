@@ -789,10 +789,6 @@
                                                         "label":  "offline_response"
                                                     },
                                                     {
-                                                        "detail":  "Legacy alias for offline_response",
-                                                        "label":  "fixture"
-                                                    },
-                                                    {
                                                         "detail":  "HTTP request headers",
                                                         "label":  "headers"
                                                     },

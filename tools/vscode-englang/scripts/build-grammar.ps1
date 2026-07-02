@@ -51,6 +51,11 @@ if ($null -eq $SyntaxCatalog) {
 }
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
+# Keep legacy option keys colored for existing files without suggesting them
+# through the generated completion catalog.
+$GrammarOnlyWorkflowOptionAliases = @(
+    "fixture"
+)
 # Preserve TextMate-only aliases until the compiler-owned catalog exposes these
 # artifact, byte-size, and compatibility quantity labels directly.
 $GrammarOnlyTypeAliases = @(
@@ -114,7 +119,7 @@ $TemplateValues = @{
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation $WorkflowBuiltins
-    "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation $WorkflowOptions
+    "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
 }
 
 $SourceRaw = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8

@@ -2324,6 +2324,10 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $GrammarSourcePath)) {
         throw "VS Code extension missing source grammar at $GrammarSourcePath"
     }
+    $BuildGrammarPath = Join-Path $ExtensionRoot "scripts\build-grammar.ps1"
+    if (-not (Test-Path $BuildGrammarPath)) {
+        throw "VS Code extension missing grammar build script at $BuildGrammarPath"
+    }
     $LanguageConfigurationPath = Join-Path $ExtensionRoot "language-configuration.json"
     if (-not (Test-Path $LanguageConfigurationPath)) {
         throw "VS Code extension missing language configuration at $LanguageConfigurationPath"
@@ -2396,6 +2400,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension language configuration must continue /// doc comments on Enter"
     }
     $GrammarSource = Get-Content -LiteralPath $GrammarPath -Raw
+    $BuildGrammarSource = Get-Content -LiteralPath $BuildGrammarPath -Raw
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
         "post", "check", "coverage", "sample", "lhs", "uniform",
@@ -2406,6 +2411,7 @@ function Assert-VscodeExtensionContract {
         "expected_outputs", "artifact_kind", "cache_key", "allow_failure",
         "OutputManifest", "metadata_ready", "backend", "display_unit",
         "variable_scale", "consistency_tolerance", "meta.workflow.with-block.englang",
+        "fixture",
         "variable.parameter.function.englang", "storage.type.function.englang",
         "storage.type.test.englang", "storage.modifier.englang",
         "\\b(schema|class|system|domain|component)\\b", "\\b(fn|method)\\b",
@@ -2423,6 +2429,9 @@ function Assert-VscodeExtensionContract {
         if (-not $TokenScopesDoc.Contains($WorkflowPhraseScope)) {
             throw "editor token scope contract missing workflow phrase scope $WorkflowPhraseScope"
         }
+    }
+    if (-not $BuildGrammarSource.Contains("GrammarOnlyWorkflowOptionAliases") -or -not $BuildGrammarSource.Contains('"fixture"')) {
+        throw "VS Code grammar build must keep fixture as a compatibility-only option highlight alias"
     }
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
@@ -3381,6 +3390,9 @@ function Assert-VscodeExtensionContract {
     Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $GeneratedCompletionLabels -Description "VS Code generated completion seed labels"
     if ($MetadataCompletionLabels.Count -lt 100) {
         throw "generated VS Code completion seed is unexpectedly small: $($MetadataCompletionLabels.Count)"
+    }
+    if ($MetadataCompletionLabels -contains "fixture") {
+        throw "generated VS Code completion seed must not suggest legacy fixture option; use offline_response"
     }
     foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1

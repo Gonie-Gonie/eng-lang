@@ -602,7 +602,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
         "offline_response",
         "Pinned offline HTTP response used instead of live network",
     ),
-    ("fixture", "Legacy alias for offline_response"),
     ("headers", "HTTP request headers"),
     ("gain", "uncertainty propagation scale alias"),
     ("hidden", "MLP hidden layer option"),
@@ -4747,7 +4746,6 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "headers",
             "body",
             "offline_response",
-            "fixture",
             "expected_sha256",
             "retry",
             "timeout",
@@ -4761,7 +4759,6 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
     if owner.starts_with("download ") {
         return Some(&[
             "offline_response",
-            "fixture",
             "expected_sha256",
             "retry",
             "timeout",
@@ -6062,13 +6059,11 @@ mod tests {
             offline_response_completion["detail"],
             "Pinned offline HTTP response used instead of live network"
         );
-        let fixture_completion = completions
-            .iter()
-            .find(|completion| completion["label"] == "fixture")
-            .expect("editor metadata should include fixture legacy option completion");
-        assert_eq!(
-            fixture_completion["detail"],
-            "Legacy alias for offline_response"
+        assert!(
+            !completions
+                .iter()
+                .any(|completion| completion["label"] == "fixture"),
+            "editor metadata should not suggest legacy fixture option; use offline_response"
         );
         let net_completion = completions
             .iter()
