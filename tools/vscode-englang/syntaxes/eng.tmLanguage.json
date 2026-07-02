@@ -234,33 +234,114 @@
                                                "patterns":  [
                                                                 {
                                                                     "name":  "meta.workflow.export-summary-csv.englang",
-                                                                    "match":  "\\b(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.side-effect.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "keyword.control.report.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.side-effect.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.report.englang"
+                                                                                                },
+                                                                                          "3":  {
+                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                },
+                                                                                          "4":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=\\s*\\{|#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.write-text.englang",
-                                                                    "match":  "\\b(write)\\s+(text)\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.side-effect.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(write)\\s+(text)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.side-effect.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.write-json.englang",
+                                                                    "begin":  "\\b(write)\\s+(json)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.side-effect.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.render-template.englang",

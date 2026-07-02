@@ -88,7 +88,7 @@ Current workflow phrase scopes:
 | `meta.workflow.db-write.englang` | `write <table> to <db>.table` |
 | `meta.workflow.derive-column.englang` | `derive <table> column ...` |
 | `meta.workflow.download-to.englang` | `download ... to ...` |
-| `meta.workflow.export-summary-csv.englang` | `export summary to csv` |
+| `meta.workflow.export-summary-csv.englang` | `export summary to csv <target>` |
 | `meta.workflow.http-request.englang` | `http get`, `http post`, and other HTTP request phrases. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.open-sqlite.englang` | `open sqlite` |
@@ -102,7 +102,8 @@ Current workflow phrase scopes:
 | `meta.workflow.render-template.englang` | `render template <source>` |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
-| `meta.workflow.write-text.englang` | `write text` |
+| `meta.workflow.write-json.englang` | `write json <target>, <value>` |
+| `meta.workflow.write-text.englang` | `write text <target>, <value>` |
 
 ## Semantic Token Legend
 

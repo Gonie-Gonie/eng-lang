@@ -27,3 +27,5 @@ export summary to csv "outputs/summary.csv" {
 with {
     overwrite = true
 }
+
+write json "outputs/energy.json", E_coil

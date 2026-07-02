@@ -2068,6 +2068,20 @@ statement in first-render TextMate highlighting.
 - Added grammar expectations for `render template file("model/base.txt")` so
   template rendering does not fall back to disconnected keyword coloring.
 
+## Batch 169: Write And Export Target Highlighting
+
+Status: implemented to keep explicit output artifact statements readable as
+whole side-effect workflow phrases.
+
+- Extended `meta.workflow.write-text.englang` to cover
+  `write text <target>, <value>` instead of stopping after `write text`.
+- Added `meta.workflow.write-json.englang` for
+  `write json <target>, <value>`.
+- Extended `meta.workflow.export-summary-csv.englang` to include the target CSV
+  path before the summary block begins.
+- Added grammar expectations for write-text payload references, write-json
+  output statements, and export-summary target paths.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

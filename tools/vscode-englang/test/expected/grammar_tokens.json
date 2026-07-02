@@ -181,7 +181,13 @@
   {
     "fixture": "01_core_workflow.eng",
     "scope": "meta.workflow.write-text.englang",
-    "text": "write text",
+    "text": "write text file(\"outputs/summary.txt\"), message",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.local.englang",
+    "text": "message",
     "fullMatch": true
   },
   {
@@ -267,13 +273,25 @@
   {
     "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.export-summary-csv.englang",
-    "text": "export summary to csv",
+    "text": "export summary to csv \"outputs/summary.csv\"",
     "fullMatch": true
   },
   {
     "fixture": "03_side_effects.eng",
     "scope": "keyword.control.report.englang",
     "text": "summary",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.write-json.englang",
+    "text": "write json \"outputs/energy.json\", E_coil",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.local.englang",
+    "text": "E_coil",
     "fullMatch": true
   },
   {
