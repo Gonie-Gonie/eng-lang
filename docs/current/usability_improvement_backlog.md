@@ -3579,6 +3579,18 @@ drift.
 - Updated docs and native IDE regression coverage so the metadata-backed
   fallback remains part of the editor contract.
 
+## Batch 290: Native IDE Editor Keyboard Basics
+
+Status: implemented to make the textarea-backed native editor less dependent
+on browser defaults.
+
+- Added native IDE Ctrl+/ line-comment toggling with `#`, matching the VS Code
+  language configuration comment style.
+- Added Tab and Shift+Tab handling for selected blocks and the current line so
+  focus no longer leaves the editor during normal indentation work.
+- Added Enter auto-indent for block openers, closing-brace splits, and `///`
+  documentation comment continuation, with IDE contract coverage and user docs.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

@@ -2,6 +2,7 @@ const invoke = window.__TAURI__?.core?.invoke;
 const listen = window.__TAURI__?.event?.listen;
 const RUN_HISTORY_LIMIT = 40;
 const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
+const EDITOR_INDENT = "  ";
 const FALLBACK_LEXICAL_KEYWORDS = [
   "use", "import", "from", "as", "schema", "class", "system", "component", "domain",
   "args", "report", "test", "where", "with", "on", "const", "fn", "method",
@@ -3879,28 +3880,225 @@ function renderTabLabels() {
 }
 
 function handleEditorKeyDown(event) {
+  const editor = event.currentTarget;
   const overlayVisible = state.completionItems.length > 0;
+  if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+    event.preventDefault();
+    toggleEditorLineComment(editor);
+    return;
+  }
   if ((event.ctrlKey || event.metaKey) && event.key === " ") {
     event.preventDefault();
     updateCompletionOverlay(true);
     return;
   }
-  if (!overlayVisible) return;
-  if (event.key === "Tab" || event.key === "Enter") {
+  if (overlayVisible && (event.key === "Tab" || event.key === "Enter")) {
     event.preventDefault();
     insertCompletion(state.completionItems[state.completionIndex]);
-  } else if (event.key === "Escape") {
+    return;
+  }
+  if (overlayVisible && event.key === "Escape") {
     event.preventDefault();
     hideCompletions();
-  } else if (event.key === "ArrowDown") {
+    return;
+  }
+  if (overlayVisible && event.key === "ArrowDown") {
     event.preventDefault();
     state.completionIndex = (state.completionIndex + 1) % state.completionItems.length;
     drawCompletionOverlay();
-  } else if (event.key === "ArrowUp") {
+    return;
+  }
+  if (overlayVisible && event.key === "ArrowUp") {
     event.preventDefault();
     state.completionIndex = (state.completionIndex + state.completionItems.length - 1) % state.completionItems.length;
     drawCompletionOverlay();
+    return;
   }
+  if (event.key === "Tab") {
+    event.preventDefault();
+    if (event.shiftKey) outdentEditorSelection(editor);
+    else indentEditorSelection(editor);
+    return;
+  }
+  if (event.key === "Enter" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+    event.preventDefault();
+    insertEditorNewlineWithIndent(editor);
+  }
+}
+
+function toggleEditorLineComment(editor) {
+  const source = editor.value;
+  const range = selectedLineEditRange(source, editor.selectionStart, editor.selectionEnd);
+  const block = source.slice(range.start, range.end);
+  const lines = splitTextLines(block);
+  const contentLines = lines.filter((line) => line.text.trim().length > 0);
+  const shouldUncomment = contentLines.length > 0
+    && contentLines.every((line) => /^\s*# ?/.test(line.text));
+  const changed = lines.map((line) => ({
+    ...line,
+    text: shouldUncomment ? uncommentLine(line.text) : commentLine(line.text)
+  }));
+  applyLineBlockEdit(editor, range, lines, changed);
+}
+
+function indentEditorSelection(editor) {
+  const source = editor.value;
+  const range = selectedLineEditRange(source, editor.selectionStart, editor.selectionEnd);
+  const lines = splitTextLines(source.slice(range.start, range.end));
+  const changed = lines.map((line) => ({ ...line, text: `${EDITOR_INDENT}${line.text}` }));
+  applyLineBlockEdit(editor, range, lines, changed);
+}
+
+function outdentEditorSelection(editor) {
+  const source = editor.value;
+  const range = selectedLineEditRange(source, editor.selectionStart, editor.selectionEnd);
+  const lines = splitTextLines(source.slice(range.start, range.end));
+  const changed = lines.map((line) => ({ ...line, text: outdentLine(line.text) }));
+  applyLineBlockEdit(editor, range, lines, changed);
+}
+
+function insertEditorNewlineWithIndent(editor) {
+  const source = editor.value;
+  const start = Math.min(editor.selectionStart, editor.selectionEnd);
+  const end = Math.max(editor.selectionStart, editor.selectionEnd);
+  const lineStart = lineStartOffset(source, start);
+  const lineEnd = lineEndOffset(source, end);
+  const beforeLine = source.slice(lineStart, start);
+  const afterLine = source.slice(end, lineEnd);
+  const indent = (beforeLine.match(/^\s*/) || [""])[0];
+  const trimmedBefore = beforeLine.trimEnd();
+  const lineEnding = preferredLineEnding(source);
+  let nextIndent = indent;
+  const docComment = /^(\s*)\/\/\/ ?/.exec(beforeLine);
+  if (docComment) {
+    nextIndent = `${docComment[1]}/// `;
+  } else if (trimmedBefore.endsWith("{")) {
+    nextIndent = `${indent}${EDITOR_INDENT}`;
+  }
+
+  const shouldSplitClosingBrace = trimmedBefore.endsWith("{") && /^\s*\}/.test(afterLine);
+  const insertText = shouldSplitClosingBrace
+    ? `${lineEnding}${nextIndent}${lineEnding}${indent}`
+    : `${lineEnding}${nextIndent}`;
+  const cursor = start + lineEnding.length + nextIndent.length;
+  replaceEditorRange(editor, start, end, insertText, cursor, cursor);
+}
+
+function commentLine(line) {
+  if (!line.trim()) return `${line}# `;
+  return line.replace(/^(\s*)/, "$1# ");
+}
+
+function uncommentLine(line) {
+  return line.replace(/^(\s*)# ?/, "$1");
+}
+
+function outdentLine(line) {
+  if (line.startsWith(EDITOR_INDENT)) return line.slice(EDITOR_INDENT.length);
+  if (line.startsWith("\t")) return line.slice(1);
+  if (line.startsWith(" ")) return line.slice(1);
+  return line;
+}
+
+function applyLineBlockEdit(editor, range, originalLines, changedLines) {
+  const nextBlock = joinTextLines(changedLines);
+  const selected = editor.selectionStart !== editor.selectionEnd;
+  const source = editor.value;
+  const oldBlock = source.slice(range.start, range.end);
+  const before = source.slice(0, range.start);
+  const after = source.slice(range.end);
+  editor.value = `${before}${nextBlock}${after}`;
+  if (selected) {
+    editor.selectionStart = range.start;
+    editor.selectionEnd = range.start + nextBlock.length;
+  } else {
+    const column = editor.selectionStart - range.start;
+    const firstOriginal = originalLines[0]?.text ?? oldBlock;
+    const firstChanged = changedLines[0]?.text ?? nextBlock;
+    const delta = lineEditDeltaBeforeColumn(firstOriginal, firstChanged, column);
+    const cursor = Math.max(range.start, range.start + column + delta);
+    editor.selectionStart = cursor;
+    editor.selectionEnd = cursor;
+  }
+  syncEditorManualEdit(editor);
+}
+
+function lineEditDeltaBeforeColumn(original, changed, column) {
+  let prefix = 0;
+  const limit = Math.min(original.length, changed.length);
+  while (prefix < limit && original[prefix] === changed[prefix]) prefix += 1;
+  return prefix < column ? changed.length - original.length : 0;
+}
+
+function replaceEditorRange(editor, start, end, text, selectionStart, selectionEnd) {
+  const source = editor.value;
+  editor.value = `${source.slice(0, start)}${text}${source.slice(end)}`;
+  editor.selectionStart = selectionStart;
+  editor.selectionEnd = selectionEnd;
+  syncEditorManualEdit(editor);
+}
+
+function syncEditorManualEdit(editor) {
+  state.source = editor.value;
+  state.dirty = true;
+  rememberCurrentTab();
+  renderTabLabels();
+  hideCompletions();
+  updateEditorHighlight();
+  updateCursorInsight();
+  editor.focus();
+}
+
+function selectedLineEditRange(source, selectionStart, selectionEnd) {
+  const start = Math.min(selectionStart, selectionEnd);
+  const rawEnd = Math.max(selectionStart, selectionEnd);
+  const end = trimTrailingSelectedLineBreak(source, start, rawEnd);
+  return {
+    start: lineStartOffset(source, start),
+    end: lineEndOffset(source, end)
+  };
+}
+
+function trimTrailingSelectedLineBreak(source, selectionStart, selectionEnd) {
+  if (selectionEnd <= selectionStart) return selectionEnd;
+  let end = selectionEnd;
+  if (end > 0 && source[end - 1] === "\n") end -= 1;
+  if (end > 0 && source[end - 1] === "\r") end -= 1;
+  return end;
+}
+
+function lineStartOffset(source, offset) {
+  const before = source.slice(0, Math.max(0, offset));
+  return Math.max(before.lastIndexOf("\n"), before.lastIndexOf("\r")) + 1;
+}
+
+function lineEndOffset(source, offset) {
+  const safeOffset = Math.max(0, offset);
+  const lf = source.indexOf("\n", safeOffset);
+  const cr = source.indexOf("\r", safeOffset);
+  if (lf === -1 && cr === -1) return source.length;
+  if (lf === -1) return cr;
+  if (cr === -1) return lf;
+  return Math.min(lf, cr);
+}
+
+function splitTextLines(text) {
+  const parts = String(text ?? "").split(/(\r\n|\r|\n)/);
+  const lines = [];
+  for (let index = 0; index < parts.length; index += 2) {
+    if (index === parts.length - 1 && parts[index] === "") continue;
+    lines.push({ text: parts[index] || "", ending: parts[index + 1] || "" });
+  }
+  return lines.length ? lines : [{ text: "", ending: "" }];
+}
+
+function joinTextLines(lines) {
+  return lines.map((line) => `${line.text}${line.ending || ""}`).join("");
+}
+
+function preferredLineEnding(source) {
+  const match = String(source ?? "").match(/\r\n|\r|\n/);
+  return match ? match[0] : "\n";
 }
 
 function updateCompletionOverlay(force = false) {
