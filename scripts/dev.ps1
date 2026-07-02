@@ -2162,7 +2162,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing englang semantic token scope mappings"
     }
     foreach ($RequiredTokenScope in @(
-        "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
+        "type", "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
         "method.sideEffect", "property.sideEffect", "variable.validation", "variable.report",
         "keyword.sideEffect", "keyword.external", "keyword.validation",
         "keyword.report", "keyword.solver", "function.solver",

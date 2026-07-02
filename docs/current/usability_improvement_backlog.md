@@ -2879,6 +2879,22 @@ from TextMate fallback highlighting.
 - Kept the existing base-type guard for `support.type.englang`, while deriving
   it from the same completion label list as the generic guard.
 
+## Batch 233: Generic Type Semantic Token Overlay
+
+Status: implemented after finding that LSP lexical semantic token scanning used
+full generic completion labels while source scanning works word-by-word.
+
+- Changed the LSP semantic scanner to derive public type base names from generic
+  completion labels, so `Secret`, `Table`, `Optional`, and `TimeSeries` receive
+  type semantic tokens in source.
+- Added bracket-aware generic type scanning so inner type arguments such as `T`
+  in `Table[T]` receive type semantic tokens without globally coloring every
+  standalone `T`.
+- Added VS Code semantic fallback mapping for the broad `type` selector and
+  connected it to generic TextMate scopes.
+- Extended editor contract checks so the broad type semantic fallback mapping
+  remains present.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

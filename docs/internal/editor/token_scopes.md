@@ -208,6 +208,7 @@ in sync with the generated legend. Important pairings:
 
 | Semantic selector | Fallback scope intent |
 | --- | --- |
+| `type` | Type names, generic type expressions, and bracketed type arguments. |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
@@ -251,12 +252,14 @@ keyword.control.solver.englang
 keyword.control.validation.englang
 keyword.control.workflow.englang
 markup.warning.englang
+meta.type.generic.englang
 storage.modifier.englang
 support.function.builtin.englang
 support.namespace.module.englang
 support.type.englang
 variable.other.definition.englang
 variable.other.property.englang
+variable.parameter.type.englang
 variable.parameter.property.englang
 ```
 

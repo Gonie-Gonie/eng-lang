@@ -129,12 +129,19 @@
       {
         "language": "englang",
         "scopes": {
+          "type": [
+            "support.type.englang",
+            "meta.type.generic.englang",
+            "variable.parameter.type.englang"
+          ],
           "type.unit": [
             "constant.other.unit.englang",
             "support.type.englang"
           ],
           "type.quantity": [
-            "support.type.englang"
+            "support.type.englang",
+            "meta.type.generic.englang",
+            "variable.parameter.type.englang"
           ],
           "property.unit": [
             "constant.other.unit.englang",

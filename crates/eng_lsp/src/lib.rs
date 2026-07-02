@@ -2611,7 +2611,11 @@ impl<'a> SemanticTokenBuilder<'a> {
             .collect::<BTreeSet<_>>();
         let public_types = PUBLIC_TYPE_COMPLETIONS
             .iter()
-            .map(|(type_name, _)| *type_name)
+            .map(|(type_name, _)| public_type_completion_base(type_name))
+            .collect::<BTreeSet<_>>();
+        let generic_type_bases = PUBLIC_TYPE_COMPLETIONS
+            .iter()
+            .filter_map(|(type_name, _)| public_generic_type_base(type_name))
             .collect::<BTreeSet<_>>();
         let units = {
             let mut units = all_unit_infos()
@@ -2636,6 +2640,7 @@ impl<'a> SemanticTokenBuilder<'a> {
 
             for (start, end) in code_ranges(line) {
                 self.scan_word_tokens(line_index, start, end, &quantity_names, &public_types);
+                self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
                 self.scan_unit_tokens(line_index, start, end, &units);
                 self.scan_number_tokens(line_index, start, end);
             }
@@ -2691,6 +2696,63 @@ impl<'a> SemanticTokenBuilder<'a> {
                 continue;
             }
             index += 1;
+        }
+    }
+
+    fn scan_generic_type_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+        generic_type_bases: &BTreeSet<&str>,
+    ) {
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        let mut index = start;
+        while index < end {
+            if index >= bytes.len() || !is_ident_start(bytes[index]) {
+                index += 1;
+                continue;
+            }
+
+            let base_start = index;
+            index += 1;
+            while index < end && index < bytes.len() && is_ident_byte(bytes[index]) {
+                index += 1;
+            }
+            let base = &line[base_start..index];
+            if !generic_type_bases.contains(base) {
+                continue;
+            }
+
+            let mut cursor = skip_ascii_whitespace(bytes, index, end);
+            if cursor >= end || cursor >= bytes.len() || bytes[cursor] != b'[' {
+                continue;
+            }
+            cursor += 1;
+            cursor = skip_ascii_whitespace(bytes, cursor, end);
+            if cursor >= end || cursor >= bytes.len() || !is_ident_start(bytes[cursor]) {
+                continue;
+            }
+
+            let argument_start = cursor;
+            cursor += 1;
+            while cursor < end && cursor < bytes.len() && is_ident_byte(bytes[cursor]) {
+                cursor += 1;
+            }
+            let argument_end = cursor;
+            cursor = skip_ascii_whitespace(bytes, cursor, end);
+            if cursor >= end || cursor >= bytes.len() || bytes[cursor] != b']' {
+                continue;
+            }
+
+            self.push_byte_range(
+                line_index,
+                argument_start,
+                argument_end - argument_start,
+                "type",
+                &[],
+            );
         }
     }
 
@@ -3223,6 +3285,23 @@ fn is_unit_byte(byte: u8) -> bool {
 
 fn is_ident_start(byte: u8) -> bool {
     byte == b'_' || byte.is_ascii_alphabetic()
+}
+
+fn public_type_completion_base(type_name: &str) -> &str {
+    type_name
+        .split_once('[')
+        .map_or(type_name, |(base, _)| base)
+}
+
+fn public_generic_type_base(type_name: &str) -> Option<&str> {
+    type_name.split_once('[').map(|(base, _)| base)
+}
+
+fn skip_ascii_whitespace(bytes: &[u8], mut index: usize, end: usize) -> usize {
+    while index < end && index < bytes.len() && bytes[index].is_ascii_whitespace() {
+        index += 1;
+    }
+    index
 }
 
 fn ranges_overlap(
@@ -5538,6 +5617,13 @@ schema SensorData {
     T_supply: AbsoluteTemperature [degC]
 }
 
+schema WorkflowArtifactRefs {
+    api_key: Secret[String]
+    predictions: Table[T]
+    maybe_output: Optional[DirectoryPath]
+    heat_series: TimeSeries[Time]
+}
+
 args {
     input: CsvFile = file("data/sensor.csv")
 }
@@ -5560,6 +5646,18 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
         assert_semantic_token_type(&snapshot, source, "SensorData", "class");
         assert_semantic_token_type(&snapshot, source, "time", "property");
         assert_semantic_token_modifier(&snapshot, source, "time", "declaration");
+        for label in [
+            "Secret",
+            "String",
+            "Table",
+            "T",
+            "Optional",
+            "DirectoryPath",
+            "TimeSeries",
+            "Time",
+        ] {
+            assert_semantic_token_type(&snapshot, source, label, "type");
+        }
         assert_semantic_token_type(&snapshot, source, "input", "parameter");
         assert_semantic_token_modifier(&snapshot, source, "input", "declaration");
         assert_semantic_token_type(&snapshot, source, "sensor", "variable");
