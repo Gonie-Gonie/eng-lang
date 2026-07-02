@@ -20830,7 +20830,7 @@ mod tests {
     }
 
     #[test]
-    fn run_file_resolves_args_path_inside_sqlite_connection() {
+    fn run_file_resolves_typed_args_path_inside_sqlite_connection() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .canonicalize()
@@ -20850,14 +20850,14 @@ mod tests {
             &source_path,
             concat!(
                 "args {\n",
-                "    database_target: String = \"outputs/arg_results.sqlite\"\n",
+                "    database_target: FilePath = file(\"outputs/arg_results.sqlite\")\n",
                 "}\n\n",
                 "schema SimulationResult {\n",
                 "    case_id: String\n",
                 "    annual_electricity: Energy [kWh]\n",
                 "}\n\n",
                 "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
-                "db = open sqlite file(args.database_target)\n",
+                "db = open sqlite args.database_target\n",
                 "write results to db.table(\"simulation_results\")\n",
                 "with {\n",
                 "    mode = replace\n",

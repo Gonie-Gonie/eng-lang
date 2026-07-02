@@ -1,5 +1,5 @@
 args {
-    database_target: String = "outputs/surrogate_results.sqlite"
+    database_target: FilePath = file("outputs/surrogate_results.sqlite")
     output: DirectoryPath = dir("outputs")
 }
 
@@ -57,7 +57,7 @@ peak_cooling: HeatRate [kW] = case_001.peak_cooling
 unmet_hours: Duration [h] = case_001.unmet_hours
 native_case_status = "case inputs rendered by applying a native template step over the materialized case table"
 native_model_status = "training designs, derived results, regression model, predictions, and DB writes materialized natively"
-db = open sqlite file(args.database_target)
+db = open sqlite args.database_target
 write training_results to db.table("simulation_results")
 with {
     mode = replace

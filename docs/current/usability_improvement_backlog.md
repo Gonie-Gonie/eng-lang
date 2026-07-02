@@ -2463,9 +2463,8 @@ workflow `with` options.
 Status: implemented to make workflow 02's SQLite output argument real instead of
 display-only.
 
-- Updated workflow 02 so `args.database_target` feeds
-  `open sqlite file(args.database_target)` and both DB writes record explicit
-  `transaction = commit`.
+- Updated workflow 02 so `args.database_target` feeds the SQLite connection
+  path and both DB writes record explicit `transaction = commit`.
 - Fixed runtime path evaluation so `file(args.<name>)` and `dir(args.<name>)`
   resolve the arg value before output and DB manifest paths are materialized.
 - Added runtime regression coverage for SQLite connections using an args-backed
@@ -2473,6 +2472,18 @@ display-only.
   `args.database_target`.
 - Cleaned workflow 02 expected docs to reflect eight generated case inputs and
   the args-backed SQLite boundary.
+
+## Batch 247: Typed SQLite Target Argument
+
+Status: implemented after reviewing workflow 02's public API surface for path
+arguments that were still exposed as plain strings.
+
+- Changed workflow 02's `database_target` argument from `String` to `FilePath`
+  and opened SQLite with `open sqlite args.database_target`.
+- Updated runtime regression coverage so typed path arguments feed SQLite
+  connection paths without wrapping the arg in `file(...)`.
+- Kept output/review artifact paths stable while removing an unnecessary
+  conversion from the visible workflow code.
 
 ## Batch 202: Live HTTP Runtime Boundary
 
