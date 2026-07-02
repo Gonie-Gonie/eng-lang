@@ -80,10 +80,10 @@ with {
     expected_step = 1 h
     year = args.year
 }
-hourly_records = weather.rows
-expected_hourly_records = 2
-missing_hourly_records = 0
-max_gap_hours = 1
+hourly_records = coverage.actual_count
+expected_hourly_records = coverage.expected_count
+missing_hourly_records = coverage.missing_count
+max_gap_hours = coverage.max_gap_hours
 
 write text "outputs/fetched_weather.json", api_payload_text
 with {
@@ -113,7 +113,9 @@ report {
     show stations.rows
     show candidates
     show station
+    show coverage.status
     show hourly_records
+    show expected_hourly_records
     show missing_hourly_records
     show max_gap_hours
 }
