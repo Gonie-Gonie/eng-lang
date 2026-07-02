@@ -1921,6 +1921,9 @@ function Assert-VscodeExtensionContract {
     if ($LanguageConfiguration.indentationRules.decreaseIndentPattern -ne '^\s*\}') {
         throw "VS Code extension language configuration must outdent block closers"
     }
+    if ($LanguageConfiguration.wordPattern -ne '(-?\d+(?:\.\d+)?)|([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)') {
+        throw "VS Code extension language configuration must treat dotted EngLang symbols as words"
+    }
     $Snippets = Get-Content -LiteralPath $SnippetsPath -Raw | ConvertFrom-Json
     foreach ($RequiredSnippet in @(
         @{ Name = "Native HTTP GET"; Tokens = @("http get", "fixture", "expected_sha256", "cache_key") },

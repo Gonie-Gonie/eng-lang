@@ -2793,6 +2793,17 @@ against the syntax-highlighting TODO.
   scopes.
 - Regenerated the packaged TextMate grammar from the source grammar.
 
+## Batch 226: VS Code Dotted Symbol Word Pattern
+
+Status: implemented after reviewing VS Code language configuration for editor
+selection/navigation ergonomics.
+
+- Added a VS Code `wordPattern` so dotted EngLang symbols such as
+  `args.input`, `sensor.T_supply`, and `eng.net` are treated as single word
+  units by editor actions.
+- Extended `ide-check` so the language configuration must keep dotted symbol
+  word selection coverage.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are
