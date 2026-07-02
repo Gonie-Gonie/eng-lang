@@ -35,7 +35,8 @@ schema WorkflowArtifactRefs {
 response = http get api_url
 with {
     query = {
-        key = api_key
+        station = "demo"
+        serviceKey = api_key
     }
     fixture = file("data/weather-response.json")
     cache = true

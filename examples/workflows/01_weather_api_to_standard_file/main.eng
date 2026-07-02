@@ -61,8 +61,10 @@ with {
 selected_station_id: String = station.station_id
 api_response = http get args.api_url
 with {
-    station = station.station_id
-    year = args.year
+    query = {
+        station = station.station_id
+        year = args.year
+    }
     fixture = args.api_response_file
     expected_sha256 = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"
     retry = 2

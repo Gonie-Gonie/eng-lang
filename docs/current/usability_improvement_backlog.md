@@ -1764,6 +1764,18 @@ Status: implemented after reviewing workflow 02's surrogate-data path.
 - Added SQLite `mode = replace` support and changed workflow 02 DB writes to
   replace target tables, keeping repeat saved-runs clean when schemas evolve.
 
+## Batch 145: HTTP Query Option Clarity
+
+Status: implemented after reviewing workflow API wording and highlighting
+consistency.
+
+- Changed workflow 01 to use the explicit `query = { ... }` HTTP option map
+  instead of exposing request query parameters as top-level `with` options.
+- Added TextMate grammar coverage for `query`, `headers`, and `values` option
+  maps so custom keys inside those maps are highlighted as properties instead
+  of plain workflow bindings.
+- Extended grammar fixture expectations for custom HTTP query keys.
+
 ## API And Wording Cleanup Candidates
 
 - Continue reviewing public command names and setting text for terms that are

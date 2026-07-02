@@ -517,6 +517,60 @@
                        "withOptions":  {
                                            "patterns":  [
                                                             {
+                                                                "name":  "meta.workflow.option-map.englang",
+                                                                "begin":  "\\b(query|headers|values)\\b\\s*(=)\\s*(\\{)",
+                                                                "beginCaptures":  {
+                                                                                      "1":  {
+                                                                                                "name":  "variable.parameter.property.englang"
+                                                                                            },
+                                                                                      "2":  {
+                                                                                                "name":  "keyword.operator.englang"
+                                                                                            },
+                                                                                      "3":  {
+                                                                                                "name":  "punctuation.section.block.begin.englang"
+                                                                                            }
+                                                                                  },
+                                                                "end":  "\\}",
+                                                                "endCaptures":  {
+                                                                                    "0":  {
+                                                                                              "name":  "punctuation.section.block.end.englang"
+                                                                                          }
+                                                                                },
+                                                                "patterns":  [
+                                                                                 {
+                                                                                     "name":  "variable.other.property.englang",
+                                                                                     "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?=\\s*=)"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#comments"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#strings"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#members"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#builtins"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#constants"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#types"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#units"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#numbers"
+                                                                                 },
+                                                                                 {
+                                                                                     "include":  "#punctuation"
+                                                                                 }
+                                                                             ]
+                                                            },
+                                                            {
                                                                 "name":  "variable.parameter.property.englang",
                                                                 "match":  "\\b(args|query|headers|body|fixture|status_code|status_class|response_hash|hash|url|expected_sha256|body_size_limit|response_body_limit|expected_outputs|artifact_kind|tool_version|values|output|output_root|case_id|step|env|cwd|timeout|retry|allow_failure|cache|cache_dir|cache_key|overwrite|mode|key|recursive|resume|confirm|expected_step|year|count|seed|test|features|target|algorithm|hidden|epochs|missing|max_gap|method|status|start|end|return_column|mean|std|error|samples|scale|offset|uncertainty|sensor_std|timestep|duration|solver|tolerance|initial|initial_derivative|initial_algebraic|algebraic_initialization|inputs|jacobian|mass_matrix|max_iter|relaxation|residual_scale|residual_scales|variable_scales|atol|rtol|unit|title|confidence_band|on_none|on_many|split|database|table|schema|path|format|profile|runner|scheduler|transaction)\\b(?=\\s*=)"
                                                             }

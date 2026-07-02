@@ -641,6 +641,21 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
+    "text": "query ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "station ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "serviceKey ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
     "text": "cache_dir ="
   },
   {
