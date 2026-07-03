@@ -4063,6 +4063,17 @@ Status: implemented to keep public workflow docs aligned with native execution.
 - Kept future simulator/domain adapters documented as layers above the generic
   modules, not as hidden Python or shell process steps inside workflows 01-03.
 
+## Batch 328: Command-Style Operand Highlighting
+
+Status: implemented to reduce semantic-token gaps in workflow command forms.
+
+- Added compiler-backed semantic tokens for command-style `fill`, `align`, and
+  `resample` dotted operands such as `designs.cooling_cop`.
+- Split dotted operands into `variable` receiver tokens and `property` field
+  tokens with workflow/validation modifiers, matching their command context.
+- Extended the LSP workflow highlighting regression with line-specific checks
+  so these operands cannot silently fall back to plain text.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
@@ -4093,8 +4104,8 @@ Status: implemented to keep public workflow docs aligned with native execution.
   persistent LSP client when the protocol surface is stable.
 - Broaden cross-file go-to-definition beyond static file imports once bundled
   module symbols expose definition URI/range metadata.
-- Expand compiler-backed semantic token coverage for richer workflow step
-  references after those source spans become first-class metadata.
+- Continue expanding compiler-backed semantic token coverage for richer workflow
+  step references as additional source spans become first-class metadata.
 - Continue expanding snapshot coverage for grammar and completion vocabulary
   as new workflow phrases become public.
 - Surface richer quick fixes for diagnostics that need broader semantic context.

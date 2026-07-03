@@ -4,8 +4,8 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
-    ClassFieldInfo, Diagnostic, DomainTypeParameterInfo, FunctionInfo, SemanticProgram, Severity,
-    WithBlockInfo, WithOptionInfo,
+    ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FunctionInfo,
+    SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -1543,12 +1543,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for command in &program.command_styles {
         builder.push_on_line(command.line, &command.verb, "function", &["defaultLibrary"]);
-        if command.verb == "apply" && is_simple_identifier_path(&command.target) {
-            builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
-        }
-        if command.verb == "fill" && command.target.trim().starts_with("missing ") {
-            builder.push_keywords_on_line(command.line, &["missing"], &["validation"]);
-        }
+        add_command_style_semantic_tokens(&mut builder, command);
     }
 
     for suite in &program.expectation_suites {
@@ -3290,6 +3285,48 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
     }
 
+    fn push_identifier_path_on_line(
+        &mut self,
+        line_one_based: usize,
+        path: &str,
+        modifiers: &[&str],
+    ) {
+        let path = path.trim();
+        if !is_simple_identifier_path(path) {
+            return;
+        }
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let mut search_start = 0usize;
+        while search_start <= line.len() {
+            let Some(relative) = line[search_start..].find(path) else {
+                break;
+            };
+            let path_start = search_start + relative;
+            let path_end = path_start + path.len();
+            search_start = path_end;
+            if !is_identifier_boundary(line, path_start, path_end) {
+                continue;
+            }
+            let mut segment_start = path_start;
+            for (index, segment) in path.split('.').enumerate() {
+                let token_type = if index == 0 { "variable" } else { "property" };
+                self.push_byte_range(
+                    line_index,
+                    segment_start,
+                    segment.len(),
+                    token_type,
+                    modifiers,
+                );
+                segment_start += segment.len() + 1;
+            }
+        }
+    }
+
     fn push_identifiers_on_line(
         &mut self,
         line_index: usize,
@@ -3558,10 +3595,8 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
             &["defaultLibrary", "model"]
         }
         "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
-        "fill" => &["defaultLibrary", "validation", "workflowStep"],
-        "check" | "coverage" | "fill_missing" | "align" | "resample" | "rmse" => {
-            &["defaultLibrary", "validation"]
-        }
+        "fill" | "align" | "resample" => &["defaultLibrary", "validation", "workflowStep"],
+        "check" | "coverage" | "fill_missing" | "rmse" => &["defaultLibrary", "validation"],
         "select_first_row" => &["defaultLibrary", "deprecated"],
         _ => &["defaultLibrary"],
     }
@@ -3592,6 +3627,80 @@ fn workflow_builtin_modifiers_for_line(
         return &["defaultLibrary", "workflowStep"];
     }
     workflow_builtin_modifiers(keyword)
+}
+
+fn add_command_style_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    command: &CommandStyleInfo,
+) {
+    match command.verb.as_str() {
+        "apply" => {
+            if is_simple_identifier_path(&command.target) {
+                builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
+            }
+        }
+        "fill" => {
+            if command.target.trim().starts_with("missing ") {
+                builder.push_keywords_on_line(command.line, &["missing"], &["validation"]);
+            }
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                &command.target,
+                &["missing"],
+                &["validation", "workflowStep"],
+            );
+        }
+        "align" | "resample" => {
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                &command.target,
+                &[],
+                &["validation", "workflowStep"],
+            );
+            for clause in &command.clauses {
+                push_command_style_identifier_paths(
+                    builder,
+                    command.line,
+                    &clause.value,
+                    &[],
+                    &["validation", "workflowStep"],
+                );
+            }
+        }
+        _ => {}
+    }
+}
+
+fn push_command_style_identifier_paths(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line_one_based: usize,
+    text: &str,
+    skip: &[&str],
+    modifiers: &[&str],
+) {
+    for path in command_style_identifier_paths(text, skip) {
+        builder.push_identifier_path_on_line(line_one_based, path, modifiers);
+    }
+}
+
+fn command_style_identifier_paths<'a>(text: &'a str, skip: &[&str]) -> Vec<&'a str> {
+    text.split(|character: char| {
+        !(character.is_ascii_alphanumeric() || character == '_' || character == '.')
+    })
+    .filter_map(|part| {
+        let part = part.trim_matches('.');
+        if part.is_empty()
+            || skip.iter().any(|keyword| *keyword == part)
+            || !is_simple_identifier_path(part)
+        {
+            None
+        } else {
+            Some(part)
+        }
+    })
+    .collect()
 }
 
 fn is_table_join_phrase(line: &str, token_start: usize) -> bool {
@@ -5782,6 +5891,31 @@ mod tests {
         );
     }
 
+    fn assert_semantic_token_on_line_with_modifier(
+        snapshot: &LspSnapshot,
+        source: &str,
+        line_needle: &str,
+        label: &str,
+        token_type: &str,
+        modifier: &str,
+    ) {
+        let line_index = source
+            .lines()
+            .position(|line| line.contains(line_needle))
+            .unwrap_or_else(|| panic!("source line `{line_needle}` should be present"));
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_index
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                            && token.token_type == token_type
+                            && token.modifiers.iter().any(|item| item == modifier)
+                    })
+            }),
+            "semantic token `{label}` on `{line_needle}` should be `{token_type}` with modifier `{modifier}`"
+        );
+    }
+
     fn assert_first_diagnostic_underlines(source: &str, code: &str, expected_text: &str) {
         let snapshot = snapshot_for_source(Path::new("diagnostic_ranges.eng"), source);
         let json = snapshot_json(&snapshot);
@@ -6801,6 +6935,8 @@ case_results = apply run_case over designs
 case_inputs = apply case_input_template over cases
 collected = collect results case_results
 filled = fill missing designs.cooling_cop
+aligned = align designs.cooling_cop with predictions.cooling_cop
+resampled = resample designs.cooling_cop to predictions.cooling_cop
 legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
@@ -6827,6 +6963,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "predict",
             "derive",
             "fill",
+            "align",
+            "resample",
             "select_first_row",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
@@ -6876,6 +7014,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "collect",
             "derive",
             "fill",
+            "align",
+            "resample",
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
@@ -6902,6 +7042,49 @@ legacy_station = select_first_row(stations, return_column="station_id")
         );
         for label in ["column", "columns", "results"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        for line in [
+            "filled = fill missing designs.cooling_cop",
+            "aligned = align designs.cooling_cop with predictions.cooling_cop",
+            "resampled = resample designs.cooling_cop to predictions.cooling_cop",
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "designs",
+                "variable",
+                "workflowStep",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "cooling_cop",
+                "property",
+                "workflowStep",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "cooling_cop",
+                "property",
+                "validation",
+            );
+        }
+        for line in [
+            "aligned = align designs.cooling_cop with predictions.cooling_cop",
+            "resampled = resample designs.cooling_cop to predictions.cooling_cop",
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "predictions",
+                "variable",
+                "workflowStep",
+            );
         }
         for label in [
             "annual_electricity",
