@@ -4052,6 +4052,17 @@ arrive.
 - Extended the native workflow LSP regression so both built-in `run_case` and
   custom apply step names remain colored as workflow-step functions.
 
+## Batch 327: Native Workflow Adapter Wording Cleanup
+
+Status: implemented to keep public workflow docs aligned with native execution.
+
+- Reworded workflow docs from adapter/process phrasing toward explicit native
+  boundaries and `process_count = 0`.
+- Clarified that workflow 02 derives result columns natively before case,
+  model, prediction, and DB steps consume the table.
+- Kept future simulator/domain adapters documented as layers above the generic
+  modules, not as hidden Python or shell process steps inside workflows 01-03.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -2,8 +2,8 @@
 
 This workflow demonstrates a native sampling, case, model, prediction, and DB
 workflow. It can act as the EngLang-side contract for future simulator adapters,
-but the current executable example does not run an external simulator or Python
-process:
+but the current executable example does not launch a simulator process or
+Python process:
 
 ```text
 native input samples -> native result derivation -> case input templates ->

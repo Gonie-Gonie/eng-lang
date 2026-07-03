@@ -4,7 +4,8 @@ Source example: `examples/workflows/02_native_surrogate_case_workflow/main.eng`
 
 This workflow demonstrates a native sampling, case, model, prediction, and DB
 workflow. Future simulator adapters can feed the same typed contracts, but the
-current executable example runs with zero external process adapters:
+current executable example has `process_count = 0` and does not launch a
+simulator adapter:
 
 ```text
 LHS training samples -> explicit CaseTable -> apply template over cases -> LHS prediction samples -> train regression -> predict -> SQLite
@@ -19,6 +20,7 @@ eng.exe run examples/workflows/02_native_surrogate_case_workflow/main.eng --save
 What it proves:
 
 - deterministic native `sample lhs` tables for training and prediction inputs
+- native result-column derivation before case/model/DB steps consume the table
 - explicit native `materialize cases training_results` CaseTable materialization
 - native `apply case_input_template over cases` CaseOutput materialization
 - native case_input artifact rendering plus summary values from case_001

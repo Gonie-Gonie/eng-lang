@@ -124,10 +124,10 @@ Current coverage:
   runs in fixture mode without a real network call.
 - `examples/workflows/02_native_surrogate_case_workflow/main.eng`
   runs native sampling, template rendering, regression, prediction, and DB writes
-  with zero external process adapters.
+  with zero external process executions.
 - `examples/workflows/03_uncertain_sensor_report/main.eng`
   runs typed sensor data and report generation with uncertainty metadata and
-  zero external process adapters.
+  zero external process executions.
 - `eng test examples` asserts that all three workflows produce review,
   output-manifest, process, report, and typed result artifacts.
 - `dev.bat workflows-test` rejects `run command`, Python calls, and nonzero

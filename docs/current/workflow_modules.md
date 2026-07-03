@@ -220,9 +220,8 @@ These workflow programs show the review contract that `eng.net`, `eng.cache`,
 `eng.sampling`, `eng.template`, `eng.case`, `eng.db`, and `eng.model` preserve
 without depending on Python workflow adapters. Workflow 03 adds the same
 native-artifact evidence for `eng.timeseries`, `eng.uncertainty`, `eng.report`,
-and `eng.plot`. External simulators and domain adapters can still be layered
-through `eng.process`, but workflows 01, 02, and 03 do not require that
-boundary.
+and `eng.plot`. Simulator and domain adapters can still be layered through
+`eng.process`, but workflows 01, 02, and 03 do not require that boundary.
 Broader model train syntax remains planned, and the internal `eng.ml` path
 exposes matching model review artifacts without claiming a broad ML framework surface.
 

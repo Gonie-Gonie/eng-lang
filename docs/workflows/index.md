@@ -30,9 +30,10 @@ The examples repeat a small set of contracts:
 These contracts define the generic workflow module surface for `eng.net`,
 `eng.cache`, `eng.sampling`, `eng.case`, `eng.template`, `eng.db`,
 `eng.model`, `eng.workflow`, and `eng.artifact`. Domain adapters such as
-weather APIs, standard-file writers, external simulators, and surrogate
-trainers stay layered above those generic modules instead of being hidden
-Python/process steps inside the workflow examples.
+weather APIs, standard-file exporters, simulator adapters, and surrogate
+trainers stay layered above those generic modules. The current workflow
+examples keep those boundaries native and explicit instead of hiding them in
+Python or shell process steps.
 
 ## Run All Workflow Examples
 
