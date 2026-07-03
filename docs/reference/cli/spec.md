@@ -277,8 +277,10 @@ This command does not compile native code and does not change runtime
 execution. Its current backend is `interpreter-fallback`.
 
 Supported backend requests are `auto`, `interpreter-fallback`, and
-`native-preview`. `native-preview` records a request but still selects
-`interpreter-fallback` with `backend_selection.status = not_available`.
+`native-preview`. `native-preview` is a retained compatibility label for
+requesting native-backend selection metadata; it does not execute native code
+today. It records the request and still selects `interpreter-fallback` with
+`backend_selection.status = not_available`.
 
 Each candidate includes source, reason, lowering status, operation list, and a
 coarse planning estimate:

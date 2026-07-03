@@ -4682,6 +4682,19 @@ boundaries.
 - Extended the VS Code grammar fixture and expected token smoke with `headers`
   option maps and `cache_ttl` option highlighting.
 
+## Batch 378: Current Docs Preview Wording Cleanup
+
+Status: implemented after auditing current docs for stale preview wording.
+
+- Reworded current reviewability, status, uncertainty, CI-gate, and maturity
+  matrix docs from preview framing to implemented payload/runtime/support
+  wording where the feature is already active.
+- Kept the actual `native-preview` CLI backend label for compatibility, but
+  clarified that it is a retained metadata request label and does not execute
+  native code today.
+- Left archive/release-note preview wording and machine-readable fields such as
+  `solver_preview`/`multi_domain_preview` intact.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

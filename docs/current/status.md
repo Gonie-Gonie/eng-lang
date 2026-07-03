@@ -170,7 +170,7 @@ is not mistaken for public module support.
   - Current handling: keep current `review.json`/`report.html` public;
     `review.json.review_document`, `eng review`, and IDE Review inspector
     cover the first risk/fallback/external-boundary slice.
-  - CLI item-level semantic diff preview exists; runtime-updated
+  - CLI item-level semantic diff payload exists; runtime-updated
     ReviewDocument and native IDE diff panel remain planned.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives

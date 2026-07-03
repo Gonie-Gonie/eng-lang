@@ -75,7 +75,8 @@ separate.
   runtime-updated ReviewDocument values, or a complete risk/fallback taxonomy
   across all tracks.
 - Next cleanup action: route report HTML through the normalized
-  ReviewDocument before expanding semantic diff beyond the CLI preview.
+  ReviewDocument before expanding semantic diff beyond the current CLI
+  item-level payload.
 
 ### Measured-Vs-Simulated Validation
 
@@ -181,7 +182,7 @@ separate.
 ### Uncertainty Track
 
 - Public package: narrow `Native workflow support`
-- Main status: narrow native preview for current workflow/report artifacts
+- Main status: narrow native support for current workflow/report artifacts
 - User-facing scope: workflow 03 style uncertainty metadata, explicit scalar
   constructors, linear propagation metadata, probability/statistic validation,
   and report confidence-band artifacts.

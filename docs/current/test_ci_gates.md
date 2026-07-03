@@ -16,7 +16,7 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 
 | Gate | Command | Current purpose |
 |---|---|---|
-| Workspace CI | `dev.bat ci` | Runs Rust formatting, workspace tests, example smoke, LSP smoke, JIT checks, clippy, and the preview run example. |
+| Workspace CI | `dev.bat ci` | Runs Rust formatting, workspace tests, example smoke, LSP smoke, JIT checks, clippy, and the package run example. |
 | Example workflow smoke | `cargo run -p eng_cli -- test examples` | Checks all official, workflow, advanced solver, internal, and compatibility examples, then runs targeted artifact assertions. |
 | Artifact golden check | `dev.bat artifacts-check` | Validates schemas and stable artifact snapshots for official and internal fixtures. |
 | Documentation check | `dev.bat docs-check` | Checks documented snippets and supported documentation examples. |

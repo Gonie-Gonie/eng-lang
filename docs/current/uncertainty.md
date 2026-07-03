@@ -121,12 +121,12 @@ monte_carlo
 ensemble
 ```
 
-The implemented preview now materializes a narrow scalar arithmetic slice for
+The implemented runtime path now materializes a narrow scalar arithmetic slice for
 uncertain sources. `Q_total = Q_meas + 2 kW` remains a fast linear case;
 multiple measured sources use an independent first-order standard-deviation
 combination and record a runtime status for that assumption; interval sources
 use deterministic corner evaluation for the current bounds. Distribution and
-ensemble arithmetic remain deterministic sample-preview behavior. This is
+ensemble arithmetic remain deterministic sample-backed behavior. This is
 deliberately narrower than a general symbolic Jacobian, Monte Carlo engine, or
 full deterministic-binding value evaluator.
 
