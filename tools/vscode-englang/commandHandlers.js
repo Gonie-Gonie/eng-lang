@@ -443,6 +443,8 @@ function createCommandHandlers(options = {}) {
   function toolingStatusPayload(context, document, config) {
     const runtime = document ? findRuntime(context, document) : "eng.exe";
     const lsp = document ? findLspRuntime(context, document) : "eng-lsp.exe";
+    const checkAndRunTool = executableStatus(runtime, config.get("runtimePath", ""));
+    const liveEditorTool = executableStatus(lsp, config.get("lspPath", ""));
     return {
       extension: {
         id: "englang.englang",
@@ -453,9 +455,13 @@ function createCommandHandlers(options = {}) {
         root: document ? workspaceRoot(document) : currentWorkspaceRoot() ?? null,
         active_document: vscode.window.activeTextEditor?.document?.uri?.fsPath ?? null
       },
+      tools: {
+        check_and_run: checkAndRunTool,
+        live_editor: liveEditorTool
+      },
       executables: {
-        eng: executableStatus(runtime, config.get("runtimePath", "")),
-        eng_lsp: executableStatus(lsp, config.get("lspPath", ""))
+        eng: checkAndRunTool,
+        eng_lsp: liveEditorTool
       },
       settings: {
         problems_source: problemsSource(document),

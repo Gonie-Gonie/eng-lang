@@ -2522,6 +2522,10 @@ function Assert-VscodeExtensionContract {
     if ($ExecutionProfileDescription -match "run commands" -or -not $ExecutionProfileDescription.Contains("program runs")) {
         throw "VS Code executionProfile description must say program runs instead of run commands"
     }
+    $RuntimePathDescription = [string]$Properties."englang.runtimePath".description
+    if (-not $RuntimePathDescription.Contains("check/run tool")) {
+        throw "VS Code runtimePath description must describe the check/run tool"
+    }
     $LintOnChangeDescription = [string]$Properties."englang.lintOnChange".description
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
         throw "VS Code lintOnChange description must avoid editor-service implementation details"
@@ -2532,6 +2536,9 @@ function Assert-VscodeExtensionContract {
     $LspPathDescription = [string]$Properties."englang.lspPath".description
     if ($LspPathDescription -match "editor service") {
         throw "VS Code lspPath description must describe live editor features instead of editor-service internals"
+    }
+    if (-not $LspPathDescription.Contains("live editor tool")) {
+        throw "VS Code lspPath description must describe the live editor tool"
     }
     $SemanticDescription = [string]$Properties."englang.semanticHighlighting.enabled".description
     if ($SemanticDescription -match "eng-lsp|snapshot|semantic tokens") {
@@ -2547,7 +2554,9 @@ function Assert-VscodeExtensionContract {
         "Packaged LSP smoke/snapshot",
         "editor-service smoke and snapshot paths",
         "LSP smoke/snapshot tooling",
-        "persistent LSP integration"
+        "persistent LSP integration",
+        "active runtime/LSP paths",
+        "LSP-backed"
     )) {
         if ($VscodeReadmeSource.Contains($ForbiddenEditorDocWording) -or $NativeIdeHowtoSource.Contains($ForbiddenEditorDocWording) -or $UserGuideSource.Contains($ForbiddenEditorDocWording) -or $FeatureMaturitySource.Contains($ForbiddenEditorDocWording) -or $MainInternalStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentStatusSource.Contains($ForbiddenEditorDocWording) -or $CurrentTracksSource.Contains($ForbiddenEditorDocWording)) {
             throw "User-facing editor docs must avoid internal wording: $ForbiddenEditorDocWording"
@@ -2747,6 +2756,19 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredToolingStatusToken)) {
             throw "VS Code command handlers missing tooling status token $RequiredToolingStatusToken"
+        }
+    }
+    foreach ($RequiredToolingStatusAlias in @(
+        "const checkAndRunTool = executableStatus",
+        "const liveEditorTool = executableStatus",
+        "tools:",
+        "check_and_run: checkAndRunTool",
+        "live_editor: liveEditorTool",
+        "eng: checkAndRunTool",
+        "eng_lsp: liveEditorTool"
+    )) {
+        if (-not $CommandHandlersSource.Contains($RequiredToolingStatusAlias)) {
+            throw "VS Code tooling status must expose user-facing tool aliases while keeping executable compatibility keys"
         }
     }
     if (-not $CommandHandlersSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {

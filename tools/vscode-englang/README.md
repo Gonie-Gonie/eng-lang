@@ -33,9 +33,9 @@ embedding compiler logic in JavaScript.
   `with` options, invalid network retry/timeout/body-size policies, pinned
   response SHA-256 mismatches, sampling seed values, missing repro-profile
   sampling seeds, uncertainty constructor argument repairs, and uncertainty
-  source definition/conversion repairs. LSP-backed
-  quick fixes are shown first and merged with local fallback repairs so partial
-  LSP responses do not hide available fixes.
+  source definition/conversion repairs. Live editor quick fixes are shown first
+  and merged with local fallback repairs so partial live editor responses do
+  not hide available fixes.
 - quick fixes for simple same-block `where` local ordering mistakes where a
   later local definition can be moved before its first use
 - quick fixes for simple escaped `where` locals where a reused local binding
@@ -48,8 +48,9 @@ embedding compiler logic in JavaScript.
   lists, and plot SVGs
 - `EngLang: Switch Problems Source...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette
-- `EngLang: Show Tooling Status` for inspecting the active runtime/LSP paths,
-  Problems source, lint toggles, semantic highlighting, and extension version
+- `EngLang: Show Tooling Status` for inspecting the active check/run and live
+  editor tool paths, Problems source, lint toggles, semantic highlighting, and
+  extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -97,8 +98,9 @@ If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
-Status` to confirm the bundled `eng.exe` and `eng-lsp.exe` paths and current
-Problems source. If you run directly from source without packaging, set:
+Status` to confirm the bundled check/run tool and live editor tool paths plus
+the current Problems source. If you run directly from source without packaging,
+set:
 
 ```text
 englang.runtimePath = C:\path\to\eng.exe

@@ -3994,6 +3994,18 @@ phrase.
 - Pinned the behavior in grammar token expectations so the keyword cannot drift
   back to identifier coloring.
 
+## Batch 322: VS Code Tooling Status Wording
+
+Status: implemented to make the exposed tooling status easier to read without
+breaking existing JSON keys.
+
+- Added `tools.check_and_run` and `tools.live_editor` aliases to the
+  `EngLang: Show Tooling Status` JSON output.
+- Kept the existing `executables.eng` and `executables.eng_lsp` keys for
+  compatibility.
+- Reworded VS Code Settings and README text from runtime/LSP-first wording to
+  check/run tool and live editor tool wording, with contract coverage.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -491,12 +491,12 @@
         "englang.runtimePath": {
           "type": "string",
           "default": "",
-          "description": "Path to eng.exe. Leave empty to use the bundled executable, workspace executable, or PATH."
+          "description": "Path to the EngLang check/run tool (eng.exe). Leave empty to use the bundled executable, workspace executable, or PATH."
         },
         "englang.lspPath": {
           "type": "string",
           "default": "",
-          "description": "Path to eng-lsp.exe for live editor features. Leave empty to use the bundled executable, workspace executable, or PATH."
+          "description": "Path to the EngLang live editor tool (eng-lsp.exe). Leave empty to use the bundled executable, workspace executable, or PATH."
         },
         "englang.problemsSource": {
           "type": "string",
