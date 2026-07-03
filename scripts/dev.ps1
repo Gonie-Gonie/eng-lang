@@ -2363,8 +2363,8 @@ function Assert-VscodeExtensionContract {
     if ($LanguageConfiguration.comments.lineComment -ne "#") {
         throw "VS Code extension language configuration must keep # as line comment"
     }
-    if ($LanguageConfiguration.indentationRules.increaseIndentPattern -ne '^.*\{\s*(#.*)?$') {
-        throw "VS Code extension language configuration must indent after block openers"
+    if ($LanguageConfiguration.indentationRules.increaseIndentPattern -ne '^.*\{\s*(?:(#|//).*)?$') {
+        throw "VS Code extension language configuration must indent after block openers with # or // trailing comments"
     }
     if ($LanguageConfiguration.indentationRules.decreaseIndentPattern -ne '^\s*\}') {
         throw "VS Code extension language configuration must outdent block closers"

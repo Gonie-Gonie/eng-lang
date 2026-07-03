@@ -43,7 +43,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 
 | Scope family | Use |
 | --- | --- |
-| `comment.line.*.englang` | Line comments and documentation comments. |
+| `comment.line.*.englang` | Line comments (`#`, `//`) and documentation comments (`///`). |
 | `keyword.control.*.englang` | Workflow, report, validation, solver, deprecated, side-effect, and external-boundary words. |
 | `keyword.operator*.englang` | Word and symbolic operators. |
 | `punctuation.section.*.englang` | Block, bracket, and parenthesis delimiters. |
@@ -228,7 +228,7 @@ in sync with the generated legend. Important pairings:
 | `type` | Type names, generic type expressions, and bracketed type arguments. |
 | `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
 | `class.defaultLibrary`, `interface.defaultLibrary` | Bundled type/domain names surfaced by the compiler. |
-| `comment` | Ordinary and documentation line comments. |
+| `comment` | Ordinary (`#`, `//`) and documentation (`///`) line comments. |
 | `function.declaration`, `function.definition` | User-defined function and method names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
 | `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, and local keyword-like roles. |
@@ -268,6 +268,7 @@ The fallback map currently references these TextMate scopes directly:
 ```text
 comment.line.number-sign.englang
 comment.line.documentation.englang
+comment.line.double-slash.englang
 constant.language.englang
 constant.numeric.englang
 constant.other.unit.englang

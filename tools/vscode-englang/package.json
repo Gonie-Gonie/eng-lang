@@ -147,7 +147,8 @@
           ],
           "comment": [
             "comment.line.number-sign.englang",
-            "comment.line.documentation.englang"
+            "comment.line.documentation.englang",
+            "comment.line.double-slash.englang"
           ],
           "function.declaration": [
             "entity.name.function.englang"

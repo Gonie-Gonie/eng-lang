@@ -4539,6 +4539,17 @@ fixture coverage.
 - Extended VS Code grammar fixtures so HTTP query values like `args.year`,
   `station.station_id`, and `api_key` stay visibly distinct from option keys.
 
+## Batch 367: Double-Slash Comment Editor Contract
+
+Status: implemented after checking VS Code language configuration against the
+new `//` TextMate and LSP comment support.
+
+- Added `comment.line.double-slash.englang` to VS Code semantic fallback scopes
+  so themes treat ordinary `//` comments as comments consistently.
+- Updated the VS Code indentation rule and contract check so block openers with
+  trailing `//` comments indent like block openers with trailing `#` comments.
+- Documented the comment scope contract as `#`, `//`, and `///`.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
