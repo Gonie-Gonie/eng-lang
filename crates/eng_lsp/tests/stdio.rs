@@ -724,6 +724,8 @@ where {
     Q_escape = 3 kW
 }
 print "escape={Q_escape: .2 kW}"
+log trace "too noisy"
+log "missing level"
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -856,6 +858,7 @@ report {
         "E-SAMPLING-SEED-INVALID",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
+        "E-LOG-LEVEL-001",
         "E-UNC-ARGS-001",
         "E-UNC-ARGS-002",
         "E-UNC-ARGS-003",
@@ -1041,6 +1044,14 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("unit y = m"))
         .expect("source should include incompatible unit option");
+    let bad_log_level_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("log trace"))
+        .expect("source should include unsupported log level");
+    let missing_log_level_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("log \"missing level\""))
+        .expect("source should include missing log level");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1074,6 +1085,20 @@ report {
         "Remove incompatible display unit option",
         "",
         bad_unit_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Set log level to info",
+        "info",
+        bad_log_level_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Set log level to info",
+        "info ",
+        missing_log_level_line,
     );
 
     write_message(
@@ -1120,6 +1145,8 @@ where {
     Q_escape = 3 kW
 }
 print "escape={Q_escape: .2 kW}"
+log trace "too noisy"
+log "missing level"
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -1272,6 +1299,14 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("unit y = m"))
         .expect("source should include incompatible unit option");
+    let bad_log_level_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("log trace"))
+        .expect("source should include unsupported log level");
+    let missing_log_level_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("log \"missing level\""))
+        .expect("source should include missing log level");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1305,6 +1340,20 @@ report {
         "Remove incompatible display unit option",
         "",
         bad_unit_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Set log level to info",
+        "info",
+        bad_log_level_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Set log level to info",
+        "info ",
+        missing_log_level_line,
     );
 }
 

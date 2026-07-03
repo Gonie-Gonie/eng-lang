@@ -4311,6 +4311,17 @@ Status: implemented after reviewing plot/report display-unit diagnostics.
 - Extended LSP stdio, stdin code-action, and VS Code extension contract checks
   so display-unit diagnostics keep an actionable repair path.
 
+## Batch 348: Log Level Quick Fix
+
+Status: implemented after reviewing structured runtime-message diagnostics.
+
+- Added an LSP-owned quick fix for `E-LOG-LEVEL-001` that changes unsupported
+  `log` levels to `info` or inserts `info` when the level is missing.
+- Mirrored the same repair in the VS Code local fallback provider so snapshot
+  diagnostics keep the quick fix if LSP code actions are unavailable.
+- Extended LSP stdio, stdin code-action, and VS Code extension contract checks
+  so structured log diagnostics remain actionable.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

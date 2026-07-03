@@ -679,6 +679,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-UNIT-001" => optional_code_action(
             lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
         ),
+        "E-LOG-LEVEL-001" => {
+            optional_code_action(lsp_log_level_info_code_action(uri, text, diagnostic))
+        }
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
         )),
@@ -1377,6 +1380,66 @@ fn lsp_remove_incompatible_display_unit_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), "")
     }))
+}
+
+fn lsp_log_level_info_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let edit = log_level_info_edit(line_number, line)?;
+    Some(json!({
+        "title": "Set log level to info",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, edit.range, edit.new_text)
+    }))
+}
+
+struct LogLevelEdit {
+    range: Value,
+    new_text: &'static str,
+}
+
+fn log_level_info_edit(line_number: usize, line: &str) -> Option<LogLevelEdit> {
+    let code = strip_line_comment(line);
+    let indent_len = line_indent(code).len();
+    let rest = &code[indent_len..];
+    let after_log = rest.strip_prefix("log")?;
+    if after_log
+        .chars()
+        .next()
+        .is_some_and(|character| !character.is_whitespace() && character != '"')
+    {
+        return None;
+    }
+    let after_log_start = indent_len + "log".len();
+    let whitespace_len = code[after_log_start..]
+        .chars()
+        .take_while(|character| character.is_whitespace())
+        .map(char::len_utf8)
+        .sum::<usize>();
+    let token_start = after_log_start + whitespace_len;
+    let first = code[token_start..].chars().next()?;
+    if first == '"' {
+        return Some(LogLevelEdit {
+            range: line_byte_range(line_number, line, token_start, token_start),
+            new_text: "info ",
+        });
+    }
+    let token_end = token_start
+        + code[token_start..]
+            .chars()
+            .take_while(|character| !character.is_whitespace())
+            .map(char::len_utf8)
+            .sum::<usize>();
+    let level = &code[token_start..token_end];
+    if matches!(level, "debug" | "info" | "warn" | "error") {
+        return None;
+    }
+    Some(LogLevelEdit {
+        range: line_byte_range(line_number, line, token_start, token_end),
+        new_text: "info",
+    })
 }
 
 fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

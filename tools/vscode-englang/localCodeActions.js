@@ -93,6 +93,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-LOG-LEVEL-001") {
+      const action = logLevelInfoAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WHERE-FWD-001") {
       const action = reorderWhereLocalDefinitionAction(document, diagnostic);
       if (action) {
@@ -562,6 +569,45 @@ function removeIncompatibleDisplayUnitAction(document, diagnostic) {
   action.edit = new vscode.WorkspaceEdit();
   action.edit.delete(document.uri, fullLineRange(document, line.lineNumber));
   return action;
+}
+
+function logLevelInfoAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const edit = logLevelInfoEdit(line.text);
+  if (!edit) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Set log level to info", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, edit.start, line.lineNumber, edit.end),
+    edit.newText
+  );
+  return action;
+}
+
+function logLevelInfoEdit(lineText) {
+  const code = stripLineComment(lineText);
+  const match = /^(\s*)log(\s*)/.exec(code);
+  if (!match) {
+    return undefined;
+  }
+  const tokenStart = match[1].length + "log".length + match[2].length;
+  const first = code[tokenStart];
+  if (first === '"') {
+    return { start: tokenStart, end: tokenStart, newText: "info " };
+  }
+  const levelMatch = /^[^\s]+/.exec(code.slice(tokenStart));
+  if (!levelMatch) {
+    return undefined;
+  }
+  const level = levelMatch[0];
+  if (["debug", "info", "warn", "error"].includes(level)) {
+    return undefined;
+  }
+  return { start: tokenStart, end: tokenStart + level.length, newText: "info" };
 }
 
 function uncertaintyArgumentActions(document, diagnostic) {
