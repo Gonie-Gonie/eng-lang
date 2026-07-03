@@ -415,6 +415,7 @@ fn run_lsp() -> io::Result<()> {
                                 "workspaceSymbolProvider": true,
                                 "foldingRangeProvider": true,
                                 "documentFormattingProvider": true,
+                                "documentRangeFormattingProvider": true,
                                 "completionProvider": {
                                     "triggerCharacters": [" ", ":", "[", "."]
                                 },
@@ -489,6 +490,13 @@ fn run_lsp() -> io::Result<()> {
             }
             "textDocument/formatting" => {
                 let edits = formatting_edits_for_request(&request, &documents);
+                write_response(
+                    &mut output,
+                    json!({ "jsonrpc": "2.0", "id": id, "result": edits }),
+                )?;
+            }
+            "textDocument/rangeFormatting" => {
+                let edits = range_formatting_edits_for_request(&request, &documents);
                 write_response(
                     &mut output,
                     json!({ "jsonrpc": "2.0", "id": id, "result": edits }),
@@ -599,6 +607,46 @@ fn formatting_edits_for_request(
     vec![json!({
         "range": full_document_range(&text),
         "newText": result.formatted
+    })]
+}
+
+fn range_formatting_edits_for_request(
+    request: &Value,
+    documents: &HashMap<String, String>,
+) -> Vec<Value> {
+    let Some(uri) = request_uri(request) else {
+        return Vec::new();
+    };
+    let Some(text) = document_text_for_uri(uri, documents) else {
+        return Vec::new();
+    };
+    let Some(((start_line, _start_character), (end_line, end_character))) = request_range(request)
+    else {
+        return Vec::new();
+    };
+    let result = format_source(&text);
+    if !result.changed {
+        return Vec::new();
+    }
+    let original_lines = split_lines_preserve_logical(&text);
+    let formatted_lines = split_lines_preserve_logical(&result.formatted);
+    if original_lines.len() != formatted_lines.len() {
+        return Vec::new();
+    }
+    let Some((format_start_line, format_end_line)) =
+        selected_line_range(start_line, end_line, end_character, original_lines.len())
+    else {
+        return Vec::new();
+    };
+    let newline = document_newline(&result.formatted);
+    let formatted_selection = formatted_lines[format_start_line..=format_end_line].join(newline);
+    let original_selection = original_lines[format_start_line..=format_end_line].join(newline);
+    if formatted_selection == original_selection {
+        return Vec::new();
+    }
+    vec![json!({
+        "range": full_line_selection_range(&original_lines, format_start_line, format_end_line),
+        "newText": formatted_selection
     })]
 }
 
@@ -2559,6 +2607,32 @@ fn full_line_same_line_range(line_number: usize, line: &str) -> Value {
     json!({
         "start": { "line": line_number, "character": 0 },
         "end": { "line": line_number, "character": utf16_len(line) }
+    })
+}
+
+fn selected_line_range(
+    start_line: usize,
+    end_line: usize,
+    end_character: usize,
+    line_count: usize,
+) -> Option<(usize, usize)> {
+    if line_count == 0 || start_line >= line_count || end_line >= line_count {
+        return None;
+    }
+    let format_end_line = if end_character == 0 && end_line > start_line {
+        end_line - 1
+    } else {
+        end_line
+    };
+    (start_line <= format_end_line && format_end_line < line_count)
+        .then_some((start_line, format_end_line))
+}
+
+fn full_line_selection_range(lines: &[&str], start_line: usize, end_line: usize) -> Value {
+    let end_text = lines.get(end_line).copied().unwrap_or("");
+    json!({
+        "start": { "line": start_line, "character": 0 },
+        "end": { "line": end_line, "character": utf16_len(end_text) }
     })
 }
 

@@ -215,6 +215,13 @@ function activate(context) {
         formatDocumentSource: lspRequests.formatDocumentSource
       })
     ),
+    vscode.languages.registerDocumentRangeFormattingEditProvider(
+      LANGUAGE_ID,
+      new EngFormattingProvider(context, {
+        isEngDocument,
+        formatDocumentSource: lspRequests.formatDocumentSource
+      })
+    ),
     vscode.languages.registerCodeActionsProvider(
       LANGUAGE_ID,
       new EngCodeActionProvider(context, {

@@ -3136,10 +3136,13 @@ function Assert-VscodeExtensionContract {
     $FormattingSource = $ExtensionSource + "`n" + $FormattingProviderSource + "`n" + $LspRequestsSource
     foreach ($RequiredFormattingToken in @(
         "registerDocumentFormattingEditProvider",
+        "registerDocumentRangeFormattingEditProvider",
         "EngFormattingProvider",
         "formatDocumentSource",
         "--format-stdin",
         "fullDocumentRange",
+        "provideDocumentRangeFormattingEdits",
+        "rangeFormattingEdit",
         "vscode.TextEdit.replace"
     )) {
         if (-not $FormattingSource.Contains($RequiredFormattingToken)) {
@@ -3466,9 +3469,13 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredLspFormattingToken in @(
         "--format-stdin",
         "documentFormattingProvider",
+        "documentRangeFormattingProvider",
         "textDocument/formatting",
+        "textDocument/rangeFormatting",
         "formatting_edits_for_request",
+        "range_formatting_edits_for_request",
         "full_document_range",
+        "selected_line_range",
         "format_source"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspFormattingToken)) {

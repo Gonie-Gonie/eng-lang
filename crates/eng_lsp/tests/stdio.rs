@@ -89,6 +89,10 @@ fn stdio_server_round_trips_core_lsp_requests() {
         true
     );
     assert_eq!(
+        initialize["result"]["capabilities"]["documentRangeFormattingProvider"],
+        true
+    );
+    assert_eq!(
         initialize["result"]["capabilities"]["codeActionProvider"]["codeActionKinds"][0],
         "quickfix"
     );
@@ -1653,11 +1657,42 @@ fn stdio_formatting_formats_unsaved_document() {
         json!({
             "jsonrpc": "2.0",
             "id": 3,
+            "method": "textDocument/rangeFormatting",
+            "params": {
+                "textDocument": { "uri": uri },
+                "range": {
+                    "start": { "line": 1, "character": 0 },
+                    "end": { "line": 4, "character": 1 }
+                },
+                "options": { "tabSize": 4, "insertSpaces": true }
+            }
+        }),
+    );
+    let range_formatting = read_message(&mut stdout);
+    assert_eq!(range_formatting["id"], 3);
+    let range_edits = range_formatting["result"]
+        .as_array()
+        .expect("range formatting result should be an array");
+    assert_eq!(range_edits.len(), 1);
+    assert_eq!(
+        range_edits[0]["newText"],
+        "    plot Q over Time\n    with {\n        title = \"Q\"\n    }"
+    );
+    assert_eq!(range_edits[0]["range"]["start"]["line"], 1);
+    assert_eq!(range_edits[0]["range"]["start"]["character"], 0);
+    assert_eq!(range_edits[0]["range"]["end"]["line"], 4);
+    assert_eq!(range_edits[0]["range"]["end"]["character"], 1);
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 4,
             "method": "shutdown"
         }),
     );
     let shutdown = read_message(&mut stdout);
-    assert_eq!(shutdown["id"], 3);
+    assert_eq!(shutdown["id"], 4);
     assert!(shutdown["result"].is_null());
 
     write_message(

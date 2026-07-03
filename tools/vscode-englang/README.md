@@ -189,9 +189,10 @@ completion catalog from `generated/editor/englang-editor-metadata.json`. The
 same generated metadata also supplies the semantic highlighting legend and
 syntax catalog used by editor contract checks.
 
-Format Document uses the current unsaved buffer, so VS Code and the command-line
-formatter share the compiler-owned formatting rules. JavaScript does not
-maintain a separate indentation or block-formatting implementation.
+Format Document and Format Selection use the current unsaved buffer, so VS Code
+and the command-line formatter share the compiler-owned formatting rules.
+JavaScript does not maintain a separate indentation or block-formatting
+implementation.
 
 Go-to-definition uses the current unsaved buffer, so static file imports and
 bundled `use eng.<module>` imports can resolve to their source files. If live

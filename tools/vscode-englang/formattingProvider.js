@@ -21,6 +21,22 @@ class EngFormattingProvider {
     }
     return [vscode.TextEdit.replace(fullDocumentRange(document), payload.formatted)];
   }
+
+  async provideDocumentRangeFormattingEdits(document, range, _options, cancellationToken) {
+    if (!this.isEngDocument(document)) {
+      return [];
+    }
+    const payload = await this.formatDocumentSource?.(
+      document,
+      this.context,
+      cancellationToken
+    );
+    if (!payload?.changed || typeof payload.formatted !== "string") {
+      return [];
+    }
+    const edit = rangeFormattingEdit(document, range, payload.formatted);
+    return edit ? [edit] : [];
+  }
 }
 
 function fullDocumentRange(document) {
@@ -29,6 +45,59 @@ function fullDocumentRange(document) {
   }
   const lastLine = document.lineAt(document.lineCount - 1);
   return new vscode.Range(0, 0, lastLine.lineNumber, lastLine.text.length);
+}
+
+function rangeFormattingEdit(document, range, formatted) {
+  const formattedLines = splitLogicalLines(formatted);
+  if (formattedLines.length !== document.lineCount) {
+    return undefined;
+  }
+  const selected = selectedLineRange(document, range);
+  if (!selected) {
+    return undefined;
+  }
+  const newline = documentNewline(document);
+  const newText = formattedLines.slice(selected.startLine, selected.endLine + 1).join(newline);
+  const oldText = documentLines(document, selected.startLine, selected.endLine).join(newline);
+  if (newText === oldText) {
+    return undefined;
+  }
+  const replaceRange = new vscode.Range(
+    selected.startLine,
+    0,
+    selected.endLine,
+    document.lineAt(selected.endLine).text.length
+  );
+  return vscode.TextEdit.replace(replaceRange, newText);
+}
+
+function selectedLineRange(document, range) {
+  if (document.lineCount === 0 || range.start.line >= document.lineCount || range.end.line >= document.lineCount) {
+    return undefined;
+  }
+  const endLine = range.end.character === 0 && range.end.line > range.start.line
+    ? range.end.line - 1
+    : range.end.line;
+  if (range.start.line > endLine || endLine >= document.lineCount) {
+    return undefined;
+  }
+  return { startLine: range.start.line, endLine };
+}
+
+function documentLines(document, startLine, endLine) {
+  const lines = [];
+  for (let line = startLine; line <= endLine; line += 1) {
+    lines.push(document.lineAt(line).text);
+  }
+  return lines;
+}
+
+function splitLogicalLines(text) {
+  return String(text ?? "").split(/\r?\n/);
+}
+
+function documentNewline(document) {
+  return document.eol === vscode.EndOfLine.CRLF ? "\r\n" : "\n";
 }
 
 module.exports = {

@@ -4448,6 +4448,19 @@ Status: implemented after reviewing request-body diagnostics.
 - Narrowed request-body diagnostics to the `body` option value and extended
   stdio, stdin code-action, VS Code extension contract, and README coverage.
 
+## Batch 360: Range Formatting Provider
+
+Status: implemented after reviewing remaining LSP editor capabilities.
+
+- Added persistent LSP `documentRangeFormattingProvider` and
+  `textDocument/rangeFormatting` support, returning a line-range edit derived
+  from the compiler-owned formatter.
+- Added VS Code Format Selection support through the existing formatting
+  provider and `eng-lsp --format-stdin` bridge, without adding a separate
+  JavaScript formatter.
+- Extended stdio tests, README wording, and `ide-check` contract coverage so
+  range formatting stays wired to the shared formatter path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
