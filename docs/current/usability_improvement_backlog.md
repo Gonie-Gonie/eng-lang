@@ -4133,6 +4133,15 @@ Status: implemented to remove a native workflow parse/highlight inconsistency.
 - Updated LSP regression coverage and stale completion expectations to prefer
   the public `train regression` phrase over legacy helper completions.
 
+## Batch 334: Workflow Docs Stub Cleanup
+
+Status: implemented as a small public-docs cleanup.
+
+- Removed the unlinked `docs/workflows/sensor_qc_report.md` redirect stub.
+- Kept the executable workflow 03 documentation centered on
+  `docs/workflows/uncertain_sensor_report.md`, which is the page linked from
+  the workflow guide and user tutorials.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
