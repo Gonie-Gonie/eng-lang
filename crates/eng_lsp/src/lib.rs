@@ -668,12 +668,19 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
 const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("body", "pinned offline HTTP response body text"),
     ("text", "alias for pinned offline HTTP response body text"),
+    ("method", "HTTP request method"),
     ("status", "network boundary status"),
     ("status_code", "HTTP status code"),
     ("status_class", "HTTP status class"),
     ("response_hash", "response SHA-256 hash"),
     ("hash", "alias for response SHA-256 hash"),
+    ("query_string", "resolved request query string"),
+    (
+        "request_url",
+        "alias for resolved request URL with query string",
+    ),
     ("url", "resolved request URL"),
+    ("url_with_query", "resolved request URL with query string"),
 ];
 
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
@@ -7276,6 +7283,15 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "status_code"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "method"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "query_string"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "url_with_query"));
         assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
             token.token_type == "property"
                 && source

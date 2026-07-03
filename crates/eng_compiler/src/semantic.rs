@@ -5779,7 +5779,8 @@ fn net_response_field_semantic_type(
         return None;
     }
     match field.trim() {
-        "body" | "text" | "status" | "status_class" | "response_hash" | "hash" | "url" => {
+        "body" | "text" | "method" | "status" | "status_class" | "response_hash" | "hash"
+        | "query" | "query_string" | "request_url" | "url" | "url_with_query" => {
             semantic_type("String", "")
         }
         "status_code" => semantic_type("DimensionlessNumber", "1"),

@@ -7,8 +7,8 @@ Current examples:
 
 ```text
 01_weather_api_to_standard_file
-  native network/cache offline response -> typed weather table -> coverage review ->
-  generated standard weather artifact.
+  native network/cache response object -> typed weather table -> coverage review ->
+  generated standard weather and request-metadata artifacts.
 
 02_native_surrogate_case_workflow
   native LHS input samples -> native derived result table -> native case

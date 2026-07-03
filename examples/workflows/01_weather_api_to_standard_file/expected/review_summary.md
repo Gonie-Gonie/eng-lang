@@ -10,9 +10,10 @@ WeatherApiPayload contract validated from read json api_response.body
 generic DateTime coverage artifact with Gregorian-year expected count, missing interval, status, and max gap
 native http get boundary for api_response with args.api_url, resolved station query, pinned offline response, SHA-256, retry, timeout, and cache key
 network cache entry owned by network_request/api_response with region/year key parts
+workflow-level response metadata bindings for method, query URL, status, status code, status class, and response SHA-256
 review/provenance entries showing weather source_format = json_records
 fetched_weather.json materialized from api_response.body
 process_results.json with process_count = 0
 write_text artifacts under outputs/fetched_weather.json and outputs/weather_quality_summary.txt, plus standard_file artifact outputs/standard_weather_file.txt
-report entries for selected station, coverage status, expected/missing counts, station rows, hourly rows, and max gap
+report entries for selected station, API request metadata, coverage status, expected/missing counts, station rows, hourly rows, and max gap
 ```

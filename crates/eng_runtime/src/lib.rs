@@ -8958,7 +8958,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_runtime_read_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
-    if let Some(value) = evaluate_network_response_field_expression(expression, report) {
+    if let Some(value) =
+        evaluate_network_response_field_expression(expression, report, runtime_data)
+    {
         return Some(value);
     }
     if let Some(value) = evaluate_table_row_field_expression(expression, runtime_data) {
@@ -9233,6 +9235,7 @@ fn evaluate_runtime_read_expression(expression: &str, report: &CheckReport) -> O
 fn evaluate_network_response_field_expression(
     expression: &str,
     report: &CheckReport,
+    runtime_data: &RuntimeData,
 ) -> Option<RuntimeFormatValue> {
     let (binding, field) = expression.trim().split_once('.')?;
     let request = report
@@ -9246,6 +9249,7 @@ fn evaluate_network_response_field_expression(
             let path = runtime_resolve_source_relative_path(fixture, report.source_path.parent());
             fs::read_to_string(path).ok().map(RuntimeFormatValue::Text)
         }
+        "method" => Some(RuntimeFormatValue::Text(request.method.clone())),
         "status" => Some(RuntimeFormatValue::Text(request.status.clone())),
         "status_class" => Some(RuntimeFormatValue::Text(request.status_class.clone())),
         "status_code" => request
@@ -9256,9 +9260,74 @@ fn evaluate_network_response_field_expression(
                 unit: String::new(),
             }),
         "response_hash" | "hash" => request.response_hash.clone().map(RuntimeFormatValue::Text),
+        "query" | "query_string" => Some(RuntimeFormatValue::Text(network_query_string(
+            &request.query,
+            runtime_data,
+        ))),
         "url" => Some(RuntimeFormatValue::Text(request.url_value.clone())),
+        "request_url" | "url_with_query" => Some(RuntimeFormatValue::Text(network_url_with_query(
+            &request.url_value,
+            &request.query,
+            runtime_data,
+        ))),
         _ => None,
     }
+}
+
+fn network_url_with_query(
+    url: &str,
+    query: &[eng_compiler::NetQueryParam],
+    runtime_data: &RuntimeData,
+) -> String {
+    let query_string = network_query_string(query, runtime_data);
+    if query_string.is_empty() {
+        return url.to_owned();
+    }
+    let separator = if url.contains('?') {
+        if url.ends_with('?') || url.ends_with('&') {
+            ""
+        } else {
+            "&"
+        }
+    } else {
+        "?"
+    };
+    format!("{url}{separator}{query_string}")
+}
+
+fn network_query_string(
+    query: &[eng_compiler::NetQueryParam],
+    runtime_data: &RuntimeData,
+) -> String {
+    query
+        .iter()
+        .map(|param| {
+            let value = if param.redacted {
+                param.value.clone()
+            } else {
+                resolved_network_query_value(param, runtime_data)
+            };
+            format!(
+                "{}={}",
+                percent_encode_query_component(&param.key),
+                percent_encode_query_component(&value)
+            )
+        })
+        .collect::<Vec<_>>()
+        .join("&")
+}
+
+fn percent_encode_query_component(value: &str) -> String {
+    let mut encoded = String::new();
+    for byte in value.as_bytes() {
+        match *byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'.' | b'_' | b'~' => {
+                encoded.push(*byte as char)
+            }
+            byte => encoded.push_str(&format!("%{byte:02X}")),
+        }
+    }
+    encoded
 }
 
 fn evaluate_table_row_field_expression(
@@ -22149,7 +22218,7 @@ mod tests {
         fs::write(
             &source_path,
             format!(
-                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\nprint \"status={{response_status}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\n"
+                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\nresponse_status_class = response.status_class\nresponse_method = response.method\nresponse_query = response.query_string\nresponse_request_url = response.url_with_query\nprint \"status={{response_status}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\nprint \"method={{response_method}} status_class={{response_status_class}} query={{response_query}} url={{response_request_url}}\"\n"
             ),
         )
         .expect("write source");
@@ -22161,6 +22230,12 @@ mod tests {
         assert!(request_line.contains("station=108"), "{request_line}");
         assert!(request_line.contains("year=2024"), "{request_line}");
         assert!(output.stdout.contains("status=live code=200 rows=1"));
+        assert!(output
+            .stdout
+            .contains("method=GET status_class=success query=station=108&year=2024"));
+        assert!(output
+            .stdout
+            .contains(&format!("url={url}?station=108&year=2024")));
         assert!(output.stdout.contains("\"station_id\": \"STN001\""));
         assert_eq!(
             result_json
@@ -22205,6 +22280,12 @@ mod tests {
         assert!(cached_output
             .stdout
             .contains("status=cached code=200 rows=1"));
+        assert!(cached_output
+            .stdout
+            .contains("method=GET status_class=success query=station=108&year=2024"));
+        assert!(cached_output
+            .stdout
+            .contains(&format!("url={url}?station=108&year=2024")));
         assert_eq!(
             cached_result_json
                 .pointer("/typed_payload/network_boundaries/0/status")

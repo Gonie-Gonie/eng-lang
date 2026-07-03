@@ -5,7 +5,7 @@ Source example: `examples/workflows/01_weather_api_to_standard_file/main.eng`
 This workflow demonstrates a native API-to-artifact pattern:
 
 ```text
-station map -> station selection -> args-driven pinned HTTP response/cache -> typed weather table -> coverage -> standard text and quality artifacts
+station map -> station selection -> args-driven pinned HTTP response/cache -> native response metadata -> typed weather table -> coverage -> standard text and quality artifacts
 ```
 
 Run:
@@ -17,12 +17,16 @@ eng.exe run examples/workflows/01_weather_api_to_standard_file/main.eng --save-a
 What it proves:
 
 - native `http get args.api_url` with resolved selected-station query, pinned
-  offline response input, SHA-256, retry, timeout, and cache key
+  offline response input, SHA-256, retry, timeout, cache key, response status,
+  response hash, and resolved query URL fields
 - station-map CSV promotion and reviewable `filter`/`require_one` row selection
 - typed API JSON-record table promotion and TimeSeries coverage records
 - generated `fetched_weather.json` and `weather_quality_summary.txt` through
   native `write text`, plus `standard_weather_file.txt` through native
   `write standard_text`
+- workflow bindings can use `api_response.method`, `api_response.status`,
+  `api_response.status_code`, `api_response.status_class`,
+  `api_response.hash`, and `api_response.url_with_query`
 - `process_results.json` has `process_count = 0`
 
 Expected review surfaces:

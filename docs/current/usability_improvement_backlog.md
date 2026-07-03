@@ -4153,6 +4153,21 @@ Status: implemented to reduce `with` option wording friction in editors.
 - Added stdio and `--code-actions-stdin` regressions so both saved-document
   and unsaved-source code-action paths expose the alias repairs.
 
+## Batch 336: Native HTTP Response Metadata Surface
+
+Status: implemented to make API workflows less fixture-shaped.
+
+- Added runtime `HttpResponse` fields for `method`, `query_string`,
+  `request_url`, and `url_with_query` in addition to the existing body, status,
+  status code, status class, hash, and base URL fields.
+- Added LSP member completions for the new response metadata fields.
+- Updated workflow 01 to record the native request method, resolved query URL,
+  boundary status, status code/class, and response SHA-256 in generated summary
+  output and report bindings.
+- Refreshed workflow docs and stale side-effect policy wording so public docs
+  describe live HTTP(S) and response-object metadata instead of a future-only
+  network plan.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
