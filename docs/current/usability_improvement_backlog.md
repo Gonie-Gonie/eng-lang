@@ -4775,6 +4775,18 @@ diagnostics against direct editor underline behavior.
 - Extended diagnostic-range regression coverage for repeated payload text where
   a generic search could underline an earlier filename or string-label match.
 
+## Batch 385: Docs Tooling Placeholder Cleanup
+
+Status: implemented after checking docs tooling references for unused OODocs
+placeholder files.
+
+- Removed the unreferenced `tools/docs/oodocs_theme.py` placeholder module so the
+  docs tooling directory no longer advertises a theme hook that is not consumed
+  by the active builders.
+- Left the actual OODocs dependency declarations in place because user-doc PDF
+  publishing scripts still import OODocs directly through the documented docs
+  toolchain.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
