@@ -1942,9 +1942,7 @@ fn parse_fast_binding(
     let [first, second, ..] = tokens else {
         return None;
     };
-    let TokenKind::Identifier(name) = &first.kind else {
-        return None;
-    };
+    let name = fast_binding_name(first)?;
     if !matches!(second.kind, TokenKind::Symbol(Symbol::Equal)) {
         return None;
     }
@@ -1952,7 +1950,7 @@ fn parse_fast_binding(
     if is_process_run_rhs(&expression) {
         return None;
     }
-    let command = parse_command_style_expression(&expression, first.span, context, Some(name));
+    let command = parse_command_style_expression(&expression, first.span, context, Some(&name));
     let expression = command
         .as_ref()
         .map(|command| command.canonical.clone())
@@ -1967,6 +1965,14 @@ fn parse_fast_binding(
         },
         command,
     ))
+}
+
+fn fast_binding_name(token: &Token) -> Option<String> {
+    match &token.kind {
+        TokenKind::Identifier(name) => Some(name.clone()),
+        TokenKind::Keyword(Keyword::Model) => Some("model".to_owned()),
+        _ => None,
+    }
 }
 
 fn parse_where_block_decl(tokens: &[Token], owner_line: Option<usize>) -> Option<WhereBlockDecl> {
@@ -3300,6 +3306,13 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
             | TokenKind::Symbol(Symbol::LBrace | Symbol::RBrace)
     ) {
         return false;
+    }
+    if fast_binding_name(first).is_some()
+        && tokens
+            .get(1)
+            .is_some_and(|token| matches!(token.kind, TokenKind::Symbol(Symbol::Equal)))
+    {
+        return true;
     }
     matches!(
         first.kind,

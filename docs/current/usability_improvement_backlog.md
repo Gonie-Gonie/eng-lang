@@ -4121,6 +4121,18 @@ native IDE.
 - Kept the caret summary synchronized as the editor selection changes and
   tightened caret token detection to treat semantic token ranges as half-open.
 
+## Batch 333: Model Soft Keyword Workflow Highlighting
+
+Status: implemented to remove a native workflow parse/highlight inconsistency.
+
+- Treated `model` as a soft keyword for fast bindings, so
+  `model = train regression <table>` parses as a model binding instead of
+  leaving the following `with` block attached to a previous workflow step.
+- Restored model-context semantic highlighting for native train-regression
+  `with` options such as `target`, `features`, `test`, `seed`, `x`, and `y`.
+- Updated LSP regression coverage and stale completion expectations to prefer
+  the public `train regression` phrase over legacy helper completions.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

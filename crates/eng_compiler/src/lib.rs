@@ -11000,6 +11000,29 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_model_soft_keyword_binding_for_native_train_regression() {
+        let report = check_source(
+            "ok.eng",
+            "designs = sample lhs\nwith {\n    count = 4\n    seed = 5\n    cooling_cop = uniform(2.5, 5.0)\n}\nresults = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\nmodel = train regression results\nwith {\n    target = annual_electricity\n    features = [cooling_cop]\n    test = 0.25\n    seed = 7\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let model = report
+            .semantic_program
+            .ml_infos
+            .iter()
+            .find(|info| info.binding == "model")
+            .unwrap();
+        assert_eq!(model.kind, "RegressionModel");
+        assert_eq!(model.source.as_deref(), Some("results"));
+        assert_eq!(model.target.as_deref(), Some("annual_electricity"));
+        assert_eq!(model.features, vec!["cooling_cop".to_owned()]);
+        assert_eq!(model.test_fraction.as_deref(), Some("0.25"));
+        assert_eq!(model.seed.as_deref(), Some("7"));
+    }
+
+    #[test]
     fn accepts_train_regression_alias_options() {
         let report = check_source(
             "ok.eng",

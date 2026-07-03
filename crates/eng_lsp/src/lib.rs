@@ -6052,7 +6052,7 @@ mod tests {
         for (label, detail_part) in [
             ("require_one", "exactly one row"),
             ("uniform", "eng.sampling"),
-            ("regression_table", "regression model"),
+            ("train regression", "regression model"),
             ("predict", "predictions"),
             ("time_weighted_mean", "eng.timeseries"),
         ] {
@@ -6985,6 +6985,13 @@ with {
     test = 0.25
     seed = 7
 }
+model = train regression from designs
+with {
+    y = annual_electricity
+    x = [people_density]
+    test_fraction = 0.25
+    seed = 9
+}
 ann_model = ann(split_alias, hidden=[8], epochs=10)
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
@@ -7049,6 +7056,32 @@ legacy_station = select_first_row(stations, return_column="station_id")
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "model");
         }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "model = train regression from designs",
+            "model",
+            "variable",
+            "model",
+        );
+        for (line, label) in [
+            ("    y = annual_electricity", "y"),
+            ("    x = [people_density]", "x"),
+            ("    test_fraction = 0.25", "test_fraction"),
+            ("    seed = 9", "seed"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "property", "model",
+            );
+        }
+        for (line, label) in [
+            ("    y = annual_electricity", "annual_electricity"),
+            ("    x = [people_density]", "people_density"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "property", "model",
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "using", "model");
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "surrogate", "variable", "model"),
@@ -7057,7 +7090,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
         );
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "designs", "variable", "model"),
-            2,
+            3,
             "regression and prediction table operands should be model tokens"
         );
         for label in ["annual_electricity", "people_density"] {
