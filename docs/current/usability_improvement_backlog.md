@@ -4390,6 +4390,18 @@ Status: implemented after reviewing process option diagnostics.
   and README coverage so process cwd repairs match the other process option
   fixes.
 
+## Batch 355: Process Env Quick Fix
+
+Status: implemented after reviewing process environment-option diagnostics.
+
+- Added an LSP-owned quick fix for `E-PROCESS-ENV-001` that replaces an invalid
+  `env = ...` value with `env = { NAME = "value" }`.
+- Mirrored the same repair in the VS Code local fallback provider so editor
+  fallback keeps malformed process environment options actionable.
+- Extended LSP diagnostic-range, stdio code-action, VS Code extension contract,
+  and README coverage so process env repairs match the other process option
+  fixes.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

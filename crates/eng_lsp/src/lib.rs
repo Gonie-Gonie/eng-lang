@@ -920,6 +920,7 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-NET-BODY-SIZE-LIMIT" => Some(&["body_size_limit", "response_body_limit"]),
         "E-PROCESS-ALLOW-FAILURE" => Some(&["allow_failure"]),
         "E-PROCESS-CWD-001" => Some(&["cwd"]),
+        "E-PROCESS-ENV-001" => Some(&["env"]),
         "E-SAMPLING-COUNT-INVALID" => Some(&["count"]),
         "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
         _ => None,
@@ -6849,6 +6850,11 @@ connect Source.heat -> Sink.heat
             (
                 "E-PROCESS-CWD-001",
                 "process_result = run command \"cmd\"\nwith {\n    cwd = true\n}\n",
+                "true",
+            ),
+            (
+                "E-PROCESS-ENV-001",
+                "process_result = run command \"cmd\"\nwith {\n    env = true\n}\n",
                 "true",
             ),
             (

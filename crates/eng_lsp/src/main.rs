@@ -1250,6 +1250,11 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "dir(\".\")",
             label: "Set process cwd",
         }),
+        "E-PROCESS-ENV-001" => Some(OptionQuickFix {
+            option_names: &["env"],
+            value: "{ NAME = \"value\" }",
+            label: "Set process env",
+        }),
         "E-SAMPLING-COUNT-INVALID" => Some(OptionQuickFix {
             option_names: &["count"],
             value: "1",

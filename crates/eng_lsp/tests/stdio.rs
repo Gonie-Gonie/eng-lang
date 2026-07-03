@@ -752,6 +752,7 @@ with {
 run command "unbound"
 process_result = run command "cmd"
 with {
+    env = true
     cwd = true
     timeout = never
     retry = many
@@ -864,6 +865,7 @@ report {
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-HASH-MISMATCH",
         "E-PROCESS-BINDING-001",
+        "E-PROCESS-ENV-001",
         "E-PROCESS-CWD-001",
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-RETRY-POLICY",
@@ -1018,6 +1020,12 @@ report {
         &uri,
         "Set process cwd: cwd = dir(\".\")",
         "dir(\".\")",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set process env: env = { NAME = \"value\" }",
+        "{ NAME = \"value\" }",
     );
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
@@ -1199,6 +1207,7 @@ schema SensorData {
 run command "unbound"
 process_result = run command "cmd"
 with {
+    env = true
     cwd = true
     timeout = never
     retry = many
@@ -1313,6 +1322,12 @@ report {
         &uri,
         "Set process cwd: cwd = dir(\".\")",
         "dir(\".\")",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set process env: env = { NAME = \"value\" }",
+        "{ NAME = \"value\" }",
     );
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
