@@ -785,6 +785,10 @@ report {
         y_unit = kW
         confidence = sensor_std
     }
+    plot Q_plot over Time
+    with {
+        unit y = m
+    }
 }
 "#;
 
@@ -851,6 +855,7 @@ report {
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-SEED-INVALID",
         "E-WITH-OPTION-001",
+        "E-WITH-UNIT-001",
         "E-UNC-ARGS-001",
         "E-UNC-ARGS-002",
         "E-UNC-ARGS-003",
@@ -1032,6 +1037,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("y_unit ="))
         .expect("source should include y_unit option");
+    let bad_unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("unit y = m"))
+        .expect("source should include incompatible unit option");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1058,6 +1067,13 @@ report {
         &uri,
         "Use confidence band option: confidence_band =",
         "confidence_band",
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Remove incompatible display unit option",
+        "",
+        bad_unit_line,
     );
 
     write_message(
@@ -1141,6 +1157,10 @@ report {
         x_unit = kW
         y_unit = kW
         confidence = sensor_std
+    }
+    plot Q_plot over Time
+    with {
+        unit y = m
     }
 }
 "#;
@@ -1248,6 +1268,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("y_unit ="))
         .expect("source should include y_unit option");
+    let bad_unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("unit y = m"))
+        .expect("source should include incompatible unit option");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1274,6 +1298,13 @@ report {
         &uri,
         "Use confidence band option: confidence_band =",
         "confidence_band",
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Remove incompatible display unit option",
+        "",
+        bad_unit_line,
     );
 }
 

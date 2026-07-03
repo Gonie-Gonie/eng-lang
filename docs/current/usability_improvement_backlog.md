@@ -4300,6 +4300,17 @@ failures.
 - Extended `ide-check` contract coverage so the provider keeps cancellation and
   local fallback behavior.
 
+## Batch 347: Incompatible Display Unit Quick Fix
+
+Status: implemented after reviewing plot/report display-unit diagnostics.
+
+- Added an LSP-owned quick fix for `E-WITH-UNIT-001` that removes an
+  incompatible one-line display-unit option such as `unit y = m`.
+- Mirrored the same repair in the VS Code local fallback provider so the fix is
+  still available if LSP code actions are unavailable.
+- Extended LSP stdio, stdin code-action, and VS Code extension contract checks
+  so display-unit diagnostics keep an actionable repair path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

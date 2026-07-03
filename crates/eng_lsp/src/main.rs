@@ -676,6 +676,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-OPTION-001" => {
             optional_code_action(lsp_with_option_alias_code_action(uri, text, diagnostic))
         }
+        "E-WITH-UNIT-001" => optional_code_action(
+            lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
+        ),
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
         )),
@@ -1357,6 +1360,23 @@ fn unknown_with_option_name(message: &str) -> Option<&str> {
     let (_, after_marker) = message.split_once("Unknown with option `")?;
     let (option, _) = after_marker.split_once('`')?;
     Some(option.trim())
+}
+
+fn lsp_remove_incompatible_display_unit_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    option_assignment_range(line, &["unit y", "unit x", "display_unit", "unit"])?;
+    Some(json!({
+        "title": "Remove incompatible display unit option",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), "")
+    }))
 }
 
 fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

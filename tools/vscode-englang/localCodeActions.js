@@ -86,6 +86,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-WITH-UNIT-001") {
+      const action = removeIncompatibleDisplayUnitAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WHERE-FWD-001") {
       const action = reorderWhereLocalDefinitionAction(document, diagnostic);
       if (action) {
@@ -539,6 +546,22 @@ function withOptionAliasFix(optionName) {
 function unknownWithOptionName(message) {
   const match = /Unknown with option `([^`]+)`/.exec(String(message ?? ""));
   return match?.[1]?.trim();
+}
+
+function removeIncompatibleDisplayUnitAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const assignment = optionAssignmentRange(line.text, ["unit y", "unit x", "display_unit", "unit"]);
+  if (!assignment) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    "Remove incompatible display unit option",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.delete(document.uri, fullLineRange(document, line.lineNumber));
+  return action;
 }
 
 function uncertaintyArgumentActions(document, diagnostic) {
