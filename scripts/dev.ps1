@@ -3699,6 +3699,8 @@ function Invoke-IdeCheck {
         "FALLBACK_LEXICAL_KEYWORDS",
         "lexicalUnitPattern",
         "toggleEditorLineComment",
+        "isLineCommented",
+        'rest.startsWith("//")',
         "indentEditorSelection",
         "outdentEditorSelection",
         "insertEditorNewlineWithIndent",

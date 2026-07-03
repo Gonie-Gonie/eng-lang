@@ -4550,6 +4550,18 @@ new `//` TextMate and LSP comment support.
   trailing `//` comments indent like block openers with trailing `#` comments.
 - Documented the comment scope contract as `#`, `//`, and `///`.
 
+## Batch 368: Native IDE Double-Slash Comment Parity
+
+Status: implemented while aligning native IDE editor behavior with compiler,
+LSP, and VS Code comment handling.
+
+- Updated the native IDE fallback lexical highlighter so ordinary `//` comments
+  render as comments when semantic highlight data is stale or unavailable.
+- Let native IDE Ctrl+/ uncomment both `#` and `//` commented lines while still
+  inserting the canonical `#` comment marker for new toggles.
+- Added `ide-check` contract tokens so native IDE comment parity does not
+  regress silently.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -4027,7 +4027,7 @@ function toggleEditorLineComment(editor) {
   const lines = splitTextLines(block);
   const contentLines = lines.filter((line) => line.text.trim().length > 0);
   const shouldUncomment = contentLines.length > 0
-    && contentLines.every((line) => /^\s*# ?/.test(line.text));
+    && contentLines.every((line) => isLineCommented(line.text));
   const changed = lines.map((line) => ({
     ...line,
     text: shouldUncomment ? uncommentLine(line.text) : commentLine(line.text)
@@ -4158,7 +4158,11 @@ function commentLine(line) {
 }
 
 function uncommentLine(line) {
-  return line.replace(/^(\s*)# ?/, "$1");
+  return line.replace(/^(\s*)(?:#|\/\/) ?/, "$1");
+}
+
+function isLineCommented(line) {
+  return /^\s*(?:#|\/\/) ?/.test(line);
 }
 
 function outdentLine(line) {
@@ -4629,7 +4633,7 @@ function renderLexicalHighlightedLine(line) {
   let html = "";
   while (index < line.length) {
     const rest = line.slice(index);
-    if (rest.startsWith("///") || rest.startsWith("#")) {
+    if (rest.startsWith("//") || rest.startsWith("#")) {
       html += lexicalSpan("hl-comment", rest);
       break;
     }
