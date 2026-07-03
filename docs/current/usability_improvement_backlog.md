@@ -4378,6 +4378,18 @@ Status: implemented after re-auditing workflow 01/02/03 Python/process wording.
 - Reconfirmed workflow 01/02/03 `main.eng` files contain no Python markers or
   `run command` usage before running the workflow smoke gate.
 
+## Batch 354: Process Cwd Quick Fix
+
+Status: implemented after reviewing process option diagnostics.
+
+- Added an LSP-owned quick fix for `E-PROCESS-CWD-001` that replaces an invalid
+  `cwd = ...` value with `cwd = dir(".")`.
+- Mirrored the same repair in the VS Code local fallback provider so snapshot
+  diagnostics stay actionable during editor-service fallback.
+- Extended LSP diagnostic-range, stdio code-action, VS Code extension contract,
+  and README coverage so process cwd repairs match the other process option
+  fixes.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -752,6 +752,7 @@ with {
 run command "unbound"
 process_result = run command "cmd"
 with {
+    cwd = true
     timeout = never
     retry = many
     allow_failure = sometimes
@@ -863,6 +864,7 @@ report {
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-HASH-MISMATCH",
         "E-PROCESS-BINDING-001",
+        "E-PROCESS-CWD-001",
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE",
@@ -1010,6 +1012,12 @@ report {
         &uri,
         "Allow process failure: allow_failure = true",
         "true",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set process cwd: cwd = dir(\".\")",
+        "dir(\".\")",
     );
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
@@ -1191,6 +1199,7 @@ schema SensorData {
 run command "unbound"
 process_result = run command "cmd"
 with {
+    cwd = true
     timeout = never
     retry = many
     allow_failure = sometimes
@@ -1298,6 +1307,12 @@ report {
         &uri,
         "Allow process failure: allow_failure = true",
         "true",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set process cwd: cwd = dir(\".\")",
+        "dir(\".\")",
     );
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");

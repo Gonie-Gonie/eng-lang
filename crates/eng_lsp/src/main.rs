@@ -1245,6 +1245,11 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "true",
             label: "Allow process failure",
         }),
+        "E-PROCESS-CWD-001" => Some(OptionQuickFix {
+            option_names: &["cwd"],
+            value: "dir(\".\")",
+            label: "Set process cwd",
+        }),
         "E-SAMPLING-COUNT-INVALID" => Some(OptionQuickFix {
             option_names: &["count"],
             value: "1",

@@ -453,6 +453,8 @@ function optionQuickFix(code) {
         value: "true",
         label: "Allow process failure"
       };
+    case "E-PROCESS-CWD-001":
+      return { optionNames: ["cwd"], value: "dir(\".\")", label: "Set process cwd" };
     case "E-SAMPLING-COUNT-INVALID":
       return { optionNames: ["count"], value: "1", label: "Set sample count" };
     case "E-SAMPLING-SEED-INVALID":
