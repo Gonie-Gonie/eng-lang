@@ -24,6 +24,10 @@ cooling_results = derive electricity_results column annual_cooling = 3200 kWh + 
 peak_cooling_results = derive cooling_results column peak_cooling = 7 kW + envelope_load_index * 7 kW + occupancy_schedule_index * 2 kW - cooling_cop * 0.6 kW
 training_results = derive peak_cooling_results column unmet_hours = 3 h + envelope_load_index * 1.2 h - cooling_cop * 0.7 h
 cases = materialize cases training_results
+case_count = cases.case_count
+case_pending_count = cases.pending_count
+case_failed_count = cases.failed_count
+case_status = cases.status
 case_inputs = apply case_input_template over cases
 with {
     template = file("model/native_case_template.txt")
@@ -31,6 +35,9 @@ with {
     missing = error
     overwrite = true
 }
+case_input_planned_count = case_inputs.planned_count
+case_input_blocked_count = case_inputs.blocked_count
+case_input_manifest_count = case_inputs.manifest_count
 
 designs = sample lhs
 with {
@@ -95,8 +102,8 @@ print "Training sample method = {training_sample_method} seed={training_sample_s
 print "Design sample method = {prediction_sample_method} seed={prediction_sample_seed} count={prediction_sample_count}"
 print "Design samples = {designs.rows}"
 print "Training result rows = {training_results.rows}"
-print "Case table rows = {cases.rows}"
-print "Case inputs = {case_inputs.rows}"
+print "Case table rows = {cases.rows} pending={case_pending_count} failed={case_failed_count} status={case_status}"
+print "Case inputs = {case_inputs.rows} planned={case_input_planned_count} blocked={case_input_blocked_count}"
 print "Predictions = {predictions.rows}"
 log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
@@ -119,6 +126,13 @@ report {
     show prediction_sample_seed
     show prediction_sample_count
     show prediction_sample_parameters
+    show case_count
+    show case_pending_count
+    show case_failed_count
+    show case_status
+    show case_input_planned_count
+    show case_input_blocked_count
+    show case_input_manifest_count
     show designs.rows
     show training_results.rows
     show cases.rows

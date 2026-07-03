@@ -13006,6 +13006,48 @@ system Envelope {
     }
 
     #[test]
+    fn case_table_metadata_fields_are_typed() {
+        let report = check_source(
+            "case_metadata.eng",
+            concat!(
+                "samples = sample lhs\n",
+                "with {\n",
+                "    count = 4\n",
+                "    seed = 42\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n\n",
+                "cases = materialize cases samples\n",
+                "case_inputs = apply case_input_template over cases\n",
+                "with {\n",
+                "    template = file(\"model/native_case_template.txt\")\n",
+                "    output = \"{case_dir}/input.txt\"\n",
+                "}\n\n",
+                "case_count = cases.case_count\n",
+                "pending_count = cases.pending_count\n",
+                "case_status = cases.status\n",
+                "planned_count = case_inputs.planned_count\n",
+                "manifest_count = case_inputs.manifest_count\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let binding_type = |name: &str| {
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .map(|binding| binding.semantic_type.quantity_kind.as_str())
+        };
+        assert_eq!(binding_type("case_count"), Some("Count"));
+        assert_eq!(binding_type("pending_count"), Some("Count"));
+        assert_eq!(binding_type("case_status"), Some("String"));
+        assert_eq!(binding_type("planned_count"), Some("Count"));
+        assert_eq!(binding_type("manifest_count"), Some("Count"));
+    }
+
+    #[test]
     fn lowers_native_db_write_records() {
         let root = env::temp_dir().join(format!("englang-db-write-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);

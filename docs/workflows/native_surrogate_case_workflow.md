@@ -25,6 +25,8 @@ What it proves:
 - native result-column derivation before case/model/DB steps consume the table
 - explicit native `materialize cases training_results` CaseTable materialization
 - native `apply case_input_template over cases` CaseOutput materialization
+- case metadata bindings such as `cases.pending_count` and
+  `case_inputs.planned_count`
 - native case_input artifact rendering plus summary values from case_001
 - native table-based `train regression <table>` model training with explicit `with` options
 - native `predict surrogate_model using designs` prediction table materialization

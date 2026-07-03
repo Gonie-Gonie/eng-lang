@@ -1,6 +1,94 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
     "syntax_catalog":  {
+                           "case_output_table_fields":  [
+                                                            {
+                                                                "detail":  "case output row count",
+                                                                "label":  "case_count"
+                                                            },
+                                                            {
+                                                                "detail":  "planned case output count",
+                                                                "label":  "planned_count"
+                                                            },
+                                                            {
+                                                                "detail":  "blocked case output count",
+                                                                "label":  "blocked_count"
+                                                            },
+                                                            {
+                                                                "detail":  "rendered output path count",
+                                                                "label":  "output_count"
+                                                            },
+                                                            {
+                                                                "detail":  "render manifest path count",
+                                                                "label":  "manifest_count"
+                                                            },
+                                                            {
+                                                                "detail":  "case output aggregate status",
+                                                                "label":  "status"
+                                                            },
+                                                            {
+                                                                "detail":  "table row count",
+                                                                "label":  "row_count"
+                                                            },
+                                                            {
+                                                                "detail":  "table column count",
+                                                                "label":  "column_count"
+                                                            },
+                                                            {
+                                                                "detail":  "runtime table schema name",
+                                                                "label":  "schema_name"
+                                                            },
+                                                            {
+                                                                "detail":  "runtime table source hash",
+                                                                "label":  "source_hash"
+                                                            }
+                                                        ],
+                           "case_table_fields":  [
+                                                     {
+                                                         "detail":  "case row count",
+                                                         "label":  "case_count"
+                                                     },
+                                                     {
+                                                         "detail":  "pending case count",
+                                                         "label":  "pending_count"
+                                                     },
+                                                     {
+                                                         "detail":  "running case count",
+                                                         "label":  "running_count"
+                                                     },
+                                                     {
+                                                         "detail":  "succeeded case count",
+                                                         "label":  "succeeded_count"
+                                                     },
+                                                     {
+                                                         "detail":  "failed case count",
+                                                         "label":  "failed_count"
+                                                     },
+                                                     {
+                                                         "detail":  "skipped case count",
+                                                         "label":  "skipped_count"
+                                                     },
+                                                     {
+                                                         "detail":  "case table aggregate status",
+                                                         "label":  "status"
+                                                     },
+                                                     {
+                                                         "detail":  "table row count",
+                                                         "label":  "row_count"
+                                                     },
+                                                     {
+                                                         "detail":  "table column count",
+                                                         "label":  "column_count"
+                                                     },
+                                                     {
+                                                         "detail":  "runtime table schema name",
+                                                         "label":  "schema_name"
+                                                     },
+                                                     {
+                                                         "detail":  "runtime table source hash",
+                                                         "label":  "source_hash"
+                                                     }
+                                                 ],
                            "http_response_fields":  [
                                                         {
                                                             "detail":  "pinned offline HTTP response body text",

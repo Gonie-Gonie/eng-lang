@@ -2971,8 +2971,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, HTTP response fields, sample table fields, and completion seed metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, HTTP response fields, sample table fields, case table fields, and completion seed metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
@@ -3475,6 +3475,24 @@ function Assert-VscodeExtensionContract {
         }
         if ([string]::IsNullOrWhiteSpace($SampleTableField.detail)) {
             throw "generated VS Code editor metadata sample table field $RequiredSampleTableField missing detail"
+        }
+    }
+    foreach ($RequiredCaseTableField in @("case_count", "pending_count", "status")) {
+        $CaseTableField = @($EditorMetadata.syntax_catalog.case_table_fields | Where-Object { $_.label -eq $RequiredCaseTableField }) | Select-Object -First 1
+        if ($null -eq $CaseTableField) {
+            throw "generated VS Code editor metadata missing case table field $RequiredCaseTableField"
+        }
+        if ([string]::IsNullOrWhiteSpace($CaseTableField.detail)) {
+            throw "generated VS Code editor metadata case table field $RequiredCaseTableField missing detail"
+        }
+    }
+    foreach ($RequiredCaseOutputTableField in @("planned_count", "blocked_count", "manifest_count")) {
+        $CaseOutputTableField = @($EditorMetadata.syntax_catalog.case_output_table_fields | Where-Object { $_.label -eq $RequiredCaseOutputTableField }) | Select-Object -First 1
+        if ($null -eq $CaseOutputTableField) {
+            throw "generated VS Code editor metadata missing case output table field $RequiredCaseOutputTableField"
+        }
+        if ([string]::IsNullOrWhiteSpace($CaseOutputTableField.detail)) {
+            throw "generated VS Code editor metadata case output table field $RequiredCaseOutputTableField missing detail"
         }
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)

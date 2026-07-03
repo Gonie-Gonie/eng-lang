@@ -8969,6 +8969,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_sample_table_field_expression(expression, runtime_data) {
         return Some(value);
     }
+    if let Some(value) = evaluate_table_metadata_field_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_runtime_exists_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
@@ -9269,6 +9272,127 @@ fn evaluate_sample_table_field_expression(
             sample_table.case_id_column.clone().unwrap_or_default(),
         )),
         _ => None,
+    }
+}
+
+fn evaluate_table_metadata_field_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let table = runtime_data
+        .tables
+        .iter()
+        .find(|table| table.binding == binding.trim())?;
+    match field.trim() {
+        "row_count" => Some(count_value(table.row_count)),
+        "column_count" => Some(count_value(table.columns.len())),
+        "schema_name" => Some(RuntimeFormatValue::Text(table.schema_name.clone())),
+        "source_hash" => Some(RuntimeFormatValue::Text(
+            table.source_hash.clone().unwrap_or_default(),
+        )),
+        "case_count" if matches!(table.schema_name.as_str(), "CaseTable" | "CaseOutput") => {
+            Some(count_value(table.row_count))
+        }
+        "pending_count" if table.schema_name == "CaseTable" => {
+            Some(count_value(table_status_count(table, "pending")))
+        }
+        "running_count" if table.schema_name == "CaseTable" => {
+            Some(count_value(table_status_count(table, "running")))
+        }
+        "succeeded_count" if table.schema_name == "CaseTable" => {
+            Some(count_value(table_status_count(table, "succeeded")))
+        }
+        "failed_count" if table.schema_name == "CaseTable" => {
+            Some(count_value(table_status_count(table, "failed")))
+        }
+        "skipped_count" if table.schema_name == "CaseTable" => {
+            Some(count_value(table_status_count(table, "skipped")))
+        }
+        "planned_count" if table.schema_name == "CaseOutput" => {
+            Some(count_value(table_status_count(table, "planned")))
+        }
+        "blocked_count" if table.schema_name == "CaseOutput" => {
+            Some(count_value(table_status_count(table, "blocked")))
+        }
+        "output_count" if table.schema_name == "CaseOutput" => Some(count_value(
+            non_empty_text_column_count(table, "output_path"),
+        )),
+        "manifest_count" if table.schema_name == "CaseOutput" => Some(count_value(
+            non_empty_text_column_count(table, "manifest_path"),
+        )),
+        "status" if table.schema_name == "CaseTable" => {
+            Some(RuntimeFormatValue::Text(case_table_status(
+                table_status_count(table, "failed"),
+                table_status_count(table, "pending"),
+            )))
+        }
+        "status" if table.schema_name == "CaseOutput" => {
+            Some(RuntimeFormatValue::Text(case_output_table_status(
+                table_status_count(table, "blocked"),
+                table_status_count(table, "planned"),
+            )))
+        }
+        _ => None,
+    }
+}
+
+fn count_value(value: usize) -> RuntimeFormatValue {
+    RuntimeFormatValue::Number {
+        value: value as f64,
+        quantity_kind: "Count".to_owned(),
+        unit: String::new(),
+    }
+}
+
+fn table_status_count(table: &RuntimeTable, status: &str) -> usize {
+    table_text_column_values(table, "status")
+        .map(|values| values.iter().filter(|value| value.trim() == status).count())
+        .unwrap_or_default()
+}
+
+fn non_empty_text_column_count(table: &RuntimeTable, column_name: &str) -> usize {
+    table_text_column_values(table, column_name)
+        .map(|values| {
+            values
+                .iter()
+                .filter(|value| !value.trim().is_empty())
+                .count()
+        })
+        .unwrap_or_default()
+}
+
+fn table_text_column_values<'a>(
+    table: &'a RuntimeTable,
+    column_name: &str,
+) -> Option<&'a [String]> {
+    let column = table
+        .columns
+        .iter()
+        .find(|column| column.name == column_name)?;
+    let RuntimeValues::Text(values) = &column.values else {
+        return None;
+    };
+    Some(values)
+}
+
+fn case_table_status(failed_count: usize, pending_count: usize) -> String {
+    if failed_count > 0 {
+        "failed".to_owned()
+    } else if pending_count > 0 {
+        "pending".to_owned()
+    } else {
+        "complete".to_owned()
+    }
+}
+
+fn case_output_table_status(blocked_count: usize, planned_count: usize) -> String {
+    if blocked_count > 0 {
+        "blocked".to_owned()
+    } else if planned_count > 0 {
+        "planned".to_owned()
+    } else {
+        "complete".to_owned()
     }
 }
 
@@ -17333,6 +17457,9 @@ mod tests {
                 "    peak_cooling = uniform(10 kW, 14 kW)\n",
                 "}\n\n",
                 "cases = materialize cases designs\n",
+                "case_count = cases.case_count\n",
+                "case_pending_count = cases.pending_count\n",
+                "case_status = cases.status\n",
                 "case_inputs = apply case_input_template over cases\n",
                 "with {\n",
                 "    template = file(\"model/case_template.txt\")\n",
@@ -17340,9 +17467,14 @@ mod tests {
                 "    missing = error\n",
                 "    overwrite = true\n",
                 "}\n\n",
+                "case_input_planned_count = case_inputs.planned_count\n",
+                "case_input_manifest_count = case_inputs.manifest_count\n",
                 "print \"case inputs={case_inputs.rows}\"\n",
+                "print \"cases={case_count} pending={case_pending_count} status={case_status} planned_inputs={case_input_planned_count} manifests={case_input_manifest_count}\"\n",
                 "report {\n",
                 "    show case_inputs.rows\n",
+                "    show case_pending_count\n",
+                "    show case_input_planned_count\n",
                 "}\n",
             ),
         )
@@ -17375,6 +17507,9 @@ mod tests {
         assert!(case_001.contains("E="));
         assert!(case_001.contains("PEAK="));
         assert!(output.stdout.contains("case inputs=2"));
+        assert!(output
+            .stdout
+            .contains("cases=2 pending=2 status=pending planned_inputs=2 manifests=2"));
         assert!(output.result_json.contains("\"binding\": \"case_inputs\""));
         assert!(output
             .result_json

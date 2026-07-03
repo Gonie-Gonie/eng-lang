@@ -695,6 +695,33 @@ const SAMPLE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("case_id_column", "case identifier column"),
 ];
 
+const CASE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("case_count", "case row count"),
+    ("pending_count", "pending case count"),
+    ("running_count", "running case count"),
+    ("succeeded_count", "succeeded case count"),
+    ("failed_count", "failed case count"),
+    ("skipped_count", "skipped case count"),
+    ("status", "case table aggregate status"),
+    ("row_count", "table row count"),
+    ("column_count", "table column count"),
+    ("schema_name", "runtime table schema name"),
+    ("source_hash", "runtime table source hash"),
+];
+
+const CASE_OUTPUT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("case_count", "case output row count"),
+    ("planned_count", "planned case output count"),
+    ("blocked_count", "blocked case output count"),
+    ("output_count", "rendered output path count"),
+    ("manifest_count", "render manifest path count"),
+    ("status", "case output aggregate status"),
+    ("row_count", "table row count"),
+    ("column_count", "table column count"),
+    ("schema_name", "runtime table schema name"),
+    ("source_hash", "runtime table source hash"),
+];
+
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
     let source = std::fs::read_to_string(path)?;
     let report = check_source(path, &source, &CheckOptions::default());
@@ -963,6 +990,20 @@ pub fn editor_syntax_catalog_json() -> Value {
             }))
             .collect::<Vec<_>>(),
         "sample_table_fields": SAMPLE_TABLE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
+        "case_table_fields": CASE_TABLE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
+        "case_output_table_fields": CASE_OUTPUT_TABLE_FIELD_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
                 "label": label,
@@ -1269,6 +1310,22 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 "property",
                 &modifiers,
             );
+        }
+    }
+
+    for binding in &program.typed_bindings {
+        match binding.semantic_type.quantity_kind.as_str() {
+            "Table[Case]" => builder.push_member_fields(
+                &binding.name,
+                CASE_TABLE_FIELD_COMPLETIONS,
+                &["workflowStep"],
+            ),
+            "Table[CaseOutput]" => builder.push_member_fields(
+                &binding.name,
+                CASE_OUTPUT_TABLE_FIELD_COMPLETIONS,
+                &["workflowStep"],
+            ),
+            _ => {}
         }
     }
 
@@ -4426,6 +4483,28 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "Table[Case]" {
+            for (field, detail) in CASE_TABLE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
+        if binding.semantic_type.quantity_kind == "Table[CaseOutput]" {
+            for (field, detail) in CASE_OUTPUT_TABLE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
         if binding.semantic_type.quantity_kind == "TableRow" {
             if let Some(schema_name) = table_row_schema_name(report, &binding.name) {
                 if let Some(schema) = report
@@ -4750,6 +4829,30 @@ pub fn completion_items_at(
             let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             for (field, detail) in SAMPLE_TABLE_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            return items;
+        }
+        if let Some(fields) = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find_map(|binding| {
+                if binding.name != receiver {
+                    return None;
+                }
+                match binding.semantic_type.quantity_kind.as_str() {
+                    "Table[Case]" => Some(CASE_TABLE_FIELD_COMPLETIONS),
+                    "Table[CaseOutput]" => Some(CASE_OUTPUT_TABLE_FIELD_COMPLETIONS),
+                    _ => None,
+                }
+            })
+        {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for (field, detail) in fields {
                 if prefix.is_empty() || field.starts_with(&prefix) {
                     push_completion(&mut items, &mut seen, field, "property", detail);
                 }
@@ -6242,6 +6345,18 @@ mod tests {
             "syntax catalog should expose sample table field labels"
         );
         assert!(
+            syntax_catalog["case_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "pending_count")),
+            "syntax catalog should expose case table field labels"
+        );
+        assert!(
+            syntax_catalog["case_output_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "planned_count")),
+            "syntax catalog should expose case output table field labels"
+        );
+        assert!(
             syntax_catalog["units"]
                 .as_array()
                 .is_some_and(|units| units.iter().any(|unit| unit["label"] == "kW")),
@@ -7408,6 +7523,53 @@ weather = promote json records payload.records as WeatherApiRecord
             token.token_type == "property"
                 && source.lines().nth(token.line).is_some_and(|line| {
                     &line[token.start..token.start + token.length] == "sample_count"
+                })
+        }));
+    }
+
+    #[test]
+    fn snapshot_exposes_case_table_member_fields() {
+        let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\n\npending = cases.pending_count\nplanned = case_inputs.planned_count\n";
+        let snapshot = snapshot_for_source(Path::new("case_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "cases.pending_count"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_inputs.planned_count"));
+        let case_line = source
+            .lines()
+            .position(|line| line.contains("pending ="))
+            .expect("pending line");
+        let case_completions = completion_items_for_source_position(
+            Path::new("case_members.eng"),
+            source,
+            case_line,
+            "pending = cases.".len(),
+        );
+        assert!(case_completions
+            .iter()
+            .any(|completion| completion.label == "pending_count"));
+        let output_line = source
+            .lines()
+            .position(|line| line.contains("planned ="))
+            .expect("planned line");
+        let output_completions = completion_items_for_source_position(
+            Path::new("case_members.eng"),
+            source,
+            output_line,
+            "planned = case_inputs.".len(),
+        );
+        assert!(output_completions
+            .iter()
+            .any(|completion| completion.label == "planned_count"));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "property"
+                && source.lines().nth(token.line).is_some_and(|line| {
+                    &line[token.start..token.start + token.length] == "pending_count"
                 })
         }));
     }

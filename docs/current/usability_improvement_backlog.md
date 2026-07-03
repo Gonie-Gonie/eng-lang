@@ -4183,6 +4183,24 @@ bindings instead of only buried runtime JSON.
 - Updated workflow 02 to write and report native sampler method, seed, sample
   count, and parameter-count metadata for both training and prediction samples.
 
+## Batch 338: Native Case Table Metadata Surface
+
+Status: implemented to make case materialization and case-input planning visible
+from normal workflow bindings.
+
+- Added typed metadata fields for `Table[Case]` bindings, including
+  `case_count`, status counts, aggregate `status`, `row_count`, `column_count`,
+  `schema_name`, and `source_hash`.
+- Added typed metadata fields for `Table[CaseOutput]` bindings, including
+  `planned_count`, `blocked_count`, `output_count`, `manifest_count`, aggregate
+  `status`, and common table metadata.
+- Exposed those fields through runtime formatting/report expressions plus LSP
+  member completions/highlighting.
+- Added `case_table_fields` and `case_output_table_fields` to generated editor
+  metadata.
+- Updated workflow 02 to print and report case pending/failed counts and
+  case-input planned/blocked counts.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
