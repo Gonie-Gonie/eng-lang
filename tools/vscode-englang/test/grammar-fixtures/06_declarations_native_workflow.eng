@@ -47,6 +47,8 @@ args_response = http get args.api_url
 with {
     query = {
         station = "demo"
+        year = args.year
+        selected_station = station.station_id
         serviceKey = api_key
     }
     offline_response = file("data/weather-response.json")

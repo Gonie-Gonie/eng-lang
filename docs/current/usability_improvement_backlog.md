@@ -4529,6 +4529,16 @@ native workflow review.
 - Documented that `args.output` now controls the public text/CSV artifacts
   instead of leaving hard-coded `outputs/...` paths beside the exposed argument.
 
+## Batch 366: Option Map Value Highlighting
+
+Status: implemented after comparing workflow 01 query maps with TextMate
+fixture coverage.
+
+- Added TextMate scopes for `args.*`, dotted runtime values, and local values
+  inside `with { query = { ... } }` style option maps.
+- Extended VS Code grammar fixtures so HTTP query values like `args.year`,
+  `station.station_id`, and `api_key` stay visibly distinct from option keys.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
