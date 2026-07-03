@@ -571,14 +571,23 @@ pub fn run_source(
     let bytecode_hash = hash_text(&bytecode);
     let bytecode_program = parse_bytecode(&bytecode)?;
     let mut execution = execute_bytecode(&bytecode_program)?;
-    let runtime_data = materialize_runtime_data(&check_report, source);
+    let pre_db_runtime_data = runtime_data::materialize_runtime_data_with_result_dir(
+        &check_report,
+        source,
+        Some(&result_dir),
+    );
+    let native_db_write_output =
+        execute_native_db_writes(&check_report, &pre_db_runtime_data, &result_dir)?;
+    let runtime_data = runtime_data::materialize_runtime_data_with_result_dir(
+        &check_report,
+        source,
+        Some(&result_dir),
+    );
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
     let template_render_output =
         render_template_outputs(&check_report, &runtime_data, &result_dir)?;
     let process_results = execute_process_runs(&check_report)?;
-    let native_db_write_output =
-        execute_native_db_writes(&check_report, &runtime_data, &result_dir)?;
     let mut db_manifest_records = db_manifest_records(&process_results);
     db_manifest_records.extend(native_db_write_output.records.clone());
     let mut cache_manifest_records =
@@ -5802,7 +5811,7 @@ fn sqlite_open_or_create(db_path: &Path) -> Result<GraphiteSqlConnection, Runtim
     }
 }
 
-fn sqlite_open_existing(db_path: &Path) -> Result<GraphiteSqlConnection, RuntimeError> {
+pub(crate) fn sqlite_open_existing(db_path: &Path) -> Result<GraphiteSqlConnection, RuntimeError> {
     let path = db_path.to_string_lossy();
     GraphiteSqlConnection::open(path.as_ref()).map_err(|error| {
         invalid_input(&format!(
@@ -5812,7 +5821,7 @@ fn sqlite_open_existing(db_path: &Path) -> Result<GraphiteSqlConnection, Runtime
     })
 }
 
-fn sqlite_quote_identifier(value: &str) -> String {
+pub(crate) fn sqlite_quote_identifier(value: &str) -> String {
     format!("\"{}\"", value.replace('"', "\"\""))
 }
 
@@ -5881,7 +5890,7 @@ fn hash_file_if_exists(path: &Path) -> Option<String> {
     fs::read(path).ok().map(|bytes| hash_bytes(&bytes))
 }
 
-fn sha256_file_if_exists(path: &Path) -> Option<String> {
+pub(crate) fn sha256_file_if_exists(path: &Path) -> Option<String> {
     fs::read(path).ok().map(|bytes| sha256_bytes(&bytes))
 }
 
@@ -6300,7 +6309,7 @@ fn relative_output_path(result_dir: &Path, path: &Path) -> String {
         .unwrap_or_else(|_| path_for_manifest(path))
 }
 
-fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
+pub(crate) fn export_output_path(result_dir: &Path, raw_path: &str) -> Option<PathBuf> {
     let path = Path::new(raw_path);
     let mut destination = result_dir.to_path_buf();
     for component in path.components() {
@@ -9572,7 +9581,10 @@ fn evaluate_runtime_exists_expression(expression: &str, report: &CheckReport) ->
     Some(path.exists().to_string())
 }
 
-fn evaluate_runtime_path_expression(expression: &str, report: &CheckReport) -> Option<String> {
+pub(crate) fn evaluate_runtime_path_expression(
+    expression: &str,
+    report: &CheckReport,
+) -> Option<String> {
     let expression = expression.trim();
     if let Some(arg_name) = expression.strip_prefix("args.") {
         return report
@@ -9667,7 +9679,10 @@ fn runtime_path_text(path: impl AsRef<str>) -> String {
     canonical_path_text(path.as_ref())
 }
 
-fn runtime_resolve_source_relative_path(path: &str, source_base: Option<&Path>) -> PathBuf {
+pub(crate) fn runtime_resolve_source_relative_path(
+    path: &str,
+    source_base: Option<&Path>,
+) -> PathBuf {
     let path = Path::new(path);
     if path.is_absolute() {
         return path.to_path_buf();
@@ -20710,6 +20725,71 @@ mod tests {
         .expect("metadata count");
         assert_eq!(row_count, 2);
         assert_eq!(metadata_count, 2);
+    }
+
+    #[test]
+    fn run_file_reads_sqlite_table_after_native_write() {
+        let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .canonicalize()
+            .expect("repo root");
+        let source_dir = repo_root.join("build").join("runtime-db-sqlite-readback");
+        let build_root = repo_root
+            .join("build")
+            .join("runtime-db-sqlite-readback-result");
+        let _ = fs::remove_dir_all(&source_dir);
+        let _ = fs::remove_dir_all(&build_root);
+        fs::create_dir_all(source_dir.join("data")).expect("data dir");
+        fs::write(
+            source_dir.join("data").join("results.csv"),
+            "case_id,annual_electricity\ncase_001,1200\ncase_002,1350\n",
+        )
+        .expect("results csv");
+        let source_path = source_dir.join("main.eng");
+        fs::write(
+            &source_path,
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "results = promote csv file(\"data/results.csv\") as SimulationResult\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "write results to db.table(\"simulation_results\")\n",
+                "with {\n",
+                "    mode = replace\n",
+                "}\n",
+                "readback = read sqlite db.table(\"simulation_results\") as SimulationResult\n",
+                "print \"Readback rows = {readback.rows}\"\n",
+                "write standard_text readback\n",
+                "with {\n",
+                "    output = file(\"outputs/readback.txt\")\n",
+                "    overwrite = true\n",
+                "}\n",
+            ),
+        )
+        .expect("source");
+
+        let output = run_file(
+            &source_path,
+            &build_root,
+            &RunOptions {
+                save_artifacts: true,
+                ..RunOptions::default()
+            },
+        )
+        .expect("sqlite readback run");
+
+        assert!(output.stdout.contains("Readback rows = 2"));
+        assert!(output.result_json.contains("\"binding\": \"readback\""));
+        assert!(output.result_json.contains("\"kind\": \"sqlite\""));
+        assert!(output.result_json.contains("\"parse_status\": \"parsed\""));
+        assert!(output.result_json.contains("\"item_count\": 2"));
+        assert!(build_root
+            .join("result")
+            .join("outputs")
+            .join("readback.txt")
+            .exists());
     }
 
     #[test]

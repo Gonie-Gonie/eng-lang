@@ -638,6 +638,13 @@ pub struct WriteInfo {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct DbReadExpression {
+    pub connection: String,
+    pub table: String,
+    pub schema_name: String,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct FileOperationInfo {
     pub operation: String,
     pub source: String,
@@ -11690,6 +11697,12 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.class_objects,
         accum.diagnostics,
     );
+    let db_read_type = analyze_db_read_expression_type(
+        &binding.expression,
+        binding.line,
+        &available_bindings,
+        accum.diagnostics,
+    );
     let inferred_semantic_type = uncertainty
         .as_ref()
         .and_then(|uncertainty| {
@@ -11706,6 +11719,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             )
         })
         .or(method_call_type)
+        .or(db_read_type)
         .or_else(|| db_connection_semantic_type(&binding.expression))
         .or_else(|| path_helper_semantic_type(&binding.expression))
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
@@ -12171,6 +12185,59 @@ fn db_connection_semantic_type(expression: &str) -> Option<SemanticType> {
         .and_then(|_| semantic_type("DbConnection", "sqlite"))
 }
 
+fn analyze_db_read_expression_type(
+    expression: &str,
+    line: usize,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<SemanticType> {
+    if !expression.trim().starts_with("read sqlite ") {
+        return None;
+    }
+    let Some(read) = db_read_expression(expression) else {
+        diagnostics.push(Diagnostic::error(
+            "E-DB-READ-001",
+            line,
+            "SQLite reads must target a typed table reference.",
+            Some("Use `rows = read sqlite db.table(\"table_name\") as SchemaName`."),
+        ));
+        return None;
+    };
+    let connection_type = typed_bindings
+        .iter()
+        .find(|binding| binding.name == read.connection)
+        .map(|binding| binding.semantic_type.quantity_kind.as_str());
+    if connection_type != Some("DbConnection") {
+        diagnostics.push(Diagnostic::error(
+            "E-DB-CONNECT",
+            line,
+            &format!(
+                "DB connection `{}` is not a SQLite connection binding.",
+                read.connection
+            ),
+            Some("Declare it with `db = open sqlite file(\"outputs/results.sqlite\")`."),
+        ));
+        return None;
+    }
+    semantic_type(&format!("Table[{}]", read.schema_name), "rows")
+}
+
+pub fn db_read_expression(expression: &str) -> Option<DbReadExpression> {
+    let expression = expression.trim();
+    let rest = expression.strip_prefix("read sqlite ")?.trim();
+    let (target, schema_name) = rest.rsplit_once(" as ")?;
+    let schema_name = schema_name.trim();
+    if !is_simple_binding_name(schema_name) {
+        return None;
+    }
+    let (connection, table) = db_table_target_expression(target.trim())?;
+    Some(DbReadExpression {
+        connection: connection.to_owned(),
+        table: strip_quoted_literal(table.trim())?,
+        schema_name: schema_name.to_owned(),
+    })
+}
+
 fn db_table_target_expression(expression: &str) -> Option<(&str, &str)> {
     let (connection, table_call) = expression.trim().split_once(".table(")?;
     let table = table_call.trim().strip_suffix(')')?.trim();
@@ -12178,6 +12245,13 @@ fn db_table_target_expression(expression: &str) -> Option<(&str, &str)> {
         return None;
     }
     Some((connection.trim(), table))
+}
+
+fn strip_quoted_literal(value: &str) -> Option<String> {
+    value
+        .strip_prefix('"')
+        .and_then(|inner| inner.strip_suffix('"'))
+        .map(|inner| inner.to_owned())
 }
 
 pub fn read_only_io_expression(expression: &str) -> Option<(&'static str, &str)> {

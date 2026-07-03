@@ -4214,6 +4214,20 @@ live completion bridge has not returned a fresh snapshot.
 - Kept the fallback source compiler-owned through generated editor metadata
   instead of duplicating field vocabularies in extension code.
 
+## Batch 340: Native SQLite Typed Readback
+
+Status: implemented to move DB support beyond write-only artifacts.
+
+- Added `read sqlite db.table("name") as SchemaName` as a typed table binding.
+- Materialized SQLite readback rows into normal `RuntimeTable` values so
+  `.rows`, report fields, standard-text writes, filters, and downstream table
+  operations can consume persisted DB data.
+- Reordered runtime DB execution so tables written by native DB writes can be
+  read back later in the same run.
+- Recorded SQLite readback boundaries in `typed_payload.structured_reads`.
+- Updated workflow 02 to read back persisted predictions through the new native
+  DB path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
@@ -4228,8 +4242,8 @@ live completion bridge has not returned a fresh snapshot.
 - Case orchestration: current case manifests are materialized through workflow
   records; a native `apply/run cases` surface needs scheduler, resume, cache,
   and failure policy.
-- DB read/query support: current SQLite writes are supported; reads and query
-  APIs need typed schema mapping, transaction policy, and review records.
+- DB query support: typed SQLite table readback is implemented; arbitrary query
+  APIs, parameter binding, and query transaction policy remain to be designed.
 
 ## Native IDE Usability Candidates
 

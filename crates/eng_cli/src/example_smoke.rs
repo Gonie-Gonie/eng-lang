@@ -6578,9 +6578,15 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.result_json.contains("\"name\": \"predictions\"")
                 || !output
                     .result_json
+                    .contains("\"binding\": \"persisted_predictions\"")
+                || !output.result_json.contains("\"kind\": \"sqlite\"")
+                || !output.result_json.contains("\"parse_status\": \"parsed\"")
+                || !output
+                    .result_json
                     .contains("\"transaction_status\": \"committed\"")
                 || !output.output_manifest_json.contains("\"model_artifacts\"")
                 || !output.review_json.contains("database_target")
+                || !output.review_json.contains("persisted_predictions.rows")
                 || !output.review_json.contains("cases.rows")
                 || !output.review_json.contains("case_inputs.rows")
                 || !output.review_json.contains("predictions.rows")

@@ -7,7 +7,7 @@ Python process:
 
 ```text
 native input samples -> native result derivation -> case input templates ->
-native regression model -> native prediction table -> SQLite side effects ->
+native regression model -> native prediction table -> SQLite write/readback ->
 report/review artifacts
 ```
 
@@ -19,7 +19,7 @@ eng.table     native derive transforms for surrogate simulation-result columns
 eng.case      explicit `materialize cases` table plus generated case manifests from sample-style tables
 eng.template  native `apply ... over cases` template rendering for per-case input files
 eng.model     train regression ... with { ... } and predict model using samples
-eng.db        native SQLite writes for training results and predictions
+eng.db        native SQLite writes plus typed readback for persisted predictions
 eng.artifact  output manifest records for rendered inputs, DB, model, and report
 ```
 
@@ -35,6 +35,7 @@ report entries include `cases.pending_count`, `cases.failed_count`, and `case_in
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
+typed_payload.structured_reads includes sqlite readback for persisted_predictions
 typed args.database_target controls the SQLite output boundary
 output_manifest.json records case_input artifacts, sampling_summary.txt, and workflow_summary.csv
 workflow_summary.csv records values pulled from the selected native derived-result row, not fixed literals
@@ -50,8 +51,8 @@ normal bindings and output files. It also reads `cases.pending_count` and
 `case_inputs.planned_count`, so case materialization and case-input planning are
 visible without digging through JSON artifacts. Domain adapters can replace the
 deterministic surrogate formulas later, but they should still enter EngLang
-through typed tables, model cards, prediction manifests, and explicit
-side-effect records.
+through typed tables, model cards, prediction manifests, typed DB readback, and
+explicit side-effect records.
 
 Run:
 

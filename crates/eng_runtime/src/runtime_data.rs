@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 use std::collections::{HashMap, HashSet};
 use std::fs;
+use std::path::{Path, PathBuf};
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, normalize_unit, CheckReport, SchemaColumn, SchemaInfo,
@@ -21,6 +22,8 @@ use eng_report::{
 };
 use serde_json::Value as JsonValue;
 use toml::Value as TomlValue;
+
+type GraphiteSqlValue = graphitesql::Value;
 
 use crate::solver::evaluator::{
     parse_source_rhs_expression, source_rhs_parse_symbols, source_rhs_symbol_metadata,
@@ -3038,6 +3041,14 @@ pub struct ModelPlotOptions {
 }
 
 pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeData {
+    materialize_runtime_data_with_result_dir(report, source, None)
+}
+
+pub(crate) fn materialize_runtime_data_with_result_dir(
+    report: &CheckReport,
+    source: &str,
+    result_dir: Option<&Path>,
+) -> RuntimeData {
     let mut data = RuntimeData {
         plot_options: parse_plot_options(source),
         ..RuntimeData::default()
@@ -3058,6 +3069,8 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     }
     data.tables
         .extend(materialize_generated_sample_tables(report));
+    data.tables
+        .extend(materialize_db_read_tables(report, result_dir));
 
     data.policy_results = materialize_policy_results(report, &mut data.tables);
     let derived_tables = materialize_table_transform_tables(report, &data.tables);
@@ -3097,7 +3110,7 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
         .extend(materialize_component_solution_series(
             &data.component_solutions,
         ));
-    data.structured_reads = materialize_structured_reads(report);
+    data.structured_reads = materialize_structured_reads(report, result_dir, &data.tables);
     data.time_alignments = materialize_time_alignments(report, &data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
@@ -3138,8 +3151,170 @@ pub fn materialize_runtime_data(report: &CheckReport, source: &str) -> RuntimeDa
     data
 }
 
-fn materialize_structured_reads(report: &CheckReport) -> Vec<RuntimeStructuredRead> {
+fn materialize_db_read_tables(
+    report: &CheckReport,
+    result_dir: Option<&Path>,
+) -> Vec<RuntimeTable> {
     report
+        .inferred_declarations
+        .iter()
+        .filter_map(|declaration| {
+            let read = eng_compiler::db_read_expression(&declaration.expression)?;
+            let schema = report
+                .semantic_program
+                .schemas
+                .iter()
+                .find(|schema| schema.name == read.schema_name)?;
+            materialize_db_read_table(report, result_dir, declaration, &read, schema)
+        })
+        .collect()
+}
+
+fn materialize_db_read_table(
+    report: &CheckReport,
+    result_dir: Option<&Path>,
+    declaration: &eng_compiler::InferredDeclaration,
+    read: &eng_compiler::DbReadExpression,
+    schema: &SchemaInfo,
+) -> Option<RuntimeTable> {
+    let db_path = runtime_db_read_path(report, result_dir, &read.connection)?;
+    let connection = crate::sqlite_open_existing(&db_path).ok()?;
+    let column_list = schema
+        .columns
+        .iter()
+        .map(|column| crate::sqlite_quote_identifier(&column.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let sql = format!(
+        "SELECT {} FROM {}",
+        column_list,
+        crate::sqlite_quote_identifier(&read.table)
+    );
+    let result = connection.query(&sql).ok()?;
+    let headers = schema
+        .columns
+        .iter()
+        .map(|column| column.name.clone())
+        .collect::<Vec<_>>();
+    let row_count = result.rows.len();
+    let mut rows = Vec::with_capacity(row_count + 1);
+    rows.push(headers.clone());
+    rows.extend(result.rows.iter().map(|row| {
+        row.iter()
+            .map(|value| sqlite_value_to_cell(Some(value)))
+            .collect::<Vec<_>>()
+    }));
+    let promotion = eng_compiler::CsvPromotion {
+        binding: declaration.name.clone(),
+        source_format: "sqlite_table".to_owned(),
+        schema_name: read.schema_name.clone(),
+        source_literal: declaration.expression.clone(),
+        source_value: read.table.clone(),
+        resolved_path: db_path.display().to_string(),
+        source_hash: crate::sha256_file_if_exists(&db_path),
+        headers,
+        row_count,
+        missing_columns: Vec::new(),
+        optional_missing_columns: Vec::new(),
+        json_source_binding: None,
+        json_records_field: None,
+        line: declaration.line,
+    };
+    materialize_table_from_rows(schema, &promotion, rows)
+}
+
+fn runtime_db_read_path(
+    report: &CheckReport,
+    result_dir: Option<&Path>,
+    connection: &str,
+) -> Option<PathBuf> {
+    let path_text = runtime_db_connection_path_text(report, connection)?;
+    let output_path =
+        result_dir.and_then(|result_dir| crate::export_output_path(result_dir, &path_text));
+    if output_path.as_ref().is_some_and(|path| path.exists()) {
+        return output_path;
+    }
+    let source_path =
+        crate::runtime_resolve_source_relative_path(&path_text, report.source_path.parent());
+    if source_path.exists() {
+        return Some(source_path);
+    }
+    output_path.or(Some(source_path))
+}
+
+fn runtime_db_connection_path_text(report: &CheckReport, connection: &str) -> Option<String> {
+    let declaration = report
+        .inferred_declarations
+        .iter()
+        .find(|declaration| declaration.name == connection)?;
+    let path_expression = declaration
+        .expression
+        .trim()
+        .strip_prefix("open sqlite ")?
+        .trim();
+    crate::evaluate_runtime_path_expression(path_expression, report)
+}
+
+fn sqlite_value_to_cell(value: Option<&GraphiteSqlValue>) -> String {
+    match value {
+        Some(GraphiteSqlValue::Null) | None => String::new(),
+        Some(GraphiteSqlValue::Integer(value)) => value.to_string(),
+        Some(GraphiteSqlValue::Real(value)) if value.is_finite() => value.to_string(),
+        Some(GraphiteSqlValue::Real(_)) => String::new(),
+        Some(GraphiteSqlValue::Text(value)) => value.clone(),
+        Some(GraphiteSqlValue::Blob(value)) => format!("blob:{} bytes", value.len()),
+    }
+}
+
+fn materialize_sqlite_structured_reads(
+    report: &CheckReport,
+    result_dir: Option<&Path>,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeStructuredRead> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter_map(|declaration| {
+            let read = eng_compiler::db_read_expression(&declaration.expression)?;
+            let path = runtime_db_read_path(report, result_dir, &read.connection)?;
+            let table = tables.iter().find(|table| {
+                table.binding == declaration.name && table.schema_name == read.schema_name
+            });
+            let mut record = RuntimeStructuredRead {
+                binding: declaration.name.clone(),
+                kind: "sqlite".to_owned(),
+                path: path.display().to_string(),
+                source_hash: crate::sha256_file_if_exists(&path),
+                parse_status: if table.is_some() {
+                    "parsed".to_owned()
+                } else if path.exists() {
+                    "missing_table".to_owned()
+                } else {
+                    "missing".to_owned()
+                },
+                root_type: "sqlite_table".to_owned(),
+                field_count: table.map(|table| table.columns.len()),
+                item_count: table.map(|table| table.row_count),
+                error: None,
+                line: declaration.line,
+            };
+            if table.is_none() && path.exists() {
+                record.error = Some(format!(
+                    "table `{}` could not be read as schema `{}`",
+                    read.table, read.schema_name
+                ));
+            }
+            Some(record)
+        })
+        .collect()
+}
+
+fn materialize_structured_reads(
+    report: &CheckReport,
+    result_dir: Option<&Path>,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeStructuredRead> {
+    let mut reads = report
         .semantic_program
         .environment_dependencies
         .iter()
@@ -3157,7 +3332,11 @@ fn materialize_structured_reads(report: &CheckReport) -> Vec<RuntimeStructuredRe
                 dependency.line,
             ))
         })
-        .collect()
+        .collect::<Vec<_>>();
+    reads.extend(materialize_sqlite_structured_reads(
+        report, result_dir, tables,
+    ));
+    reads
 }
 
 fn materialize_structured_read(

@@ -1,3 +1,9 @@
+schema PersistedPredictionResult {
+    case_id: String
+    predicted_annual_electricity: Energy [kWh]
+    confidence: Ratio [1]
+}
+
 args {
     database_target: FilePath = file("outputs/surrogate_results.sqlite")
     output: DirectoryPath = dir("outputs")
@@ -92,6 +98,7 @@ with {
 }
 
 db_tables_written = "simulation_results,predictions"
+persisted_predictions = read sqlite db.table("predictions") as PersistedPredictionResult
 
 write text "outputs/sampling_summary.txt", "training={training_sample_method} seed={training_sample_seed} count={training_sample_count} parameters={training_sample_parameters} prediction={prediction_sample_method} prediction_seed={prediction_sample_seed} prediction_count={prediction_sample_count} prediction_parameters={prediction_sample_parameters}"
 with {
@@ -105,6 +112,7 @@ print "Training result rows = {training_results.rows}"
 print "Case table rows = {cases.rows} pending={case_pending_count} failed={case_failed_count} status={case_status}"
 print "Case inputs = {case_inputs.rows} planned={case_input_planned_count} blocked={case_input_blocked_count}"
 print "Predictions = {predictions.rows}"
+print "Persisted predictions readback = {persisted_predictions.rows}"
 log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
 export summary to csv "outputs/workflow_summary.csv" {
@@ -143,6 +151,7 @@ report {
     show model_card_summary
     show model_metrics
     show db_tables_written
+    show persisted_predictions.rows
     show summary_case_id
     show annual_electricity
     show peak_cooling

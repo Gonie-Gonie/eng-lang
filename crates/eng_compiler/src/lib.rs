@@ -59,7 +59,7 @@ pub use schema::{
     ConfigPromotion, ConfigTypeMismatch, CsvPromotion, MissingPolicy, SchemaColumn,
     SchemaConstraint, SchemaInfo,
 };
-pub use semantic::read_only_io_expression;
+pub use semantic::{db_read_expression, read_only_io_expression};
 pub use semantic::{
     ArgValueInfo, ArgsBlockInfo, ArgsFieldInfo, AssertInfo, ClassFieldInfo, ClassInfo,
     ClassMethodInfo, ClassObjectFieldInfo, ClassObjectInfo, ClassObjectValidationInfo,
@@ -69,7 +69,7 @@ pub use semantic::{
     ComponentInfo, ComponentJacobianSparsityInfo, ComponentLocalExpressionInfo,
     ComponentResidualDependencyInfo, ComponentResidualGraphInfo,
     ComponentResidualGraphResidualInfo, ComponentSolverPreviewInfo, ConnectionInfo,
-    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DomainInfo,
+    ConservationInfo, ConstInfo, CsvExportFieldInfo, CsvExportInfo, DbReadExpression, DomainInfo,
     DomainTypeParameterInfo, DomainVariableInfo, EnvironmentDependencyInfo, EquationDependencyInfo,
     EquationInfo, EquationIrInfo, ExpectationInfo, ExpectationSuiteInfo, FileOperationInfo,
     FormatExpressionInfo, FunctionInfo, FunctionLocalInfo, FunctionParamInfo, GoldenInfo,
@@ -365,6 +365,7 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     semantic_output.semantic_program.schemas = schema_analysis.schemas;
     semantic_output.semantic_program.csv_promotions = schema_analysis.csv_promotions;
     semantic_output.semantic_program.config_promotions = schema_analysis.config_promotions;
+    validate_db_read_schemas(&mut semantic_output);
     semantic_output.semantic_program.arg_values = arg_values;
     let table_analysis =
         table::analyze_table_transforms(&parsed, &semantic_output.semantic_program);
@@ -417,6 +418,24 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
         semantic_program: semantic_output.semantic_program,
         quantity_completion_count: quantities::completion_count(),
         unit_info_count: units::unit_info_count(),
+    }
+}
+
+fn validate_db_read_schemas(semantic_output: &mut semantic::SemanticOutput) {
+    let schemas = &semantic_output.semantic_program.schemas;
+    for declaration in &semantic_output.inferred_declarations {
+        let Some(read) = db_read_expression(&declaration.expression) else {
+            continue;
+        };
+        if schemas.iter().any(|schema| schema.name == read.schema_name) {
+            continue;
+        }
+        semantic_output.diagnostics.push(Diagnostic::error(
+            "E-DB-SCHEMA-MISMATCH",
+            declaration.line,
+            &format!("DB read schema `{}` is not declared.", read.schema_name),
+            Some("Declare a schema matching the selected SQLite columns before reading the table."),
+        ));
     }
 }
 
@@ -13113,6 +13132,48 @@ system Envelope {
         assert!(options
             .iter()
             .any(|option| option.key == "transaction" && option.value == "commit"));
+    }
+
+    #[test]
+    fn lowers_native_db_read_binding() {
+        let report = check_source(
+            "db_read.eng",
+            concat!(
+                "schema SimulationResult {\n",
+                "    case_id: String\n",
+                "    annual_electricity: Energy [kWh]\n",
+                "}\n\n",
+                "db = open sqlite file(\"outputs/results.sqlite\")\n",
+                "readback = read sqlite db.table(\"simulation_results\") as SimulationResult\n",
+                "print \"rows={readback.rows}\"\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let readback = report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .find(|binding| binding.name == "readback")
+            .expect("readback binding");
+        assert_eq!(
+            readback.semantic_type.quantity_kind,
+            "Table[SimulationResult]"
+        );
+        assert!(report
+            .semantic_program
+            .prints
+            .iter()
+            .any(|print| print.fields.iter().any(
+                |field| field.expression == "readback.rows" && field.quantity_kind == "Count"
+            )));
+        let parsed =
+            db_read_expression("read sqlite db.table(\"simulation_results\") as SimulationResult")
+                .expect("db read expression");
+        assert_eq!(parsed.connection, "db");
+        assert_eq!(parsed.table, "simulation_results");
+        assert_eq!(parsed.schema_name, "SimulationResult");
     }
 
     #[test]

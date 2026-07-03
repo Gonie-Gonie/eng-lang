@@ -16,7 +16,8 @@ native `model_card`, `evaluate`, and `predict ... using ...` records
 PredictionResult schema with predicted_annual_electricity and confidence columns
 eight generated case_input files plus render manifests
 two native SQLite db_write manifests using args.database_target: simulation_results and predictions, both committed
+typed SQLite structured readback for persisted_predictions from the predictions table
 output_manifest.json entries for case_input, template_render_manifest, sqlite_database, db_write_manifest, sampling_summary.txt, csv_export, and model:// artifacts
 process_results.json with process_count = 0
-report entries for sampler method/seed/count metadata, case status counts, training, case-input, prediction row counts, model metrics, the DB target, and DB tables written
+report entries for sampler method/seed/count metadata, case status counts, training, case-input, prediction row counts, persisted prediction readback count, model metrics, the DB target, and DB tables written
 ```

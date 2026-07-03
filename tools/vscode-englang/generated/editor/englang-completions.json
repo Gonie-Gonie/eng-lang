@@ -1869,7 +1869,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Native SQLite append/upsert/replace writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records.",
+                                "detail":  "Native workflow support: Native SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records.",
                                 "kind":  "stdlib",
                                 "label":  "eng.db",
                                 "lsp_kind":  9

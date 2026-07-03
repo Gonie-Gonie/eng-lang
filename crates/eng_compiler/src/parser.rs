@@ -2387,6 +2387,7 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "print"
             | "promote"
             | "require_one"
+            | "read"
             | "run"
             | "schema"
             | "script"
