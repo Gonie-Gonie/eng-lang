@@ -748,6 +748,7 @@ with {
     response_body_limit = 0 B
 }
 
+run command "unbound"
 process_result = run command "cmd"
 with {
     timeout = never
@@ -852,6 +853,7 @@ report {
         "E-NET-TIMEOUT",
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-HASH-MISMATCH",
+        "E-PROCESS-BINDING-001",
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE",
@@ -1052,6 +1054,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("log \"missing level\""))
         .expect("source should include missing log level");
+    let unbound_process_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("run command \"unbound\""))
+        .expect("source should include unbound process command");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1099,6 +1105,13 @@ report {
         "Set log level to info",
         "info ",
         missing_log_level_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Bind process result",
+        "result = ",
+        unbound_process_line,
     );
 
     write_message(
@@ -1152,6 +1165,7 @@ schema SensorData {
     m_dot = 1 kg/s
 }
 
+run command "unbound"
 process_result = run command "cmd"
 with {
     timeout = never
@@ -1307,6 +1321,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("log \"missing level\""))
         .expect("source should include missing log level");
+    let unbound_process_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("run command \"unbound\""))
+        .expect("source should include unbound process command");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1354,6 +1372,13 @@ report {
         "Set log level to info",
         "info ",
         missing_log_level_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Bind process result",
+        "result = ",
+        unbound_process_line,
     );
 }
 

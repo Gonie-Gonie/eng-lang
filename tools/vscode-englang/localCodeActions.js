@@ -100,6 +100,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PROCESS-BINDING-001") {
+      const action = bindProcessResultAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WHERE-FWD-001") {
       const action = reorderWhereLocalDefinitionAction(document, diagnostic);
       if (action) {
@@ -608,6 +615,24 @@ function logLevelInfoEdit(lineText) {
     return undefined;
   }
   return { start: tokenStart, end: tokenStart + level.length, newText: "info" };
+}
+
+function bindProcessResultAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const indent = lineIndent(code);
+  if (!code.slice(indent.length).startsWith("run command")) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Bind process result", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.insert(
+    document.uri,
+    new vscode.Position(line.lineNumber, indent.length),
+    "result = "
+  );
+  return action;
 }
 
 function uncertaintyArgumentActions(document, diagnostic) {

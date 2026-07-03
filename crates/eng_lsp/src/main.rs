@@ -682,6 +682,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-LOG-LEVEL-001" => {
             optional_code_action(lsp_log_level_info_code_action(uri, text, diagnostic))
         }
+        "E-PROCESS-BINDING-001" => {
+            optional_code_action(lsp_bind_process_result_code_action(uri, text, diagnostic))
+        }
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
         )),
@@ -1440,6 +1443,28 @@ fn log_level_info_edit(line_number: usize, line: &str) -> Option<LogLevelEdit> {
         range: line_byte_range(line_number, line, token_start, token_end),
         new_text: "info",
     })
+}
+
+fn lsp_bind_process_result_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let indent_len = line_indent(code).len();
+    let rest = &code[indent_len..];
+    if !rest.starts_with("run command") {
+        return None;
+    }
+    Some(json!({
+        "title": "Bind process result",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, indent_len, indent_len),
+            "result = "
+        )
+    }))
 }
 
 fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

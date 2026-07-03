@@ -4322,6 +4322,17 @@ Status: implemented after reviewing structured runtime-message diagnostics.
 - Extended LSP stdio, stdin code-action, and VS Code extension contract checks
   so structured log diagnostics remain actionable.
 
+## Batch 349: Process Binding Quick Fix
+
+Status: implemented after reviewing external-process diagnostics.
+
+- Added an LSP-owned quick fix for `E-PROCESS-BINDING-001` that inserts
+  `result = ` before an unbound top-level `run command` statement.
+- Mirrored the same repair in the VS Code local fallback provider so snapshot
+  diagnostics keep the quick fix if LSP code actions are unavailable.
+- Extended LSP stdio, stdin code-action, and VS Code extension contract checks
+  so external-process binding diagnostics remain actionable.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
