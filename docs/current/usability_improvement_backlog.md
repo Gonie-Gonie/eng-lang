@@ -4006,6 +4006,17 @@ breaking existing JSON keys.
 - Reworded VS Code Settings and README text from runtime/LSP-first wording to
   check/run tool and live editor tool wording, with contract coverage.
 
+## Batch 323: Public Phrase Grammar Smoke Guards
+
+Status: implemented to tighten VS Code highlighting regression coverage for
+public workflow phrases.
+
+- Pinned `write standard_text <value>` as a dedicated TextMate workflow phrase.
+- Pinned preferred `train regression <table>` highlighting separately from the
+  legacy-compatible helper-call forms.
+- Increased grammar smoke expectations so these public forms cannot silently
+  drift back to generic identifier coloring.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

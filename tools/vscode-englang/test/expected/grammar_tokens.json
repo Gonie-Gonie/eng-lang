@@ -216,6 +216,18 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.write-standard-text.englang",
+    "text": "write standard_text sensor",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "standard_text",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "variable.other.local.englang",
     "text": "message",
     "fullMatch": true
@@ -506,6 +518,18 @@
     "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "latin-hypercube",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.train-regression.englang",
+    "text": "train regression designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "train",
     "fullMatch": true
   },
   {
