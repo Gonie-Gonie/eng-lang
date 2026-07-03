@@ -4762,6 +4762,19 @@ diagnostics against editor underline and quick-fix behavior.
 - Extended stdio code-action and diagnostic-range regressions, and updated the
   VS Code extension README quick-fix list.
 
+## Batch 384: String Interpolation Diagnostic Ranges
+
+Status: implemented after auditing `print` and `write text` interpolation
+diagnostics against direct editor underline behavior.
+
+- Added LSP diagnostic range targeting for `E-PRINT-FMT-*` and `E-WRITE-FMT-*`
+  diagnostics so unresolved placeholders and incompatible format units underline
+  the relevant `{...}` expression or unit inside the string literal.
+- Added parser-level range handling for empty and unterminated interpolation
+  placeholders instead of relying on generic backtick or first-token fallback.
+- Extended diagnostic-range regression coverage for repeated payload text where
+  a generic search could underline an earlier filename or string-label match.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

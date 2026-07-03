@@ -818,6 +818,10 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
         }
     }
 
+    if let Some(range) = format_interpolation_diagnostic_byte_range(line, diagnostic) {
+        return Some(range);
+    }
+
     match diagnostic.code.as_str() {
         "E-PUBLIC-ANNOTATION-001" => {
             if let Some(range) = find_byte_range(line, "=") {
@@ -862,6 +866,211 @@ fn diagnostic_backtick_byte_range(line: &str, diagnostic: &Diagnostic) -> Option
         .help
         .as_ref()
         .and_then(|help| backtick_payload_byte_range(line, help))
+}
+
+fn format_interpolation_diagnostic_byte_range(
+    line: &str,
+    diagnostic: &Diagnostic,
+) -> Option<(usize, usize)> {
+    match diagnostic.code.as_str() {
+        "E-PRINT-FMT-003" | "E-WRITE-FMT-003" => last_backtick_payload(&diagnostic.message)
+            .and_then(|payload| {
+                format_interpolation_payload_byte_range(
+                    line,
+                    payload,
+                    FormatInterpolationPayload::Unit,
+                )
+            }),
+        "E-PRINT-FMT-004" | "E-WRITE-FMT-004" => first_backtick_payload(&diagnostic.message)
+            .and_then(|payload| {
+                format_interpolation_payload_byte_range(
+                    line,
+                    payload,
+                    FormatInterpolationPayload::Expression,
+                )
+            }),
+        "E-PRINT-FMT-002" | "E-WRITE-FMT-002" => empty_format_interpolation_byte_range(line),
+        "E-PRINT-FMT-001" | "E-WRITE-FMT-001" => unterminated_format_interpolation_byte_range(line),
+        _ => None,
+    }
+}
+
+#[derive(Clone, Copy)]
+enum FormatInterpolationPayload {
+    Expression,
+    Unit,
+}
+
+fn format_interpolation_payload_byte_range(
+    line: &str,
+    payload: &str,
+    payload_kind: FormatInterpolationPayload,
+) -> Option<(usize, usize)> {
+    for (literal_start, literal_end) in string_literal_byte_ranges(line) {
+        let content_start = literal_start + '"'.len_utf8();
+        let content_end = literal_end.saturating_sub('"'.len_utf8());
+        let content = line.get(content_start..content_end)?;
+        let mut cursor = 0usize;
+        while let Some(open_offset) = content[cursor..].find('{') {
+            let open = cursor + open_offset;
+            let field_start = open + '{'.len_utf8();
+            let Some(close_offset) = content[field_start..].find('}') else {
+                break;
+            };
+            let close = field_start + close_offset;
+            let field = &content[field_start..close];
+            let field_line_offset = content_start + field_start;
+            let range = match payload_kind {
+                FormatInterpolationPayload::Expression => {
+                    format_expression_range_in_field(field, field_line_offset, payload)
+                }
+                FormatInterpolationPayload::Unit => {
+                    format_unit_range_in_field(field, field_line_offset, payload)
+                }
+            };
+            if let Some(range) = range {
+                return Some(range);
+            }
+            cursor = close + '}'.len_utf8();
+        }
+    }
+    None
+}
+
+fn format_expression_range_in_field(
+    field: &str,
+    field_line_offset: usize,
+    payload: &str,
+) -> Option<(usize, usize)> {
+    let expression_end = field.find(':').unwrap_or(field.len());
+    let expression = &field[..expression_end];
+    let (start, end, text) = trimmed_range(expression, field_line_offset)?;
+    (text == payload).then_some((start, end))
+}
+
+fn format_unit_range_in_field(
+    field: &str,
+    field_line_offset: usize,
+    payload: &str,
+) -> Option<(usize, usize)> {
+    let colon = field.find(':')?;
+    let spec_start = colon + ':'.len_utf8();
+    let spec = &field[spec_start..];
+    let mut cursor = leading_whitespace_len(spec);
+    let after_leading = &spec[cursor..];
+    if let Some(after_dot) = after_leading.strip_prefix('.') {
+        cursor += '.'.len_utf8();
+        cursor += after_dot
+            .chars()
+            .take_while(|character| character.is_ascii_digit())
+            .map(char::len_utf8)
+            .sum::<usize>();
+    }
+    let unit = &spec[cursor..];
+    let (start, end, text) = trimmed_range(unit, field_line_offset + spec_start + cursor)?;
+    (text == payload).then_some((start, end))
+}
+
+fn empty_format_interpolation_byte_range(line: &str) -> Option<(usize, usize)> {
+    for (literal_start, literal_end) in string_literal_byte_ranges(line) {
+        let content_start = literal_start + '"'.len_utf8();
+        let content_end = literal_end.saturating_sub('"'.len_utf8());
+        let content = line.get(content_start..content_end)?;
+        let mut cursor = 0usize;
+        while let Some(open_offset) = content[cursor..].find('{') {
+            let open = cursor + open_offset;
+            let field_start = open + '{'.len_utf8();
+            let Some(close_offset) = content[field_start..].find('}') else {
+                break;
+            };
+            let close = field_start + close_offset;
+            if content[field_start..close].trim().is_empty() {
+                let start = content_start + open;
+                return Some((start, content_start + close + '}'.len_utf8()));
+            }
+            cursor = close + '}'.len_utf8();
+        }
+    }
+    None
+}
+
+fn unterminated_format_interpolation_byte_range(line: &str) -> Option<(usize, usize)> {
+    for (literal_start, literal_end) in string_literal_byte_ranges(line) {
+        let content_start = literal_start + '"'.len_utf8();
+        let content_end = literal_end.saturating_sub('"'.len_utf8());
+        let content = line.get(content_start..content_end)?;
+        let mut cursor = 0usize;
+        while let Some(open_offset) = content[cursor..].find('{') {
+            let open = cursor + open_offset;
+            let field_start = open + '{'.len_utf8();
+            let Some(close_offset) = content[field_start..].find('}') else {
+                let start = content_start + open;
+                return Some((start, start + '{'.len_utf8()));
+            };
+            cursor = field_start + close_offset + '}'.len_utf8();
+        }
+    }
+    None
+}
+
+fn string_literal_byte_ranges(line: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < line.len() {
+        let Some(relative_quote) = line[cursor..].find('"') else {
+            break;
+        };
+        let quote = cursor + relative_quote;
+        let Some((start, end)) = string_literal_byte_range_at(line, quote) else {
+            break;
+        };
+        ranges.push((start, end));
+        cursor = end;
+    }
+    ranges
+}
+
+fn trimmed_range<'a>(value: &'a str, line_offset: usize) -> Option<(usize, usize, &'a str)> {
+    let leading = leading_whitespace_len(value);
+    let trimmed = value.trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let start = line_offset + leading;
+    Some((start, start + trimmed.len(), trimmed))
+}
+
+fn leading_whitespace_len(value: &str) -> usize {
+    value
+        .chars()
+        .take_while(|character| character.is_whitespace())
+        .map(char::len_utf8)
+        .sum()
+}
+
+fn first_backtick_payload(text: &str) -> Option<&str> {
+    let open = text.find('`')?;
+    let payload_start = open + '`'.len_utf8();
+    let after_open = &text[payload_start..];
+    let close = after_open.find('`')?;
+    Some(&after_open[..close])
+}
+
+fn last_backtick_payload(text: &str) -> Option<&str> {
+    let mut rest = text;
+    let mut last = None;
+    loop {
+        let Some(open) = rest.find('`') else {
+            return last;
+        };
+        let payload_start = open + '`'.len_utf8();
+        let after_open = &rest[payload_start..];
+        let Some(close) = after_open.find('`') else {
+            return last;
+        };
+        last = Some(&after_open[..close]);
+        rest = &after_open[close + '`'.len_utf8()..];
+    }
 }
 
 fn backtick_payload_byte_range(line: &str, text: &str) -> Option<(usize, usize)> {
@@ -6517,6 +6726,35 @@ mod tests {
     }
 
     fn assert_first_diagnostic_underlines(source: &str, code: &str, expected_text: &str) {
+        let (line, start, end) = first_diagnostic_underline(source, code);
+
+        assert_eq!(
+            line.get(start..end),
+            Some(expected_text),
+            "diagnostic {code} should underline `{expected_text}` on `{line}`"
+        );
+    }
+
+    fn assert_first_diagnostic_underlines_after(
+        source: &str,
+        code: &str,
+        required_prefix: &str,
+        expected_text: &str,
+    ) {
+        let (line, start, end) = first_diagnostic_underline(source, code);
+
+        assert_eq!(
+            line.get(start..end),
+            Some(expected_text),
+            "diagnostic {code} should underline `{expected_text}` on `{line}`"
+        );
+        assert!(
+            line[..start].contains(required_prefix),
+            "diagnostic {code} should underline after `{required_prefix}` on `{line}`"
+        );
+    }
+
+    fn first_diagnostic_underline<'a>(source: &'a str, code: &str) -> (&'a str, usize, usize) {
         let snapshot = snapshot_for_source(Path::new("diagnostic_ranges.eng"), source);
         let json = snapshot_json(&snapshot);
         let diagnostic = json["diagnostics"]
@@ -6538,11 +6776,7 @@ mod tests {
             .expect("diagnostic should have an end character") as usize;
         let line = source.lines().nth(line_index).expect("diagnostic line");
 
-        assert_eq!(
-            line.get(start..end),
-            Some(expected_text),
-            "diagnostic {code} should underline `{expected_text}` on `{line}`"
-        );
+        (line, start, end)
     }
 
     #[test]
@@ -7207,6 +7441,13 @@ with {
     seed = abc
 }
 "#;
+        let write_bad_format_unit =
+            "Q: HeatRate [kW] = 10 kW\nwrite text \"m.txt\", \"metric={Q: .2 m}\"\n";
+        let write_bad_format_expression =
+            "write text \"missing_value.txt\", \"missing_value={missing_value}\"\n";
+        let print_bad_format_unit =
+            "Q: HeatRate [kW] = 10 kW\nprint \"metric m before {Q: .2 m}\"\n";
+        let print_bad_format_expression = "print \"missing_value={missing_value}\"\n";
 
         for (code, source, expected_text) in [
             ("E-DIM-ADD-002", "Q: HeatRate [kW] = 2 kW - 1\n", "-"),
@@ -7367,6 +7608,30 @@ with {
         ] {
             assert_first_diagnostic_underlines(source, code, expected_text);
         }
+        assert_first_diagnostic_underlines_after(
+            write_bad_format_unit,
+            "E-WRITE-FMT-003",
+            "{Q: .2 ",
+            "m",
+        );
+        assert_first_diagnostic_underlines_after(
+            write_bad_format_expression,
+            "E-WRITE-FMT-004",
+            "missing_value={",
+            "missing_value",
+        );
+        assert_first_diagnostic_underlines_after(
+            print_bad_format_unit,
+            "E-PRINT-FMT-003",
+            "{Q: .2 ",
+            "m",
+        );
+        assert_first_diagnostic_underlines_after(
+            print_bad_format_expression,
+            "E-PRINT-FMT-004",
+            "missing_value={",
+            "missing_value",
+        );
     }
 
     #[test]
