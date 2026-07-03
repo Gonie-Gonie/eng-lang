@@ -8966,6 +8966,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_table_row_field_expression(expression, runtime_data) {
         return Some(value);
     }
+    if let Some(value) = evaluate_sample_table_field_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_runtime_exists_expression(expression, report) {
         return Some(RuntimeFormatValue::Text(value));
     }
@@ -9221,6 +9224,50 @@ fn evaluate_coverage_expression(
                 unit: String::new(),
             }),
         "leap_year_policy" => Some(RuntimeFormatValue::Text(coverage.leap_year_policy.clone())),
+        _ => None,
+    }
+}
+
+fn evaluate_sample_table_field_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let sample_table = runtime_data
+        .sample_tables
+        .iter()
+        .find(|sample_table| sample_table.binding == binding.trim())?;
+    match field.trim() {
+        "sample_count" => Some(RuntimeFormatValue::Number {
+            value: sample_table.sample_count as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "parameter_count" => Some(RuntimeFormatValue::Number {
+            value: sample_table.parameter_columns.len() as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "row_hash_count" => Some(RuntimeFormatValue::Number {
+            value: sample_table.row_hash_count as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "method" => Some(RuntimeFormatValue::Text(sample_table.method.clone())),
+        "generation" => Some(RuntimeFormatValue::Text(sample_table.generation.clone())),
+        "seed" => Some(RuntimeFormatValue::Text(
+            sample_table
+                .seed
+                .clone()
+                .unwrap_or_else(|| "none".to_owned()),
+        )),
+        "status" => Some(RuntimeFormatValue::Text(sample_table.status.clone())),
+        "source_hash" => Some(RuntimeFormatValue::Text(
+            sample_table.source_hash.clone().unwrap_or_default(),
+        )),
+        "case_id_column" => Some(RuntimeFormatValue::Text(
+            sample_table.case_id_column.clone().unwrap_or_default(),
+        )),
         _ => None,
     }
 }
@@ -12997,6 +13044,10 @@ fn sample_tables_json(runtime_data: &RuntimeData) -> String {
         json.push_str(&format!(
             "        \"generation\": \"{}\",\n",
             json_escape(&sample_table.generation)
+        ));
+        json.push_str(&format!(
+            "        \"method\": \"{}\",\n",
+            json_escape(&sample_table.method)
         ));
         push_optional_json_string(&mut json, "seed", sample_table.seed.as_deref(), 8);
         json.push_str(&format!(
@@ -19263,7 +19314,11 @@ mod tests {
                 "    seed = 9\n",
                 "    cooling_cop = uniform(2.5, 5.0)\n",
                 "}\n\n",
+                "sample_method = lhs_samples.method\n",
+                "sample_seed = lhs_samples.seed\n",
+                "sample_parameters = lhs_samples.parameter_count\n",
                 "print \"samples={grid_samples.rows}\"\n",
+                "print \"lhs={sample_method} seed={sample_seed} params={sample_parameters} hashes={lhs_samples.row_hash_count}\"\n",
             ),
             &build_root,
             &RunOptions::default(),
@@ -19287,6 +19342,7 @@ mod tests {
         assert!(output
             .result_json
             .contains("\"generation\": \"sample_lhs\""));
+        assert!(output.result_json.contains("\"method\": \"lhs\""));
         assert!(output.result_json.contains("\"seed\": \"7\""));
         assert!(output.result_json.contains("\"seed\": \"9\""));
         assert!(output
@@ -19305,6 +19361,7 @@ mod tests {
             .result_json
             .contains("\"sample_table\": \"grid_samples\""));
         assert!(output.stdout.contains("samples=4"));
+        assert!(output.stdout.contains("lhs=lhs seed=9 params=1 hashes=3"));
         assert!(!virtual_path.exists());
     }
 

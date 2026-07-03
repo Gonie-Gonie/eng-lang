@@ -554,6 +554,8 @@ function Invoke-WorkflowsTest {
             $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
             foreach ($RequiredSurrogateResultToken in @(
                 '"sample_tables"',
+                '"method": "lhs"',
+                '"seed": "42"',
                 '"case_manifests"',
                 '"binding": "case_inputs"',
                 '"schema_name": "CaseOutput"',
@@ -582,6 +584,7 @@ function Invoke-WorkflowsTest {
                 '"kind": "template_render_manifest"',
                 '"kind": "sqlite_database"',
                 '"kind": "db_write_manifest"',
+                '"path": "outputs/sampling_summary.txt"',
                 '"path": "model://surrogate_model"',
                 '"path": "model://predictions"',
                 '"kind": "PredictionResult"'
@@ -2968,8 +2971,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, HTTP response fields, and completion seed metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, HTTP response fields, sample table fields, and completion seed metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
@@ -3463,6 +3466,15 @@ function Assert-VscodeExtensionContract {
         }
         if ([string]::IsNullOrWhiteSpace($HttpResponseField.detail)) {
             throw "generated VS Code editor metadata HTTP response field $RequiredHttpResponseField missing detail"
+        }
+    }
+    foreach ($RequiredSampleTableField in @("sample_count", "method", "seed", "parameter_count")) {
+        $SampleTableField = @($EditorMetadata.syntax_catalog.sample_table_fields | Where-Object { $_.label -eq $RequiredSampleTableField }) | Select-Object -First 1
+        if ($null -eq $SampleTableField) {
+            throw "generated VS Code editor metadata missing sample table field $RequiredSampleTableField"
+        }
+        if ([string]::IsNullOrWhiteSpace($SampleTableField.detail)) {
+            throw "generated VS Code editor metadata sample table field $RequiredSampleTableField missing detail"
         }
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)

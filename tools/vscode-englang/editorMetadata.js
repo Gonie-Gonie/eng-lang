@@ -21,7 +21,8 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.keywords) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
     !Array.isArray(syntaxCatalog.workflow_options) ||
-    !Array.isArray(syntaxCatalog.http_response_fields)
+    !Array.isArray(syntaxCatalog.http_response_fields) ||
+    !Array.isArray(syntaxCatalog.sample_table_fields)
   ) {
     throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
   }

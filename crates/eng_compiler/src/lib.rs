@@ -12970,6 +12970,42 @@ system Envelope {
     }
 
     #[test]
+    fn sample_table_metadata_fields_are_typed() {
+        let report = check_source(
+            "sample_metadata.eng",
+            concat!(
+                "samples = sample lhs\n",
+                "with {\n",
+                "    count = 4\n",
+                "    seed = 42\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n\n",
+                "sample_count = samples.sample_count\n",
+                "sample_method = samples.method\n",
+                "sample_seed = samples.seed\n",
+                "parameter_count = samples.parameter_count\n",
+                "row_hash_count = samples.row_hash_count\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let binding_type = |name: &str| {
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .map(|binding| binding.semantic_type.quantity_kind.as_str())
+        };
+        assert_eq!(binding_type("sample_count"), Some("Count"));
+        assert_eq!(binding_type("sample_method"), Some("String"));
+        assert_eq!(binding_type("sample_seed"), Some("String"));
+        assert_eq!(binding_type("parameter_count"), Some("Count"));
+        assert_eq!(binding_type("row_hash_count"), Some("Count"));
+    }
+
+    #[test]
     fn lowers_native_db_write_records() {
         let root = env::temp_dir().join(format!("englang-db-write-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);

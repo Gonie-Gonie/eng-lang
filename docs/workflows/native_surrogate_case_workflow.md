@@ -20,6 +20,8 @@ eng.exe run examples/workflows/02_native_surrogate_case_workflow/main.eng --save
 What it proves:
 
 - deterministic native `sample lhs` tables for training and prediction inputs
+- sampler metadata bindings such as `training_designs.method`,
+  `training_designs.seed`, and `training_designs.sample_count`
 - native result-column derivation before case/model/DB steps consume the table
 - explicit native `materialize cases training_results` CaseTable materialization
 - native `apply case_input_template over cases` CaseOutput materialization
@@ -40,8 +42,8 @@ Expected review surfaces:
 - `typed_payload.prediction_manifests[]`
 - `typed_payload.db_manifests[]`
 - `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
-- `output_manifest.json` records for case_input artifacts, summary export, DB, model
-  artifacts, and report artifacts
+- `output_manifest.json` records for case_input artifacts, sampling summary,
+  summary export, DB, model artifacts, and report artifacts
 
 This is not an EnergyPlus, CFD, FEM, Modelica, or vendor ML framework adapter
 in core. Real simulator or trainer adapters should layer above the same typed

@@ -14,6 +14,7 @@ outputs/case_008/input.txt
 outputs/case_008/input.txt.render_manifest.json
 outputs/surrogate_results.sqlite
 outputs/surrogate_results.sqlite.db_write_manifest.json
+outputs/sampling_summary.txt
 outputs/workflow_summary.csv
 ```
 
@@ -24,7 +25,9 @@ is eight. The SQLite database target comes from `args.database_target`, and the
 database plus DB write manifest should be classified as `db_write`. Native
 model, model-card, metric, and prediction records are represented in the output
 manifest's `model_artifacts` section as `model://...` artifacts rather than as
-external-process or opaque-tool outputs. `process_results.json` should show
+external-process or opaque-tool outputs. The sampling summary should record the
+native sampler method, seed, sample count, and parameter count used by the
+workflow. `process_results.json` should show
 `process_count = 0`.
 
 The manifest should also include normal EngLang runtime artifacts when the

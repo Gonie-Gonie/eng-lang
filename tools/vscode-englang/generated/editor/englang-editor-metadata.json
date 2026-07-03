@@ -2921,6 +2921,44 @@
                                                   "label":  "ReynoldsNumber"
                                               }
                                           ],
+                           "sample_table_fields":  [
+                                                       {
+                                                           "detail":  "generated sample row count",
+                                                           "label":  "sample_count"
+                                                       },
+                                                       {
+                                                           "detail":  "sample generation method",
+                                                           "label":  "method"
+                                                       },
+                                                       {
+                                                           "detail":  "sample generation source label",
+                                                           "label":  "generation"
+                                                       },
+                                                       {
+                                                           "detail":  "sample generation seed",
+                                                           "label":  "seed"
+                                                       },
+                                                       {
+                                                           "detail":  "sample table validation status",
+                                                           "label":  "status"
+                                                       },
+                                                       {
+                                                           "detail":  "sample parameter column count",
+                                                           "label":  "parameter_count"
+                                                       },
+                                                       {
+                                                           "detail":  "sample row hash count",
+                                                           "label":  "row_hash_count"
+                                                       },
+                                                       {
+                                                           "detail":  "sample table source hash",
+                                                           "label":  "source_hash"
+                                                       },
+                                                       {
+                                                           "detail":  "case identifier column",
+                                                           "label":  "case_id_column"
+                                                       }
+                                                   ],
                            "units":  [
                                          {
                                              "canonical_unit":  "m",

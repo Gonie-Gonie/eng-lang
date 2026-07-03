@@ -1243,6 +1243,7 @@ pub struct RuntimeSampleTable {
     pub row_hash_count: usize,
     pub row_hash_preview: Vec<String>,
     pub generation: String,
+    pub method: String,
     pub seed: Option<String>,
     pub status: String,
 }
@@ -7465,6 +7466,9 @@ fn materialize_sample_table(
     let generation = generation_info
         .map(|generation| format!("sample_{}", generation.method))
         .unwrap_or_else(|| "promoted_csv".to_owned());
+    let method = generation_info
+        .map(|generation| generation.method.clone())
+        .unwrap_or_else(|| "promoted_csv".to_owned());
     let seed = generation_info.and_then(|generation| generation.seed.map(|seed| seed.to_string()));
 
     Some(RuntimeSampleTable {
@@ -7479,6 +7483,7 @@ fn materialize_sample_table(
         row_hash_count: table.row_count,
         row_hash_preview: sample_row_hash_preview(table),
         generation,
+        method,
         seed,
         status: status.to_owned(),
     })
@@ -25280,6 +25285,7 @@ with {
         assert_eq!(sample_tables[0].row_hash_count, 3);
         assert_eq!(sample_tables[0].row_hash_preview.len(), 3);
         assert_eq!(sample_tables[0].generation, "promoted_csv");
+        assert_eq!(sample_tables[0].method, "promoted_csv");
         assert_eq!(sample_tables[0].status, "duplicate_case_ids");
     }
 

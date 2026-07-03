@@ -2248,6 +2248,7 @@ fn infer_scoped_binding_semantic_type(
     path_helper_semantic_type(expression)
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
+        .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
         .or_else(|| infer_quantity(name, expression))
 }
@@ -5714,6 +5715,9 @@ fn resolve_format_expression_type(
             return semantic_type("Count", "count");
         }
     }
+    if let Some(semantic_type) = sample_table_field_semantic_type(expression, typed_bindings) {
+        return Some(semantic_type);
+    }
     if let Some(semantic_type) = probability_expression_semantic_type(expression) {
         return Some(semantic_type);
     }
@@ -5742,6 +5746,27 @@ fn is_materialized_table_quantity_kind(quantity_kind: &str) -> bool {
 
 fn is_standard_text_table_quantity_kind(quantity_kind: &str) -> bool {
     quantity_kind.starts_with("Table[") || quantity_kind.starts_with("TableTransform[")
+}
+
+fn sample_table_field_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (binding_name, field) = expression.trim().split_once('.')?;
+    let has_sample_table = typed_bindings.iter().any(|binding| {
+        binding.name == binding_name.trim()
+            && binding.semantic_type.quantity_kind == "Table[Sample]"
+    });
+    if !has_sample_table {
+        return None;
+    }
+    match field.trim() {
+        "sample_count" | "parameter_count" | "row_hash_count" => semantic_type("Count", "count"),
+        "method" | "generation" | "seed" | "status" | "source_hash" | "case_id_column" => {
+            semantic_type("String", "")
+        }
+        _ => None,
+    }
 }
 
 fn coverage_result_field_semantic_type(
@@ -6983,6 +7008,7 @@ fn class_field_expression_semantic_type(
         .or_else(|| path_helper_semantic_type(expression))
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
+        .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
         .or_else(|| infer_quantity(field_name, expression))
 }
@@ -11643,6 +11669,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or_else(|| statistic_expression_semantic_type(&binding.expression, &available_bindings))
         .or(function_call_type)
         .or_else(|| net_response_field_semantic_type(&binding.expression, &available_bindings))
+        .or_else(|| sample_table_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| infer_quantity(&binding.name, &binding.expression));
 

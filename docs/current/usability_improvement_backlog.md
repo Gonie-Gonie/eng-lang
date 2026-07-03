@@ -4168,6 +4168,21 @@ Status: implemented to make API workflows less fixture-shaped.
   describe live HTTP(S) and response-object metadata instead of a future-only
   network plan.
 
+## Batch 337: Native Sample Table Metadata Surface
+
+Status: implemented to make workflow sampling evidence usable from normal
+bindings instead of only buried runtime JSON.
+
+- Added typed sample-table metadata fields for `sample_count`, `method`,
+  `generation`, `seed`, `status`, `parameter_count`, `row_hash_count`,
+  `source_hash`, and `case_id_column`.
+- Exposed those fields through runtime formatting/report expressions and LSP
+  member completions/highlighting for `Table[Sample]` bindings.
+- Added `sample_table_fields` to generated editor metadata so editor tooling has
+  a compiler-owned catalog for this member vocabulary.
+- Updated workflow 02 to write and report native sampler method, seed, sample
+  count, and parameter-count metadata for both training and prediction samples.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

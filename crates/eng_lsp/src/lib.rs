@@ -683,6 +683,18 @@ const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("url_with_query", "resolved request URL with query string"),
 ];
 
+const SAMPLE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("sample_count", "generated sample row count"),
+    ("method", "sample generation method"),
+    ("generation", "sample generation source label"),
+    ("seed", "sample generation seed"),
+    ("status", "sample table validation status"),
+    ("parameter_count", "sample parameter column count"),
+    ("row_hash_count", "sample row hash count"),
+    ("source_hash", "sample table source hash"),
+    ("case_id_column", "case identifier column"),
+];
+
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
     let source = std::fs::read_to_string(path)?;
     let report = check_source(path, &source, &CheckOptions::default());
@@ -944,6 +956,13 @@ pub fn editor_syntax_catalog_json() -> Value {
             }))
             .collect::<Vec<_>>(),
         "http_response_fields": HTTP_RESPONSE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
+        "sample_table_fields": SAMPLE_TABLE_FIELD_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
                 "label": label,
@@ -1236,6 +1255,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             &sample.binding,
             "variable",
             &["declaration", "workflowStep"],
+        );
+        builder.push_member_fields(
+            &sample.binding,
+            SAMPLE_TABLE_FIELD_COMPLETIONS,
+            &["workflowStep"],
         );
         for distribution in &sample.distributions {
             let modifiers = semantic_modifiers_for_quantity(&distribution.quantity_kind);
@@ -4391,6 +4415,17 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "Table[Sample]" {
+            for (field, detail) in SAMPLE_TABLE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
         if binding.semantic_type.quantity_kind == "TableRow" {
             if let Some(schema_name) = table_row_schema_name(report, &binding.name) {
                 if let Some(schema) = report
@@ -4698,6 +4733,23 @@ pub fn completion_items_at(
             let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             for (field, detail) in HTTP_RESPONSE_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            return items;
+        }
+        if report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                binding.name == receiver && binding.semantic_type.quantity_kind == "Table[Sample]"
+            })
+        {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for (field, detail) in SAMPLE_TABLE_FIELD_COMPLETIONS {
                 if prefix.is_empty() || field.starts_with(&prefix) {
                     push_completion(&mut items, &mut seen, field, "property", detail);
                 }
@@ -6184,6 +6236,12 @@ mod tests {
             "syntax catalog should expose HTTP response field labels"
         );
         assert!(
+            syntax_catalog["sample_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "sample_count")),
+            "syntax catalog should expose sample table field labels"
+        );
+        assert!(
             syntax_catalog["units"]
                 .as_array()
                 .is_some_and(|units| units.iter().any(|unit| unit["label"] == "kW")),
@@ -7313,6 +7371,44 @@ weather = promote json records payload.records as WeatherApiRecord
                     .lines()
                     .nth(token.line)
                     .is_some_and(|line| &line[token.start..token.start + token.length] == "body")
+        }));
+    }
+
+    #[test]
+    fn snapshot_exposes_sample_table_member_fields() {
+        let source = "samples = sample lhs\nwith {\n    count = 4\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\nsample_count = samples.sample_count\n";
+        let snapshot = snapshot_for_source(Path::new("sample_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "samples.sample_count"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("sample_count ="))
+            .expect("sample_count line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("sample_members.eng"),
+            source,
+            line,
+            "sample_count = samples.".len(),
+        );
+        let count_completion = member_completions
+            .iter()
+            .find(|completion| completion.label == "sample_count")
+            .expect("sample table member completion should include sample_count");
+        assert_eq!(count_completion.detail, "generated sample row count");
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "method"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "seed"));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "property"
+                && source.lines().nth(token.line).is_some_and(|line| {
+                    &line[token.start..token.start + token.length] == "sample_count"
+                })
         }));
     }
 
