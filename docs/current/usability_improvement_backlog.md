@@ -4252,6 +4252,17 @@ Status: implemented to keep public docs aligned with the runtime.
 - Updated DB maturity wording to include typed SQLite readback alongside write
   manifests.
 
+## Batch 343: Shared Live Editor Snapshot Cache
+
+Status: implemented to reduce duplicate live editor work in VS Code.
+
+- Added a short-lived versioned snapshot result cache behind the existing
+  `eng-lsp --snapshot-stdin` request helper.
+- Routed live-buffer diagnostics through the same snapshot provider used by
+  semantic tokens, hover, folding, and symbols.
+- Kept stale-version protection so diagnostics are ignored if the document
+  changes before a live snapshot returns.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -79,6 +79,7 @@ function activate(context) {
     diagnosticsBackendLabel,
     findLspRuntime,
     findRuntime,
+    snapshotDocumentSource: lspRequests.snapshotDocumentSource,
     workspaceRoot,
     cacheReview: (document, review) => reviewCache.set(document.uri.fsPath, review),
     updateReviewRiskDecorations: decorationController.updateReviewRiskDecorations,

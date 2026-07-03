@@ -8,13 +8,24 @@ function createLspRequests(options = {}) {
   const workspaceRoot = options.workspaceRoot;
   const appendOutputLine = options.appendOutputLine ?? (() => undefined);
   const snapshotPromiseCache = new Map();
+  const snapshotResultCache = new Map();
+  const snapshotResultTtlMs = options.snapshotResultTtlMs ?? 2000;
 
   function clearSnapshotCache(document) {
-    snapshotPromiseCache.delete(snapshotCacheKey(document));
+    const key = snapshotCacheKey(document);
+    snapshotPromiseCache.delete(key);
+    snapshotResultCache.delete(key);
   }
 
   function snapshotDocumentSource(document, context, cancellationToken) {
     const key = snapshotCacheKey(document);
+    const cachedResult = snapshotResultCache.get(key);
+    if (cachedResult && cachedResult.expiresAt > Date.now()) {
+      return Promise.resolve(cachedResult.value);
+    }
+    if (cachedResult) {
+      snapshotResultCache.delete(key);
+    }
     const cached = snapshotPromiseCache.get(key);
     if (cached) {
       return cached;
@@ -32,8 +43,15 @@ function createLspRequests(options = {}) {
         settled = true;
         if (document.version !== documentVersion) {
           snapshotPromiseCache.delete(key);
+          snapshotResultCache.delete(key);
           resolve(undefined);
           return;
+        }
+        if (value) {
+          snapshotResultCache.set(key, {
+            value,
+            expiresAt: Date.now() + snapshotResultTtlMs
+          });
         }
         resolve(value);
       };

@@ -14,6 +14,7 @@ class EngDiagnosticsController {
     this.diagnosticsBackendLabel = options.diagnosticsBackendLabel ?? ((backend) => backend);
     this.findLspRuntime = options.findLspRuntime;
     this.findRuntime = options.findRuntime;
+    this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.workspaceRoot = options.workspaceRoot;
     this.cacheReview = options.cacheReview ?? (() => undefined);
     this.updateReviewRiskDecorations = options.updateReviewRiskDecorations ?? (() => undefined);
@@ -99,6 +100,27 @@ class EngDiagnosticsController {
   }
 
   checkDocumentSource(document) {
+    if (this.snapshotDocumentSource) {
+      const documentVersion = document.version;
+      this.appendLine(`live buffer check ${document.uri.fsPath}`);
+      this.snapshotDocumentSource(document, this.context)
+        .then((review) => {
+          if (document.version !== documentVersion) {
+            return;
+          }
+          if (!review) {
+            this.applyUnavailableSnapshotDiagnostic(document);
+            return;
+          }
+          this.finishParsedDocumentCheck(document, "live buffer", documentVersion, review);
+        })
+        .catch((error) => {
+          this.appendLine(`live buffer check failed: ${error.message}`);
+          this.applyUnavailableSnapshotDiagnostic(document);
+        });
+      return;
+    }
+
     const runtime = this.findLspRuntime(this.context, document);
     const cwd = this.workspaceRoot(document);
     const documentVersion = document.version;
@@ -133,18 +155,17 @@ class EngDiagnosticsController {
       if (error) {
         this.appendLine(error.message);
       }
-      this.diagnostics.set(document.uri, [
-        new vscode.Diagnostic(
-          firstLineRange(document),
-          "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
-          vscode.DiagnosticSeverity.Error
-        )
-      ]);
-      this.updateReviewRiskDecorations(document, undefined);
-      this.updateSemanticSymbolDecorations(document, undefined);
+      this.applyUnavailableSnapshotDiagnostic(document);
       return;
     }
 
+    this.finishParsedDocumentCheck(document, backend, documentVersion, review);
+  }
+
+  finishParsedDocumentCheck(document, backend, documentVersion, review) {
+    if (document.version !== documentVersion) {
+      return;
+    }
     this.cacheReview(document, review);
     this.diagnostics.set(document.uri, toDiagnostics(document, review));
     this.updateReviewRiskDecorations(document, review);
@@ -152,6 +173,18 @@ class EngDiagnosticsController {
     const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
     const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
     this.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
+  }
+
+  applyUnavailableSnapshotDiagnostic(document) {
+    this.diagnostics.set(document.uri, [
+      new vscode.Diagnostic(
+        firstLineRange(document),
+        "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
+        vscode.DiagnosticSeverity.Error
+      )
+    ]);
+    this.updateReviewRiskDecorations(document, undefined);
+    this.updateSemanticSymbolDecorations(document, undefined);
   }
 
   appendLine(message) {
