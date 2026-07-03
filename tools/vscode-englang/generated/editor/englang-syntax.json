@@ -1,6 +1,56 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
     "syntax_catalog":  {
+                           "http_response_fields":  [
+                                                        {
+                                                            "detail":  "pinned offline HTTP response body text",
+                                                            "label":  "body"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for pinned offline HTTP response body text",
+                                                            "label":  "text"
+                                                        },
+                                                        {
+                                                            "detail":  "HTTP request method",
+                                                            "label":  "method"
+                                                        },
+                                                        {
+                                                            "detail":  "network boundary status",
+                                                            "label":  "status"
+                                                        },
+                                                        {
+                                                            "detail":  "HTTP status code",
+                                                            "label":  "status_code"
+                                                        },
+                                                        {
+                                                            "detail":  "HTTP status class",
+                                                            "label":  "status_class"
+                                                        },
+                                                        {
+                                                            "detail":  "response SHA-256 hash",
+                                                            "label":  "response_hash"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for response SHA-256 hash",
+                                                            "label":  "hash"
+                                                        },
+                                                        {
+                                                            "detail":  "resolved request query string",
+                                                            "label":  "query_string"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for resolved request URL with query string",
+                                                            "label":  "request_url"
+                                                        },
+                                                        {
+                                                            "detail":  "resolved request URL",
+                                                            "label":  "url"
+                                                        },
+                                                        {
+                                                            "detail":  "resolved request URL with query string",
+                                                            "label":  "url_with_query"
+                                                        }
+                                                    ],
                            "hyphenated_workflow_builtins":  [
                                                                 "latin-hypercube"
                                                             ],

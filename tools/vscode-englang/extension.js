@@ -38,6 +38,7 @@ const editorMetadata = loadEditorMetadata(__dirname);
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_SEED = editorMetadata.completionSeed;
+const HTTP_RESPONSE_FIELDS = editorMetadata.syntaxCatalog.http_response_fields;
 
 const semanticLegend = createSemanticLegend(
   SEMANTIC_TOKEN_TYPES,
@@ -145,6 +146,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngCompletionProvider(context, {
         completionSeed: COMPLETION_SEED,
+        httpResponseFields: HTTP_RESPONSE_FIELDS,
         completionSnapshotForPosition: lspRequests.completionSnapshotForPosition,
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath)
       }),

@@ -2968,8 +2968,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, and completion seed metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, HTTP response fields, and completion seed metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
@@ -2984,6 +2984,9 @@ function Assert-VscodeExtensionContract {
         "completionSnapshotForPosition",
         "cachedSnapshotForDocument",
         "completionItemsFromPayload",
+        "httpResponseFields",
+        "httpResponseFieldCompletionsForContext",
+        "memberAccessCompletionContext",
         "completionKindFromLsp",
         "new vscode.CompletionItem"
     )) {
@@ -3451,6 +3454,15 @@ function Assert-VscodeExtensionContract {
         }
         if ($null -eq $Completion.lsp_kind) {
             throw "generated VS Code editor metadata completion seed $RequiredCompletion missing lsp_kind"
+        }
+    }
+    foreach ($RequiredHttpResponseField in @("body", "status_code", "query_string", "url_with_query")) {
+        $HttpResponseField = @($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq $RequiredHttpResponseField }) | Select-Object -First 1
+        if ($null -eq $HttpResponseField) {
+            throw "generated VS Code editor metadata missing HTTP response field $RequiredHttpResponseField"
+        }
+        if ([string]::IsNullOrWhiteSpace($HttpResponseField.detail)) {
+            throw "generated VS Code editor metadata HTTP response field $RequiredHttpResponseField missing detail"
         }
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)

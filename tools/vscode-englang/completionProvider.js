@@ -5,6 +5,7 @@ class EngCompletionProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.completionSeed = Array.isArray(options.completionSeed) ? options.completionSeed : [];
+    this.httpResponseFields = Array.isArray(options.httpResponseFields) ? options.httpResponseFields : [];
     this.completionSnapshotForPosition = options.completionSnapshotForPosition;
     this.cachedSnapshotForDocument = options.cachedSnapshotForDocument ?? (() => undefined);
   }
@@ -14,16 +15,22 @@ class EngCompletionProvider {
       (await this.completionSnapshotForPosition?.(document, position, this.context, cancellationToken)) ??
       this.cachedSnapshotForDocument(document);
 
-    return completionItemsFromPayload(completionPayload, this.completionSeed);
+    const localCompletions = Array.isArray(completionPayload?.completions)
+      ? []
+      : httpResponseFieldCompletionsForContext(document, position, this.httpResponseFields);
+    return completionItemsFromPayload(completionPayload, this.completionSeed, { localCompletions });
   }
 }
 
-function completionItemsFromPayload(completionPayload, completionSeed) {
+function completionItemsFromPayload(completionPayload, completionSeed, options = {}) {
   const items = [];
   const seen = new Set();
   const completions = Array.isArray(completionPayload?.completions)
     ? completionPayload.completions
-    : (Array.isArray(completionSeed) ? completionSeed : []);
+    : [
+        ...(Array.isArray(options.localCompletions) ? options.localCompletions : []),
+        ...(Array.isArray(completionSeed) ? completionSeed : [])
+      ];
   for (const completion of completions) {
     if (!completion?.label) {
       continue;
@@ -32,6 +39,48 @@ function completionItemsFromPayload(completionPayload, completionSeed) {
     addCompletion(items, seen, item);
   }
   return items;
+}
+
+function httpResponseFieldCompletionsForContext(document, position, httpResponseFields) {
+  const memberContext = memberAccessCompletionContext(document, position);
+  if (!memberContext || !Array.isArray(httpResponseFields)) {
+    return [];
+  }
+  if (!isResponseLikeReceiver(memberContext.receiver)) {
+    return [];
+  }
+  const prefix = memberContext.prefix.toLowerCase();
+  return httpResponseFields
+    .filter((field) => typeof field?.label === "string")
+    .filter((field) => field.label.toLowerCase().startsWith(prefix))
+    .map((field) => ({
+      label: field.label,
+      detail: field.detail ?? "HTTP response field",
+      kind: "property",
+      lsp_kind: "property"
+    }));
+}
+
+function memberAccessCompletionContext(document, position) {
+  const linePrefix = document.lineAt(position.line).text.slice(0, position.character);
+  const match = /([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(linePrefix);
+  if (!match) {
+    return undefined;
+  }
+  return {
+    receiver: match[1],
+    prefix: match[2] ?? ""
+  };
+}
+
+function isResponseLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return (
+    normalized.includes("response") ||
+    normalized.includes("http") ||
+    normalized.includes("api") ||
+    normalized.includes("network")
+  );
 }
 
 function completionItemFromLsp(completion) {
@@ -57,5 +106,7 @@ function addCompletion(items, seen, item) {
 
 module.exports = {
   EngCompletionProvider,
-  completionItemsFromPayload
+  completionItemsFromPayload,
+  httpResponseFieldCompletionsForContext,
+  memberAccessCompletionContext
 };

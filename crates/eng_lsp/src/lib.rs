@@ -943,6 +943,13 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "detail": detail,
             }))
             .collect::<Vec<_>>(),
+        "http_response_fields": HTTP_RESPONSE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
         "public_types": PUBLIC_TYPE_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -6167,6 +6174,14 @@ mod tests {
                     .iter()
                     .any(|option| option["label"] == "offline_response")),
             "syntax catalog should expose with-block option labels"
+        );
+        assert!(
+            syntax_catalog["http_response_fields"]
+                .as_array()
+                .is_some_and(|fields| fields
+                    .iter()
+                    .any(|field| field["label"] == "url_with_query")),
+            "syntax catalog should expose HTTP response field labels"
         );
         assert!(
             syntax_catalog["units"]
