@@ -2387,10 +2387,18 @@ fn with_owner_coverage_options(
     if command.verb != "check" || !command.target.trim().starts_with("coverage ") {
         return HashSet::new();
     }
-    ["expected_step", "step", "year"]
-        .into_iter()
-        .map(str::to_owned)
-        .collect()
+    [
+        "expected_step",
+        "step",
+        "year",
+        "start",
+        "end",
+        "max_gap",
+        "missing",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
 }
 
 fn with_owner_timeseries_fill_options(

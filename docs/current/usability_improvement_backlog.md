@@ -4588,6 +4588,21 @@ with LSP semantic-token coverage.
 - Extended LSP regression coverage for render-template source, output, and
   with-block value tokens.
 
+## Batch 371: Coverage Check Option Parity
+
+Status: implemented after comparing `check coverage` completions, linter
+validation, and semantic highlighting.
+
+- Aligned compiler with-block validation with VS Code completion labels for
+  coverage checks, accepting `start`, `end`, `max_gap`, and `missing` alongside
+  `expected_step`, `step`, and `year`.
+- Added compiler regression coverage so those coverage options no longer raise
+  unknown-option diagnostics.
+- Added LSP semantic tokens for `check coverage <series>` targets and marked
+  coverage option keys as validation workflow-step tokens.
+- Extended native workflow semantic regression coverage for coverage target
+  paths, option keys, and `missing = error`.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

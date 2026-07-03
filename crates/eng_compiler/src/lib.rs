@@ -10421,6 +10421,45 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_timeseries_coverage_with_block_options() {
+        let report = check_source(
+            "ok.eng",
+            "coverage = check coverage weather.time\nwith {\n    expected_step = 1 h\n    year = 2024\n    start = 0 h\n    end = 8760 h\n    max_gap = 3 h\n    missing = error\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-WITH-OPTION-001"));
+        let command = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.verb == "check")
+            .expect("coverage command");
+        assert_eq!(command.target, "coverage weather.time");
+        assert_eq!(command.canonical, "check(coverage weather.time)");
+        let options = &report.semantic_program.with_blocks[0].options;
+        for key in [
+            "expected_step",
+            "year",
+            "start",
+            "end",
+            "max_gap",
+            "missing",
+        ] {
+            assert!(
+                options
+                    .iter()
+                    .any(|option| option.key == key && option.status == "accepted"),
+                "coverage option {key} should be accepted"
+            );
+        }
+    }
+
+    #[test]
     fn lowers_timeseries_alignment_and_resampling_commands() {
         let report = check_source(
             "ok.eng",

@@ -1861,6 +1861,11 @@ fn with_option_semantic_modifiers(
     match key {
         "cache" | "cache_key" | "cache_dir" | "cache_ttl" => &["cache"],
         "key" | "transaction" => &["db"],
+        "expected_step" | "step" | "year" | "start" | "end" | "max_gap" | "missing" | "status"
+            if is_coverage_with_block(program, block.owner_line) =>
+        {
+            &["validation", "workflowStep"]
+        }
         "on_none" | "on_many" | "expected_step" | "max_gap" | "status" => &["validation"],
         "sensor_std" | "confidence_band" => &["uncertain"],
         "bias" | "gain" | "kind" | "lower" | "mu" | "n" | "offset" | "relative_error"
@@ -2114,6 +2119,17 @@ fn is_template_workflow_with_block(program: &SemanticProgram, owner_line: Option
         command.line == owner_line
             && (command.verb == "apply"
                 || (command.verb == "render" && command.target.trim().starts_with("template ")))
+    })
+}
+
+fn is_coverage_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program.command_styles.iter().any(|command| {
+        command.line == owner_line
+            && command.verb == "check"
+            && command.target.trim().starts_with("coverage ")
     })
 }
 
@@ -4023,6 +4039,30 @@ fn add_command_style_semantic_tokens(
             if is_simple_identifier_path(&command.target) {
                 builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
             }
+        }
+        "check" => {
+            let Some(target) = command.target.trim().strip_prefix("coverage ") else {
+                return;
+            };
+            builder.push_on_line(
+                command.line,
+                "check",
+                "function",
+                &["validation", "workflowStep"],
+            );
+            builder.push_on_line(
+                command.line,
+                "coverage",
+                "function",
+                &["validation", "workflowStep"],
+            );
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                target,
+                &[],
+                &["validation", "workflowStep"],
+            );
         }
         "fill" => {
             if command.target.trim().starts_with("missing ") {
@@ -7728,6 +7768,15 @@ cases = materialize cases designs
 case_results = apply run_case over designs
 case_inputs = apply case_input_template over cases
 collected = collect results case_results
+coverage = check coverage designs.cooling_cop
+with {
+    expected_step = 1 h
+    year = 2024
+    start = 0 h
+    end = 8760 h
+    max_gap = 3 h
+    missing = error
+}
 filled = fill missing designs.cooling_cop
 aligned = align designs.cooling_cop with predictions.cooling_cop
 resampled = resample designs.cooling_cop to predictions.cooling_cop
@@ -7735,6 +7784,13 @@ legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
 
+        assert!(
+            !snapshot
+                .diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic.code == "E-WITH-OPTION-001"),
+            "coverage with-block options should match LSP completion labels"
+        );
         for label in [
             "sample",
             "lhs",
@@ -7756,6 +7812,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "model_card",
             "predict",
             "derive",
+            "check",
+            "coverage",
             "fill",
             "align",
             "resample",
@@ -7840,8 +7898,10 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_semantic_token_modifier(&snapshot, source, "fill", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "check", "validation");
+        assert_semantic_token_modifier(&snapshot, source, "coverage", "validation");
         assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
-        for label in ["designs", "case_row", "derived", "derived_many"] {
+        for label in ["designs", "case_row", "derived", "derived_many", "coverage"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_eq!(
@@ -7864,6 +7924,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for line in [
+            "coverage = check coverage designs.cooling_cop",
             "filled = fill missing designs.cooling_cop",
             "aligned = align designs.cooling_cop with predictions.cooling_cop",
             "resampled = resample designs.cooling_cop to predictions.cooling_cop",
@@ -7893,6 +7954,39 @@ legacy_station = select_first_row(stations, return_column="station_id")
                 "validation",
             );
         }
+        for (line, label) in [
+            ("    expected_step = 1 h", "expected_step"),
+            ("    year = 2024", "year"),
+            ("    start = 0 h", "start"),
+            ("    end = 8760 h", "end"),
+            ("    max_gap = 3 h", "max_gap"),
+            ("    missing = error", "missing"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "property",
+                "validation",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "property",
+                "workflowStep",
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    missing = error",
+            "error",
+            "keyword",
+            "validation",
+        );
         for line in [
             "aligned = align designs.cooling_cop with predictions.cooling_cop",
             "resampled = resample designs.cooling_cop to predictions.cooling_cop",
