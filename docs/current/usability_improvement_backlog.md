@@ -4402,6 +4402,17 @@ Status: implemented after reviewing process environment-option diagnostics.
   and README coverage so process env repairs match the other process option
   fixes.
 
+## Batch 356: Missing Process Command Quick Fix
+
+Status: implemented after reviewing process command diagnostics.
+
+- Added an LSP-owned quick fix for `E-PROCESS-CMD-001` that inserts a placeholder
+  `"tool"` command string when `run command` has no command argument.
+- Mirrored the same repair in the VS Code local fallback provider, including
+  replacement of an explicitly empty `run command ""` string.
+- Extended LSP stdio, stdin code-action, VS Code extension contract, and README
+  coverage so missing process command diagnostics stay actionable.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

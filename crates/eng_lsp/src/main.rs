@@ -685,6 +685,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-PROCESS-BINDING-001" => {
             optional_code_action(lsp_bind_process_result_code_action(uri, text, diagnostic))
         }
+        "E-PROCESS-CMD-001" => {
+            optional_code_action(lsp_process_command_code_action(uri, text, diagnostic))
+        }
         "E-ASSERT-001" => {
             optional_code_action(lsp_wrap_assertion_code_action(uri, text, diagnostic))
         }
@@ -1483,6 +1486,51 @@ fn lsp_bind_process_result_code_action(uri: &str, text: &str, diagnostic: &Value
             "result = "
         )
     }))
+}
+
+fn lsp_process_command_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let edit = process_command_edit(line_number, line)?;
+    Some(json!({
+        "title": "Add process command string",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, edit.range, edit.new_text)
+    }))
+}
+
+struct ProcessCommandEdit {
+    range: Value,
+    new_text: &'static str,
+}
+
+fn process_command_edit(line_number: usize, line: &str) -> Option<ProcessCommandEdit> {
+    let code = strip_line_comment(line);
+    let command_start = code.find("run command")?;
+    let after_command = command_start + "run command".len();
+    let whitespace_len = code[after_command..]
+        .chars()
+        .take_while(|character| character.is_whitespace())
+        .map(char::len_utf8)
+        .sum::<usize>();
+    let argument_start = after_command + whitespace_len;
+    let argument = &code[argument_start..];
+    if argument.starts_with("\"\"") {
+        return Some(ProcessCommandEdit {
+            range: line_byte_range(line_number, line, argument_start, argument_start + 2),
+            new_text: "\"tool\"",
+        });
+    }
+    if argument.trim().is_empty() {
+        let insert_at = code.trim_end().len();
+        return Some(ProcessCommandEdit {
+            range: line_byte_range(line_number, line, insert_at, insert_at),
+            new_text: " \"tool\"",
+        });
+    }
+    None
 }
 
 fn lsp_wrap_assertion_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {

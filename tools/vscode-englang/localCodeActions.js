@@ -107,6 +107,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PROCESS-CMD-001") {
+      const action = processCommandAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-ASSERT-001") {
       const action = wrapAssertionAction(document, diagnostic);
       if (action) {
@@ -646,6 +653,43 @@ function bindProcessResultAction(document, diagnostic) {
     "result = "
   );
   return action;
+}
+
+function processCommandAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const edit = processCommandEdit(line.text);
+  if (!edit) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Add process command string", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, edit.start, line.lineNumber, edit.end),
+    edit.newText
+  );
+  return action;
+}
+
+function processCommandEdit(lineText) {
+  const code = stripLineComment(lineText);
+  const commandStart = code.indexOf("run command");
+  if (commandStart < 0) {
+    return undefined;
+  }
+  const afterCommand = commandStart + "run command".length;
+  const whitespace = /^\s*/.exec(code.slice(afterCommand))?.[0] ?? "";
+  const argumentStart = afterCommand + whitespace.length;
+  const argument = code.slice(argumentStart);
+  if (argument.startsWith("\"\"")) {
+    return { start: argumentStart, end: argumentStart + 2, newText: "\"tool\"" };
+  }
+  if (argument.trim() === "") {
+    const insertAt = code.trimEnd().length;
+    return { start: insertAt, end: insertAt, newText: " \"tool\"" };
+  }
+  return undefined;
 }
 
 function wrapAssertionAction(document, diagnostic) {

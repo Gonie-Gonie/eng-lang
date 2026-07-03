@@ -750,6 +750,7 @@ with {
 }
 
 run command "unbound"
+missing_command_result = run command
 process_result = run command "cmd"
 with {
     env = true
@@ -865,6 +866,7 @@ report {
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-HASH-MISMATCH",
         "E-PROCESS-BINDING-001",
+        "E-PROCESS-CMD-001",
         "E-PROCESS-ENV-001",
         "E-PROCESS-CWD-001",
         "E-PROCESS-TIMEOUT",
@@ -1085,6 +1087,13 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("run command \"unbound\""))
         .expect("source should include unbound process command");
+    let missing_command_line = source
+        .lines()
+        .position(|line| {
+            line.trim_start()
+                .starts_with("missing_command_result = run command")
+        })
+        .expect("source should include missing command process");
     let top_level_assert_line = source
         .lines()
         .position(|line| line.trim_start().starts_with("assert Q_total"))
@@ -1147,6 +1156,13 @@ report {
     assert_action_edit_at_line(
         actions,
         &uri,
+        "Add process command string",
+        " \"tool\"",
+        missing_command_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
         "Wrap assertion in test block",
         "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
         top_level_assert_line,
@@ -1205,6 +1221,7 @@ schema SensorData {
 }
 
 run command "unbound"
+missing_command_result = run command
 process_result = run command "cmd"
 with {
     env = true
@@ -1386,6 +1403,13 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("run command \"unbound\""))
         .expect("source should include unbound process command");
+    let missing_command_line = source
+        .lines()
+        .position(|line| {
+            line.trim_start()
+                .starts_with("missing_command_result = run command")
+        })
+        .expect("source should include missing command process");
     let top_level_assert_line = source
         .lines()
         .position(|line| line.trim_start().starts_with("assert Q_total"))
@@ -1444,6 +1468,13 @@ report {
         "Bind process result",
         "result = ",
         unbound_process_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Add process command string",
+        " \"tool\"",
+        missing_command_line,
     );
     assert_action_edit_at_line(
         actions,
