@@ -3957,6 +3957,18 @@ zero-process workflows.
 - Preserves `External Process Results (<count>)` wording when a run records one
   or more explicit process executions.
 
+## Batch 319: VS Code Review Panel Process Results Parity
+
+Status: implemented to keep last-run artifact wording consistent across VS
+Code surfaces.
+
+- Moved process-results label selection into the shared VS Code artifact
+  registry helper.
+- Made both the last-run artifact picker and the Review panel artifact table
+  use the same `process_results.json.process_count`-aware wording.
+- Extended the extension contract check so zero-process wording cannot be fixed
+  in one VS Code surface while drifting in another.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

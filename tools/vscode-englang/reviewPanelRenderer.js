@@ -1,6 +1,9 @@
 const fs = require("fs");
 const path = require("path");
-const { LAST_RUN_ARTIFACTS } = require("./artifactRegistry");
+const {
+  LAST_RUN_ARTIFACTS,
+  lastRunArtifactDisplay
+} = require("./artifactRegistry");
 const {
   moduleStatusDisplay,
   moduleStatusDetailDisplay,
@@ -238,7 +241,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
       artifactLinks,
       "No artifact links are configured.",
       (artifact) => `<tr>
-        <td><strong>${escapeHtml(artifact.label)}</strong></td>
+        <td><strong>${escapeHtml(artifact.label)}</strong>${artifact.detail ? `<div class="muted">${escapeHtml(artifact.detail)}</div>` : ""}</td>
         <td><code>${escapeHtml(artifact.description)}</code></td>
         <td>${statusPill(artifact.exists ? "available" : "missing")}</td>
         <td>${artifact.exists ? `<button class="line-button" type="button" data-artifact-id="${escapeAttr(artifact.id)}" title="Open ${escapeAttr(artifact.label)}">Open</button>` : `<span class="muted">Run current file first</span>`}</td>
@@ -519,9 +522,11 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 function reviewPanelArtifacts(root, artifacts = LAST_RUN_ARTIFACTS) {
   return artifacts.map((artifact) => {
     const artifactPath = root ? path.join(root, ...artifact.relativePath) : undefined;
+    const display = lastRunArtifactDisplay(artifact, root);
     return {
       id: artifact.id,
-      label: artifact.label,
+      label: display.label,
+      detail: display.detail,
       description: artifact.description,
       exists: Boolean(artifactPath && fs.existsSync(artifactPath))
     };

@@ -1,3 +1,6 @@
+const fs = require("fs");
+const path = require("path");
+
 const LAST_RUN_ARTIFACTS = [
   {
     id: "report",
@@ -93,6 +96,42 @@ const LAST_RUN_ARTIFACTS = [
   }
 ];
 
+function lastRunArtifactDisplay(artifact, root) {
+  if (artifact.id !== "processResults" || !root) {
+    return { label: artifact.label, detail: "" };
+  }
+  const artifactPath = path.join(root, ...artifact.relativePath);
+  const processCount = readProcessCount(artifactPath);
+  if (processCount === 0) {
+    return {
+      label: "Process Results (0 external processes)",
+      detail: "No external process executions were recorded in the latest run."
+    };
+  }
+  if (processCount > 0) {
+    return {
+      label: `External Process Results (${processCount})`,
+      detail: `${processCount} external process execution${processCount === 1 ? "" : "s"} recorded.`
+    };
+  }
+  return { label: artifact.label, detail: "Run a file to read the latest process count." };
+}
+
+function readProcessCount(artifactPath) {
+  if (!fs.existsSync(artifactPath)) {
+    return undefined;
+  }
+  try {
+    const processResults = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const count = Number(processResults?.process_count);
+    return Number.isFinite(count) && count >= 0 ? count : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 module.exports = {
-  LAST_RUN_ARTIFACTS
+  LAST_RUN_ARTIFACTS,
+  lastRunArtifactDisplay,
+  readProcessCount
 };

@@ -2831,8 +2831,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ArtifactOpenersSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
         throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
     }
-    if (-not $ArtifactRegistrySource.Contains("Process Results") -or -not $ArtifactOpenersSource.Contains("function lastRunArtifactDisplay") -or -not $ArtifactOpenersSource.Contains("0 external processes")) {
-        throw "VS Code artifact picker must distinguish zero-process native runs from external process runs"
+    if (-not $ArtifactRegistrySource.Contains("function lastRunArtifactDisplay") -or -not $ArtifactRegistrySource.Contains("0 external processes") -or -not $ArtifactOpenersSource.Contains("lastRunArtifactDisplay") -or -not $ReviewPanelRendererSource.Contains("lastRunArtifactDisplay")) {
+        throw "VS Code artifact picker and review panel must share zero-process process-results wording"
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
