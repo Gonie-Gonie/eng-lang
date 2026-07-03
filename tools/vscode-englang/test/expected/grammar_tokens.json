@@ -1352,6 +1352,18 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.side-effect.englang",
+    "text": "mkdir",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.file-operation.englang",
+    "text": "mkdir dir(\"outputs/archive\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.side-effect.englang",
     "text": "move",
     "fullMatch": true
   },

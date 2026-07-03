@@ -6,8 +6,8 @@ process results, test results, plot data, plot SVG, plot output list, output
 list, and bytecode payloads as runtime objects and does not write ordinary
 artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
-`copy/move/delete` statements are user-requested artifacts and write or mutate
-under `build\result`. Explicit `run command` statements always execute during
+`copy/move/delete/mkdir` statements are user-requested artifacts and mutate
+files under `build\result`. Explicit `run command` statements always execute during
 the run and are captured in the process results payload as external process
 entries. Named `test` blocks run after generated artifacts are available and
 are captured in the test results payload.
@@ -157,11 +157,14 @@ build\result\output_manifest.json
 
 ## Explicit File Operations
 
-`copy`, `move`, and `delete` provide a small filesystem mutation surface. The
-current runtime keeps generated-output mutations under `build\result`.
+`copy`, `move`, `delete`, and `mkdir` provide a small filesystem mutation
+surface. The current runtime keeps generated-output mutations under
+`build\result`.
 
 ```eng partial
 copy file("data/template.txt") to "ops/copied_note.txt"
+
+mkdir "ops/archive"
 
 move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
 with {
@@ -189,12 +192,14 @@ The CLI reports touched file operation paths:
 
 ```text
 fs:       build\result\ops\archive\copied_note.txt
+fs:       build\result\ops\archive
 fs:       build\result\ops\scratch.txt
 fs:       build\result\ops\tmp
 ```
 
 `review.json` records `file_operations[]`. `output_manifest.json` records
-entries such as `copy_file`, `move_file`, `delete_file`, and `delete_dir`.
+entries such as `copy_file`, `mkdir_dir`, `move_file`, `delete_file`, and
+`delete_dir`.
 
 ## Explicit Process Results
 

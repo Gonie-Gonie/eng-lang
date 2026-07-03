@@ -413,7 +413,7 @@ args, and dependency hashes match the prior lock, `run_plan.json` records
 `rerun_decision.decision = skip` and `rerun_status = skipped`; otherwise it
 records a normal executed rerun status. The skip path also verifies saved
 artifact hashes from the prior lock before reusing the saved result.
-Explicit `export`, `write`, and constrained `copy/move/delete` statements
+Explicit `export`, `write`, and constrained `copy/move/delete/mkdir` statements
 write or mutate files under `build/result` and are recorded in
 `output_manifest.json`. Explicit `run command` statements execute during the
 run and are captured in `process_results.json` when artifacts are saved. Named

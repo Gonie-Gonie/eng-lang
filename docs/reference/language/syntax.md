@@ -1122,6 +1122,8 @@ be confirmed.
 ```eng partial
 copy file("data/template.txt") to "ops/copied_note.txt"
 
+mkdir "ops/archive"
+
 move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
 with {
     confirm = true
@@ -1141,6 +1143,7 @@ Current file operation forms:
 | Form | Meaning |
 |---|---|
 | `copy source to destination` | Copy a source-relative UTF-8 text file or generated output into `build/result` |
+| `mkdir target` | Create a generated output directory under `build/result` |
 | `move source to destination` | Move a generated output path under `build/result` |
 | `delete target` | Delete a generated output path under `build/result` |
 
@@ -1149,12 +1152,12 @@ Rules:
 | Rule | Meaning |
 |---|---|
 | Top-level only | Imported files cannot hide filesystem mutations |
-| Output boundary | Move/delete operate only under `build/result` |
+| Output boundary | Copy destinations, `mkdir`, `move`, and `delete` operate only under `build/result` |
 | Confirmation | `move` and `delete` require `with { confirm = true }` |
 | Directory deletion | `delete dir(...)` also requires `recursive = true` |
 | Overwrite | Changed destination contents require `overwrite = true` |
 | Reviewable records | `review.json` includes `file_operations[]` |
-| Manifest records | `output_manifest.json` records `copy_file`, `move_file`, and `delete_file` entries |
+| Manifest records | `output_manifest.json` records `copy_file`, `mkdir_dir`, `move_file`, and `delete_file` entries |
 
 The runnable example is:
 

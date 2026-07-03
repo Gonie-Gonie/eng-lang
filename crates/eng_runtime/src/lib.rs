@@ -6064,6 +6064,26 @@ fn apply_file_operations(
                     });
                 }
             }
+            "mkdir" => {
+                let target_path =
+                    resolve_output_operation_path(report, result_dir, &operation.source)
+                        .ok_or_else(|| {
+                            invalid_input(&format!("invalid mkdir target `{}`", operation.source))
+                        })?;
+                fs::create_dir_all(&target_path)?;
+                artifacts.push(OutputArtifact {
+                    kind: "mkdir_dir".to_owned(),
+                    path: relative_output_path(result_dir, &target_path),
+                    hash: hash_text("created_dir"),
+                    overwrite_policy: None,
+                    absolute_path: target_path,
+                    validation: artifact_validation(
+                        "passed",
+                        "file_operation",
+                        "generated directory exists",
+                    ),
+                });
+            }
             _ => {}
         }
     }
@@ -12126,6 +12146,7 @@ fn side_effect_artifact_kind_matches(effect_kind: &str, artifact_kind: &str) -> 
             artifact_kind,
             "delete_file" | "delete_dir" | "delete_missing"
         ),
+        "file_mkdir" => artifact_kind == "mkdir_dir",
         _ => false,
     }
 }
@@ -19794,13 +19815,18 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "copy file(\"template.txt\") to \"ops/copied.txt\"\nmove \"ops/copied.txt\" to \"ops/moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\nwrite text \"ops/scratch.txt\", \"remove me\"\ndelete \"ops/scratch.txt\"\nwith {\n    confirm = true\n}\n",
+            "copy file(\"template.txt\") to \"ops/copied.txt\"\nmkdir \"ops/archive\"\nmove \"ops/copied.txt\" to \"ops/moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\nwrite text \"ops/scratch.txt\", \"remove me\"\ndelete \"ops/scratch.txt\"\nwith {\n    confirm = true\n}\n",
         )
         .expect("write source");
 
         let output = run_file(&source_path, &build_root, &RunOptions::default()).expect("run file");
 
-        assert_eq!(output.file_operation_paths.len(), 3);
+        assert_eq!(output.file_operation_paths.len(), 4);
+        assert!(build_root
+            .join("result")
+            .join("ops")
+            .join("archive")
+            .is_dir());
         assert!(build_root
             .join("result")
             .join("ops")
@@ -19819,6 +19845,9 @@ mod tests {
             .contains("\"kind\": \"move_file\""));
         assert!(output
             .output_manifest_json
+            .contains("\"kind\": \"mkdir_dir\""));
+        assert!(output
+            .output_manifest_json
             .contains("\"kind\": \"delete_file\""));
         assert!(output.review_json.contains("\"file_operations\""));
         assert!(output
@@ -19830,6 +19859,9 @@ mod tests {
         assert!(output
             .review_json
             .contains("\"artifact_kind\": \"move_file\""));
+        assert!(output
+            .review_json
+            .contains("\"artifact_kind\": \"mkdir_dir\""));
         assert!(output
             .review_json
             .contains("\"artifact_kind\": \"delete_file\""));

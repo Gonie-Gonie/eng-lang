@@ -1,7 +1,7 @@
 # Side Effect And General Programming Policy
 
 Status: GP-1 path policy, GP-2 read-only I/O, GP-3 write/export hardening,
-GP-4 constrained copy/move/delete file operations, GP-5 structured runtime
+GP-4 constrained copy/move/delete/mkdir file operations, GP-5 structured runtime
 log messages, GP-6 explicit external process execution, GP-7 test/assert/
 golden support, and safe/normal/repro profile basics are implemented for
 the current public package. Broader filesystem mutation outside generated-output
@@ -30,7 +30,7 @@ what was read, and what external state influenced the result.
 | Typed data boundary | `promote csv/json/toml as Schema` | Preferred for engineering data |
 | Write/export | `write text`, `write json`, `write standard_text`, `export summary to csv` | Explicit target required; changed overwrite requires `overwrite = true`; generated outputs are manifest-recorded |
 | Template render | `render template file("base.txt")` | Explicit output required; rendered file and render manifest stay under `build/result` |
-| File operations | `copy`, `move`, `delete`, `mkdir`, `list` | Copy/move/delete are implemented under explicit output boundaries; broader operations planned |
+| File operations | `copy`, `move`, `delete`, `mkdir` | Implemented under explicit output boundaries; directory listing remains planned |
 | Runtime messages | `print`, `log info`, `log warn`, `log debug`, `log error` | CLI/debug output plus structured `run_log.json` metadata |
 | External process | `result = run command ... with { ... }` | Explicit `ProcessResult`; command/cwd/args/exit/stdout/stderr recorded |
 | Test checks | `test { assert ...; golden ... }` | Runtime verification plus structured `test_results.json` metadata |
@@ -195,7 +195,7 @@ Rules:
 - move records both source and destination and is constrained under `build/result`
 - delete file requires confirm
 - delete directory requires recursive=true and confirm=true
-- `safe` rejects copy/move/delete before execution
+- `safe` rejects copy/move/delete/mkdir before execution
 - `repro` records move/delete profile diagnostics in runtime artifacts
 ```
 
@@ -338,7 +338,7 @@ Bundled stdlib modules should grow in this order:
 ```text
 eng.path     FilePath, DirectoryPath, join, parent, stem, extension, exists
 eng.io       read/write text/json/toml, source hash helpers
-eng.fs       copy, move, delete, mkdir, list
+eng.fs       copy, move, delete, mkdir; planned: list
 eng.config   promote toml/json as schema
 eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
@@ -354,7 +354,7 @@ eng.cache    explicit cache-key records and hit/miss manifests now; replay/inval
 | GP-1 | path types/helpers, `exists`, side-effect docs | implemented in v0.3 |
 | GP-2 | read text/json/toml, source hashes | implemented in v0.4 |
 | GP-3 | write text/json, export hardening, output manifest | implemented in v0.5 |
-| GP-4 | copy/move/delete and side-effect manifest | implemented in v0.6 |
+| GP-4 | copy/move/delete/mkdir and side-effect manifest | implemented in v0.6-v0.7 |
 | GP-5 | print/log level formatting and run log artifact | implemented in v0.7 |
 | GP-6 | external process and `ProcessResult` | implemented in v0.8 |
 | GP-7 | test block/assert/golden support | implemented in v0.9 |
@@ -364,7 +364,7 @@ eng.cache    explicit cache-key records and hit/miss manifests now; replay/inval
 
 The current implementation deliberately stops at path helpers, `exists`,
 read-only source-hashed inputs, generated output writes, constrained
-copy/move/delete operations under `build/result`, structured runtime message
+copy/move/delete/mkdir operations under `build/result`, structured runtime message
 artifacts, explicit external process records, local test/assert/golden records,
 and CLI-selected safe/normal/repro profile basics. Broader filesystem access,
 live network effects, workspace-wide test discovery, and full process sandboxing

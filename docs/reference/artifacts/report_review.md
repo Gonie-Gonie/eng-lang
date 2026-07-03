@@ -316,9 +316,9 @@ profile_diagnostics
 ```
 
 Common `kind` values include `csv_export`, `write_text`, `write_json`,
-`template_render`, `template_render_manifest`, `copy_file`, `move_file`,
-`delete_file`, `standard_file`, `plot_svg`, `report_html`, `result`,
-`run_log`, `process_results`, and `test_results`.
+`template_render`, `template_render_manifest`, `copy_file`, `mkdir_dir`,
+`move_file`, `delete_file`, `standard_file`, `plot_svg`, `report_html`,
+`result`, `run_log`, `process_results`, and `test_results`.
 Each generated artifact includes a validation record with status, rule, and
 message.
 

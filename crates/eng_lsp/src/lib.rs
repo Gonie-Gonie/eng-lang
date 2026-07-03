@@ -221,6 +221,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "materialize",
     "method",
     "missing",
+    "mkdir",
     "mlp",
     "mode",
     "model",
@@ -3496,7 +3497,9 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "commit" | "rollback" => &["db"],
         "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
         | "fetch" | "download" => &["sideEffect", "external"],
-        "write" | "export" | "copy" | "move" | "delete" | "render" | "template" => &["sideEffect"],
+        "write" | "export" | "copy" | "move" | "delete" | "mkdir" | "render" | "template" => {
+            &["sideEffect"]
+        }
         "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
         | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
         | "text" | "csv" | "json" | "toml" => &["workflowStep"],
@@ -4227,6 +4230,7 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("copy file", "eng.fs copy generated output"),
         ("move file", "eng.fs move generated output"),
         ("delete file", "eng.fs delete generated output"),
+        ("mkdir dir", "eng.fs create generated output directory"),
         ("run command", "eng.process command boundary"),
         ("promote json config", "eng.config JSON file promotion"),
         (
@@ -5859,6 +5863,7 @@ mod tests {
             "download",
             "render",
             "template",
+            "mkdir",
             "open",
             "sqlite",
             "predict",
@@ -5866,6 +5871,7 @@ mod tests {
             "coverage",
             "records",
             "promote json records",
+            "mkdir dir",
             "materialize",
             "apply",
             "collect",

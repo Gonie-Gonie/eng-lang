@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  397,
+    "completion_seed_count":  399,
     "completion_seed":  [
                             {
                                 "detail":  "Boolean value",
@@ -924,6 +924,12 @@
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
                                 "label":  "missing",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
+                                "label":  "mkdir",
                                 "lsp_kind":  14
                             },
                             {
@@ -2106,6 +2112,12 @@
                                 "detail":  "eng.fs delete generated output",
                                 "kind":  "stdlib",
                                 "label":  "delete file",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.fs create generated output directory",
+                                "kind":  "stdlib",
+                                "label":  "mkdir dir",
                                 "lsp_kind":  9
                             },
                             {

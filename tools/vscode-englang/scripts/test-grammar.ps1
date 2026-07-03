@@ -491,6 +491,7 @@ raw_text = read text file("data/input.txt")
 write text file("outputs/out.txt"), "ok"
 export summary to csv file("outputs/summary.csv")
 copy file("a.txt") to file("b.txt")
+mkdir dir("out")
 move file("b.txt") to file("c.txt")
 delete file("c.txt")
 render template file("template.txt")

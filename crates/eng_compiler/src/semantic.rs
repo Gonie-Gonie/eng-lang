@@ -3590,12 +3590,15 @@ fn analyze_file_operation_decl(
         ));
         return None;
     }
-    if !matches!(operation.operation.as_str(), "copy" | "move" | "delete") {
+    if !matches!(
+        operation.operation.as_str(),
+        "copy" | "move" | "delete" | "mkdir"
+    ) {
         diagnostics.push(Diagnostic::error(
             "E-FS-002",
             operation.line,
             &format!("File operation `{}` is not supported.", operation.operation),
-            Some("Use `copy`, `move`, or `delete`."),
+            Some("Use `copy`, `move`, `delete`, or `mkdir`."),
         ));
         return None;
     }

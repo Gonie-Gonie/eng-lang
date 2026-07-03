@@ -967,6 +967,7 @@ fn native_insert_for_lsp_completion(label: &str) -> Option<String> {
         "copy file" => "copy file(\"data/template.txt\") to \"outputs/template.txt\"",
         "move file" => "move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\"",
         "delete file" => "delete \"outputs/tmp.txt\"",
+        "mkdir dir" => "mkdir \"outputs/archive\"",
         "run command" => "run command \"tool\"",
         "promote json config" => "promote json file(\"workflow.json\") as WorkflowConfig",
         "promote toml config" => "promote toml file(\"workflow.toml\") as WorkflowConfig",
@@ -3992,6 +3993,11 @@ mod tests {
             .find(|completion| completion.label == "read text")
             .expect("read text completion");
         assert_eq!(read_text.insert, "read text args.input");
+        let mkdir_dir = completions
+            .iter()
+            .find(|completion| completion.label == "mkdir dir")
+            .expect("mkdir dir completion");
+        assert_eq!(mkdir_dir.insert, "mkdir \"outputs/archive\"");
         let file_helper = completions
             .iter()
             .find(|completion| completion.label == "file(...)")

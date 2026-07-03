@@ -1201,6 +1201,15 @@ fn validate_generated_output_path_policies(program: &SemanticProgram) -> Vec<Dia
                     program,
                 );
             }
+            "mkdir" => {
+                push_generated_output_path_diagnostic(
+                    &mut diagnostics,
+                    "mkdir target",
+                    &operation.source,
+                    operation.line,
+                    program,
+                );
+            }
             _ => {}
         }
     }
@@ -8275,7 +8284,7 @@ mod tests {
 
     #[test]
     fn rejects_generated_output_path_traversal() {
-        let source = "Q = 10 kW\nexport summary to csv \"../summary.csv\" {\n    Q as kW\n}\nwrite text \"../summary.txt\", Q\ncopy file(\"template.txt\") to \"../copied.txt\"\nwith {\n    confirm = true\n}\ndelete \"/tmp/scratch.txt\"\nwith {\n    confirm = true\n}\n";
+        let source = "Q = 10 kW\nexport summary to csv \"../summary.csv\" {\n    Q as kW\n}\nwrite text \"../summary.txt\", Q\ncopy file(\"template.txt\") to \"../copied.txt\"\nwith {\n    confirm = true\n}\ndelete \"/tmp/scratch.txt\"\nwith {\n    confirm = true\n}\nmkdir \"../made\"\n";
 
         let report = check_source(
             std::path::Path::new("path_policy.eng"),
@@ -8298,6 +8307,10 @@ mod tests {
         assert!(report.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "E-PATH-OUTSIDE-OUTPUT-ROOT" && diagnostic.line == 10
         }));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-PATH-TRAVERSAL" && diagnostic.line == 14));
     }
 
     #[test]
@@ -9952,7 +9965,7 @@ system Envelope {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n}\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
+            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n}\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmkdir \"archive\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
             &CheckOptions::default(),
         );
 
@@ -9982,11 +9995,15 @@ system Envelope {
         assert_eq!(report.semantic_program.writes.len(), 2);
         assert_eq!(report.semantic_program.writes[0].format, "text");
         assert_eq!(report.semantic_program.writes[1].format, "json");
-        assert_eq!(report.semantic_program.file_operations.len(), 3);
+        assert_eq!(report.semantic_program.file_operations.len(), 4);
         assert_eq!(report.semantic_program.file_operations[0].operation, "copy");
-        assert_eq!(report.semantic_program.file_operations[1].operation, "move");
         assert_eq!(
-            report.semantic_program.file_operations[2].operation,
+            report.semantic_program.file_operations[1].operation,
+            "mkdir"
+        );
+        assert_eq!(report.semantic_program.file_operations[2].operation, "move");
+        assert_eq!(
+            report.semantic_program.file_operations[3].operation,
             "delete"
         );
         assert_eq!(report.semantic_program.process_runs.len(), 1);
@@ -10007,6 +10024,7 @@ system Envelope {
         assert!(review.contains("\"csv_exports\""));
         assert!(review.contains("\"writes\""));
         assert!(review.contains("\"file_operations\""));
+        assert!(review.contains("\"kind\": \"file_mkdir\""));
         assert!(review.contains("\"process_runs\""));
         assert!(review.contains("\"overwrite\""));
         assert!(review.contains("\"confirm\""));

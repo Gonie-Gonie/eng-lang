@@ -3897,6 +3897,19 @@ first-class workflow actions.
 - Added VS Code grammar fixture/snapshot coverage for copy, move, and delete
   file operation lines.
 
+## Batch 315: Native Mkdir File Operation
+
+Status: implemented to move one documented filesystem operation from planned
+wording into native runtime behavior.
+
+- Added parser, semantic, runtime, manifest, review, LSP completion, native IDE
+  completion, and TextMate grammar support for top-level `mkdir <target>`.
+- Kept `mkdir` constrained to generated output paths under `build/result`; safe
+  profile rejects it with the rest of the explicit file operation surface.
+- Updated public docs so `copy/move/delete/mkdir` are the supported file
+  operation set and directory listing remains planned instead of appearing as a
+  supported API.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -84,5 +84,6 @@ with {
 }
 
 copy file("data/template.txt") to file("outputs/template.txt")
+mkdir dir("outputs/archive")
 move file("outputs/template.txt") to file("outputs/archive/template.txt")
 delete dir("outputs/archive")

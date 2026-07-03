@@ -2376,6 +2376,7 @@ fn is_non_command_style_statement_verb(verb: &str) -> bool {
             | "import"
             | "join"
             | "log"
+            | "mkdir"
             | "move"
             | "print"
             | "promote"
@@ -2877,6 +2878,7 @@ fn parse_file_operation_decl(
         TokenKind::Keyword(Keyword::Copy) => "copy",
         TokenKind::Keyword(Keyword::Move) => "move",
         TokenKind::Keyword(Keyword::Delete) => "delete",
+        TokenKind::Keyword(Keyword::Mkdir) => "mkdir",
         _ => return None,
     };
     let rest = line_text.trim().strip_prefix(operation)?.trim();
@@ -3313,6 +3315,7 @@ fn line_is_attachable_owner(tokens: &[Token], context: ParseContext) -> bool {
                     | Keyword::Copy
                     | Keyword::Move
                     | Keyword::Delete
+                    | Keyword::Mkdir
                     | Keyword::Run
             )
     )

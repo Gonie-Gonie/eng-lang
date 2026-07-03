@@ -56,8 +56,8 @@ Open these first:
 
 ```text
 13_file_operations
-  Explicit copy/move/delete filesystem mutation surface, confirmation metadata,
-  generated-output mutation boundaries, and output manifest records.
+  Explicit copy/move/delete/mkdir filesystem mutation surface, confirmation
+  metadata, generated-output mutation boundaries, and output manifest records.
 
 19_class_object
   Typed class declarations, object literals, nested references, validation,

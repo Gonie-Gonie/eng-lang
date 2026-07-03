@@ -108,12 +108,14 @@ already evaluates to JSON-looking text.
 
 ## Explicit File Operations
 
-`copy`, `move`, and `delete` provide a constrained filesystem mutation path.
-Generated-output mutation targets remain under `build/result`; `move` and
-`delete` require explicit confirmation metadata.
+`copy`, `move`, `delete`, and `mkdir` provide a constrained filesystem mutation
+path. Generated-output mutation targets remain under `build/result`; `move`
+and `delete` require explicit confirmation metadata.
 
 ```eng partial
 copy file("data/template.txt") to "ops/copied_note.txt"
+
+mkdir "ops/archive"
 
 move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
 with {
@@ -128,7 +130,7 @@ with {
 ```
 
 The runtime records file operation effects as output manifest entries such as
-`copy_file`, `move_file`, and `delete_file`.
+`copy_file`, `mkdir_dir`, `move_file`, and `delete_file`.
 
 ## `process_results.json`
 

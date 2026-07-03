@@ -2,6 +2,8 @@ print "File operation support"
 
 copy file("data/template.txt") to "ops/copied_note.txt"
 
+mkdir "ops/archive"
+
 move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
 with {
     confirm = true

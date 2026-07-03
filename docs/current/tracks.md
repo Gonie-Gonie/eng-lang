@@ -115,7 +115,7 @@ and next cleanup action.
 
 - Purpose: allow real workflow scripting while keeping effects explicit.
 - Public scope: typed path helpers, read text/json/toml, explicit write
-  text/json, constrained copy/move/delete, run logs, process results, test
+  text/json, constrained copy/move/delete/mkdir, run logs, process results, test
   results, output manifests, and safe/normal/repro profiles.
 - Main internal: broader filesystem/process policy plus live `eng.net`
   execution, `eng.cache` replay/invalidation, broad `eng.db` database support,

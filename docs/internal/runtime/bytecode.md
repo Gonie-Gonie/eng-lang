@@ -187,7 +187,7 @@ official example run smoke
 simple system run smoke
 unit-aware print and explicit summary CSV export runtime test
 write text/json overwrite hardening runtime test
-copy/move/delete file operation runtime test
+copy/move/delete/mkdir file operation runtime test
 log level and run_log runtime test
 run command and process_results runtime test
 test/assert/golden runtime test

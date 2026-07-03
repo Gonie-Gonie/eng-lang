@@ -684,7 +684,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.file-operation.englang",
-                                                                    "begin":  "^\\s*(copy|move|delete)\\b",
+                                                                    "begin":  "^\\s*(copy|move|delete|mkdir)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
@@ -1977,7 +1977,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.side-effect.englang",
-                                                             "match":  "\\b(write|export|copy|move|delete|render|template|print|log)\\b"
+                                                             "match":  "\\b(write|export|copy|move|delete|mkdir|render|template|print|log)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.external-boundary.englang",

@@ -96,7 +96,7 @@ review material. It is not a broad solver claim.
 - Read-only UTF-8 `read text`, `read json`, and `read toml` expressions with
   source-relative resolution and source hash provenance; `read json` payloads
   can be promoted to config contracts or JSON-record tables.
-- Explicit `write text/json`, constrained copy/move/delete file operations,
+- Explicit `write text/json`, constrained copy/move/delete/mkdir file operations,
   native `render template` generated inputs with render manifests, CSV
   overwrite hardening, and `output_manifest.json`.
 - Structured `log debug/info/warn/error` and `run_log.json`.
