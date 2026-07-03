@@ -129,6 +129,10 @@
       {
         "language": "englang",
         "scopes": {
+          "class": [
+            "entity.name.type.englang",
+            "support.type.englang"
+          ],
           "type": [
             "support.type.englang",
             "meta.type.generic.englang",
@@ -181,6 +185,10 @@
           "number": [
             "constant.numeric.englang"
           ],
+          "operator": [
+            "keyword.operator.englang",
+            "keyword.operator.word.englang"
+          ],
           "parameter": [
             "variable.parameter.function.englang",
             "variable.parameter.property.englang"
@@ -194,6 +202,9 @@
           ],
           "property.declaration": [
             "variable.other.property.englang"
+          ],
+          "string": [
+            "string.quoted.double.englang"
           ],
           "variable": [
             "variable.other.local.englang",
@@ -314,6 +325,10 @@
           ],
           "method.external": [
             "keyword.control.external-boundary.englang"
+          ],
+          "method.db": [
+            "keyword.control.external-boundary.englang",
+            "entity.name.function.englang"
           ],
           "variable.external": [
             "keyword.control.external-boundary.englang",

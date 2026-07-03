@@ -4263,6 +4263,17 @@ Status: implemented to reduce duplicate live editor work in VS Code.
 - Kept stale-version protection so diagnostics are ignored if the document
   changes before a live snapshot returns.
 
+## Batch 344: Lexical Semantic Highlight Coverage
+
+Status: implemented to make compiler-backed highlight payloads more complete.
+
+- Added LSP semantic tokens for quoted strings and symbolic operators so the
+  native IDE highlight panel and VS Code semantic overlay no longer rely only on
+  TextMate for those categories.
+- Kept unit tokens atomic by skipping operator tokens inside unit spans such as
+  `J/kg/K`.
+- Added VS Code semantic-token fallback scopes for `string` and `operator`.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -3095,7 +3095,8 @@ impl<'a> SemanticTokenBuilder<'a> {
 
         for line_index in 0..self.lines.len() {
             let line = self.lines[line_index];
-            if let Some(comment_start) = comment_start(line) {
+            let comment_start_index = comment_start(line);
+            if let Some(comment_start) = comment_start_index {
                 self.push_byte_range(
                     line_index,
                     comment_start,
@@ -3104,15 +3105,44 @@ impl<'a> SemanticTokenBuilder<'a> {
                     &[],
                 );
             }
+            self.scan_string_tokens(line_index, comment_start_index.unwrap_or(line.len()));
 
             for (start, end) in code_ranges(line) {
                 self.scan_word_tokens(line_index, start, end, &quantity_names, &public_types);
                 self.scan_legacy_declaration_names(line_index, start, end);
                 self.scan_hyphenated_workflow_builtin_tokens(line_index, start, end);
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
-                self.scan_unit_tokens(line_index, start, end, &units);
+                let unit_ranges = self.scan_unit_tokens(line_index, start, end, &units);
                 self.scan_number_tokens(line_index, start, end);
+                self.scan_symbol_operator_tokens(line_index, start, end, &unit_ranges);
             }
+        }
+    }
+
+    fn scan_string_tokens(&mut self, line_index: usize, end: usize) {
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        let end = end.min(bytes.len());
+        let mut index = 0usize;
+        while index < end {
+            if bytes[index] != b'"' {
+                index += 1;
+                continue;
+            }
+            let token_start = index;
+            index += 1;
+            while index < end {
+                if bytes[index] == b'\\' {
+                    index = (index + 2).min(end);
+                    continue;
+                }
+                if bytes[index] == b'"' {
+                    index += 1;
+                    break;
+                }
+                index += 1;
+            }
+            self.push_byte_range(line_index, token_start, index - token_start, "string", &[]);
         }
     }
 
@@ -3306,7 +3336,13 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
     }
 
-    fn scan_unit_tokens(&mut self, line_index: usize, start: usize, end: usize, units: &[&str]) {
+    fn scan_unit_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+        units: &[&str],
+    ) -> Vec<(usize, usize)> {
         let line = self.lines[line_index];
         let mut occupied = Vec::<(usize, usize)>::new();
         for unit in units {
@@ -3331,6 +3367,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                 self.push_byte_range(line_index, unit_start, unit.len(), "type", &["unit"]);
             }
         }
+        occupied
     }
 
     fn scan_number_tokens(&mut self, line_index: usize, start: usize, end: usize) {
@@ -3354,6 +3391,44 @@ impl<'a> SemanticTokenBuilder<'a> {
                 continue;
             }
             index += 1;
+        }
+    }
+
+    fn scan_symbol_operator_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+        excluded_ranges: &[(usize, usize)],
+    ) {
+        const SYMBOL_OPERATORS: &[&[u8]] = &[
+            b"->", b"==", b"!=", b">=", b"<=", b"=", b"+", b"-", b"*", b"/", b">", b"<",
+        ];
+
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        let mut index = start;
+        let end = end.min(bytes.len());
+        while index < end {
+            let mut matched = false;
+            for operator in SYMBOL_OPERATORS {
+                let operator_end = index + operator.len();
+                if operator_end > end || &bytes[index..operator_end] != *operator {
+                    continue;
+                }
+                matched = true;
+                if !excluded_ranges
+                    .iter()
+                    .any(|(left, right)| ranges_overlap(index, operator_end, *left, *right))
+                {
+                    self.push_byte_range(line_index, index, operator.len(), "operator", &[]);
+                }
+                index = operator_end;
+                break;
+            }
+            if !matched {
+                index += 1;
+            }
         }
     }
 
@@ -6023,6 +6098,29 @@ mod tests {
         );
     }
 
+    fn assert_semantic_token_on_line_type(
+        snapshot: &LspSnapshot,
+        source: &str,
+        line_needle: &str,
+        label: &str,
+        token_type: &str,
+    ) {
+        let line_index = source
+            .lines()
+            .position(|line| line.contains(line_needle))
+            .unwrap_or_else(|| panic!("source line `{line_needle}` should be present"));
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_index
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                            && token.token_type == token_type
+                    })
+            }),
+            "semantic token `{label}` on `{line_needle}` should have type `{token_type}`"
+        );
+    }
+
     fn semantic_token_count(
         snapshot: &LspSnapshot,
         source: &str,
@@ -7116,6 +7214,50 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
             "Q",
             "variable",
             "declaration",
+        );
+    }
+
+    #[test]
+    fn snapshot_marks_lexical_strings_and_symbol_operators_as_semantic_tokens() {
+        let source = r#"print "flow {Q: .2 kW}"
+ratio = Q / cp_water
+specific = 4180 J/kg/K
+valid = Q >= 0 kW and Q != 1 kW
+operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
+"#;
+        let snapshot = snapshot_for_source(Path::new("lexical_tokens.eng"), source);
+
+        assert_semantic_token_type(&snapshot, source, "\"flow {Q: .2 kW}\"", "string");
+        for (line, label) in [
+            ("ratio = Q / cp_water", "/"),
+            ("valid = Q >= 0 kW and Q != 1 kW", "="),
+            ("valid = Q >= 0 kW and Q != 1 kW", ">="),
+            ("valid = Q >= 0 kW and Q != 1 kW", "!="),
+            (
+                "operator A: LinearOperator[RoomState -> Derivative[RoomState]]",
+                "->",
+            ),
+            (
+                "operator A: LinearOperator[RoomState -> Derivative[RoomState]]",
+                "-",
+            ),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, "operator");
+        }
+
+        let unit_line = source
+            .lines()
+            .position(|line| line.contains("specific ="))
+            .expect("unit line should be present");
+        assert!(
+            !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == unit_line
+                    && token.token_type == "operator"
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some("/")
+                    })
+            }),
+            "semantic operator scan should not split slash-delimited unit tokens"
         );
     }
 

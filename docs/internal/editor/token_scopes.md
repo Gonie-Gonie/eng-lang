@@ -281,12 +281,15 @@ keyword.control.side-effect.englang
 keyword.control.solver.englang
 keyword.control.validation.englang
 keyword.control.workflow.englang
+keyword.operator.englang
+keyword.operator.word.englang
 markup.warning.englang
 meta.type.generic.englang
 storage.type.declaration.englang
 storage.type.function.englang
 storage.type.test.englang
 storage.modifier.englang
+string.quoted.double.englang
 support.function.builtin.englang
 support.namespace.module.englang
 support.type.englang
