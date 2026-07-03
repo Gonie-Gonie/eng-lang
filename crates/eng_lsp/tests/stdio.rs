@@ -764,6 +764,13 @@ with {
     x = uniform(0, 1)
 }
 
+bad_count_samples = sample lhs
+with {
+    count = 0
+    seed = 42
+    x = uniform(0, 1)
+}
+
 missing_seed_samples = sample random
 with {
     count = 2
@@ -859,6 +866,7 @@ report {
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE",
+        "E-SAMPLING-COUNT-INVALID",
         "E-SAMPLING-SEED-INVALID",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
@@ -1003,6 +1011,7 @@ report {
         "Allow process failure: allow_failure = true",
         "true",
     );
+    assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
     assert_action_edit(
@@ -1194,6 +1203,13 @@ with {
     x = uniform(0, 1)
 }
 
+bad_count_samples = sample lhs
+with {
+    count = 0
+    seed = 42
+    x = uniform(0, 1)
+}
+
 Q_bad_normal = normal()
 Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
 Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
@@ -1283,6 +1299,7 @@ report {
         "Allow process failure: allow_failure = true",
         "true",
     );
+    assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit(
         actions,

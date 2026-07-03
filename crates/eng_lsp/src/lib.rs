@@ -919,6 +919,7 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-NET-TIMEOUT" | "E-PROCESS-TIMEOUT" => Some(&["timeout"]),
         "E-NET-BODY-SIZE-LIMIT" => Some(&["body_size_limit", "response_body_limit"]),
         "E-PROCESS-ALLOW-FAILURE" => Some(&["allow_failure"]),
+        "E-SAMPLING-COUNT-INVALID" => Some(&["count"]),
         "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
         _ => None,
     }
@@ -6843,6 +6844,11 @@ connect Source.heat -> Sink.heat
                 "E-PROCESS-ALLOW-FAILURE",
                 "process_result = run command \"cmd\"\nwith {\n    allow_failure = sometimes\n}\n",
                 "sometimes",
+            ),
+            (
+                "E-SAMPLING-COUNT-INVALID",
+                "samples = sample lhs\nwith {\n    count = 0\n    seed = 42\n    x = uniform(0, 1)\n}\n",
+                "0",
             ),
             (
                 "E-SAMPLING-SEED-INVALID",

@@ -3215,6 +3215,8 @@ function Assert-VscodeExtensionContract {
         "E-PROCESS-RETRY-POLICY",
         "E-PROCESS-TIMEOUT",
         "E-PROCESS-ALLOW-FAILURE",
+        "E-SAMPLING-COUNT-INVALID",
+        "E-SAMPLING-SEED-INVALID",
         "removeScriptWrapperAction",
         "quantityAnnotationActions",
         "missingUnitActions",
@@ -3265,6 +3267,8 @@ function Assert-VscodeExtensionContract {
         "Use plot y-axis option: unit y =",
         "Use plot x-axis option: unit x =",
         "Use confidence band option: confidence_band =",
+        "Set sample count",
+        "Set sample seed",
         "optionQuickFix",
         "optionValueReplacementAction",
         "optionAssignmentRange"

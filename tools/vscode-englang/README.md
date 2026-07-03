@@ -31,7 +31,7 @@ embedding compiler logic in JavaScript.
   missing-unit suffix fixes for unit arithmetic diagnostics, command target
   parenthesizing, schema column annotation migrations, required file-mutation
   `with` options, invalid network retry/timeout/body-size policies, pinned
-  response SHA-256 mismatches, sampling seed values, missing repro-profile
+  response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, uncertainty constructor argument repairs, and uncertainty
   source definition/conversion repairs. Live editor quick fixes are shown first
   and merged with local fallback repairs so partial live editor responses do
@@ -151,8 +151,9 @@ live open/save analysis.
 
 Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid
-network/process options such as retry, timeout, body-size, and allow-failure
-values. Simple same-block `where` local ordering diagnostics can move the later
+network/process/sampling options such as retry, timeout, body-size,
+allow-failure, sample count, and sample seed values. Simple same-block `where`
+local ordering diagnostics can move the later
 definition before its first use. Uncertainty diagnostics can also repair common
 constructor mistakes
 such as unsupported distribution kind, unsupported propagation method, invalid

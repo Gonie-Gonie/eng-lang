@@ -453,6 +453,8 @@ function optionQuickFix(code) {
         value: "true",
         label: "Allow process failure"
       };
+    case "E-SAMPLING-COUNT-INVALID":
+      return { optionNames: ["count"], value: "1", label: "Set sample count" };
     case "E-SAMPLING-SEED-INVALID":
       return { optionNames: ["seed"], value: "42", label: "Set sample seed" };
     default:

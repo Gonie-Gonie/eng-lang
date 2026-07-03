@@ -4356,6 +4356,17 @@ Status: implemented after reviewing linter range targets for workflow options.
 - Extended LSP range regression coverage for network, process, sampling, and
   log-level diagnostics so quick-fix edits and visible underlines stay aligned.
 
+## Batch 352: Sampling Count Quick Fix
+
+Status: implemented after reviewing sampling option diagnostics.
+
+- Added an LSP-owned quick fix for `E-SAMPLING-COUNT-INVALID` that replaces an
+  invalid `count = ...` option value with `count = 1`.
+- Mirrored the same repair in the VS Code local fallback provider so snapshot
+  diagnostics keep the count repair if LSP code actions are unavailable.
+- Extended LSP stdio, stdin code-action, VS Code extension contract, README,
+  and diagnostic-range coverage so sampling count and seed fixes stay aligned.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
