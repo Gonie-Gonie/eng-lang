@@ -685,6 +685,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-PROCESS-BINDING-001" => {
             optional_code_action(lsp_bind_process_result_code_action(uri, text, diagnostic))
         }
+        "E-ASSERT-001" => {
+            optional_code_action(lsp_wrap_assertion_code_action(uri, text, diagnostic))
+        }
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
         )),
@@ -1464,6 +1467,28 @@ fn lsp_bind_process_result_code_action(uri: &str, text: &str, diagnostic: &Value
             line_byte_range(line_number, line, indent_len, indent_len),
             "result = "
         )
+    }))
+}
+
+fn lsp_wrap_assertion_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let indent = line_indent(code);
+    let assertion = code[indent.len()..].trim_end();
+    if !assertion.starts_with("assert ") {
+        return None;
+    }
+    let newline = document_newline(text);
+    let replacement = format!(
+        "{indent}test \"assertion\" {{{newline}{indent}    {assertion}{newline}{indent}}}{newline}"
+    );
+    Some(json!({
+        "title": "Wrap assertion in test block",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), &replacement)
     }))
 }
 

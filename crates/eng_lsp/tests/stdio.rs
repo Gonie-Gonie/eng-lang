@@ -711,6 +711,7 @@ fn stdio_code_actions_offer_linter_quick_fixes() {
     let source = r#"use eng.nte
 power = 10 kW
 Q_total = 10 + 2 kW
+assert Q_total == 12 kW
 Q1 = 1 kW
 Q2 = 2 kW
 E_total = integrate Q1 + Q2 over Time
@@ -844,6 +845,7 @@ report {
         "W-QTY-AMBIG-001",
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
+        "E-ASSERT-001",
         "E-WHERE-FWD-001",
         "E-NAME-LOCAL-001",
         "E-PUBLIC-ANNOTATION-001",
@@ -1058,6 +1060,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("run command \"unbound\""))
         .expect("source should include unbound process command");
+    let top_level_assert_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("assert Q_total"))
+        .expect("source should include top-level assert");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1113,6 +1119,13 @@ report {
         "result = ",
         unbound_process_line,
     );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Wrap assertion in test block",
+        "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
+        top_level_assert_line,
+    );
 
     write_message(
         &mut stdin,
@@ -1145,6 +1158,7 @@ fn code_actions_stdin_returns_linter_quick_fixes_for_unsaved_source() {
     let uri = file_uri(&source_path);
     let source = r#"power = 10 kW
 Q_total = 10 + 2 kW
+assert Q_total == 12 kW
 Q1 = 1 kW
 Q2 = 2 kW
 E_total = integrate Q1 + Q2 over Time
@@ -1325,6 +1339,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("run command \"unbound\""))
         .expect("source should include unbound process command");
+    let top_level_assert_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("assert Q_total"))
+        .expect("source should include top-level assert");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1379,6 +1397,13 @@ report {
         "Bind process result",
         "result = ",
         unbound_process_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Wrap assertion in test block",
+        "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
+        top_level_assert_line,
     );
 }
 

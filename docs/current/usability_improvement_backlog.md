@@ -4333,6 +4333,17 @@ Status: implemented after reviewing external-process diagnostics.
 - Extended LSP stdio, stdin code-action, and VS Code extension contract checks
   so external-process binding diagnostics remain actionable.
 
+## Batch 350: Top-Level Assert Quick Fix
+
+Status: implemented after reviewing test/assert diagnostics.
+
+- Added an LSP-owned quick fix for `E-ASSERT-001` that wraps a top-level
+  one-line `assert ...` statement in `test "assertion" { ... }`.
+- Mirrored the same repair in the VS Code local fallback provider so snapshot
+  diagnostics keep the quick fix if LSP code actions are unavailable.
+- Extended LSP stdio, stdin code-action, and VS Code extension contract checks
+  so top-level assertion diagnostics remain actionable.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

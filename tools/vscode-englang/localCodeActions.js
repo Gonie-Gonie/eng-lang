@@ -107,6 +107,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-ASSERT-001") {
+      const action = wrapAssertionAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WHERE-FWD-001") {
       const action = reorderWhereLocalDefinitionAction(document, diagnostic);
       if (action) {
@@ -632,6 +639,27 @@ function bindProcessResultAction(document, diagnostic) {
     new vscode.Position(line.lineNumber, indent.length),
     "result = "
   );
+  return action;
+}
+
+function wrapAssertionAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const indent = lineIndent(code);
+  const assertion = code.slice(indent.length).trimEnd();
+  if (!assertion.startsWith("assert ")) {
+    return undefined;
+  }
+  const newline = documentNewline(document);
+  const replacement =
+    `${indent}test "assertion" {${newline}${indent}    ${assertion}${newline}${indent}}${newline}`;
+  const action = new vscode.CodeAction(
+    "Wrap assertion in test block",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(document.uri, fullLineRange(document, line.lineNumber), replacement);
   return action;
 }
 
