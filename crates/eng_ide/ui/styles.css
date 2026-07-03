@@ -1025,6 +1025,10 @@ button:hover {
   width: 82px;
 }
 
+.caret-highlight-table th {
+  width: 74px;
+}
+
 .token-range-button {
   min-width: 34px;
   text-align: center;

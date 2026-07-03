@@ -580,13 +580,8 @@ function bind() {
   document.querySelectorAll("[data-source-line]").forEach((button) => {
     button.onclick = () => selectSourceLine(Number(button.dataset.sourceLine || 0));
   });
-  document.querySelectorAll("[data-source-token-line]").forEach((button) => {
-    button.onclick = () => selectSourceTokenRange(
-      Number(button.dataset.sourceTokenLine || 0),
-      Number(button.dataset.sourceTokenStart || 0),
-      Number(button.dataset.sourceTokenLength || 0)
-    );
-  });
+  bindSourceTokenRangeButtons(document);
+  bindHighlightTokenFilterButtons(document);
   document.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
     button.onclick = () => {
       state.sideTab = "highlight";
@@ -1361,6 +1356,7 @@ function renderHighlightPanel() {
   const typeCounts = countSemanticTokens(filteredTokens, (token) => token.type || "-");
   const modifierCounts = countSemanticTokens(filteredTokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
   const tokenCurrent = state.source === state.highlightSource;
+  const caretToken = currentCaretSemanticToken();
   return `
     <div class="panel-title compact">Highlights</div>
     <div class="badges">
@@ -1376,6 +1372,8 @@ function renderHighlightPanel() {
         <button id="clearHighlightTokenFilter">Clear</button>
         <span class="muted">${filteredTokens.length} of ${tokens.length}</span>
       </div>
+      <div class="panel-title compact">Caret Highlight</div>
+      <div id="caretHighlightSummary">${renderCaretHighlightSummary(caretToken, tokenCurrent)}</div>
       <div class="panel-title compact">Categories</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_types || legend.tokenTypes), typeCounts, "type")}
       <div class="panel-title compact">Details</div>
@@ -1385,6 +1383,46 @@ function renderHighlightPanel() {
       ${rawJsonToggle("Raw highlight data", semantic)}
     </div>
   `;
+}
+
+function renderCaretHighlightSummary(caret, tokenCurrent) {
+  if (!tokenCurrent) {
+    return `<div class="empty-state">Check current file to refresh highlight data.</div>`;
+  }
+  if (!caret?.token) {
+    return `<div class="empty-state">No semantic highlight at the caret.</div>`;
+  }
+  const token = caret.token;
+  const text = semanticTokenText(token);
+  const modifiers = arrayOrEmpty(token.modifiers);
+  const line = Number(token.line ?? -1) + 1;
+  const start = Number(token.start ?? 0);
+  const length = Number(token.length ?? 0);
+  const hover = caret.hover ? hoverTitle(caret.hover) : "-";
+  const filterButtons = [
+    text && text !== "-" ? highlightFilterButton(text, "Text") : "",
+    token.type ? highlightFilterButton(token.type, "Category") : "",
+    ...modifiers.map((modifier) => highlightFilterButton(modifier, `Detail ${modifier}`))
+  ].filter(Boolean).join(" ");
+  const modifierCells = modifiers.length
+    ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ")
+    : "-";
+  return `
+    <table class="var-table caret-highlight-table">
+      <tbody>
+        <tr><th>Range</th><td>${sourceTokenButton(token, `L${line}`)} <span class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</span></td></tr>
+        <tr><th>Text</th><td><code>${escapeHtml(text)}</code></td></tr>
+        <tr><th>Category</th><td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td></tr>
+        <tr><th>Details</th><td>${modifierCells}</td></tr>
+        <tr><th>Hover</th><td>${escapeHtml(hover)}</td></tr>
+        <tr><th>Filter</th><td>${filterButtons || "-"}</td></tr>
+      </tbody>
+    </table>
+  `;
+}
+
+function highlightFilterButton(query, label) {
+  return `<button class="link-button token-range-button" data-highlight-token-filter="${escapeAttr(query)}">${escapeHtml(label)}</button>`;
 }
 
 function renderSemanticLegendTable(items, counts, kind) {
@@ -4329,24 +4367,44 @@ function updateCursorInsight() {
   if (!target) return;
   target.outerHTML = `<span id="cursorInsight" class="cursor-insight">${renderCursorInsight()}</span>`;
   bindCursorInsightActions();
+  updateCaretHighlightSummary();
 }
 
 function bindCursorInsightActions() {
   const target = byId("cursorInsight");
   if (!target) return;
-  target.querySelectorAll("[data-source-token-line]").forEach((button) => {
-    button.onclick = () => selectSourceTokenRange(
-      Number(button.dataset.sourceTokenLine || 0),
-      Number(button.dataset.sourceTokenStart || 0),
-      Number(button.dataset.sourceTokenLength || 0)
-    );
-  });
+  bindSourceTokenRangeButtons(target);
   target.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
     button.onclick = () => {
       state.sideTab = "highlight";
       render();
     };
   });
+}
+
+function updateCaretHighlightSummary() {
+  const target = byId("caretHighlightSummary");
+  if (!target) return;
+  const tokenCurrent = state.source === state.highlightSource;
+  target.outerHTML = `<div id="caretHighlightSummary">${renderCaretHighlightSummary(currentCaretSemanticToken(), tokenCurrent)}</div>`;
+  const nextTarget = byId("caretHighlightSummary");
+  if (!nextTarget) return;
+  bindSourceTokenRangeButtons(nextTarget);
+  bindHighlightTokenFilterButtons(nextTarget);
+}
+
+function currentCaretSemanticToken() {
+  const editor = byId("editor");
+  if (!editor || state.source !== state.highlightSource) return null;
+  if (String(editor.value ?? "") !== String(state.source ?? "")) return null;
+  const position = editorCursorPosition(editor.value, editor.selectionStart ?? 0);
+  const token = semanticTokenAtCaret(editor, position);
+  if (!token) return null;
+  return {
+    position,
+    token,
+    hover: hoverForSemanticToken(token, position.line)
+  };
 }
 
 function renderCursorInsight() {
@@ -4475,7 +4533,7 @@ function semanticTokenAtCaret(editor, position) {
   return tokens.find((token) => {
     const start = Number(token.start ?? 0);
     const end = start + Number(token.length ?? 0);
-    return columnByte >= start && columnByte <= end;
+    return columnByte >= start && columnByte < end;
   }) || null;
 }
 
@@ -5015,6 +5073,33 @@ function sourceTokenButton(token, label = null) {
   }
   const buttonLabel = label || `L${line}`;
   return `<button class="link-button token-range-button" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="Select token range">${escapeHtml(buttonLabel)}</button>`;
+}
+
+function bindSourceTokenRangeButtons(root) {
+  root.querySelectorAll("[data-source-token-line]").forEach((button) => {
+    button.onclick = () => selectSourceTokenRange(
+      Number(button.dataset.sourceTokenLine || 0),
+      Number(button.dataset.sourceTokenStart || 0),
+      Number(button.dataset.sourceTokenLength || 0)
+    );
+  });
+}
+
+function bindHighlightTokenFilterButtons(root) {
+  root.querySelectorAll("[data-highlight-token-filter]").forEach((button) => {
+    button.onclick = () => applyHighlightTokenFilter(button.dataset.highlightTokenFilter || "");
+  });
+}
+
+function applyHighlightTokenFilter(query) {
+  state.highlightTokenQuery = String(query || "");
+  state.sideTab = "highlight";
+  render();
+  const input = byId("highlightTokenQueryInput");
+  if (input) {
+    input.focus();
+    input.setSelectionRange(input.value.length, input.value.length);
+  }
 }
 
 function sourceBreadcrumbs(label, items) {

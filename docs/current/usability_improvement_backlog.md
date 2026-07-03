@@ -4109,6 +4109,18 @@ workflow statements.
   operation keywords plus line-specific `to`, `file`, and `dir` semantic
   modifiers.
 
+## Batch 332: Native IDE Caret Highlight Summary
+
+Status: implemented to make semantic highlighting easier to inspect from the
+native IDE.
+
+- Added a Highlight panel caret summary that shows the current semantic token
+  range, text, category, modifiers, and hover detail.
+- Added one-click Highlight panel filters for the caret token text, category,
+  and modifiers.
+- Kept the caret summary synchronized as the editor selection changes and
+  tightened caret token detection to treat semantic token ranges as half-open.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
