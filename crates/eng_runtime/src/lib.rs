@@ -1675,6 +1675,7 @@ struct CacheManifestRecord {
     cache_key_hash: String,
     cache_path: String,
     cache_dir: String,
+    cache_ttl: Option<String>,
     resolved_path: String,
     source_hash: String,
     expected_hash: Option<String>,
@@ -2720,6 +2721,7 @@ fn cache_manifest_record(
         cache_key_hash: record.cache_key_hash.clone(),
         cache_path: record.cache_path.clone(),
         cache_dir: record.cache_dir.clone(),
+        cache_ttl: record.cache_ttl.clone(),
         resolved_path: resolved_path.display().to_string(),
         source_hash: record.source_hash.clone(),
         expected_hash: record.expected_hash.clone(),
@@ -2846,6 +2848,7 @@ fn case_cache_manifest_record(
         cache_key_hash,
         cache_path,
         cache_dir,
+        cache_ttl: None,
         resolved_path: resolved_path.display().to_string(),
         source_hash,
         expected_hash: Some(manifest.sample_row_hash.clone()),
@@ -3093,6 +3096,12 @@ fn push_cache_manifest_records_json(
             "{indent}  \"cache_dir\": \"{}\",\n",
             json_escape(&record.cache_dir)
         ));
+        push_optional_json_string_runtime(
+            json,
+            "cache_ttl",
+            record.cache_ttl.as_deref(),
+            indent.len() + 2,
+        );
         json.push_str(&format!(
             "{indent}  \"resolved_path\": \"{}\",\n",
             json_escape(&record.resolved_path)
@@ -8595,6 +8604,7 @@ fn push_output_manifest_caches_json(json: &mut String, records: &[CacheManifestR
             "        \"cache_dir\": \"{}\",\n",
             json_escape(&record.cache_dir)
         ));
+        push_optional_json_string_runtime(json, "cache_ttl", record.cache_ttl.as_deref(), 8);
         json.push_str(&format!(
             "        \"cache_key_hash\": \"{}\",\n",
             json_escape(&record.cache_key_hash)
@@ -12293,6 +12303,14 @@ fn enrich_runtime_review_caches(base_review: &str, records: &[CacheManifestRecor
         object.insert(
             "resolved_path".to_owned(),
             Value::String(record.resolved_path.clone()),
+        );
+        object.insert(
+            "cache_ttl".to_owned(),
+            record
+                .cache_ttl
+                .as_ref()
+                .map(|ttl| Value::String(ttl.clone()))
+                .unwrap_or(Value::Null),
         );
     }
 
@@ -20256,9 +20274,9 @@ mod tests {
         fs::create_dir_all(build_root.join("cache").join("stale-entry")).expect("stale cache");
         let source_path = source_dir.join("main.eng");
         let source = if cfg!(windows) {
-            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-cache\"]\n    tool_version = \"cmd-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n}\n"
+            "process_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"process-cache\"]\n    tool_version = \"cmd-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n    cache_ttl = 1 h\n}\n"
         } else {
-            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"echo process-cache\"]\n    tool_version = \"sh-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n}\n"
+            "process_result = run command \"sh\"\nwith {\n    args = [\"-c\", \"echo process-cache\"]\n    tool_version = \"sh-test 1.0\"\n    cache = true\n    cache_key = [\"process\", \"demo\", \"v1\"]\n    cache_ttl = 1 h\n}\n"
         };
         fs::write(&source_path, source).expect("write source");
 
@@ -20282,6 +20300,9 @@ mod tests {
         assert!(output
             .cache_manifest_json
             .contains("\"lookup_status\": \"miss\""));
+        assert!(output
+            .cache_manifest_json
+            .contains("\"cache_ttl\": \"3600 s\""));
         assert!(output.cache_manifest_json.contains("\"observed_hash\""));
         assert!(output.cache_manifest_json.contains("\"W-CACHE-STALE\""));
         assert!(output.cache_manifest_json.contains("stale-entry"));
@@ -20291,10 +20312,14 @@ mod tests {
         assert!(output
             .review_json
             .contains("\"provenance\": \"runtime_cache_manifest\""));
+        assert!(output.review_json.contains("\"cache_ttl\": \"3600 s\""));
         assert!(output
             .output_manifest_json
             .contains("\"kind\": \"cache_manifest\""));
         assert!(output.output_manifest_json.contains("\"class\": \"cache\""));
+        assert!(output
+            .output_manifest_json
+            .contains("\"cache_ttl\": \"3600 s\""));
     }
 
     #[test]

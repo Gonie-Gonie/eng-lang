@@ -109,6 +109,7 @@
         "cache_key_hash",
         "cache_path",
         "cache_dir",
+        "cache_ttl",
         "resolved_path",
         "source_hash",
         "expected_hash",
@@ -141,6 +142,12 @@
         },
         "cache_dir": {
           "type": "string"
+        },
+        "cache_ttl": {
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "resolved_path": {
           "type": "string"

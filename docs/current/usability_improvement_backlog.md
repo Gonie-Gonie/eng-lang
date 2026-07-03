@@ -4641,6 +4641,20 @@ record metadata.
   accepting inert options.
 - Surfaced TTL values in the VS Code review panel Caches table.
 
+## Batch 375: Runtime Cache TTL Artifacts
+
+Status: implemented after running the native workflow smoke gate against the
+new cache TTL metadata.
+
+- Propagated compiler `cache_ttl` metadata into runtime `cache_manifest.json`
+  records.
+- Added TTL values to output-manifest cache summaries and runtime-enriched
+  review cache records.
+- Updated the cache manifest schema and workflow module diagnostic table for
+  the new `E-CACHE-TTL` contract.
+- Re-ran workflow smoke to confirm workflows 01, 02, and 03 still execute with
+  zero external processes.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

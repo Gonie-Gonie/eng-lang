@@ -81,6 +81,7 @@ E-NET-HASH-MISMATCH   network response SHA-256 does not match expected_sha256
 E-NET-UNPINNED-REPRO  repro profile network boundary lacks a pinned response file or expected_sha256
 E-CACHE-HASH-MISMATCH cache record observed hash does not match expected hash
 E-CACHE-KEY-NONDETERMINISTIC cache_key contains nondeterministic or secret-dependent input
+E-CACHE-TTL           cache_ttl is not a positive finite duration
 E-CACHE-UNHASHED-REPRO repro profile cache record has no observed hash
 W-CACHE-STALE         cache directory contains an entry outside the current cache manifest
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
