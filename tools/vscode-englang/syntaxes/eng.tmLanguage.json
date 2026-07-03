@@ -1111,6 +1111,24 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.predict-model.englang",
+                                                                    "match":  "\\b(predict)\\s+(model)\\s+(using)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "captures":  {
+                                                                                     "1":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "2":  {
+                                                                                               "name":  "support.function.builtin.englang"
+                                                                                           },
+                                                                                     "3":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           }
+                                                                                 }
+                                                                },
+                                                                {
+                                                                    "name":  "meta.workflow.predict-model.englang",
                                                                     "match":  "\\b(predict)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(using)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
                                                                     "captures":  {
                                                                                      "1":  {

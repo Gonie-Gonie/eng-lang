@@ -648,6 +648,12 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "model",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.predict-model.englang",
     "text": "predict surrogate_model using designs",
     "fullMatch": true

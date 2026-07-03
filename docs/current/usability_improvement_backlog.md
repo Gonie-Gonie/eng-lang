@@ -3981,6 +3981,19 @@ workspace root.
 - Extended the VS Code contract check so the picker cannot regress to showing
   root-dependent artifact labels without a workspace.
 
+## Batch 321: Predict Model Literal Highlighting
+
+Status: implemented to remove a TextMate scope ambiguity in the model workflow
+phrase.
+
+- Added a dedicated `predict model using <table>` grammar pattern before the
+  generic `predict <binding> using <table>` pattern.
+- Literal `model` now receives builtin workflow highlighting, while
+  `predict surrogate_model using <table>` still treats `surrogate_model` as a
+  normal binding.
+- Pinned the behavior in grammar token expectations so the keyword cannot drift
+  back to identifier coloring.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
