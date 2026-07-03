@@ -4603,6 +4603,17 @@ validation, and semantic highlighting.
 - Extended native workflow semantic regression coverage for coverage target
   paths, option keys, and `missing = error`.
 
+## Batch 372: Materialize Case Option Parity
+
+Status: implemented after comparing `materialize cases` completions with
+compiler with-block validation.
+
+- Added compiler context recognition for `materialize cases ...` with-blocks.
+- Accepted materialization options that the editor already suggests:
+  `step`, `output_root`, `resume`, `case_id`, `cache`, and `cache_key`.
+- Added compiler regression coverage so case materialization options do not
+  regress to unknown-option diagnostics.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

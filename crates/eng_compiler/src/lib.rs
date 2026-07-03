@@ -10460,6 +10460,37 @@ system Envelope {
     }
 
     #[test]
+    fn accepts_materialize_cases_with_block_options() {
+        let report = check_source(
+            "ok.eng",
+            "cases = materialize cases designs\nwith {\n    step = \"prepare\"\n    output_root = dir(\"outputs/cases\")\n    case_id = case_id\n    resume = true\n    cache = true\n    cache_key = [\"cases\", case_id]\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-WITH-OPTION-001"));
+        let options = &report.semantic_program.with_blocks[0].options;
+        for key in [
+            "step",
+            "output_root",
+            "case_id",
+            "resume",
+            "cache",
+            "cache_key",
+        ] {
+            assert!(
+                options
+                    .iter()
+                    .any(|option| option.key == key && option.status == "accepted"),
+                "materialize option {key} should be accepted"
+            );
+        }
+    }
+
+    #[test]
     fn lowers_timeseries_alignment_and_resampling_commands() {
         let report = check_source(
             "ok.eng",

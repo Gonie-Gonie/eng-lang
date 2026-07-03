@@ -2314,6 +2314,7 @@ fn analyze_with_blocks(
                 block.owner_line,
             ));
             extra_known_options.extend(with_owner_apply_options(command_styles, block.owner_line));
+            extra_known_options.extend(with_owner_materialize_options(program, block.owner_line));
             extra_known_options.extend(with_owner_process_options(program, block.owner_line));
             extra_known_options.extend(with_owner_sample_options(program, block.owner_line));
             extra_known_options.extend(with_owner_model_options(program, block.owner_line));
@@ -2490,6 +2491,35 @@ fn with_owner_apply_options(
         "missing",
         "overwrite",
         "artifact_kind",
+    ]
+    .into_iter()
+    .map(str::to_owned)
+    .collect()
+}
+
+fn with_owner_materialize_options(
+    program: &ParsedProgram,
+    owner_line: Option<usize>,
+) -> HashSet<String> {
+    let Some(owner_line) = owner_line else {
+        return HashSet::new();
+    };
+    let is_materialize_owner = program.items.iter().any(|item| match item {
+        AstItem::FastBinding(binding) if binding.line == owner_line => {
+            materialize_cases_source_table(&binding.expression).is_some()
+        }
+        _ => false,
+    });
+    if !is_materialize_owner {
+        return HashSet::new();
+    }
+    [
+        "step",
+        "output_root",
+        "resume",
+        "case_id",
+        "cache",
+        "cache_key",
     ]
     .into_iter()
     .map(str::to_owned)
