@@ -189,9 +189,9 @@ is not mistaken for public module support.
     native case runner, broad DB support, and broader model train syntax.
   - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
-    DB table summaries. Current native model evidence includes
-    `train regression`, `regression_table`, `model_card`, `evaluate`, `predict ... using ...`,
-    ModelSpec/FeatureSpec/TargetSpec summaries,
+    DB table summaries. Current native model evidence includes preferred
+    `train regression`, legacy-compatible `regression_table`, `model_card`,
+    `evaluate`, `predict ... using ...`, ModelSpec/FeatureSpec/TargetSpec summaries,
     prediction schema/output metadata, confidence-column metadata, and hashes.
   - Keep domain adapters layered above generic module contracts and avoid
     treating domain-specific adapters as core language identity.

@@ -3910,6 +3910,19 @@ wording into native runtime behavior.
   operation set and directory listing remains planned instead of appearing as a
   supported API.
 
+## Batch 316: Preferred Train Regression Completion
+
+Status: implemented to reduce model API wording drift in editor suggestions.
+
+- Removed legacy helper spellings `regression_table` and `train_regression`
+  from LSP and VS Code completion seeds so new authoring flows prefer the
+  native workflow phrase `train regression`.
+- Kept parser, semantic, and TextMate compatibility for existing
+  `regression_table(...)` and `train_regression(...)` files by adding
+  grammar-only aliases to the generated VS Code grammar.
+- Updated current module/status wording to distinguish the preferred public
+  model-training surface from legacy-compatible helper forms.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

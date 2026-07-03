@@ -197,7 +197,7 @@ sample table artifacts with case IDs, parameter ranges, duplicate checks, and ro
 case manifest records for generated sample/case rows
 CaseOutput rows from `apply case_input_template over cases`
 native case_input artifacts plus template_render_manifest records
-native `train regression`/`regression_table` model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
+preferred native `train regression` plus legacy-compatible `regression_table` model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
 native SQLite db_manifests[] records with table names, modes, schemas, row counts, hashes, and committed transaction status
 output_manifest.json entries for case inputs, workflow_summary.csv, model artifacts, DB writes, and report artifacts

@@ -344,8 +344,6 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
     "train",
     "train_test_split",
     "regression",
-    "regression_table",
-    "train_regression",
     "mlp",
     "ann",
     "evaluate",
@@ -529,14 +527,6 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
         "Train a regression model from table columns",
     ),
     ("regression", "Train a small deterministic regression model"),
-    (
-        "regression_table",
-        "Train a regression model from table columns",
-    ),
-    (
-        "train_regression",
-        "Train a regression model with explicit options",
-    ),
     ("mlp", "Train a small deterministic neural-network model"),
     (
         "ann",
@@ -6040,6 +6030,7 @@ mod tests {
         for (label, kind) in [
             ("records", "keyword"),
             ("promote json records", "stdlib"),
+            ("train regression", "function"),
             ("read json", "stdlib"),
             ("eng.table", "stdlib"),
             ("HeatRate", "class"),
@@ -6071,6 +6062,14 @@ mod tests {
                 .any(|completion| completion["label"] == "fixture"),
             "editor metadata should not suggest legacy fixture option; use offline_response"
         );
+        for legacy_model_completion in ["regression_table", "train_regression"] {
+            assert!(
+                !completions
+                    .iter()
+                    .any(|completion| completion["label"] == legacy_model_completion),
+                "editor metadata should not suggest legacy model completion {legacy_model_completion}; use train regression"
+            );
+        }
         let net_completion = completions
             .iter()
             .find(|completion| completion["label"] == "eng.net")

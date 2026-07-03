@@ -475,18 +475,6 @@
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "Train a regression model from table columns",
-                                "kind":  "function",
-                                "label":  "regression_table",
-                                "lsp_kind":  3
-                            },
-                            {
-                                "detail":  "Train a regression model with explicit options",
-                                "kind":  "function",
-                                "label":  "train_regression",
-                                "lsp_kind":  3
-                            },
-                            {
                                 "detail":  "Train a small deterministic neural-network model",
                                 "kind":  "function",
                                 "label":  "mlp",
@@ -2395,7 +2383,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  399,
+    "completion_seed_count":  397,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -3087,8 +3075,6 @@
                                                      "train",
                                                      "train_test_split",
                                                      "regression",
-                                                     "regression_table",
-                                                     "train_regression",
                                                      "mlp",
                                                      "ann",
                                                      "evaluate",

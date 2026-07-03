@@ -51,6 +51,12 @@ if ($null -eq $SyntaxCatalog) {
 }
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
+# Keep legacy workflow helper spellings colored for existing files without
+# suggesting them through the generated completion catalog.
+$GrammarOnlyWorkflowBuiltinAliases = @(
+    "regression_table",
+    "train_regression"
+)
 # Keep legacy option keys colored for existing files without suggesting them
 # through the generated completion catalog.
 $GrammarOnlyWorkflowOptionAliases = @(
@@ -118,7 +124,7 @@ $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
-    "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation $WorkflowBuiltins
+    "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)
     "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
 }
 

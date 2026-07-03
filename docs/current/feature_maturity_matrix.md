@@ -253,8 +253,8 @@ separate.
   model-card, prediction-manifest, and DB side-effect artifacts without external
   process adapters; deterministic grid/random/LHS sampling materializes
   `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes include
-  manifests, schema diagnostics, transaction status, and DB file hashes; native
-  `train regression`/`regression_table` and `predict <model> using <table>` materialize
+  manifests, schema diagnostics, transaction status, and DB file hashes; preferred native
+  `train regression`, legacy-compatible `regression_table`, and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
   with cache replay; `Planned` for native case apply/collect syntax, broad DB

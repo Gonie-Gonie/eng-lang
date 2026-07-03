@@ -641,8 +641,6 @@
                                                      "train",
                                                      "train_test_split",
                                                      "regression",
-                                                     "regression_table",
-                                                     "train_regression",
                                                      "mlp",
                                                      "ann",
                                                      "evaluate",
