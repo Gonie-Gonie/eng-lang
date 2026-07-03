@@ -4274,6 +4274,20 @@ Status: implemented to make compiler-backed highlight payloads more complete.
   `J/kg/K`.
 - Added VS Code semantic-token fallback scopes for `string` and `operator`.
 
+## Batch 345: Native Case Workflow Status Wording
+
+Status: implemented after rechecking workflow 01/02/03 source guards.
+
+- Confirmed the current `examples/workflows` 01/02/03 sources have no Python,
+  `.py`, notebook, or `run command` usage and remain covered by the
+  `workflows-test` source guard.
+- Updated maturity wording that still described native case apply/collect
+  syntax as planned even though the supported `materialize cases`,
+  `apply ... over cases`, and `collect results` path is implemented.
+- Kept the remaining planned scope focused on broader run-case scheduling and
+  case-collection policy rather than the already-supported native case-table
+  path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

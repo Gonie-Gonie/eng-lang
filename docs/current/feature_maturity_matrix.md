@@ -258,8 +258,10 @@ separate.
   `train regression`, legacy-compatible `regression_table`, and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
-  with cache replay; `Planned` for native case apply/collect syntax, broad DB
-  support, and broader model train syntax.
+  with cache replay; current native `materialize cases`, `apply ... over cases`,
+  and `collect results` syntax is implemented for the supported case-table
+  path; `Planned` for broad run-cases scheduling, broad DB support, and broader
+  model train syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
   core, not core language identity.
@@ -288,12 +290,13 @@ separate.
 - Not included: request bodies/auth beyond `secret env` and broader cache
   invalidation/reuse API,
   general table derived-value execution/fill transforms,
-  native case result collection and parallel scheduler, domain weather adapters, EPW writer, EnergyPlus IDF
-  parser, broad DB engines/query APIs/migrations, or ML framework
+  broader case collection policies and parallel scheduler, domain weather
+  adapters, EPW writer, EnergyPlus IDF parser, broad DB engines/query
+  APIs/migrations, or ML framework
   support.
 - Next cleanup action: grow `eng.cache` beyond network response
   materialization/replay, then extend the existing native workflow artifact
-  snapshots to cover broader `eng.case` collection/scheduling, `eng.db`
+  snapshots to cover broader `eng.case` scheduling, `eng.db`
   query/migration, and `eng.model` framework-adapter slices with artifacts and
   diagnostics.
 
