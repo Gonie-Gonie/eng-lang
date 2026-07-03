@@ -4367,6 +4367,17 @@ Status: implemented after reviewing sampling option diagnostics.
 - Extended LSP stdio, stdin code-action, VS Code extension contract, README,
   and diagnostic-range coverage so sampling count and seed fixes stay aligned.
 
+## Batch 353: Workflow 02 Native Wording Guard
+
+Status: implemented after re-auditing workflow 01/02/03 Python/process wording.
+
+- Reworded workflow 02's README so the executable path is described as native
+  EngLang execution instead of saying it avoids a simulator or Python process.
+- Extended the workflow public-doc guard to reject the stale `Python process:`
+  phrasing if it reappears in workflow-facing docs.
+- Reconfirmed workflow 01/02/03 `main.eng` files contain no Python markers or
+  `run command` usage before running the workflow smoke gate.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

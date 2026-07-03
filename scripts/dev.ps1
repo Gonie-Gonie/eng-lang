@@ -391,6 +391,7 @@ function Invoke-WorkflowsTest {
             "external-simulator adapter pattern",
             "native surrogate half",
             "external simulator adapter could feed later",
+            "Python process:",
             "02_external_simulation_surrogate",
             "external_simulation_surrogate.md"
         )) {
