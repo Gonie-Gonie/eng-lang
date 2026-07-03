@@ -18516,12 +18516,12 @@ mod tests {
                 "aligned = align measured.T_zone with simulated.T_zone\n",
                 "aligned_to = align measured.T_zone to simulated.T_zone\n",
                 "resampled = resample measured.T_zone to simulated.T_zone\n",
-                "resampled_with = resample measured.T_zone with simulated.T_zone\n",
                 "with {\n",
                 "    method = linear\n",
                 "    target_step = 1 h\n",
                 "    tolerance = 5 min\n",
                 "}\n",
+                "resampled_with = resample measured.T_zone with simulated.T_zone\n",
             ),
         )
         .expect("write source");

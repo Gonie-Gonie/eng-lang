@@ -6985,12 +6985,19 @@ fn native_workflow_has_zero_process_results(process_results_json: &str) -> bool 
     let Ok(process_results) = serde_json::from_str::<Value>(process_results_json) else {
         return false;
     };
+    let format = process_results.get("format").and_then(Value::as_str);
+    let execution_profile = process_results
+        .get("execution_profile")
+        .and_then(Value::as_str);
     let process_count = process_results.get("process_count").and_then(Value::as_u64);
     let processes_empty = process_results
         .get("processes")
         .and_then(Value::as_array)
         .is_some_and(Vec::is_empty);
-    process_count == Some(0) && processes_empty
+    format == Some("eng-process-results-v1")
+        && execution_profile == Some("normal")
+        && process_count == Some(0)
+        && processes_empty
 }
 
 fn workflow_main_sources() -> Result<Vec<PathBuf>, std::io::Error> {

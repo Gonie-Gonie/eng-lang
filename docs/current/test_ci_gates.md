@@ -132,7 +132,8 @@ Current coverage:
   zero external process executions.
 - `eng test examples` asserts that all three workflows produce review,
   output-manifest, process, report, and typed result artifacts.
-- `dev.bat workflows-test` rejects `run command`, Python calls, and nonzero
+- `dev.bat workflows-test` rejects `run command`, Python calls, malformed
+  process-results artifacts, non-normal workflow smoke profiles, and nonzero
   process counts in the three native workflow examples.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.

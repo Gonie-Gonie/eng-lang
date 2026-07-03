@@ -4475,6 +4475,22 @@ Status: implemented after reviewing VS Code highlighting usability.
   remains a real live editor toggle instead of a value that is only read during
   the next token request.
 
+## Batch 362: Native Workflow Process Artifact Gate
+
+Status: implemented after rechecking the workflow 01/02/03 zero-process
+contract.
+
+- Tightened `dev.bat workflows-test` so native workflow smoke runs must emit
+  `eng-process-results-v1`, record the normal execution profile, and include an
+  explicit empty `processes` array.
+- Tightened the Rust `eng test examples` workflow helper with the same JSON
+  checks, so workflow 01/02/03 cannot satisfy the native claim with a malformed
+  process-results artifact.
+- Cleaned a stale TimeSeries alignment runtime test source so the `with` block
+  sits directly after the `resampled` command whose `target_step` it verifies.
+- Updated CI gate wording to describe malformed process-result and profile
+  regressions, not only nonzero process counts.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

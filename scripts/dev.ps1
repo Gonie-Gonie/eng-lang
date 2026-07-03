@@ -452,9 +452,18 @@ function Invoke-WorkflowsTest {
             throw "Native workflow smoke must write process_results.json: $Workflow"
         }
         $ProcessResults = Get-Content -LiteralPath $ProcessResultsPath -Raw | ConvertFrom-Json
+        if ([string]$ProcessResults.format -ne "eng-process-results-v1") {
+            throw "Native workflow smoke must write eng-process-results-v1 process results: $Workflow"
+        }
+        if ([string]$ProcessResults.execution_profile -ne "normal") {
+            throw "Native workflow smoke must record the normal execution profile in process_results.json: $Workflow"
+        }
         $ProcessCount = 0
         if ($null -ne $ProcessResults.process_count) {
             $ProcessCount = [int]$ProcessResults.process_count
+        }
+        if ($null -eq $ProcessResults.processes) {
+            throw "Native workflow smoke must record an empty processes array: $Workflow"
         }
         $ProcessListCount = 0
         if ($null -ne $ProcessResults.processes) {
