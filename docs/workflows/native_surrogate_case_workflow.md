@@ -1,6 +1,6 @@
 # Native Surrogate Case Workflow
 
-Source example: `examples/workflows/02_external_simulation_surrogate/main.eng`
+Source example: `examples/workflows/02_native_surrogate_case_workflow/main.eng`
 
 This workflow demonstrates a native sampling, case, model, prediction, and DB
 workflow. Future simulator adapters can feed the same typed contracts, but the
@@ -13,7 +13,7 @@ LHS training samples -> explicit CaseTable -> apply template over cases -> LHS p
 Run:
 
 ```bat
-eng.exe run examples/workflows/02_external_simulation_surrogate/main.eng --save-artifacts
+eng.exe run examples/workflows/02_native_surrogate_case_workflow/main.eng --save-artifacts
 ```
 
 What it proves:

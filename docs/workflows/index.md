@@ -12,7 +12,7 @@ and keep this page focused on workflow examples and their shared contracts.
 Current examples:
 
 - [Weather API to standard file](weather_api_to_standard_file.md)
-- [Native surrogate case workflow](external_simulation_surrogate.md)
+- [Native surrogate case workflow](native_surrogate_case_workflow.md)
 - [Uncertain sensor report](uncertain_sensor_report.md)
 
 ## Shared Contract
@@ -38,7 +38,7 @@ Python/process steps inside the workflow examples.
 
 ```bat
 eng.exe run examples/workflows/01_weather_api_to_standard_file/main.eng --save-artifacts
-eng.exe run examples/workflows/02_external_simulation_surrogate/main.eng --save-artifacts
+eng.exe run examples/workflows/02_native_surrogate_case_workflow/main.eng --save-artifacts
 eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifacts
 ```
 

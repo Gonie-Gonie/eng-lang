@@ -48,5 +48,5 @@ prediction manifests, and explicit side-effect records.
 Run:
 
 ```text
-target\debug\eng.exe run examples\workflows\02_external_simulation_surrogate\main.eng --save-artifacts
+target\debug\eng.exe run examples\workflows\02_native_surrogate_case_workflow\main.eng --save-artifacts
 ```

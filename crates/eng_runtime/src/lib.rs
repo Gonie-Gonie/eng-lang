@@ -16876,7 +16876,7 @@ mod tests {
         let surrogate_dir = repo_root
             .join("examples")
             .join("workflows")
-            .join("02_external_simulation_surrogate");
+            .join("02_native_surrogate_case_workflow");
         let surrogate_source = surrogate_dir.join("main.eng");
         let surrogate_build = repo_root
             .join("build")

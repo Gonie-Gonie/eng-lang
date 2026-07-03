@@ -6499,8 +6499,8 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         }
     }
     match run_file(
-        Path::new("examples/workflows/02_external_simulation_surrogate/main.eng"),
-        Path::new("build/test-workflow-external-simulation-surrogate"),
+        Path::new("examples/workflows/02_native_surrogate_case_workflow/main.eng"),
+        Path::new("build/test-workflow-native-surrogate-case-workflow"),
         &artifact_run_options(),
     ) {
         Ok(output) => {
@@ -6596,7 +6596,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 return ExitCode::from(2);
             }
             println!(
-                "ok: examples/workflows/02_external_simulation_surrogate/main.eng produced workflow manifest artifacts"
+                "ok: examples/workflows/02_native_surrogate_case_workflow/main.eng produced workflow manifest artifacts"
             );
         }
         Err(error) => {

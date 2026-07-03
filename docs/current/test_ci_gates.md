@@ -97,7 +97,7 @@ syntax:
   and `outputs/model_card.json`; runtime review payloads adapt model cards into
   `typed_payload.model_specs[]`, `typed_payload.model_cards[]`, and
   `typed_payload.model_diagnostics[]`.
-- `examples/workflows/02_external_simulation_surrogate/main.eng`
+- `examples/workflows/02_native_surrogate_case_workflow/main.eng`
   also covers prediction-manifest adaptation into
   `typed_payload.prediction_manifests[]`, including output quantity/unit,
   case IDs, row counts, hashes, and confidence-column metadata.
@@ -122,7 +122,7 @@ Current coverage:
 
 - `examples/workflows/01_weather_api_to_standard_file/main.eng`
   runs in fixture mode without a real network call.
-- `examples/workflows/02_external_simulation_surrogate/main.eng`
+- `examples/workflows/02_native_surrogate_case_workflow/main.eng`
   runs native sampling, template rendering, regression, prediction, and DB writes
   with zero external process adapters.
 - `examples/workflows/03_uncertain_sensor_report/main.eng`

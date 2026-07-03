@@ -10,7 +10,7 @@ Current examples:
   native network/cache offline response -> typed weather table -> coverage review ->
   generated standard weather artifact.
 
-02_external_simulation_surrogate
+02_native_surrogate_case_workflow
   native LHS input samples -> native derived result table -> native case
   template apply -> table-based regression -> native prediction table -> SQLite writes.
 
@@ -27,7 +27,7 @@ Run them from the repository root:
 
 ```text
 target\debug\eng.exe run examples\workflows\01_weather_api_to_standard_file\main.eng --save-artifacts
-target\debug\eng.exe run examples\workflows\02_external_simulation_surrogate\main.eng --save-artifacts
+target\debug\eng.exe run examples\workflows\02_native_surrogate_case_workflow\main.eng --save-artifacts
 target\debug\eng.exe run examples\workflows\03_uncertain_sensor_report\main.eng --save-artifacts
 ```
 

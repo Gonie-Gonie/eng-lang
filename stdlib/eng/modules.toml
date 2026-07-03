@@ -64,7 +64,7 @@ backing = "compiler_runtime_builtin"
 purpose = "Promoted table diagnostics, deterministic row-selection artifacts, and filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned."
 artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
 diagnostics = ["E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH"]
-examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
 
 [module."eng.timeseries"]
@@ -82,7 +82,7 @@ backing = "compiler_runtime_builtin"
 purpose = "Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews."
 artifacts = ["typed_payload.sample_tables", "case_manifest"]
 diagnostics = ["E-SAMPLING-COUNT-INVALID", "E-SAMPLING-RANGE-UNIT", "E-SAMPLING-SEED-INVALID", "E-SAMPLING-SEED-MISSING", "E-CASE-ID-DUPLICATE"]
-examples = ["examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_compiler sample_generation", "cargo test -p eng_runtime sample"]
 
 [module."eng.case"]
@@ -91,7 +91,7 @@ backing = "compiler_runtime_builtin"
 purpose = "CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata."
 artifacts = ["typed_payload.case_tables", "typed_payload.case_manifests", "typed_payload.case_diagnostics", "case_manifest", "output_manifest"]
 diagnostics = ["E-CASE-ID-DUPLICATE", "E-CASE-DIR-COLLISION", "E-CASE-OUTPUT-MISSING", "E-CASE-STEP-FAILED", "W-CASE-SKIPPED-CACHE"]
-examples = ["examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime case_manifest"]
 
 [module."eng.artifact"]
@@ -100,7 +100,7 @@ backing = "compiler_runtime_builtin"
 purpose = "Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links."
 artifacts = ["output_manifest", "review.side_effects", "artifact_registry"]
 diagnostics = ["artifact_validation_failed"]
-examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime output_manifest", "cargo test -p eng_runtime run_file_writes_standard_text_from_native_table"]
 
 [module."eng.review"]
@@ -118,7 +118,7 @@ backing = "compiler_runtime_builtin"
 purpose = "ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts."
 artifacts = ["typed_payload.model_specs", "typed_payload.model_cards", "typed_payload.prediction_manifests", "typed_payload.model_diagnostics", "model_card", "model_metrics", "output_manifest"]
 diagnostics = ["E-MODEL-FEATURE-MISSING", "E-MODEL-TARGET-MISSING", "E-MODEL-CARD-MISSING", "W-MODEL-EXTRAPOLATION"]
-examples = ["examples/workflows/02_external_simulation_surrogate", "examples/internal/05_data_driven_modeling"]
+examples = ["examples/workflows/02_native_surrogate_case_workflow", "examples/internal/05_data_driven_modeling"]
 tests = ["cargo test -p eng_compiler records_data_driven_modeling_metadata", "cargo test -p eng_runtime model", "cargo test -p eng_runtime run_file_predicts_native_model_into_table_and_sqlite"]
 
 [module."eng.db"]
@@ -127,7 +127,7 @@ backing = "compiler_runtime_builtin"
 purpose = "Native SQLite append/upsert/replace writes with typed schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect records."
 artifacts = ["typed_payload.db_manifests", "db_write_manifest", "sqlite_database", "review.external_boundaries"]
 diagnostics = ["E-DB-CONNECT", "E-DB-SCHEMA-MISMATCH", "E-DB-KEY-MISSING", "E-DB-TRANSACTION-FAILED", "E-DB-SAFE-PROFILE", "W-PROFILE-REPRO-DB"]
-examples = ["examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_compiler lowers_native_db_write_records", "cargo test -p eng_runtime sqlite", "cargo test -p eng_runtime run_file_safe_profile_rejects_native_db_write", "cargo test -p eng_runtime run_file_repro_profile_records_native_db_write"]
 
 [module."eng.config"]
@@ -172,7 +172,7 @@ backing = "compiler_runtime_builtin"
 purpose = "Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement."
 artifacts = ["typed_payload.render_manifests", "template_render_manifest", "review.render_manifests", "output_manifest"]
 diagnostics = ["E-TEMPLATE-MISSING-VALUE"]
-examples = ["examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_compiler render_template_command_lowers_with_template_contract", "cargo test -p eng_runtime template"]
 
 [module."eng.workflow"]
@@ -181,7 +181,7 @@ backing = "compiler_runtime_builtin"
 purpose = "Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links."
 artifacts = ["run_plan", "run_lock", "output_manifest", "run_log"]
 diagnostics = ["run_lock_changed", "artifact_hash_mismatch"]
-examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_external_simulation_surrogate"]
+examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime run_plan"]
 
 [module."eng.report"]

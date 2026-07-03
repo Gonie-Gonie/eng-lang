@@ -4028,6 +4028,18 @@ Status: implemented to make TextMate workflow phrase coverage self-auditing.
 - Improved begin/end pattern matching so multi-line workflow scopes can be
   tested from their opening phrase without copying whole fixture blocks.
 
+## Batch 325: Workflow 02 Native Path Rename
+
+Status: implemented to remove external-simulator wording from the public
+workflow path.
+
+- Renamed workflow 02 from the old external-simulation path to
+  `02_native_surrogate_case_workflow`.
+- Renamed the workflow guide page to `native_surrogate_case_workflow.md` and
+  updated docs, tests, smoke paths, and example commands.
+- Extended `workflows-test` public-doc checks so the stale external-simulation
+  path and doc link cannot be reintroduced.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

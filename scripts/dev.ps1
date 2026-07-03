@@ -371,14 +371,28 @@ function Invoke-WorkflowsTest {
     if ($WorkflowSourcePaths.Count -lt 3) {
         throw "Native workflow smoke expected at least workflow 01/02/03 main.eng files"
     }
-    $WorkflowPublicDocPaths = @(Get-ChildItem -LiteralPath $WorkflowRoot -Recurse -File -Include "*.md", "*.txt" | Sort-Object FullName)
+    $WorkflowPublicDocPaths = @(
+        @(Get-ChildItem -LiteralPath $WorkflowRoot -Recurse -File -Include "*.md", "*.txt" | Sort-Object FullName)
+        @(
+            "examples\README.md",
+            "docs\workflows\index.md",
+            "docs\workflows\native_surrogate_case_workflow.md",
+            "docs\user\tutorial\12_composite_workflow.md",
+            "docs\current\workflow_modules.md",
+            "docs\current\test_ci_gates.md"
+        ) | ForEach-Object {
+            Get-Item -LiteralPath (Join-Path $RepoRoot $_)
+        }
+    )
     foreach ($WorkflowPublicDocPath in $WorkflowPublicDocPaths) {
         $WorkflowPublicDoc = Get-Content -LiteralPath $WorkflowPublicDocPath.FullName -Raw
         foreach ($ForbiddenWorkflowDocWording in @(
             "files produced by an external process",
             "external-simulator adapter pattern",
             "native surrogate half",
-            "external simulator adapter could feed later"
+            "external simulator adapter could feed later",
+            "02_external_simulation_surrogate",
+            "external_simulation_surrogate.md"
         )) {
             if ($WorkflowPublicDoc.Contains($ForbiddenWorkflowDocWording)) {
                 throw "Native workflow public docs must not lead with stale external-process wording '$ForbiddenWorkflowDocWording': $($WorkflowPublicDocPath.FullName)"
@@ -526,7 +540,7 @@ function Invoke-WorkflowsTest {
                 }
             }
         }
-        if ($Workflow -like "*02_external_simulation_surrogate*") {
+        if ($Workflow -like "*02_native_surrogate_case_workflow*") {
             $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
             $ReviewPath = Join-Path $RepoRoot "build\result\review.json"
             $OutputManifestPath = Join-Path $RepoRoot "build\result\output_manifest.json"

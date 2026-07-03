@@ -77,7 +77,7 @@ workflows/01_weather_api_to_standard_file
   Native network/cache fixture boundary, typed station-map and hourly-weather
   tables, generated standard text artifact, and review/report path.
 
-workflows/02_external_simulation_surrogate
+workflows/02_native_surrogate_case_workflow
   Native LHS samples, template-rendered case inputs, table-based regression,
   native prediction table, generated workflow summary, and SQLite DB manifests.
 
