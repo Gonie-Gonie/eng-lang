@@ -2168,6 +2168,18 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.db-read.englang",
+    "text": "read sqlite db.table(\"runs\") as ProcessResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.db-read-target.englang",
+    "text": "as ProcessResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "string.quoted.double.englang",
     "text": "\"runs\"",
     "fullMatch": true

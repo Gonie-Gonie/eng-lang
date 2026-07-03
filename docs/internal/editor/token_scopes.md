@@ -102,6 +102,7 @@ Current workflow phrase scopes:
 | `meta.workflow.align-series.englang` | `align <series> with <series>` or `align <series> to <series>` |
 | `meta.workflow.check-coverage.englang` | `check coverage <series>` |
 | `meta.workflow.collect-results.englang` | `collect results <table>` |
+| `meta.workflow.db-read.englang` | `read sqlite <db>.table("<name>") as <schema>` |
 | `meta.workflow.db-write.englang` | `write <table> to <db>.table("<name>")` |
 | `meta.workflow.derive-column.englang` | `derive <table> column ...` |
 | `meta.workflow.distribution-call.englang` | `uniform(...)`, `normal(...)`, `distribution(...)`, `measured(...)`, and `interval(...)` value distributions. |

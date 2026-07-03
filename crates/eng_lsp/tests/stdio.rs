@@ -1428,6 +1428,113 @@ fn snapshot_stdin_reads_unsaved_source() {
 }
 
 #[test]
+fn snapshot_stdin_marks_sqlite_readback_tokens_as_db_boundary() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source = r#"schema PersistedRun {
+    case_id: String
+    status: String
+}
+
+db = open sqlite file("outputs/results.sqlite")
+persisted_runs = read sqlite db.table("runs") as PersistedRun
+"#;
+    let mut child = Command::new(server)
+        .arg("--snapshot-stdin")
+        .arg("sqlite_readback_tokens.eng")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp snapshot-stdin should start");
+    child
+        .stdin
+        .take()
+        .expect("stdin should be piped")
+        .write_all(source.as_bytes())
+        .expect("source should be written to stdin");
+    let output = child
+        .wait_with_output()
+        .expect("snapshot-stdin should exit");
+
+    assert!(
+        output.status.success(),
+        "snapshot-stdin failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let snapshot: Value =
+        serde_json::from_slice(&output.stdout).expect("snapshot stdout should be JSON");
+    let tokens = snapshot["semantic_tokens"]["tokens"]
+        .as_array()
+        .expect("semantic token snapshot should contain token objects");
+    let read_line = source
+        .lines()
+        .position(|line| line.contains("read sqlite"))
+        .expect("source should contain a sqlite readback line");
+    let line = source.lines().nth(read_line).unwrap();
+    let read_start = line.find("read").unwrap();
+    let sqlite_start = line.find("sqlite").unwrap();
+    let table_start = line.find("table").unwrap();
+    let as_start = line.find("as PersistedRun").unwrap();
+    let schema_start = as_start + "as ".len();
+
+    assert!(
+        semantic_token_has_modifiers(
+            tokens,
+            read_line,
+            read_start,
+            4,
+            "keyword",
+            &["db", "external"]
+        ),
+        "read keyword should carry db/external semantic modifiers"
+    );
+    assert!(
+        semantic_token_has_modifiers(
+            tokens,
+            read_line,
+            sqlite_start,
+            6,
+            "keyword",
+            &["db", "external"]
+        ),
+        "sqlite keyword should carry db/external semantic modifiers"
+    );
+    assert!(
+        semantic_token_has_modifiers(
+            tokens,
+            read_line,
+            table_start,
+            5,
+            "method",
+            &["db", "external"]
+        ),
+        "table call should carry db/external semantic modifiers"
+    );
+    assert!(
+        semantic_token_has_modifiers(
+            tokens,
+            read_line,
+            as_start,
+            2,
+            "keyword",
+            &["db", "external"]
+        ),
+        "as keyword should carry db/external semantic modifiers in sqlite reads"
+    );
+    assert!(
+        semantic_token_has_modifiers(
+            tokens,
+            read_line,
+            schema_start,
+            "PersistedRun".len(),
+            "class",
+            &[]
+        ),
+        "sqlite readback schema should be a class token"
+    );
+}
+
+#[test]
 fn snapshot_stdin_reports_write_text_interpolation_diagnostics() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source = "Q = 2 kW\nwrite text \"summary.txt\", \"Q={Q: .2 m} missing={missing_value}\"\n";
@@ -1924,6 +2031,27 @@ fn document_symbols_contain(symbols: &[Value], name: &str) -> bool {
             || symbol["children"]
                 .as_array()
                 .is_some_and(|children| document_symbols_contain(children, name))
+    })
+}
+
+fn semantic_token_has_modifiers(
+    tokens: &[Value],
+    line: usize,
+    start: usize,
+    length: usize,
+    token_type: &str,
+    modifiers: &[&str],
+) -> bool {
+    tokens.iter().any(|token| {
+        token["line"].as_u64() == Some(line as u64)
+            && token["start"].as_u64() == Some(start as u64)
+            && token["length"].as_u64() == Some(length as u64)
+            && token["type"].as_str() == Some(token_type)
+            && token["modifiers"].as_array().is_some_and(|actual| {
+                modifiers
+                    .iter()
+                    .all(|modifier| actual.iter().any(|value| value.as_str() == Some(*modifier)))
+            })
     })
 }
 

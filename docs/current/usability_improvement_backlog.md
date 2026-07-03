@@ -4228,6 +4228,19 @@ Status: implemented to move DB support beyond write-only artifacts.
 - Updated workflow 02 to read back persisted predictions through the new native
   DB path.
 
+## Batch 341: VS Code DB Readback Highlighting
+
+Status: implemented to keep the new native DB read syntax consistent in IDEs.
+
+- Added a TextMate grammar scope for
+  `read sqlite db.table("name") as SchemaName`.
+- Scoped the DB read target schema as a type name and kept `read`, `sqlite`,
+  `table`, and `as` visibly distinct.
+- Added LSP semantic tokens that mark DB readback keywords and table access as
+  `db`/`external` boundary tokens.
+- Expanded grammar and LSP tests so future DB syntax changes cannot silently
+  drop highlighting.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

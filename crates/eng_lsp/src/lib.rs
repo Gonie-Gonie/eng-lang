@@ -3,9 +3,9 @@ use std::path::Path;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
-    classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
-    ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo,
-    FunctionInfo, SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
+    classify_diagnostic_review_risk, classify_review_risk, db_read_expression, CheckOptions,
+    CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
+    FileOperationInfo, FunctionInfo, SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -1602,6 +1602,23 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         } else {
             builder.push_on_line(write.line, &write.format, "function", &["defaultLibrary"]);
         }
+    }
+
+    for declaration in &report.inferred_declarations {
+        let Some(read) = db_read_expression(&declaration.expression) else {
+            continue;
+        };
+        let modifiers = &["db", "external"];
+        builder.push_on_line(
+            declaration.line,
+            &declaration.name,
+            "variable",
+            &["declaration", "db", "external"],
+        );
+        builder.push_keywords_on_line(declaration.line, &["read", "sqlite", "as"], modifiers);
+        builder.push_on_line(declaration.line, &read.connection, "variable", modifiers);
+        builder.push_on_line(declaration.line, "table", "method", modifiers);
+        builder.push_on_line(declaration.line, &read.schema_name, "class", &[]);
     }
 
     for operation in &program.file_operations {

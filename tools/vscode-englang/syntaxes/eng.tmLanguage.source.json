@@ -559,6 +559,36 @@
             ]
           },
           {
+            "name": "meta.workflow.db-read.englang",
+            "begin": "\\b(read)\\s+(sqlite)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.external-boundary.englang" },
+              "2": { "name": "keyword.control.external-boundary.englang" },
+              "3": { "name": "variable.other.local.englang" },
+              "4": { "name": "support.function.builtin.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#strings" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#types" },
+              { "include": "#punctuation" },
+              {
+                "name": "meta.db-read-target.englang",
+                "match": "\\b(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                "captures": {
+                  "1": { "name": "keyword.operator.word.englang" },
+                  "2": { "name": "entity.name.type.englang" }
+                }
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
+          },
+          {
             "name": "meta.workflow.open-sqlite.englang",
             "begin": "\\b(open)\\s+(sqlite)\\b",
             "beginCaptures": {
