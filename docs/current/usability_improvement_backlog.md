@@ -4241,6 +4241,17 @@ Status: implemented to keep the new native DB read syntax consistent in IDEs.
 - Expanded grammar and LSP tests so future DB syntax changes cannot silently
   drop highlighting.
 
+## Batch 342: Network Maturity Status Wording
+
+Status: implemented to keep public docs aligned with the runtime.
+
+- Removed stale wording that still described live `eng.net` execution as future
+  work even though live HTTP(S) GET/download and cache replay are implemented.
+- Reworded workflow 01 docs around deterministic pinned responses so the
+  example no longer reads like a fixture-only API adapter.
+- Updated DB maturity wording to include typed SQLite readback alongside write
+  manifests.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

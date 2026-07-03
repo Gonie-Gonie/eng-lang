@@ -102,26 +102,28 @@ syntax:
   `typed_payload.prediction_manifests[]`, including output quantity/unit,
   case IDs, row counts, hashes, and confidence-column metadata.
 - Native DB tests cover `open sqlite`, `write <table> to db.table("...")`,
-  append, upsert with key, replace, transaction rollback, schema mismatch diagnostics,
-  safe-profile rejection, DB write manifests, SQLite database artifacts, DB
-  file hashes before/after, and table records.
+  append, upsert with key, replace, typed SQLite table readback, transaction
+  rollback, schema mismatch diagnostics, safe-profile rejection, DB write
+  manifests, SQLite database artifacts, DB file hashes before/after, and table
+  records.
 - Native model predict tests cover `predict <model> using <table>`,
   Table[Prediction] materialization, prediction-manifest metadata, confidence
   columns, and writing prediction tables through the native SQLite DB write
   path.
 
-Remaining gap: live `eng.net` execution plus `eng.cache` replay/invalidation
-policy, broader sampling distributions/design policies, case-runner scheduling,
-DB read/query support, and public model training syntax remain planned.
-Fixture/cache-record evidence must stay labeled as composite workflow
-foundations, not full native module support.
+Remaining gap: broader `eng.cache` invalidation/reuse policy, broader sampling
+distributions/design policies, case-runner scheduling, DB query/engine support,
+and public model training syntax remain planned. Pinned response/cache-record
+evidence must stay labeled as composite workflow foundations, not full native
+module support.
 
 ## Checklist 9.4: Workflow Example Tests
 
 Current coverage:
 
 - `examples/workflows/01_weather_api_to_standard_file/main.eng`
-  runs in fixture mode without a real network call.
+  runs in deterministic pinned-response mode without a real network call;
+  runtime tests separately cover live HTTP(S) execution and cached replay.
 - `examples/workflows/02_native_surrogate_case_workflow/main.eng`
   runs native sampling, template rendering, regression, prediction, and DB writes
   with zero external process executions.

@@ -3,7 +3,7 @@
 This workflow demonstrates a native, domain-neutral API-to-artifact pattern:
 
 ```text
-station table -> selected station -> args-driven HTTP offline-response/cache boundary ->
+station table -> selected station -> args-driven HTTP boundary with pinned response/cache replay ->
 native HTTP response object metadata -> response body artifact -> API JSON
 schema contract -> JSON records weather table -> TimeSeries coverage ->
 native standard_text artifact and quality text artifact
@@ -12,7 +12,7 @@ native standard_text artifact and quality text artifact
 The workflow uses:
 
 ```text
-eng.net       http get args.api_url with selected station query, pinned offline response, SHA-256, retry, timeout, cache key, response status/hash/query URL fields
+eng.net       http get args.api_url with selected station query, pinned response, SHA-256, retry, timeout, cache key, response status/hash/query URL fields
 eng.cache     cache records and replayable response materialization from args-driven key parts
 eng.config    read/promote JSON validation from the native HTTP response body
 eng.table     station CSV promotion, JSON records table promotion, and filter/require_one row selection
@@ -33,6 +33,11 @@ output_manifest.json records fetched_weather.json and weather_quality_summary.tx
 as write_text artifacts, and standard_weather_file.txt as a standard_file artifact
 review.json records json_records table promotion, table transforms, network/cache boundary, response metadata bindings, and coverage data
 ```
+
+This checked workflow keeps `offline_response` enabled so CI and local smoke
+runs do not depend on a live weather service. The same native `http get` path
+also supports live HTTP(S) execution and cached replay when the pinned response
+option is removed and a reachable URL is supplied.
 
 Run:
 

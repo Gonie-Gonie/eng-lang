@@ -175,18 +175,20 @@ is not mistaken for public module support.
 - Composite workflow foundations
   - Public package: `Supported` side-effect primitives
   - Main status: `Supported` path/io/process/test/profile, promoted table
-    diagnostics, native pinned offline network/cache boundaries, native JSON API
-    payload contract promotion in the weather workflow, native sample-table
-    artifacts, native template-rendered case input artifacts, optional JSON/TOML
-    config field policy, native SQLite append/upsert/replace write records in
-    `typed_payload.db_manifests[]`, output-manifest
+    diagnostics, native HTTP(S) network/cache boundaries with pinned
+    offline-response and live/cache-replay paths, native JSON API payload
+    contract promotion in the weather workflow, native sample-table artifacts,
+    native template-rendered case input artifacts, optional JSON/TOML config
+    field policy, native SQLite append/upsert/replace write records in
+    `typed_payload.db_manifests[]`, typed SQLite table readback in
+    `typed_payload.structured_reads[]`, output-manifest
     `artifact_registry` summaries, model specs/cards in
     `typed_payload.model_specs[]` and `typed_payload.model_cards[]`,
     native predict-table records and prediction manifests in `typed_payload.prediction_manifests[]`, model
     diagnostics in `typed_payload.model_diagnostics[]`, and native workflow
     artifact evidence for weather/case/model/prediction/DB manifest contracts;
-    `Planned` live network execution, broader cache invalidation/reuse APIs,
-    native case runner, broad DB support, and broader model train syntax.
+    `Planned` broader cache invalidation/reuse APIs, native case runner, broad
+    DB query/engine support, and broader model train syntax.
   - Current native DB evidence includes schema diagnostics, transaction status,
     table names, modes, keys, row counts, source hashes, and report-visible
     DB table summaries. Current native model evidence includes preferred
@@ -201,18 +203,18 @@ is not mistaken for public module support.
 - General table derived-value execution, fill transforms, and arbitrary TimeSeries expression execution.
 - Quantity/unit-literal Args conversion and flag-only booleans.
 - Multi-return functions, package/module imports, and full formatter policy.
-- Native composite workflow modules beyond the current pinned offline
+- Native composite workflow modules beyond the current pinned/live
   network/cache boundary,
-  sampling, table-regression, prediction, template, and SQLite write support:
-  live network execution, broader cache invalidation/reuse APIs, native case
-  runner, broad database support, and public model train/predict workflows.
+  sampling, table-regression, prediction, template, and SQLite write/readback
+  support: broader cache invalidation/reuse APIs, native case runner, broad
+  database query/engine support, and public model train/predict workflows.
 - Broad nonlinear/DAE/adaptive/component solving beyond the documented narrow
   paths.
 - Production multi-domain component simulation and pressure-drop packages.
 - Stable long-running editor protocol contract.
 - Native JIT/AOT code generation and measured speedups.
-- Network/download support, broad filesystem mutation, and full process
-  sandboxing.
+- Broader network/download auth policy, broad filesystem mutation, and full
+  process sandboxing.
 
 ## Current Crate Architecture
 

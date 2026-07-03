@@ -252,8 +252,9 @@ separate.
   native workflow examples now emit weather, template-rendered case input,
   model-card, prediction-manifest, and DB side-effect artifacts without external
   process adapters; deterministic grid/random/LHS sampling materializes
-  `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes include
-  manifests, schema diagnostics, transaction status, and DB file hashes; preferred native
+  `typed_payload.sample_tables[]`; native SQLite append/upsert/replace writes
+  include manifests, typed table readback records, schema diagnostics,
+  transaction status, and DB file hashes; preferred native
   `train regression`, legacy-compatible `regression_table`, and `predict <model> using <table>` materialize
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
@@ -271,6 +272,7 @@ separate.
   `typed_payload.timeseries_coverage[]`, `typed_payload.timeseries_quality[]`, `typed_payload.expectation_suites[]`, `typed_payload.quality_results[]`, `report_spec.quality_report`, HTML Quality Report tables, IDE Quality inspector payloads, `typed_payload.time_alignments[]`, `typed_payload.sample_tables[]`,
   `typed_payload.case_tables[]`, `typed_payload.case_manifests[]`,
   `typed_payload.case_diagnostics[]`, `typed_payload.db_manifests[]`,
+  `typed_payload.structured_reads[]`,
   `typed_payload.model_specs[]`, `typed_payload.model_cards[]`,
   `typed_payload.prediction_manifests[]`, `typed_payload.model_diagnostics[]`,
   workflow examples under `examples/workflows`,
@@ -280,8 +282,9 @@ separate.
   The native surrogate workflow now records native sample rows,
   CaseOutput rows from `apply ... over cases`, case_input artifacts, surrogate
   model specs/cards, prediction manifests with output quantity/unit and
-  confidence-column metadata, and DB write manifests with schema diagnostics,
-  table records, and transaction status as reviewable native artifacts.
+  confidence-column metadata, DB write manifests with schema diagnostics,
+  table records, transaction status, and typed DB readback as reviewable native
+  artifacts.
 - Not included: request bodies/auth beyond `secret env` and broader cache
   invalidation/reuse API,
   general table derived-value execution/fill transforms,
