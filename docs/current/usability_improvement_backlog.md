@@ -4461,6 +4461,20 @@ Status: implemented after reviewing remaining LSP editor capabilities.
 - Extended stdio tests, README wording, and `ide-check` contract coverage so
   range formatting stays wired to the shared formatter path.
 
+## Batch 361: Semantic Highlight Setting Refresh
+
+Status: implemented after reviewing VS Code highlighting usability.
+
+- Added a semantic-token provider refresh event so changing
+  `englang.semanticHighlighting.enabled` immediately asks VS Code to repaint
+  compiler-backed token colors.
+- Made planned/internal symbol decorations follow the same setting, so
+  TextMate-only mode clears those semantic dotted markers without waiting for a
+  document close or a later analysis result.
+- Extended README wording and `ide-check` contract coverage so the setting
+  remains a real live editor toggle instead of a value that is only read during
+  the next token request.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

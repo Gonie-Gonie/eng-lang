@@ -42,6 +42,15 @@ function createDecorationController(options = {}) {
     }
   }
 
+  function refreshVisibleSemanticSymbolDecorations() {
+    for (const editor of vscode.window.visibleTextEditors) {
+      if (isEngDocument(editor.document)) {
+        const cached = reviewCache.get(editor.document.uri.fsPath);
+        updateSemanticSymbolDecorations(editor.document, cached);
+      }
+    }
+  }
+
   function updateSemanticSymbolDecorations(document, snapshot) {
     if (!semanticSymbolDecorations || !isEngDocument(document)) {
       return;
@@ -52,7 +61,10 @@ function createDecorationController(options = {}) {
     if (editors.length === 0) {
       return;
     }
-    const decorations = semanticSymbolDecorationOptions(document, snapshot);
+    const config = vscode.workspace.getConfiguration("englang", document.uri);
+    const decorations = config.get("semanticHighlighting.enabled", true)
+      ? semanticSymbolDecorationOptions(document, snapshot)
+      : { internal: [], planned: [] };
     for (const editor of editors) {
       editor.setDecorations(semanticSymbolDecorations.internal, decorations.internal);
       editor.setDecorations(semanticSymbolDecorations.planned, decorations.planned);
@@ -67,6 +79,7 @@ function createDecorationController(options = {}) {
       semanticSymbolDecorations.planned
     ],
     refreshVisibleReviewRiskDecorations,
+    refreshVisibleSemanticSymbolDecorations,
     updateReviewRiskDecorations,
     updateSemanticSymbolDecorations
   };

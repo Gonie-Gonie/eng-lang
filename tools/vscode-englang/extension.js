@@ -85,7 +85,16 @@ function activate(context) {
     updateReviewRiskDecorations: decorationController.updateReviewRiskDecorations,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
   });
-  context.subscriptions.push(output, diagnostics);
+  const semanticTokensProvider = new EngSemanticTokensProvider(context, {
+    isEngDocument,
+    snapshotDocumentSource: lspRequests.snapshotDocumentSource,
+    cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
+    updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations,
+    semanticLegend,
+    semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
+    semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
+  });
+  context.subscriptions.push(output, diagnostics, semanticTokensProvider);
   context.subscriptions.push(...decorationController.disposables);
 
   context.subscriptions.push(
@@ -95,6 +104,10 @@ function activate(context) {
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration("englang.reviewRiskDecorations.enabled")) {
         decorationController.refreshVisibleReviewRiskDecorations();
+      }
+      if (event.affectsConfiguration("englang.semanticHighlighting.enabled")) {
+        semanticTokensProvider.refresh();
+        decorationController.refreshVisibleSemanticSymbolDecorations();
       }
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
@@ -164,15 +177,7 @@ function activate(context) {
     ),
     vscode.languages.registerDocumentSemanticTokensProvider(
       LANGUAGE_ID,
-      new EngSemanticTokensProvider(context, {
-        isEngDocument,
-        snapshotDocumentSource: lspRequests.snapshotDocumentSource,
-        cacheSnapshotForDocument: (document, snapshot) => reviewCache.set(document.uri.fsPath, snapshot),
-        updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations,
-        semanticLegend,
-        semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
-        semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
-      }),
+      semanticTokensProvider,
       semanticLegend
     ),
     vscode.languages.registerDocumentSymbolProvider(

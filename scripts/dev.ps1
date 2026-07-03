@@ -3009,6 +3009,15 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
         throw "VS Code extension must load semantic token provider orchestration from semanticTokensProvider.js"
     }
+    if (-not $SemanticTokensProviderSource.Contains("onDidChangeSemanticTokens") -or -not $SemanticTokensProviderSource.Contains("refresh()") -or -not $SemanticTokensProviderSource.Contains("_onDidChangeSemanticTokens.fire()")) {
+        throw "VS Code semantic token provider must notify VS Code when highlight settings change"
+    }
+    if (-not $ExtensionSource.Contains("semanticTokensProvider.refresh()") -or -not $ExtensionSource.Contains('affectsConfiguration("englang.semanticHighlighting.enabled")') -or -not $ExtensionSource.Contains("refreshVisibleSemanticSymbolDecorations")) {
+        throw "VS Code extension must refresh semantic tokens and symbol decorations when semantic highlighting settings change"
+    }
+    if (-not $DecorationsSource.Contains('config.get("semanticHighlighting.enabled", true)') -or -not $DecorationsSource.Contains("refreshVisibleSemanticSymbolDecorations")) {
+        throw "VS Code semantic symbol decorations must follow the semantic highlighting setting"
+    }
     if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample")) {
         throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
     }

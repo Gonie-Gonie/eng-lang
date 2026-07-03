@@ -172,8 +172,9 @@ boundaries, inputs, state, built-in workflow helper functions, module
 namespaces, model artifacts, DB/cache records, workflow steps, and review risks,
 so themes without EngLang-specific rules still receive stable color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
-highlighting. Maintainer-facing scope and semantic-token mapping rules live in
-`docs/internal/editor/token_scopes.md`.
+highlighting; changing this setting refreshes the current editor colors and
+planned/internal symbol markers immediately. Maintainer-facing scope and
+semantic-token mapping rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with category
 and detail counts plus representative source-text samples.
 
