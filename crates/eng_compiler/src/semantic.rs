@@ -2676,6 +2676,7 @@ fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) ->
             "cache",
             "body",
             "expected_sha256",
+            "headers",
             "timeout",
             "offline_response",
             "fixture",

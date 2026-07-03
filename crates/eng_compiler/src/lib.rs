@@ -52,7 +52,9 @@ pub use module_registry::{
     bundled_module_registry, load_module_registry, parse_module_registry, ModuleRegistry,
     ModuleRegistryEntry, ModuleRegistryError,
 };
-pub use net::{request_body_sha256, NetDownloadInfo, NetQueryParam, NetRequestInfo};
+pub use net::{
+    request_body_sha256, NetDownloadInfo, NetHeaderParam, NetQueryParam, NetRequestInfo,
+};
 pub use parser::{parse_source, ParseContext, ParsedLine, ParsedProgram, SyntaxSummary};
 pub use quantities::{all_quantity_completions, normalize_unit, QuantityCompletion};
 pub use schema::{
@@ -4838,6 +4840,7 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
         let body_sha256 = request.body.as_deref().map(net::request_body_sha256);
         push_optional_json_string(json, "body_sha256", body_sha256.as_deref(), indent + 4);
         push_net_query_json(json, &request.query, indent + 4);
+        push_net_headers_json(json, &request.headers, indent + 4);
         push_optional_json_string(
             json,
             "expected_sha256",
@@ -4961,6 +4964,23 @@ fn push_net_query_json(json: &mut String, query: &[net::NetQueryParam], indent: 
             json_escape(&param.key),
             json_escape(&param.value),
             param.redacted
+        ));
+    }
+    json.push_str(&format!("\n{spaces}],\n"));
+}
+
+fn push_net_headers_json(json: &mut String, headers: &[net::NetHeaderParam], indent: usize) {
+    let spaces = " ".repeat(indent);
+    json.push_str(&format!("{spaces}\"headers\": [\n"));
+    for (index, header) in headers.iter().enumerate() {
+        if index > 0 {
+            json.push_str(",\n");
+        }
+        json.push_str(&format!(
+            "{spaces}  {{ \"key\": \"{}\", \"value\": \"{}\", \"redacted\": {} }}",
+            json_escape(&header.key),
+            json_escape(&header.value),
+            header.redacted
         ));
     }
     json.push_str(&format!("\n{spaces}],\n"));
@@ -7088,6 +7108,11 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
                 net::request_body_sha256(body)
             ));
         }
+        push_net_headers_json(json, &request.headers, 8);
+        json.push_str(&format!(
+            "        \"header_count\": {},\n",
+            request.headers.len()
+        ));
         json.push_str("        \"inputs\": [],\n");
         json.push_str("        \"outputs\": [],\n");
         json.push_str(&format!(
@@ -13999,7 +14024,7 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "args {\n    api_url: Url = url(\"https://api.example.org/hourly\")\n    station_id: String = \"108\"\n    year: Int = 2026\n}\n\nresponse = http get args.api_url\nwith {\n    query = {\n    station = args.station_id\n    year = args.year\n    serviceKey = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", args.station_id, args.year]\n    offline_response = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
+            "args {\n    api_url: Url = url(\"https://api.example.org/hourly\")\n    station_id: String = \"108\"\n    year: Int = 2026\n}\n\nresponse = http get args.api_url\nwith {\n    query = {\n    station = args.station_id\n    year = args.year\n    serviceKey = secret env(\"API_KEY\")\n    }\n    headers = {\n    Accept = \"application/json\"\n    Authorization = secret env(\"API_KEY\")\n    }\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    cache = true\n    cache_key = [\"weather\", args.station_id, args.year]\n    offline_response = file(\"data/response.json\")\n}\n\nresponse_text = response.body\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/file.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"file\", \"v1\"]\n}\n",
         )
         .expect("source");
 
@@ -14040,6 +14065,20 @@ system Envelope {
         assert!(request.query.iter().any(|param| param.key == "serviceKey"
             && param.value == "<redacted>"
             && param.redacted));
+        assert!(request.headers.iter().any(|header| header.key == "Accept"
+            && header.value == "application/json"
+            && !header.redacted));
+        assert!(request
+            .headers
+            .iter()
+            .any(|header| header.key == "Authorization"
+                && header.value == "<redacted>"
+                && header.redacted));
+        assert!(!request.query.iter().any(|param| param.key == "Accept"));
+        assert!(!request
+            .query
+            .iter()
+            .any(|param| param.key == "Authorization"));
         assert!(!request.query.iter().any(|param| param.key == "cache_key"));
         let cache_record = &report.semantic_program.cache_records[0];
         assert_eq!(cache_record.owner_kind, "network_request");
@@ -14095,6 +14134,8 @@ system Envelope {
         assert!(review.contains("\"net_requests\""));
         assert!(review.contains("\"net_downloads\""));
         assert!(review.contains("\"body_size_limit_bytes\""));
+        assert!(review.contains("\"headers\""));
+        assert!(review.contains("\"header_count\": 2"));
         assert!(review.contains("\"status_code\": 200"));
         assert!(review.contains("\"status_class\": \"success\""));
         assert!(review.contains("\"cache_records\""));
@@ -14124,6 +14165,29 @@ system Envelope {
                     == Some("external_boundary")
                 && risk.get("level").and_then(serde_json::Value::as_str) == Some("high")
         }));
+    }
+
+    #[test]
+    fn network_request_default_cache_key_includes_headers() {
+        let source = "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    headers = {\n    Accept = \"application/json\"\n    Authorization = secret env(\"API_KEY\")\n    }\n    cache = true\n}\n";
+
+        let report = check_source("headers-cache.eng", source, &CheckOptions::default());
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let cache_record = report
+            .semantic_program
+            .cache_records
+            .iter()
+            .find(|record| record.owner_kind == "network_request")
+            .expect("network request cache record");
+        assert!(cache_record
+            .cache_key_parts
+            .iter()
+            .any(|part| part == "header:Accept=application/json"));
+        assert!(cache_record
+            .cache_key_parts
+            .iter()
+            .any(|part| part == "header:Authorization=<redacted>"));
     }
 
     #[test]

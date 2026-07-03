@@ -4,6 +4,7 @@ use std::path::{Path, PathBuf};
 use sha2::{Digest, Sha256};
 
 use crate::ast::AstItem;
+use crate::lexer::{Symbol, TokenKind};
 use crate::parser::ParsedProgram;
 use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
 use crate::Diagnostic;
@@ -27,6 +28,13 @@ pub struct NetQueryParam {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NetHeaderParam {
+    pub key: String,
+    pub value: String,
+    pub redacted: bool,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NetRequestInfo {
     pub binding: String,
     pub method: String,
@@ -34,6 +42,7 @@ pub struct NetRequestInfo {
     pub url_value: String,
     pub body: Option<String>,
     pub query: Vec<NetQueryParam>,
+    pub headers: Vec<NetHeaderParam>,
     pub retry: Option<usize>,
     pub cache: bool,
     pub expected_sha256: Option<String>,
@@ -95,6 +104,7 @@ pub fn analyze_net_boundaries(
                     &url_literal,
                     binding.line,
                     &options,
+                    parsed,
                     source_base,
                     &program.arg_values,
                     &mut analysis.diagnostics,
@@ -108,6 +118,7 @@ pub fn analyze_net_boundaries(
                     &download.target,
                     download.line,
                     &options,
+                    parsed,
                     source_base,
                     &program.arg_values,
                     &mut analysis.diagnostics,
@@ -150,6 +161,7 @@ fn build_request(
     url_literal: &str,
     line: usize,
     options: &[WithOptionInfo],
+    parsed: &ParsedProgram,
     source_base: Option<&Path>,
     arg_values: &[ArgValueInfo],
     diagnostics: &mut Vec<Diagnostic>,
@@ -183,7 +195,8 @@ fn build_request(
         url_literal: url_literal.to_owned(),
         url_value,
         body: request_body_option(method, options, arg_values, diagnostics),
-        query: query_params(options, arg_values),
+        query: query_params(parsed, options, arg_values),
+        headers: header_params(parsed, options, arg_values),
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: expected_sha256.map(|(value, _line)| value),
@@ -203,6 +216,7 @@ fn build_download(
     target_literal: &str,
     line: usize,
     options: &[WithOptionInfo],
+    parsed: &ParsedProgram,
     source_base: Option<&Path>,
     arg_values: &[ArgValueInfo],
     diagnostics: &mut Vec<Diagnostic>,
@@ -237,7 +251,7 @@ fn build_download(
         url_value,
         target_literal: target_literal.to_owned(),
         target_value,
-        query: query_params(options, arg_values),
+        query: query_params(parsed, options, arg_values),
         retry: retry_policy(options, diagnostics),
         cache: option_value(options, "cache").is_some_and(parse_bool),
         expected_sha256: expected_sha256.map(|(value, _line)| value),
@@ -262,13 +276,19 @@ fn net_options_for_owner(program: &SemanticProgram, owner_line: usize) -> Vec<Wi
         .collect()
 }
 
-fn query_params(options: &[WithOptionInfo], arg_values: &[ArgValueInfo]) -> Vec<NetQueryParam> {
+fn query_params(
+    parsed: &ParsedProgram,
+    options: &[WithOptionInfo],
+    arg_values: &[ArgValueInfo],
+) -> Vec<NetQueryParam> {
+    let header_ranges = option_map_ranges(parsed, options, "headers");
     options
         .iter()
         .filter(|option| !is_net_control_option(&option.key))
         .filter(|option| option.key != "query" && option.key != "}")
+        .filter(|option| !line_in_ranges(option.line, &header_ranges))
         .map(|option| {
-            let (value, redacted) = resolve_query_value(&option.value, arg_values);
+            let (value, redacted) = resolve_net_param_value(&option.value, arg_values);
             NetQueryParam {
                 key: option.key.clone(),
                 value,
@@ -276,6 +296,72 @@ fn query_params(options: &[WithOptionInfo], arg_values: &[ArgValueInfo]) -> Vec<
             }
         })
         .collect()
+}
+
+fn header_params(
+    parsed: &ParsedProgram,
+    options: &[WithOptionInfo],
+    arg_values: &[ArgValueInfo],
+) -> Vec<NetHeaderParam> {
+    let header_ranges = option_map_ranges(parsed, options, "headers");
+    if header_ranges.is_empty() {
+        return Vec::new();
+    }
+    options
+        .iter()
+        .filter(|option| option.key != "headers" && option.key != "query" && option.key != "}")
+        .filter(|option| line_in_ranges(option.line, &header_ranges))
+        .map(|option| {
+            let (value, redacted) = resolve_net_param_value(&option.value, arg_values);
+            NetHeaderParam {
+                key: option.key.clone(),
+                value,
+                redacted,
+            }
+        })
+        .collect()
+}
+
+fn option_map_ranges(
+    parsed: &ParsedProgram,
+    options: &[WithOptionInfo],
+    key: &str,
+) -> Vec<(usize, usize)> {
+    options
+        .iter()
+        .filter(|option| option.key == key && option.value.trim_start().starts_with('{'))
+        .filter_map(|option| option_map_range(parsed, option.line))
+        .collect()
+}
+
+fn option_map_range(parsed: &ParsedProgram, start_line: usize) -> Option<(usize, usize)> {
+    let mut depth = 0i32;
+    let mut seen_start = false;
+    for line in parsed.lines.iter().filter(|line| line.line >= start_line) {
+        seen_start |= line.line == start_line;
+        if !seen_start {
+            continue;
+        }
+        depth += line
+            .tokens
+            .iter()
+            .map(|token| match token.kind {
+                TokenKind::Symbol(Symbol::LBrace) => 1,
+                TokenKind::Symbol(Symbol::RBrace) => -1,
+                _ => 0,
+            })
+            .sum::<i32>();
+        if depth <= 0 {
+            return Some((start_line, line.line));
+        }
+    }
+    seen_start.then_some((start_line, usize::MAX))
+}
+
+fn line_in_ranges(line: usize, ranges: &[(usize, usize)]) -> bool {
+    ranges
+        .iter()
+        .any(|(start, end)| line > *start && line < *end)
 }
 
 pub fn is_net_control_option(key: &str) -> bool {
@@ -288,6 +374,7 @@ pub fn is_net_control_option(key: &str) -> bool {
             | "cache_dir"
             | "cache_key"
             | "expected_sha256"
+            | "headers"
             | "timeout"
             | "offline_response"
             | "fixture"
@@ -483,7 +570,7 @@ fn normalize_body_size_limit(value: &str) -> Result<usize, String> {
     Ok(rounded as usize)
 }
 
-fn resolve_query_value(value: &str, arg_values: &[ArgValueInfo]) -> (String, bool) {
+fn resolve_net_param_value(value: &str, arg_values: &[ArgValueInfo]) -> (String, bool) {
     if is_secret_expression(value) {
         return ("<redacted>".to_owned(), true);
     }

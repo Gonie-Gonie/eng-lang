@@ -4614,6 +4614,20 @@ compiler with-block validation.
 - Added compiler regression coverage so case materialization options do not
   regress to unknown-option diagnostics.
 
+## Batch 373: HTTP Headers Workflow Metadata
+
+Status: implemented after comparing HTTP request completions with native
+network boundary metadata.
+
+- Promoted `headers = { ... }` from editor-only completion vocabulary into the
+  native HTTP request boundary model.
+- Split header map entries from query params so `headers` no longer leak into
+  `request.query`.
+- Included request headers in review JSON and default network cache
+  fingerprints, with secret values redacted.
+- Surfaced request header counts in the VS Code review panel external
+  boundary table.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -363,7 +363,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>External Boundaries</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Target", "Status", "Risk", "Effects"],
+      ["Line", "Name", "Target", "Status", "Risk", "Headers", "Effects"],
       boundaries,
       "No external boundaries.",
       (boundary) => `<tr>
@@ -372,6 +372,7 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
         <td><code>${escapeHtml(compactText(reviewValue(boundary, "target"), 120))}</code></td>
         <td>${statusPill(reviewValue(boundary, "status"))}<div class="muted">${escapeHtml(boundary.status_class || boundary.statusClass || "")} ${escapeHtml(boundary.status_code ?? boundary.statusCode ?? "")}</div></td>
         <td>${statusPill(reviewValue(boundary, "risk_level", "riskLevel"))}</td>
+        <td>${boundaryHeadersCell(boundary)}</td>
         <td>${escapeHtml(reviewList(reviewArray(boundary, "side_effects", "sideEffects"), 120))}</td>
       </tr>`
     )}
@@ -551,6 +552,20 @@ function firstReviewArray(primary, fallback, snakeKey, camelKey = snakeKey) {
 function reviewArray(object, snakeKey, camelKey = snakeKey) {
   const value = object?.[snakeKey] ?? object?.[camelKey];
   return Array.isArray(value) ? value : [];
+}
+
+function boundaryHeadersCell(boundary) {
+  const headers = reviewArray(boundary, "headers");
+  const count = reviewValue(boundary, "header_count", "headerCount", 0) || headers.length;
+  if (!count && headers.length === 0) {
+    return '<span class="muted">0</span>';
+  }
+  const names = headers
+    .map((header) => reviewValue(header, "key", "key", ""))
+    .filter(Boolean)
+    .join(", ");
+  const label = `${count} header${Number(count) === 1 ? "" : "s"}`;
+  return `${escapeHtml(label)}${names ? `<div class="muted">${escapeHtml(compactText(names, 80))}</div>` : ""}`;
 }
 
 function reviewValue(object, snakeKey, camelKey = snakeKey, fallback = "-") {
