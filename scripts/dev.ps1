@@ -3590,6 +3590,9 @@ function Invoke-IdeCheck {
         "Training Plans",
         "Prediction Runs",
         "Case Runs",
+        "processResultsPanelTitle",
+        "Process Results (0 external processes)",
+        "No external process executions recorded.",
         "External Process Results"
     )) {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
@@ -3622,8 +3625,8 @@ function Invoke-IdeCheck {
         }
         $PreviousNativeIdeSideTabIndex = $NativeIdeSideTabIndex
     }
-    if ($IdeUiSource.Contains('<div class="panel-title compact">Process Results</div>')) {
-        throw "Native IDE Effects panel must label process data as External Process Results"
+    if ($IdeUiSource.Contains('<div class="panel-title compact">External Process Results</div>')) {
+        throw "Native IDE Effects panel must compute process result wording from process_count"
     }
     foreach ($ForbiddenIdeWording in @(
         "<th>Artifact Root</th>",

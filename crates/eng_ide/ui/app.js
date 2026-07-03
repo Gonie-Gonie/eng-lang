@@ -3239,6 +3239,7 @@ function renderEffectsPanel() {
   const artifacts = Array.isArray(effects.artifactRecords) ? effects.artifactRecords : [];
   const boundaries = Array.isArray(effects.externalBoundaryRecords) ? effects.externalBoundaryRecords : [];
   const processes = Array.isArray(processResults.processes) ? processResults.processes : [];
+  const processCount = processResultCount(processResults, processes);
   if (!artifacts.length && !boundaries.length && !processes.length) {
     return `
       <div class="panel-title compact">Effects</div>
@@ -3261,11 +3262,26 @@ function renderEffectsPanel() {
       ${renderArtifactRecords(artifacts)}
       <div class="panel-title compact">External Boundary Records</div>
       ${renderExternalBoundaryRecords(boundaries)}
-      <div class="panel-title compact">External Process Results</div>
-      ${renderProcessResults(processes)}
+      <div class="panel-title compact">${escapeHtml(processResultsPanelTitle(processCount))}</div>
+      ${renderProcessResults(processes, processCount)}
       ${rawJsonToggle("Advanced effects data", { effects, processResults })}
     </div>
   `;
+}
+
+function processResultCount(processResults, processes) {
+  const count = Number(processResults.process_count ?? processResults.processCount);
+  if (Number.isFinite(count) && count >= 0) {
+    return count;
+  }
+  return processes.length;
+}
+
+function processResultsPanelTitle(processCount) {
+  if (processCount === 0) {
+    return "Process Results (0 external processes)";
+  }
+  return `External Process Results (${processCount})`;
 }
 
 function renderNetworkPanel() {
@@ -3834,7 +3850,7 @@ function renderRunLog(messages) {
   `;
 }
 
-function renderProcessResults(processes) {
+function renderProcessResults(processes, processCount = processes.length) {
   const rows = processes.map((process) => {
     const outputs = Array.isArray(process.expected_outputs)
       ? process.expected_outputs
@@ -3852,9 +3868,16 @@ function renderProcessResults(processes) {
   return `
     <table class="artifact-table">
       <thead><tr><th>Binding</th><th>Command</th><th>Status</th><th>Stdout/Stderr Hash</th><th>Expected Outputs</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">No process results.</td></tr>`}</tbody>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">${escapeHtml(processResultsEmptyText(processCount))}</td></tr>`}</tbody>
     </table>
   `;
+}
+
+function processResultsEmptyText(processCount) {
+  if (processCount === 0) {
+    return "No external process executions recorded.";
+  }
+  return "No process result rows.";
 }
 
 function renderTestResults(tests) {

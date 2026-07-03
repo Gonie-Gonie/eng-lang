@@ -3936,6 +3936,19 @@ workflow runs.
 - Extended the VS Code contract check so the dynamic zero-process wording
   cannot silently regress.
 
+## Batch 318: Native IDE Process Results Wording
+
+Status: implemented to align the native IDE Effects panel with native
+zero-process workflows.
+
+- Changed the Effects panel process section to compute its title from
+  `process_results.json.process_count`.
+- Shows `Process Results (0 external processes)` and a zero-process empty row
+  for native workflow runs that emit process artifacts without executing an
+  external process.
+- Preserves `External Process Results (<count>)` wording when a run records one
+  or more explicit process executions.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
