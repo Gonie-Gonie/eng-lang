@@ -72,6 +72,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-NET-INVALID-URL") {
+      const action = absoluteHttpUrlAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-NET-HASH-MISMATCH") {
       const action = expectedSha256Action(document, diagnostic);
       if (action) {
@@ -504,6 +511,26 @@ function optionValueReplacementAction(document, diagnostic, fix) {
   return action;
 }
 
+function absoluteHttpUrlAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const range = netUrlLiteralRange(line.text);
+  if (!range) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    "Replace URL with https://example.org",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, range.start, line.lineNumber, range.end),
+    "\"https://example.org\""
+  );
+  return action;
+}
+
 function expectedSha256Action(document, diagnostic) {
   const hash = expectedSha256FromDiagnostic(diagnostic);
   if (!hash) {
@@ -526,6 +553,66 @@ function expectedSha256Action(document, diagnostic) {
     `"${hash}"`
   );
   return action;
+}
+
+function netUrlLiteralRange(lineText) {
+  return callStringArgumentRange(lineText, "url") ?? firstStringLiteralRange(lineText);
+}
+
+function callStringArgumentRange(lineText, functionName) {
+  let searchStart = 0;
+  while (searchStart < lineText.length) {
+    const start = lineText.indexOf(functionName, searchStart);
+    if (start < 0) {
+      break;
+    }
+    const afterName = start + functionName.length;
+    if (identifierBoundary(lineText, start, afterName)) {
+      let cursor = afterName;
+      while (cursor < lineText.length && /\s/.test(lineText[cursor])) {
+        cursor += 1;
+      }
+      if (lineText[cursor] === "(") {
+        cursor += 1;
+        while (cursor < lineText.length && /\s/.test(lineText[cursor])) {
+          cursor += 1;
+        }
+        const range = stringLiteralRangeAt(lineText, cursor);
+        if (range) {
+          return range;
+        }
+      }
+    }
+    searchStart = afterName;
+  }
+  return undefined;
+}
+
+function firstStringLiteralRange(lineText) {
+  const quote = lineText.indexOf("\"");
+  return quote >= 0 ? stringLiteralRangeAt(lineText, quote) : undefined;
+}
+
+function stringLiteralRangeAt(lineText, quoteStart) {
+  if (lineText[quoteStart] !== "\"") {
+    return undefined;
+  }
+  let escaped = false;
+  for (let index = quoteStart + 1; index < lineText.length; index += 1) {
+    const character = lineText[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === "\"") {
+      return { start: quoteStart, end: index + 1 };
+    }
+  }
+  return undefined;
 }
 
 function expectedSha256FromDiagnostic(diagnostic) {

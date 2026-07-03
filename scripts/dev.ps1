@@ -3199,6 +3199,7 @@ function Assert-VscodeExtensionContract {
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
+        "E-NET-INVALID-URL",
         "E-NET-HASH-MISMATCH",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
@@ -3228,6 +3229,8 @@ function Assert-VscodeExtensionContract {
         "schemaAnnotationAction",
         "fileMutationConfirmAction",
         "recursiveDeleteAction",
+        "absoluteHttpUrlAction",
+        "Replace URL with https://example.org",
         "expectedSha256Action",
         "expectedSha256FromDiagnostic",
         "commandTargetParenthesesAction",
@@ -3444,6 +3447,9 @@ function Assert-VscodeExtensionContract {
         "E-PUBLIC-ANNOTATION-001",
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
+        "E-NET-INVALID-URL",
+        "lsp_absolute_http_url_code_action",
+        "Replace URL with https://example.org",
         "E-NET-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE"
     )) {

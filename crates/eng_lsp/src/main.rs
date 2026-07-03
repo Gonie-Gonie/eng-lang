@@ -670,6 +670,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-SAMPLING-SEED-MISSING" => {
             optional_code_action(lsp_sampling_seed_missing_code_action(uri, text, diagnostic))
         }
+        "E-NET-INVALID-URL" => {
+            optional_code_action(lsp_absolute_http_url_code_action(uri, text, diagnostic))
+        }
         "E-NET-HASH-MISMATCH" => {
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
@@ -1299,6 +1302,23 @@ fn lsp_option_value_replacement_code_action(
             uri,
             line_byte_range(line_number, line, assignment.value_start, assignment.value_end),
             fix.value
+        )
+    }))
+}
+
+fn lsp_absolute_http_url_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let (start_byte, end_byte) = net_url_literal_range(line)?;
+    Some(json!({
+        "title": "Replace URL with https://example.org",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            "\"https://example.org\""
         )
     }))
 }
@@ -2332,6 +2352,63 @@ fn expected_sha256_after(message: &str, marker: &str) -> Option<String> {
     } else {
         None
     }
+}
+
+fn net_url_literal_range(line: &str) -> Option<(usize, usize)> {
+    call_string_argument_range(line, "url").or_else(|| first_string_literal_range(line))
+}
+
+fn call_string_argument_range(line: &str, function_name: &str) -> Option<(usize, usize)> {
+    let mut search_start = 0usize;
+    while search_start < line.len() {
+        let Some(relative_start) = line[search_start..].find(function_name) else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let after_name = start + function_name.len();
+        if identifier_boundary(line, start, after_name) {
+            let mut cursor = after_name;
+            while cursor < line.len() && line.as_bytes()[cursor].is_ascii_whitespace() {
+                cursor += 1;
+            }
+            if line.as_bytes().get(cursor) == Some(&b'(') {
+                cursor += 1;
+                while cursor < line.len() && line.as_bytes()[cursor].is_ascii_whitespace() {
+                    cursor += 1;
+                }
+                if let Some(range) = string_literal_range_at(line, cursor) {
+                    return Some(range);
+                }
+            }
+        }
+        search_start = after_name;
+    }
+    None
+}
+
+fn first_string_literal_range(line: &str) -> Option<(usize, usize)> {
+    let quote = line.find('"')?;
+    string_literal_range_at(line, quote)
+}
+
+fn string_literal_range_at(line: &str, quote_start: usize) -> Option<(usize, usize)> {
+    if line.as_bytes().get(quote_start) != Some(&b'"') {
+        return None;
+    }
+    let mut escaped = false;
+    for (relative_index, character) in line[quote_start + 1..].char_indices() {
+        let index = quote_start + 1 + relative_index;
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '"' => return Some((quote_start, index + '"'.len_utf8())),
+            _ => {}
+        }
+    }
+    None
 }
 
 struct OptionAssignmentRange {

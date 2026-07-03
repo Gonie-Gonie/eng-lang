@@ -839,6 +839,11 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
                 return Some(range);
             }
         }
+        "E-NET-INVALID-URL" => {
+            if let Some(range) = net_url_literal_byte_range(line) {
+                return Some(range);
+            }
+        }
         _ => {}
     }
 
@@ -874,6 +879,65 @@ fn backtick_payload_byte_range(line: &str, text: &str) -> Option<(usize, usize)>
         }
         rest = &after_open[close + '`'.len_utf8()..];
     }
+}
+
+fn net_url_literal_byte_range(line: &str) -> Option<(usize, usize)> {
+    let code_end = comment_start(line).unwrap_or(line.len());
+    let code = &line[..code_end];
+    call_string_argument_byte_range(code, "url").or_else(|| first_string_literal_byte_range(code))
+}
+
+fn call_string_argument_byte_range(line: &str, function_name: &str) -> Option<(usize, usize)> {
+    let mut search_start = 0usize;
+    while search_start < line.len() {
+        let Some(relative_start) = line[search_start..].find(function_name) else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let after_name = start + function_name.len();
+        if is_identifier_boundary(line, start, after_name) {
+            let mut cursor = after_name;
+            while cursor < line.len() && line.as_bytes()[cursor].is_ascii_whitespace() {
+                cursor += 1;
+            }
+            if line.as_bytes().get(cursor) == Some(&b'(') {
+                cursor += 1;
+                while cursor < line.len() && line.as_bytes()[cursor].is_ascii_whitespace() {
+                    cursor += 1;
+                }
+                if let Some(range) = string_literal_byte_range_at(line, cursor) {
+                    return Some(range);
+                }
+            }
+        }
+        search_start = after_name;
+    }
+    None
+}
+
+fn first_string_literal_byte_range(line: &str) -> Option<(usize, usize)> {
+    let quote = line.find('"')?;
+    string_literal_byte_range_at(line, quote)
+}
+
+fn string_literal_byte_range_at(line: &str, quote_start: usize) -> Option<(usize, usize)> {
+    if line.as_bytes().get(quote_start) != Some(&b'"') {
+        return None;
+    }
+    let mut escaped = false;
+    for (relative_index, character) in line[quote_start + 1..].char_indices() {
+        let index = quote_start + 1 + relative_index;
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '"' => return Some((quote_start, index + '"'.len_utf8())),
+            _ => {}
+        }
+    }
+    None
 }
 
 fn binary_add_sub_operator_range(line: &str) -> Option<(usize, usize)> {
@@ -6831,6 +6895,11 @@ connect Source.heat -> Sink.heat
                 "E-NET-BODY-SIZE-LIMIT",
                 "download url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    response_body_limit = 0 B\n}\n",
                 "0 B",
+            ),
+            (
+                "E-NET-INVALID-URL",
+                "response = http get url(\"ftp://example.org/data.json\")\n",
+                "\"ftp://example.org/data.json\"",
             ),
             (
                 "E-PROCESS-TIMEOUT",

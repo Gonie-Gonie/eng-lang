@@ -744,6 +744,8 @@ with {
     body_size_limit = unlimited
 }
 
+bad_url_response = http get url("ftp://example.org/data.json")
+
 download url("https://example.org/file.csv") to file("build/raw/file.csv")
 with {
     response_body_limit = 0 B
@@ -865,6 +867,7 @@ report {
         "E-NET-RETRY-POLICY",
         "E-NET-TIMEOUT",
         "E-NET-BODY-SIZE-LIMIT",
+        "E-NET-INVALID-URL",
         "E-NET-HASH-MISMATCH",
         "E-PROCESS-BINDING-001",
         "E-PROCESS-BINDING-002",
@@ -1081,6 +1084,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("log trace"))
         .expect("source should include unsupported log level");
+    let bad_url_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("bad_url_response"))
+        .expect("source should include invalid URL response");
     let missing_log_level_line = source
         .lines()
         .position(|line| line.trim_start().starts_with("log \"missing level\""))
@@ -1154,6 +1161,13 @@ report {
         "Set log level to info",
         "info ",
         missing_log_level_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Replace URL with https://example.org",
+        "\"https://example.org\"",
+        bad_url_line,
     );
     assert_action_edit_at_line(
         actions,
@@ -1235,6 +1249,8 @@ log "missing level"
 schema SensorData {
     m_dot = 1 kg/s
 }
+
+bad_url_response = http get url("ftp://example.org/data.json")
 
 run command "unbound"
 missing_command_result = run command
@@ -1343,6 +1359,12 @@ report {
         "Convert m_dot to schema column annotation",
         "    m_dot: MassFlowRate [kg/s]",
     );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Replace URL with https://example.org",
+        "\"https://example.org\"",
+    );
     assert_action_edit(actions, &uri, "Set timeout to 10 s: timeout = 10 s", "10 s");
     assert_action_edit(actions, &uri, "Disable retries: retry = 0", "0");
     assert_action_edit(
@@ -1412,6 +1434,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("log trace"))
         .expect("source should include unsupported log level");
+    let bad_url_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("bad_url_response"))
+        .expect("source should include invalid URL response");
     let missing_log_level_line = source
         .lines()
         .position(|line| line.trim_start().starts_with("log \"missing level\""))
@@ -1485,6 +1511,13 @@ report {
         "Set log level to info",
         "info ",
         missing_log_level_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Replace URL with https://example.org",
+        "\"https://example.org\"",
+        bad_url_line,
     );
     assert_action_edit_at_line(
         actions,

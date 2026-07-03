@@ -30,7 +30,7 @@ embedding compiler logic in JavaScript.
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
   missing-unit suffix fixes for unit arithmetic diagnostics, command target
   parenthesizing, schema column annotation migrations, required file-mutation
-  `with` options, invalid network retry/timeout/body-size policies, invalid
+  `with` options, invalid network URL/retry/timeout/body-size policies, invalid
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, uncertainty constructor argument repairs, and uncertainty

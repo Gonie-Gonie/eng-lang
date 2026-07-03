@@ -4425,6 +4425,18 @@ Status: implemented after reviewing ProcessResult binding collision diagnostics.
 - Extended LSP stdio, stdin code-action, VS Code extension contract, and README
   coverage for duplicate ProcessResult binding repairs.
 
+## Batch 358: Invalid Network URL Quick Fix
+
+Status: implemented after reviewing network boundary URL diagnostics.
+
+- Added an LSP-owned quick fix for `E-NET-INVALID-URL` that replaces an invalid
+  URL literal with a valid placeholder HTTPS URL.
+- Mirrored the same repair in the VS Code local fallback provider so invalid
+  network URL diagnostics stay actionable without a live LSP response.
+- Narrowed LSP diagnostic range coverage for invalid network URL literals and
+  extended stdio, stdin code-action, VS Code extension contract, and README
+  coverage.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
