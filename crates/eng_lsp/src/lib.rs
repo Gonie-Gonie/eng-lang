@@ -810,6 +810,12 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
         }
     }
 
+    if let Some(option_names) = diagnostic_option_names(diagnostic.code.as_str()) {
+        if let Some(range) = option_value_byte_range(line, option_names) {
+            return Some(range);
+        }
+    }
+
     match diagnostic.code.as_str() {
         "E-PUBLIC-ANNOTATION-001" => {
             if let Some(range) = find_byte_range(line, "=") {
@@ -825,6 +831,11 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
         }
         "E-FS-DELETE-001" => {
             if let Some(range) = find_byte_range(line, "delete") {
+                return Some(range);
+            }
+        }
+        "E-LOG-LEVEL-001" => {
+            if let Some(range) = log_level_byte_range(line) {
                 return Some(range);
             }
         }
@@ -900,6 +911,87 @@ fn binary_add_sub_operator_range(line: &str) -> Option<(usize, usize)> {
         return Some((index, index + character.len_utf8()));
     }
     None
+}
+
+fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
+    match code {
+        "E-NET-RETRY-POLICY" | "E-PROCESS-RETRY-POLICY" => Some(&["retry"]),
+        "E-NET-TIMEOUT" | "E-PROCESS-TIMEOUT" => Some(&["timeout"]),
+        "E-NET-BODY-SIZE-LIMIT" => Some(&["body_size_limit", "response_body_limit"]),
+        "E-PROCESS-ALLOW-FAILURE" => Some(&["allow_failure"]),
+        "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
+        _ => None,
+    }
+}
+
+fn option_value_byte_range(line: &str, option_names: &[&str]) -> Option<(usize, usize)> {
+    let indent_len = line_indent_len(line);
+    let rest = &line[indent_len..];
+    for option_name in option_names {
+        let Some(after_name) = rest.strip_prefix(option_name) else {
+            continue;
+        };
+        if !after_name
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_whitespace() || character == '=')
+        {
+            continue;
+        }
+        let equals_offset = after_name.find('=')?;
+        if !after_name[..equals_offset].trim().is_empty() {
+            continue;
+        }
+        let raw_value_start = indent_len + option_name.len() + equals_offset + 1;
+        let value_start = raw_value_start
+            + line[raw_value_start..]
+                .chars()
+                .take_while(|character| character.is_whitespace())
+                .map(char::len_utf8)
+                .sum::<usize>();
+        let comment_start = line[value_start..]
+            .find('#')
+            .map(|offset| value_start + offset)
+            .unwrap_or(line.len());
+        let value_end = value_start + line[value_start..comment_start].trim_end().len();
+        if value_end > value_start {
+            return Some((value_start, value_end));
+        }
+    }
+    None
+}
+
+fn log_level_byte_range(line: &str) -> Option<(usize, usize)> {
+    let start = line_indent_len(line);
+    let rest = &line[start..];
+    let after_log = rest.strip_prefix("log")?;
+    if !after_log.chars().next().is_some_and(char::is_whitespace) {
+        return None;
+    }
+    let after_log_start = start + "log".len();
+    let level_start = after_log_start
+        + line[after_log_start..]
+            .chars()
+            .take_while(|character| character.is_whitespace())
+            .map(char::len_utf8)
+            .sum::<usize>();
+    let first = line[level_start..].chars().next()?;
+    if first == '"' || first == '#' {
+        return Some((start, after_log_start));
+    }
+    let level_end = level_start
+        + line[level_start..]
+            .chars()
+            .take_while(|character| !character.is_whitespace() && *character != '#')
+            .map(char::len_utf8)
+            .sum::<usize>();
+    (level_end > level_start).then_some((level_start, level_end))
+}
+
+fn line_indent_len(line: &str) -> usize {
+    line.char_indices()
+        .find_map(|(index, character)| (!character.is_whitespace()).then_some(index))
+        .unwrap_or(line.len())
 }
 
 fn find_byte_range(line: &str, needle: &str) -> Option<(usize, usize)> {
@@ -6716,6 +6808,46 @@ connect Source.heat -> Sink.heat
                 "E-UNC-DIRECT-COMPARE",
                 "Q = normal(mean=5 kW, std=0.8 kW, samples=31)\nvalidate 10 kW < Q\n",
                 "Q",
+            ),
+            (
+                "E-LOG-LEVEL-001",
+                "log trace \"too noisy\"\n",
+                "trace",
+            ),
+            (
+                "E-NET-RETRY-POLICY",
+                "response = http get url(\"https://example.org/data.json\")\nwith {\n    retry = many\n}\n",
+                "many",
+            ),
+            (
+                "E-NET-TIMEOUT",
+                "response = http get url(\"https://example.org/data.json\")\nwith {\n    timeout = never\n}\n",
+                "never",
+            ),
+            (
+                "E-NET-BODY-SIZE-LIMIT",
+                "download url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    response_body_limit = 0 B\n}\n",
+                "0 B",
+            ),
+            (
+                "E-PROCESS-TIMEOUT",
+                "process_result = run command \"cmd\"\nwith {\n    timeout = never\n}\n",
+                "never",
+            ),
+            (
+                "E-PROCESS-RETRY-POLICY",
+                "process_result = run command \"cmd\"\nwith {\n    retry = many\n}\n",
+                "many",
+            ),
+            (
+                "E-PROCESS-ALLOW-FAILURE",
+                "process_result = run command \"cmd\"\nwith {\n    allow_failure = sometimes\n}\n",
+                "sometimes",
+            ),
+            (
+                "E-SAMPLING-SEED-INVALID",
+                "samples = sample lhs\nwith {\n    count = 2\n    seed = later\n    x = uniform(0, 1)\n}\n",
+                "later",
             ),
         ] {
             assert_first_diagnostic_underlines(source, code, expected_text);

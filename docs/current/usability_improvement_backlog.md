@@ -4344,6 +4344,18 @@ Status: implemented after reviewing test/assert diagnostics.
 - Extended LSP stdio, stdin code-action, and VS Code extension contract checks
   so top-level assertion diagnostics remain actionable.
 
+## Batch 351: Option Diagnostic Value Underlines
+
+Status: implemented after reviewing linter range targets for workflow options.
+
+- Changed LSP diagnostic ranges for retry, timeout, body-size, process
+  `allow_failure`, and sampling `seed` option errors so the editor underlines
+  the invalid value instead of the option name or first line token.
+- Changed unsupported `log <level>` diagnostics to underline the unsupported
+  level token while keeping missing-level diagnostics on `log`.
+- Extended LSP range regression coverage for network, process, sampling, and
+  log-level diagnostics so quick-fix edits and visible underlines stay aligned.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
