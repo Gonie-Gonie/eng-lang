@@ -4413,6 +4413,18 @@ Status: implemented after reviewing process command diagnostics.
 - Extended LSP stdio, stdin code-action, VS Code extension contract, and README
   coverage so missing process command diagnostics stay actionable.
 
+## Batch 357: Process Binding Conflict Quick Fix
+
+Status: implemented after reviewing ProcessResult binding collision diagnostics.
+
+- Added an LSP-owned quick fix for `E-PROCESS-BINDING-002` that renames the
+  conflicting process result binding to the next available suffix such as
+  `process_result_2`.
+- Mirrored the same repair in the VS Code local fallback provider so duplicate
+  process bindings stay actionable without a live LSP response.
+- Extended LSP stdio, stdin code-action, VS Code extension contract, and README
+  coverage for duplicate ProcessResult binding repairs.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

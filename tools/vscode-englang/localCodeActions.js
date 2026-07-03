@@ -107,6 +107,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PROCESS-BINDING-002") {
+      const action = uniqueProcessBindingAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-PROCESS-CMD-001") {
       const action = processCommandAction(document, diagnostic);
       if (action) {
@@ -653,6 +660,61 @@ function bindProcessResultAction(document, diagnostic) {
     "result = "
   );
   return action;
+}
+
+function uniqueProcessBindingAction(document, diagnostic) {
+  const name = firstBacktickPayload(diagnostic.message);
+  if (!name || !isIdentifier(name)) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const indent = lineIndent(code);
+  const rest = code.slice(indent.length);
+  if (!rest.startsWith(name)) {
+    return undefined;
+  }
+  const afterName = rest.slice(name.length);
+  if (isIdentifierCharacter(afterName[0]) || !afterName.trimStart().startsWith("=")) {
+    return undefined;
+  }
+  const replacement = uniqueBindingName(document, name);
+  const action = new vscode.CodeAction(
+    `Rename process result to ${replacement}`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, indent.length, line.lineNumber, indent.length + name.length),
+    replacement
+  );
+  return action;
+}
+
+function uniqueBindingName(document, base) {
+  for (let index = 2; ; index += 1) {
+    const candidate = `${base}_${index}`;
+    if (!bindingNameExists(document, candidate)) {
+      return candidate;
+    }
+  }
+}
+
+function bindingNameExists(document, name) {
+  for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber += 1) {
+    const code = stripLineComment(document.lineAt(lineNumber).text);
+    const trimmed = code.trimStart();
+    if (!trimmed.startsWith(name)) {
+      continue;
+    }
+    const rest = trimmed.slice(name.length);
+    if (!isIdentifierCharacter(rest[0]) && rest.trimStart().startsWith("=")) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function processCommandAction(document, diagnostic) {

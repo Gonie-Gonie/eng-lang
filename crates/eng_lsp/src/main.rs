@@ -685,6 +685,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-PROCESS-BINDING-001" => {
             optional_code_action(lsp_bind_process_result_code_action(uri, text, diagnostic))
         }
+        "E-PROCESS-BINDING-002" => optional_code_action(lsp_unique_process_binding_code_action(
+            uri, text, diagnostic,
+        )),
         "E-PROCESS-CMD-001" => {
             optional_code_action(lsp_process_command_code_action(uri, text, diagnostic))
         }
@@ -1486,6 +1489,65 @@ fn lsp_bind_process_result_code_action(uri: &str, text: &str, diagnostic: &Value
             "result = "
         )
     }))
+}
+
+fn lsp_unique_process_binding_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let name = first_backtick_payload(diagnostic_message(diagnostic))?.trim();
+    if !is_identifier(name) {
+        return None;
+    }
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let indent_len = line_indent(code).len();
+    let rest = &code[indent_len..];
+    let after_name = rest.strip_prefix(name)?;
+    if after_name
+        .chars()
+        .next()
+        .is_some_and(is_identifier_character)
+        || !after_name.trim_start().starts_with('=')
+    {
+        return None;
+    }
+    let replacement = unique_binding_name(text, name);
+    Some(json!({
+        "title": format!("Rename process result to {replacement}"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, indent_len, indent_len + name.len()),
+            &replacement
+        )
+    }))
+}
+
+fn unique_binding_name(text: &str, base: &str) -> String {
+    for index in 2.. {
+        let candidate = format!("{base}_{index}");
+        if !binding_name_exists(text, &candidate) {
+            return candidate;
+        }
+    }
+    unreachable!("unbounded suffix search should return a unique binding name")
+}
+
+fn binding_name_exists(text: &str, name: &str) -> bool {
+    text.lines().any(|line| {
+        let code = strip_line_comment(line);
+        let trimmed = code.trim_start();
+        let Some(rest) = trimmed.strip_prefix(name) else {
+            return false;
+        };
+        !rest.chars().next().is_some_and(is_identifier_character)
+            && rest.trim_start().starts_with('=')
+    })
 }
 
 fn lsp_process_command_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {

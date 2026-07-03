@@ -759,6 +759,7 @@ with {
     retry = many
     allow_failure = sometimes
 }
+process_result = run command "other"
 
 samples = sample lhs
 with {
@@ -866,6 +867,7 @@ report {
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-HASH-MISMATCH",
         "E-PROCESS-BINDING-001",
+        "E-PROCESS-BINDING-002",
         "E-PROCESS-CMD-001",
         "E-PROCESS-ENV-001",
         "E-PROCESS-CWD-001",
@@ -1087,6 +1089,13 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("run command \"unbound\""))
         .expect("source should include unbound process command");
+    let duplicate_process_line = source
+        .lines()
+        .position(|line| {
+            line.trim_start()
+                .starts_with("process_result = run command \"other\"")
+        })
+        .expect("source should include duplicate process binding");
     let missing_command_line = source
         .lines()
         .position(|line| {
@@ -1152,6 +1161,13 @@ report {
         "Bind process result",
         "result = ",
         unbound_process_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Rename process result to process_result_2",
+        "process_result_2",
+        duplicate_process_line,
     );
     assert_action_edit_at_line(
         actions,
@@ -1230,6 +1246,7 @@ with {
     retry = many
     allow_failure = sometimes
 }
+process_result = run command "other"
 
 samples = sample lhs
 with {
@@ -1403,6 +1420,13 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("run command \"unbound\""))
         .expect("source should include unbound process command");
+    let duplicate_process_line = source
+        .lines()
+        .position(|line| {
+            line.trim_start()
+                .starts_with("process_result = run command \"other\"")
+        })
+        .expect("source should include duplicate process binding");
     let missing_command_line = source
         .lines()
         .position(|line| {
@@ -1468,6 +1492,13 @@ report {
         "Bind process result",
         "result = ",
         unbound_process_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Rename process result to process_result_2",
+        "process_result_2",
+        duplicate_process_line,
     );
     assert_action_edit_at_line(
         actions,
