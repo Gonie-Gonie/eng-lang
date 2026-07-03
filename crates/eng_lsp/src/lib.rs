@@ -988,6 +988,8 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-PROCESS-ENV-001" => Some(&["env"]),
         "E-SAMPLING-COUNT-INVALID" => Some(&["count"]),
         "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
+        "E-CACHE-DIR" => Some(&["cache_dir"]),
+        "E-CACHE-TTL" => Some(&["cache_ttl"]),
         _ => None,
     }
 }
@@ -7072,6 +7074,16 @@ connect Source.heat -> Sink.heat
                 "E-SAMPLING-SEED-INVALID",
                 "samples = sample lhs\nwith {\n    count = 2\n    seed = later\n    x = uniform(0, 1)\n}\n",
                 "later",
+            ),
+            (
+                "E-CACHE-DIR",
+                "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_dir = dir(\"../outside\")\n}\n",
+                "dir(\"../outside\")",
+            ),
+            (
+                "E-CACHE-TTL",
+                "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_ttl = forever\n}\n",
+                "forever",
             ),
         ] {
             assert_first_diagnostic_underlines(source, code, expected_text);

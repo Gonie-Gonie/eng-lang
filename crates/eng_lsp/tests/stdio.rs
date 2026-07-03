@@ -746,6 +746,9 @@ with {
     retry = many
     timeout = never
     body_size_limit = unlimited
+    cache = true
+    cache_dir = dir("../outside")
+    cache_ttl = forever
 }
 
 bad_url_response = http get url("ftp://example.org/data.json")
@@ -879,6 +882,8 @@ report {
         "E-NET-INVALID-URL",
         "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
+        "E-CACHE-DIR",
+        "E-CACHE-TTL",
         "E-PROCESS-BINDING-001",
         "E-PROCESS-BINDING-002",
         "E-PROCESS-CMD-001",
@@ -1025,6 +1030,18 @@ report {
         &uri,
         "Set response body limit to 10 MB: response_body_limit = 10 MB",
         "10 MB",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set cache directory: cache_dir = dir(\"cache\")",
+        "dir(\"cache\")",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set cache TTL to 1 h: cache_ttl = 1 h",
+        "1 h",
     );
     assert_action_edit(
         actions,

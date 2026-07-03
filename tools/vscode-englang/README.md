@@ -153,9 +153,10 @@ live open/save analysis.
 Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid
 network/process/sampling options such as retry, timeout, body-size, duplicate
-process bindings, process command/env/cwd, allow-failure, sample count, and
-sample seed values. Simple same-block `where` local ordering diagnostics can move the later
-definition before its first use. Uncertainty diagnostics can also repair common
+process bindings, process command/env/cwd, allow-failure, sample count, sample
+seed values, cache directories, and cache TTL values. Simple same-block `where`
+local ordering diagnostics can move the later definition before its first use.
+Uncertainty diagnostics can also repair common
 constructor mistakes
 such as unsupported distribution kind, unsupported propagation method, invalid
 sample count, missing constructor arguments, unknown sources, missing source

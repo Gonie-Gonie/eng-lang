@@ -489,6 +489,10 @@ function optionQuickFix(code) {
       return { optionNames: ["count"], value: "1", label: "Set sample count" };
     case "E-SAMPLING-SEED-INVALID":
       return { optionNames: ["seed"], value: "42", label: "Set sample seed" };
+    case "E-CACHE-DIR":
+      return { optionNames: ["cache_dir"], value: "dir(\"cache\")", label: "Set cache directory" };
+    case "E-CACHE-TTL":
+      return { optionNames: ["cache_ttl"], value: "1 h", label: "Set cache TTL to 1 h" };
     default:
       return undefined;
   }

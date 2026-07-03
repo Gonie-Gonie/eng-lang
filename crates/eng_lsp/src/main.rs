@@ -1325,6 +1325,16 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "42",
             label: "Set sample seed",
         }),
+        "E-CACHE-DIR" => Some(OptionQuickFix {
+            option_names: &["cache_dir"],
+            value: "dir(\"cache\")",
+            label: "Set cache directory",
+        }),
+        "E-CACHE-TTL" => Some(OptionQuickFix {
+            option_names: &["cache_ttl"],
+            value: "1 h",
+            label: "Set cache TTL to 1 h",
+        }),
         _ => None,
     }
 }

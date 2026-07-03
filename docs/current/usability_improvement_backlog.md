@@ -4695,6 +4695,18 @@ Status: implemented after auditing current docs for stale preview wording.
 - Left archive/release-note preview wording and machine-readable fields such as
   `solver_preview`/`multi_domain_preview` intact.
 
+## Batch 379: Cache Diagnostic Quick Fixes
+
+Status: implemented after auditing newly added cache diagnostics against VS
+Code linter actions.
+
+- Added LSP and VS Code local fallback quick fixes for `E-CACHE-DIR` and
+  `E-CACHE-TTL`.
+- Extended LSP diagnostic ranges so invalid `cache_dir` and `cache_ttl` values
+  are underlined directly instead of falling back to broader token ranges.
+- Added stdio code-action and diagnostic-range regression coverage, and updated
+  the VS Code extension README quick-fix list.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
