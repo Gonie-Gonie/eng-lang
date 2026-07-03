@@ -5467,9 +5467,11 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             let review = std::fs::read_to_string(&output.review_path).unwrap_or_default();
             let manifest =
                 std::fs::read_to_string(&output.output_manifest_path).unwrap_or_default();
-            if output.file_operation_paths.len() != 4
+            if output.file_operation_paths.len() != 5
                 || !review.contains("\"file_operations\"")
+                || !review.contains("\"kind\": \"file_mkdir\"")
                 || !manifest.contains("\"kind\": \"copy_file\"")
+                || !manifest.contains("\"kind\": \"mkdir_dir\"")
                 || !manifest.contains("\"kind\": \"move_file\"")
                 || !manifest.contains("\"kind\": \"delete_file\"")
                 || !manifest.contains("\"kind\": \"delete_dir\"")

@@ -4086,6 +4086,17 @@ Status: implemented after auditing workflow 01/02/03 Python/process guards.
 - Kept the existing `dev.bat workflows-test` source and artifact checks as the
   broader native workflow gate.
 
+## Batch 330: File Operation Example Smoke Parity
+
+Status: implemented after the broader example smoke exposed stale file-operation
+expectations.
+
+- Updated the CLI example smoke for `examples/official/13_file_operations` to
+  expect all five file-operation artifacts: copy, mkdir, move, delete file, and
+  delete directory.
+- Added explicit `file_mkdir` review and `mkdir_dir` output-manifest checks so
+  the smoke matches the currently supported `mkdir` workflow surface.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
