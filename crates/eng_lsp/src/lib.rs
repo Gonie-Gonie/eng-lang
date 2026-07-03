@@ -4145,7 +4145,7 @@ fn code_ranges(line: &str) -> Vec<(usize, usize)> {
     let mut start = 0usize;
     let mut index = 0usize;
     while index < bytes.len() {
-        if bytes[index..].starts_with(b"///") {
+        if bytes[index..].starts_with(b"//") {
             if start < index {
                 ranges.push((start, index));
             }
@@ -4198,7 +4198,7 @@ fn comment_start(line: &str) -> Option<usize> {
             index += 1;
             continue;
         }
-        if !in_string && bytes[index..].starts_with(b"///") {
+        if !in_string && bytes[index..].starts_with(b"//") {
             return Some(index);
         }
         if !in_string && bytes[index] == b'#' {
@@ -5783,8 +5783,8 @@ fn is_with_option_assignment_key(key: &str) -> bool {
 }
 
 fn strip_source_comment(line: &str) -> &str {
-    line.split_once('#')
-        .map(|(before_comment, _comment)| before_comment)
+    comment_start(line)
+        .map(|comment_start| &line[..comment_start])
         .unwrap_or(line)
 }
 
@@ -6402,7 +6402,7 @@ mod tests {
 
     #[test]
     fn snapshot_exposes_lsp_diagnostics_hover_and_completion() {
-        let source = "/// heat rate smoke\nQ: HeatRate [kW] = 2 kW - 1\n}\n";
+        let source = "/// heat rate smoke\n// write text should stay a comment\nQ: HeatRate [kW] = 2 kW - 1\n}\n";
         let snapshot = snapshot_for_source(Path::new("bad.eng"), source);
 
         assert!(snapshot
@@ -6524,8 +6524,16 @@ mod tests {
                     .find(|diagnostic| diagnostic["code"] == "E-DIM-ADD-002")
             })
             .expect("dimensionless diagnostic");
-        let dim_line = source.lines().nth(1).expect("diagnostic line");
+        let dim_line_index = source
+            .lines()
+            .position(|line| line.contains("2 kW - 1"))
+            .expect("diagnostic line");
+        let dim_line = source.lines().nth(dim_line_index).expect("diagnostic line");
         let minus_character = dim_line.find('-').expect("minus operator");
+        assert_eq!(
+            dim_diagnostic["range"]["start"]["line"].as_u64(),
+            Some(dim_line_index as u64)
+        );
         assert_eq!(
             dim_diagnostic["range"]["start"]["character"].as_u64(),
             Some(minus_character as u64)
@@ -6555,6 +6563,25 @@ mod tests {
             .tokens
             .iter()
             .any(|token| token.token_type == "comment"));
+        let slash_comment_line = source
+            .lines()
+            .position(|line| line.contains("should stay a comment"))
+            .expect("slash comment line");
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.line == slash_comment_line
+                && token.token_type == "comment"
+                && source.lines().nth(token.line).is_some_and(|line| {
+                    line.get(token.start..token.start + token.length)
+                        == Some("// write text should stay a comment")
+                })
+        }));
+        assert!(!snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.line == slash_comment_line
+                && token.token_type == "keyword"
+                && source.lines().nth(token.line).is_some_and(|line| {
+                    line.get(token.start..token.start + token.length) == Some("write")
+                })
+        }));
         assert!(snapshot
             .document_symbols
             .iter()

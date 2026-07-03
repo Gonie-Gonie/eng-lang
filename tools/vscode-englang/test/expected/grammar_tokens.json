@@ -11,6 +11,11 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "comment.line.double-slash.englang",
+    "text": "// slash comment"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "keyword.control.import.englang",
     "text": "import"
   },

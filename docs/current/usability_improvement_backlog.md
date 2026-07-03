@@ -4505,6 +4505,18 @@ Status: implemented while tightening workflow 03 API consistency.
 - Extended VS Code grammar fixtures and semantic-token snapshots so export and
   write path-helper expressions stay highlighted consistently.
 
+## Batch 364: Double-Slash Comment Highlighting
+
+Status: implemented after comparing compiler lexer behavior with editor
+highlighting.
+
+- Added a TextMate scope for ordinary `//` line comments while keeping `///`
+  documentation comments distinct.
+- Updated LSP semantic-token comment boundary detection so `//` comments do not
+  leak keyword tokens after the slash marker.
+- Added grammar and semantic snapshot coverage for `//` comments because the
+  compiler already treats them as comments.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

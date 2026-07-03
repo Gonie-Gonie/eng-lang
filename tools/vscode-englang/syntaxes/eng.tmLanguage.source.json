@@ -31,6 +31,10 @@
             "match": "^\\s*///.*$"
           },
           {
+            "name": "comment.line.double-slash.englang",
+            "match": "//(?!/).*$"
+          },
+          {
             "name": "comment.line.number-sign.englang",
             "match": "#.*$"
           }

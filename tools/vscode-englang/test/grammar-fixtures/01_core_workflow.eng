@@ -1,5 +1,6 @@
 /// Core workflow fixture
 # normal comment
+// slash comment
 use eng.path
 import eng.table
 
