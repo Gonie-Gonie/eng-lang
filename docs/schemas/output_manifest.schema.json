@@ -248,6 +248,12 @@
         "cache_dir": {
           "type": "string"
         },
+        "cache_ttl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
         "source_hash": {
           "type": "string"
         },

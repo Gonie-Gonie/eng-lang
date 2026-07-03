@@ -1,3 +1,5 @@
+use std::path::{Component, Path};
+
 use crate::ml::MlInfo;
 use crate::semantic::{ArgValueInfo, SemanticProgram, WithOptionInfo};
 use crate::Diagnostic;
@@ -149,9 +151,7 @@ fn build_cache_record(
     cache_key_parts.push(format!("source_hash={source_hash}"));
     let cache_key = serialize_cache_key(&cache_key_parts);
     let cache_key_hash = hash_text(&cache_key);
-    let cache_dir = option_value(options, "cache_dir")
-        .map(strip_string_literal)
-        .unwrap_or_else(|| "cache".to_owned());
+    let cache_dir = cache_dir_policy(options, arg_values, diagnostics);
     let cache_ttl = cache_ttl_policy(options, diagnostics);
     let cache_path = format!("{}/{}", cache_dir.trim_end_matches('/'), cache_key_hash);
 
@@ -395,6 +395,86 @@ fn cache_ttl_policy(
     }
 }
 
+fn cache_dir_policy(
+    options: &[WithOptionInfo],
+    arg_values: &[ArgValueInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> String {
+    let Some(option) = option_for_key(options, "cache_dir") else {
+        return "cache".to_owned();
+    };
+    match normalize_cache_dir(&option.value, arg_values) {
+        Ok(path) => path,
+        Err(message) => {
+            diagnostics.push(Diagnostic::error(
+                "E-CACHE-DIR",
+                option.line,
+                &format!("Cache directory `{}` is invalid.", option.value.trim()),
+                Some(&message),
+            ));
+            "cache".to_owned()
+        }
+    }
+}
+
+fn normalize_cache_dir(value: &str, arg_values: &[ArgValueInfo]) -> Result<String, String> {
+    let resolved = resolve_cache_dir_value(value, arg_values)
+        .ok_or_else(|| "Use a literal directory such as `cache_dir = \"cache\"`, `cache_dir = dir(\"cache\")`, or an args value that resolves to one.".to_owned())?;
+    let raw_path = resolved.trim().replace('\\', "/");
+    if raw_path.is_empty() || raw_path == "." {
+        return Err("Use a non-empty relative cache directory.".to_owned());
+    }
+    let path = Path::new(&raw_path);
+    if path.components().any(|component| {
+        matches!(
+            component,
+            Component::ParentDir | Component::Prefix(_) | Component::RootDir
+        )
+    }) {
+        return Err(
+            "Use a relative cache directory without `..`, drive prefixes, or root segments."
+                .to_owned(),
+        );
+    }
+    if !path
+        .components()
+        .any(|component| matches!(component, Component::Normal(_)))
+    {
+        return Err("Use a relative cache directory name such as `cache`.".to_owned());
+    }
+    let normalized = path
+        .components()
+        .filter_map(|component| match component {
+            Component::Normal(value) => Some(value.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/");
+    Ok(normalized)
+}
+
+fn resolve_cache_dir_value(value: &str, arg_values: &[ArgValueInfo]) -> Option<String> {
+    let trimmed = value.trim();
+    if let Some(arg_name) = trimmed.strip_prefix("args.") {
+        let arg = arg_values.iter().find(|arg| arg.name == arg_name)?;
+        return resolve_cache_dir_literal(&arg.value);
+    }
+    resolve_cache_dir_literal(trimmed)
+}
+
+fn resolve_cache_dir_literal(value: &str) -> Option<String> {
+    let trimmed = value.trim();
+    strip_call_string_arg(trimmed, "dir")
+        .or_else(|| strip_quoted_string_literal(trimmed))
+        .or_else(|| {
+            if is_bare_cache_dir_literal(trimmed) {
+                Some(trimmed.to_owned())
+            } else {
+                None
+            }
+        })
+}
+
 fn normalize_cache_ttl(value: &str) -> Result<String, String> {
     let (amount, unit) = parse_number_with_suffix(value)
         .ok_or_else(|| "Use a TTL such as `30 s`, `10 min`, `1 h`, or `7 d`.".to_owned())?;
@@ -471,6 +551,27 @@ fn strip_string_literal(value: &str) -> String {
     } else {
         trimmed.to_owned()
     }
+}
+
+fn strip_quoted_string_literal(value: &str) -> Option<String> {
+    value
+        .trim()
+        .strip_prefix('"')
+        .and_then(|value| value.strip_suffix('"'))
+        .map(|value| value.to_owned())
+}
+
+fn strip_call_string_arg(expression: &str, function_name: &str) -> Option<String> {
+    let prefix = format!("{function_name}(");
+    let inner = expression.strip_prefix(&prefix)?.strip_suffix(')')?.trim();
+    strip_quoted_string_literal(inner)
+}
+
+fn is_bare_cache_dir_literal(value: &str) -> bool {
+    !value.is_empty()
+        && value.chars().all(|character| {
+            character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.' | '/' | '\\')
+        })
 }
 
 fn hash_text(source: &str) -> String {

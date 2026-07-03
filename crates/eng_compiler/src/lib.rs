@@ -14445,6 +14445,87 @@ system Envelope {
     }
 
     #[test]
+    fn records_normalized_cache_dir() {
+        let report = check_source(
+            "cache_dir.eng",
+            "args {\n    cache_root: DirectoryPath = dir(\"cache/process\")\n}\n\nprocess_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_dir = args.cache_root\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let cache_record = report
+            .semantic_program
+            .cache_records
+            .iter()
+            .find(|record| record.owner_kind == "process")
+            .expect("process cache record");
+        assert_eq!(cache_record.cache_dir, "cache/process");
+        assert!(cache_record.cache_path.starts_with("cache/process/"));
+        let review = review_json(&report);
+        assert!(review.contains("\"cache_dir\": \"cache/process\""));
+    }
+
+    #[test]
+    fn rejects_invalid_cache_dir() {
+        let report = check_source(
+            "bad.eng",
+            "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_dir = dir(\"../outside\")\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CACHE-DIR"));
+    }
+
+    #[test]
+    fn rejects_root_cache_dir() {
+        let report = check_source(
+            "bad.eng",
+            "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_dir = dir(\"/tmp/cache\")\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CACHE-DIR"));
+    }
+
+    #[test]
+    fn rejects_non_literal_cache_dir() {
+        let report = check_source(
+            "bad.eng",
+            "args {\n    output: DirectoryPath = dir(\"outputs\")\n}\n\nprocess_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_dir = join(args.output, \"cache\")\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CACHE-DIR"));
+    }
+
+    #[test]
+    fn rejects_file_call_cache_dir() {
+        let report = check_source(
+            "bad.eng",
+            "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_dir = file(\"cache/process\")\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CACHE-DIR"));
+    }
+
+    #[test]
     fn records_model_cache_record() {
         let report = check_source(
             "model_cache.eng",

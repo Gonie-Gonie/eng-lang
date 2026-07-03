@@ -153,7 +153,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned."
 artifacts = ["cache_manifest", "review.caches", "run_log.cache_events", "output_manifest"]
-diagnostics = ["E-CACHE-KEY-NONDETERMINISTIC", "E-CACHE-TTL", "E-CACHE-HASH-MISMATCH", "E-CACHE-UNHASHED-REPRO", "W-CACHE-STALE"]
+diagnostics = ["E-CACHE-KEY-NONDETERMINISTIC", "E-CACHE-DIR", "E-CACHE-TTL", "E-CACHE-HASH-MISMATCH", "E-CACHE-UNHASHED-REPRO", "W-CACHE-STALE"]
 examples = ["examples/workflows/01_weather_api_to_standard_file"]
 tests = ["cargo test -p eng_compiler cache_", "cargo test -p eng_runtime cache"]
 

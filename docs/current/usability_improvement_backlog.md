@@ -4655,6 +4655,21 @@ new cache TTL metadata.
 - Re-ran workflow smoke to confirm workflows 01, 02, and 03 still execute with
   zero external processes.
 
+## Batch 376: Cache Directory Policy
+
+Status: implemented after auditing cache options exposed by editor
+completions.
+
+- Added native validation for `cache_dir` so cache artifacts cannot use
+  absolute paths, root segments, or `..` traversal.
+- Normalized literal, `dir("...")`, and resolvable `args.<name>` cache
+  directories into stable relative manifest paths.
+- Added compiler regression coverage for accepted normalized cache directories
+  and rejected unsafe or non-literal cache directories, including `file(...)`
+  and `join(...)` expressions.
+- Documented the new `E-CACHE-DIR` diagnostic in workflow module and CLI
+  references.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
