@@ -4572,6 +4572,22 @@ the VS Code TextMate constant list.
 - Extended `ide-check` contract tokens so native IDE fallback highlighting stays
   aligned with VS Code grammar constants when semantic data is stale.
 
+## Batch 370: Render Template Semantic Highlighting
+
+Status: implemented after comparing render-template TextMate phrase coverage
+with LSP semantic-token coverage.
+
+- Marked `render template` tokens as workflow-step side effects instead of only
+  generic side-effect keywords.
+- Added command-style semantic tokens for render-template source identifiers
+  and `to` output clauses, so template workflow paths keep their meaning after
+  semantic highlighting arrives.
+- Colored `template = file(...)` and `output = file(...)` values in
+  render/apply template with-blocks with workflow-step and output-boundary
+  modifiers.
+- Extended LSP regression coverage for render-template source, output, and
+  with-block value tokens.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

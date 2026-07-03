@@ -2049,6 +2049,23 @@ fn with_option_value_semantic_class(
         "target" | "y" if is_model_with_block(program, block.owner_line) => {
             Some(("property", &["model"]))
         }
+        "template" if is_template_workflow_with_block(program, block.owner_line) => {
+            if matches!(value, "file" | "dir" | "join") {
+                Some(("function", &["defaultLibrary", "workflowStep"]))
+            } else {
+                Some(("variable", &["workflowStep"]))
+            }
+        }
+        "output" if is_template_workflow_with_block(program, block.owner_line) => {
+            if matches!(value, "file" | "dir" | "join") {
+                Some((
+                    "function",
+                    &["defaultLibrary", "sideEffect", "workflowStep"],
+                ))
+            } else {
+                Some(("variable", &["sideEffect", "workflowStep"]))
+            }
+        }
         "step" if matches!(value, "run_case") => {
             Some(("function", &["defaultLibrary", "workflowStep"]))
         }
@@ -2087,6 +2104,17 @@ fn is_sample_with_block(program: &SemanticProgram, owner_line: Option<usize>) ->
         .sample_generations
         .iter()
         .any(|sample| sample.line == owner_line)
+}
+
+fn is_template_workflow_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program.command_styles.iter().any(|command| {
+        command.line == owner_line
+            && (command.verb == "apply"
+                || (command.verb == "render" && command.target.trim().starts_with("template ")))
+    })
 }
 
 fn add_function_scoped_symbol_semantic_tokens(
@@ -3870,9 +3898,8 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "commit" | "rollback" => &["db"],
         "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
         | "fetch" | "download" => &["sideEffect", "external"],
-        "write" | "export" | "copy" | "move" | "delete" | "mkdir" | "render" | "template" => {
-            &["sideEffect"]
-        }
+        "write" | "export" | "copy" | "move" | "delete" | "mkdir" => &["sideEffect"],
+        "render" | "template" => &["sideEffect", "workflowStep"],
         "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
         | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
         | "text" | "csv" | "json" | "toml" => &["workflowStep"],
@@ -4025,6 +4052,41 @@ fn add_command_style_semantic_tokens(
                     &[],
                     &["validation", "workflowStep"],
                 );
+            }
+        }
+        "render" => {
+            if !command.target.trim().starts_with("template ") {
+                return;
+            }
+            builder.push_keywords_on_line(
+                command.line,
+                &["template"],
+                &["sideEffect", "workflowStep"],
+            );
+            let template_source = command
+                .target
+                .trim()
+                .strip_prefix("template ")
+                .unwrap_or("")
+                .trim();
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                template_source,
+                &["template", "file", "dir", "join"],
+                &["workflowStep"],
+            );
+            for clause in &command.clauses {
+                if clause.name == "to" {
+                    builder.push_keywords_on_line(command.line, &["to"], &["sideEffect"]);
+                    push_command_style_identifier_paths(
+                        builder,
+                        command.line,
+                        &clause.value,
+                        &["file", "dir", "join"],
+                        &["sideEffect", "workflowStep"],
+                    );
+                }
             }
         }
         _ => {}
@@ -7236,6 +7298,13 @@ test "temperature stays bounded" {
 }
 
 render template file("report.md") to file("report.html")
+rendered_template = render template args.template_source to args.rendered_output
+with {
+    template = file("report.md")
+    output = file("report.html")
+    missing = error
+    artifact_kind = "rendered_report"
+}
 response = http get url("https://example.org/weather")
 submitted = http post url("https://example.org/weather")
 log debug "debug details"
@@ -7279,9 +7348,52 @@ struct LegacyArgs
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
         }
+        for label in ["render", "template"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
         for label in ["copy", "mkdir", "move", "delete", "http", "get", "post"] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "render template file(\"report.md\") to file(\"report.html\")",
+            "to",
+            "keyword",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "rendered_template = render template args.template_source to args.rendered_output",
+            "template_source",
+            "property",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "rendered_template = render template args.template_source to args.rendered_output",
+            "rendered_output",
+            "property",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    template = file(\"report.md\")",
+            "file",
+            "function",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    output = file(\"report.html\")",
+            "file",
+            "function",
+            "sideEffect",
+        );
         for line in [
             "copy file(\"data/template.txt\") to \"ops/copied_note.txt\"",
             "move \"ops/copied_note.txt\" to \"ops/archive/copied_note.txt\"",
