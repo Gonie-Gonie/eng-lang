@@ -2988,7 +2988,11 @@ function Assert-VscodeExtensionContract {
         "cachedSnapshotForDocument",
         "completionItemsFromPayload",
         "httpResponseFields",
+        "sampleTableFields",
+        "caseTableFields",
+        "caseOutputTableFields",
         "httpResponseFieldCompletionsForContext",
+        "localMemberCompletionsForContext",
         "memberAccessCompletionContext",
         "completionKindFromLsp",
         "new vscode.CompletionItem"

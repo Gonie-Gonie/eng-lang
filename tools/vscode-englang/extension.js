@@ -39,6 +39,9 @@ const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_SEED = editorMetadata.completionSeed;
 const HTTP_RESPONSE_FIELDS = editorMetadata.syntaxCatalog.http_response_fields;
+const SAMPLE_TABLE_FIELDS = editorMetadata.syntaxCatalog.sample_table_fields;
+const CASE_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_table_fields;
+const CASE_OUTPUT_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_output_table_fields;
 
 const semanticLegend = createSemanticLegend(
   SEMANTIC_TOKEN_TYPES,
@@ -147,6 +150,9 @@ function activate(context) {
       new EngCompletionProvider(context, {
         completionSeed: COMPLETION_SEED,
         httpResponseFields: HTTP_RESPONSE_FIELDS,
+        sampleTableFields: SAMPLE_TABLE_FIELDS,
+        caseTableFields: CASE_TABLE_FIELDS,
+        caseOutputTableFields: CASE_OUTPUT_TABLE_FIELDS,
         completionSnapshotForPosition: lspRequests.completionSnapshotForPosition,
         cachedSnapshotForDocument: (document) => reviewCache.get(document.uri.fsPath)
       }),

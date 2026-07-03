@@ -4201,6 +4201,19 @@ from normal workflow bindings.
 - Updated workflow 02 to print and report case pending/failed counts and
   case-input planned/blocked counts.
 
+## Batch 339: VS Code Native Workflow Field Fallbacks
+
+Status: implemented to make generated workflow metadata usable even when the
+live completion bridge has not returned a fresh snapshot.
+
+- Wired generated sample, case, and case-output field catalogs into the VS Code
+  completion provider.
+- Added local member-access completion augmentation for likely sample/design,
+  case, and case-input/output bindings when the live snapshot is missing or
+  incomplete.
+- Kept the fallback source compiler-owned through generated editor metadata
+  instead of duplicating field vocabularies in extension code.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
