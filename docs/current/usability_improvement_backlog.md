@@ -4074,6 +4074,18 @@ Status: implemented to reduce semantic-token gaps in workflow command forms.
 - Extended the LSP workflow highlighting regression with line-specific checks
   so these operands cannot silently fall back to plain text.
 
+## Batch 329: Native Workflow Zero-Process Smoke Guard
+
+Status: implemented after auditing workflow 01/02/03 Python/process guards.
+
+- Confirmed workflow 01/02/03 sources are still blocked from `run command`,
+  Python/notebook markers, and legacy `select_first_row(...)` helpers.
+- Tightened the CLI example smoke so native workflow runs must parse
+  `process_results.json` as `process_count = 0` with an empty `processes` list,
+  instead of only matching a count string.
+- Kept the existing `dev.bat workflows-test` source and artifact checks as the
+  broader native workflow gate.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -6387,7 +6387,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"status\": \"propagated_sensor_std\"")
                 || !output.result_json.contains("\"status\": \"metadata_only\"")
-                || !output.process_results_json.contains("\"process_count\": 0")
+                || !native_workflow_has_zero_process_results(&output.process_results_json)
                 || !output.result_json.contains("\"timeseries_coverage\"")
                 || !output.result_json.contains("\"binding\": \"coverage\"")
                 || !output.result_json.contains("\"status\": \"complete\"")
@@ -6454,7 +6454,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || output
                     .result_json
                     .contains("{ \"key\": \"station\", \"value\": \"station.station_id\"")
-                || !output.process_results_json.contains("\"process_count\": 0")
+                || !native_workflow_has_zero_process_results(&output.process_results_json)
                 || !output
                     .output_manifest_json
                     .contains("outputs/fetched_weather.json")
@@ -6485,7 +6485,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output.review_json.contains("\"timeseries_coverage\"")
             {
                 eprintln!(
-                    "expected weather workflow to produce review, process, output manifest, and report artifacts"
+                    "expected weather workflow to produce review, zero external process results, output manifest, and report artifacts"
                 );
                 return ExitCode::from(2);
             }
@@ -6505,7 +6505,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
     ) {
         Ok(output) => {
             if !output.review_json.contains("PredictionResult")
-                || !output.process_results_json.contains("\"process_count\": 0")
+                || !native_workflow_has_zero_process_results(&output.process_results_json)
                 || !output.result_json.contains("\"sample_tables\"")
                 || !output
                     .result_json
@@ -6971,6 +6971,18 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         }
     }
     true
+}
+
+fn native_workflow_has_zero_process_results(process_results_json: &str) -> bool {
+    let Ok(process_results) = serde_json::from_str::<Value>(process_results_json) else {
+        return false;
+    };
+    let process_count = process_results.get("process_count").and_then(Value::as_u64);
+    let processes_empty = process_results
+        .get("processes")
+        .and_then(Value::as_array)
+        .is_some_and(Vec::is_empty);
+    process_count == Some(0) && processes_empty
 }
 
 fn workflow_main_sources() -> Result<Vec<PathBuf>, std::io::Error> {
