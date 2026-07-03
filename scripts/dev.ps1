@@ -3185,6 +3185,8 @@ function Assert-VscodeExtensionContract {
         "localCodeActions",
         "mergeCodeActions",
         "codeActionEditKey",
+        "isCancellationRequested",
+        "return localActions()",
         "edit.entries",
         "E-SYNTAX-DECL-001",
         "E-STRUCT-ARGS-001",

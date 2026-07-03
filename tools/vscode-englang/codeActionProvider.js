@@ -10,16 +10,29 @@ class EngCodeActionProvider {
   }
 
   async provideCodeActions(document, _range, context, cancellationToken) {
-    const payload = await this.codeActionsForDocumentSource?.(
-      document,
-      this.context,
-      cancellationToken
-    );
-    const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
-    const localActions = localCodeActions(document, context, {
+    const localActions = () => localCodeActions(document, context, {
       completionSeed: this.completionSeed
     });
-    return mergeCodeActions(lspActions, localActions);
+    if (cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+
+    let payload;
+    try {
+      payload = await this.codeActionsForDocumentSource?.(
+        document,
+        this.context,
+        cancellationToken
+      );
+    } catch (_error) {
+      return localActions();
+    }
+    if (cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+
+    const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
+    return mergeCodeActions(lspActions, localActions());
   }
 }
 

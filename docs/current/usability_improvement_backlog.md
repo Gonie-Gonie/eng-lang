@@ -4288,6 +4288,18 @@ Status: implemented after rechecking workflow 01/02/03 source guards.
   case-collection policy rather than the already-supported native case-table
   path.
 
+## Batch 346: VS Code Code Action Fallback Resilience
+
+Status: implemented to keep linter quick fixes available during editor-service
+failures.
+
+- Changed the VS Code code action provider so local quick fixes remain
+  available if the LSP-backed code action request throws.
+- Added cancellation checks before and after the LSP request so stale quick fix
+  results are not returned after VS Code cancels a provider call.
+- Extended `ide-check` contract coverage so the provider keeps cancellation and
+  local fallback behavior.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
