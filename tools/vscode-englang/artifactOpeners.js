@@ -5,12 +5,9 @@ const { LAST_RUN_ARTIFACTS } = require("./artifactRegistry");
 
 function createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot }) {
   async function openLastRunArtifactPicker() {
+    const root = currentWorkspaceRoot();
     const picked = await vscode.window.showQuickPick(
-      LAST_RUN_ARTIFACTS.map((artifact) => ({
-        label: artifact.label,
-        description: artifact.description,
-        artifact
-      })),
+      lastRunArtifactQuickPickItems(root),
       { placeHolder: "Open a generated artifact from the latest run" }
     );
     if (picked) {
@@ -90,6 +87,52 @@ function createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot }) {
   };
 }
 
+function lastRunArtifactQuickPickItems(root) {
+  return LAST_RUN_ARTIFACTS.map((artifact) => {
+    const display = lastRunArtifactDisplay(artifact, root);
+    return {
+      label: display.label,
+      description: artifact.description,
+      detail: display.detail,
+      artifact
+    };
+  });
+}
+
+function lastRunArtifactDisplay(artifact, root) {
+  if (artifact.id !== "processResults" || !root) {
+    return { label: artifact.label, detail: "" };
+  }
+  const artifactPath = path.join(root, ...artifact.relativePath);
+  const processCount = readProcessCount(artifactPath);
+  if (processCount === 0) {
+    return {
+      label: "Process Results (0 external processes)",
+      detail: "No external process executions were recorded in the latest run."
+    };
+  }
+  if (processCount > 0) {
+    return {
+      label: `External Process Results (${processCount})`,
+      detail: `${processCount} external process execution${processCount === 1 ? "" : "s"} recorded.`
+    };
+  }
+  return { label: artifact.label, detail: "Run a file to read the latest process count." };
+}
+
+function readProcessCount(artifactPath) {
+  if (!fs.existsSync(artifactPath)) {
+    return undefined;
+  }
+  try {
+    const processResults = JSON.parse(fs.readFileSync(artifactPath, "utf8"));
+    const count = Number(processResults?.process_count);
+    return Number.isFinite(count) && count >= 0 ? count : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function outputManifestArtifactItems(manifest, root) {
   const outputDir = outputManifestOutputDir(manifest, root);
   const artifacts = Array.isArray(manifest?.artifacts) ? manifest.artifacts : [];
@@ -167,6 +210,8 @@ function shouldOpenArtifactExternally(filePath) {
 
 module.exports = {
   createArtifactOpeners,
+  lastRunArtifactDisplay,
+  lastRunArtifactQuickPickItems,
   outputManifestArtifactItems,
   outputManifestArtifactLabel,
   resolveOutputManifestPath

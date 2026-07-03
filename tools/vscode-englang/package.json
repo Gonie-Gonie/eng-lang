@@ -627,7 +627,7 @@
       },
       {
         "command": "englang.openProcessResults",
-        "title": "EngLang: Open Last Run External Process Results"
+        "title": "EngLang: Open Last Run Process Results"
       },
       {
         "command": "englang.openCacheManifest",

@@ -3923,6 +3923,19 @@ Status: implemented to reduce model API wording drift in editor suggestions.
 - Updated current module/status wording to distinguish the preferred public
   model-training surface from legacy-compatible helper forms.
 
+## Batch 317: VS Code Process Results Wording
+
+Status: implemented to avoid implying Python/external execution for native
+workflow runs.
+
+- Renamed the VS Code last-run artifact command and static registry label from
+  `External Process Results` to neutral `Process Results`.
+- Made the last-run artifact picker read `process_results.json` and show
+  `Process Results (0 external processes)` for native zero-process runs while
+  still showing external-process wording when executions are present.
+- Extended the VS Code contract check so the dynamic zero-process wording
+  cannot silently regress.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

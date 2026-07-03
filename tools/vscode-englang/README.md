@@ -44,7 +44,7 @@ embedding compiler logic in JavaScript.
   artifacts, open a current-file review panel, open current-file review data,
   open the latest generated report, and inspect last-run review data, result
   data, report data, output lists, run logs, run graphs, reproducibility locks,
-  external process results, cache records, test results, plot data, plot output
+  process results, cache records, test results, plot data, plot output
   lists, and plot SVGs
 - `EngLang: Switch Problems Source...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette

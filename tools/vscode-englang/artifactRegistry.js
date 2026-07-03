@@ -56,7 +56,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "processResults",
-    label: "External Process Results",
+    label: "Process Results",
     description: "build/result/process_results.json",
     relativePath: ["build", "result", "process_results.json"]
   },

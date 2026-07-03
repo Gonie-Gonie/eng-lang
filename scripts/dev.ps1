@@ -2484,7 +2484,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Graph" },
         @{ Command = "englang.openRunPlan"; Text = "Last Run Graph" },
         @{ Command = "englang.openRunLock"; Text = "Last Run Reproducibility Lock" },
-        @{ Command = "englang.openProcessResults"; Text = "Last Run External Process Results" },
+        @{ Command = "englang.openProcessResults"; Text = "Last Run Process Results" },
         @{ Command = "englang.openCacheManifest"; Text = "Last Run Cache Records" },
         @{ Command = "englang.openTestResults"; Text = "Last Run Test Results" },
         @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Data" },
@@ -2661,7 +2661,7 @@ function Assert-VscodeExtensionContract {
         "Current File Review JSON",
         "Last Run Review JSON",
         "Last Run Output Manifest",
-        "Last Run Process Results",
+        "Last Run External Process Results",
         "Last Run Result Artifact",
         "Last Run Report Spec",
         "Last Static Run Plan",
@@ -2830,6 +2830,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $ArtifactOpenersSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
         throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
+    }
+    if (-not $ArtifactRegistrySource.Contains("Process Results") -or -not $ArtifactOpenersSource.Contains("function lastRunArtifactDisplay") -or -not $ArtifactOpenersSource.Contains("0 external processes")) {
+        throw "VS Code artifact picker must distinguish zero-process native runs from external process runs"
     }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
