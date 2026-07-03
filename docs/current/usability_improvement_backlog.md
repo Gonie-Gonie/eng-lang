@@ -4670,6 +4670,18 @@ completions.
 - Documented the new `E-CACHE-DIR` diagnostic in workflow module and CLI
   references.
 
+## Batch 377: Cache TTL Editor Completion Coverage
+
+Status: implemented after auditing cache option consistency across workflow
+boundaries.
+
+- Added `cache_ttl` to HTTP request and download with-block completion contexts
+  so all cache-capable boundaries expose the same TTL option surface.
+- Added LSP regression coverage for HTTP and download with-block completions,
+  including negative checks that DB/process-only options do not leak.
+- Extended the VS Code grammar fixture and expected token smoke with `headers`
+  option maps and `cache_ttl` option highlighting.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

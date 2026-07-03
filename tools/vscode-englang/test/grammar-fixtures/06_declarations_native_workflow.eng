@@ -51,9 +51,14 @@ with {
         selected_station = station.station_id
         serviceKey = api_key
     }
+    headers = {
+        Accept = "application/json"
+        Authorization = secret env("WEATHER_API_KEY")
+    }
     offline_response = file("data/weather-response.json")
     cache = true
     cache_key = ["weather", "example"]
+    cache_ttl = 30 min
     expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     body_size_limit = 2 MB
     response_body_limit = 2 MB
@@ -83,6 +88,7 @@ download url("https://example.org/file.csv") to file("outputs/file.csv")
 with {
     cache = true
     cache_dir = dir("build/cache")
+    cache_ttl = 1 h
 }
 
 copy file("data/template.txt") to file("outputs/template.txt")

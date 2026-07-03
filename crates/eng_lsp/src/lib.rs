@@ -5393,6 +5393,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "cache",
             "cache_key",
             "cache_dir",
+            "cache_ttl",
             "status_code",
         ]);
     }
@@ -5406,6 +5407,7 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
             "cache",
             "cache_key",
             "cache_dir",
+            "cache_ttl",
         ]);
     }
     if owner.contains("run command") {
@@ -8742,6 +8744,82 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "transaction"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_http_cache_context() {
+        let source = r#"response = http get url("https://api.example.org/weather")
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("http_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "query",
+            "headers",
+            "expected_sha256",
+            "body_size_limit",
+            "cache_ttl",
+            "status_code",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "HTTP with-block completion should include {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "transaction"));
+    }
+
+    #[test]
+    fn with_block_completion_uses_download_cache_context() {
+        let source = r#"download url("https://example.org/file.csv") to file("outputs/file.csv")
+with {
+
+}
+"#;
+        let line = source
+            .lines()
+            .position(|line| line.trim().is_empty())
+            .unwrap();
+        let character = source.lines().nth(line).unwrap().len();
+        let report = check_source(
+            Path::new("download_with_completion.eng"),
+            source,
+            &CheckOptions::default(),
+        );
+        let completions = completion_items_at(&report, source, line, character);
+
+        for label in [
+            "offline_response",
+            "expected_sha256",
+            "response_body_limit",
+            "cache_ttl",
+        ] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "download with-block completion should include {label}"
+            );
+        }
+        assert!(!completions
+            .iter()
+            .any(|completion| completion.label == "body_size_limit"));
     }
 
     #[test]

@@ -2359,5 +2359,30 @@
     "scope": "variable.parameter.property.englang",
     "text": "offset",
     "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "headers ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.option-map.englang",
+    "text": "headers = {"
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "Accept ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "Authorization ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "cache_ttl ="
   }
 ]
