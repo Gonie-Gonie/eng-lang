@@ -678,6 +678,7 @@ pub fn run_source(
     output_artifacts.extend(file_operation_artifacts);
     let mut review_json = runtime_review_json(
         &review_json(&check_report),
+        &check_report,
         &runtime_data,
         &process_results,
         &external_boundary_records,
@@ -4403,7 +4404,14 @@ fn write_csv_exports(
         if export.source != "summary" {
             continue;
         }
-        let path = export_output_path(result_dir, &export.path).ok_or_else(|| {
+        let path_text =
+            evaluate_runtime_output_path_expression(&export.path, report).ok_or_else(|| {
+                std::io::Error::new(
+                    std::io::ErrorKind::InvalidInput,
+                    format!("invalid export path `{}`", export.path),
+                )
+            })?;
+        let path = export_output_path(result_dir, &path_text).ok_or_else(|| {
             std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 format!("invalid export path `{}`", export.path),
@@ -8035,7 +8043,7 @@ fn add_output_artifact_dependency_edges(
             }
         }
         for export in &report.semantic_program.csv_exports {
-            if export.path == artifact.path {
+            if review_artifact_paths_match(&export.path, &artifact.path, report) {
                 let export_id = format!("csv_export:{}:{}", export.source, export.line);
                 push_run_plan_edge_if_present(
                     edges,
@@ -11717,6 +11725,7 @@ fn system_step_diagnostic_review_summary(
 
 fn runtime_review_json(
     base_review: &str,
+    report: &CheckReport,
     runtime_data: &RuntimeData,
     process_results: &[ProcessExecutionRecord],
     external_boundary_records: &[ExternalBoundaryRecord],
@@ -11729,7 +11738,8 @@ fn runtime_review_json(
         enrich_runtime_review_boundaries(base_review, process_results, external_boundary_records);
     let enriched_queries =
         enrich_runtime_review_network_queries(&enriched_boundaries, runtime_data);
-    let enriched_side_effects = enrich_runtime_review_side_effects(&enriched_queries, artifacts);
+    let enriched_side_effects =
+        enrich_runtime_review_side_effects(&enriched_queries, report, artifacts);
     let enriched_caches = enrich_runtime_review_caches(&enriched_side_effects, cache_records);
     let runtime_fallbacks = timeseries_review_fallback_records(runtime_data);
     let enriched_review =
@@ -12166,7 +12176,11 @@ fn review_boundary_matches_record(boundary: &Value, record: &ExternalBoundaryRec
         && name_matches
 }
 
-fn enrich_runtime_review_side_effects(base_review: &str, artifacts: &[OutputArtifact]) -> String {
+fn enrich_runtime_review_side_effects(
+    base_review: &str,
+    report: &CheckReport,
+    artifacts: &[OutputArtifact],
+) -> String {
     if artifacts.is_empty() {
         return base_review.to_owned();
     }
@@ -12192,7 +12206,7 @@ fn enrich_runtime_review_side_effects(base_review: &str, artifacts: &[OutputArti
         };
         let Some(record) = artifact_records.iter().find(|record| {
             side_effect_artifact_kind_matches(effect_kind, &record.kind)
-                && review_artifact_paths_match(target, &record.path)
+                && review_artifact_paths_match(target, &record.path, report)
         }) else {
             continue;
         };
@@ -12406,8 +12420,14 @@ fn side_effect_artifact_kind_matches(effect_kind: &str, artifact_kind: &str) -> 
     }
 }
 
-fn review_artifact_paths_match(target: &str, artifact_path: &str) -> bool {
-    normalize_review_artifact_path(target) == normalize_review_artifact_path(artifact_path)
+fn review_artifact_paths_match(target: &str, artifact_path: &str, report: &CheckReport) -> bool {
+    let normalized_artifact_path = normalize_review_artifact_path(artifact_path);
+    if normalize_review_artifact_path(target) == normalized_artifact_path {
+        return true;
+    }
+    evaluate_runtime_output_path_expression(target, report)
+        .map(|path| normalize_review_artifact_path(&path) == normalized_artifact_path)
+        .unwrap_or(false)
 }
 
 fn normalize_review_artifact_path(path: &str) -> String {
@@ -17269,7 +17289,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nlog info \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nlog warn \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv \"summary.csv\" {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", mean_Q\nwrite json \"energy.json\", E_coil\n",
+            "schema SensorData {\n    time: DateTime index\n    T_supply: AbsoluteTemperature [degC]\n    T_return: AbsoluteTemperature [degC]\n    m_dot: MassFlowRate [kg/s]\n}\n\nargs {\n    input: CsvFile = file(\"../../examples/official/01_csv_plot/data/sensor.csv\")\n    output: DirectoryPath = dir(\"outputs\")\n}\n\nsensor = promote csv args.input as SensorData\ncp = 4180 J/kg/K\nQ_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nE_coil = integrate(Q_coil, over=Time)\nmean_Q = mean(Q_coil, axis=Time)\n\nprint \"Loaded {sensor.rows} rows from {args.input}\"\nlog info \"Q mean = {mean(Q_coil, axis=Time): .2 kW}\"\nlog warn \"E total = {E_coil: .2 kWh}\"\n\nexport summary to csv join(args.output, \"summary.csv\") {\n    E_coil as kWh with \".2\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text join(args.output, \"summary.txt\"), mean_Q\nwrite json \"energy.json\", E_coil\n",
         )
         .expect("write source");
 
@@ -17289,13 +17309,23 @@ mod tests {
         assert_eq!(output.csv_export_paths.len(), 1);
         assert_eq!(output.write_output_paths.len(), 2);
         assert!(!output.artifacts_saved);
-        let csv =
-            fs::read_to_string(build_root.join("result").join("summary.csv")).expect("summary csv");
+        let csv = fs::read_to_string(
+            build_root
+                .join("result")
+                .join("outputs")
+                .join("summary.csv"),
+        )
+        .expect("summary csv");
         assert!(csv.contains("E_coil [kWh]"));
         assert!(csv.contains("mean_Q [kW]"));
         assert_eq!(csv.lines().count(), 2);
-        let text =
-            fs::read_to_string(build_root.join("result").join("summary.txt")).expect("summary txt");
+        let text = fs::read_to_string(
+            build_root
+                .join("result")
+                .join("outputs")
+                .join("summary.txt"),
+        )
+        .expect("summary txt");
         assert!(text.contains('W'));
         let json =
             fs::read_to_string(build_root.join("result").join("energy.json")).expect("energy json");

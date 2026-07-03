@@ -17,6 +17,7 @@ pointwise measured standard-deviation metadata with `sensor_std`
 native mean/peak/integrated energy bindings
 native time-axis coverage check
 explicit sensor summary CSV and quality text artifacts
+single `args.output` directory for generated artifacts
 summary statistics with duration threshold linkage
 PlotSpec confidence band request
 report/review artifact generation

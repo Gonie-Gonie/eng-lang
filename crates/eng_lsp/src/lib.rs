@@ -6962,10 +6962,14 @@ with {
     expected_outputs = ["outputs/result.txt"]
 }
 
-export summary to csv "summary.csv" {
+args {
+    output: DirectoryPath = dir("outputs")
+}
+
+export summary to csv join(args.output, "summary.csv") {
     T_measured as degC
 }
-write text "summary.txt", "ok"
+write text join(args.output, "summary.txt"), "ok"
 
 response = http get url("https://example.org/weather")
 download url("https://example.org/file.csv") to file("build/raw/file.csv")

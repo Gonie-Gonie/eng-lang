@@ -9984,7 +9984,7 @@ system Envelope {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "cp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n}\nexport summary to csv \"summary.csv\" {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text \"summary.txt\", Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmkdir \"archive\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
+            "args {\n    output: DirectoryPath = dir(\"outputs\")\n}\n\ncp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n}\nexport summary to csv join(args.output, \"summary.csv\") {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text join(args.output, \"summary.txt\"), Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmkdir \"archive\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
             &CheckOptions::default(),
         );
 
@@ -10004,6 +10004,10 @@ system Envelope {
         );
         assert_eq!(report.semantic_program.csv_exports.len(), 1);
         assert_eq!(report.semantic_program.csv_exports[0].source, "summary");
+        assert_eq!(
+            report.semantic_program.csv_exports[0].path,
+            "join(args.output, \"summary.csv\")"
+        );
         assert_eq!(report.semantic_program.csv_exports[0].fields.len(), 3);
         assert_eq!(
             report.semantic_program.csv_exports[0].fields[1]
@@ -10013,6 +10017,10 @@ system Envelope {
         );
         assert_eq!(report.semantic_program.writes.len(), 2);
         assert_eq!(report.semantic_program.writes[0].format, "text");
+        assert_eq!(
+            report.semantic_program.writes[0].path,
+            "join(args.output, \"summary.txt\")"
+        );
         assert_eq!(report.semantic_program.writes[1].format, "json");
         assert_eq!(report.semantic_program.file_operations.len(), 4);
         assert_eq!(report.semantic_program.file_operations[0].operation, "copy");

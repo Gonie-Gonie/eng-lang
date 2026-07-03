@@ -58,7 +58,11 @@ fields in the block. It does not require a separate first-class `summary`
 variable.
 
 ```eng partial
-export summary to csv "summary.csv" {
+args {
+    output: DirectoryPath = dir("outputs")
+}
+
+export summary to csv join(args.output, "summary.csv") {
     E_coil as kWh with ".2"
     peak_Q as kW with ".2"
     mean_Q as kW with ".2"
@@ -66,15 +70,17 @@ export summary to csv "summary.csv" {
 ```
 
 The path is written under `build/result` during `eng run`, even when ordinary
-runtime artifacts remain in memory. For example, `"summary.csv"` writes
-`build/result/summary.csv`.
+runtime artifacts remain in memory. For example,
+`join(args.output, "summary.csv")` with the default above writes
+`build/result/outputs/summary.csv`. Quoted paths such as `"summary.csv"` remain
+supported for simple outputs.
 
 Existing identical output is accepted as an idempotent rerun. Replacing
 different existing contents requires `with { overwrite = true }` attached to
 the export block:
 
 ```eng partial
-export summary to csv "summary.csv" {
+export summary to csv join(args.output, "summary.csv") {
     mean_Q as kW with ".2"
 }
 with {

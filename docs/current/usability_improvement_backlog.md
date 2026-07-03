@@ -4491,6 +4491,20 @@ contract.
 - Updated CI gate wording to describe malformed process-result and profile
   regressions, not only nonzero process counts.
 
+## Batch 363: Output Path Expressions For CSV Export
+
+Status: implemented while tightening workflow 03 API consistency.
+
+- Let `export summary to csv` accept output path expressions such as
+  `join(args.output, "summary.csv")`, reusing the existing runtime output-root
+  boundary checks.
+- Fixed `write text/json` parsing to split on a top-level comma, so path helpers
+  with argument commas are valid output targets.
+- Updated workflow 03 to expose `output: DirectoryPath = dir("outputs")` and to
+  route both CSV and text artifacts through `join(args.output, ...)`.
+- Extended VS Code grammar fixtures and semantic-token snapshots so export and
+  write path-helper expressions stay highlighted consistently.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

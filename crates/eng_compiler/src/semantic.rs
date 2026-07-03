@@ -1332,7 +1332,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                         "E-EXPORT-CSV-001",
                         field.line,
                         "CSV export field is not inside an export block.",
-                        Some("Write fields inside `export summary to csv \"path.csv\" { ... }`."),
+                        Some("Write fields inside `export summary to csv join(args.output, \"path.csv\") { ... }` or another output path expression."),
                     ));
                 }
             }
@@ -3398,7 +3398,7 @@ fn analyze_csv_export_decl(
                 "CSV export source `{}` is not supported in the current runtime.",
                 export.source
             ),
-            Some("Use `export summary to csv \"summary.csv\" { ... }` for scalar summary exports."),
+            Some("Use `export summary to csv join(args.output, \"summary.csv\") { ... }` or a quoted output path for scalar summary exports."),
         ));
     }
     CsvExportInfo {

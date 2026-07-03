@@ -184,8 +184,8 @@ The current top-level declaration families are:
 | Domain/component | `domain Fluid { ... }` | Internal metadata track |
 | Print | `print "Q = {Q: .2 kW}"` | Debug/CLI output |
 | Log | `log warn "Q is high"` | Structured runtime message |
-| CSV export | `export summary to csv "summary.csv" { ... }` | Durable scalar artifact |
-| Write output | `write text "note.txt", note` | Explicit generated output |
+| CSV export | `export summary to csv join(args.output, "summary.csv") { ... }` | Durable scalar artifact |
+| Write output | `write text join(args.output, "note.txt"), note` | Explicit generated output |
 | File operation | `copy file("note.txt") to "outputs/note.txt"` | Explicit output-area file mutation |
 | Process run | `result = run command "cmd"` | Explicit external process capture as `ProcessResult` |
 | Test block | `test "summary" { assert Q > 0 kW }` | Runtime assertion and golden checks |
@@ -944,9 +944,15 @@ source-order index.
 ## Export Summary To CSV
 
 `export summary to csv` writes a one-row scalar summary under `build/result`.
+The target can be a quoted path or a path expression such as
+`join(args.output, "summary.csv")`.
 
 ```eng partial
-export summary to csv "summary.csv" {
+args {
+    output: DirectoryPath = dir("outputs")
+}
+
+export summary to csv join(args.output, "summary.csv") {
     mean_Q as kW with ".2"
     peak_Q as kW with ".2"
     E_coil as kWh with ".2"
@@ -967,7 +973,7 @@ Attach overwrite policy when a run is allowed to replace an existing file with
 different contents:
 
 ```eng partial
-export summary to csv "summary.csv" {
+export summary to csv join(args.output, "summary.csv") {
     mean_Q as kW with ".2"
 }
 with {
@@ -983,7 +989,7 @@ If you need a reusable scalar value in export, bind it first:
 
 ```eng partial
 mean_Q = mean Q_coil over Time
-export summary to csv "summary.csv" {
+export summary to csv join(args.output, "summary.csv") {
     mean_Q as kW with ".2"
 }
 ```
@@ -1009,8 +1015,8 @@ Current write forms:
 
 | Form | Output |
 |---|---|
-| `write text "path.txt", expression` | Text formatting of a checked expression |
-| `write json "path.json", expression` | JSON string, raw JSON text, or scalar quantity object |
+| `write text <path-expression>, expression` | Text formatting of a checked expression |
+| `write json <path-expression>, expression` | JSON string, raw JSON text, or scalar quantity object |
 | `write standard_text table with { output = "path.txt" }` | Deterministic schema-aware table text artifact |
 
 Rules:

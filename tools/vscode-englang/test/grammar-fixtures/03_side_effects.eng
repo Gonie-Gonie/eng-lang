@@ -24,7 +24,11 @@ with {
     transaction = rollback
 }
 
-export summary to csv "outputs/summary.csv" {
+args {
+    output: DirectoryPath = dir("outputs")
+}
+
+export summary to csv join(args.output, "summary.csv") {
     Q_total as kWh with ".2"
     eta as 1 with ".3"
 }
@@ -32,6 +36,7 @@ with {
     overwrite = true
 }
 
+write text join(args.output, "summary.txt"), "done"
 write json "outputs/energy.json", E_coil
 print "Q total = {Q_total: .2 kWh}"
 log info "summary exported"

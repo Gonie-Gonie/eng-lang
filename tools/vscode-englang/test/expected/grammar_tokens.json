@@ -353,7 +353,19 @@
   {
     "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.export-summary-csv.englang",
-    "text": "export summary to csv \"outputs/summary.csv\"",
+    "text": "export summary to csv join(args.output, \"summary.csv\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "join",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.output",
     "fullMatch": true
   },
   {
@@ -384,6 +396,12 @@
     "fixture": "03_side_effects.eng",
     "scope": "keyword.control.report.englang",
     "text": "summary",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.write-text.englang",
+    "text": "write text join(args.output, \"summary.txt\"), \"done\"",
     "fullMatch": true
   },
   {

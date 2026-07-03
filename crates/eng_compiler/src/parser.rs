@@ -787,7 +787,7 @@ fn parse_line_items(
     if let Some(print) = parse_print_decl(tokens, line_text, context) {
         items.push(AstItem::Print(print));
     }
-    if let Some(export) = parse_csv_export_decl(tokens, context) {
+    if let Some(export) = parse_csv_export_decl(tokens, line_text, context) {
         items.push(AstItem::CsvExport(export));
     }
     if let Some(field) = parse_csv_export_field_decl(tokens, line_text, context) {
@@ -2734,7 +2734,11 @@ fn print_expression_template(expression: &str) -> Option<String> {
     }
 }
 
-fn parse_csv_export_decl(tokens: &[Token], context: ParseContext) -> Option<CsvExportDecl> {
+fn parse_csv_export_decl(
+    tokens: &[Token],
+    line_text: &str,
+    context: ParseContext,
+) -> Option<CsvExportDecl> {
     let [first, second, third, fourth, fifth, ..] = tokens else {
         return None;
     };
@@ -2750,18 +2754,33 @@ fn parse_csv_export_decl(tokens: &[Token], context: ParseContext) -> Option<CsvE
     if !matches!(fourth.kind, TokenKind::Keyword(Keyword::Csv)) {
         return None;
     }
-    let TokenKind::StringLiteral(path) = &fifth.kind else {
+    if matches!(fifth.kind, TokenKind::Symbol(Symbol::LBrace)) {
         return None;
-    };
+    }
+    let path = csv_export_path_expression(line_text, source)?;
 
     Some(CsvExportDecl {
         source: source.clone(),
         format: "csv".to_owned(),
-        path: path.clone(),
+        path,
         line: first.span.line,
         span: first.span,
         context,
     })
+}
+
+fn csv_export_path_expression(line_text: &str, source: &str) -> Option<String> {
+    let raw = line_text.trim();
+    let rest = raw.strip_prefix("export")?.trim_start();
+    let rest = rest.strip_prefix(source)?.trim_start();
+    let rest = rest.strip_prefix("to")?.trim_start();
+    let rest = rest.strip_prefix("csv")?.trim_start();
+    let path = split_once_top_level(rest, '{')
+        .map(|(path, _)| path)
+        .unwrap_or(rest)
+        .trim()
+        .trim_end_matches(',');
+    (!path.is_empty()).then(|| path.to_owned())
 }
 
 fn parse_csv_export_field_decl(
@@ -2828,7 +2847,7 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     let format = format.trim();
     if format == "standard_text" {
         let rest = rest.trim();
-        let (path, expression) = if let Some((path, expression)) = rest.split_once(',') {
+        let (path, expression) = if let Some((path, expression)) = split_once_top_level(rest, ',') {
             (path.trim().to_owned(), expression.trim().to_owned())
         } else if let Some((expression, path)) = rest.rsplit_once(" to ") {
             (path.trim().to_owned(), expression.trim().to_owned())
@@ -2850,7 +2869,7 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
     if !matches!(format, "text" | "json") {
         return None;
     }
-    let (path, expression) = rest.trim().split_once(',')?;
+    let (path, expression) = split_once_top_level(rest.trim(), ',')?;
     let path = path.trim();
     let expression = expression.trim();
     if path.is_empty() || expression.is_empty() {
@@ -2864,6 +2883,35 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
         span: first.span,
         context,
     })
+}
+
+fn split_once_top_level(text: &str, delimiter: char) -> Option<(&str, &str)> {
+    let mut depth = 0i32;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in text.char_indices() {
+        if in_string {
+            escaped = character == '\\' && !escaped;
+            if character == '"' && !escaped {
+                in_string = false;
+            }
+            if character != '\\' {
+                escaped = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            value if value == delimiter && depth == 0 => {
+                let next_index = index + value.len_utf8();
+                return Some((&text[..index], &text[next_index..]));
+            }
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth -= 1,
+            _ => {}
+        }
+    }
+    None
 }
 
 fn db_table_target_expression(expression: &str) -> Option<(&str, &str)> {
