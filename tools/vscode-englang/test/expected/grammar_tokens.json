@@ -48,6 +48,11 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.workflow.with-block.englang",
+    "text": "with {"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "constant.language.format.englang",
     "text": "[iso8601]"
   },
@@ -1425,6 +1430,11 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
     "text": "query ="
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.workflow.option-map.englang",
+    "text": "query = {"
   },
   {
     "fixture": "06_declarations_native_workflow.eng",

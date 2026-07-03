@@ -4017,6 +4017,17 @@ public workflow phrases.
 - Increased grammar smoke expectations so these public forms cannot silently
   drift back to generic identifier coloring.
 
+## Batch 324: Workflow Scope Coverage Gate
+
+Status: implemented to make TextMate workflow phrase coverage self-auditing.
+
+- Strengthened `vscode-grammar-test` so every `meta.workflow.*` scope in the
+  generated grammar must have an explicit expected token.
+- Added explicit smoke coverage for `with {` blocks and nested option maps such
+  as `query = { ... }`.
+- Improved begin/end pattern matching so multi-line workflow scopes can be
+  tested from their opening phrase without copying whole fixture blocks.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

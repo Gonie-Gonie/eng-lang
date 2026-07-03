@@ -163,7 +163,18 @@ function Test-PatternMatchesText {
         return $true
     }
     if ($null -ne $patternNode.begin -and $null -ne $patternNode.end) {
-        return [regex]::IsMatch($Text, [string] $patternNode.begin) -and [regex]::IsMatch($Text, [string] $patternNode.end)
+        if (-not [regex]::IsMatch($Text, [string] $patternNode.begin)) {
+            return $false
+        }
+        if ([regex]::IsMatch($Text, [string] $patternNode.end)) {
+            return $true
+        }
+        $textIndex = $FixtureText.IndexOf($Text)
+        if ($textIndex -lt 0) {
+            return $false
+        }
+        $remainingFixtureText = $FixtureText.Substring($textIndex + $Text.Length)
+        return [regex]::IsMatch($remainingFixtureText, [string] $patternNode.end)
     }
     return $false
 }
@@ -387,6 +398,24 @@ function Assert-AnyScopeMatchesLabels {
     }
 }
 
+function Assert-ExpectedWorkflowScopesCoverGrammar {
+    $GrammarWorkflowScopes = @($PatternsByScope.Keys | Where-Object {
+        [string]$_ -like "meta.workflow.*"
+    } | Sort-Object -Unique)
+    $ExpectedWorkflowScopes = @($Expected | ForEach-Object {
+        [string]$_.scope
+    } | Where-Object {
+        $_ -like "meta.workflow.*"
+    } | Sort-Object -Unique)
+
+    $MissingWorkflowScopes = @($GrammarWorkflowScopes | Where-Object {
+        $ExpectedWorkflowScopes -notcontains $_
+    })
+    if ($MissingWorkflowScopes.Count -gt 0) {
+        throw "grammar smoke expected tokens missing workflow scope coverage: $($MissingWorkflowScopes -join ', ')"
+    }
+}
+
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
@@ -605,6 +634,7 @@ Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantit
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
+Assert-ExpectedWorkflowScopesCoverGrammar
 
 $Results = New-Object System.Collections.Generic.List[object]
 foreach ($case in $Expected) {
