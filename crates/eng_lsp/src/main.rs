@@ -1325,6 +1325,11 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "42",
             label: "Set sample seed",
         }),
+        "E-CACHE-KEY-NONDETERMINISTIC" => Some(OptionQuickFix {
+            option_names: &["cache_key"],
+            value: "[\"stable\", \"v1\"]",
+            label: "Set deterministic cache key",
+        }),
         "E-CACHE-DIR" => Some(OptionQuickFix {
             option_names: &["cache_dir"],
             value: "dir(\"cache\")",

@@ -747,6 +747,7 @@ with {
     timeout = never
     body_size_limit = unlimited
     cache = true
+    cache_key = [now(), "demo"]
     cache_dir = dir("../outside")
     cache_ttl = forever
 }
@@ -882,6 +883,7 @@ report {
         "E-NET-INVALID-URL",
         "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
+        "E-CACHE-KEY-NONDETERMINISTIC",
         "E-CACHE-DIR",
         "E-CACHE-TTL",
         "E-PROCESS-BINDING-001",
@@ -1030,6 +1032,12 @@ report {
         &uri,
         "Set response body limit to 10 MB: response_body_limit = 10 MB",
         "10 MB",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set deterministic cache key: cache_key = [\"stable\", \"v1\"]",
+        "[\"stable\", \"v1\"]",
     );
     assert_action_edit(
         actions,

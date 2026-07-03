@@ -990,6 +990,7 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-PROCESS-ENV-001" => Some(&["env"]),
         "E-SAMPLING-COUNT-INVALID" => Some(&["count"]),
         "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
+        "E-CACHE-KEY-NONDETERMINISTIC" => Some(&["cache_key"]),
         "E-CACHE-DIR" => Some(&["cache_dir"]),
         "E-CACHE-TTL" => Some(&["cache_ttl"]),
         _ => None,
@@ -7077,6 +7078,11 @@ connect Source.heat -> Sink.heat
                 "E-SAMPLING-SEED-INVALID",
                 "samples = sample lhs\nwith {\n    count = 2\n    seed = later\n    x = uniform(0, 1)\n}\n",
                 "later",
+            ),
+            (
+                "E-CACHE-KEY-NONDETERMINISTIC",
+                "response = http get url(\"https://example.org/data.json\")\nwith {\n    cache = true\n    cache_key = [now(), \"demo\"]\n}\n",
+                "[now(), \"demo\"]",
             ),
             (
                 "E-CACHE-DIR",

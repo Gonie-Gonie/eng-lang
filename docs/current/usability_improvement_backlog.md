@@ -4719,6 +4719,18 @@ LSP lexical semantic constants.
   ascending and descending table sort directions.
 - Regenerated the packaged TextMate grammar from the readable source grammar.
 
+## Batch 381: Cache Key Diagnostic Quick Fix
+
+Status: implemented after auditing cache diagnostics that still lacked direct
+option-value repair support.
+
+- Added LSP diagnostic range targeting for `E-CACHE-KEY-NONDETERMINISTIC` so
+  invalid `cache_key` values are underlined directly.
+- Added LSP and VS Code local fallback quick fixes that replace
+  nondeterministic cache keys with a stable literal key list.
+- Extended stdio code-action and diagnostic-range regressions, and updated the
+  VS Code extension README quick-fix list.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
