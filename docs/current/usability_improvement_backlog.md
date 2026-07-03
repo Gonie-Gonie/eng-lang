@@ -4628,6 +4628,19 @@ network boundary metadata.
 - Surfaced request header counts in the VS Code review panel external
   boundary table.
 
+## Batch 374: Cache TTL Metadata
+
+Status: implemented after comparing process cache completions with cache
+record metadata.
+
+- Promoted `cache_ttl` from accepted editor/process vocabulary into native
+  cache record metadata.
+- Normalized TTL durations such as `1 h` to stable review JSON values such as
+  `3600 s`.
+- Added `E-CACHE-TTL` diagnostics for invalid TTL values instead of silently
+  accepting inert options.
+- Surfaced TTL values in the VS Code review panel Caches table.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -336,13 +336,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>Caches</h2>
     ${renderReviewTable(
-      ["Line", "Owner", "Status", "Key", "Hash"],
+      ["Line", "Owner", "Status", "TTL", "Key", "Hash"],
       caches,
       "No cache records.",
       (cache) => `<tr>
         <td>${sourceLineCell(cache)}</td>
         <td><strong>${escapeHtml(reviewValue(cache, "owner_name", "ownerName"))}</strong><div class="muted">${escapeHtml(reviewValue(cache, "owner_kind", "ownerKind"))}</div></td>
         <td>${statusPill(reviewValue(cache, "status"))}<div class="muted">${escapeHtml(reviewValue(cache, "policy"))}</div></td>
+        <td>${escapeHtml(reviewValue(cache, "cache_ttl", "cacheTtl"))}</td>
         <td><code>${escapeHtml(compactText(reviewValue(cache, "cache_key", "cacheKey"), 130))}</code></td>
         <td><code>${escapeHtml(compactText(reviewValue(cache, "observed_hash", "observedHash"), 80))}</code></td>
       </tr>`

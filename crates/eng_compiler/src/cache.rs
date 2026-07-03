@@ -11,6 +11,7 @@ pub struct CacheRecordInfo {
     pub cache_key_hash: String,
     pub cache_path: String,
     pub cache_dir: String,
+    pub cache_ttl: Option<String>,
     pub source_hash: String,
     pub expected_hash: Option<String>,
     pub observed_hash: Option<String>,
@@ -151,6 +152,7 @@ fn build_cache_record(
     let cache_dir = option_value(options, "cache_dir")
         .map(strip_string_literal)
         .unwrap_or_else(|| "cache".to_owned());
+    let cache_ttl = cache_ttl_policy(options, diagnostics);
     let cache_path = format!("{}/{}", cache_dir.trim_end_matches('/'), cache_key_hash);
 
     Some(CacheRecordInfo {
@@ -161,6 +163,7 @@ fn build_cache_record(
         cache_key_hash,
         cache_path,
         cache_dir,
+        cache_ttl,
         source_hash: source_hash.to_owned(),
         expected_hash,
         observed_hash,
@@ -364,10 +367,91 @@ fn serialize_cache_key(parts: &[String]) -> String {
 }
 
 fn option_value<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a str> {
+    option_for_key(options, key).map(|option| option.value.as_str())
+}
+
+fn option_for_key<'a>(options: &'a [WithOptionInfo], key: &str) -> Option<&'a WithOptionInfo> {
     options
         .iter()
         .find(|option| option.key == key && option.status == "accepted")
-        .map(|option| option.value.as_str())
+}
+
+fn cache_ttl_policy(
+    options: &[WithOptionInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) -> Option<String> {
+    let option = option_for_key(options, "cache_ttl")?;
+    match normalize_cache_ttl(&option.value) {
+        Ok(ttl) => Some(ttl),
+        Err(message) => {
+            diagnostics.push(Diagnostic::error(
+                "E-CACHE-TTL",
+                option.line,
+                &format!("Cache TTL `{}` is invalid.", option.value.trim()),
+                Some(&message),
+            ));
+            None
+        }
+    }
+}
+
+fn normalize_cache_ttl(value: &str) -> Result<String, String> {
+    let (amount, unit) = parse_number_with_suffix(value)
+        .ok_or_else(|| "Use a TTL such as `30 s`, `10 min`, `1 h`, or `7 d`.".to_owned())?;
+    if !amount.is_finite() || amount <= 0.0 {
+        return Err("Use a positive finite cache TTL duration.".to_owned());
+    }
+    let unit = unit.unwrap_or("s").to_ascii_lowercase();
+    let seconds = match unit.as_str() {
+        "ms" | "msec" | "millisecond" | "milliseconds" => amount / 1000.0,
+        "s" | "sec" | "secs" | "second" | "seconds" => amount,
+        "m" | "min" | "mins" | "minute" | "minutes" => amount * 60.0,
+        "h" | "hr" | "hrs" | "hour" | "hours" => amount * 3600.0,
+        "d" | "day" | "days" => amount * 86_400.0,
+        _ => {
+            return Err("Supported cache TTL units are ms, s, min, h, and d.".to_owned());
+        }
+    };
+    Ok(format!("{} s", format_duration_number(seconds)))
+}
+
+fn parse_number_with_suffix(value: &str) -> Option<(f64, Option<&str>)> {
+    let trimmed = value.trim();
+    let mut split_at = 0usize;
+    let mut saw_digit = false;
+    let mut previous = '\0';
+    for (index, character) in trimmed.char_indices() {
+        let allowed = character.is_ascii_digit()
+            || character == '.'
+            || ((character == '-' || character == '+')
+                && (index == 0 || previous == 'e' || previous == 'E'))
+            || ((character == 'e' || character == 'E') && saw_digit);
+        if !allowed {
+            break;
+        }
+        if character.is_ascii_digit() {
+            saw_digit = true;
+        }
+        split_at = index + character.len_utf8();
+        previous = character;
+    }
+    if !saw_digit {
+        return None;
+    }
+    let amount = trimmed[..split_at].parse::<f64>().ok()?;
+    let unit = trimmed[split_at..].trim();
+    Some((amount, (!unit.is_empty()).then_some(unit)))
+}
+
+fn format_duration_number(value: f64) -> String {
+    let mut text = format!("{value:.6}");
+    while text.contains('.') && text.ends_with('0') {
+        text.pop();
+    }
+    if text.ends_with('.') {
+        text.pop();
+    }
+    text
 }
 
 fn parse_bool(value: &str) -> bool {

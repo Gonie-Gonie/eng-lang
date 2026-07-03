@@ -5021,6 +5021,7 @@ fn push_cache_records_json(json: &mut String, report: &CheckReport, indent: usiz
             "{spaces}    \"cache_dir\": \"{}\",\n",
             json_escape(&record.cache_dir)
         ));
+        push_optional_json_string(json, "cache_ttl", record.cache_ttl.as_deref(), indent + 4);
         json.push_str(&format!(
             "{spaces}    \"source_hash\": \"{}\",\n",
             json_escape(&record.source_hash)
@@ -7213,6 +7214,7 @@ fn push_review_caches_json(json: &mut String, report: &CheckReport) {
             "        \"cache_dir\": \"{}\",\n",
             json_escape(&record.cache_dir)
         ));
+        push_optional_json_string(json, "cache_ttl", record.cache_ttl.as_deref(), 8);
         json.push_str(&format!(
             "        \"source_hash\": \"{}\",\n",
             json_escape(&record.source_hash)
@@ -10009,7 +10011,7 @@ system Envelope {
     fn records_unit_aware_print_and_csv_export_metadata() {
         let report = check_source(
             "ok.eng",
-            "args {\n    output: DirectoryPath = dir(\"outputs\")\n}\n\ncp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n}\nexport summary to csv join(args.output, \"summary.csv\") {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text join(args.output, \"summary.txt\"), Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmkdir \"archive\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
+            "args {\n    output: DirectoryPath = dir(\"outputs\")\n}\n\ncp = 4180 J/kg/K\nQ_series = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)\nmean_Q = mean(Q_series, axis=Time)\nQ = 10 kW\nE: Energy [J] = 3600 J\nprint \"Q={Q: .2 kW} E={E: .3 kWh}\"\nlog info \"run started for {Q: .1 kW}\"\nlog warn \"check energy {E: .3 kWh}\"\nlog debug \"debug detail\"\nlog error \"review required\"\nprocess_result = run command \"cmd\"\nwith {\n    args = [\"/C\", \"echo\", \"ok\"]\n    cache = true\n    cache_ttl = 1 h\n}\nexport summary to csv join(args.output, \"summary.csv\") {\n    Q as kW with \".2\"\n    E as kWh with \".3\"\n    mean_Q as kW with \".2\"\n}\nwith {\n    overwrite = true\n}\nwrite text join(args.output, \"summary.txt\"), Q\nwrite json \"summary.json\", E\ncopy file(\"source.txt\") to \"copied.txt\"\nmkdir \"archive\"\nmove \"copied.txt\" to \"moved.txt\"\nwith {\n    confirm = true\n    overwrite = true\n}\ndelete \"moved.txt\"\nwith {\n    confirm = true\n}\n",
             &CheckOptions::default(),
         );
 
@@ -10069,6 +10071,13 @@ system Envelope {
             .iter()
             .any(|binding| binding.name == "process_result"
                 && binding.semantic_type.quantity_kind == "ProcessResult"));
+        let process_cache = report
+            .semantic_program
+            .cache_records
+            .iter()
+            .find(|record| record.owner_kind == "process")
+            .expect("process cache record");
+        assert_eq!(process_cache.cache_ttl.as_deref(), Some("3600 s"));
         assert_eq!(report.semantic_program.with_blocks.len(), 4);
         let review = review_json(&report);
         assert!(review.contains("\"prints\""));
@@ -10078,6 +10087,7 @@ system Envelope {
         assert!(review.contains("\"file_operations\""));
         assert!(review.contains("\"kind\": \"file_mkdir\""));
         assert!(review.contains("\"process_runs\""));
+        assert!(review.contains("\"cache_ttl\": \"3600 s\""));
         assert!(review.contains("\"overwrite\""));
         assert!(review.contains("\"confirm\""));
         let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
@@ -14417,6 +14427,21 @@ system Envelope {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-CACHE-KEY-NONDETERMINISTIC"));
+    }
+
+    #[test]
+    fn rejects_invalid_cache_ttl() {
+        let report = check_source(
+            "bad.eng",
+            "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_ttl = forever\n}\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-CACHE-TTL"));
     }
 
     #[test]
