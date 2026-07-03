@@ -1552,6 +1552,10 @@ Status: implemented after command-palette wording review.
   mandatory process execution.
 - Extended `ide-check` to reject the older wording in package and extension
   sources.
+- Superseded in Batch 317: VS Code now uses neutral `Process Results` in the
+  static command surface and reads `process_results.json` to show
+  zero-process wording only when the latest run actually has
+  `process_count = 0`.
 
 ## Batch 128: Native IDE Effects Wording Cleanup
 
@@ -1561,6 +1565,10 @@ Status: implemented after Native IDE artifact wording review.
   Results` to `External Process Results`, matching the VS Code command surface
   and making it clearer that native workflows can have zero external processes.
 - Extended `ide-check` so the old Native IDE panel title cannot return.
+- Superseded in Batch 318: the Native IDE Effects panel now computes the
+  process-results title from `process_results.json.process_count` so
+  zero-process native workflow runs do not appear to have executed an external
+  process.
 
 ## Batch 129: Native IDE Highlight Token Filtering
 
