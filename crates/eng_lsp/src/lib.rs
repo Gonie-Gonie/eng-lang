@@ -1543,6 +1543,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for command in &program.command_styles {
         builder.push_on_line(command.line, &command.verb, "function", &["defaultLibrary"]);
+        if command.verb == "apply" && is_simple_identifier_path(&command.target) {
+            builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
+        }
         if command.verb == "fill" && command.target.trim().starts_with("missing ") {
             builder.push_keywords_on_line(command.line, &["missing"], &["validation"]);
         }
@@ -6828,6 +6831,10 @@ legacy_station = select_first_row(stations, return_column="station_id")
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
             assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
+        }
+        for label in ["run_case", "case_input_template"] {
+            assert_semantic_token_type(&snapshot, source, label, "function");
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for label in [
             "train",

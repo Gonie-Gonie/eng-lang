@@ -4040,6 +4040,18 @@ workflow path.
 - Extended `workflows-test` public-doc checks so the stale external-simulation
   path and doc link cannot be reintroduced.
 
+## Batch 326: Apply Step Semantic Highlighting
+
+Status: implemented to reduce VS Code highlight changes after semantic tokens
+arrive.
+
+- Marked command-style `apply <step> over <cases>` targets as semantic
+  `function` tokens with the `workflowStep` modifier.
+- This keeps custom step names such as `case_input_template` aligned with the
+  first-render TextMate workflow-step highlighting.
+- Extended the native workflow LSP regression so both built-in `run_case` and
+  custom apply step names remain colored as workflow-step functions.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
