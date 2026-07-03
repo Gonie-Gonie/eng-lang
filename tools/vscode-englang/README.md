@@ -33,7 +33,8 @@ embedding compiler logic in JavaScript.
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
-  sampling seeds, uncertainty constructor argument repairs, and uncertainty
+  sampling seeds, simulation/solver option repairs, unsupported regression
+  algorithm repairs, uncertainty constructor argument repairs, and uncertainty
   source definition/conversion repairs. Live editor quick fixes are shown first
   and merged with local fallback repairs so partial live editor responses do
   not hide available fixes.

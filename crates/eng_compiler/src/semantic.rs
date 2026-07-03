@@ -11706,9 +11706,6 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     for diagnostic in crate::ml::source_diagnostics(binding, &available_bindings) {
         accum.diagnostics.push(diagnostic);
     }
-    for diagnostic in crate::ml::argument_diagnostics(binding) {
-        accum.diagnostics.push(diagnostic);
-    }
     let uncertainty = crate::uncertainty::uncertainty_info(binding, &available_bindings);
     if let Some(uncertainty) = &uncertainty {
         accum.uncertainty_infos.push(uncertainty.clone());

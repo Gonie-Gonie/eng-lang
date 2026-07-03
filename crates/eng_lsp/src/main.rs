@@ -1430,6 +1430,11 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "newton",
             label: "Set algebraic initialization",
         }),
+        "E-ML-ARGS-003" => Some(OptionQuickFix {
+            option_names: &["algorithm"],
+            value: "linear",
+            label: "Set regression algorithm",
+        }),
         _ => None,
     }
 }

@@ -9,12 +9,21 @@ pub struct MlInfo {
     pub source: Option<String>,
     pub prediction_input: Option<String>,
     pub target: Option<String>,
+    pub target_line: Option<usize>,
     pub features: Vec<String>,
+    pub features_line: Option<usize>,
     pub algorithm: Option<String>,
+    pub algorithm_line: Option<usize>,
     pub test_fraction: Option<String>,
+    pub test_fraction_line: Option<usize>,
     pub seed: Option<String>,
+    pub seed_line: Option<usize>,
+    pub hidden_value: Option<String>,
     pub hidden_layers: Vec<usize>,
+    pub hidden_line: Option<usize>,
+    pub epochs_value: Option<String>,
     pub epochs: Option<usize>,
+    pub epochs_line: Option<usize>,
     pub expression: String,
     pub line: usize,
 }
@@ -50,26 +59,49 @@ pub fn ml_info(binding: &FastBinding) -> Option<MlInfo> {
         .or_else(|| table_regression_source(expression))
         .or_else(|| first_argument(expression));
 
+    let target = (kind != "PredictionResult")
+        .then(|| named_value(expression, &["target", "y"]))
+        .flatten();
+    let features = if kind == "PredictionResult" {
+        Vec::new()
+    } else {
+        list_value(expression, &["features", "x"])
+    };
+    let algorithm = named_value(expression, &["algorithm"]).or_else(|| default_algorithm(kind));
+    let has_explicit_algorithm = named_value(expression, &["algorithm"]).is_some();
+    let test_fraction = named_value(expression, &["test", "test_fraction"]);
+    let seed = named_value(expression, &["seed"]);
+    let hidden_value = named_value(expression, &["hidden", "layers"]);
+    let hidden_layers = hidden_value
+        .as_deref()
+        .map(parse_usize_list)
+        .unwrap_or_default();
+    let epochs_value = named_value(expression, &["epochs"]);
+    let epochs = epochs_value
+        .as_deref()
+        .and_then(|value| value.parse::<usize>().ok());
+
     Some(MlInfo {
         binding: binding.name.clone(),
         kind: kind.to_owned(),
         source,
         prediction_input: prediction_arguments.map(|(_, input)| input),
-        target: (kind != "PredictionResult")
-            .then(|| named_value(expression, &["target", "y"]))
-            .flatten(),
-        features: if kind == "PredictionResult" {
-            Vec::new()
-        } else {
-            list_value(expression, &["features", "x"])
-        },
-        algorithm: named_value(expression, &["algorithm"]).or_else(|| default_algorithm(kind)),
-        test_fraction: named_value(expression, &["test", "test_fraction"]),
-        seed: named_value(expression, &["seed"]),
-        hidden_layers: named_value(expression, &["hidden", "layers"])
-            .map(|value| parse_usize_list(&value))
-            .unwrap_or_default(),
-        epochs: named_value(expression, &["epochs"]).and_then(|value| value.parse::<usize>().ok()),
+        target_line: target.as_ref().map(|_| binding.line),
+        target,
+        features_line: (!features.is_empty()).then_some(binding.line),
+        features,
+        algorithm_line: has_explicit_algorithm.then_some(binding.line),
+        algorithm,
+        test_fraction_line: test_fraction.as_ref().map(|_| binding.line),
+        test_fraction,
+        seed_line: seed.as_ref().map(|_| binding.line),
+        seed,
+        hidden_line: hidden_value.as_ref().map(|_| binding.line),
+        hidden_value,
+        hidden_layers,
+        epochs_line: epochs_value.as_ref().map(|_| binding.line),
+        epochs_value,
+        epochs,
         expression: binding.expression.clone(),
         line: binding.line,
     })
@@ -90,7 +122,6 @@ pub fn apply_with_blocks(ml_infos: &mut [MlInfo], with_blocks: &[WithBlockInfo])
 pub fn with_block_argument_diagnostics(ml_infos: &[MlInfo]) -> Vec<Diagnostic> {
     ml_infos
         .iter()
-        .filter(|info| is_train_regression_phrase(&info.expression))
         .flat_map(argument_diagnostics_for_info)
         .collect()
 }
@@ -122,16 +153,6 @@ pub fn source_diagnostics(
             validate_source_requirement(&requirement, binding.line, typed_bindings)
         })
         .collect()
-}
-
-pub fn argument_diagnostics(binding: &FastBinding) -> Vec<Diagnostic> {
-    let Some(info) = ml_info(binding) else {
-        return Vec::new();
-    };
-    if is_train_regression_phrase(&info.expression) {
-        return Vec::new();
-    }
-    argument_diagnostics_for_info(&info)
 }
 
 pub fn argument_diagnostics_for_info(info: &MlInfo) -> Vec<Diagnostic> {
@@ -388,6 +409,11 @@ fn ml_call_name(expression: &str) -> &'static str {
 }
 
 fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
+    let target_line = info.target_line.unwrap_or(info.line);
+    let features_line = info.features_line.unwrap_or(info.line);
+    let test_fraction_line = info.test_fraction_line.unwrap_or(info.line);
+    let seed_line = info.seed_line.unwrap_or(info.line);
+
     if info
         .target
         .as_deref()
@@ -396,7 +422,7 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
     {
         diagnostics.push(Diagnostic::error(
             "E-ML-ARGS-001",
-            info.line,
+            target_line,
             "`train_test_split` requires `target=<TimeSeriesName>`.",
             Some("Pass the target series explicitly, for example `target=Q_coil`."),
         ));
@@ -405,14 +431,14 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
     if info.features.is_empty() {
         diagnostics.push(Diagnostic::error(
             "E-ML-ARGS-001",
-            info.line,
+            features_line,
             "`train_test_split` requires at least one feature column in `features=[...]`.",
             Some("List feature columns such as `features=[T_supply, T_return, m_dot]`."),
         ));
     } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
         diagnostics.push(Diagnostic::error(
             "E-ML-ARGS-001",
-            info.line,
+            features_line,
             &format!("Feature `{feature}` is not a valid identifier."),
             Some("Use bare schema column names in `features=[...]`; runtime leakage lint checks whether they exist in the source table."),
         ));
@@ -422,7 +448,7 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
         Some(value) if parse_test_fraction(value).is_some() => {}
         Some(value) => diagnostics.push(Diagnostic::error(
             "E-ML-ARGS-002",
-            info.line,
+            test_fraction_line,
             &format!("`test={value}` is not a valid held-out fraction."),
             Some("Use a value between 0 and 1, or a percentage such as `20%`."),
         )),
@@ -434,10 +460,16 @@ fn validate_train_test_split_arguments(info: &MlInfo, diagnostics: &mut Vec<Diag
         )),
     }
 
-    validate_optional_integer_value(info.seed.as_deref(), "seed", info.line, diagnostics);
+    validate_optional_integer_value(info.seed.as_deref(), "seed", seed_line, diagnostics);
 }
 
 fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
+    let target_line = info.target_line.unwrap_or(info.line);
+    let features_line = info.features_line.unwrap_or(info.line);
+    let test_fraction_line = info.test_fraction_line.unwrap_or(info.line);
+    let seed_line = info.seed_line.unwrap_or(info.line);
+    let algorithm_line = info.algorithm_line.unwrap_or(info.line);
+
     if is_table_regression_expression(&info.expression) {
         let call = regression_call_label(&info.expression);
         if info
@@ -448,7 +480,7 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
         {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-001",
-                info.line,
+                target_line,
                 &format!("`{call}` requires `target=<column>` or `y=<column>`."),
                 Some("Pass the target table column, for example `with { target = annual_electricity }`."),
             ));
@@ -456,14 +488,14 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
         if info.features.is_empty() {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-001",
-                info.line,
+                features_line,
                 &format!("`{call}` requires `features=[...]` or `x=[...]`."),
                 Some("List feature columns such as `with { features = [people_density, cooling_cop] }`."),
             ));
         } else if let Some(feature) = info.features.iter().find(|feature| !is_identifier(feature)) {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-001",
-                info.line,
+                features_line,
                 &format!("Feature `{feature}` is not a valid identifier."),
                 Some("Use bare table column names in `features=[...]`."),
             ));
@@ -472,19 +504,19 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
             if parse_test_fraction(value).is_none() {
                 diagnostics.push(Diagnostic::error(
                     "E-ML-ARGS-002",
-                    info.line,
+                    test_fraction_line,
                     &format!("`test={value}` is not a valid held-out fraction."),
                     Some("Use a value between 0 and 1, or a percentage such as `20%`."),
                 ));
             }
         }
-        validate_optional_integer_value(info.seed.as_deref(), "seed", info.line, diagnostics);
+        validate_optional_integer_value(info.seed.as_deref(), "seed", seed_line, diagnostics);
     }
     if let Some(algorithm) = info.algorithm.as_deref().map(unquote_value) {
         if algorithm != "linear" {
             diagnostics.push(Diagnostic::error(
                 "E-ML-ARGS-003",
-                info.line,
+                algorithm_line,
                 &format!("Unsupported regression algorithm `{algorithm}`."),
                 Some("The current data-driven modeling track supports `algorithm=linear`."),
             ));
@@ -493,11 +525,15 @@ fn validate_regression_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic
 }
 
 fn validate_mlp_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
-    match named_value(&info.expression, &["hidden", "layers"]) {
-        Some(value) if valid_positive_usize_list(&value) => {}
+    let hidden_line = info.hidden_line.unwrap_or(info.line);
+    let epochs_line = info.epochs_line.unwrap_or(info.line);
+    let seed_line = info.seed_line.unwrap_or(info.line);
+
+    match info.hidden_value.as_deref() {
+        Some(value) if valid_positive_usize_list(value) => {}
         Some(value) => diagnostics.push(Diagnostic::error(
             "E-ML-ARGS-002",
-            info.line,
+            hidden_line,
             &format!("`hidden={value}` must contain positive integer layer sizes."),
             Some("Use a list such as `hidden=[4]` or `hidden=[8, 4]`."),
         )),
@@ -509,11 +545,11 @@ fn validate_mlp_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
         )),
     }
 
-    match named_value(&info.expression, &["epochs"]) {
-        Some(value) if parse_positive_usize(&value).is_some() => {}
+    match info.epochs_value.as_deref() {
+        Some(value) if parse_positive_usize(value).is_some() => {}
         Some(value) => diagnostics.push(Diagnostic::error(
             "E-ML-ARGS-002",
-            info.line,
+            epochs_line,
             &format!("`epochs={value}` must be a positive integer."),
             Some("Use an explicit training budget such as `epochs=80`."),
         )),
@@ -525,7 +561,7 @@ fn validate_mlp_arguments(info: &MlInfo, diagnostics: &mut Vec<Diagnostic>) {
         )),
     }
 
-    validate_optional_integer_value(info.seed.as_deref(), "seed", info.line, diagnostics);
+    validate_optional_integer_value(info.seed.as_deref(), "seed", seed_line, diagnostics);
 }
 
 fn parse_test_fraction(value: &str) -> Option<f64> {
@@ -727,35 +763,44 @@ fn apply_with_options(info: &mut MlInfo, options: &[WithOptionInfo]) {
     if !is_model_with_options_owner(&info.expression) {
         return;
     }
-    if let Some(value) = with_option_value(options, &["target", "y"]) {
+    if let Some((value, line)) = with_option_value(options, &["target", "y"]) {
         info.target = Some(value);
+        info.target_line = Some(line);
     }
-    if let Some(value) = with_option_value(options, &["features", "x"]) {
+    if let Some((value, line)) = with_option_value(options, &["features", "x"]) {
         info.features = list_items(&value).into_iter().map(str::to_owned).collect();
+        info.features_line = Some(line);
     }
-    if let Some(value) = with_option_value(options, &["algorithm"]) {
+    if let Some((value, line)) = with_option_value(options, &["algorithm"]) {
         info.algorithm = Some(value);
+        info.algorithm_line = Some(line);
     }
-    if let Some(value) = with_option_value(options, &["test", "test_fraction"]) {
+    if let Some((value, line)) = with_option_value(options, &["test", "test_fraction"]) {
         info.test_fraction = Some(value);
+        info.test_fraction_line = Some(line);
     }
-    if let Some(value) = with_option_value(options, &["seed"]) {
+    if let Some((value, line)) = with_option_value(options, &["seed"]) {
         info.seed = Some(value);
+        info.seed_line = Some(line);
     }
-    if let Some(value) = with_option_value(options, &["hidden", "layers"]) {
+    if let Some((value, line)) = with_option_value(options, &["hidden", "layers"]) {
         info.hidden_layers = parse_usize_list(&value);
+        info.hidden_value = Some(value);
+        info.hidden_line = Some(line);
     }
-    if let Some(value) = with_option_value(options, &["epochs"]) {
+    if let Some((value, line)) = with_option_value(options, &["epochs"]) {
         info.epochs = value.parse::<usize>().ok();
+        info.epochs_value = Some(value);
+        info.epochs_line = Some(line);
     }
 }
 
-fn with_option_value(options: &[WithOptionInfo], names: &[&str]) -> Option<String> {
+fn with_option_value(options: &[WithOptionInfo], names: &[&str]) -> Option<(String, usize)> {
     options.iter().find_map(|option| {
         names
             .iter()
             .any(|name| option.key.eq_ignore_ascii_case(name))
-            .then(|| option.value.trim().to_owned())
+            .then(|| (option.value.trim().to_owned(), option.line))
     })
 }
 

@@ -547,6 +547,8 @@ function optionQuickFix(code) {
         value: "newton",
         label: "Set algebraic initialization"
       };
+    case "E-ML-ARGS-003":
+      return { optionNames: ["algorithm"], value: "linear", label: "Set regression algorithm" };
     default:
       return undefined;
   }

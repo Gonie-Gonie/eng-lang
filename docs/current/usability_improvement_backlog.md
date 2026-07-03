@@ -4745,6 +4745,23 @@ diagnostics against editor underline and quick-fix behavior.
 - Extended stdio code-action and diagnostic-range regressions, and updated the
   VS Code extension README quick-fix list.
 
+## Batch 383: Model Option Diagnostic Ranges
+
+Status: implemented after auditing native model-training `with` option
+diagnostics against editor underline and quick-fix behavior.
+
+- Preserved model option source lines and raw option values in compiler ML
+  metadata so diagnostics for invalid `test`, `seed`, `algorithm`, `hidden`,
+  and `epochs` options can point at the option line instead of the model owner
+  line.
+- Added LSP diagnostic range targeting for model argument diagnostics so
+  invalid model option values are underlined directly in VS Code.
+- Added LSP and VS Code local fallback quick fixes for unsupported regression
+  algorithms, replacing the option value with the currently supported native
+  `linear` algorithm.
+- Extended stdio code-action and diagnostic-range regressions, and updated the
+  VS Code extension README quick-fix list.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

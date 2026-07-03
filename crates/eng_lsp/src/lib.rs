@@ -990,6 +990,26 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-PROCESS-ENV-001" => Some(&["env"]),
         "E-SAMPLING-COUNT-INVALID" => Some(&["count"]),
         "E-SAMPLING-SEED-INVALID" => Some(&["seed"]),
+        "E-ML-ARGS-001" => Some(&[
+            "target",
+            "y",
+            "features",
+            "x",
+            "test",
+            "test_fraction",
+            "hidden",
+            "layers",
+            "epochs",
+        ]),
+        "E-ML-ARGS-002" => Some(&[
+            "test",
+            "test_fraction",
+            "seed",
+            "hidden",
+            "layers",
+            "epochs",
+        ]),
+        "E-ML-ARGS-003" => Some(&["algorithm"]),
         "E-CACHE-KEY-NONDETERMINISTIC" => Some(&["cache_key"]),
         "E-CACHE-DIR" => Some(&["cache_dir"]),
         "E-CACHE-TTL" => Some(&["cache_ttl"]),
@@ -7108,6 +7128,85 @@ with {
     mass_matrix = bad
 }
 "#;
+        let regression_bad_test = r#"designs = sample lhs
+with {
+    count = 4
+    seed = 5
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+results = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh
+model = train regression results
+with {
+    target = annual_electricity
+    features = [cooling_cop]
+    test = 1.5
+    seed = 7
+}
+"#;
+        let regression_bad_seed = r#"designs = sample lhs
+with {
+    count = 4
+    seed = 5
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+results = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh
+model = train regression results
+with {
+    target = annual_electricity
+    features = [cooling_cop]
+    test = 0.25
+    seed = abc
+}
+"#;
+        let regression_bad_algorithm = r#"designs = sample lhs
+with {
+    count = 4
+    seed = 5
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+results = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh
+model = train regression results
+with {
+    target = annual_electricity
+    features = [cooling_cop]
+    test = 0.25
+    seed = 7
+    algorithm = tree
+}
+"#;
+        let mlp_bad_hidden = r#"cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)
+mlp_model = mlp(split)
+with {
+    hidden = [0]
+    epochs = 20
+    seed = 7
+}
+"#;
+        let mlp_bad_epochs = r#"cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)
+mlp_model = mlp(split)
+with {
+    hidden = [4]
+    epochs = 0
+    seed = 7
+}
+"#;
+        let mlp_bad_seed = r#"cp = 4180 J/kg/K
+Q_coil = sensor.m_dot * cp * (sensor.T_return - sensor.T_supply)
+split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.25)
+mlp_model = mlp(split)
+with {
+    hidden = [4]
+    epochs = 20
+    seed = abc
+}
+"#;
 
         for (code, source, expected_text) in [
             ("E-DIM-ADD-002", "Q: HeatRate [kW] = 2 kW - 1\n", "-"),
@@ -7259,6 +7358,12 @@ with {
                 newton_solve_bad_options,
                 "maybe",
             ),
+            ("E-ML-ARGS-002", regression_bad_test, "1.5"),
+            ("E-ML-ARGS-002", regression_bad_seed, "abc"),
+            ("E-ML-ARGS-003", regression_bad_algorithm, "tree"),
+            ("E-ML-ARGS-002", mlp_bad_hidden, "[0]"),
+            ("E-ML-ARGS-002", mlp_bad_epochs, "0"),
+            ("E-ML-ARGS-002", mlp_bad_seed, "abc"),
         ] {
             assert_first_diagnostic_underlines(source, code, expected_text);
         }

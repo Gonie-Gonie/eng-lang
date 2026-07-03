@@ -848,6 +848,23 @@ with {
     initial = bad
 }
 
+model_designs = sample lhs
+with {
+    count = 4
+    seed = 5
+    cooling_cop = uniform(2.5, 5.0)
+}
+
+model_results = derive model_designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh
+model_bad = train regression model_results
+with {
+    target = annual_electricity
+    features = [cooling_cop]
+    test = 1.5
+    seed = abc
+    algorithm = tree
+}
+
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -946,6 +963,8 @@ report {
         "E-SOLVE-MAX-ITER-INVALID",
         "E-SOLVE-RELAXATION-INVALID",
         "E-SOLVE-INITIAL-INVALID",
+        "E-ML-ARGS-002",
+        "E-ML-ARGS-003",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
         "E-LOG-LEVEL-001",
@@ -1165,6 +1184,12 @@ report {
         "0.5",
     );
     assert_action_edit(actions, &uri, "Set solver initial value: initial = 1", "1");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set regression algorithm: algorithm = linear",
+        "linear",
+    );
     assert_action_edit(
         actions,
         &uri,
