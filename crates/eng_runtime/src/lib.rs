@@ -20340,6 +20340,7 @@ mod tests {
             cache_key_hash: "cache-key-hash".to_owned(),
             cache_path: "cache/cache-key-hash".to_owned(),
             cache_dir: "cache".to_owned(),
+            cache_ttl: None,
             source_hash: "source-hash".to_owned(),
             expected_hash: Some("sha256:expected".to_owned()),
             observed_hash: Some("observed".to_owned()),
