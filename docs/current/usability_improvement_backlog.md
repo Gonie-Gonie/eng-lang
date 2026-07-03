@@ -4562,6 +4562,16 @@ LSP, and VS Code comment handling.
 - Added `ide-check` contract tokens so native IDE comment parity does not
   regress silently.
 
+## Batch 369: Native IDE Constant Fallback Parity
+
+Status: implemented after comparing native IDE lexical fallback constants with
+the VS Code TextMate constant list.
+
+- Added log levels, artifact statuses, metadata readiness states, and solver
+  method names to the native IDE fallback constant highlighter.
+- Extended `ide-check` contract tokens so native IDE fallback highlighting stays
+  aligned with VS Code grammar constants when semantic data is stale.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -20,10 +20,15 @@ const FALLBACK_LEXICAL_OPERATOR_WORDS = [
   "of", "vs", "to", "within", "matches"
 ];
 const FALLBACK_LEXICAL_CONSTANTS = [
-  "true", "false", "none", "null", "safe", "normal", "repro", "append", "insert",
-  "upsert", "replace", "commit", "rollback", "keep", "empty", "linear", "pending",
-  "running", "passed", "failed", "succeeded", "skipped", "blocked", "completed",
-  "cached", "stale", "hit", "miss", "adaptive_heun", "fixed_point", "newton"
+  "true", "false", "none", "null", "info", "warn", "debug", "error",
+  "safe", "normal", "repro", "append", "insert", "upsert", "replace",
+  "commit", "rollback", "keep", "empty", "interpolate", "monotonic", "linear",
+  "pending", "running", "passed", "failed", "succeeded", "skipped", "blocked",
+  "completed", "cached", "stale", "hit", "miss", "created", "updated",
+  "metadata_ready", "warnings_present", "diagnostics_present", "fixed_step",
+  "rk4", "adaptive_heun", "fixed_point", "newton", "implicit_euler_dae",
+  "dynamic_component_explicit_euler", "dynamic_component_semi_implicit_euler",
+  "dynamic_component_adaptive_heun", "trapezoidal"
 ];
 const FALLBACK_LEXICAL_UNITS = [
   "J/kg/K", "people/m2", "person/m2", "W/m^2", "W/m2", "kg/s", "W/K",
