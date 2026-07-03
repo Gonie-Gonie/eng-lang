@@ -4437,6 +4437,17 @@ Status: implemented after reviewing network boundary URL diagnostics.
   extended stdio, stdin code-action, VS Code extension contract, and README
   coverage.
 
+## Batch 359: HTTP Body Method Quick Fix
+
+Status: implemented after reviewing request-body diagnostics.
+
+- Added an LSP-owned quick fix for `E-NET-BODY-METHOD` that changes an
+  unsupported request-body owner such as `http get` to `http post`.
+- Mirrored the same repair in the VS Code local fallback provider so request
+  body method diagnostics stay actionable without a live LSP response.
+- Narrowed request-body diagnostics to the `body` option value and extended
+  stdio, stdin code-action, VS Code extension contract, and README coverage.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

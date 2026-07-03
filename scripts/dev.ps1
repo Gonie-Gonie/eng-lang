@@ -3200,6 +3200,7 @@ function Assert-VscodeExtensionContract {
         "E-FS-CONFIRM-001",
         "E-FS-DELETE-001",
         "E-NET-INVALID-URL",
+        "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
@@ -3231,6 +3232,8 @@ function Assert-VscodeExtensionContract {
         "recursiveDeleteAction",
         "absoluteHttpUrlAction",
         "Replace URL with https://example.org",
+        "httpBodyMethodAction",
+        "Change HTTP method to post",
         "expectedSha256Action",
         "expectedSha256FromDiagnostic",
         "commandTargetParenthesesAction",
@@ -3450,6 +3453,9 @@ function Assert-VscodeExtensionContract {
         "E-NET-INVALID-URL",
         "lsp_absolute_http_url_code_action",
         "Replace URL with https://example.org",
+        "E-NET-BODY-METHOD",
+        "lsp_http_body_method_code_action",
+        "Change HTTP method to post",
         "E-NET-RETRY-POLICY",
         "E-PROCESS-ALLOW-FAILURE"
     )) {

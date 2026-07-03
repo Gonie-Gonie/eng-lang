@@ -746,6 +746,11 @@ with {
 
 bad_url_response = http get url("ftp://example.org/data.json")
 
+get_with_body = http get url("https://example.org/submit")
+with {
+    body = "submitted=true"
+}
+
 download url("https://example.org/file.csv") to file("build/raw/file.csv")
 with {
     response_body_limit = 0 B
@@ -868,6 +873,7 @@ report {
         "E-NET-TIMEOUT",
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-INVALID-URL",
+        "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
         "E-PROCESS-BINDING-001",
         "E-PROCESS-BINDING-002",
@@ -1088,6 +1094,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("bad_url_response"))
         .expect("source should include invalid URL response");
+    let get_with_body_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("get_with_body"))
+        .expect("source should include GET with request body");
     let missing_log_level_line = source
         .lines()
         .position(|line| line.trim_start().starts_with("log \"missing level\""))
@@ -1172,6 +1182,13 @@ report {
     assert_action_edit_at_line(
         actions,
         &uri,
+        "Change HTTP method to post",
+        "post",
+        get_with_body_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
         "Bind process result",
         "result = ",
         unbound_process_line,
@@ -1251,6 +1268,11 @@ schema SensorData {
 }
 
 bad_url_response = http get url("ftp://example.org/data.json")
+
+get_with_body = http get url("https://example.org/submit")
+with {
+    body = "submitted=true"
+}
 
 run command "unbound"
 missing_command_result = run command
@@ -1365,6 +1387,7 @@ report {
         "Replace URL with https://example.org",
         "\"https://example.org\"",
     );
+    assert_action_edit(actions, &uri, "Change HTTP method to post", "post");
     assert_action_edit(actions, &uri, "Set timeout to 10 s: timeout = 10 s", "10 s");
     assert_action_edit(actions, &uri, "Disable retries: retry = 0", "0");
     assert_action_edit(

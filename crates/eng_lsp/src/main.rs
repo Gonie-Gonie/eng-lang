@@ -673,6 +673,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-NET-INVALID-URL" => {
             optional_code_action(lsp_absolute_http_url_code_action(uri, text, diagnostic))
         }
+        "E-NET-BODY-METHOD" => {
+            optional_code_action(lsp_http_body_method_code_action(uri, text, diagnostic))
+        }
         "E-NET-HASH-MISMATCH" => {
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
@@ -1319,6 +1322,25 @@ fn lsp_absolute_http_url_code_action(uri: &str, text: &str, diagnostic: &Value) 
             uri,
             line_byte_range(line_number, line, start_byte, end_byte),
             "\"https://example.org\""
+        )
+    }))
+}
+
+fn lsp_http_body_method_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    let owner_line_number = owner_line_for_enclosing_with_block(&lines, line_number)?;
+    let owner_line = *lines.get(owner_line_number)?;
+    let (start_byte, end_byte) = http_method_token_range(owner_line)?;
+    Some(json!({
+        "title": "Change HTTP method to post",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(owner_line_number, owner_line, start_byte, end_byte),
+            "post"
         )
     }))
 }
@@ -2407,6 +2429,59 @@ fn string_literal_range_at(line: &str, quote_start: usize) -> Option<(usize, usi
             '"' => return Some((quote_start, index + '"'.len_utf8())),
             _ => {}
         }
+    }
+    None
+}
+
+fn owner_line_for_enclosing_with_block(lines: &[&str], line_number: usize) -> Option<usize> {
+    let mut cursor = line_number;
+    while cursor > 0 {
+        cursor -= 1;
+        if strip_line_comment(lines.get(cursor).copied().unwrap_or("")).trim() != "with {" {
+            continue;
+        }
+        let mut owner = cursor;
+        while owner > 0 {
+            owner -= 1;
+            if !strip_line_comment(lines.get(owner).copied().unwrap_or(""))
+                .trim()
+                .is_empty()
+            {
+                return Some(owner);
+            }
+        }
+        return None;
+    }
+    None
+}
+
+fn http_method_token_range(line: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find("http") else {
+            break;
+        };
+        let http_start = search_start + relative_start;
+        let after_http = http_start + "http".len();
+        if identifier_boundary(code, http_start, after_http) {
+            let mut cursor = after_http;
+            while cursor < code.len() && code.as_bytes()[cursor].is_ascii_whitespace() {
+                cursor += 1;
+            }
+            let method_start = cursor;
+            while cursor < code.len() && code.as_bytes()[cursor].is_ascii_alphabetic() {
+                cursor += 1;
+            }
+            let method = &code[method_start..cursor];
+            if ["get", "head", "request", "fetch"]
+                .iter()
+                .any(|candidate| method.eq_ignore_ascii_case(candidate))
+            {
+                return Some((method_start, cursor));
+            }
+        }
+        search_start = after_http;
     }
     None
 }

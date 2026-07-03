@@ -982,6 +982,7 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-NET-RETRY-POLICY" | "E-PROCESS-RETRY-POLICY" => Some(&["retry"]),
         "E-NET-TIMEOUT" | "E-PROCESS-TIMEOUT" => Some(&["timeout"]),
         "E-NET-BODY-SIZE-LIMIT" => Some(&["body_size_limit", "response_body_limit"]),
+        "E-NET-BODY-METHOD" | "E-NET-BODY-POLICY" => Some(&["body"]),
         "E-PROCESS-ALLOW-FAILURE" => Some(&["allow_failure"]),
         "E-PROCESS-CWD-001" => Some(&["cwd"]),
         "E-PROCESS-ENV-001" => Some(&["env"]),
@@ -6900,6 +6901,11 @@ connect Source.heat -> Sink.heat
                 "E-NET-INVALID-URL",
                 "response = http get url(\"ftp://example.org/data.json\")\n",
                 "\"ftp://example.org/data.json\"",
+            ),
+            (
+                "E-NET-BODY-METHOD",
+                "response = http get url(\"https://example.org/submit\")\nwith {\n    body = \"submitted=true\"\n}\n",
+                "\"submitted=true\"",
             ),
             (
                 "E-PROCESS-TIMEOUT",

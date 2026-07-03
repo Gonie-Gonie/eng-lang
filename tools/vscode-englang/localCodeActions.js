@@ -79,6 +79,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-NET-BODY-METHOD") {
+      const action = httpBodyMethodAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-NET-HASH-MISMATCH") {
       const action = expectedSha256Action(document, diagnostic);
       if (action) {
@@ -531,6 +538,27 @@ function absoluteHttpUrlAction(document, diagnostic) {
   return action;
 }
 
+function httpBodyMethodAction(document, diagnostic) {
+  const ownerLineNumber = ownerLineForEnclosingWithBlock(document, diagnostic.range.start.line);
+  if (ownerLineNumber === undefined) {
+    return undefined;
+  }
+  const ownerLine = document.lineAt(ownerLineNumber);
+  const range = httpMethodTokenRange(ownerLine.text);
+  if (!range) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Change HTTP method to post", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(ownerLine.lineNumber, range.start, ownerLine.lineNumber, range.end),
+    "post"
+  );
+  return action;
+}
+
 function expectedSha256Action(document, diagnostic) {
   const hash = expectedSha256FromDiagnostic(diagnostic);
   if (!hash) {
@@ -611,6 +639,49 @@ function stringLiteralRangeAt(lineText, quoteStart) {
     if (character === "\"") {
       return { start: quoteStart, end: index + 1 };
     }
+  }
+  return undefined;
+}
+
+function ownerLineForEnclosingWithBlock(document, lineNumber) {
+  for (let cursor = lineNumber - 1; cursor >= 0; cursor -= 1) {
+    if (stripLineComment(document.lineAt(cursor).text).trim() !== "with {") {
+      continue;
+    }
+    for (let owner = cursor - 1; owner >= 0; owner -= 1) {
+      if (stripLineComment(document.lineAt(owner).text).trim() !== "") {
+        return owner;
+      }
+    }
+    return undefined;
+  }
+  return undefined;
+}
+
+function httpMethodTokenRange(lineText) {
+  const code = stripLineComment(lineText);
+  let searchStart = 0;
+  while (searchStart < code.length) {
+    const httpStart = code.indexOf("http", searchStart);
+    if (httpStart < 0) {
+      break;
+    }
+    const afterHttp = httpStart + "http".length;
+    if (identifierBoundary(code, httpStart, afterHttp)) {
+      let cursor = afterHttp;
+      while (cursor < code.length && /\s/.test(code[cursor])) {
+        cursor += 1;
+      }
+      const methodStart = cursor;
+      while (cursor < code.length && /[A-Za-z]/.test(code[cursor])) {
+        cursor += 1;
+      }
+      const method = code.slice(methodStart, cursor).toLowerCase();
+      if (["get", "head", "request", "fetch"].includes(method)) {
+        return { start: methodStart, end: cursor };
+      }
+    }
+    searchStart = afterHttp;
   }
   return undefined;
 }
