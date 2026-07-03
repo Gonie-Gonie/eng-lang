@@ -4097,6 +4097,18 @@ expectations.
 - Added explicit `file_mkdir` review and `mkdir_dir` output-manifest checks so
   the smoke matches the currently supported `mkdir` workflow surface.
 
+## Batch 331: File Operation Semantic Highlighting
+
+Status: implemented to reduce VS Code/LSP highlighting gaps on filesystem
+workflow statements.
+
+- Extended LSP semantic tokens for file operation lines so `copy`/`move` `to`
+  clauses and path helpers such as `file(...)`, `dir(...)`, and `join(...)`
+  receive side-effect/external context.
+- Added regression coverage for `copy`, `mkdir`, `move`, and `delete` file
+  operation keywords plus line-specific `to`, `file`, and `dir` semantic
+  modifiers.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

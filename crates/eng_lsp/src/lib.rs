@@ -4,8 +4,8 @@ use std::path::Path;
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
     classify_diagnostic_review_risk, classify_review_risk, CheckOptions, CheckReport,
-    ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FunctionInfo,
-    SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
+    ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo, FileOperationInfo,
+    FunctionInfo, SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -1510,11 +1510,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for operation in &program.file_operations {
-        builder.push_keywords_on_line(
-            operation.line,
-            &[operation.operation.as_str()],
-            &["sideEffect", "external"],
-        );
+        add_file_operation_semantic_tokens(&mut builder, operation);
     }
 
     for process in &program.process_runs {
@@ -3627,6 +3623,21 @@ fn workflow_builtin_modifiers_for_line(
         return &["defaultLibrary", "workflowStep"];
     }
     workflow_builtin_modifiers(keyword)
+}
+
+fn add_file_operation_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    operation: &FileOperationInfo,
+) {
+    let modifiers = &["sideEffect", "external"];
+    builder.push_keywords_on_line(operation.line, &[operation.operation.as_str()], modifiers);
+    if matches!(operation.operation.as_str(), "copy" | "move") {
+        builder.push_keywords_on_line(operation.line, &["to"], modifiers);
+    }
+    let Some(line_index) = operation.line.checked_sub(1) else {
+        return;
+    };
+    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
 }
 
 fn add_command_style_semantic_tokens(
@@ -6649,6 +6660,10 @@ export summary to csv "summary.csv" {
     T as degC
 }
 write text "summary.txt", "ok"
+copy file("data/template.txt") to "ops/copied_note.txt"
+mkdir "ops/archive"
+move "ops/copied_note.txt" to "ops/archive/copied_note.txt"
+delete dir("ops/tmp")
 
 test "temperature stays bounded" {
     assert T matches T within 1 K
@@ -6693,12 +6708,62 @@ struct LegacyArgs
         for label in ["assert", "matches", "within"] {
             assert_semantic_token_modifier(&snapshot, source, label, "validation");
         }
-        for label in ["export", "write", "render", "template"] {
+        for label in [
+            "export", "write", "copy", "mkdir", "move", "delete", "render", "template",
+        ] {
             assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
         }
-        for label in ["http", "get", "post"] {
+        for label in ["copy", "mkdir", "move", "delete", "http", "get", "post"] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
+        for line in [
+            "copy file(\"data/template.txt\") to \"ops/copied_note.txt\"",
+            "move \"ops/copied_note.txt\" to \"ops/archive/copied_note.txt\"",
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "to",
+                "keyword",
+                "sideEffect",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, "to", "keyword", "external",
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "copy file(\"data/template.txt\") to \"ops/copied_note.txt\"",
+            "file",
+            "function",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "copy file(\"data/template.txt\") to \"ops/copied_note.txt\"",
+            "file",
+            "function",
+            "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "delete dir(\"ops/tmp\")",
+            "dir",
+            "function",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "delete dir(\"ops/tmp\")",
+            "dir",
+            "function",
+            "external",
+        );
         for label in [
             "debug",
             "info",
