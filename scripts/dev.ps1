@@ -2828,6 +2828,15 @@ function Assert-VscodeExtensionContract {
             throw "VS Code artifact opener should use user-facing generated output wording instead of '$ForbiddenArtifactOpenerWording'"
         }
     }
+    $OpenLastRunPickerIndex = $ArtifactOpenersSource.IndexOf("async function openLastRunArtifactPicker()")
+    $OpenLastRunQuickPickIndex = $ArtifactOpenersSource.IndexOf("lastRunArtifactQuickPickItems(root)", [Math]::Max($OpenLastRunPickerIndex, 0))
+    if ($OpenLastRunPickerIndex -lt 0 -or $OpenLastRunQuickPickIndex -lt $OpenLastRunPickerIndex) {
+        throw "VS Code artifact opener must expose the last-run artifact picker"
+    }
+    $OpenLastRunPickerPreamble = $ArtifactOpenersSource.Substring($OpenLastRunPickerIndex, $OpenLastRunQuickPickIndex - $OpenLastRunPickerIndex)
+    if (-not $OpenLastRunPickerPreamble.Contains("if (!root)") -or -not $OpenLastRunPickerPreamble.Contains('vscode.window.showWarningMessage("Open an EngLang workspace folder first.");') -or -not $OpenLastRunPickerPreamble.Contains("return;")) {
+        throw "VS Code last-run artifact picker must require an EngLang workspace before showing choices"
+    }
     if (-not $ArtifactOpenersSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
         throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
     }

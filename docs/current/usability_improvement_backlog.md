@@ -3969,6 +3969,18 @@ Code surfaces.
 - Extended the extension contract check so zero-process wording cannot be fixed
   in one VS Code surface while drifting in another.
 
+## Batch 320: VS Code Artifact Picker Workspace Guard
+
+Status: implemented to avoid opening a misleading artifact picker without a
+workspace root.
+
+- Made `Open Last Run Artifact` use the same workspace-first guard as generated
+  output artifact opening.
+- The command now shows `Open an EngLang workspace folder first.` before
+  presenting artifact choices when VS Code has no EngLang workspace open.
+- Extended the VS Code contract check so the picker cannot regress to showing
+  root-dependent artifact labels without a workspace.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

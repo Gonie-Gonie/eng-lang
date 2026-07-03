@@ -9,6 +9,10 @@ const {
 function createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot }) {
   async function openLastRunArtifactPicker() {
     const root = currentWorkspaceRoot();
+    if (!root) {
+      vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
+      return;
+    }
     const picked = await vscode.window.showQuickPick(
       lastRunArtifactQuickPickItems(root),
       { placeHolder: "Open a generated artifact from the latest run" }
