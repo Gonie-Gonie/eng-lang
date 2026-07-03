@@ -4707,6 +4707,18 @@ Code linter actions.
 - Added stdio code-action and diagnostic-range regression coverage, and updated
   the VS Code extension README quick-fix list.
 
+## Batch 380: Sort Direction Highlight Consistency
+
+Status: implemented after comparing TextMate sort-table phrase coloring with
+LSP lexical semantic constants.
+
+- Added compiler-backed semantic tokens for `asc` and `desc` sort directions
+  with the `workflowStep` modifier so semantic highlighting does not flatten
+  those tokens after TextMate first-render coloring.
+- Extended the VS Code grammar fixture and expected token smoke to cover both
+  ascending and descending table sort directions.
+- Regenerated the packaged TextMate grammar from the readable source grammar.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

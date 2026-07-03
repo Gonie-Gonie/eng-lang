@@ -35,6 +35,7 @@ where {
 selected_designs = select designs columns people_density, cooling_cop
 selected_single = select designs column people_density
 sorted_designs = sort designs by cooling_cop desc
+sorted_asc_designs = sort designs by people_density asc
 joined_designs = join designs with predictions
 derived = derive designs column annual_electricity = cooling_cop * 100 kWh
 derived_columns = derive designs columns annual_cooling = cooling_cop * 50 kWh

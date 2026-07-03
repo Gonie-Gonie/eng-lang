@@ -765,6 +765,18 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sort-table.englang",
+    "text": "sort designs by people_density asc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "asc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.join-table.englang",
     "text": "join designs with predictions",
     "fullMatch": true

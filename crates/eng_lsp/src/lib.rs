@@ -391,6 +391,8 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "interpolate",
     "monotonic",
     "linear",
+    "asc",
+    "desc",
     "pending",
     "running",
     "passed",
@@ -3936,6 +3938,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
 fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "cached" | "stale" | "hit" | "miss" => &["cache"],
+        "asc" | "desc" => &["workflowStep"],
         "created" | "updated" | "metadata_ready" | "warnings_present" | "diagnostics_present" => {
             &["workflowStep"]
         }
@@ -7775,6 +7778,7 @@ predictions = predict surrogate using designs
 filtered = filter designs
 selected = select designs columns people_density, cooling_cop
 sorted = sort designs by cooling_cop desc
+sorted_asc = sort designs by people_density asc
 joined = join designs with predictions
 derived = derive designs column annual_electricity = people_density * 1 kWh
 derived_many = derive designs columns annual_cooling = cooling_cop * 1 kWh
@@ -7896,6 +7900,8 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "uniform",
             "latin_hypercube",
             "latin-hypercube",
+            "asc",
+            "desc",
             "filter",
             "select",
             "sort",
@@ -7915,6 +7921,9 @@ legacy_station = select_first_row(stations, return_column="station_id")
         assert_semantic_token_modifier(&snapshot, source, "check", "validation");
         assert_semantic_token_modifier(&snapshot, source, "coverage", "validation");
         assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
+        for label in ["asc", "desc"] {
+            assert_semantic_token_type(&snapshot, source, label, "keyword");
+        }
         for label in ["designs", "case_row", "derived", "derived_many", "coverage"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
