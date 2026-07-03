@@ -674,7 +674,7 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
         "E-WITH-OPTION-001" => {
-            optional_code_action(lsp_with_option_rename_code_action(uri, text, diagnostic))
+            optional_code_action(lsp_with_option_alias_code_action(uri, text, diagnostic))
         }
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
@@ -1289,21 +1289,20 @@ fn lsp_expected_sha256_code_action(uri: &str, text: &str, diagnostic: &Value) ->
     }))
 }
 
-fn lsp_with_option_rename_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+struct WithOptionAliasFix {
+    from: &'static str,
+    to: &'static str,
+    title: &'static str,
+}
+
+fn lsp_with_option_alias_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
     let unknown_option = unknown_with_option_name(diagnostic_message(diagnostic))?;
-    let (replacement, title) = match unknown_option {
-        "unit" => ("unit y", "Use plot y-axis option: unit y ="),
-        "confidence" => (
-            "confidence_band",
-            "Use confidence band option: confidence_band =",
-        ),
-        _ => return None,
-    };
+    let fix = with_option_alias_fix(unknown_option)?;
     let line_number = diagnostic_line(diagnostic)?;
     let line = text.lines().nth(line_number)?;
     let name_start = line_indent(line).len();
     let rest = &line[name_start..];
-    let after_name = rest.strip_prefix(unknown_option)?;
+    let after_name = rest.strip_prefix(fix.from)?;
     if !after_name
         .chars()
         .next()
@@ -1316,16 +1315,42 @@ fn lsp_with_option_rename_code_action(uri: &str, text: &str, diagnostic: &Value)
         return None;
     }
     Some(json!({
-        "title": title,
+        "title": fix.title,
         "kind": "quickfix",
         "isPreferred": true,
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(
             uri,
-            line_byte_range(line_number, line, name_start, name_start + unknown_option.len()),
-            replacement
+            line_byte_range(line_number, line, name_start, name_start + fix.from.len()),
+            fix.to
         )
     }))
+}
+
+fn with_option_alias_fix(option_name: &str) -> Option<WithOptionAliasFix> {
+    match option_name {
+        "unit" => Some(WithOptionAliasFix {
+            from: "unit",
+            to: "unit y",
+            title: "Use plot y-axis option: unit y =",
+        }),
+        "y_unit" => Some(WithOptionAliasFix {
+            from: "y_unit",
+            to: "unit y",
+            title: "Use plot y-axis option: unit y =",
+        }),
+        "x_unit" => Some(WithOptionAliasFix {
+            from: "x_unit",
+            to: "unit x",
+            title: "Use plot x-axis option: unit x =",
+        }),
+        "confidence" => Some(WithOptionAliasFix {
+            from: "confidence",
+            to: "confidence_band",
+            title: "Use confidence band option: confidence_band =",
+        }),
+        _ => None,
+    }
 }
 
 fn unknown_with_option_name(message: &str) -> Option<&str> {

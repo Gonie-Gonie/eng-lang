@@ -4142,6 +4142,17 @@ Status: implemented as a small public-docs cleanup.
   `docs/workflows/uncertain_sensor_report.md`, which is the page linked from
   the workflow guide and user tutorials.
 
+## Batch 335: Plot Option Alias Quick Fixes
+
+Status: implemented to reduce `with` option wording friction in editors.
+
+- Added LSP and VS Code fallback quick fixes that rewrite `x_unit = ...` to
+  the supported `unit x = ...` plot option.
+- Extended the existing y-axis unit quick fix to also rewrite `y_unit = ...`
+  to `unit y = ...`, while keeping the older `unit = ...` repair path.
+- Added stdio and `--code-actions-stdin` regressions so both saved-document
+  and unsaved-source code-action paths expose the alias repairs.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

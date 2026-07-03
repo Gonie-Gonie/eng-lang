@@ -80,15 +80,10 @@ function localCodeActions(document, context, options = {}) {
       }
     }
     if (code === "E-WITH-OPTION-001") {
-      const action = plotUnitOptionAction(document, diagnostic);
+      const action = withOptionAliasAction(document, diagnostic);
       if (action) {
         action.isPreferred = true;
         actions.push(action);
-      }
-      const confidenceAction = confidenceBandOptionAction(document, diagnostic);
-      if (confidenceAction) {
-        confidenceAction.isPreferred = true;
-        actions.push(confidenceAction);
       }
     }
     if (code === "E-WHERE-FWD-001") {
@@ -492,24 +487,9 @@ function expectedSha256FromDiagnostic(diagnostic) {
   return match ? match[1].toLowerCase() : undefined;
 }
 
-function plotUnitOptionAction(document, diagnostic) {
-  return withOptionRenameAction(document, diagnostic, {
-    from: "unit",
-    to: "unit y",
-    title: "Use plot y-axis option: unit y ="
-  });
-}
-
-function confidenceBandOptionAction(document, diagnostic) {
-  return withOptionRenameAction(document, diagnostic, {
-    from: "confidence",
-    to: "confidence_band",
-    title: "Use confidence band option: confidence_band ="
-  });
-}
-
-function withOptionRenameAction(document, diagnostic, fix) {
-  if (unknownWithOptionName(diagnostic.message) !== fix.from) {
+function withOptionAliasAction(document, diagnostic) {
+  const fix = withOptionAliasFix(unknownWithOptionName(diagnostic.message));
+  if (!fix) {
     return undefined;
   }
   const line = document.lineAt(diagnostic.range.start.line);
@@ -528,6 +508,32 @@ function withOptionRenameAction(document, diagnostic, fix) {
     fix.to
   );
   return action;
+}
+
+function withOptionAliasFix(optionName) {
+  switch (optionName) {
+    case "unit":
+    case "y_unit":
+      return {
+        from: optionName,
+        to: "unit y",
+        title: "Use plot y-axis option: unit y ="
+      };
+    case "x_unit":
+      return {
+        from: optionName,
+        to: "unit x",
+        title: "Use plot x-axis option: unit x ="
+      };
+    case "confidence":
+      return {
+        from: optionName,
+        to: "confidence_band",
+        title: "Use confidence band option: confidence_band ="
+      };
+    default:
+      return undefined;
+  }
 }
 
 function unknownWithOptionName(message) {

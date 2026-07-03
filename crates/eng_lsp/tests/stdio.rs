@@ -781,6 +781,8 @@ report {
     plot Q_plot over Time
     with {
         unit = kW
+        x_unit = kW
+        y_unit = kW
         confidence = sensor_std
     }
 }
@@ -1018,7 +1020,39 @@ report {
         "Add uncertainty source Q_source_unc",
         "Q_source_unc = normal(mean=5 kW, std=0.8 kW, samples=31)",
     );
-    assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
+    let unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("unit ="))
+        .expect("source should include unit option");
+    let x_unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("x_unit ="))
+        .expect("source should include x_unit option");
+    let y_unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("y_unit ="))
+        .expect("source should include y_unit option");
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Use plot y-axis option: unit y =",
+        "unit y",
+        unit_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Use plot x-axis option: unit x =",
+        "unit x",
+        x_unit_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Use plot y-axis option: unit y =",
+        "unit y",
+        y_unit_line,
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1104,6 +1138,8 @@ report {
     plot Q_plot over Time
     with {
         unit = kW
+        x_unit = kW
+        y_unit = kW
         confidence = sensor_std
     }
 }
@@ -1200,7 +1236,39 @@ report {
         "Add uncertainty source Q_source_unc",
         "Q_source_unc = normal(mean=5 kW, std=0.8 kW, samples=31)",
     );
-    assert_action_edit(actions, &uri, "Use plot y-axis option: unit y =", "unit y");
+    let unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("unit ="))
+        .expect("source should include unit option");
+    let x_unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("x_unit ="))
+        .expect("source should include x_unit option");
+    let y_unit_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("y_unit ="))
+        .expect("source should include y_unit option");
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Use plot y-axis option: unit y =",
+        "unit y",
+        unit_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Use plot x-axis option: unit x =",
+        "unit x",
+        x_unit_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Use plot y-axis option: unit y =",
+        "unit y",
+        y_unit_line,
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1891,6 +1959,34 @@ fn assert_action_edit(actions: &[Value], uri: &str, title: &str, new_text: &str)
                     .is_some_and(|edits| edits.iter().any(|edit| edit["newText"] == new_text))
         })
         .unwrap_or_else(|| panic!("code actions should include {title} editing to {new_text}"));
+    assert_eq!(action["kind"], "quickfix");
+}
+
+fn assert_action_edit_at_line(
+    actions: &[Value],
+    uri: &str,
+    title: &str,
+    new_text: &str,
+    line: usize,
+) {
+    let action = actions
+        .iter()
+        .find(|action| {
+            action["title"] == title
+                && action["edit"]["changes"][uri]
+                    .as_array()
+                    .is_some_and(|edits| {
+                        edits.iter().any(|edit| {
+                            edit["newText"] == new_text
+                                && edit["range"]["start"]["line"]
+                                    .as_u64()
+                                    .is_some_and(|actual| actual == line as u64)
+                        })
+                    })
+        })
+        .unwrap_or_else(|| {
+            panic!("code actions should include {title} editing to {new_text} on line {line}")
+        });
     assert_eq!(action["kind"], "quickfix");
 }
 
