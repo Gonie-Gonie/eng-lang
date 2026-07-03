@@ -24,6 +24,8 @@ What it proves:
 - generated `fetched_weather.json` and `weather_quality_summary.txt` through
   native `write text`, plus `standard_weather_file.txt` through native
   `write standard_text`
+- typed `args.output` routing for the fetched payload, standard weather file,
+  and weather quality summary
 - workflow bindings can use `api_response.method`, `api_response.status`,
   `api_response.status_code`, `api_response.status_class`,
   `api_response.hash`, and `api_response.url_with_query`

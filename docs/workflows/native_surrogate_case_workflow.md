@@ -31,6 +31,7 @@ What it proves:
 - native table-based `train regression <table>` model training with explicit `with` options
 - native `predict surrogate_model using designs` prediction table materialization
 - native SQLite writes to `simulation_results` and `predictions`
+- typed `args.output` routing for the sampling summary and workflow summary CSV
 - `process_results.json` has `process_count = 0`
 
 Expected review surfaces:

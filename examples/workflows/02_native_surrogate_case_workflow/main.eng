@@ -100,7 +100,7 @@ with {
 db_tables_written = "simulation_results,predictions"
 persisted_predictions = read sqlite db.table("predictions") as PersistedPredictionResult
 
-write text "outputs/sampling_summary.txt", "training={training_sample_method} seed={training_sample_seed} count={training_sample_count} parameters={training_sample_parameters} prediction={prediction_sample_method} prediction_seed={prediction_sample_seed} prediction_count={prediction_sample_count} prediction_parameters={prediction_sample_parameters}"
+write text join(args.output, "sampling_summary.txt"), "training={training_sample_method} seed={training_sample_seed} count={training_sample_count} parameters={training_sample_parameters} prediction={prediction_sample_method} prediction_seed={prediction_sample_seed} prediction_count={prediction_sample_count} prediction_parameters={prediction_sample_parameters}"
 with {
     overwrite = true
 }
@@ -115,7 +115,7 @@ print "Predictions = {predictions.rows}"
 print "Persisted predictions readback = {persisted_predictions.rows}"
 log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
-export summary to csv "outputs/workflow_summary.csv" {
+export summary to csv join(args.output, "workflow_summary.csv") {
     annual_electricity as kWh with ".1"
     peak_cooling as kW with ".1"
     unmet_hours as h with ".1"

@@ -37,6 +37,7 @@ typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
 typed_payload.structured_reads includes sqlite readback for persisted_predictions
 typed args.database_target controls the SQLite output boundary
+typed args.output controls the sampling summary and workflow summary export paths
 output_manifest.json records case_input artifacts, sampling_summary.txt, and workflow_summary.csv
 workflow_summary.csv records values pulled from the selected native derived-result row, not fixed literals
 ```

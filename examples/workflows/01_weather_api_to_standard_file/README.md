@@ -32,6 +32,7 @@ result.engres provenance.data_hashes records weather as source_format = json_rec
 output_manifest.json records fetched_weather.json and weather_quality_summary.txt
 as write_text artifacts, and standard_weather_file.txt as a standard_file artifact
 review.json records json_records table promotion, table transforms, network/cache boundary, response metadata bindings, and coverage data
+typed args.output controls the fetched payload, standard weather file, and quality summary output paths
 ```
 
 This checked workflow keeps `offline_response` enabled so CI and local smoke

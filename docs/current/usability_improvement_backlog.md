@@ -4517,6 +4517,18 @@ highlighting.
 - Added grammar and semantic snapshot coverage for `//` comments because the
   compiler already treats them as comments.
 
+## Batch 365: Workflow Output Path Argument Cleanup
+
+Status: implemented while auditing workflow 01/02 API consistency after the
+native workflow review.
+
+- Updated workflow 01 write-text outputs to use `join(args.output, ...)` for the
+  fetched API payload and weather quality summary.
+- Updated workflow 02 sampling summary and workflow summary CSV outputs to use
+  `join(args.output, ...)`.
+- Documented that `args.output` now controls the public text/CSV artifacts
+  instead of leaving hard-coded `outputs/...` paths beside the exposed argument.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
