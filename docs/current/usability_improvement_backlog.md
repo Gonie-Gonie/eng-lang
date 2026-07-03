@@ -4731,6 +4731,20 @@ option-value repair support.
 - Extended stdio code-action and diagnostic-range regressions, and updated the
   VS Code extension README quick-fix list.
 
+## Batch 382: Solver Option Diagnostic Ranges
+
+Status: implemented after auditing simulation and solver `with` option
+diagnostics against editor underline and quick-fix behavior.
+
+- Added LSP diagnostic range targeting for common `simulate` and `solve` option
+  errors so invalid values such as `timestep`, `duration`, `tolerance`,
+  `max_iter`, `initial`, Jacobian, scale, and DAE initialization values are
+  underlined directly.
+- Added LSP and VS Code local fallback quick fixes for common simulation and
+  solver option-value repairs.
+- Extended stdio code-action and diagnostic-range regressions, and updated the
+  VS Code extension README quick-fix list.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

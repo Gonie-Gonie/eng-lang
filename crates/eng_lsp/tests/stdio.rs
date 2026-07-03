@@ -806,6 +806,48 @@ Q_bad_source = propagate(Q_plain_source, method=linear)
 Q_unknown_source = propagate(Q_missing_unc, method=linear)
 Q_missing_source = propagate(method=linear)
 
+system SimDecay {
+    state T: AbsoluteTemperature = 24 degC
+    equation {
+        der(T) eq 0 K/s
+    }
+}
+
+sim_bad = simulate SimDecay
+with {
+    timestep = never
+    duration = forever
+    solver = adaptive
+    tolerance = zero
+}
+
+domain SolverScalar {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component SolverLoopNode {
+    port source: SolverScalar
+    port target: SolverScalar
+    source.x eq 0.5 * target.x
+    source.balance eq 0
+}
+
+system FixedPointLoop {
+    loop_node = SolverLoopNode()
+    connect loop_node.source to loop_node.target
+}
+
+fixed_point_bad = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = -1
+    max_iter = 0
+    relaxation = 2
+    initial = bad
+}
+
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -896,6 +938,14 @@ report {
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-COUNT-INVALID",
         "E-SAMPLING-SEED-INVALID",
+        "E-SIM-TIMESTEP-INVALID",
+        "E-SIM-DURATION-INVALID",
+        "E-SIM-TOLERANCE-INVALID",
+        "E-SIM-SOLVER-UNSUPPORTED",
+        "E-SOLVE-TOLERANCE-INVALID",
+        "E-SOLVE-MAX-ITER-INVALID",
+        "E-SOLVE-RELAXATION-INVALID",
+        "E-SOLVE-INITIAL-INVALID",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
         "E-LOG-LEVEL-001",
@@ -1072,6 +1122,49 @@ report {
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set simulation timestep: timestep = 10 min",
+        "10 min",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set simulation duration: duration = 30 min",
+        "30 min",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set simulation tolerance: tolerance = 0.0001",
+        "0.0001",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set simulation solver: solver = fixed_step",
+        "fixed_step",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set solver tolerance: tolerance = 0.0001",
+        "0.0001",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set solver max iterations: max_iter = 50",
+        "50",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set solver relaxation: relaxation = 0.5",
+        "0.5",
+    );
+    assert_action_edit(actions, &uri, "Set solver initial value: initial = 1", "1");
     assert_action_edit(
         actions,
         &uri,

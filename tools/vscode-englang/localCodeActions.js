@@ -495,6 +495,58 @@ function optionQuickFix(code) {
       return { optionNames: ["cache_dir"], value: "dir(\"cache\")", label: "Set cache directory" };
     case "E-CACHE-TTL":
       return { optionNames: ["cache_ttl"], value: "1 h", label: "Set cache TTL to 1 h" };
+    case "E-SIM-TIMESTEP-INVALID":
+      return { optionNames: ["timestep"], value: "10 min", label: "Set simulation timestep" };
+    case "E-SOLVE-TIMESTEP-INVALID":
+      return { optionNames: ["timestep"], value: "1 s", label: "Set solver timestep" };
+    case "E-SIM-DURATION-INVALID":
+      return { optionNames: ["duration"], value: "30 min", label: "Set simulation duration" };
+    case "E-SOLVE-DURATION-INVALID":
+      return { optionNames: ["duration"], value: "10 s", label: "Set solver duration" };
+    case "E-SIM-TOLERANCE-INVALID":
+      return { optionNames: ["tolerance"], value: "0.0001", label: "Set simulation tolerance" };
+    case "E-SOLVE-TOLERANCE-INVALID":
+      return { optionNames: ["tolerance"], value: "0.0001", label: "Set solver tolerance" };
+    case "E-SIM-SOLVER-UNSUPPORTED":
+      return { optionNames: ["solver"], value: "fixed_step", label: "Set simulation solver" };
+    case "E-SOLVE-RELAXATION-INVALID":
+      return { optionNames: ["relaxation"], value: "0.5", label: "Set solver relaxation" };
+    case "E-SOLVE-FD-STEP-INVALID":
+      return { optionNames: ["finite_difference_step"], value: "0.000001", label: "Set finite-difference step" };
+    case "E-SOLVE-DAMPING-INVALID":
+      return { optionNames: ["damping"], value: "1", label: "Set solver damping" };
+    case "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID":
+      return { optionNames: ["consistency_tolerance"], value: "0.000001", label: "Set consistency tolerance" };
+    case "E-SOLVE-MAX-ITER-INVALID":
+      return { optionNames: ["max_iter"], value: "50", label: "Set solver max iterations" };
+    case "E-SOLVE-LINE-SEARCH-STEPS-INVALID":
+      return { optionNames: ["line_search_steps"], value: "8", label: "Set line-search steps" };
+    case "E-SOLVE-INITIAL-INVALID":
+      return {
+        optionNames: ["initial", "initial_derivative", "initial_algebraic"],
+        value: "1",
+        label: "Set solver initial value"
+      };
+    case "E-SOLVE-VARIABLE-SCALE-INVALID":
+      return {
+        optionNames: ["variable_scale", "variable_scales"],
+        value: "1",
+        label: "Set solver variable scale"
+      };
+    case "E-SOLVE-MASS-MATRIX-INVALID":
+      return { optionNames: ["mass_matrix"], value: "identity", label: "Set mass matrix" };
+    case "E-SOLVE-JACOBIAN-UNSUPPORTED":
+      return {
+        optionNames: ["jacobian"],
+        value: "finite_difference",
+        label: "Set solver Jacobian policy"
+      };
+    case "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED":
+      return {
+        optionNames: ["algebraic_initialization"],
+        value: "newton",
+        label: "Set algebraic initialization"
+      };
     default:
       return undefined;
   }

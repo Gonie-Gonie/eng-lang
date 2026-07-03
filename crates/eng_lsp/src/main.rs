@@ -1340,6 +1340,96 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "1 h",
             label: "Set cache TTL to 1 h",
         }),
+        "E-SIM-TIMESTEP-INVALID" => Some(OptionQuickFix {
+            option_names: &["timestep"],
+            value: "10 min",
+            label: "Set simulation timestep",
+        }),
+        "E-SOLVE-TIMESTEP-INVALID" => Some(OptionQuickFix {
+            option_names: &["timestep"],
+            value: "1 s",
+            label: "Set solver timestep",
+        }),
+        "E-SIM-DURATION-INVALID" => Some(OptionQuickFix {
+            option_names: &["duration"],
+            value: "30 min",
+            label: "Set simulation duration",
+        }),
+        "E-SOLVE-DURATION-INVALID" => Some(OptionQuickFix {
+            option_names: &["duration"],
+            value: "10 s",
+            label: "Set solver duration",
+        }),
+        "E-SIM-TOLERANCE-INVALID" => Some(OptionQuickFix {
+            option_names: &["tolerance"],
+            value: "0.0001",
+            label: "Set simulation tolerance",
+        }),
+        "E-SOLVE-TOLERANCE-INVALID" => Some(OptionQuickFix {
+            option_names: &["tolerance"],
+            value: "0.0001",
+            label: "Set solver tolerance",
+        }),
+        "E-SIM-SOLVER-UNSUPPORTED" => Some(OptionQuickFix {
+            option_names: &["solver"],
+            value: "fixed_step",
+            label: "Set simulation solver",
+        }),
+        "E-SOLVE-RELAXATION-INVALID" => Some(OptionQuickFix {
+            option_names: &["relaxation"],
+            value: "0.5",
+            label: "Set solver relaxation",
+        }),
+        "E-SOLVE-FD-STEP-INVALID" => Some(OptionQuickFix {
+            option_names: &["finite_difference_step"],
+            value: "0.000001",
+            label: "Set finite-difference step",
+        }),
+        "E-SOLVE-DAMPING-INVALID" => Some(OptionQuickFix {
+            option_names: &["damping"],
+            value: "1",
+            label: "Set solver damping",
+        }),
+        "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID" => Some(OptionQuickFix {
+            option_names: &["consistency_tolerance"],
+            value: "0.000001",
+            label: "Set consistency tolerance",
+        }),
+        "E-SOLVE-MAX-ITER-INVALID" => Some(OptionQuickFix {
+            option_names: &["max_iter"],
+            value: "50",
+            label: "Set solver max iterations",
+        }),
+        "E-SOLVE-LINE-SEARCH-STEPS-INVALID" => Some(OptionQuickFix {
+            option_names: &["line_search_steps"],
+            value: "8",
+            label: "Set line-search steps",
+        }),
+        "E-SOLVE-INITIAL-INVALID" => Some(OptionQuickFix {
+            option_names: &["initial", "initial_derivative", "initial_algebraic"],
+            value: "1",
+            label: "Set solver initial value",
+        }),
+        "E-SOLVE-VARIABLE-SCALE-INVALID" => Some(OptionQuickFix {
+            option_names: &["variable_scale", "variable_scales"],
+            value: "1",
+            label: "Set solver variable scale",
+        }),
+        "E-SOLVE-MASS-MATRIX-INVALID" => Some(OptionQuickFix {
+            option_names: &["mass_matrix"],
+            value: "identity",
+            label: "Set mass matrix",
+        }),
+        "E-SOLVE-JACOBIAN-UNSUPPORTED" => Some(OptionQuickFix {
+            option_names: &["jacobian"],
+            value: "finite_difference",
+            label: "Set solver Jacobian policy",
+        }),
+        "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED" => Some(OptionQuickFix {
+            option_names: &["algebraic_initialization"],
+            value: "newton",
+            label: "Set algebraic initialization",
+        }),
         _ => None,
     }
 }

@@ -154,7 +154,9 @@ Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid
 network/process/sampling options such as retry, timeout, body-size, duplicate
 process bindings, process command/env/cwd, allow-failure, sample count, sample
-seed values, deterministic cache keys, cache directories, and cache TTL values.
+seed values, deterministic cache keys, cache directories, cache TTL values, and
+common simulation/solver option values such as timestep, duration, tolerance,
+solver, max-iteration, and initial values.
 Simple same-block `where` local ordering diagnostics can move the later
 definition before its first use.
 Uncertainty diagnostics can also repair common

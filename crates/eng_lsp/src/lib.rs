@@ -993,6 +993,21 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-CACHE-KEY-NONDETERMINISTIC" => Some(&["cache_key"]),
         "E-CACHE-DIR" => Some(&["cache_dir"]),
         "E-CACHE-TTL" => Some(&["cache_ttl"]),
+        "E-SIM-TIMESTEP-INVALID" | "E-SOLVE-TIMESTEP-INVALID" => Some(&["timestep"]),
+        "E-SIM-DURATION-INVALID" | "E-SOLVE-DURATION-INVALID" => Some(&["duration"]),
+        "E-SIM-TOLERANCE-INVALID" | "E-SOLVE-TOLERANCE-INVALID" => Some(&["tolerance"]),
+        "E-SIM-SOLVER-UNSUPPORTED" | "E-SOLVE-SOLVER-UNSUPPORTED" => Some(&["solver"]),
+        "E-SOLVE-RELAXATION-INVALID" => Some(&["relaxation"]),
+        "E-SOLVE-FD-STEP-INVALID" => Some(&["finite_difference_step"]),
+        "E-SOLVE-DAMPING-INVALID" => Some(&["damping"]),
+        "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID" => Some(&["consistency_tolerance"]),
+        "E-SOLVE-MAX-ITER-INVALID" => Some(&["max_iter"]),
+        "E-SOLVE-LINE-SEARCH-STEPS-INVALID" => Some(&["line_search_steps"]),
+        "E-SOLVE-INITIAL-INVALID" => Some(&["initial", "initial_derivative", "initial_algebraic"]),
+        "E-SOLVE-VARIABLE-SCALE-INVALID" => Some(&["variable_scale", "variable_scales"]),
+        "E-SOLVE-MASS-MATRIX-INVALID" => Some(&["mass_matrix"]),
+        "E-SOLVE-JACOBIAN-UNSUPPORTED" => Some(&["jacobian"]),
+        "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED" => Some(&["algebraic_initialization"]),
         _ => None,
     }
 }
@@ -6990,6 +7005,109 @@ component Sink {
 connect Source.heat -> Sink.heat
 "#;
         let where_local_escape = "E = integrate Q_local over Time\nwhere {\n    Q_local = Q_late\n    Q_late = 1 kW\n}\nprint \"local={Q_local: .2 kW}\"\n";
+        let simulate_bad_options = r#"system SimDecay {
+    state T: AbsoluteTemperature = 24 degC
+    equation {
+        der(T) eq 0 K/s
+    }
+}
+
+sim = simulate SimDecay
+with {
+    timestep = never
+    duration = forever
+    solver = adaptive
+    tolerance = zero
+}
+"#;
+        let solve_bad_options = r#"domain Scalar {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component LoopNode {
+    port source: Scalar
+    port target: Scalar
+    source.x eq 0.5 * target.x
+    source.balance eq 0
+}
+
+system FixedPointLoop {
+    loop_node = LoopNode()
+    connect loop_node.source to loop_node.target
+}
+
+fixed_point_result = solve component_graph
+with {
+    solver = fixed_point
+    tolerance = -1
+    max_iter = 0
+    relaxation = 2
+    initial = bad
+}
+"#;
+        let dynamic_solve_bad_options = r#"domain ScalarState {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component DecayNode {
+    port node: ScalarState
+    der(node.x) eq -0.5 * node.x
+}
+
+system DynamicExplicit {
+    node = DecayNode()
+    connect node.node to node.node
+}
+
+explicit_result = solve component_graph
+with {
+    solver = dynamic_component_explicit_euler
+    timestep = never
+    duration = none
+    initial = bad
+}
+"#;
+        let newton_solve_bad_options = r#"domain Scalar {
+    across x: DimensionlessNumber [1]
+    through balance: DimensionlessNumber [1]
+    conservation sum(balance) = 0
+}
+
+component ResidualNode {
+    port node: Scalar
+    node.x * node.x eq 2
+}
+
+system SourceSolves {
+    node = ResidualNode()
+    connect node.node to node.node
+}
+
+newton_result = solve component_graph
+with {
+    solver = newton
+    finite_difference_step = 0
+    damping = 2
+    line_search_steps = 0
+    jacobian = symbolic
+    variable_scale = 0
+}
+
+dae_result = solve component_graph
+with {
+    solver = implicit_euler_dae
+    timestep = 1 s
+    duration = 2 s
+    initial_derivative = bad
+    consistency_tolerance = 0
+    algebraic_initialization = maybe
+    mass_matrix = bad
+}
+"#;
 
         for (code, source, expected_text) in [
             ("E-DIM-ADD-002", "Q: HeatRate [kW] = 2 kW - 1\n", "-"),
@@ -7093,6 +7211,53 @@ connect Source.heat -> Sink.heat
                 "E-CACHE-TTL",
                 "process_result = run command \"cmd\"\nwith {\n    cache = true\n    cache_ttl = forever\n}\n",
                 "forever",
+            ),
+            ("E-SIM-TIMESTEP-INVALID", simulate_bad_options, "never"),
+            ("E-SIM-DURATION-INVALID", simulate_bad_options, "forever"),
+            ("E-SIM-TOLERANCE-INVALID", simulate_bad_options, "zero"),
+            ("E-SIM-SOLVER-UNSUPPORTED", simulate_bad_options, "adaptive"),
+            ("E-SOLVE-TOLERANCE-INVALID", solve_bad_options, "-1"),
+            ("E-SOLVE-MAX-ITER-INVALID", solve_bad_options, "0"),
+            ("E-SOLVE-RELAXATION-INVALID", solve_bad_options, "2"),
+            ("E-SOLVE-INITIAL-INVALID", solve_bad_options, "bad"),
+            (
+                "E-SOLVE-TIMESTEP-INVALID",
+                dynamic_solve_bad_options,
+                "never",
+            ),
+            ("E-SOLVE-DURATION-INVALID", dynamic_solve_bad_options, "none"),
+            ("E-SOLVE-FD-STEP-INVALID", newton_solve_bad_options, "0"),
+            ("E-SOLVE-DAMPING-INVALID", newton_solve_bad_options, "2"),
+            (
+                "E-SOLVE-LINE-SEARCH-STEPS-INVALID",
+                newton_solve_bad_options,
+                "0",
+            ),
+            (
+                "E-SOLVE-JACOBIAN-UNSUPPORTED",
+                newton_solve_bad_options,
+                "symbolic",
+            ),
+            (
+                "E-SOLVE-VARIABLE-SCALE-INVALID",
+                newton_solve_bad_options,
+                "0",
+            ),
+            ("E-SOLVE-MASS-MATRIX-INVALID", newton_solve_bad_options, "bad"),
+            (
+                "E-SOLVE-INITIAL-INVALID",
+                newton_solve_bad_options,
+                "bad",
+            ),
+            (
+                "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID",
+                newton_solve_bad_options,
+                "0",
+            ),
+            (
+                "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED",
+                newton_solve_bad_options,
+                "maybe",
             ),
         ] {
             assert_first_diagnostic_underlines(source, code, expected_text);
