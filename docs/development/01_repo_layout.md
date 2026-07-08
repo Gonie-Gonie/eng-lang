@@ -7,7 +7,7 @@ Current public release layout:
 |-- crates/
 |   |-- eng_cli/        user-facing eng.exe commands
 |   |-- eng_compiler/   lexer/parser, diagnostics, semantic metadata, bytecode v1
-|   |-- eng_ide/        portable Tauri/WebView tester IDE, built as eng-ide.exe
+|   |-- eng_ide/        portable native IDE shell, built as eng-ide.exe
 |   |-- eng_jit/        internal hot-kernel detection and lowering-plan metadata
 |   |-- eng_lsp/        internal eng-lsp.exe smoke/snapshot/stdio editor service
 |   |-- eng_runtime/    run/build/doctor, VM seed, TimeSeries object store, artifacts

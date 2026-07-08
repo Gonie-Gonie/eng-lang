@@ -42,7 +42,7 @@ Deferred
 | Plot/report | Plot blocks execute supported `unit`, `type`, and `title` options for official line, bar, and histogram paths. PlotSpec, SVG, report spec, HTML report, and plot manifest are generated without Python. | artifacts-check and package-smoke |
 | System/equation | System metadata includes variables, equations, residuals, solver boundary, solver plan, dependency data, derivative states, a fixed-step path for the official one-state thermal system, and solver result snapshots for variables, diagnostics, and trajectory points across review/report/result artifacts. | system artifact golden baselines |
 | Standalone package | `eng build --standalone --profile repro` creates a runnable package with bytecode, lock metadata, argument help, dependencies, and a `run.bat` wrapper. | package-smoke |
-| Native IDE | The tester IDE opens files, runs checks, runs examples, shows diagnostics/completions/symbols/results, supports settings, and is bundled as `eng-ide.exe`. | `.\dev.bat ide-check`, package-smoke |
+| Native IDE | The portable native IDE opens files, runs checks, runs examples, shows diagnostics/completions/symbols/results, supports settings, and is bundled as `eng-ide.exe`. | `.\dev.bat ide-check`, package-smoke |
 | User docs | Portable release docs are curated into a PDF guide; developer markdown is not bundled into the user-test package. | package-smoke |
 
 ## Remaining Deferrals

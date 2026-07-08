@@ -1,13 +1,13 @@
 # Integrated HVAC User Test
 
 This tutorial is the recommended release user test. It uses the official
-integrated HVAC example to exercise the supported workflow and the native
-tester IDE in one workflow.
+integrated HVAC example to exercise the supported workflow and the portable
+native IDE in one workflow.
 
 ## What This Covers
 
 ```text
-- Tauri tester IDE launch
+- portable native IDE launch
 - example browsing
 - live diagnostics
 - completion insertion

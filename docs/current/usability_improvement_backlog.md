@@ -5490,3 +5490,14 @@ Problems-source/backend names.
   aliases.
 - Kept output-panel wording on user-facing `file` and `live editor` labels so
   runtime keys such as `eng-cli` and `lsp-snapshot` stay internal.
+
+## Batch 466: Native IDE Wording Cleanup
+
+Status: implemented after auditing public and maintainer docs for stale tester
+IDE and implementation-framework wording.
+
+- Reworded README, development layout notes, internal walkthroughs, and dev help
+  from stale tester/framework terminology to `portable native IDE` and
+  `eng-ide.exe`-oriented language.
+- Left real package/runtime dependency names such as `WebView2Loader.dll` and
+  Tauri config filenames intact where they describe actual files.

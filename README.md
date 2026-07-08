@@ -55,7 +55,7 @@ The public package is organized around six workflow groups:
    time-alignment metadata, and reviewable plots.
 5. Explicit side-effect scripting for paths, reads, writes, logs, process
    results, output manifests, and local test artifacts.
-6. Portable package execution and a native tester IDE for artifact inspection.
+6. Portable package execution and a portable native IDE for artifact inspection.
 
 System/equation examples are scoped supporting capability. They are useful when
 they produce typed TimeSeries, residual evidence, convergence metadata, and
@@ -149,7 +149,7 @@ build/
 - [Feature maturity matrix](docs/current/feature_maturity_matrix.md)
 - [Development tracks](docs/current/tracks.md)
 - [Semantic benchmark strategy](benchmarks/README.md)
-- [Native tester IDE](docs/user/howto/use_native_ide.md)
+- [Portable native IDE](docs/user/howto/use_native_ide.md)
 - [TimeSeries statistics guide](docs/reference/language/timeseries.md)
 - [Plotting guide](docs/reference/language/plotting.md)
 - [Report and review artifacts](docs/reference/artifacts/report_review.md)

@@ -1,6 +1,6 @@
 # Internal Integrated HVAC Fixture
 
-This example is an internal integration fixture for the native tester IDE and
+This example is an internal integration fixture for the portable native IDE and
 portable package smoke coverage.
 
 It exercises several implemented paths in one file:
@@ -47,6 +47,6 @@ eng.exe run examples\internal\03_integrated_hvac\main.eng
 eng-ide.exe
 ```
 
-In the native tester IDE, open
+In the portable native IDE, open
 `examples/internal/03_integrated_hvac/main.eng`, use `Check`, inspect
 diagnostics/symbols/completions, then use `Run` and `Open Report`.

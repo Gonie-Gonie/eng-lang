@@ -178,7 +178,7 @@ Run:
 .\target\debug\eng.exe run examples\internal\05_data_driven_modeling\main.eng --save-artifacts
 ```
 
-or open this file in the Tauri IDE:
+or open this file in the portable native IDE:
 
 ```text
 examples/internal/05_data_driven_modeling/main.eng
@@ -191,7 +191,7 @@ available as:
 .\target\debug\eng.exe run examples\internal\05_data_driven_modeling\residuals.eng --save-artifacts
 ```
 
-or in the Tauri IDE:
+or in the portable native IDE:
 
 ```text
 examples/internal/05_data_driven_modeling/residuals.eng

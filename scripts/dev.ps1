@@ -4123,19 +4123,19 @@ function Invoke-IdeCheck {
     $CompilerSemanticSourcePath = Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     if (-not (Test-Path $TauriConfigPath)) {
-        throw "missing Tauri IDE config at $TauriConfigPath"
+        throw "missing portable native IDE config at $TauriConfigPath"
     }
     if (-not (Test-Path $TauriMainPath)) {
-        throw "missing Tauri IDE backend at $TauriMainPath"
+        throw "missing portable native IDE backend at $TauriMainPath"
     }
     if (-not (Test-Path $TauriUiIndexPath)) {
-        throw "missing Tauri IDE static frontend at $TauriUiIndexPath"
+        throw "missing portable native IDE static frontend at $TauriUiIndexPath"
     }
     if (-not (Test-Path $TauriUiAppPath)) {
-        throw "missing Tauri IDE frontend script at $TauriUiAppPath"
+        throw "missing portable native IDE frontend script at $TauriUiAppPath"
     }
     if (-not (Test-Path $TauriUiStylesPath)) {
-        throw "missing Tauri IDE frontend styles at $TauriUiStylesPath"
+        throw "missing portable native IDE frontend styles at $TauriUiStylesPath"
     }
     if (-not (Test-Path $CompilerSemanticSourcePath)) {
         throw "missing compiler semantic source at $CompilerSemanticSourcePath"
@@ -5057,7 +5057,7 @@ function New-UserGuidePdf {
         @{ Kind = "body"; Text = "If a run fails, check Problems first, then run eng.exe check <file.eng> from the same folder. Plot previews live in the right Plot inspector tab beside Variables; report and SVG artifacts can be opened on demand after a successful run." },
         @{ Kind = "body"; Text = "If a CSV path fails, keep relative paths anchored next to the source file, as in the official examples. If a report does not open, open build/result/report.html manually." },
         @{ Kind = "h1"; Text = "8. Current Boundaries" },
-        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, standalone packaging, and the native tester IDE smoke path. Advanced solver, compatibility, diagnostic, and internal regression fixtures remain source-repository material, not portable package tutorials. Public solver support, general nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
+        @{ Kind = "body"; Text = "This release supports the documented core workflows: CSV promote, unit-aware TimeSeries calculations, PlotSpec/SVG output, review/report artifacts, package smoke, official examples, standalone packaging, and the portable native IDE smoke path. Advanced solver, compatibility, diagnostic, and internal regression fixtures remain source-repository material, not portable package tutorials. Public solver support, general nonlinear solving, DAE solving, production multi-domain component graph solving, native JIT execution, broad uncertainty and ML workflows, and full editor platform guarantees remain future or internal tracks unless explicitly marked stable-supported." }
     )
 
     $pages = New-Object System.Collections.Generic.List[string]
@@ -5582,7 +5582,7 @@ Usage:
   .\dev.bat ide-check      Validate the native IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
-  .\dev.bat ide            Run the native EngLang tester IDE
+  .\dev.bat ide            Run the portable native EngLang IDE
   .\dev.bat dev-current    Build latest release test IDE into dist\dev-current
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng

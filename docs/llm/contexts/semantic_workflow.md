@@ -21,4 +21,4 @@ When editing public docs, keep the first screen focused on:
 3. plot/report/review artifacts
 4. measured-vs-simulated validation
 5. explicit side effects
-6. native tester IDE and portable package
+6. portable native IDE and portable package
