@@ -5346,6 +5346,13 @@ Status: implemented after comparing first-paint grammar coverage with real examp
 - Added a TextMate fallback scope for `plot` commands that use `and`-joined series or named plot functions such as `histogram`, `parity`, and `residuals`.
 - Extended grammar fixtures, expected tokens, and the token-scope contract so plot command highlighting does not fall back to scattered generic keyword coloring.
 
+## Batch 447: Read JSON/TOML API Wording
+
+Status: implemented after finding stale language-reference wording that implied JSON/TOML could not be structured at all.
+
+- Reworded the read-only I/O section so `read json/toml` is described as raw UTF-8 bindings with provenance, while `promote json/toml ... as SchemaName` is the supported structured validation path.
+- Kept the direct-field-access rule intact so users still know to promote raw JSON before using schema fields.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

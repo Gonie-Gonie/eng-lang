@@ -279,8 +279,10 @@ artifacts contain an `environment_dependencies` entry for `exists args.input`.
 ## Read-Only I/O
 
 Use read-only I/O when a workflow needs small UTF-8 text/config companion files
-in addition to typed engineering data. The current runtime returns raw strings;
-JSON and TOML are not yet parsed into structured EngLang objects.
+in addition to typed engineering data. `read text/json/toml` bindings expose raw
+UTF-8 text to the program and record parse/source provenance; use
+`promote json/toml ... as SchemaName` when the data should become a validated
+structured EngLang object.
 
 ```eng partial
 args {
