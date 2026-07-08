@@ -5533,3 +5533,11 @@ Status: implemented after reviewing string-format diagnostics that still require
 - Added VS Code local and eng-lsp code actions for `E-PRINT-FMT-004` and `E-WRITE-FMT-004` that convert unresolved `{...}` placeholders to literal text.
 - Added LSP stdio regression coverage for the quick fix.
 - Extended `ide-check` and VS Code README wording so unresolved-interpolation repair stays in the editor contract.
+
+## Batch 471: LSP Interpolation Unit Quick Fix Parity
+
+Status: implemented after comparing VS Code local quick fixes with eng-lsp code actions.
+
+- Added an eng-lsp code action for `E-PRINT-FMT-003` and `E-WRITE-FMT-003` that removes incompatible interpolation display units while preserving valid precision format prefixes.
+- Added stdio regression coverage so the LSP code-action path matches the VS Code local fallback for interpolation unit repairs.
+- Extended `ide-check` coverage so future LSP quick-fix work cannot drop the format-unit repair contract.

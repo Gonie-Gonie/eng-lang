@@ -764,6 +764,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-PRINT-FMT-002" | "E-WRITE-FMT-002" => optional_code_action(
             lsp_remove_empty_interpolation_code_action(uri, text, diagnostic),
         ),
+        "E-PRINT-FMT-003" | "E-WRITE-FMT-003" => optional_code_action(
+            lsp_remove_interpolation_display_unit_code_action(uri, text, diagnostic),
+        ),
         "E-PRINT-FMT-004" | "E-WRITE-FMT-004" => optional_code_action(
             lsp_convert_unresolved_interpolation_code_action(uri, text, diagnostic),
         ),
@@ -949,6 +952,102 @@ fn empty_interpolation_ranges(code: &str) -> Vec<(usize, usize)> {
         cursor = close + 1;
     }
     ranges
+}
+
+fn lsp_remove_interpolation_display_unit_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let unit = last_backtick_payload(diagnostic_message(diagnostic))?.trim();
+    let (start_byte, end_byte) = interpolation_unit_removal_range(line, unit, diagnostic)?;
+    Some(json!({
+        "title": "Remove incompatible interpolation unit",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            ""
+        )
+    }))
+}
+
+fn interpolation_unit_removal_range(
+    line: &str,
+    unit: &str,
+    diagnostic: &Value,
+) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let ranges = interpolation_unit_removal_ranges(code, unit);
+    if ranges.is_empty() {
+        return None;
+    }
+    let diagnostic_start = diagnostic
+        .pointer("/range/start/character")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    if let Some(diagnostic_start) = diagnostic_start {
+        if let Some(range) = ranges.iter().copied().find(|(start, end)| {
+            let start_character = utf16_len(&line[..*start]);
+            let end_character = utf16_len(&line[..*end]);
+            diagnostic_start >= start_character && diagnostic_start <= end_character
+        }) {
+            return Some(range);
+        }
+    }
+    ranges.first().copied()
+}
+
+fn interpolation_unit_removal_ranges(code: &str, unit: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < code.len() {
+        let Some(relative_open) = code[cursor..].find('{') else {
+            break;
+        };
+        let open = cursor + relative_open;
+        let Some(relative_close) = code[open + 1..].find('}') else {
+            break;
+        };
+        let close = open + 1 + relative_close;
+        let inside = &code[open + 1..close];
+        if let Some(colon) = inside.find(':') {
+            let colon_index = open + 1 + colon;
+            let spec_start = colon_index + 1;
+            let spec = &code[spec_start..close];
+            if spec.trim() == unit {
+                ranges.push((colon_index, close));
+            } else if let Some((unit_start, unit_end)) = trailing_unit_in_format_spec(spec, unit) {
+                ranges.push((spec_start + unit_start, spec_start + unit_end));
+            }
+        }
+        cursor = close + 1;
+    }
+    ranges
+}
+
+fn trailing_unit_in_format_spec(spec: &str, unit: &str) -> Option<(usize, usize)> {
+    let trimmed_end = spec.trim_end();
+    if !trimmed_end.ends_with(unit) {
+        return None;
+    }
+    let unit_start = trimmed_end.len().checked_sub(unit.len())?;
+    if !format_spec_prefix_can_stand_without_unit(&spec[..unit_start]) {
+        return None;
+    }
+    Some((unit_start, spec.len()))
+}
+
+fn format_spec_prefix_can_stand_without_unit(prefix: &str) -> bool {
+    let trimmed = prefix.trim();
+    let Some(rest) = trimmed.strip_prefix('.') else {
+        return false;
+    };
+    !rest.is_empty() && rest.chars().all(|value| value.is_ascii_digit())
 }
 
 fn lsp_convert_unresolved_interpolation_code_action(
@@ -3684,6 +3783,10 @@ fn split_lines_preserve_logical(text: &str) -> Vec<&str> {
 
 fn first_backtick_payload(text: &str) -> Option<&str> {
     backtick_payloads(text).into_iter().next()
+}
+
+fn last_backtick_payload(text: &str) -> Option<&str> {
+    backtick_payloads(text).into_iter().last()
 }
 
 fn backtick_payloads(text: &str) -> Vec<&str> {
