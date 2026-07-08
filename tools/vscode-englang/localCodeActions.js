@@ -160,6 +160,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PRINT-FMT-001" || code === "E-WRITE-FMT-001") {
+      const action = closeUnterminatedInterpolationAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-PRINT-FMT-003" || code === "E-WRITE-FMT-003") {
       const action = removeInterpolationDisplayUnitAction(document, diagnostic);
       if (action) {
@@ -1142,6 +1149,64 @@ function removeIncompatibleDisplayUnitAction(document, diagnostic) {
   action.edit = new vscode.WorkspaceEdit();
   action.edit.delete(document.uri, fullLineRange(document, line.lineNumber));
   return action;
+}
+
+function closeUnterminatedInterpolationAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const insertCharacter = unterminatedInterpolationClosePosition(line.text, diagnostic.range);
+  if (insertCharacter === undefined) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Close interpolation with }", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.insert(document.uri, new vscode.Position(line.lineNumber, insertCharacter), "}");
+  return action;
+}
+
+function unterminatedInterpolationClosePosition(lineText, diagnosticRange) {
+  const open = interpolationOpenIndex(lineText, diagnosticRange);
+  if (open === undefined) {
+    return undefined;
+  }
+  const quoteEnd = unescapedQuoteIndexAfter(lineText, open + 1);
+  if (quoteEnd === undefined || lineText.slice(open + 1, quoteEnd).includes("}")) {
+    return undefined;
+  }
+  return quoteEnd;
+}
+
+function interpolationOpenIndex(lineText, diagnosticRange) {
+  const diagnosticStart = diagnosticRange?.start?.character;
+  if (Number.isInteger(diagnosticStart) && lineText[diagnosticStart] === "{") {
+    return diagnosticStart;
+  }
+  const searchStart = Number.isInteger(diagnosticStart) ? Math.max(0, diagnosticStart - 1) : 0;
+  const before = lineText.lastIndexOf("{", searchStart);
+  if (before >= 0) {
+    return before;
+  }
+  const after = lineText.indexOf("{", searchStart);
+  return after >= 0 ? after : undefined;
+}
+
+function unescapedQuoteIndexAfter(lineText, start) {
+  let escaped = false;
+  for (let index = start; index < lineText.length; index += 1) {
+    const char = lineText[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (char === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (char === "\"") {
+      return index;
+    }
+  }
+  return undefined;
 }
 
 function removeInterpolationDisplayUnitAction(document, diagnostic) {

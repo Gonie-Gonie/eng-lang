@@ -5323,6 +5323,14 @@ Status: implemented after reviewing remaining linter diagnostics and finding tha
 - Added range selection that prefers the diagnostic-highlighted interpolation and falls back to the first matching unit on the line.
 - Pinned the new quick-fix helpers in `ide-check` so interpolation linting remains actionable in VS Code.
 
+## Batch 444: VS Code Unterminated Interpolation Quick Fix
+
+Status: implemented after reviewing string-format linter diagnostics and finding that `E-PRINT-FMT-001` / `E-WRITE-FMT-001` had source ranges but no local repair when live code actions were unavailable.
+
+- Added local VS Code quick fixes that insert the missing `}` before the enclosing string literal closes.
+- Scoped the edit to the diagnostic interpolation opener so `print` and `write text` repairs do not rewrite unrelated text on the same line.
+- Updated extension quick-fix docs and pinned the helper names in `ide-check`.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
