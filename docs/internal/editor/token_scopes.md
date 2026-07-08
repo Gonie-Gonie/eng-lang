@@ -359,3 +359,13 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   workflow phrases.
 - Guard `meta.workflow.download-to.englang` operator includes through
   `vscode-grammar-test` alongside the existing render-template guard.
+
+## Backlog Batch 456 - Table Workflow Argument Scopes
+
+- Extend table workflow phrase captures for `filter`, `select`, `derive`,
+  `sort`, `join`, `require_one`, and `apply(...)` so `args.*`, dotted
+  property paths, and simple local bindings receive stable TextMate scopes.
+- Add grammar fixtures for argument-backed table workflows and apply-call
+  workflows to prevent VS Code highlighting regressions.
+- Keep command-form and function-form workflow syntax visually consistent when
+  users switch between `apply step over cases` and `apply(step, over=cases)`.

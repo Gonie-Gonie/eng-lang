@@ -2766,5 +2766,83 @@
     "scope": "variable.parameter.property.englang",
     "text": "args.raw_file",
     "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.filter-table.englang",
+    "text": "filter args.designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.select-columns.englang",
+    "text": "select args.designs columns people_density, cooling_cop",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sort-table.englang",
+    "text": "sort args.designs by cooling_cop desc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.join-table.englang",
+    "text": "join args.designs with args.predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.derive-column.englang",
+    "text": "derive args.designs column annual_electricity =",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.require-one.englang",
+    "text": "require_one args.designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.apply-call.englang",
+    "text": "apply(args.case_step, over=args.cases)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.cases",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "study.designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "model.predictions",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "workflow.case_step",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "study.cases",
+    "fullMatch": true
   }
 ]

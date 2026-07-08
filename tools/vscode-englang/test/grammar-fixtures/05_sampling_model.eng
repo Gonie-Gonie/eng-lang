@@ -76,3 +76,17 @@ arg_model = train regression from args.training_results
 property_model = train regression on study.training_results
 collected_args = collect results args.case_results
 collected_property = collect results cases.results
+arg_filtered_designs = filter args.designs
+property_filtered_designs = filter study.designs
+arg_selected_designs = select args.designs columns people_density, cooling_cop
+property_selected_designs = select study.designs column people_density
+arg_sorted_designs = sort args.designs by cooling_cop desc
+property_sorted_designs = sort study.designs by people_density asc
+arg_joined_designs = join args.designs with args.predictions
+property_joined_designs = join study.designs with model.predictions
+arg_derived_designs = derive args.designs column annual_electricity = cooling_cop * 100 kWh
+property_derived_designs = derive study.designs column annual_cooling = cooling_cop * 50 kWh
+arg_first_design = require_one args.designs
+property_first_design = require_one study.designs
+arg_case_inputs_call = apply(args.case_step, over=args.cases)
+property_case_inputs_call = apply(workflow.case_step, over=study.cases)

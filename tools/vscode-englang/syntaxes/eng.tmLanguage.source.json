@@ -748,19 +748,23 @@
           },
           {
             "name": "meta.workflow.filter-table.englang",
-            "match": "\\b(filter)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "match": "\\b(filter)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "variable.other.local.englang" }
+              "2": { "name": "variable.parameter.property.englang" },
+              "3": { "name": "variable.other.property.englang" },
+              "4": { "name": "variable.other.local.englang" }
             }
           },
           {
             "name": "meta.workflow.select-columns.englang",
-            "begin": "\\b(select)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(columns?)\\b",
+            "begin": "\\b(select)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\b",
             "beginCaptures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "variable.other.local.englang" },
-              "3": { "name": "keyword.control.workflow.englang" }
+              "2": { "name": "variable.parameter.property.englang" },
+              "3": { "name": "variable.other.property.englang" },
+              "4": { "name": "variable.other.local.englang" },
+              "5": { "name": "keyword.control.workflow.englang" }
             },
             "end": "(?=#|$)",
             "patterns": [
@@ -773,34 +777,42 @@
           },
           {
             "name": "meta.workflow.derive-column.englang",
-            "match": "\\b(derive)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
+            "match": "\\b(derive)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "variable.other.local.englang" },
-              "3": { "name": "keyword.control.workflow.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "keyword.operator.englang" }
+              "2": { "name": "variable.parameter.property.englang" },
+              "3": { "name": "variable.other.property.englang" },
+              "4": { "name": "variable.other.local.englang" },
+              "5": { "name": "keyword.control.workflow.englang" },
+              "6": { "name": "variable.other.property.englang" },
+              "7": { "name": "keyword.operator.englang" }
             }
           },
           {
             "name": "meta.workflow.sort-table.englang",
-            "match": "\\b(sort)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(by)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(asc|desc))?\\b",
+            "match": "\\b(sort)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(by)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(asc|desc))?\\b",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "variable.other.local.englang" },
-              "3": { "name": "keyword.operator.word.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "constant.language.englang" }
+              "2": { "name": "variable.parameter.property.englang" },
+              "3": { "name": "variable.other.property.englang" },
+              "4": { "name": "variable.other.local.englang" },
+              "5": { "name": "keyword.operator.word.englang" },
+              "6": { "name": "variable.other.property.englang" },
+              "7": { "name": "constant.language.englang" }
             }
           },
           {
             "name": "meta.workflow.join-table.englang",
-            "match": "\\b(join)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(with)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "match": "\\b(join)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "variable.other.local.englang" },
-              "3": { "name": "keyword.operator.word.englang" },
-              "4": { "name": "variable.other.local.englang" }
+              "2": { "name": "variable.parameter.property.englang" },
+              "3": { "name": "variable.other.property.englang" },
+              "4": { "name": "variable.other.local.englang" },
+              "5": { "name": "keyword.operator.word.englang" },
+              "6": { "name": "variable.parameter.property.englang" },
+              "7": { "name": "variable.other.property.englang" },
+              "8": { "name": "variable.other.local.englang" }
             }
           },
           {
@@ -961,24 +973,30 @@
           },
           {
             "name": "meta.workflow.require-one.englang",
-            "match": "\\b(require_one)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+            "match": "\\b(require_one)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "variable.other.local.englang" }
+              "2": { "name": "variable.parameter.property.englang" },
+              "3": { "name": "variable.other.property.englang" },
+              "4": { "name": "variable.other.local.englang" }
             }
           },
           {
             "name": "meta.workflow.apply-call.englang",
-            "match": "\\b(apply)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(,)\\s*(over)\\s*(=)\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+            "match": "\\b(apply)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(,)\\s*(over)\\s*(=)\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(\\))",
             "captures": {
               "1": { "name": "support.function.builtin.englang" },
               "2": { "name": "punctuation.section.parens.begin.englang" },
-              "3": { "name": "entity.name.function.workflow-step.englang" },
-              "4": { "name": "punctuation.separator.comma.englang" },
-              "5": { "name": "keyword.operator.word.englang" },
-              "6": { "name": "keyword.operator.englang" },
-              "7": { "name": "variable.other.local.englang" },
-              "8": { "name": "punctuation.section.parens.end.englang" }
+              "3": { "name": "variable.parameter.property.englang" },
+              "4": { "name": "variable.other.property.englang" },
+              "5": { "name": "entity.name.function.workflow-step.englang" },
+              "6": { "name": "punctuation.separator.comma.englang" },
+              "7": { "name": "keyword.operator.word.englang" },
+              "8": { "name": "keyword.operator.englang" },
+              "9": { "name": "variable.parameter.property.englang" },
+              "10": { "name": "variable.other.property.englang" },
+              "11": { "name": "variable.other.local.englang" },
+              "12": { "name": "punctuation.section.parens.end.englang" }
             }
           },
           {
