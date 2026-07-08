@@ -25,7 +25,7 @@ is still future work.
 | `units.eng` | Built-in unit vocabulary used by quantity/unit checks. |
 | `eng.path` | Typed paths, joins, names, and review-visible `exists`. |
 | `eng.io` | Read text/json/toml, write text/json, exports, and hashes. |
-| `eng.fs` | Explicit generated-output copy/move/delete mutations. |
+| `eng.fs` | Explicit generated-output copy/move/delete/mkdir mutations. |
 | `eng.log` | Structured runtime messages and run-log records. |
 | `eng.process` | External process boundaries with args, env, cwd, timeout/retry, expected outputs, tool version, stdout/stderr hashes, and status. |
 | `eng.test` | Local assertions, golden checks, and test-result artifacts. |
@@ -37,7 +37,7 @@ is still future work.
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |
 | `eng.workflow` | Static/runtime RunPlan, run lock, dependency graph, rerun decisions, and workflow node status artifacts. |
 
-## Planned And Internal Boundaries
+## Additional Native, Planned, And Internal Boundaries
 
 These names are taxonomy or target contracts. They are not supported importable
 APIs unless a status document says so.
@@ -45,8 +45,8 @@ APIs unless a status document says so.
 | Area | Status | Public meaning |
 |---|---|---|
 | `eng.stats` | Planned | Semantic statistics helpers for TimeSeries and tables. |
-| `eng.plot` | Planned | PlotSpec-oriented helper vocabulary. |
-| `eng.report` | Planned | Report/review helper vocabulary. |
+| `eng.plot` | Native workflow support | PlotSpec, plot manifest, and SVG artifacts from report directives; broader helper vocabulary remains planned. |
+| `eng.report` | Native workflow support | Report block projection to report, review, and output artifacts; broader helper vocabulary remains planned. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
 | `eng.net` | Supported narrow scope | Live `http://` GET/download execution plus pinned offline/cache HTTP(S) boundary records with redacted query secrets, SHA-256 checks, and artifact summaries; live HTTPS currently requires a pinned response file or cache replay in this build. |
 | `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response cache materialization/replay, cache records, and hit/miss lookup artifacts; broader reuse/invalidation remains planned. |
@@ -55,7 +55,7 @@ APIs unless a status document says so.
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |
 | `eng.table` | Planned broader APIs | Derived-value execution, fill operations, and richer schema-aware transforms. |
 | `eng.sampling` | Planned broader APIs | Additional design-of-experiments strategies and richer sample manifests. |
-| `eng.case` | Planned broader runner | Native apply/run/collect syntax and parallel scheduler implementation. |
+| `eng.case` | Native workflow support; broader runner planned | CaseTable/CaseManifest records and native `apply ... over cases`; run/collect scheduler execution and parallel dispatch remain planned. |
 | `eng.model` | Supported model-spec and predict-table scope | ModelSpec, FeatureSpec, TargetSpec, model-card, native prediction table, prediction-manifest, confidence, metric, residual, and hash review vocabulary. |
 | `eng.uncertainty` | Native workflow support | Narrow uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned. |
 | `eng.building` | Planned | Building/Zone/Construction object vocabulary before simulation adapters. |

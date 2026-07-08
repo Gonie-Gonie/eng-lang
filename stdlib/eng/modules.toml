@@ -25,7 +25,7 @@ tests = ["cargo test -p eng_compiler read_only_io"]
 [module."eng.fs"]
 status = "supported_narrow"
 backing = "compiler_runtime_builtin"
-purpose = "Explicit generated-output copy, move, and delete operations."
+purpose = "Explicit generated-output copy, move, delete, and mkdir operations."
 artifacts = ["review.side_effects", "output_manifest", "run_log"]
 diagnostics = ["E-FS-CONFIRM-001", "E-FS-DELETE-001", "E-PROFILE-SAFE-FS"]
 examples = ["examples/official/13_file_operations"]

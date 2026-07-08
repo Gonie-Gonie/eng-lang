@@ -1070,6 +1070,35 @@ function Test-PublicWorkflowDocs {
     Write-Host "Public workflow docs wording check passed."
 }
 
+function Test-StdlibModuleBoundaryNotes {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $StdlibRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $StdlibRoot -PathType Container)) {
+        throw "missing stdlib module root at $StdlibRoot"
+    }
+
+    $stalePhrases = @(
+        "planned native apply syntax",
+        "Native apply/run/collect syntax and automatic case directory execution remain",
+        "Workflow examples still select and render cases explicitly",
+        "structured json/toml promotion remains a future eng.config boundary",
+        "#   mkdir path"
+    )
+    foreach ($moduleFile in Get-ChildItem -LiteralPath $StdlibRoot -Filter "*.eng") {
+        $moduleText = Get-Content -LiteralPath $moduleFile.FullName -Raw -Encoding UTF8
+        foreach ($stalePhrase in $stalePhrases) {
+            if ($moduleText.Contains($stalePhrase)) {
+                throw "stdlib module note $($moduleFile.Name) still contains stale phrase: $stalePhrase"
+            }
+        }
+    }
+
+    Write-Host "Stdlib module boundary notes wording check passed."
+}
+
 function Convert-ModuleRegistryStatusLabel {
     param([string] $Status)
     switch ($Status) {
@@ -1158,6 +1187,8 @@ function Invoke-DocsCheck {
         -WorkflowDocsPath (Join-Path $RepoRoot "docs\current\workflow_modules.md")
     Test-StdlibReferenceDocs `
         -ReferencePath (Join-Path $RepoRoot "docs\reference\stdlib\index.md")
+    Test-StdlibModuleBoundaryNotes `
+        -StdlibRoot (Join-Path $RepoRoot "stdlib\eng")
     Test-ExamplesReferenceDocs `
         -ExamplesReadmePath (Join-Path $RepoRoot "examples\README.md")
     Test-PublicWorkflowDocs -Paths @(

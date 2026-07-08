@@ -1,5 +1,5 @@
 # module: eng.case
-# status: native case-table and manifest support; planned native apply syntax
+# status: native case-table, manifest, and apply support; broader runner planned
 # purpose: per-case manifests for sample-to-run workflows.
 #
 # Current implementation:
@@ -18,9 +18,13 @@
 #   typed_payload.case_diagnostics[] records duplicate IDs, directory
 #   collisions, missing outputs, failed steps, and cache skips.
 #
-# Native apply/run/collect syntax and automatic case directory execution remain
-# planned. Workflow examples still select and render cases explicitly while
-# exposing the same reviewable CaseTable and CaseManifest contract.
+#   `materialize cases <table>` creates reviewable CaseTable and CaseManifest
+#   records. `apply case_input_template over cases` renders native per-case
+#   template inputs and records CaseOutput rows plus render manifests.
+#
+# Native run/collect scheduler execution and automatic adapter dispatch remain
+# planned. Current workflow examples use materialize/apply to expose the same
+# reviewable CaseTable and CaseManifest contract without external runners.
 #
 # Current CaseManifest fields:
 #   case_id
@@ -43,7 +47,7 @@
 #   cache hit/miss counts and resume policy
 #
 # Planned extensions:
-#   native apply/run/collect syntax
+#   native run/collect scheduler execution
 #   parallel scheduler implementation
 #
 # Non-goal:

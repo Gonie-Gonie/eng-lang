@@ -1,22 +1,23 @@
 # module: eng.fs
 # status: supported-narrow-builtins
-# purpose: explicit generated-output filesystem mutations.
+# purpose: explicit generated-output filesystem mutations and directory creation.
 #
 # Compiler/runtime built-ins:
 #   copy source to target
 #   move source to target
 #   delete target
+#   mkdir target
 #
 # Current contract:
-#   copy/move/delete are constrained to generated-output boundaries.
+#   copy/move/delete/mkdir are constrained to generated-output boundaries.
 #   move and delete require with { confirm = true }.
 #   delete dir(...) also requires with { recursive = true }.
+#   mkdir creates generated output directories and is recorded as a side effect.
 #   every mutation must be recorded in output_manifest.json and review_document.
 #
 # Planned helper vocabulary:
-#   mkdir path
 #   list dir
-#   file operation manifests with recursive/parents policy
+#   richer recursive/parents policy helpers
 #
 # Pure .eng helpers:
 #   none yet. Importable stdlib execution is planned; current behavior lives in

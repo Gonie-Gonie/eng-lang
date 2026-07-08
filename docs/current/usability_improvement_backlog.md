@@ -5274,6 +5274,15 @@ Status: implemented after reviewing the syntax-highlighting TODO and finding tha
 - Added lexical coverage for `equation <name>:` declarations so solver equation names are visible like function/operator names.
 - Extended VS Code semantic fallback mappings, token-scope docs, grammar smoke expectations, and `ide-check` contracts for the new role scopes.
 
+## Batch 438: Stdlib Boundary Note Implementation Wording
+
+Status: implemented after comparing native workflow TODO items with current module boundary notes and finding that a few notes still described implemented surfaces as planned or future-only.
+
+- Updated `eng.case` notes to describe implemented `materialize cases` and `apply case_input_template over cases` support while leaving only scheduler run/collect execution as planned.
+- Updated `eng.io` notes to point typed JSON/TOML promotion to the implemented `eng.config` surface instead of calling it a future boundary.
+- Updated `eng.fs` notes and module registry wording so `mkdir` is listed with implemented copy/move/delete generated-output operations.
+- Added a `docs-check` guard that scans `stdlib/eng/*.eng` for the stale planned/future wording.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

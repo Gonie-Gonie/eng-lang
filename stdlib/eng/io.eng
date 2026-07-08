@@ -18,7 +18,9 @@
 #   output_manifest.json.
 #   table-to-standard text artifact writing is exposed as
 #   `write standard_text <table>` and recorded through eng.artifact.
-#   structured json/toml promotion remains a future eng.config boundary.
+#   typed JSON/TOML schema promotion is handled by eng.config through
+#   `promote json/toml ... as SchemaName` and records config promotion
+#   summaries with source hashes.
 #
 # Diagnostics:
 #   E-IO-JSON-PARSE: read json source is not valid JSON.
