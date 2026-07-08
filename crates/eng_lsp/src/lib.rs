@@ -371,6 +371,17 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
 
+const PLOT_COMMAND_STYLE_WORDS: &[&str] = &[
+    "line",
+    "bar",
+    "histogram",
+    "distribution",
+    "parity",
+    "residuals",
+];
+
+const PLOT_COMMAND_STYLE_FUNCTIONS: &[&str] = &["histogram", "distribution", "parity", "residuals"];
+
 const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "true",
     "false",
@@ -4763,13 +4774,14 @@ fn add_command_style_semantic_tokens(
             );
         }
         "plot" => {
-            builder.push_keywords_on_line(command.line, &["vs"], &["report"]);
+            builder.push_keywords_on_line(command.line, &["and", "vs"], &["report"]);
             push_command_clause_keywords(builder, command, &["over", "vs", "with"], &["report"]);
+            push_plot_command_function_semantic_tokens(builder, command);
             push_command_style_identifier_paths(
                 builder,
                 command.line,
                 &command.target,
-                &["line", "bar", "histogram", "distribution"],
+                PLOT_COMMAND_STYLE_WORDS,
                 &["report"],
             );
             for clause in &command.clauses {
@@ -4895,6 +4907,21 @@ fn add_command_style_semantic_tokens(
             }
         }
         _ => {}
+    }
+}
+
+fn push_plot_command_function_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    command: &CommandStyleInfo,
+) {
+    let target = command.target.trim_start();
+    for function in PLOT_COMMAND_STYLE_FUNCTIONS {
+        let Some(rest) = target.strip_prefix(function) else {
+            continue;
+        };
+        if rest.trim_start().starts_with('(') {
+            builder.push_on_line(command.line, function, "function", &["report"]);
+        }
     }
 }
 
@@ -8601,11 +8628,17 @@ payload = read json file("payload.json")
 settings = read toml file("settings.toml")
 choice = if true else false
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+Q_total_unc: TimeSeries[Time] of HeatRate [kW] = 1 kW
 E_series = integrate Q_series over Time
 mean_Q = mean Q_series over Time
+reg_eval = payload
 report {
     summarize Q_series by [mean, time_weighted_mean, p90, p95]
     plot Q_series over Time
+    plot Q_series and Q_total_unc over Time
+    plot histogram(Q_series)
+    plot parity(reg_eval)
+    plot residuals(reg_eval)
 }
 schema JoinRow {
     id: String
@@ -8731,6 +8764,66 @@ struct LegacyArgs
             "keyword",
             "report",
         );
+        for label in ["Q_series", "Q_total_unc"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "    plot Q_series and Q_total_unc over Time",
+                label,
+                "variable",
+                "report",
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    plot Q_series and Q_total_unc over Time",
+            "and",
+            "keyword",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    plot Q_series and Q_total_unc over Time",
+            "over",
+            "keyword",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    plot histogram(Q_series)",
+            "histogram",
+            "function",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    plot histogram(Q_series)",
+            "Q_series",
+            "variable",
+            "report",
+        );
+        for label in ["parity", "residuals"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                &format!("    plot {label}(reg_eval)"),
+                label,
+                "function",
+                "report",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                &format!("    plot {label}(reg_eval)"),
+                "reg_eval",
+                "variable",
+                "report",
+            );
+        }
         for label in ["else", "of", "on", "output", "vs"] {
             assert_semantic_token_type(&snapshot, source, label, "keyword");
         }

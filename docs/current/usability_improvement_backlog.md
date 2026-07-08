@@ -5353,6 +5353,13 @@ Status: implemented after finding stale language-reference wording that implied 
 - Reworded the read-only I/O section so `read json/toml` is described as raw UTF-8 bindings with provenance, while `promote json/toml ... as SchemaName` is the supported structured validation path.
 - Updated the rule table and kept the direct-field-access rule intact so users still know to promote raw JSON before using schema fields.
 
+## Batch 448: Native IDE Plot Semantic Highlighting
+
+Status: implemented after comparing the VS Code plot grammar fallback with the shared LSP semantic tokens consumed by the native IDE.
+
+- Added report-function semantic tokens for function-style plot heads such as `plot histogram(...)`, `plot parity(...)`, and `plot residuals(...)`.
+- Pinned multi-series `plot <a> and <b> over <axis>` semantic coverage so native IDE and VS Code highlighting keep report variables and clause keywords colorful after the first LSP check.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
