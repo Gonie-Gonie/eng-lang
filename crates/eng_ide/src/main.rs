@@ -3867,6 +3867,7 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function highlightTokenCopyText(tokens)",
         "function semanticTokenSelectors(token)",
         "<th>Selectors</th>",
+        "function renderSemanticSelectorTable(counts)",
         "Selector ${selector}",
         "selectors=${selectors}",
     ] {

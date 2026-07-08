@@ -1405,6 +1405,7 @@ function renderHighlightPanel() {
   const filteredTokens = filteredSemanticTokens(tokens);
   const typeCounts = countSemanticTokens(filteredTokens, (token) => token.type || "-");
   const modifierCounts = countSemanticTokens(filteredTokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
+  const selectorCounts = countSemanticTokens(filteredTokens.flatMap((token) => semanticTokenSelectors(token)), (selector) => selector || "-");
   const tokenCurrent = state.source === state.highlightSource;
   const caretToken = currentCaretSemanticToken();
   return `
@@ -1418,7 +1419,7 @@ function renderHighlightPanel() {
     </div>
     <div class="scroll highlight-panel">
       <div class="module-toolbar">
-        <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlights" title="Filter by text, category, detail, or source line" />
+        <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlights" title="Filter by text, category, detail, selector, or source line" />
         <button id="clearHighlightTokenFilter">Clear</button>
         <button id="copyVisibleHighlightsBtn" title="Copy filtered highlights" ${filteredTokens.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filteredTokens.length} of ${tokens.length}</span>
@@ -1429,6 +1430,8 @@ function renderHighlightPanel() {
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_types || legend.tokenTypes), typeCounts, "type")}
       <div class="panel-title compact">Details</div>
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers), modifierCounts, "modifier")}
+      <div class="panel-title compact">Selectors</div>
+      ${renderSemanticSelectorTable(selectorCounts)}
       <div class="panel-title compact">Current File Highlights</div>
       ${renderSemanticTokenRows(filteredTokens, Boolean(state.highlightTokenQuery.trim()))}
       ${rawJsonToggle("Raw highlight data", semantic)}
@@ -1525,6 +1528,23 @@ function renderSemanticLegendTable(items, counts, kind) {
     <table class="var-table semantic-legend-table">
       <thead><tr><th>${escapeHtml(kind === "type" ? "Category" : "Detail")}</th><th>Count</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="2" class="muted">No highlight categories for the current check.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderSemanticSelectorTable(counts) {
+  const rows = [...counts.entries()]
+    .sort((left, right) => right[1] - left[1] || left[0].localeCompare(right[0]))
+    .map(([selector, count]) => `
+      <tr>
+        <td><code>${escapeHtml(selector)}</code></td>
+        <td>${highlightFilterButton(selector, String(count))}</td>
+      </tr>
+    `).join("");
+  return `
+    <table class="var-table semantic-legend-table">
+      <thead><tr><th>Selector</th><th>Count</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="2" class="muted">No highlight selectors for the current check.</td></tr>`}</tbody>
     </table>
   `;
 }
