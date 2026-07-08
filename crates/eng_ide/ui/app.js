@@ -4647,6 +4647,10 @@ function renderLexicalHighlightedLine(line) {
   let html = "";
   while (index < line.length) {
     const rest = line.slice(index);
+    if (rest.startsWith("///")) {
+      html += lexicalSpan("hl-doc-comment", rest);
+      break;
+    }
     if (rest.startsWith("//") || rest.startsWith("#")) {
       html += lexicalSpan("hl-comment", rest);
       break;

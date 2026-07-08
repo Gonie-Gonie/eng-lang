@@ -154,6 +154,9 @@
             "comment.line.documentation.englang",
             "comment.line.double-slash.englang"
           ],
+          "comment.documentation": [
+            "comment.line.documentation.englang"
+          ],
           "function.declaration": [
             "entity.name.function.englang"
           ],

@@ -5191,6 +5191,13 @@ Status: implemented after reviewing maintainer-facing CLI docs for snapshot/edit
 - Reworded the advanced editor metadata reference to present `--snapshot` and `--editor-metadata` as separate maintainer JSON surfaces with separate format markers.
 - Added `eng-lsp.exe --editor-metadata` to the CLI spec command example and described its static semantic legend, syntax catalog, and completion fallback output.
 
+## Batch 427: Documentation Comment Semantic Highlighting
+
+Status: implemented after comparing VS Code TextMate doc-comment scopes with native IDE and LSP semantic highlighting behavior.
+
+- Added a `documentation` semantic token modifier for `///` comments so VS Code semantic highlighting and native IDE checked buffers can distinguish documentation comments from ordinary comments.
+- Added native IDE lexical fallback styling for `///` comments and mapped `comment.documentation` back to the TextMate documentation-comment scope.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

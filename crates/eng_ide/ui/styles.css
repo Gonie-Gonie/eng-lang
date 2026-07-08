@@ -641,6 +641,13 @@ button:hover {
   font-style: italic;
 }
 
+.hl-doc-comment,
+.hl-mod-documentation {
+  color: #5f6f89;
+  font-style: italic;
+  font-weight: 620;
+}
+
 .hl-mod-declaration,
 .hl-mod-definition {
   font-weight: 700;

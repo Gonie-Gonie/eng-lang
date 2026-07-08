@@ -161,11 +161,11 @@ namespace, type, class, interface, parameter, variable, property, function,
 method, keyword, modifier, string, number, operator, comment
 ```
 
-The current EngLang-specific modifiers are:
+The current semantic modifiers are:
 
 ```text
 declaration, definition, readonly, static, local, imported, defaultLibrary,
-deprecated, unit, quantity, axis, timeseries, uncertain, sideEffect, external,
+deprecated, documentation, unit, quantity, axis, timeseries, uncertain, sideEffect, external,
 validation, report, solver, planned, internal, riskHigh, riskMedium, state,
 input, output, model, db, cache, workflowStep
 ```
@@ -234,6 +234,7 @@ in sync with the generated legend. Important pairings:
 | `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
 | `class.defaultLibrary`, `interface.defaultLibrary` | Bundled type/domain names surfaced by the compiler. |
 | `comment` | Ordinary (`#`, `//`) and documentation (`///`) line comments. |
+| `comment.documentation` | Documentation comments (`///`) when semantic highlighting is available. |
 | `function.declaration`, `function.definition` | User-defined function and method names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
 | `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, and local keyword-like roles. |

@@ -130,6 +130,7 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "imported",
     "defaultLibrary",
     "deprecated",
+    "documentation",
     "unit",
     "quantity",
     "axis",
@@ -3742,6 +3743,14 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
     modifiers
 }
 
+fn comment_semantic_modifiers(line: &str, comment_start: usize) -> &'static [&'static str] {
+    if line[comment_start..].starts_with("///") {
+        &["documentation"]
+    } else {
+        &[]
+    }
+}
+
 fn stdlib_import_semantic_modifiers(target: &str) -> Vec<&'static str> {
     let mut modifiers = vec!["declaration", "imported"];
     if !target.starts_with("eng.") {
@@ -3839,7 +3848,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                     comment_start,
                     line.len().saturating_sub(comment_start),
                     "comment",
-                    &[],
+                    comment_semantic_modifiers(line, comment_start),
                 );
             }
             self.scan_string_tokens(line_index, comment_start_index.unwrap_or(line.len()));
@@ -7435,6 +7444,18 @@ mod tests {
             .tokens
             .iter()
             .any(|token| token.token_type == "comment"));
+        let doc_comment_line = source
+            .lines()
+            .position(|line| line.starts_with("///"))
+            .expect("doc comment line");
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.line == doc_comment_line
+                && token.token_type == "comment"
+                && token
+                    .modifiers
+                    .iter()
+                    .any(|modifier| modifier == "documentation")
+        }));
         let slash_comment_line = source
             .lines()
             .position(|line| line.contains("should stay a comment"))

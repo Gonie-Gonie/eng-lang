@@ -2639,7 +2639,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing englang semantic token scope mappings"
     }
     foreach ($RequiredTokenScope in @(
-        "type", "class.declaration", "class.defaultLibrary", "comment", "function.declaration",
+        "type", "class.declaration", "class.defaultLibrary", "comment", "comment.documentation", "function.declaration",
         "function.definition", "function.report", "interface.declaration", "interface.defaultLibrary",
         "keyword", "keyword.declaration", "keyword.local", "namespace.declaration", "number",
         "parameter", "parameter.readonly", "property", "property.declaration", "variable",
@@ -3652,7 +3652,7 @@ function Assert-VscodeExtensionContract {
     $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
     Assert-SameStringSequence -Left $GeneratedSemanticTypes -Right $LspSemanticTypes -Description "VS Code generated/LSP semantic token types"
     Assert-SameStringSequence -Left $GeneratedSemanticModifiers -Right $LspSemanticModifiers -Description "VS Code generated/LSP semantic token modifiers"
-    $StandardSemanticModifiers = @("declaration", "definition", "readonly", "static", "local", "imported", "defaultLibrary", "deprecated")
+    $StandardSemanticModifiers = @("declaration", "definition", "readonly", "static", "local", "imported", "defaultLibrary", "deprecated", "documentation")
     foreach ($Modifier in $LspSemanticModifiers) {
         if ($StandardSemanticModifiers -notcontains $Modifier -and $SemanticModifiers -notcontains $Modifier) {
             throw "VS Code package.json missing custom semantic token modifier from LSP legend: $Modifier"
@@ -3789,6 +3789,8 @@ function Invoke-IdeCheck {
         "implicit_euler_dae",
         "trapezoidal",
         "lexicalUnitPattern",
+        "hl-doc-comment",
+        'rest.startsWith("///")',
         "toggleEditorLineComment",
         "isLineCommented",
         'rest.startsWith("//")',

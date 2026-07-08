@@ -10,6 +10,7 @@
                                                           "imported",
                                                           "defaultLibrary",
                                                           "deprecated",
+                                                          "documentation",
                                                           "unit",
                                                           "quantity",
                                                           "axis",
