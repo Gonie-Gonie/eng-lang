@@ -19,6 +19,7 @@ class EngCompletionProvider {
       this.cachedSnapshotForDocument(document);
 
     const localCompletions = localMemberCompletionsForContext(document, position, {
+      argsFields: argsFieldCompletionsFromDocument(document),
       httpResponseFields: this.httpResponseFields,
       sampleTableFields: this.sampleTableFields,
       caseTableFields: this.caseTableFields,
@@ -48,6 +49,75 @@ function completionItemsFromPayload(completionPayload, completionSeed, options =
   return items;
 }
 
+function argsFieldCompletionsFromDocument(document) {
+  const text = document?.getText?.();
+  if (typeof text !== "string") {
+    return [];
+  }
+  const body = firstBlockBody(text, /\bargs\s*\{/g);
+  if (!body) {
+    return [];
+  }
+  const fields = [];
+  const seen = new Set();
+  for (const line of body.split(/\r?\n/)) {
+    const withoutComment = line.replace(/#.*/, "").replace(/\/\/.*/, "");
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]*)/.exec(withoutComment);
+    if (!match || seen.has(match[1])) {
+      continue;
+    }
+    seen.add(match[1]);
+    const typeLabel = match[2].trim();
+    fields.push({
+      label: match[1],
+      detail: typeLabel ? `args field: ${typeLabel}` : "args field",
+      kind: "property",
+      lsp_kind: "property"
+    });
+  }
+  return fields;
+}
+
+function firstBlockBody(text, openerRegex) {
+  const match = openerRegex.exec(text);
+  if (!match) {
+    return "";
+  }
+  const openIndex = text.indexOf("{", match.index);
+  if (openIndex < 0) {
+    return "";
+  }
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = openIndex; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) {
+        return text.slice(openIndex + 1, index);
+      }
+    }
+  }
+  return "";
+}
+
 function httpResponseFieldCompletionsForContext(document, position, httpResponseFields) {
   const memberContext = memberAccessCompletionContext(document, position);
   if (!memberContext || !Array.isArray(httpResponseFields)) {
@@ -65,6 +135,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
     return [];
   }
   const groups = [
+    {
+      fields: catalogs?.argsFields,
+      detail: "args field",
+      matchesReceiver: isArgsReceiver
+    },
     {
       fields: catalogs?.httpResponseFields,
       detail: "HTTP response field",
@@ -125,6 +200,10 @@ function memberAccessCompletionContext(document, position) {
     receiver: match[1],
     prefix: match[2] ?? ""
   };
+}
+
+function isArgsReceiver(receiver) {
+  return receiver === "args";
 }
 
 function isResponseLikeReceiver(receiver) {
@@ -197,6 +276,7 @@ function addCompletion(items, seen, item) {
 module.exports = {
   EngCompletionProvider,
   completionItemsFromPayload,
+  argsFieldCompletionsFromDocument,
   httpResponseFieldCompletionsForContext,
   localMemberCompletionsForContext,
   memberAccessCompletionContext

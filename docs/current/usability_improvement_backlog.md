@@ -5291,6 +5291,14 @@ Status: implemented after reviewing the syntax-highlighting TODO item that still
 - Added grammar fixture coverage for an interpolation expression with `mean(...)`, `sensor.T_supply + 1 K`, `axis=Time`, and a format spec.
 - Documented the interpolation format scopes and pinned them in the VS Code grammar contract.
 
+## Batch 440: VS Code Args Member Completion Fallback
+
+Status: implemented after reviewing the IDE TODO and finding that local member completions covered HTTP/sample/case pseudo-members but not the current file's `args {}` fields before an LSP snapshot is available.
+
+- Added a lightweight `args {}` scanner to the VS Code completion provider so `args.` can suggest fields declared in the current document even before live compiler completion returns.
+- Kept these suggestions in the local fallback path only, so compiler/LSP completions still win when available.
+- Pinned the helper names in `ide-check` to keep the fallback from regressing during future provider refactors.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
