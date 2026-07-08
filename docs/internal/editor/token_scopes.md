@@ -380,3 +380,12 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   `variable.other.property.englang`.
 - Add grammar fixtures for argument-backed model API calls so VS Code
   highlighting stays consistent with command-style workflow forms.
+
+## Backlog Batch 458 - Report Series Argument Scopes
+
+- Split report and series workflow captures for coverage, filling, alignment,
+  resampling, integration, statistics, summarize/show, and plot phrases.
+- Keep `args.*`, dotted paths, and simple locals visually distinct in both
+  command-style and function-style report workflow forms.
+- Add grammar fixtures for argument-backed report/series phrases so VS Code
+  highlighting regressions are caught by `vscode-grammar-test`.

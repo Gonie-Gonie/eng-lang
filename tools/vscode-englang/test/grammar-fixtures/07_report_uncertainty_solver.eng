@@ -88,3 +88,17 @@ report {
         confidence_band = sensor_std
     }
 }
+arg_coverage = check coverage args.measured_zone
+arg_filled_zone = fill missing args.measured_zone
+arg_aligned_series = align args.measured_zone with args.simulated_zone
+arg_resampled_series = resample args.measured_zone to args.simulated_zone
+arg_E_series_call = integrate(args.Q_series, over=args.Time)
+property_E_series_call = integrate(sensor.Q_series, over=axis.Time)
+arg_E_series_command = integrate args.Q_series over args.Time
+arg_mean_series = mean(args.Q_series, axis=args.Time)
+property_mean_series = mean(sensor.Q_series, axis=axis.Time)
+arg_mean_command = mean args.Q_series over args.Time
+arg_summary = summarize args.Q_total_unc by [mean, p95]
+arg_show = show args.Q_total_unc
+arg_plot_series = plot args.Q_series over args.Time
+arg_plot_dist = plot distribution(args.Q_dist)

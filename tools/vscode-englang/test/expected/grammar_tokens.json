@@ -2922,5 +2922,137 @@
     "scope": "variable.other.property.englang",
     "text": "model.split",
     "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.check-coverage.englang",
+    "text": "check coverage args.measured_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.fill-missing.englang",
+    "text": "fill missing args.measured_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.align-series.englang",
+    "text": "align args.measured_zone with args.simulated_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.resample-series.englang",
+    "text": "resample args.measured_zone to args.simulated_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.integrate-call.englang",
+    "text": "integrate(args.Q_series, over=args.Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.integrate-call.englang",
+    "text": "integrate(sensor.Q_series, over=axis.Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.integrate-series.englang",
+    "text": "integrate args.Q_series over args.Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "mean(args.Q_series, axis=args.Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "mean(sensor.Q_series, axis=axis.Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-series.englang",
+    "text": "mean args.Q_series over args.Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.summarize-series.englang",
+    "text": "summarize args.Q_total_unc by [mean, p95]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.show-report.englang",
+    "text": "show args.Q_total_unc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-series.englang",
+    "text": "plot args.Q_series over args.Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-distribution.englang",
+    "text": "plot distribution(args.Q_dist)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.measured_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.simulated_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.Q_series",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.Q_total_unc",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.Q_dist",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.property.englang",
+    "text": "sensor.Q_series",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.property.englang",
+    "text": "axis.Time",
+    "fullMatch": true
   }
 ]

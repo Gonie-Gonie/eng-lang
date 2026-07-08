@@ -1709,7 +1709,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.check-coverage.englang",
-                                                                    "match":  "\\b(check)\\s+(coverage)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(check)\\s+(coverage)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1718,13 +1718,19 @@
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "3":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "4":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.fill-missing.englang",
-                                                                    "match":  "\\b(fill)\\s+(missing)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(fill)\\s+(missing)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1733,49 +1739,79 @@
                                                                                                "name":  "keyword.control.validation.englang"
                                                                                            },
                                                                                      "3":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "4":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.align-series.englang",
-                                                                    "match":  "\\b(align)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(with|to)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(align)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with|to)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.resample-series.englang",
-                                                                    "match":  "\\b(resample)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to|with)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(resample)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(to|with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.integrate-call.englang",
-                                                                    "match":  "\\b(integrate)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(,)\\s*(over)\\s*(=)\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+                                                                    "match":  "\\b(integrate)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(,)\\s*(over)\\s*(=)\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(\\))",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1784,46 +1820,70 @@
                                                                                                "name":  "punctuation.section.parens.begin.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "4":  {
-                                                                                               "name":  "punctuation.separator.comma.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "keyword.operator.word.englang"
-                                                                                           },
-                                                                                     "6":  {
-                                                                                               "name":  "keyword.operator.englang"
-                                                                                           },
-                                                                                     "7":  {
                                                                                                "name":  "variable.other.property.englang"
                                                                                            },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "punctuation.separator.comma.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
                                                                                      "8":  {
-                                                                                               "name":  "punctuation.section.parens.end.englang"
-                                                                                           }
+                                                                                               "name":  "keyword.operator.englang"
+                                                                                           },
+                                                                                     "9":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "10":  {
+                                                                                                "name":  "variable.other.property.englang"
+                                                                                            },
+                                                                                     "11":  {
+                                                                                                "name":  "variable.other.local.englang"
+                                                                                            },
+                                                                                     "12":  {
+                                                                                                "name":  "punctuation.section.parens.end.englang"
+                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.integrate-series.englang",
-                                                                    "match":  "\\b(integrate)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(over)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(integrate)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.stat-axis-call.englang",
-                                                                    "match":  "\\b(mean|max|min|sum)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(,)\\s*(axis)\\s*(=)\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+                                                                    "match":  "\\b(mean|max|min|sum)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(,)\\s*(axis)\\s*(=)\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(\\))",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1832,54 +1892,84 @@
                                                                                                "name":  "punctuation.section.parens.begin.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "punctuation.separator.comma.englang"
-                                                                                           },
-                                                                                     "5":  {
                                                                                                "name":  "variable.parameter.property.englang"
                                                                                            },
-                                                                                     "6":  {
-                                                                                               "name":  "keyword.operator.englang"
-                                                                                           },
-                                                                                     "7":  {
+                                                                                     "4":  {
                                                                                                "name":  "variable.other.property.englang"
                                                                                            },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "punctuation.separator.comma.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
                                                                                      "8":  {
-                                                                                               "name":  "punctuation.section.parens.end.englang"
-                                                                                           }
+                                                                                               "name":  "keyword.operator.englang"
+                                                                                           },
+                                                                                     "9":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "10":  {
+                                                                                                "name":  "variable.other.property.englang"
+                                                                                            },
+                                                                                     "11":  {
+                                                                                                "name":  "variable.other.local.englang"
+                                                                                            },
+                                                                                     "12":  {
+                                                                                                "name":  "punctuation.section.parens.end.englang"
+                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.stat-series.englang",
-                                                                    "match":  "\\b(mean|max|min)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(over)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(mean|max|min)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.summarize-series.englang",
-                                                                    "begin":  "\\b(summarize)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(by)\\b",
+                                                                    "begin":  "\\b(summarize)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(by)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                    "name":  "variable.parameter.property.englang"
                                                                                                 },
                                                                                           "3":  {
+                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                },
+                                                                                          "4":  {
+                                                                                                    "name":  "variable.other.local.englang"
+                                                                                                },
+                                                                                          "5":  {
                                                                                                     "name":  "keyword.operator.word.englang"
                                                                                                 }
                                                                                       },
@@ -1910,7 +2000,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.plot-distribution.englang",
-                                                                    "match":  "\\b(plot)\\s+(distribution)\\s*(\\()\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s*(\\))",
+                                                                    "match":  "\\b(plot)\\s+(distribution)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(\\))",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "keyword.control.report.englang"
@@ -1922,28 +2012,46 @@
                                                                                                "name":  "punctuation.section.parens.begin.englang"
                                                                                            },
                                                                                      "4":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "5":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "7":  {
                                                                                                "name":  "punctuation.section.parens.end.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.plot-series.englang",
-                                                                    "match":  "\\b(plot)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(over)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(plot)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "keyword.control.report.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
                                                                                                "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
+                                                                                               "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
@@ -2005,13 +2113,19 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.show-report.englang",
-                                                                    "begin":  "\\b(show)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "begin":  "\\b(show)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
                                                                                                 },
                                                                                           "2":  {
+                                                                                                    "name":  "variable.parameter.property.englang"
+                                                                                                },
+                                                                                          "3":  {
                                                                                                     "name":  "variable.other.property.englang"
+                                                                                                },
+                                                                                          "4":  {
+                                                                                                    "name":  "variable.other.local.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
