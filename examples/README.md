@@ -74,8 +74,9 @@ claims.
 
 ```text
 workflows/01_weather_api_to_standard_file
-  Native network/cache fixture boundary, typed station-map and hourly-weather
-  tables, generated standard text artifact, and review/report path.
+  Native network/cache boundary with a pinned offline API response, typed
+  station-map and hourly-weather tables, generated standard text artifact, and
+  review/report path.
 
 workflows/02_native_surrogate_case_workflow
   Native LHS samples, template-rendered case inputs, table-based regression,

@@ -4924,6 +4924,14 @@ Status: implemented after re-auditing workflow 01/02/03 for Python-free native e
 - Strengthened the workflow 02 runtime artifact contract so `training_designs` and `designs` must remain generated `sample_lhs` tables with pinned seeds and counts.
 - This prevents the native surrogate workflow from silently regressing to reading pre-generated sample data while still claiming native sampling.
 
+## Batch 396: Native Workflow Wording Clarification
+
+Status: implemented after auditing public workflow docs for fixture-shaped wording.
+
+- Reworded the workflow overview so workflow 01 describes a native network/cache boundary with a pinned offline API response instead of a fixture boundary.
+- Clarified that workflow 01 still uses the native `http get` response/cache path and does not call a Python fetcher or read a prebuilt weather table.
+- Clarified that workflow 02 generates both LHS tables with native `sample lhs` steps and does not read Python-created design/model/prediction/DB artifacts.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -8,6 +8,11 @@ This workflow demonstrates a native API-to-artifact pattern:
 station map -> station selection -> args-driven pinned HTTP response/cache -> native response metadata -> typed weather table -> coverage -> standard text and quality artifacts
 ```
 
+The saved smoke run uses `offline_response` to pin response bytes for
+reproducibility. The workflow still goes through the native `http get` response
+object and cache path; it does not call a Python fetcher or read a prebuilt
+weather table.
+
 Run:
 
 ```bat
