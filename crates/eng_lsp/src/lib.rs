@@ -2186,6 +2186,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         } else {
             builder.push_on_line(write.line, &write.format, "function", &["defaultLibrary"]);
         }
+        add_write_target_semantic_tokens(&mut builder, write.line, &write.format, &write.path);
     }
 
     for declaration in &report.inferred_declarations {
@@ -4503,6 +4504,35 @@ fn add_http_request_semantic_tokens(
         return;
     };
     builder.push_identifiers_on_line(line_index, &["url"], "function", modifiers);
+}
+
+fn add_write_target_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line: usize,
+    format: &str,
+    path: &str,
+) {
+    if format == "db" || path.trim().is_empty() {
+        return;
+    }
+    let Some(line_index) = line.checked_sub(1) else {
+        return;
+    };
+    if format == "standard_text" {
+        builder.push_identifiers_on_line(
+            line_index,
+            &["file", "dir", "join"],
+            "function",
+            &["sideEffect", "workflowStep"],
+        );
+    } else {
+        builder.push_identifiers_on_line(
+            line_index,
+            &["file", "dir", "join"],
+            "function",
+            &["sideEffect"],
+        );
+    }
 }
 
 fn add_command_style_semantic_tokens(
@@ -8097,10 +8127,12 @@ with {
     body_size_limit = 2 MB
 }
 
-write text "outputs/out.txt", "ok"
+write text file("outputs/out.txt"), "ok"
 with {
     overwrite = true
 }
+write json join(dir("outputs"), "metrics.json"), Q_coil
+write standard_text sensor to file("outputs/sensor_copy.txt")
 "#;
         let snapshot = snapshot_for_source(Path::new("roles.eng"), source);
 
@@ -8167,6 +8199,46 @@ with {
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
         assert_semantic_token_modifier(&snapshot, source, "body_size_limit", "external");
         assert_semantic_token_modifier(&snapshot, source, "overwrite", "sideEffect");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"write text file("outputs/out.txt"), "ok""#,
+            "file",
+            "function",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"write json join(dir("outputs"), "metrics.json"), Q_coil"#,
+            "join",
+            "function",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"write json join(dir("outputs"), "metrics.json"), Q_coil"#,
+            "dir",
+            "function",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"write standard_text sensor to file("outputs/sensor_copy.txt")"#,
+            "file",
+            "function",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"write standard_text sensor to file("outputs/sensor_copy.txt")"#,
+            "file",
+            "function",
+            "workflowStep",
+        );
     }
 
     #[test]

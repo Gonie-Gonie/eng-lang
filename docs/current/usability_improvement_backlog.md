@@ -4956,6 +4956,14 @@ Status: implemented after the download overlay pass exposed the same gap on nati
 - Expanded semantic-token regression coverage for `http put`, `http patch`, `http head`, `http request`, and `http fetch` method keywords.
 - Pinned line-specific assertions so extended HTTP methods and URL builders keep external/side-effect coloring after the TextMate fallback is overlaid.
 
+## Batch 400: Write Target Semantic Overlay Alignment
+
+Status: implemented after checking write/export lines for the same TextMate-to-semantic overlay drift seen on download and HTTP statements.
+
+- Marked `file`, `dir`, and `join` helpers inside `write text/json/...` target expressions as side-effect functions when compiler-backed semantic tokens arrive.
+- Kept `write standard_text ... to file(...)` target helpers aligned with workflow-step coloring so generated narrative outputs remain visibly distinct from ordinary builtins.
+- Added line-specific semantic-token regression coverage for file, directory, and joined write targets.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
