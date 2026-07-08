@@ -5558,3 +5558,11 @@ Status: implemented after re-checking workflow 01/02/03 docs against the no-Pyth
 
 - Reworded workflow 03 expected review wording from a CSV fixture to a checked CSV input.
 - Extended `workflows-test` public-doc guards so workflow docs cannot reintroduce that fixture-first wording.
+
+## Batch 474: TimeSeries Semantic Token Consistency
+
+Status: implemented after reviewing VS Code semantic coloring gaps for TimeSeries workflow helpers.
+
+- Added the `timeseries` semantic modifier to `integrate`, `der`, `delay`, `sum`, `check coverage`, `fill missing`, `align`, and `resample` token paths.
+- Marked command-style TimeSeries operands and clause keywords with the same modifier so source values, properties, and helper keywords color consistently.
+- Added the missing VS Code `keyword.timeseries` fallback scope mapping and extended LSP tests so new semantic token pairs cannot lose theme fallback coloring.

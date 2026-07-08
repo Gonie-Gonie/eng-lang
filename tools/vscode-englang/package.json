@@ -286,6 +286,11 @@
             "entity.name.function.englang",
             "support.function.builtin.englang"
           ],
+          "keyword.timeseries": [
+            "keyword.control.workflow.englang",
+            "keyword.control.validation.englang",
+            "keyword.control.solver.englang"
+          ],
           "function.defaultLibrary": [
             "support.function.builtin.englang"
           ],

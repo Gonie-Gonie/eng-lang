@@ -4565,9 +4565,11 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         "rmse" => &["defaultLibrary", "report", "timeseries", "validation"],
         "mean" | "time_weighted_mean" | "min" | "max" | "median" | "std" | "p90" | "p95"
         | "duration_above" => &["defaultLibrary", "report", "timeseries"],
-        "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
-        "fill" | "align" | "resample" => &["defaultLibrary", "validation", "workflowStep"],
-        "check" | "coverage" | "fill_missing" => &["defaultLibrary", "validation"],
+        "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver", "timeseries"],
+        "fill" | "align" | "resample" => {
+            &["defaultLibrary", "validation", "workflowStep", "timeseries"]
+        }
+        "check" | "coverage" | "fill_missing" => &["defaultLibrary", "validation", "timeseries"],
         "select_first_row" => &["defaultLibrary", "deprecated"],
         _ => &["defaultLibrary"],
     }
@@ -4756,23 +4758,25 @@ fn add_command_style_semantic_tokens(
             push_command_clause_keywords(builder, command, &["over"], &["workflowStep"]);
         }
         "integrate" => {
-            push_command_clause_keywords(builder, command, &["over"], &["solver"]);
+            let modifiers = &["solver", "timeseries"];
+            push_command_clause_keywords(builder, command, &["over"], modifiers);
             push_command_style_identifier_paths(
                 builder,
                 command.line,
                 &command.target,
                 &[],
-                &["solver"],
+                modifiers,
             );
         }
         "mean" | "max" | "min" | "duration" => {
-            push_command_clause_keywords(builder, command, &["over"], &["report"]);
+            let modifiers = &["report", "timeseries"];
+            push_command_clause_keywords(builder, command, &["over"], modifiers);
             push_command_style_identifier_paths(
                 builder,
                 command.line,
                 &command.target,
                 &[],
-                &["report"],
+                modifiers,
             );
         }
         "plot" => {
@@ -4809,55 +4813,33 @@ fn add_command_style_semantic_tokens(
             let Some(target) = command.target.trim().strip_prefix("coverage ") else {
                 return;
             };
-            builder.push_on_line(
-                command.line,
-                "check",
-                "function",
-                &["validation", "workflowStep"],
-            );
-            builder.push_on_line(
-                command.line,
-                "coverage",
-                "function",
-                &["validation", "workflowStep"],
-            );
-            push_command_style_identifier_paths(
-                builder,
-                command.line,
-                target,
-                &[],
-                &["validation", "workflowStep"],
-            );
+            let modifiers = &["validation", "workflowStep", "timeseries"];
+            builder.push_on_line(command.line, "check", "function", modifiers);
+            builder.push_on_line(command.line, "coverage", "function", modifiers);
+            push_command_style_identifier_paths(builder, command.line, target, &[], modifiers);
         }
         "fill" => {
+            let modifiers = &["validation", "workflowStep", "timeseries"];
             if command.target.trim().starts_with("missing ") {
-                builder.push_keywords_on_line(
-                    command.line,
-                    &["missing"],
-                    &["validation", "workflowStep"],
-                );
+                builder.push_keywords_on_line(command.line, &["missing"], modifiers);
             }
             push_command_style_identifier_paths(
                 builder,
                 command.line,
                 &command.target,
                 &["missing"],
-                &["validation", "workflowStep"],
+                modifiers,
             );
         }
         "align" | "resample" => {
-            push_command_clause_keywords(
-                builder,
-                command,
-                &["with", "to"],
-                &["validation", "workflowStep"],
-            );
+            let modifiers = &["validation", "workflowStep", "timeseries"];
+            push_command_clause_keywords(builder, command, &["with", "to"], modifiers);
             push_command_style_identifier_paths(
                 builder,
                 command.line,
                 &command.target,
                 &[],
-                &["validation", "workflowStep"],
+                modifiers,
             );
             for clause in &command.clauses {
                 push_command_style_identifier_paths(
@@ -4865,7 +4847,7 @@ fn add_command_style_semantic_tokens(
                     command.line,
                     &clause.value,
                     &[],
-                    &["validation", "workflowStep"],
+                    modifiers,
                 );
             }
         }
@@ -8754,10 +8736,34 @@ struct LegacyArgs
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
+            "E_series = integrate Q_series over Time",
+            "over",
+            "keyword",
+            "timeseries",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "E_series = integrate Q_series over Time",
+            "Q_series",
+            "variable",
+            "timeseries",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
             "mean_Q = mean Q_series over Time",
             "over",
             "keyword",
             "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "mean_Q = mean Q_series over Time",
+            "over",
+            "keyword",
+            "timeseries",
         );
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
@@ -9637,6 +9643,9 @@ legacy_station = select_first_row(stations, return_column="station_id")
         assert_semantic_token_modifier(&snapshot, source, "check", "validation");
         assert_semantic_token_modifier(&snapshot, source, "coverage", "validation");
         assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
+        for label in ["check", "coverage", "fill", "align", "resample"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "timeseries");
+        }
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
@@ -9700,6 +9709,14 @@ legacy_station = select_first_row(stations, return_column="station_id")
                 "property",
                 "validation",
             );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "cooling_cop",
+                "property",
+                "timeseries",
+            );
         }
         for (line, label) in [
             ("    expected_step = 1 h", "expected_step"),
@@ -9745,6 +9762,14 @@ legacy_station = select_first_row(stations, return_column="station_id")
                 "predictions",
                 "variable",
                 "workflowStep",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "predictions",
+                "variable",
+                "timeseries",
             );
         }
         for label in [
