@@ -7095,6 +7095,23 @@ mod tests {
             .collect()
     }
 
+    fn package_semantic_scope_values<'a>(
+        package: &'a serde_json::Value,
+        selector: &str,
+    ) -> BTreeSet<&'a str> {
+        package["contributes"]["semanticTokenScopes"]
+            .as_array()
+            .expect("package should declare semanticTokenScopes")
+            .iter()
+            .find(|scope| scope["language"] == "englang")
+            .and_then(|scope| scope["scopes"].as_object())
+            .and_then(|scopes| scopes.get(selector))
+            .and_then(|scope| scope.as_array())
+            .unwrap_or_else(|| panic!("package should declare semanticTokenScopes for {selector}"))
+            .iter()
+            .filter_map(|scope| scope.as_str())
+            .collect()
+    }
     fn collect_textmate_keyword_words(value: &serde_json::Value, words: &mut BTreeSet<String>) {
         match value {
             serde_json::Value::Array(items) => {
@@ -7827,6 +7844,91 @@ mod tests {
         );
     }
 
+    #[test]
+    fn vscode_keyword_semantic_scope_mappings_cover_clause_fallbacks() {
+        let root = repo_root_for_tests();
+        let package = read_json_file(
+            &root
+                .join("tools")
+                .join("vscode-englang")
+                .join("package.json"),
+        );
+        let required: &[(&str, &[&str])] = &[
+            (
+                "keyword.workflowStep",
+                &[
+                    "keyword.control.workflow.englang",
+                    "keyword.operator.word.englang",
+                    "keyword.control.validation.englang",
+                    "constant.language.englang",
+                    "support.function.builtin.englang",
+                ],
+            ),
+            (
+                "keyword.model",
+                &[
+                    "support.function.builtin.englang",
+                    "keyword.control.workflow.englang",
+                    "keyword.operator.word.englang",
+                    "constant.language.englang",
+                ],
+            ),
+            (
+                "keyword.timeseries",
+                &[
+                    "keyword.control.workflow.englang",
+                    "keyword.control.validation.englang",
+                    "keyword.operator.word.englang",
+                ],
+            ),
+            (
+                "keyword.validation",
+                &[
+                    "keyword.control.validation.englang",
+                    "keyword.operator.word.englang",
+                    "constant.language.englang",
+                ],
+            ),
+            (
+                "keyword.external",
+                &[
+                    "keyword.control.external-boundary.englang",
+                    "keyword.operator.word.englang",
+                ],
+            ),
+            (
+                "keyword.sideEffect",
+                &[
+                    "keyword.control.side-effect.englang",
+                    "keyword.operator.word.englang",
+                ],
+            ),
+            (
+                "keyword.cache",
+                &[
+                    "keyword.control.workflow.englang",
+                    "constant.language.englang",
+                ],
+            ),
+            (
+                "keyword.db",
+                &[
+                    "keyword.control.external-boundary.englang",
+                    "constant.language.englang",
+                ],
+            ),
+        ];
+
+        for (selector, fallback_scopes) in required {
+            let scopes = package_semantic_scope_values(&package, selector);
+            for fallback_scope in *fallback_scopes {
+                assert!(
+                    scopes.contains(fallback_scope),
+                    "semantic token scope mapping {selector} should include fallback {fallback_scope}"
+                );
+            }
+        }
+    }
     #[test]
     fn diagnostic_json_uses_source_token_ranges() {
         let source = "schema SensorData {\n    m_dot = 1 kg/s\n}\n";

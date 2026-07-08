@@ -289,7 +289,8 @@
           "keyword.timeseries": [
             "keyword.control.workflow.englang",
             "keyword.control.validation.englang",
-            "keyword.control.solver.englang"
+            "keyword.control.solver.englang",
+            "keyword.operator.word.englang"
           ],
           "function.defaultLibrary": [
             "support.function.builtin.englang"
@@ -324,7 +325,8 @@
             "keyword.control.side-effect.englang"
           ],
           "keyword.sideEffect": [
-            "keyword.control.side-effect.englang"
+            "keyword.control.side-effect.englang",
+            "keyword.operator.word.englang"
           ],
           "method.sideEffect": [
             "keyword.control.side-effect.englang"
@@ -341,7 +343,8 @@
             "keyword.control.external-boundary.englang"
           ],
           "keyword.external": [
-            "keyword.control.external-boundary.englang"
+            "keyword.control.external-boundary.englang",
+            "keyword.operator.word.englang"
           ],
           "method.external": [
             "keyword.control.external-boundary.englang"
@@ -359,7 +362,9 @@
             "variable.other.property.englang"
           ],
           "keyword.validation": [
-            "keyword.control.validation.englang"
+            "keyword.control.validation.englang",
+            "keyword.operator.word.englang",
+            "constant.language.englang"
           ],
           "variable.validation": [
             "keyword.control.validation.englang",
@@ -374,7 +379,8 @@
             "keyword.control.validation.englang"
           ],
           "keyword.report": [
-            "keyword.control.report.englang"
+            "keyword.control.report.englang",
+            "keyword.operator.word.englang"
           ],
           "variable.report": [
             "keyword.control.report.englang",
@@ -446,7 +452,10 @@
           ],
           "keyword.model": [
             "support.function.builtin.englang",
-            "entity.name.function.englang"
+            "entity.name.function.englang",
+            "keyword.control.workflow.englang",
+            "keyword.operator.word.englang",
+            "constant.language.englang"
           ],
           "property.model": [
             "entity.name.function.englang",
@@ -457,7 +466,8 @@
             "variable.other.definition.englang"
           ],
           "keyword.db": [
-            "keyword.control.external-boundary.englang"
+            "keyword.control.external-boundary.englang",
+            "constant.language.englang"
           ],
           "function.db": [
             "keyword.control.external-boundary.englang",
@@ -472,7 +482,8 @@
             "variable.other.definition.englang"
           ],
           "keyword.cache": [
-            "keyword.control.workflow.englang"
+            "keyword.control.workflow.englang",
+            "constant.language.englang"
           ],
           "function.cache": [
             "keyword.control.workflow.englang",
@@ -483,7 +494,12 @@
             "variable.other.property.englang"
           ],
           "keyword.workflowStep": [
-            "entity.name.function.workflow-step.englang"
+            "entity.name.function.workflow-step.englang",
+            "keyword.control.workflow.englang",
+            "keyword.operator.word.englang",
+            "keyword.control.validation.englang",
+            "constant.language.englang",
+            "support.function.builtin.englang"
           ],
           "function.workflowStep": [
             "entity.name.function.workflow-step.englang",

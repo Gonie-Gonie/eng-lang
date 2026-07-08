@@ -277,6 +277,8 @@ in sync with the generated legend. Important pairings:
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
+Keyword semantic selectors that represent clause words or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
+
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
 source-visible stdlib module imports plus bundled stdlib namespace tokens.

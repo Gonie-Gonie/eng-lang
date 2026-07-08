@@ -29,6 +29,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 472: Added LSP unterminated interpolation close-brace quick-fix parity.
 - Batch 473: Reworded workflow 03 docs from fixture-first CSV wording to checked CSV input wording.
 - Batch 474: Made TimeSeries helper semantic tokens consistent and added VS Code `keyword.timeseries` fallback scope mapping.
+- Batch 475: Broadened VS Code semantic fallback scopes for keyword workflow/model/timeseries clauses and added contract guards.
 
 ## Documentation Policy
 
