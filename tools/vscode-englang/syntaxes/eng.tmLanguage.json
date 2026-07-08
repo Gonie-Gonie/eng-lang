@@ -653,18 +653,24 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.summary-field.englang",
-                                                                    "begin":  "^\\s*([A-Za-z_][A-Za-z0-9_.]*)\\s+(as)\\s+(\\S+)\\s+(with)\\b",
+                                                                    "begin":  "^\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(as)\\s+(\\S+)\\s+(with)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                    "name":  "variable.parameter.property.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                    "name":  "variable.other.property.englang"
                                                                                                 },
                                                                                           "3":  {
-                                                                                                    "name":  "constant.other.unit.englang"
+                                                                                                    "name":  "variable.other.local.englang"
                                                                                                 },
                                                                                           "4":  {
+                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                },
+                                                                                          "5":  {
+                                                                                                    "name":  "constant.other.unit.englang"
+                                                                                                },
+                                                                                          "6":  {
                                                                                                     "name":  "keyword.operator.word.englang"
                                                                                                 }
                                                                                       },

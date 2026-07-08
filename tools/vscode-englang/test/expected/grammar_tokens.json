@@ -3127,4 +3127,41 @@
     "text": "api.payload",
     "fullMatch": true
   }
+,
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.summary-field.englang",
+    "text": "args.energy_total as kWh with \".2\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.summary-field.englang",
+    "text": "report.peak_Q as kW with \".2\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.local.englang",
+    "text": "Q_total",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.local.englang",
+    "text": "eta",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.energy_total",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.property.englang",
+    "text": "report.peak_Q",
+    "fullMatch": true
+  }
 ]

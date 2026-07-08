@@ -32,6 +32,8 @@ args {
 export summary to csv join(args.output, "summary.csv") {
     Q_total as kWh with ".2"
     eta as 1 with ".3"
+    args.energy_total as kWh with ".2"
+    report.peak_Q as kW with ".2"
 }
 with {
     overwrite = true

@@ -399,3 +399,10 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   promotion phrases to catch VS Code highlighting regressions.
 - Include operator and argument patterns inside DB read/write phrase bodies so
   `as`, `to`, table references, and fallback identifiers color consistently.
+
+## Backlog Batch 460 - Summary Field Argument Scopes
+
+- Split `export summary to csv` field captures so `args.*`, dotted paths, and
+  simple local summary values receive distinct TextMate scopes.
+- Add side-effect grammar fixtures for argument-backed and property-backed
+  summary fields so export CSV highlighting stays aligned with workflow phrases.
