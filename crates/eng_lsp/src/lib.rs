@@ -1947,11 +1947,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             HTTP_RESPONSE_FIELD_COMPLETIONS,
             &["external"],
         );
-        builder.push_keywords_on_line(
-            request.line,
-            &["http", http_request_method_keyword(&request.method)],
-            &["sideEffect", "external"],
-        );
+        add_http_request_semantic_tokens(&mut builder, request.line, &request.method);
     }
 
     for download in &program.net_downloads {
@@ -4490,6 +4486,23 @@ fn add_download_semantic_tokens(builder: &mut SemanticTokenBuilder<'_>, line: us
         "function",
         modifiers,
     );
+}
+
+fn add_http_request_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line: usize,
+    method: &str,
+) {
+    let modifiers = &["sideEffect", "external"];
+    builder.push_keywords_on_line(
+        line,
+        &["http", http_request_method_keyword(method)],
+        modifiers,
+    );
+    let Some(line_index) = line.checked_sub(1) else {
+        return;
+    };
+    builder.push_identifiers_on_line(line_index, &["url"], "function", modifiers);
 }
 
 fn add_command_style_semantic_tokens(
@@ -8220,6 +8233,11 @@ with {
 }
 response = http get url("https://example.org/weather")
 submitted = http post url("https://example.org/weather")
+updated = http put url("https://example.org/weather")
+patched = http patch url("https://example.org/weather")
+probed = http head url("https://example.org/weather")
+raw_request = http request url("https://example.org/weather")
+fetched = http fetch url("https://example.org/weather")
 download url("https://example.org/file.csv") to file("outputs/file.csv")
 log debug "debug details"
 log info "ready"
@@ -8314,7 +8332,8 @@ struct LegacyArgs
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         for label in [
-            "copy", "mkdir", "move", "delete", "http", "get", "post", "download",
+            "copy", "mkdir", "move", "delete", "http", "get", "post", "put", "patch", "head",
+            "request", "fetch", "download",
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
@@ -8414,6 +8433,61 @@ struct LegacyArgs
             "function",
             "external",
         );
+        for line in [
+            "response = http get url(\"https://example.org/weather\")",
+            "submitted = http post url(\"https://example.org/weather\")",
+            "updated = http put url(\"https://example.org/weather\")",
+            "patched = http patch url(\"https://example.org/weather\")",
+            "probed = http head url(\"https://example.org/weather\")",
+            "raw_request = http request url(\"https://example.org/weather\")",
+            "fetched = http fetch url(\"https://example.org/weather\")",
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "url",
+                "function",
+                "sideEffect",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, "url", "function", "external",
+            );
+        }
+        for (line, method) in [
+            (
+                "updated = http put url(\"https://example.org/weather\")",
+                "put",
+            ),
+            (
+                "patched = http patch url(\"https://example.org/weather\")",
+                "patch",
+            ),
+            (
+                "probed = http head url(\"https://example.org/weather\")",
+                "head",
+            ),
+            (
+                "raw_request = http request url(\"https://example.org/weather\")",
+                "request",
+            ),
+            (
+                "fetched = http fetch url(\"https://example.org/weather\")",
+                "fetch",
+            ),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                method,
+                "keyword",
+                "sideEffect",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, method, "keyword", "external",
+            );
+        }
         for (label, token_type) in [("to", "keyword"), ("url", "function"), ("file", "function")] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,

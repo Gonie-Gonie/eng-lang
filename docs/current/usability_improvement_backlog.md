@@ -4948,6 +4948,14 @@ Status: implemented after comparing TextMate `download ... to ...` phrase colori
 - Marked `url`, `file`, `dir`, and `join` helpers on download lines as external side-effect functions so semantic highlighting no longer flattens the destination path expression.
 - Extended LSP semantic-token regression coverage so VS Code keeps download phrase coloring after semantic overlays arrive.
 
+## Batch 399: HTTP Request Semantic Overlay Alignment
+
+Status: implemented after the download overlay pass exposed the same gap on native HTTP request lines.
+
+- Added LSP semantic tokens for `url(...)` helpers on `http <method> url(...)` request lines so semantic highlighting treats the target builder as part of the external side-effect boundary.
+- Expanded semantic-token regression coverage for `http put`, `http patch`, `http head`, `http request`, and `http fetch` method keywords.
+- Pinned line-specific assertions so extended HTTP methods and URL builders keep external/side-effect coloring after the TextMate fallback is overlaid.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
