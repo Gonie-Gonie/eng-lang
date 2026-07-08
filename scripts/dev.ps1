@@ -2609,7 +2609,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredSemanticModifier in @(
         "unit", "quantity", "axis", "timeseries", "uncertain",
         "sideEffect", "external", "validation", "report", "solver",
-        "planned", "internal", "riskHigh", "riskMedium", "state", "input",
+        "planned", "internal", "riskHigh", "riskMedium", "state", "input", "output",
         "model", "db", "cache", "workflowStep"
     )) {
         if ($SemanticModifiers -notcontains $RequiredSemanticModifier) {
@@ -2636,7 +2636,7 @@ function Assert-VscodeExtensionContract {
         "keyword.sideEffect", "keyword.external", "keyword.validation",
         "keyword.report", "keyword.solver", "function.solver",
         "property.external", "property.solver", "keyword.deprecated", "class.deprecated", "variable.state",
-        "parameter.input", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
+        "variable.input", "parameter.input", "variable.output", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "property.db",
         "function.model", "keyword.model", "function.defaultLibrary", "namespace.defaultLibrary",

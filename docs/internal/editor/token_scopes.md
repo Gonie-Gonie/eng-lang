@@ -167,7 +167,7 @@ The current EngLang-specific modifiers are:
 declaration, definition, readonly, static, local, imported, defaultLibrary,
 deprecated, unit, quantity, axis, timeseries, uncertain, sideEffect, external,
 validation, report, solver, planned, internal, riskHigh, riskMedium, state,
-input, model, db, cache, workflowStep
+input, output, model, db, cache, workflowStep
 ```
 
 Modifier meanings:
@@ -190,6 +190,7 @@ Modifier meanings:
 | `riskMedium` | Medium-risk review metadata. |
 | `state` | State declarations and state-like workflow data. |
 | `input` | Input declarations, parameters, and input-like workflow data. |
+| `output` | Output declarations and output-like workflow data. |
 | `model` | Model training, evaluation, prediction, and model-card artifacts. |
 | `db` | SQLite connections, table writes, and DB boundary records. |
 | `cache` | Cache declarations, keys, and cache-backed workflow records. |
@@ -205,6 +206,10 @@ Core semantic role expectations:
 | Schema/class/component field | `property` with `declaration`. |
 | `args` field | `parameter` with `declaration`. |
 | Function parameter | `parameter` with `declaration`. |
+| System state declaration | `variable` with `declaration` and `state`. |
+| System input declaration | `variable` with `declaration` and `input`. |
+| System parameter declaration | `parameter` with `declaration` and `readonly`. |
+| System output declaration | `variable` with `declaration` and `output`. |
 | Function-local binding | `variable` with `local`. |
 | Deprecated `script`/`struct` keyword | `keyword` with `deprecated`. |
 | Deprecated `script`/`struct` declaration name | `class` with `declaration` and `deprecated`. |
@@ -252,6 +257,7 @@ in sync with the generated legend. Important pairings:
 | `class.deprecated` | Deprecated legacy declaration names. |
 | `variable.state`, `property.state` | System state tokens. |
 | `variable.input`, `parameter.input` | System inputs and input parameters. |
+| `variable.output` | System outputs and output-like workflow values. |
 | `variable.model`, `function.model`, `keyword.model`, `property.model` | Model and prediction artifacts. |
 | `variable.db`, `keyword.db`, `property.db` | SQLite and DB-write boundaries. |
 | `variable.cache`, `keyword.cache`, `property.cache` | Cache keys, cache option values, and records. |

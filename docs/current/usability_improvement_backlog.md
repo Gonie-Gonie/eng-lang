@@ -4879,6 +4879,23 @@ summary, and time-series statistic phrases.
 - Extended LSP snapshot coverage for these connector keywords so TextMate and
   semantic overlays stay aligned for report/time-series authoring.
 
+## Batch 392: System Role Semantic Token Alignment
+
+Status: implemented after comparing system/member declaration TextMate scopes with
+compiler-backed semantic token roles.
+
+- Added an `output` semantic token modifier so system output declarations can
+  keep a distinct role under VS Code semantic highlighting.
+- Changed system `parameter` declarations to emit `parameter` tokens with
+  `readonly` instead of generic variables, matching component parameter roles.
+- Extended VS Code semantic fallback mappings so state/input/output declaration
+  names still map to property/member TextMate scopes when semantic colors are
+  layered over the grammar.
+- Added Native IDE `.hl-mod-output` styling so local semantic-token overlays do
+  not drop the new output role.
+- Added LSP snapshot coverage for state/input/parameter/output member
+  names in a state-space system fixture.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

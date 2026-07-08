@@ -752,6 +752,11 @@ button:hover {
   font-style: italic;
 }
 
+.hl-mod-output {
+  color: #b45309;
+  font-weight: 620;
+}
+
 .hl-mod-model {
   color: #9b2c6a;
   font-weight: 620;

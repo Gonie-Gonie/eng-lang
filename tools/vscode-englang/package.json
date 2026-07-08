@@ -109,6 +109,10 @@
         "description": "Input declarations, parameters, and input-like workflow data."
       },
       {
+        "id": "output",
+        "description": "Output declarations and output-like workflow data."
+      },
+      {
         "id": "model",
         "description": "Model training, prediction, evaluation, and model artifact symbols."
       },
@@ -196,7 +200,8 @@
           ],
           "parameter.readonly": [
             "variable.parameter.function.englang",
-            "variable.parameter.property.englang"
+            "variable.parameter.property.englang",
+            "variable.other.property.englang"
           ],
           "property": [
             "variable.other.property.englang"
@@ -388,7 +393,8 @@
           ],
           "variable.state": [
             "storage.modifier.englang",
-            "variable.other.definition.englang"
+            "variable.other.definition.englang",
+            "variable.other.property.englang"
           ],
           "property.state": [
             "storage.modifier.englang",
@@ -396,11 +402,17 @@
           ],
           "variable.input": [
             "storage.modifier.englang",
-            "variable.other.definition.englang"
+            "variable.other.definition.englang",
+            "variable.other.property.englang"
           ],
           "parameter.input": [
             "variable.parameter.property.englang",
             "storage.modifier.englang"
+          ],
+          "variable.output": [
+            "storage.modifier.englang",
+            "variable.other.definition.englang",
+            "variable.other.property.englang"
           ],
           "variable.model": [
             "entity.name.function.englang",

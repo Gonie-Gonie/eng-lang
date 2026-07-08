@@ -145,6 +145,7 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
     "riskMedium",
     "state",
     "input",
+    "output",
     "model",
     "db",
     "cache",
@@ -2020,18 +2021,49 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     for system in &program.systems {
         builder.push_on_line(system.line, &system.name, "class", &["declaration"]);
         for variable in &system.variables {
-            let modifiers = match variable.role.as_str() {
-                "state" => ["declaration", "state"].as_slice(),
-                "input" => ["declaration", "input"].as_slice(),
-                "parameter" => ["declaration", "readonly"].as_slice(),
-                _ => ["declaration"].as_slice(),
-            };
-            builder.push_on_line(variable.line, &variable.name, "variable", modifiers);
+            match variable.role.as_str() {
+                "state" => builder.push_on_line(
+                    variable.line,
+                    &variable.name,
+                    "variable",
+                    &["declaration", "state"],
+                ),
+                "input" => builder.push_on_line(
+                    variable.line,
+                    &variable.name,
+                    "variable",
+                    &["declaration", "input"],
+                ),
+                "parameter" => builder.push_on_line(
+                    variable.line,
+                    &variable.name,
+                    "parameter",
+                    &["declaration", "readonly"],
+                ),
+                "output" => builder.push_on_line(
+                    variable.line,
+                    &variable.name,
+                    "variable",
+                    &["declaration", "output"],
+                ),
+                _ => builder.push_on_line(
+                    variable.line,
+                    &variable.name,
+                    "variable",
+                    &["declaration"],
+                ),
+            }
         }
     }
 
     for vector in &program.state_space_vectors {
-        builder.push_on_line(vector.line, &vector.name, "variable", &["declaration"]);
+        let modifiers = match vector.role.as_str() {
+            "states" => ["declaration", "state"].as_slice(),
+            "inputs" => ["declaration", "input"].as_slice(),
+            "outputs" => ["declaration", "output"].as_slice(),
+            _ => ["declaration"].as_slice(),
+        };
+        builder.push_on_line(vector.line, &vector.name, "variable", modifiers);
     }
 
     for domain in &program.domains {
@@ -8566,6 +8598,7 @@ outputs RoomOutput {
 system StateSpaceFixture {
     state x: StateVector[RoomState] = [22 degC]
     input u: InputVector[RoomInput] = [8 degC]
+    parameter gain: DimensionlessNumber = 1
     output y: OutputVector[RoomOutput]
     operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
 }
@@ -8575,6 +8608,29 @@ system StateSpaceFixture {
         for label in ["states", "inputs", "outputs", "operator"] {
             assert_semantic_token_modifier(&snapshot, source, label, "solver");
         }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot, source, "state x:", "x", "variable", "state",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot, source, "input u:", "u", "variable", "input",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "parameter gain:",
+            "gain",
+            "parameter",
+            "readonly",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "output y:",
+            "y",
+            "variable",
+            "output",
+        );
+
         for label in [
             "StateVector",
             "InputVector",
