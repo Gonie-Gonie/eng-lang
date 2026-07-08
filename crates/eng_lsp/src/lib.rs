@@ -8292,6 +8292,13 @@ mod tests {
                     "constant.language.englang",
                 ],
             ),
+            (
+                "function.deprecated",
+                &[
+                    "keyword.control.deprecated.englang",
+                    "entity.name.function.call.englang",
+                ],
+            ),
         ];
 
         for (selector, fallback_scopes) in required {

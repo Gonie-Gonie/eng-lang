@@ -445,6 +445,11 @@
           "keyword.deprecated": [
             "keyword.control.deprecated.englang"
           ],
+          "function.deprecated": [
+            "keyword.control.deprecated.englang",
+            "entity.name.function.call.englang",
+            "entity.name.function.englang"
+          ],
           "class.deprecated": [
             "entity.name.type.englang"
           ],
