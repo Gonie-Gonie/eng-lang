@@ -1766,6 +1766,30 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
     }
 
+    for stats in &program.stats_infos {
+        builder.push_keywords_on_line(stats.line, &["summarize", "by"], &["report"]);
+        builder.push_on_line(stats.line, &stats.source, "variable", &["report"]);
+        for statistic in &stats.statistics {
+            builder.push_on_line(
+                stats.line,
+                statistic,
+                "function",
+                &["defaultLibrary", "report"],
+            );
+        }
+    }
+
+    for integration in &program.integrations {
+        builder.push_keywords_on_line(integration.line, &["integrate", "over"], &["solver"]);
+        builder.push_on_line(
+            integration.line,
+            &integration.source,
+            "variable",
+            &["solver"],
+        );
+        builder.push_on_line(integration.line, &integration.over_axis, "type", &["axis"]);
+    }
+
     for promotion in &program.csv_promotions {
         builder.push_on_line(
             promotion.line,
@@ -4429,6 +4453,55 @@ fn add_command_style_semantic_tokens(
                 builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
             }
             push_command_clause_keywords(builder, command, &["over"], &["workflowStep"]);
+        }
+        "integrate" => {
+            push_command_clause_keywords(builder, command, &["over"], &["solver"]);
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                &command.target,
+                &[],
+                &["solver"],
+            );
+        }
+        "mean" | "max" | "min" | "duration" => {
+            push_command_clause_keywords(builder, command, &["over"], &["report"]);
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                &command.target,
+                &[],
+                &["report"],
+            );
+        }
+        "plot" => {
+            builder.push_keywords_on_line(command.line, &["vs"], &["report"]);
+            push_command_clause_keywords(builder, command, &["over", "vs", "with"], &["report"]);
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                &command.target,
+                &["line", "bar", "histogram", "distribution"],
+                &["report"],
+            );
+            for clause in &command.clauses {
+                push_command_style_identifier_paths(
+                    builder,
+                    command.line,
+                    &clause.value,
+                    &[],
+                    &["report"],
+                );
+            }
+        }
+        "show" => {
+            push_command_style_identifier_paths(
+                builder,
+                command.line,
+                &command.target,
+                &[],
+                &["report"],
+            );
         }
         "check" => {
             let Some(target) = command.target.trim().strip_prefix("coverage ") else {
@@ -8060,6 +8133,12 @@ payload = read json file("payload.json")
 settings = read toml file("settings.toml")
 choice = if true else false
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+E_series = integrate Q_series over Time
+mean_Q = mean Q_series over Time
+report {
+    summarize Q_series by [mean, p95]
+    plot Q_series over Time
+}
 schema JoinRow {
     id: String
 }
@@ -8119,6 +8198,54 @@ struct LegacyArgs
         for label in ["summarize", "summary", "distribution", "line"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
         }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    summarize Q_series by [mean, p95]",
+            "by",
+            "keyword",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    summarize Q_series by [mean, p95]",
+            "mean",
+            "function",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "E_series = integrate Q_series over Time",
+            "over",
+            "keyword",
+            "solver",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "mean_Q = mean Q_series over Time",
+            "over",
+            "keyword",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    plot Q_series over Time",
+            "over",
+            "keyword",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    plot line T vs Time",
+            "vs",
+            "keyword",
+            "report",
+        );
         for label in ["else", "of", "on", "output", "vs"] {
             assert_semantic_token_type(&snapshot, source, label, "keyword");
         }

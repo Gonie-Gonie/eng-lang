@@ -4865,6 +4865,20 @@ overlay behavior for public workflow phrases.
 - Extended LSP snapshot tests so these connector keywords stay colored when
   semantic highlighting is enabled over the TextMate fallback grammar.
 
+## Batch 391: Report And Timeseries Clause Semantic Highlighting
+
+Status: implemented after extending the workflow clause audit to report,
+summary, and time-series statistic phrases.
+
+- Added LSP semantic modifiers for `summarize ... by ...` so summary connector
+  keywords and statistic names keep report coloring under semantic highlighting.
+- Added LSP semantic modifiers for `integrate ... over ...` so the `over`
+  connector and axis usage keep solver/axis meaning.
+- Added report semantic modifiers for command-style `mean/max/min/duration ...
+  over ...`, `plot ... over ...`, `plot ... vs ...`, and `show ...` operands.
+- Extended LSP snapshot coverage for these connector keywords so TextMate and
+  semantic overlays stay aligned for report/time-series authoring.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
