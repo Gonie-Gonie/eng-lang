@@ -412,7 +412,13 @@ function Invoke-WorkflowsTest {
             "\bsubprocess\b",
             "\bpandas\b",
             "\bnumpy\b",
+            "\bscipy\b",
+            "\bsklearn\b",
+            "\bstatsmodels\b",
+            "\bpolars\b",
             "\bmatplotlib\b",
+            "\brequests\b",
+            "\burllib\b",
             "\bjupyter\b",
             "\bnotebook\b"
         )) {

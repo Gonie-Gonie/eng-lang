@@ -4980,6 +4980,14 @@ Status: implemented after auditing owner-specific `with { ... }` option value hi
 - Preserved owner-specific modifiers for network fallbacks, process outputs, cache directories, materialize output roots, and render/apply template inputs/outputs.
 - Extended semantic-token regressions and VS Code fallback scope mappings so option value helpers stay colored after semantic overlays arrive.
 
+## Batch 403: Native Workflow Python-Library Guard Expansion
+
+Status: implemented after re-auditing workflow 01/02/03 for Python and external-process regressions.
+
+- Confirmed the three native workflow entry files contain no Python, `.py`, or `run command` source calls.
+- Extended both `dev.bat workflows-test` and the Rust example smoke guard to reject common Python sampling, ML, dataframe, plotting, statistics, and HTTP library markers such as `scipy`, `sklearn`, `statsmodels`, `polars`, `requests`, and `urllib`.
+- Updated CI-gate wording so the workflow guard is described as blocking Python library markers, not only direct Python executable calls.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
