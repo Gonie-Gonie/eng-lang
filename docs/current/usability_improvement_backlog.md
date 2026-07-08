@@ -5122,6 +5122,16 @@ Status: implemented after comparing golden diagnostics, compiler semantics, and 
 - Extended stdio code-action coverage, language reference diagnostics, README
   wording, and `ide-check` contract tokens for the golden repair.
 
+## Batch 419: Compound Unit Semantic Token Guards
+
+Status: implemented after checking VS Code grammar coverage against LSP semantic token regression coverage.
+
+- Added LSP semantic token assertions for slash and exponent-style compound
+  units such as `J/kg/K`, `W/m^2`, and `people/m2`.
+- Kept the existing guard that slash-delimited units do not produce operator
+  tokens, so semantic highlighting remains consistent with TextMate grammar
+  coverage for compound units.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

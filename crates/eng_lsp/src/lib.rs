@@ -9028,6 +9028,8 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
         let source = r#"print "flow {Q: .2 kW}"
 ratio = Q / cp_water
 specific = 4180 J/kg/K
+irradiance = 850 W/m^2
+density = 0.12 people/m2
 valid = Q >= 0 kW and Q != 1 kW
 operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
 "#;
@@ -9049,6 +9051,16 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             ),
         ] {
             assert_semantic_token_on_line_type(&snapshot, source, line, label, "operator");
+        }
+
+        for (line, label) in [
+            ("specific =", "J/kg/K"),
+            ("irradiance =", "W/m^2"),
+            ("density =", "people/m2"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "type", "unit",
+            );
         }
 
         let unit_line = source
