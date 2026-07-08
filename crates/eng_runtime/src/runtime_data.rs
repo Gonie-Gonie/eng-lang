@@ -7628,33 +7628,50 @@ fn collect_results_source_binding(expression: &str) -> Option<&str> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CaseApplyExpression<'a> {
+    step: &'a str,
+    cases: &'a str,
+}
+
 fn case_apply_cases_binding(expression: &str) -> Option<&str> {
+    let apply = case_apply_expression(expression)?;
+    if apply.step == "case_input_template" {
+        Some(apply.cases)
+    } else {
+        None
+    }
+}
+
+fn case_apply_expression(expression: &str) -> Option<CaseApplyExpression<'_>> {
     let expression = expression.trim();
     if let Some(inner) = expression
         .strip_prefix("apply(")
         .and_then(|value| value.strip_suffix(')'))
     {
-        return inner.split(',').find_map(|part| {
-            part.trim()
-                .strip_prefix("over=")
+        let mut parts = inner.split(',').map(str::trim);
+        let step = parts.next().filter(|value| is_simple_binding_name(value))?;
+        let cases = parts.find_map(|part| {
+            part.strip_prefix("over=")
                 .map(str::trim)
                 .filter(|value| is_simple_binding_name(value))
-        });
+        })?;
+        return Some(CaseApplyExpression { step, cases });
     }
 
     let mut parts = expression.split_whitespace();
     if parts.next()? != "apply" {
         return None;
     }
-    let _step = parts.next()?;
+    let step = parts.next()?;
     if parts.next()? != "over" {
         return None;
     }
     let cases = parts.next()?;
-    if parts.next().is_some() || !is_simple_binding_name(cases) {
+    if parts.next().is_some() || !is_simple_binding_name(step) || !is_simple_binding_name(cases) {
         return None;
     }
-    Some(cases)
+    Some(CaseApplyExpression { step, cases })
 }
 
 fn case_apply_template_path(expression: &str, report: &CheckReport) -> String {
@@ -21194,6 +21211,8 @@ mod tests {
             case_apply_cases_binding("apply case_input_template with cases"),
             None
         );
+        assert_eq!(case_apply_cases_binding("apply run_case over cases"), None);
+        assert_eq!(case_apply_cases_binding("apply custom over cases"), None);
     }
 
     #[test]

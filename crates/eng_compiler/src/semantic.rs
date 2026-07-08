@@ -11867,6 +11867,9 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     if let Some(ml_info) = crate::ml::ml_info(binding) {
         accum.ml_infos.push(ml_info);
     }
+    if let Some(diagnostic) = unsupported_case_apply_step_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
+    }
 
     let function_call_type = if should_validate_function_call(&binding.expression, accum.functions)
     {
@@ -12333,33 +12336,71 @@ fn materialize_cases_source_table(expression: &str) -> Option<&str> {
     }
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+struct CaseApplyExpression<'a> {
+    step: &'a str,
+    cases: &'a str,
+}
+
 fn case_apply_cases_binding(expression: &str) -> Option<&str> {
+    let apply = case_apply_expression(expression)?;
+    if apply.step == "case_input_template" {
+        Some(apply.cases)
+    } else {
+        None
+    }
+}
+
+fn unsupported_case_apply_step_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let apply = case_apply_expression(&binding.expression)?;
+    if apply.step == "case_input_template" {
+        return None;
+    }
+    if apply.step == "run_case" {
+        return Some(Diagnostic::error(
+            "E-CASE-RUN-SCHEDULER-UNSUPPORTED",
+            binding.line,
+            "`apply run_case over ...` is not supported by the native scheduler yet.",
+            Some("Use `apply case_input_template over cases` plus `collect results ...`; use an explicit process adapter when a real external runner is required."),
+        ));
+    }
+    Some(Diagnostic::error(
+        "E-CASE-APPLY-STEP-UNSUPPORTED",
+        binding.line,
+        &format!("Case apply step `{}` is not supported.", apply.step),
+        Some("Use `apply case_input_template over cases` for the current native case path."),
+    ))
+}
+
+fn case_apply_expression(expression: &str) -> Option<CaseApplyExpression<'_>> {
     let expression = expression.trim();
     if let Some(inner) = expression
         .strip_prefix("apply(")
         .and_then(|value| value.strip_suffix(')'))
     {
-        return inner.split(',').find_map(|part| {
-            part.trim()
-                .strip_prefix("over=")
+        let mut parts = inner.split(',').map(str::trim);
+        let step = parts.next().filter(|value| is_simple_binding_name(value))?;
+        let cases = parts.find_map(|part| {
+            part.strip_prefix("over=")
                 .map(str::trim)
                 .filter(|value| is_simple_binding_name(value))
-        });
+        })?;
+        return Some(CaseApplyExpression { step, cases });
     }
 
     let mut parts = expression.split_whitespace();
     if parts.next()? != "apply" {
         return None;
     }
-    let _step = parts.next()?;
+    let step = parts.next()?;
     if parts.next()? != "over" {
         return None;
     }
     let cases = parts.next()?;
-    if parts.next().is_some() || !is_simple_binding_name(cases) {
+    if parts.next().is_some() || !is_simple_binding_name(step) || !is_simple_binding_name(cases) {
         return None;
     }
-    Some(cases)
+    Some(CaseApplyExpression { step, cases })
 }
 
 fn collect_results_source_binding(expression: &str) -> Option<&str> {

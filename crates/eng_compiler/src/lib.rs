@@ -10504,6 +10504,23 @@ system Envelope {
     }
 
     #[test]
+    fn run_case_scheduler_is_explicitly_unsupported() {
+        let report = check_source(
+            "run_case.eng",
+            "case_results = apply run_case over cases\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "E-CASE-RUN-SCHEDULER-UNSUPPORTED"
+                && diagnostic.message.contains("native scheduler")
+        }));
+        assert!(!report.inferred_declarations.iter().any(|declaration| {
+            declaration.name == "case_results" && declaration.quantity_kind == "Table[CaseOutput]"
+        }));
+    }
+
+    #[test]
     fn accepts_materialize_cases_with_block_options() {
         let report = check_source(
             "ok.eng",

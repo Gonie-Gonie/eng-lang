@@ -4653,7 +4653,11 @@ fn render_case_apply_template_outputs(
         .semantic_program
         .command_styles
         .iter()
-        .filter(|command| command.verb == "apply" && command.status == "lowered")
+        .filter(|command| {
+            command.verb == "apply"
+                && command.status == "lowered"
+                && command.target == "case_input_template"
+        })
     {
         let Some(cases_binding) = command
             .clauses

@@ -59,6 +59,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 502: Added VS Code grammar smoke guards for generated keyword expected-token coverage.
 - Batch 503: Reworded current solver diagnostics and docs away from seed-only implementation language.
 - Batch 504: Added semantic highlighting coverage for function-style `plot line(...)` and `plot bar(...)`.
+- Batch 505: Made unsupported `apply run_case over ...` scheduling explicit instead of inferring CaseOutput.
 
 ## Documentation Policy
 
