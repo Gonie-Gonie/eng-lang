@@ -5307,6 +5307,14 @@ Status: implemented after reviewing current workflow examples and finding that p
 - Wired those inferred schema fields into the existing local member-completion fallback so `binding.` can suggest schema fields before live completion data arrives.
 - Pinned the schema-completion helpers in `ide-check` so future completion-provider refactors keep the fallback path intact.
 
+## Batch 442: Native IDE Member Completion Fallback
+
+Status: implemented after comparing the native IDE completion path with the new VS Code local member fallback and finding that `args.` and promoted schema bindings had no current-buffer suggestions before a fresh check result.
+
+- Added native IDE current-buffer member completion for `args { ... }` fields.
+- Added native IDE current-buffer member completion for `schema Name { ... }` fields promoted through `promote csv/json/toml ... as Name` bindings.
+- Pinned the native IDE completion helper names and duplicate-function guard in `ide-check` so this fallback stays aligned with future editor changes.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

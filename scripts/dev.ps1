@@ -3916,6 +3916,14 @@ function Invoke-IdeCheck {
         "insertClosingBraceWithIndent",
         "selectedLineEditRange",
         "syncEditorManualEdit",
+        "localMemberCompletionCandidates",
+        "memberCompletionContextFromPrefix",
+        "memberCompletionItemsForFields",
+        "argsFieldCompletionsFromSource",
+        "schemaBindingFieldCompletionsFromSource",
+        "schemaFieldsForBinding",
+        "promotedSchemaBindingsFromSource",
+        "firstBlockBodyFromSource",
         "renderHighlightPanel",
         "highlightTokenQuery",
         "highlightTokenQueryInput",
@@ -3969,6 +3977,18 @@ function Invoke-IdeCheck {
     )) {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
             throw "Native IDE UI missing contract token $RequiredIdeToken"
+        }
+    }
+    foreach ($UniqueNativeCompletionFunction in @(
+        "localMemberCompletionCandidates",
+        "memberCompletionContextFromPrefix",
+        "argsFieldCompletionsFromSource",
+        "schemaBindingFieldCompletionsFromSource",
+        "schemaFieldCompletionsFromBody"
+    )) {
+        $FunctionDeclarationCount = [regex]::Matches($IdeUiSource, "function\s+$UniqueNativeCompletionFunction\s*\(").Count
+        if ($FunctionDeclarationCount -ne 1) {
+            throw "Native IDE completion UI must declare $UniqueNativeCompletionFunction exactly once"
         }
     }
     $ExpectedNativeIdeSideTabOrder = @(

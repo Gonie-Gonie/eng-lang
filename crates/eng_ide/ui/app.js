@@ -4330,6 +4330,11 @@ function hideCompletions() {
 }
 
 function completionCandidates(prefix) {
+  const memberItems = localMemberCompletionCandidates(prefix);
+  if (memberItems.length) {
+    return memberItems.slice(0, 9);
+  }
+
   const lower = prefix.toLowerCase();
   const symbolItems = state.check.symbols.map((symbol) => ({
     label: symbol.name,
@@ -4347,6 +4352,172 @@ function completionCandidates(prefix) {
       return true;
     })
     .slice(0, 9);
+}
+
+function localMemberCompletionCandidates(prefix) {
+  const context = memberCompletionContextFromPrefix(prefix);
+  if (!context) return [];
+  const groups = [
+    {
+      fields: argsFieldCompletionsFromSource(state.source),
+      detail: "args field",
+      matchesReceiver: (receiver) => receiver === "args"
+    },
+    {
+      fields: schemaFieldsForBinding(schemaBindingFieldCompletionsFromSource(state.source), context.receiver),
+      detail: "schema field",
+      matchesReceiver: () => true
+    }
+  ];
+  const items = [];
+  const seen = new Set();
+  for (const group of groups) {
+    if (!Array.isArray(group.fields) || !group.matchesReceiver(context.receiver)) continue;
+    for (const item of memberCompletionItemsForFields(context, group.fields, group.detail)) {
+      const key = `${item.kind}:${item.insert}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      items.push(item);
+    }
+  }
+  return items;
+}
+
+function memberCompletionContextFromPrefix(prefix) {
+  const match = /^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(prefix || "");
+  if (!match) return null;
+  return {
+    receiver: match[1],
+    prefix: match[2] || ""
+  };
+}
+
+function memberCompletionItemsForFields(context, fields, fallbackDetail) {
+  const lower = context.prefix.toLowerCase();
+  return fields
+    .filter((field) => typeof field?.label === "string")
+    .filter((field) => field.label.toLowerCase().startsWith(lower))
+    .map((field) => ({
+      label: field.label,
+      insert: `${context.receiver}.${field.label}`,
+      detail: field.detail || fallbackDetail,
+      kind: "property"
+    }));
+}
+
+function argsFieldCompletionsFromSource(source) {
+  const body = firstBlockBodyFromSource(source, /\bargs\s*\{/g);
+  if (!body) return [];
+  return schemaFieldCompletionsFromBody(body).map((field) => ({
+    ...field,
+    detail: field.detail ? `args field: ${field.detail}` : "args field"
+  }));
+}
+
+function schemaBindingFieldCompletionsFromSource(source) {
+  const schemas = schemaFieldsFromSource(source);
+  const bindings = promotedSchemaBindingsFromSource(source);
+  const result = {};
+  for (const [binding, schemaName] of Object.entries(bindings)) {
+    const fields = schemas[schemaName];
+    if (!Array.isArray(fields)) continue;
+    result[binding] = fields.map((field) => ({
+      ...field,
+      detail: field.detail ? `${schemaName} field: ${field.detail}` : `${schemaName} field`
+    }));
+  }
+  return result;
+}
+
+function schemaFieldsForBinding(schemaBindingFields, receiver) {
+  if (!schemaBindingFields || typeof schemaBindingFields !== "object") return [];
+  const fields = schemaBindingFields[receiver];
+  return Array.isArray(fields) ? fields : [];
+}
+
+function schemaFieldsFromSource(source) {
+  const text = String(source ?? "");
+  const schemas = {};
+  const pattern = /\bschema\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{/g;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    const openIndex = text.indexOf("{", match.index);
+    const closeIndex = blockCloseIndex(text, openIndex);
+    if (openIndex < 0 || closeIndex < 0) continue;
+    schemas[match[1]] = schemaFieldCompletionsFromBody(text.slice(openIndex + 1, closeIndex));
+    pattern.lastIndex = closeIndex + 1;
+  }
+  return schemas;
+}
+
+function promotedSchemaBindingsFromSource(source) {
+  const text = String(source ?? "");
+  const bindings = {};
+  const pattern = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*promote\s+(?:csv|toml|json(?:\s+records)?)\b[^\n]*\bas\s+([A-Za-z_][A-Za-z0-9_]*)\b/gm;
+  let match;
+  while ((match = pattern.exec(text)) !== null) {
+    bindings[match[1]] = match[2];
+  }
+  return bindings;
+}
+
+function schemaFieldCompletionsFromBody(body) {
+  const fields = [];
+  const seen = new Set();
+  for (const line of String(body ?? "").split(/\r?\n/)) {
+    const withoutComment = line.replace(/#.*/, "").replace(/\/\/.*/, "");
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]*)/.exec(withoutComment);
+    if (!match || seen.has(match[1])) continue;
+    seen.add(match[1]);
+    fields.push({
+      label: match[1],
+      detail: match[2].trim(),
+      kind: "property"
+    });
+  }
+  return fields;
+}
+
+function firstBlockBodyFromSource(source, openerRegex) {
+  const text = String(source ?? "");
+  openerRegex.lastIndex = 0;
+  const match = openerRegex.exec(text);
+  if (!match) return "";
+  const openIndex = text.indexOf("{", match.index);
+  const closeIndex = blockCloseIndex(text, openIndex);
+  if (openIndex < 0 || closeIndex < 0) return "";
+  return text.slice(openIndex + 1, closeIndex);
+}
+
+function blockCloseIndex(text, openIndex) {
+  if (openIndex < 0) return -1;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = openIndex; index < text.length; index += 1) {
+    const char = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (char === "\\") {
+        escaped = true;
+      } else if (char === "\"") {
+        inString = false;
+      }
+      continue;
+    }
+    if (char === "\"") {
+      inString = true;
+      continue;
+    }
+    if (char === "{") {
+      depth += 1;
+    } else if (char === "}") {
+      depth -= 1;
+      if (depth === 0) return index;
+    }
+  }
+  return -1;
 }
 
 function currentPrefix(editor) {
