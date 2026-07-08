@@ -5177,6 +5177,13 @@ Status: implemented after comparing native IDE bootstrap and lexical catalog wir
 - Added a native IDE bootstrap assertion for `hyphenated_workflow_builtins`, including `latin-hypercube`, so compiler-owned workflow builtin vocabulary cannot drift between VS Code and the native IDE.
 - Extended `ide-check` UI contracts to require both camelCase and snake_case hyphenated builtin field handling in the native IDE lexical catalog path.
 
+## Batch 425: Native IDE Constant Highlight Parity
+
+Status: implemented after comparing VS Code grammar constants, LSP language constants, and native IDE fallback lexical constants.
+
+- Added `asc` and `desc` to native IDE fallback constant highlighting so table sort directions match VS Code and LSP semantic highlighting.
+- Extended `ide-check` to compare native IDE fallback constants against the compiler-owned LSP `LANGUAGE_CONSTANT_KEYWORDS` list, preventing future constant vocabulary drift.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -2144,7 +2144,7 @@ function Read-RustStringSliceConst {
         [Parameter(Mandatory = $true)][string] $Name
     )
 
-    $pattern = "pub\s+const\s+$([regex]::Escape($Name))\s*:\s*&\[\&str\]\s*=\s*&\[(?<body>.*?)\];"
+    $pattern = "(?:pub\s+)?const\s+$([regex]::Escape($Name))\s*:\s*&\[\&str\]\s*=\s*&\[(?<body>.*?)\];"
     $match = [regex]::Match($Source, $pattern, [System.Text.RegularExpressions.RegexOptions]::Singleline)
     if (-not $match.Success) {
         throw "missing Rust string slice constant $Name"
@@ -3781,6 +3781,8 @@ function Invoke-IdeCheck {
         "hyphenated_workflow_builtins",
         "FALLBACK_LEXICAL_KEYWORDS",
         "FALLBACK_LEXICAL_CONSTANTS",
+        "asc",
+        "desc",
         "metadata_ready",
         "warnings_present",
         "diagnostics_present",
@@ -3991,6 +3993,13 @@ function Invoke-IdeCheck {
         }
     }
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
+    $NativeIdeFallbackConstants = Read-JavaScriptStringArrayConst -Source $IdeUiSource -Name "FALLBACK_LEXICAL_CONSTANTS"
+    $LspLanguageConstants = Read-RustStringSliceConst -Source $LspSource -Name "LANGUAGE_CONSTANT_KEYWORDS"
+    foreach ($LanguageConstant in $LspLanguageConstants) {
+        if ($NativeIdeFallbackConstants -notcontains $LanguageConstant) {
+            throw "Native IDE fallback constants missing LSP language constant $LanguageConstant"
+        }
+    }
     $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"
     foreach ($TokenType in $LspSemanticTypes) {
         $TypeStyle = ".hl-$TokenType"
