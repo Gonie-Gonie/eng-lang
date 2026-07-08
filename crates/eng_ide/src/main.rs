@@ -4015,6 +4015,11 @@ mod tests {
         assert!(catalog["workflow_builtins"]
             .as_array()
             .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("train"))));
+        assert!(catalog["hyphenated_workflow_builtins"]
+            .as_array()
+            .is_some_and(|items| items
+                .iter()
+                .any(|item| item.as_str() == Some("latin-hypercube"))));
         assert!(catalog["workflow_options"]
             .as_array()
             .is_some_and(|items| items

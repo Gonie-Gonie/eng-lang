@@ -5170,6 +5170,13 @@ Status: implemented after reviewing public CLI reference navigation for internal
 - Renamed the snapshot metadata reference link so it reads as maintainer/editor
   tooling material rather than a normal user API.
 
+## Batch 424: Native IDE Hyphenated Builtin Catalog Guard
+
+Status: implemented after comparing native IDE bootstrap and lexical catalog wiring with the VS Code generated syntax metadata.
+
+- Added a native IDE bootstrap assertion for `hyphenated_workflow_builtins`, including `latin-hypercube`, so compiler-owned workflow builtin vocabulary cannot drift between VS Code and the native IDE.
+- Extended `ide-check` UI contracts to require both camelCase and snake_case hyphenated builtin field handling in the native IDE lexical catalog path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
