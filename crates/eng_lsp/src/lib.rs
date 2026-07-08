@@ -1779,13 +1779,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "class",
             &["defaultLibrary"],
         );
-        if promotion.source_format == "json_records" {
-            builder.push_keywords_on_line(
-                promotion.line,
-                &["promote", "json", "records"],
-                &["workflowStep"],
-            );
-        }
+        builder.push_keywords_on_line(
+            promotion.line,
+            promotion_source_format_keywords(&promotion.source_format),
+            &["workflowStep"],
+        );
     }
 
     for promotion in &program.config_promotions {
@@ -1800,6 +1798,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             &promotion.schema_name,
             "class",
             &["defaultLibrary"],
+        );
+        builder.push_keywords_on_line(
+            promotion.line,
+            config_promotion_format_keywords(&promotion.format),
+            &["workflowStep"],
         );
     }
 
@@ -1849,6 +1852,22 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "variable",
             &["declaration", "workflowStep"],
         );
+        match transform.operation.as_str() {
+            "select" | "derive" => {
+                builder.push_keywords_on_line(
+                    transform.line,
+                    &["column", "columns"],
+                    &["workflowStep"],
+                );
+            }
+            "sort" => {
+                builder.push_keywords_on_line(transform.line, &["by"], &["workflowStep"]);
+            }
+            "join" => {
+                builder.push_keywords_on_line(transform.line, &["with"], &["workflowStep"]);
+            }
+            _ => {}
+        }
         builder.push_on_line(
             transform.line,
             &transform.source_table,
@@ -3605,6 +3624,22 @@ fn is_model_quantity_kind(quantity_kind: &str) -> bool {
         || quantity_kind.contains("LeakageLint")
 }
 
+fn promotion_source_format_keywords(source_format: &str) -> &'static [&'static str] {
+    match source_format {
+        "json_records" => &["promote", "json", "records", "as"],
+        "json" => &["promote", "json", "as"],
+        "toml" => &["promote", "toml", "as"],
+        _ => &["promote", "csv", "as"],
+    }
+}
+
+fn config_promotion_format_keywords(format: &str) -> &'static [&'static str] {
+    match format {
+        "toml" => &["promote", "toml", "as"],
+        _ => &["promote", "json", "as"],
+    }
+}
+
 struct SemanticTokenBuilder<'a> {
     lines: Vec<&'a str>,
     tokens: Vec<LspSemanticToken>,
@@ -4393,6 +4428,7 @@ fn add_command_style_semantic_tokens(
             if is_simple_identifier_path(&command.target) {
                 builder.push_on_line(command.line, &command.target, "function", &["workflowStep"]);
             }
+            push_command_clause_keywords(builder, command, &["over"], &["workflowStep"]);
         }
         "check" => {
             let Some(target) = command.target.trim().strip_prefix("coverage ") else {
@@ -4420,7 +4456,11 @@ fn add_command_style_semantic_tokens(
         }
         "fill" => {
             if command.target.trim().starts_with("missing ") {
-                builder.push_keywords_on_line(command.line, &["missing"], &["validation"]);
+                builder.push_keywords_on_line(
+                    command.line,
+                    &["missing"],
+                    &["validation", "workflowStep"],
+                );
             }
             push_command_style_identifier_paths(
                 builder,
@@ -4431,6 +4471,12 @@ fn add_command_style_semantic_tokens(
             );
         }
         "align" | "resample" => {
+            push_command_clause_keywords(
+                builder,
+                command,
+                &["with", "to"],
+                &["validation", "workflowStep"],
+            );
             push_command_style_identifier_paths(
                 builder,
                 command.line,
@@ -4472,7 +4518,11 @@ fn add_command_style_semantic_tokens(
             );
             for clause in &command.clauses {
                 if clause.name == "to" {
-                    builder.push_keywords_on_line(command.line, &["to"], &["sideEffect"]);
+                    builder.push_keywords_on_line(
+                        command.line,
+                        &["to"],
+                        &["sideEffect", "workflowStep"],
+                    );
                     push_command_style_identifier_paths(
                         builder,
                         command.line,
@@ -4484,6 +4534,19 @@ fn add_command_style_semantic_tokens(
             }
         }
         _ => {}
+    }
+}
+
+fn push_command_clause_keywords(
+    builder: &mut SemanticTokenBuilder<'_>,
+    command: &CommandStyleInfo,
+    names: &[&str],
+    modifiers: &[&str],
+) {
+    for clause in &command.clauses {
+        if names.iter().any(|name| clause.name == *name) {
+            builder.push_keywords_on_line(command.line, &[clause.name.as_str()], modifiers);
+        }
     }
 }
 
@@ -8087,6 +8150,14 @@ struct LegacyArgs
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
+            "render template file(\"report.md\") to file(\"report.html\")",
+            "to",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
             "rendered_template = render template args.template_source to args.rendered_output",
             "template_source",
             "property",
@@ -8563,6 +8634,46 @@ legacy_station = select_first_row(stations, return_column="station_id")
             );
         }
         assert_semantic_token_modifier(&snapshot, source, "using", "model");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "sorted = sort designs by cooling_cop desc",
+            "by",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "joined = join designs with predictions",
+            "with",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "case_results = apply run_case over designs",
+            "over",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "aligned = align designs.cooling_cop with predictions.cooling_cop",
+            "with",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "resampled = resample designs.cooling_cop to predictions.cooling_cop",
+            "to",
+            "keyword",
+            "workflowStep",
+        );
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "surrogate", "variable", "model"),
             4,
@@ -8603,6 +8714,14 @@ legacy_station = select_first_row(stations, return_column="station_id")
         assert_semantic_token_modifier(&snapshot, source, "check", "validation");
         assert_semantic_token_modifier(&snapshot, source, "coverage", "validation");
         assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "filled = fill missing designs.cooling_cop",
+            "missing",
+            "keyword",
+            "workflowStep",
+        );
         for label in ["asc", "desc"] {
             assert_semantic_token_type(&snapshot, source, label, "keyword");
         }
@@ -8758,6 +8877,22 @@ weather = promote json records payload.records as WeatherApiRecord
             .any(|completion| completion.label == "records"));
         assert_semantic_token_type(&snapshot, source, "records", "keyword");
         assert_semantic_token_modifier(&snapshot, source, "records", "workflowStep");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "api_contract = promote json payload as WeatherApiPayload",
+            "as",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "weather = promote json records payload.records as WeatherApiRecord",
+            "as",
+            "keyword",
+            "workflowStep",
+        );
         assert_semantic_token_type(&snapshot, source, "weather", "variable");
         let weather_symbol = snapshot
             .document_symbols

@@ -4850,6 +4850,21 @@ ambiguous hash wording.
   longer advertises the ambiguous alias.
 - Updated workflow 01 and the workflow docs to use `api_response.response_hash`.
 
+## Batch 390: Workflow Clause Semantic Highlighting
+
+Status: implemented after comparing TextMate phrase scopes with LSP semantic
+overlay behavior for public workflow phrases.
+
+- Added LSP semantic modifiers for schema promotion connectors such as
+  `promote json ... as ...` and `promote json records ... as ...`.
+- Added workflow-step semantic modifiers for table workflow connectors such as
+  `sort ... by ...` and `join ... with ...`.
+- Added workflow-step semantic modifiers for command-style connectors such as
+  `apply ... over ...`, `align ... with ...`, `resample ... to ...`,
+  `fill missing ...`, and `render template ... to ...`.
+- Extended LSP snapshot tests so these connector keywords stay colored when
+  semantic highlighting is enabled over the TextMate fallback grammar.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
