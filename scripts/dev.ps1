@@ -4628,6 +4628,92 @@ function Invoke-IdeCheck {
     Write-Host "IDE check passed."
 }
 
+function Assert-VscodeSemanticFallbackCoverage {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $LspExecutable
+    )
+
+    $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
+    $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
+    if (-not (Test-Path $PackageJsonPath)) {
+        throw "missing VS Code extension package.json at $PackageJsonPath"
+    }
+    if (-not (Test-Path $LspExecutable)) {
+        throw "missing eng-lsp executable at $LspExecutable"
+    }
+
+    $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
+    $SemanticScopeRule = @($Package.contributes.semanticTokenScopes | Where-Object { $_.language -eq "englang" }) | Select-Object -First 1
+    if ($null -eq $SemanticScopeRule) {
+        throw "VS Code extension missing englang semantic token scope mappings"
+    }
+    $ScopeSelectors = @{}
+    foreach ($ScopeProperty in @($SemanticScopeRule.scopes.PSObject.Properties)) {
+        $ScopeSelectors[$ScopeProperty.Name] = $true
+    }
+
+    $SnapshotRoots = @(
+        (Join-Path $RepoRoot "examples")
+        (Join-Path $RepoRoot "tools\vscode-englang\test\grammar-fixtures")
+    ) | Where-Object { Test-Path $_ }
+    $SourceFiles = @()
+    foreach ($SnapshotRoot in $SnapshotRoots) {
+        $SourceFiles += @(Get-ChildItem -LiteralPath $SnapshotRoot -Recurse -Filter "*.eng" -File)
+    }
+    if (@($SourceFiles).Count -eq 0) {
+        throw "VS Code semantic fallback coverage check found no EngLang source files"
+    }
+
+    $ObservedSelectors = @{}
+    $MissingSelectors = @{}
+    foreach ($SourceFile in $SourceFiles) {
+        $SnapshotOutput = & $LspExecutable "--snapshot" $SourceFile.FullName
+        if ($LASTEXITCODE -ne 0) {
+            throw "eng-lsp semantic fallback coverage snapshot failed for $($SourceFile.FullName)"
+        }
+        $Snapshot = ($SnapshotOutput | Out-String).Trim() | ConvertFrom-Json
+        foreach ($Token in @($Snapshot.semantic_tokens.tokens)) {
+            $TokenType = [string]$Token.type
+            if ([string]::IsNullOrWhiteSpace($TokenType)) {
+                continue
+            }
+            $Selectors = @()
+            foreach ($Modifier in @($Token.modifiers)) {
+                if (-not [string]::IsNullOrWhiteSpace([string]$Modifier)) {
+                    $Selectors += "$TokenType.$Modifier"
+                }
+            }
+            $Selectors += $TokenType
+            foreach ($Selector in @($Selectors | Select-Object -Unique)) {
+                if ($ObservedSelectors.ContainsKey($Selector)) {
+                    $ObservedSelectors[$Selector] = [int]$ObservedSelectors[$Selector] + 1
+                } else {
+                    $ObservedSelectors[$Selector] = 1
+                }
+                if (-not $ScopeSelectors.ContainsKey($Selector)) {
+                    if ($MissingSelectors.ContainsKey($Selector)) {
+                        $MissingSelectors[$Selector] = [int]$MissingSelectors[$Selector] + 1
+                    } else {
+                        $MissingSelectors[$Selector] = 1
+                    }
+                }
+            }
+        }
+    }
+    if ($ObservedSelectors.Count -eq 0) {
+        throw "VS Code semantic fallback coverage check found no semantic selectors"
+    }
+    if ($MissingSelectors.Count -gt 0) {
+        $MissingSummary = ($MissingSelectors.GetEnumerator() |
+            Sort-Object -Property Value -Descending |
+            Select-Object -First 20 |
+            ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ", "
+        throw "VS Code semantic token scope fallback map is missing observed selector(s): $MissingSummary"
+    }
+    Write-Host "VS Code semantic fallback coverage passed. Checked $(@($SourceFiles).Count) snapshot(s), $($ObservedSelectors.Count) selector(s)."
+}
+
 function Invoke-LspCheck {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -4657,6 +4743,8 @@ function Invoke-LspCheck {
             throw "eng-lsp --editor-metadata missing semantic token modifier $RequiredModifier"
         }
     }
+    $LspExecutable = Join-Path $RepoRoot "target\debug\eng-lsp.exe"
+    Assert-VscodeSemanticFallbackCoverage -LspExecutable $LspExecutable
     Write-Host "LSP check passed."
 }
 

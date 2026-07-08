@@ -33,6 +33,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 476: Added VS Code highlight inspection semantic selector and TextMate fallback-scope debug output.
 - Batch 477: Added observed base semantic selector fallback scopes for VS Code highlighting consistency.
 - Batch 478: Added VS Code cursor-specific highlight token inspection.
+- Batch 479: Added lsp-check coverage for observed VS Code semantic fallback selector mappings.
 
 ## Documentation Policy
 

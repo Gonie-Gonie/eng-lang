@@ -237,7 +237,7 @@ such as `use eng.stats`; internal stdlib imports such as `use eng.system` carry
 
 VS Code maps semantic tokens to TextMate fallback scopes in
 `tools/vscode-englang/package.json` under `semanticTokenScopes`. Keep that map
-in sync with the generated legend. Important pairings:
+in sync with the generated legend. `lsp-check` scans example and grammar-fixture snapshots and fails when any observed semantic selector lacks a VS Code fallback mapping. Important pairings:
 
 | Semantic selector | Fallback scope intent |
 | --- | --- |
