@@ -369,3 +369,14 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   workflows to prevent VS Code highlighting regressions.
 - Keep command-form and function-form workflow syntax visually consistent when
   users switch between `apply step over cases` and `apply(step, over=cases)`.
+
+## Backlog Batch 457 - Model API Argument Scopes
+
+- Split model API function-call argument scopes for `train_test_split`,
+  `regression`, `train_regression`, `mlp`, `ann`, `regression_table`,
+  `evaluate`, `model_card`, and `leakage_lint`.
+- Preserve option-key highlighting while coloring `args.*` inputs as
+  `variable.parameter.property.englang` and dotted model/table paths as
+  `variable.other.property.englang`.
+- Add grammar fixtures for argument-backed model API calls so VS Code
+  highlighting stays consistent with command-style workflow forms.

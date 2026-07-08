@@ -2844,5 +2844,83 @@
     "scope": "variable.other.property.englang",
     "text": "study.cases",
     "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-train-call.englang",
+    "text": "train_test_split(args.designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-train-call.englang",
+    "text": "train_test_split(study.designs, target=annual_electricity, features=[study.people_density], test=0.25, seed=7)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.regression-table.englang",
+    "text": "regression_table(args.designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.regression-table.englang",
+    "text": "regression_table(study.designs, target=annual_electricity, features=[study.people_density], test=0.25, seed=7)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-summary-call.englang",
+    "text": "evaluate(args.model_ref, split=args.split_ref)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-summary-call.englang",
+    "text": "evaluate(surrogate.model, split=model.split)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-summary-call.englang",
+    "text": "model_card(args.model_ref)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.model-summary-call.englang",
+    "text": "leakage_lint(model.split)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.model_ref",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.split_ref",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "study.people_density",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "surrogate.model",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "model.split",
+    "fullMatch": true
   }
 ]

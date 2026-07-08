@@ -90,3 +90,11 @@ arg_first_design = require_one args.designs
 property_first_design = require_one study.designs
 arg_case_inputs_call = apply(args.case_step, over=args.cases)
 property_case_inputs_call = apply(workflow.case_step, over=study.cases)
+arg_split = train_test_split(args.designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
+property_split = train_test_split(study.designs, target=annual_electricity, features=[study.people_density], test=0.25, seed=7)
+arg_legacy_model = regression_table(args.designs, target=annual_electricity, features=[people_density], test=0.25, seed=7)
+property_legacy_model = regression_table(study.designs, target=annual_electricity, features=[study.people_density], test=0.25, seed=7)
+arg_metrics = evaluate(args.model_ref, split=args.split_ref)
+property_metrics = evaluate(surrogate.model, split=model.split)
+arg_card = model_card(args.model_ref)
+property_leakage = leakage_lint(model.split)
