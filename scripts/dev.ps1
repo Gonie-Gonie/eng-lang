@@ -4207,6 +4207,7 @@ function Invoke-IdeCheck {
         "toggleEditorLineComment",
         "isLineCommented",
         'rest.startsWith("//")',
+        '\/\/(?!\/)',
         "indentEditorSelection",
         "outdentEditorSelection",
         "insertEditorNewlineWithIndent",
@@ -4286,6 +4287,9 @@ function Invoke-IdeCheck {
         if (-not $IdeUiSource.Contains($RequiredIdeToken)) {
             throw "Native IDE UI missing contract token $RequiredIdeToken"
         }
+    }
+    if ($IdeUiSource.Contains('(?:#|\/\/) ?')) {
+        throw "Native IDE comment toggling must not treat /// documentation comments as ordinary // comments"
     }
     foreach ($UniqueNativeCompletionFunction in @(
         "localMemberCompletionCandidates",

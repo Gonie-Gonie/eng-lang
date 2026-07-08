@@ -5509,3 +5509,11 @@ Status: implemented after reviewing VS Code first-paint highlighting for block k
 - Gave general and validation block openers phrase-level `meta.block.*` scopes while keeping keyword and brace captures separate.
 - Updated grammar smoke expectations so `args`, `report`, `where`, `on`, `constraints`, and `missing` are tested as explicit keyword captures instead of loose header substrings.
 - Documented the block opener scope contract so future grammar work does not re-flatten these headers.
+
+## Batch 468: Native IDE Doc Comment Toggle Guard
+
+Status: implemented after reviewing native IDE comment-toggle behavior against the doc-comment policy.
+
+- Changed native IDE Ctrl+/ detection so ordinary `//` comments are recognized without treating `///` documentation comments as normal line comments.
+- Added an `ide-check` guard rejecting the stale regex that would strip two slashes from `///` and leave an invalid `/` prefix.
+- Preserved the canonical `#` insertion behavior for newly commented lines.

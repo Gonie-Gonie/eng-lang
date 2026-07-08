@@ -4195,11 +4195,11 @@ function commentLine(line) {
 }
 
 function uncommentLine(line) {
-  return line.replace(/^(\s*)(?:#|\/\/) ?/, "$1");
+  return line.replace(/^(\s*)(?:#|\/\/(?!\/)) ?/, "$1");
 }
 
 function isLineCommented(line) {
-  return /^\s*(?:#|\/\/) ?/.test(line);
+  return /^\s*(?:#|\/\/(?!\/)) ?/.test(line);
 }
 
 function outdentLine(line) {
