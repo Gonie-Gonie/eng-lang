@@ -5152,6 +5152,15 @@ Status: implemented after checking generated syntax catalog fields against the V
 - Extended LSP metadata and `ide-check` guards so the compiler-owned catalog,
   generated editor metadata, and VS Code grammar remain aligned.
 
+## Batch 422: Versioned Language Reference Index Cleanup
+
+Status: implemented after checking reference navigation for stale version-policy entry points.
+
+- Moved the historical `language_v8.md` link out of the core language-reference
+  page list and into a compatibility-link section.
+- Kept the link target stable while making the focused current language pages the
+  primary navigation path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
