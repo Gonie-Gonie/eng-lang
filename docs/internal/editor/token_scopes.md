@@ -262,7 +262,7 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
 | `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries value and statistic helper emphasis. |
 | `variable.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, functions, properties, and block introducers. |
-| `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in functions and modules. |
+| `keyword.defaultLibrary`, `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in command-style keywords, helper functions, and modules. |
 | `namespace.imported` | User-imported module namespaces. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |
 | `function.external`, `keyword.external`, `variable.external` | External boundaries and bindings. |
@@ -280,7 +280,7 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
-Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. Keyword semantic selectors that represent clause words or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
+Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. Keyword semantic selectors that represent command-style builtins, clause words, or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.defaultLibrary` covers compiler-owned command words such as `sample`, `filter`, and `train`, while `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
 
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
