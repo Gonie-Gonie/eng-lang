@@ -3647,6 +3647,9 @@ fn semantic_modifiers_for_quantity(quantity_kind: &str) -> Vec<&'static str> {
     if quantity_kind.contains("Db") {
         modifiers.push("db");
     }
+    if quantity_kind.contains("LinearOperator") {
+        modifiers.push("solver");
+    }
     if quantity_kind.contains("Table[Case") || quantity_kind.contains("CaseOutput") {
         modifiers.push("workflowStep");
     }
@@ -8629,6 +8632,14 @@ system StateSpaceFixture {
             "y",
             "variable",
             "output",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "operator A:",
+            "A",
+            "variable",
+            "solver",
         );
 
         for label in [

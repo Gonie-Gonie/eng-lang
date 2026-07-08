@@ -4896,6 +4896,18 @@ compiler-backed semantic token roles.
 - Added LSP snapshot coverage for state/input/parameter/output member
   names in a state-space system fixture.
 
+## Batch 393: Linear Operator Semantic Role Highlighting
+
+Status: implemented after the Batch 392 regression pass exposed that
+state-space operator names were only plain variable tokens under semantic
+highlighting.
+
+- Classified `LinearOperator[...]` typed bindings with the `solver` semantic
+  modifier so names such as `operator A` keep solver coloring in VS Code and
+  the Native IDE semantic overlay.
+- Extended state-space semantic-token coverage to assert the operator binding
+  name carries the solver role alongside state/input/output vector roles.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
