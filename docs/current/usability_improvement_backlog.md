@@ -39,6 +39,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 482: Reworded user-facing editor highlight docs away from internal token metadata terms.
 - Batch 483: Reworded the native IDE caret highlight empty state away from semantic-token terminology.
 - Batch 484: Broadened VS Code TextMate operator-word fallback for workflow glue words and added grammar smoke expectations.
+- Batch 485: Added workflow 02 smoke coverage for native typed SQLite readback structured reads.
 
 ## Documentation Policy
 

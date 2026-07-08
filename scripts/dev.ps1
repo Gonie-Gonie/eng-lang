@@ -684,6 +684,22 @@ function Invoke-WorkflowsTest {
                     }
                 }
             }
+            $StructuredReads = @($TypedPayload.structured_reads)
+            $MatchingStructuredReads = @($StructuredReads | Where-Object {
+                [string]$_.binding -eq "persisted_predictions" -and
+                [string]$_.kind -eq "sqlite" -and
+                [string]$_.parse_status -eq "parsed" -and
+                [string]$_.root_type -eq "sqlite_table" -and
+                [int]$_.field_count -eq 3 -and
+                [int]$_.item_count -eq 3 -and
+                $null -eq $_.error -and
+                [int]$_.line -eq 101 -and
+                [string]$_.path -like "*surrogate_results.sqlite" -and
+                [string]$_.source_hash -match "^[0-9a-f]{64}$"
+            })
+            if ($MatchingStructuredReads.Count -ne 1) {
+                throw "Workflow 02 native result missing typed SQLite readback structured_read contract"
+            }
             $CaseManifests = @($TypedPayload.case_manifests)
             foreach ($RequiredCaseManifestGroup in @(
                 @{ SampleTable = "training_designs"; Count = 8 },
@@ -720,6 +736,10 @@ function Invoke-WorkflowsTest {
                 '"prediction_manifests"',
                 '"schema_name": "PredictionResult"',
                 '"db_manifests"',
+                '"structured_reads"',
+                '"binding": "persisted_predictions"',
+                '"root_type": "sqlite_table"',
+                '"item_count": 3',
                 '"transaction_status": "committed"'
             )) {
                 if (-not $ResultJson.Contains($RequiredSurrogateResultToken)) {
