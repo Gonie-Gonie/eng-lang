@@ -4996,6 +4996,14 @@ Status: implemented after reviewing the long-running editor protocol surface aga
 - Added a per-feature `features` block that maps Problems, hover, completion, definition, symbols, folding, formatting, quick fixes, and role-aware colors to the `live_editor` or `check_and_run` tool aliases.
 - Extended `ide-check` coverage so future status changes keep the user-facing request model and tool aliases visible.
 
+## Batch 405: Native IDE Caret Token Copy Actions
+
+Status: implemented after checking the textarea-backed caret insight and highlight panel action wiring.
+
+- Added caret token copy actions in the cursor insight and Highlight panel so users can copy the exact token text or byte range without changing the editor selection.
+- Reused the existing source-token line/start/length metadata and UTF-8 byte-to-code-unit conversion so copied text matches the range selected by the existing token selector.
+- Extended `ide-check` coverage for the copy action helpers and data attributes.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

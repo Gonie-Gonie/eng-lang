@@ -586,6 +586,7 @@ function bind() {
     button.onclick = () => selectSourceLine(Number(button.dataset.sourceLine || 0));
   });
   bindSourceTokenRangeButtons(document);
+  bindSourceTokenCopyButtons(document);
   bindHighlightTokenFilterButtons(document);
   document.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
     button.onclick = () => {
@@ -1409,6 +1410,10 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
     token.type ? highlightFilterButton(token.type, "Category") : "",
     ...modifiers.map((modifier) => highlightFilterButton(modifier, `Detail ${modifier}`))
   ].filter(Boolean).join(" ");
+  const actionButtons = [
+    sourceTokenCopyButton(token, "text", "Copy Text"),
+    sourceTokenCopyButton(token, "range", "Copy Range")
+  ].filter(Boolean).join(" ");
   const modifierCells = modifiers.length
     ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ")
     : "-";
@@ -1416,6 +1421,7 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
     <table class="var-table caret-highlight-table">
       <tbody>
         <tr><th>Range</th><td>${sourceTokenButton(token, `L${line}`)} <span class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</span></td></tr>
+        <tr><th>Actions</th><td>${actionButtons || "-"}</td></tr>
         <tr><th>Text</th><td><code>${escapeHtml(text)}</code></td></tr>
         <tr><th>Category</th><td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td></tr>
         <tr><th>Details</th><td>${modifierCells}</td></tr>
@@ -4383,6 +4389,7 @@ function bindCursorInsightActions() {
   const target = byId("cursorInsight");
   if (!target) return;
   bindSourceTokenRangeButtons(target);
+  bindSourceTokenCopyButtons(target);
   target.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
     button.onclick = () => {
       state.sideTab = "highlight";
@@ -4399,6 +4406,7 @@ function updateCaretHighlightSummary() {
   const nextTarget = byId("caretHighlightSummary");
   if (!nextTarget) return;
   bindSourceTokenRangeButtons(nextTarget);
+  bindSourceTokenCopyButtons(nextTarget);
   bindHighlightTokenFilterButtons(nextTarget);
 }
 
@@ -4451,6 +4459,7 @@ function renderCursorInsight() {
 function renderCursorInsightActions(token) {
   return `
     ${sourceTokenButton(token, "Select")}
+    ${sourceTokenCopyButton(token, "text", "Copy")}
     <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
   `;
 }
@@ -5077,11 +5086,31 @@ function sourceTokenButton(token, label = null) {
   const line = Number(token?.line ?? -1) + 1;
   const start = Number(token?.start ?? -1);
   const length = Number(token?.length ?? 0);
-  if (!Number.isFinite(line) || !Number.isFinite(start) || !Number.isFinite(length) || line <= 0 || start < 0 || length <= 0) {
+  if (!validSourceTokenRange(line, start, length)) {
     return "-";
   }
   const buttonLabel = label || `L${line}`;
   return `<button class="link-button token-range-button" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="Select token range">${escapeHtml(buttonLabel)}</button>`;
+}
+
+function sourceTokenCopyButton(token, mode, label) {
+  const line = Number(token?.line ?? -1) + 1;
+  const start = Number(token?.start ?? -1);
+  const length = Number(token?.length ?? 0);
+  if (!validSourceTokenRange(line, start, length)) {
+    return "";
+  }
+  const title = mode === "range" ? "Copy token source range" : "Copy token text";
+  return `<button class="link-button token-range-button" data-copy-source-token="${escapeAttr(mode)}" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="${escapeAttr(title)}">${escapeHtml(label)}</button>`;
+}
+
+function validSourceTokenRange(line, start, length) {
+  return Number.isFinite(line)
+    && Number.isFinite(start)
+    && Number.isFinite(length)
+    && line > 0
+    && start >= 0
+    && length > 0;
 }
 
 function bindSourceTokenRangeButtons(root) {
@@ -5092,6 +5121,60 @@ function bindSourceTokenRangeButtons(root) {
       Number(button.dataset.sourceTokenLength || 0)
     );
   });
+}
+
+function bindSourceTokenCopyButtons(root) {
+  root.querySelectorAll("[data-copy-source-token]").forEach((button) => {
+    button.onclick = () => copySourceTokenRange(
+      Number(button.dataset.sourceTokenLine || 0),
+      Number(button.dataset.sourceTokenStart || 0),
+      Number(button.dataset.sourceTokenLength || 0),
+      button.dataset.copySourceToken || "text"
+    );
+  });
+}
+
+async function copySourceTokenRange(line, startByte, lengthBytes, mode = "text") {
+  const editor = byId("editor");
+  if (!editor || !validSourceTokenRange(line, startByte, lengthBytes)) return;
+  const lineRange = sourceLineRange(editor.value, line - 1);
+  const startColumn = byteOffsetToCodeUnit(lineRange.text, startByte);
+  const endColumn = byteOffsetToCodeUnit(lineRange.text, startByte + lengthBytes);
+  const tokenText = lineRange.text.slice(startColumn, Math.max(startColumn, endColumn));
+  const rangeText = `L${line}:${startByte}:${lengthBytes}`;
+  const copied = await copyTextToClipboard(mode === "range" ? rangeText : tokenText);
+  setStatus(copied
+    ? `Copied token ${mode === "range" ? "range" : "text"} ${rangeText}`
+    : "Copy failed");
+}
+
+async function copyTextToClipboard(text) {
+  const value = String(text ?? "");
+  if (!value) return false;
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(value);
+      return true;
+    } catch (_) {
+      // Fall back to the hidden textarea path below.
+    }
+  }
+  const helper = document.createElement("textarea");
+  helper.value = value;
+  helper.style.position = "fixed";
+  helper.style.opacity = "0";
+  document.body.appendChild(helper);
+  helper.focus();
+  helper.select();
+  const copied = document.execCommand?.("copy") === true;
+  helper.remove();
+  return copied;
+}
+
+function setStatus(message) {
+  state.status = String(message || "");
+  const target = document.querySelector(".statusbar .status");
+  if (target) target.textContent = state.status;
 }
 
 function bindHighlightTokenFilterButtons(root) {
