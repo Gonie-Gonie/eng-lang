@@ -13748,6 +13748,15 @@ system Envelope {
         let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
 
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-NET-FIXTURE-ALIAS"
+                && diagnostic.severity == Severity::Warning
+                && diagnostic.line == 3
+                && diagnostic
+                    .help
+                    .as_deref()
+                    .is_some_and(|help| help.contains("offline_response"))
+        }));
         assert_eq!(
             report.semantic_program.net_requests[0].fixture.as_deref(),
             Some("data/response.json")

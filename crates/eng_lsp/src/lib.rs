@@ -812,6 +812,12 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
         }
     }
 
+    if diagnostic.code == "W-NET-FIXTURE-ALIAS" {
+        if let Some(range) = option_key_byte_range(line, "fixture") {
+            return Some(range);
+        }
+    }
+
     if let Some(option_names) = diagnostic_option_names(diagnostic.code.as_str()) {
         if let Some(range) = option_value_byte_range(line, option_names) {
             return Some(range);
@@ -1291,6 +1297,24 @@ fn diagnostic_option_names(code: &str) -> Option<&'static [&'static str]> {
         "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED" => Some(&["algebraic_initialization"]),
         _ => None,
     }
+}
+
+fn option_key_byte_range(line: &str, option_name: &str) -> Option<(usize, usize)> {
+    let indent_len = line_indent_len(line);
+    let rest = &line[indent_len..];
+    let after_name = rest.strip_prefix(option_name)?;
+    if !after_name
+        .chars()
+        .next()
+        .is_some_and(|character| character.is_whitespace() || character == '=')
+    {
+        return None;
+    }
+    let equals_offset = after_name.find('=')?;
+    if !after_name[..equals_offset].trim().is_empty() {
+        return None;
+    }
+    Some((indent_len, indent_len + option_name.len()))
 }
 
 fn option_value_byte_range(line: &str, option_names: &[&str]) -> Option<(usize, usize)> {
@@ -7558,6 +7582,11 @@ with {
                 "W-TABLE-LEGACY-SELECT-FIRST-ROW",
                 "selected_station_id = select_first_row(stations, return_column=\"station_id\")\n",
                 "select_first_row",
+            ),
+            (
+                "W-NET-FIXTURE-ALIAS",
+                "response = http get url(\"https://api.example.org/data.json\")\nwith {\n    fixture = file(\"data/response.json\")\n}\n",
+                "fixture",
             ),
             (
                 "E-NET-BODY-METHOD",

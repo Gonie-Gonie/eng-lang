@@ -945,6 +945,7 @@ report {
         "E-NET-INVALID-URL",
         "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
+        "W-NET-FIXTURE-ALIAS",
         "E-IO-JSON-FIELD-ACCESS-001",
         "E-CACHE-KEY-NONDETERMINISTIC",
         "E-CACHE-DIR",
@@ -1099,6 +1100,12 @@ report {
         &uri,
         "Update expected_sha256 to pinned response SHA-256",
         "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Rename fixture to offline_response",
+        "offline_response",
     );
     assert_action_edit_contains(
         actions,

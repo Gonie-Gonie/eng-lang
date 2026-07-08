@@ -4820,6 +4820,21 @@ against the current `filter` + `require_one` table workflow surface.
   API tables stop advertising deterministic row selection as the preferred
   surface.
 
+## Batch 388: Offline Response Alias Warning
+
+Status: implemented after auditing the legacy network `fixture` option against
+the preferred `offline_response` API.
+
+- Added compiler warning `W-NET-FIXTURE-ALIAS` for HTTP/download with-blocks
+  that still use `fixture = ...`, while preserving compatibility semantics.
+- Added LSP and VS Code fallback quick fixes that rename `fixture` to
+  `offline_response` without changing the value expression.
+- Added diagnostic range coverage so the editor underlines the `fixture` option
+  key, not the response file path.
+- Updated the VS Code extension contract, README quick-fix list, CLI diagnostic
+  reference, and stdlib cache wording so new authoring guidance stays centered
+  on pinned offline responses.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

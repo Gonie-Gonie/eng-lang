@@ -31,7 +31,8 @@ embedding compiler logic in JavaScript.
   missing-unit suffix fixes for unit arithmetic diagnostics, command target
   parenthesizing, schema column annotation migrations, required file-mutation
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
-  raw `read json` field access promotion skeletons, process binding conflicts and command/env/cwd values, pinned
+  legacy network `fixture` aliases, raw `read json` field access promotion skeletons,
+  process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, simulation/solver option repairs, unsupported regression
   algorithm repairs, uncertainty constructor argument repairs, and uncertainty

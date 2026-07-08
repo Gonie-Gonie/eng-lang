@@ -1471,6 +1471,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     validate_process_options(&process_runs, &with_blocks, &mut diagnostics);
     let sample_generations = analyze_sample_generations(program, &with_blocks, &mut diagnostics);
     validate_write_options(&writes, &with_blocks, &mut diagnostics);
+    warn_legacy_fixture_alias_usage(program, &with_blocks, &mut diagnostics);
     validate_where_local_uses(program, &where_blocks, &mut diagnostics);
     validate_domain_contracts(&domains, &mut diagnostics);
     validate_component_behavior_calls(&domains, &components, &mut diagnostics);
@@ -2692,6 +2693,29 @@ fn with_owner_net_options(program: &ParsedProgram, owner_line: Option<usize>) ->
         .map(str::to_owned),
     );
     options
+}
+
+fn warn_legacy_fixture_alias_usage(
+    program: &ParsedProgram,
+    with_blocks: &[WithBlockInfo],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    for block in with_blocks {
+        if with_owner_net_options(program, block.owner_line).is_empty() {
+            continue;
+        }
+        for option in &block.options {
+            if option.key != "fixture" || option.status != "accepted" {
+                continue;
+            }
+            diagnostics.push(Diagnostic::warning(
+                "W-NET-FIXTURE-ALIAS",
+                option.line,
+                "`fixture` is a legacy alias for `offline_response`.",
+                Some("Rename `fixture` to `offline_response`; the value syntax stays the same."),
+            ));
+        }
+    }
 }
 
 fn with_options_for_owner(

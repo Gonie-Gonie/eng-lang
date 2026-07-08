@@ -93,6 +93,19 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "W-NET-FIXTURE-ALIAS") {
+      const action = optionKeyReplacementAction(
+        document,
+        diagnostic,
+        "fixture",
+        "offline_response",
+        "Rename fixture to offline_response"
+      );
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-IO-JSON-FIELD-ACCESS-001") {
       const action = jsonReadPromotionAction(document, diagnostic);
       if (action) {
@@ -923,20 +936,24 @@ function withOptionAliasAction(document, diagnostic) {
   if (!fix) {
     return undefined;
   }
+  return optionKeyReplacementAction(document, diagnostic, fix.from, fix.to, fix.title);
+}
+
+function optionKeyReplacementAction(document, diagnostic, from, to, title) {
   const line = document.lineAt(diagnostic.range.start.line);
-  const pattern = new RegExp(`^(\\s*)${escapeRegExp(fix.from)}(\\s*=)`);
+  const pattern = new RegExp(`^(\\s*)${escapeRegExp(from)}(\\s*=)`);
   const match = pattern.exec(stripLineComment(line.text));
   if (!match) {
     return undefined;
   }
   const startCharacter = match[1].length;
-  const action = new vscode.CodeAction(fix.title, vscode.CodeActionKind.QuickFix);
+  const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
   action.diagnostics = [diagnostic];
   action.edit = new vscode.WorkspaceEdit();
   action.edit.replace(
     document.uri,
-    new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, startCharacter + fix.from.length),
-    fix.to
+    new vscode.Range(line.lineNumber, startCharacter, line.lineNumber, startCharacter + from.length),
+    to
   );
   return action;
 }

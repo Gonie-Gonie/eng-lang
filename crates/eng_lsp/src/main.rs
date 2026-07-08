@@ -727,6 +727,14 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-NET-HASH-MISMATCH" => {
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
+        "W-NET-FIXTURE-ALIAS" => optional_code_action(lsp_option_key_replacement_code_action(
+            uri,
+            text,
+            diagnostic,
+            "fixture",
+            "offline_response",
+            "Rename fixture to offline_response",
+        )),
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -1534,11 +1542,22 @@ struct WithOptionAliasFix {
 fn lsp_with_option_alias_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
     let unknown_option = unknown_with_option_name(diagnostic_message(diagnostic))?;
     let fix = with_option_alias_fix(unknown_option)?;
+    lsp_option_key_replacement_code_action(uri, text, diagnostic, fix.from, fix.to, fix.title)
+}
+
+fn lsp_option_key_replacement_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+    from: &str,
+    to: &str,
+    title: &str,
+) -> Option<Value> {
     let line_number = diagnostic_line(diagnostic)?;
     let line = text.lines().nth(line_number)?;
     let name_start = line_indent(line).len();
     let rest = &line[name_start..];
-    let after_name = rest.strip_prefix(fix.from)?;
+    let after_name = rest.strip_prefix(from)?;
     if !after_name
         .chars()
         .next()
@@ -1551,14 +1570,14 @@ fn lsp_with_option_alias_code_action(uri: &str, text: &str, diagnostic: &Value) 
         return None;
     }
     Some(json!({
-        "title": fix.title,
+        "title": title,
         "kind": "quickfix",
         "isPreferred": true,
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(
             uri,
-            line_byte_range(line_number, line, name_start, name_start + fix.from.len()),
-            fix.to
+            line_byte_range(line_number, line, name_start, name_start + from.len()),
+            to
         )
     }))
 }

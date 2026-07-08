@@ -1,6 +1,6 @@
 # module: eng.cache
 # status: native_preview
-# purpose: reproducible cache keys, pinned downloads, fixture mode, and hit/miss artifacts.
+# purpose: reproducible cache keys, pinned offline responses/downloads, and hit/miss artifacts.
 #
 # Current implementation:
 #   net and process boundaries may declare:
