@@ -4932,6 +4932,14 @@ Status: implemented after auditing public workflow docs for fixture-shaped wordi
 - Clarified that workflow 01 still uses the native `http get` response/cache path and does not call a Python fetcher or read a prebuilt weather table.
 - Clarified that workflow 02 generates both LHS tables with native `sample lhs` steps and does not read Python-created design/model/prediction/DB artifacts.
 
+## Batch 397: Legacy Row Selection Migration Quick Fix
+
+Status: implemented after auditing compatibility-only table diagnostics for missing editor repairs.
+
+- Added LSP and VS Code fallback quick fixes for `W-TABLE-LEGACY-SELECT-FIRST-ROW`.
+- The repair rewrites simple single-line `select_first_row(table, return_column="field", key=value, ...)` calls into a `filter` + `require_one` + `row.field` skeleton.
+- Extended stdio code-action coverage so both persistent LSP requests and `--code-actions-stdin` keep the migration action available for unsaved buffers.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

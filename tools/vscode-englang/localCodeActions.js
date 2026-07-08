@@ -118,6 +118,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "W-TABLE-LEGACY-SELECT-FIRST-ROW") {
+      const action = selectFirstRowMigrationAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-IO-JSON-FIELD-ACCESS-001") {
       const action = jsonReadPromotionAction(document, diagnostic);
       if (action) {
@@ -1378,6 +1385,186 @@ function uncertaintySourceActions(document, diagnostic) {
   }
 
   return actions;
+}
+
+function selectFirstRowMigrationAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const migration = selectFirstRowMigrationFromLine(line.text);
+  if (!migration) {
+    return undefined;
+  }
+  const replacement = selectFirstRowMigrationReplacement(
+    migration,
+    lineIndent(line.text),
+    documentNewline(document)
+  );
+  const action = new vscode.CodeAction(
+    "Replace select_first_row with filter + require_one",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(document.uri, fullLineRange(document, line.lineNumber), replacement);
+  return action;
+}
+
+function selectFirstRowMigrationFromLine(lineText) {
+  const code = stripLineComment(lineText);
+  const callStart = code.indexOf("select_first_row(");
+  if (callStart < 0) {
+    return undefined;
+  }
+  const beforeCall = code.slice(0, callStart);
+  const equals = beforeCall.lastIndexOf("=");
+  if (equals < 0) {
+    return undefined;
+  }
+  const lhs = beforeCall.slice(lineIndent(beforeCall).length, equals).trim();
+  const binding = lhs.split(":", 1)[0].trim();
+  if (!isIdentifier(binding)) {
+    return undefined;
+  }
+  const open = callStart + "select_first_row".length;
+  if (code[open] !== "(") {
+    return undefined;
+  }
+  const close = matchingCloseParenIndex(code, open);
+  if (close === undefined || code.slice(close + 1).trim() !== "") {
+    return undefined;
+  }
+  const parts = splitTopLevelCommas(code.slice(open + 1, close));
+  const table = parts[0]?.trim();
+  if (!isSimplePathExpression(table)) {
+    return undefined;
+  }
+
+  let returnColumn;
+  const filters = [];
+  for (const part of parts.slice(1)) {
+    const assignment = splitTopLevelAssignment(part);
+    if (!assignment) {
+      return undefined;
+    }
+    const name = assignment.name.trim();
+    const value = assignment.value.trim();
+    if (name === "return_column") {
+      returnColumn = selectFirstRowReturnColumn(value);
+      if (!returnColumn) {
+        return undefined;
+      }
+      continue;
+    }
+    if (
+      !isIdentifier(name) ||
+      value === "" ||
+      value.includes("{") ||
+      value.includes("}") ||
+      value.includes("\n") ||
+      value.includes("\r")
+    ) {
+      return undefined;
+    }
+    filters.push({ name, value });
+  }
+  if (!returnColumn || filters.length === 0) {
+    return undefined;
+  }
+  return { lhs, binding, table, returnColumn, filters };
+}
+
+function selectFirstRowReturnColumn(value) {
+  const candidate = unquotedSimpleString(value) ?? String(value ?? "").trim();
+  return isIdentifier(candidate) ? candidate : undefined;
+}
+
+function unquotedSimpleString(value) {
+  const text = String(value ?? "").trim();
+  if (!text.startsWith('"') || !text.endsWith('"')) {
+    return undefined;
+  }
+  const inner = text.slice(1, -1);
+  return inner.includes("\\") || inner.includes('"') ? undefined : inner;
+}
+
+function selectFirstRowMigrationReplacement(migration, indent, newline) {
+  const rowsBinding = `${migration.binding}_rows`;
+  const rowBinding = `${migration.binding}_row`;
+  const lines = [
+    `${indent}${rowsBinding} = filter ${migration.table}`,
+    `${indent}where {`,
+    ...migration.filters.map((filter) => `${indent}    ${filter.name} == ${filter.value}`),
+    `${indent}}`,
+    `${indent}${rowBinding} = require_one ${rowsBinding}`,
+    `${indent}${migration.lhs} = ${rowBinding}.${migration.returnColumn}`
+  ];
+  return `${lines.join(newline)}${newline}`;
+}
+
+function splitTopLevelCommas(text) {
+  const parts = [];
+  let start = 0;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+    } else if (character === "(" || character === "[" || character === "{") {
+      depth += 1;
+    } else if (character === ")" || character === "]" || character === "}") {
+      depth = Math.max(0, depth - 1);
+    } else if (character === "," && depth === 0) {
+      parts.push(text.slice(start, index).trim());
+      start = index + 1;
+    }
+  }
+  parts.push(text.slice(start).trim());
+  return parts;
+}
+
+function splitTopLevelAssignment(text) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+    } else if (character === "(" || character === "[" || character === "{") {
+      depth += 1;
+    } else if (character === ")" || character === "]" || character === "}") {
+      depth = Math.max(0, depth - 1);
+    } else if (character === "=" && depth === 0) {
+      return { name: text.slice(0, index), value: text.slice(index + 1) };
+    }
+  }
+  return undefined;
+}
+
+function isSimplePathExpression(value) {
+  const text = String(value ?? "").trim();
+  return text !== "" && text.split(".").every((part) => isIdentifier(part));
 }
 
 function uncertaintyDirectCompareAction(document, diagnostic) {

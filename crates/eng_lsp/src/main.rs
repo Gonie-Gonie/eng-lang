@@ -743,6 +743,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
                 "Rename hash to response_hash",
             ))
         }
+        "W-TABLE-LEGACY-SELECT-FIRST-ROW" => optional_code_action(
+            lsp_select_first_row_migration_code_action(uri, text, diagnostic),
+        ),
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -2153,6 +2156,195 @@ fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Val
     }
 
     actions
+}
+
+struct SelectFirstRowMigration<'a> {
+    lhs: &'a str,
+    binding: &'a str,
+    table: &'a str,
+    return_column: &'a str,
+    filters: Vec<(&'a str, &'a str)>,
+}
+
+fn lsp_select_first_row_migration_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let migration = select_first_row_migration_from_line(line)?;
+    let replacement = select_first_row_migration_replacement(
+        &migration,
+        line_indent(line),
+        document_newline(text),
+    );
+    Some(json!({
+        "title": "Replace select_first_row with filter + require_one",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), &replacement)
+    }))
+}
+
+fn select_first_row_migration_from_line(line: &str) -> Option<SelectFirstRowMigration<'_>> {
+    let code = strip_line_comment(line);
+    let call_start = code.find("select_first_row(")?;
+    let before_call = &code[..call_start];
+    let equals = before_call.rfind('=')?;
+    let lhs_start = line_indent(before_call).len();
+    let lhs = before_call[lhs_start..equals].trim();
+    let binding = lhs
+        .split_once(':')
+        .map(|(name, _annotation)| name.trim())
+        .unwrap_or(lhs);
+    if !is_identifier(binding) {
+        return None;
+    }
+
+    let open = call_start + "select_first_row".len();
+    if code.as_bytes().get(open) != Some(&b'(') {
+        return None;
+    }
+    let close = matching_close_paren_byte(code, open)?;
+    if !code[close + 1..].trim().is_empty() {
+        return None;
+    }
+
+    let parts = split_top_level_commas(&code[open + 1..close]);
+    let table = parts.first()?.trim();
+    if !is_simple_path_expression(table) {
+        return None;
+    }
+
+    let mut return_column = None;
+    let mut filters = Vec::new();
+    for part in parts.iter().skip(1) {
+        let (name, value) = split_top_level_assignment(part)?;
+        let name = name.trim();
+        let value = value.trim();
+        if name == "return_column" {
+            return_column = Some(select_first_row_return_column(value)?);
+            continue;
+        }
+        if !is_identifier(name)
+            || value.is_empty()
+            || value.contains('{')
+            || value.contains('}')
+            || value.contains('\n')
+            || value.contains('\r')
+        {
+            return None;
+        }
+        filters.push((name, value));
+    }
+
+    let return_column = return_column?;
+    if filters.is_empty() {
+        return None;
+    }
+    Some(SelectFirstRowMigration {
+        lhs,
+        binding,
+        table,
+        return_column,
+        filters,
+    })
+}
+
+fn select_first_row_return_column(value: &str) -> Option<&str> {
+    let candidate = unquoted_simple_string(value).unwrap_or(value.trim());
+    is_identifier(candidate).then_some(candidate)
+}
+
+fn unquoted_simple_string(value: &str) -> Option<&str> {
+    let inner = value.trim().strip_prefix('"')?.strip_suffix('"')?;
+    (!inner.contains('\\') && !inner.contains('"')).then_some(inner)
+}
+
+fn select_first_row_migration_replacement(
+    migration: &SelectFirstRowMigration<'_>,
+    indent: &str,
+    newline: &str,
+) -> String {
+    let rows_binding = format!("{}_rows", migration.binding);
+    let row_binding = format!("{}_row", migration.binding);
+    let mut replacement = format!(
+        "{indent}{rows_binding} = filter {}{newline}{indent}where {{{newline}",
+        migration.table
+    );
+    for (name, value) in &migration.filters {
+        replacement.push_str(&format!("{indent}    {name} == {value}{newline}"));
+    }
+    replacement.push_str(&format!(
+        "{indent}}}{newline}{indent}{row_binding} = require_one {rows_binding}{newline}{indent}{} = {row_binding}.{}{newline}",
+        migration.lhs, migration.return_column
+    ));
+    replacement
+}
+
+fn split_top_level_commas(input: &str) -> Vec<&str> {
+    let mut parts = Vec::new();
+    let mut start = 0usize;
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in input.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => {
+                parts.push(input[start..index].trim());
+                start = index + character.len_utf8();
+            }
+            _ => {}
+        }
+    }
+    parts.push(input[start..].trim());
+    parts
+}
+
+fn split_top_level_assignment(input: &str) -> Option<(&str, &str)> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in input.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            '=' if depth == 0 => return Some((&input[..index], &input[index + 1..])),
+            _ => {}
+        }
+    }
+    None
+}
+
+fn is_simple_path_expression(value: &str) -> bool {
+    let trimmed = value.trim();
+    !trimmed.is_empty() && trimmed.split('.').all(is_identifier)
 }
 
 fn lsp_uncertainty_direct_compare_code_action(

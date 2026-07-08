@@ -36,8 +36,9 @@ embedding compiler logic in JavaScript.
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, simulation/solver option repairs, unsupported regression
-  algorithm repairs, uncertainty constructor argument repairs, direct uncertainty
-  comparison repairs, and uncertainty source definition/conversion repairs. Live
+  algorithm repairs, legacy `select_first_row` migration skeletons,
+  uncertainty constructor argument repairs, direct uncertainty comparison repairs,
+  and uncertainty source definition/conversion repairs. Live
   editor quick fixes are shown first
   and merged with local fallback repairs so partial live editor responses do
   not hide available fixes.

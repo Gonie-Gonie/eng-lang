@@ -731,6 +731,7 @@ where {
 print "escape={Q_escape: .2 kW}"
 log trace "too noisy"
 log "missing level"
+legacy_station_id = select_first_row(stations, return_column="station_id", region=args.region)
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -976,6 +977,7 @@ report {
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
         "E-LOG-LEVEL-001",
+        "W-TABLE-LEGACY-SELECT-FIRST-ROW",
         "E-UNC-ARGS-001",
         "E-UNC-ARGS-002",
         "E-UNC-ARGS-003",
@@ -1247,6 +1249,12 @@ report {
     assert_action_edit_contains(
         actions,
         &uri,
+        "Replace select_first_row with filter + require_one",
+        "legacy_station_id_rows = filter stations",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
         "Define uncertainty source Q_missing_unc",
         "Q_missing_unc = normal(mean=5 kW, std=0.8 kW, samples=31)",
     );
@@ -1454,6 +1462,7 @@ where {
 print "escape={Q_escape: .2 kW}"
 log trace "too noisy"
 log "missing level"
+legacy_station_id = select_first_row(stations, return_column="station_id", region=args.region)
 
 schema SensorData {
     m_dot = 1 kg/s
@@ -1617,6 +1626,12 @@ report {
         &uri,
         "Compare mean(Q_prop_source) instead",
         "mean(Q_prop_source)",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Replace select_first_row with filter + require_one",
+        "legacy_station_id_rows = filter stations",
     );
     assert_action_edit_contains(
         actions,
