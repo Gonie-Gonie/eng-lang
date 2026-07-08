@@ -160,6 +160,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PRINT-FMT-003" || code === "E-WRITE-FMT-003") {
+      const action = removeInterpolationDisplayUnitAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-LOG-LEVEL-001") {
       const action = logLevelInfoAction(document, diagnostic);
       if (action) {
@@ -1135,6 +1142,81 @@ function removeIncompatibleDisplayUnitAction(document, diagnostic) {
   action.edit = new vscode.WorkspaceEdit();
   action.edit.delete(document.uri, fullLineRange(document, line.lineNumber));
   return action;
+}
+
+function removeInterpolationDisplayUnitAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const unit = lastBacktickPayload(diagnostic.message);
+  if (!unit) {
+    return undefined;
+  }
+  const removal = interpolationUnitRemovalRange(line.text, unit, diagnostic.range);
+  if (!removal) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    "Remove incompatible interpolation unit",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.delete(
+    document.uri,
+    new vscode.Range(line.lineNumber, removal.start, line.lineNumber, removal.end)
+  );
+  return action;
+}
+
+function interpolationUnitRemovalRange(lineText, unit, diagnosticRange) {
+  const ranges = interpolationUnitRemovalRanges(stripLineComment(lineText), unit);
+  if (!ranges.length) {
+    return undefined;
+  }
+  const diagnosticStart = diagnosticRange?.start?.character ?? -1;
+  return ranges.find((range) => diagnosticStart >= range.start && diagnosticStart <= range.end)
+    ?? ranges[0];
+}
+
+function interpolationUnitRemovalRanges(code, unit) {
+  const ranges = [];
+  let cursor = 0;
+  while (cursor < code.length) {
+    const open = code.indexOf("{", cursor);
+    if (open < 0) {
+      break;
+    }
+    const close = code.indexOf("}", open + 1);
+    if (close < 0) {
+      break;
+    }
+    const inside = code.slice(open + 1, close);
+    const colon = inside.indexOf(":");
+    if (colon >= 0) {
+      const colonIndex = open + 1 + colon;
+      const specStart = colonIndex + 1;
+      const spec = code.slice(specStart, close);
+      if (spec.trim() === unit) {
+        ranges.push({ start: colonIndex, end: close });
+      } else {
+        const match = new RegExp(`${escapeRegExp(unit)}\\s*$`).exec(spec);
+        if (match && formatSpecPrefixCanStandWithoutUnit(spec.slice(0, match.index))) {
+          ranges.push({ start: specStart + match.index, end: specStart + match.index + match[0].length });
+        }
+      }
+    }
+    cursor = close + 1;
+  }
+  return ranges;
+}
+
+function formatSpecPrefixCanStandWithoutUnit(prefix) {
+  const trimmed = String(prefix ?? "").trim();
+  return /^\.\d+$/.test(trimmed);
+}
+
+function lastBacktickPayload(message) {
+  const matches = [...String(message ?? "").matchAll(/`([^`]+)`/g)];
+  return matches.length ? matches[matches.length - 1][1].trim() : undefined;
 }
 
 function logLevelInfoAction(document, diagnostic) {

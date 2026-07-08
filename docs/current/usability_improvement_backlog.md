@@ -5315,6 +5315,14 @@ Status: implemented after comparing the native IDE completion path with the new 
 - Added native IDE current-buffer member completion for `schema Name { ... }` fields promoted through `promote csv/json/toml ... as Name` bindings.
 - Pinned the native IDE completion helper names and duplicate-function guard in `ide-check` so this fallback stays aligned with future editor changes.
 
+## Batch 443: VS Code Interpolation Unit Quick Fix
+
+Status: implemented after reviewing remaining linter diagnostics and finding that incompatible `print` / `write text` interpolation units had source ranges but no local VS Code quick fix when LSP code actions were unavailable.
+
+- Added local quick fixes for `E-PRINT-FMT-003` and `E-WRITE-FMT-003` that remove only the incompatible interpolation unit while preserving the expression and precision.
+- Added range selection that prefers the diagnostic-highlighted interpolation and falls back to the first matching unit on the line.
+- Pinned the new quick-fix helpers in `ide-check` so interpolation linting remains actionable in VS Code.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
