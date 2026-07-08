@@ -5028,6 +5028,14 @@ Status: implemented after comparing TextMate `read text/json/toml` phrase scopes
 - Marked `file`, `dir`, and `join` helpers inside `read text/json/toml` source expressions as workflow/external functions, preserving the source-expression coloring that TextMate already exposes.
 - Added semantic-token regression coverage for file-backed reads and dotted response-body reads so VS Code and the Native IDE keep raw-read source expressions colorful under semantic highlighting.
 
+## Batch 409: HeatRate Sum Quick Fix
+
+Status: implemented after reviewing warning-only linter diagnostics for missing repair actions.
+
+- Added LSP and VS Code fallback quick fixes for `W-STATS-SUM-001`, replacing the unsafe `sum(...)` function name with `integrate(...)` while preserving the existing source and `over=Time` arguments.
+- Pinned the diagnostic underline range to the `sum` function name so the warning points at the actionable token instead of the binding name.
+- Extended stdio code-action coverage, diagnostic-range coverage, README wording, and `ide-check` contract tokens for the new repair.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

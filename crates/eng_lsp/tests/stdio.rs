@@ -718,6 +718,8 @@ Q_total = 10 + 2 kW
 assert Q_total == 12 kW
 Q1 = 1 kW
 Q2 = 2 kW
+Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW
+E_sum = sum(Q_series, over=Time)
 E_total = integrate Q1 + Q2 over Time
 E_where = integrate Q_before over Time
 where {
@@ -937,6 +939,7 @@ report {
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
         "E-ASSERT-001",
+        "W-STATS-SUM-001",
         "E-WHERE-FWD-001",
         "E-NAME-LOCAL-001",
         "E-PUBLIC-ANNOTATION-001",
@@ -1061,6 +1064,7 @@ report {
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
+    assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
     assert_action_edit(
         actions,
         &uri,
@@ -1449,6 +1453,8 @@ Q_total = 10 + 2 kW
 assert Q_total == 12 kW
 Q1 = 1 kW
 Q2 = 2 kW
+Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW
+E_sum = sum(Q_series, over=Time)
 E_total = integrate Q1 + Q2 over Time
 E_where = integrate Q_before over Time
 where {
@@ -1565,6 +1571,7 @@ report {
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
+    assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
     assert_action_edit(
         actions,
         &uri,

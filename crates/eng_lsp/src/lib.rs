@@ -840,6 +840,11 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
                 return Some(range);
             }
         }
+        "W-STATS-SUM-001" => {
+            if let Some(range) = sum_function_name_byte_range(line) {
+                return Some(range);
+            }
+        }
         "E-PUBLIC-ANNOTATION-001" => {
             if let Some(range) = find_byte_range(line, "=") {
                 return Some(range);
@@ -1272,6 +1277,31 @@ fn binary_add_sub_operator_range(line: &str) -> Option<(usize, usize)> {
             continue;
         }
         return Some((index, index + character.len_utf8()));
+    }
+    None
+}
+
+fn sum_function_name_byte_range(line: &str) -> Option<(usize, usize)> {
+    let code_end = comment_start(line).unwrap_or(line.len());
+    let code = &line[..code_end];
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find("sum") else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let after_name = start + "sum".len();
+        if is_identifier_boundary(code, start, after_name) {
+            let whitespace = code[after_name..]
+                .chars()
+                .take_while(|character| character.is_whitespace())
+                .map(char::len_utf8)
+                .sum::<usize>();
+            if code.as_bytes().get(after_name + whitespace) == Some(&b'(') {
+                return Some((start, after_name));
+            }
+        }
+        search_start = after_name;
     }
     None
 }
@@ -7979,6 +8009,11 @@ with {
                 "W-NET-RESPONSE-HASH-ALIAS",
                 "response = http get url(\"https://api.example.org/data.json\")\nlegacy_hash = response.hash\n",
                 "hash",
+            ),
+            (
+                "W-STATS-SUM-001",
+                "Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW\nE_sum = sum(Q_series, over=Time)\n",
+                "sum",
             ),
             (
                 "E-NET-BODY-METHOD",

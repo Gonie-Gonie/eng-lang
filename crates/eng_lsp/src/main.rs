@@ -703,6 +703,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
             optional_code_action(lsp_remove_script_wrapper_code_action(uri, text, diagnostic))
         }
         "W-QTY-AMBIG-001" => lsp_quantity_annotation_code_actions(uri, text, diagnostic),
+        "W-STATS-SUM-001" => {
+            optional_code_action(lsp_heat_rate_sum_code_action(uri, text, diagnostic))
+        }
         code if code.starts_with("E-DIM-ADD-") => {
             lsp_missing_unit_code_actions(uri, text, diagnostic)
         }
@@ -868,6 +871,47 @@ fn lsp_diagnostic_range_replacement_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, replacement)
     }))
+}
+
+fn lsp_heat_rate_sum_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let (start_byte, end_byte) = sum_function_name_range(line)?;
+    Some(json!({
+        "title": "Replace sum with integrate",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            "integrate"
+        )
+    }))
+}
+
+fn sum_function_name_range(line: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find("sum") else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let after_name = start + "sum".len();
+        if identifier_boundary(code, start, after_name) {
+            let whitespace = code[after_name..]
+                .chars()
+                .take_while(|character| character.is_whitespace())
+                .map(char::len_utf8)
+                .sum::<usize>();
+            if code.as_bytes().get(after_name + whitespace) == Some(&b'(') {
+                return Some((start, after_name));
+            }
+        }
+        search_start = after_name;
+    }
+    None
 }
 
 fn lsp_quantity_annotation_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

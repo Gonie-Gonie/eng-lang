@@ -41,6 +41,13 @@ function localCodeActions(document, context, options = {}) {
     if (code === "W-QTY-AMBIG-001") {
       actions.push(...quantityAnnotationActions(document, diagnostic));
     }
+    if (code === "W-STATS-SUM-001") {
+      const action = heatRateSumAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (typeof code === "string" && code.startsWith("E-DIM-ADD-")) {
       actions.push(...missingUnitActions(document, diagnostic));
     }
@@ -253,6 +260,46 @@ function replacementAction(document, diagnostic, search, replacement, title) {
     replacement
   );
   return action;
+}
+
+function heatRateSumAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const range = sumFunctionNameRange(line.text);
+  if (!range) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Replace sum with integrate", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, range.start, line.lineNumber, range.end),
+    "integrate"
+  );
+  return action;
+}
+
+function sumFunctionNameRange(lineText) {
+  const code = stripLineComment(lineText);
+  let searchStart = 0;
+  while (searchStart < code.length) {
+    const start = code.indexOf("sum", searchStart);
+    if (start < 0) {
+      break;
+    }
+    const afterName = start + "sum".length;
+    if (identifierBoundary(code, start, afterName)) {
+      let open = afterName;
+      while (open < code.length && /\s/.test(code[open])) {
+        open += 1;
+      }
+      if (code[open] === "(") {
+        return { start, end: afterName };
+      }
+    }
+    searchStart = afterName;
+  }
+  return undefined;
 }
 
 function stdlibModuleReplacementAction(document, diagnostic, completionSeed) {

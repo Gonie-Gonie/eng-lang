@@ -33,6 +33,7 @@ embedding compiler logic in JavaScript.
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
   legacy network `fixture` aliases, legacy response `.hash` aliases,
   raw `read json` field access promotion skeletons,
+  HeatRate TimeSeries sum-to-integrate repairs,
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, simulation/solver option repairs, unsupported regression
