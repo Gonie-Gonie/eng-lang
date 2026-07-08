@@ -7612,6 +7612,45 @@ mod tests {
     }
 
     #[test]
+    fn lsp_keyword_completions_cover_compiler_lexer_keywords() {
+        let root = repo_root_for_tests();
+        let lexer_source = std::fs::read_to_string(
+            root.join("crates")
+                .join("eng_compiler")
+                .join("src")
+                .join("lexer.rs"),
+        )
+        .expect("compiler lexer source should be readable");
+        let lexer_keywords = lexer_source
+            .lines()
+            .filter_map(|line| {
+                let rest = line.trim().strip_prefix('"')?;
+                let (keyword, tail) = rest.split_once('"')?;
+                tail.trim_start()
+                    .starts_with("=> Some(Keyword::")
+                    .then_some(keyword.to_owned())
+            })
+            .collect::<BTreeSet<_>>();
+        assert!(
+            lexer_keywords.len() > 40,
+            "compiler lexer keyword scan should find public keywords"
+        );
+
+        let completion_keywords = COMPLETION_KEYWORDS.iter().copied().collect::<BTreeSet<_>>();
+        let missing = lexer_keywords
+            .iter()
+            .filter(|keyword| !completion_keywords.contains(keyword.as_str()))
+            .cloned()
+            .collect::<Vec<_>>();
+
+        assert!(
+            missing.is_empty(),
+            "compiler lexer keywords missing from LSP keyword completions: {}",
+            missing.join(", ")
+        );
+    }
+
+    #[test]
     fn lsp_keyword_completions_cover_textmate_keyword_fallback_words() {
         let root = repo_root_for_tests();
         let grammar = read_json_file(

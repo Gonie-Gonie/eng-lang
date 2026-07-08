@@ -5132,6 +5132,15 @@ Status: implemented after checking VS Code grammar coverage against LSP semantic
   tokens, so semantic highlighting remains consistent with TextMate grammar
   coverage for compound units.
 
+## Batch 420: Compiler Keyword Completion Parity Guard
+
+Status: implemented after comparing compiler lexer keywords with LSP keyword completions and generated grammar metadata.
+
+- Added an LSP regression test that scans compiler lexer keyword match arms and
+  fails if any compiler-owned keyword is missing from `COMPLETION_KEYWORDS`.
+- This keeps compiler-recognized keywords available to generated editor metadata,
+  TextMate fallback highlighting, and semantic token fallback paths.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
