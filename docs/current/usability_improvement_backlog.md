@@ -5020,6 +5020,14 @@ Status: implemented after re-checking last-run report artifact labels next to th
 - Renamed the command-palette title to `EngLang: Open Last Run Report Source Data` while keeping the `englang.openReportSpec` command ID and artifact path stable.
 - Extended `ide-check` command-title coverage for the clearer report source-data wording.
 
+## Batch 408: Read-Only IO Semantic Overlay Alignment
+
+Status: implemented after comparing TextMate `read text/json/toml` phrase scopes with compiler-backed semantic tokens.
+
+- Added LSP semantic tokens for read-only IO bindings so `payload = read json ...` and related raw-read results carry workflow/external context.
+- Marked `file`, `dir`, and `join` helpers inside `read text/json/toml` source expressions as workflow/external functions, preserving the source-expression coloring that TextMate already exposes.
+- Added semantic-token regression coverage for file-backed reads and dotted response-body reads so VS Code and the Native IDE keep raw-read source expressions colorful under semantic highlighting.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

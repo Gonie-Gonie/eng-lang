@@ -3,9 +3,10 @@ use std::path::Path;
 
 use eng_compiler::{
     all_quantity_completions, all_unit_infos, bundled_module_registry, check_source,
-    classify_diagnostic_review_risk, classify_review_risk, db_read_expression, CheckOptions,
-    CheckReport, ClassFieldInfo, CommandStyleInfo, Diagnostic, DomainTypeParameterInfo,
-    FileOperationInfo, FunctionInfo, SemanticProgram, Severity, WithBlockInfo, WithOptionInfo,
+    classify_diagnostic_review_risk, classify_review_risk, db_read_expression,
+    read_only_io_expression, CheckOptions, CheckReport, ClassFieldInfo, CommandStyleInfo,
+    Diagnostic, DomainTypeParameterInfo, FileOperationInfo, FunctionInfo, SemanticProgram,
+    Severity, WithBlockInfo, WithOptionInfo,
 };
 use serde_json::{json, Value};
 
@@ -2192,6 +2193,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for declaration in &report.inferred_declarations {
         if add_open_sqlite_semantic_tokens(
+            &mut builder,
+            declaration.line,
+            &declaration.name,
+            &declaration.expression,
+        ) {
+            continue;
+        }
+        if add_read_only_io_semantic_tokens(
             &mut builder,
             declaration.line,
             &declaration.name,
@@ -4597,6 +4606,34 @@ fn add_open_sqlite_semantic_tokens(
         return true;
     };
     builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+    true
+}
+
+fn add_read_only_io_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line: usize,
+    binding: &str,
+    expression: &str,
+) -> bool {
+    let Some((kind, source_expression)) = read_only_io_expression(expression) else {
+        return false;
+    };
+    let modifiers = &["workflowStep", "external"];
+    builder.push_on_line(
+        line,
+        binding,
+        "variable",
+        &["declaration", "workflowStep", "external"],
+    );
+    builder.push_keywords_on_line(line, &["read", kind], &["workflowStep"]);
+    let Some(line_index) = line.checked_sub(1) else {
+        return true;
+    };
+    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+    let source_expression = source_expression.trim();
+    if is_simple_identifier_path(source_expression) {
+        builder.push_identifier_path_on_line(line, source_expression, modifiers);
+    }
     true
 }
 
@@ -8464,6 +8501,7 @@ with {
     artifact_kind = "rendered_report"
 }
 response = http get url("https://example.org/weather")
+payload_from_response = read json response.body
 submitted = http post url("https://example.org/weather")
 updated = http put url("https://example.org/weather")
 patched = http patch url("https://example.org/weather")
@@ -8561,6 +8599,50 @@ struct LegacyArgs
         }
         for label in ["read", "csv", "json", "toml", "text"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        for (line, label, token_type) in [
+            (
+                r#"payload = read json file("payload.json")"#,
+                "payload",
+                "variable",
+            ),
+            (
+                r#"payload = read json file("payload.json")"#,
+                "file",
+                "function",
+            ),
+            (
+                r#"settings = read toml file("settings.toml")"#,
+                "file",
+                "function",
+            ),
+            (
+                "payload_from_response = read json response.body",
+                "payload_from_response",
+                "variable",
+            ),
+            (
+                "payload_from_response = read json response.body",
+                "response",
+                "variable",
+            ),
+            (
+                "payload_from_response = read json response.body",
+                "body",
+                "property",
+            ),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                token_type,
+                "workflowStep",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, token_type, "external",
+            );
         }
         for label in ["assert", "matches", "within"] {
             assert_semantic_token_modifier(&snapshot, source, label, "validation");
