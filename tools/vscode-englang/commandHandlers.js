@@ -344,13 +344,19 @@ function createCommandHandlers(options = {}) {
     const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
     const tokenCounts = {};
     const modifierCounts = {};
+    const selectorCounts = {};
     const tokenSamplesByType = {};
     const tokenSamplesByModifier = {};
+    const tokenSamplesBySelector = {};
     const missingScopeSelectors = {};
     let tokensWithoutFallbackScope = 0;
     for (const token of semanticTokens.tokens ?? []) {
       tokenCounts[token.type] = (tokenCounts[token.type] ?? 0) + 1;
       const sample = semanticTokenDebugSample(document, token, semanticTokenScopeMap);
+      for (const selector of sample.semantic_selectors ?? []) {
+        selectorCounts[selector] = (selectorCounts[selector] ?? 0) + 1;
+        addSemanticTokenDebugSample(tokenSamplesBySelector, selector || "-", sample);
+      }
       if ((sample.fallback_scopes ?? []).length === 0) {
         tokensWithoutFallbackScope += 1;
         for (const selector of sample.semantic_selectors ?? []) {
@@ -373,6 +379,7 @@ function createCommandHandlers(options = {}) {
         token_count: tokenCount,
         counts_by_type: tokenCounts,
         counts_by_modifier: modifierCounts,
+        counts_by_selector: selectorCounts,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
         tokens_without_fallback_scope: tokensWithoutFallbackScope,
         missing_scope_selectors: missingScopeSelectors
@@ -380,7 +387,8 @@ function createCommandHandlers(options = {}) {
       legend: semanticTokens.legend ?? {},
       samples: {
         by_type: tokenSamplesByType,
-        by_modifier: tokenSamplesByModifier
+        by_modifier: tokenSamplesByModifier,
+        by_selector: tokenSamplesBySelector
       },
       tokens: tokenRows,
       raw: {
@@ -389,13 +397,17 @@ function createCommandHandlers(options = {}) {
       highlight_count: tokenCount,
       highlight_counts_by_category: tokenCounts,
       highlight_counts_by_detail: modifierCounts,
+      highlight_counts_by_selector: selectorCounts,
       highlight_samples_by_category: tokenSamplesByType,
       highlight_samples_by_detail: tokenSamplesByModifier,
+      highlight_samples_by_selector: tokenSamplesBySelector,
       token_count: tokenCount,
       token_counts_by_type: tokenCounts,
       token_counts_by_modifier: modifierCounts,
+      token_counts_by_selector: selectorCounts,
       token_samples_by_type: tokenSamplesByType,
       token_samples_by_modifier: tokenSamplesByModifier,
+      token_samples_by_selector: tokenSamplesBySelector,
       highlight_data: semanticTokens,
       semantic_tokens: semanticTokens
     };

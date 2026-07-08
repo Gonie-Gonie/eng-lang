@@ -195,9 +195,10 @@ highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping
 rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with a
-summary, legend, representative source-text samples, normalized highlight rows
-with primary selector, mapped/missing fallback status, theme fallback scopes,
-and raw highlight payload for debugging theme or scope mismatches.
+summary, legend, selector/type/detail counts, representative source-text samples,
+normalized highlight rows with primary selector, mapped/missing fallback status,
+theme fallback scopes, and raw highlight payload for debugging theme or scope
+mismatches.
 `EngLang: Inspect Highlight Token at Cursor` opens the token under the caret plus
 the nearest highlight tokens and the other highlight tokens on the same line.
 
