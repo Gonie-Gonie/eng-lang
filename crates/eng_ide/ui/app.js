@@ -1422,7 +1422,7 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
     return `<div class="empty-state">Check current file to refresh highlight data.</div>`;
   }
   if (!caret?.token) {
-    return `<div class="empty-state">No semantic highlight at the caret.</div>`;
+    return `<div class="empty-state">No highlight at the caret.</div>`;
   }
   const token = caret.token;
   const text = semanticTokenText(token);

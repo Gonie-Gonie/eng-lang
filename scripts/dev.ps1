@@ -4615,6 +4615,7 @@ function Invoke-IdeCheck {
         "Raw model JSON",
         "Raw case JSON",
         "Raw semantic token JSON",
+        "No semantic highlight at the caret.",
         "Semantic Hash",
         "No semantic legend entries.",
         "No semantic tokens match the current filter.",
