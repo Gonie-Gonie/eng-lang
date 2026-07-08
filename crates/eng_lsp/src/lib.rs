@@ -1955,7 +1955,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for download in &program.net_downloads {
-        builder.push_keywords_on_line(download.line, &["download"], &["sideEffect", "external"]);
+        add_download_semantic_tokens(&mut builder, download.line);
     }
 
     for axis in &program.axis_infos {
@@ -4476,6 +4476,20 @@ fn add_file_operation_semantic_tokens(
         return;
     };
     builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+}
+
+fn add_download_semantic_tokens(builder: &mut SemanticTokenBuilder<'_>, line: usize) {
+    let modifiers = &["sideEffect", "external"];
+    builder.push_keywords_on_line(line, &["download", "to"], modifiers);
+    let Some(line_index) = line.checked_sub(1) else {
+        return;
+    };
+    builder.push_identifiers_on_line(
+        line_index,
+        &["url", "file", "dir", "join"],
+        "function",
+        modifiers,
+    );
 }
 
 fn add_command_style_semantic_tokens(
@@ -8206,6 +8220,7 @@ with {
 }
 response = http get url("https://example.org/weather")
 submitted = http post url("https://example.org/weather")
+download url("https://example.org/file.csv") to file("outputs/file.csv")
 log debug "debug details"
 log info "ready"
 log warn "slow"
@@ -8291,14 +8306,16 @@ struct LegacyArgs
             assert_semantic_token_modifier(&snapshot, source, label, "validation");
         }
         for label in [
-            "export", "write", "copy", "mkdir", "move", "delete", "render", "template",
+            "export", "write", "copy", "mkdir", "move", "delete", "render", "template", "download",
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
         }
         for label in ["render", "template"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
-        for label in ["copy", "mkdir", "move", "delete", "http", "get", "post"] {
+        for label in [
+            "copy", "mkdir", "move", "delete", "http", "get", "post", "download",
+        ] {
             assert_semantic_token_modifier(&snapshot, source, label, "external");
         }
         assert_semantic_token_on_line_with_modifier(
@@ -8397,6 +8414,24 @@ struct LegacyArgs
             "function",
             "external",
         );
+        for (label, token_type) in [("to", "keyword"), ("url", "function"), ("file", "function")] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "download url(\"https://example.org/file.csv\") to file(\"outputs/file.csv\")",
+                label,
+                token_type,
+                "sideEffect",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "download url(\"https://example.org/file.csv\") to file(\"outputs/file.csv\")",
+                label,
+                token_type,
+                "external",
+            );
+        }
         for label in [
             "debug",
             "info",

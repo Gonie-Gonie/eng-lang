@@ -4940,6 +4940,14 @@ Status: implemented after auditing compatibility-only table diagnostics for miss
 - The repair rewrites simple single-line `select_first_row(table, return_column="field", key=value, ...)` calls into a `filter` + `require_one` + `row.field` skeleton.
 - Extended stdio code-action coverage so both persistent LSP requests and `--code-actions-stdin` keep the migration action available for unsaved buffers.
 
+## Batch 398: Download Boundary Semantic Overlay Alignment
+
+Status: implemented after comparing TextMate `download ... to ...` phrase coloring with compiler-backed semantic tokens.
+
+- Added LSP semantic tokens for the `to` connector in `download url(...) to file(...)` statements.
+- Marked `url`, `file`, `dir`, and `join` helpers on download lines as external side-effect functions so semantic highlighting no longer flattens the destination path expression.
+- Extended LSP semantic-token regression coverage so VS Code keeps download phrase coloring after semantic overlays arrive.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
