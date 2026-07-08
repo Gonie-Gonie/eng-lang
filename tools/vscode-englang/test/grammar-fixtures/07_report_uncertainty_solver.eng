@@ -79,6 +79,8 @@ report {
     show Q_total_unc
     show coverage.status
     plot Q_series over Time
+    plot Q_series and Q_total_unc over Time
+    plot histogram(Q_series)
     plot distribution(Q_coil_dist)
     with {
         unit y = kW

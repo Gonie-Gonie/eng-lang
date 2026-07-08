@@ -1798,6 +1798,62 @@
                                                                                  }
                                                                 },
                                                                 {
+                                                                    "name":  "meta.workflow.plot-command.englang",
+                                                                    "begin":  "\\b(plot)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.report.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=\\s*\\{|#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "match":  "\\b(and|over|vs)\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "keyword.control.report.englang",
+                                                                                         "match":  "\\b(distribution|histogram|line|bar|parity|residuals)\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#strings"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#modules"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#constants"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
+                                                                },
+                                                                {
                                                                     "name":  "meta.workflow.show-report.englang",
                                                                     "begin":  "\\b(show)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
                                                                     "beginCaptures":  {

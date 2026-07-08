@@ -5339,6 +5339,13 @@ Status: implemented after auditing public IDE docs and dev help for implementati
 - Updated dev help/package guide text so `ide-check` and packaged workflow labels use native IDE wording.
 - Left internal crate/config references unchanged where they describe implementation files rather than user-facing behavior.
 
+## Batch 446: Plot Command Highlighting Consistency
+
+Status: implemented after comparing first-paint grammar coverage with real examples that use multi-series and named plot forms.
+
+- Added a TextMate fallback scope for `plot` commands that use `and`-joined series or named plot functions such as `histogram`, `parity`, and `residuals`.
+- Extended grammar fixtures, expected tokens, and the token-scope contract so plot command highlighting does not fall back to scattered generic keyword coloring.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

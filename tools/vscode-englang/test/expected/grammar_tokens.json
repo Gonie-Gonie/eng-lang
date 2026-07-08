@@ -2263,6 +2263,18 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-command.englang",
+    "text": "plot Q_series and Q_total_unc over Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-command.englang",
+    "text": "plot histogram(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.report.englang",
     "text": "distribution"
   },
