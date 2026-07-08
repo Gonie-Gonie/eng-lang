@@ -5501,3 +5501,11 @@ IDE and implementation-framework wording.
   `eng-ide.exe`-oriented language.
 - Left real package/runtime dependency names such as `WebView2Loader.dll` and
   Tauri config filenames intact where they describe actual files.
+
+## Batch 467: Block Opener Scope Consistency
+
+Status: implemented after reviewing VS Code first-paint highlighting for block keywords.
+
+- Gave general and validation block openers phrase-level `meta.block.*` scopes while keeping keyword and brace captures separate.
+- Updated grammar smoke expectations so `args`, `report`, `where`, `on`, `constraints`, and `missing` are tested as explicit keyword captures instead of loose header substrings.
+- Documented the block opener scope contract so future grammar work does not re-flatten these headers.

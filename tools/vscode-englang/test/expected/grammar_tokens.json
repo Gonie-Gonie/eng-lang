@@ -60,13 +60,27 @@
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "storage.type.block.englang",
-    "text": "args {"
+    "scope": "meta.block.header.englang",
+    "text": "args {",
+    "fullMatch": true
   },
   {
     "fixture": "01_core_workflow.eng",
     "scope": "storage.type.block.englang",
-    "text": "report {"
+    "text": "args",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.block.header.englang",
+    "text": "report {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "storage.type.block.englang",
+    "text": "report",
+    "fullMatch": true
   },
   {
     "fixture": "01_core_workflow.eng",
@@ -794,8 +808,15 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.block.header.englang",
+    "text": "where {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "storage.type.block.englang",
-    "text": "where {"
+    "text": "where",
+    "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
@@ -1837,8 +1858,15 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.block.validation.englang",
+    "text": "constraints {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
-    "text": "constraints {"
+    "text": "constraints",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
@@ -1854,8 +1882,15 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.block.validation.englang",
+    "text": "missing {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
-    "text": "missing {"
+    "text": "missing",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
@@ -2218,8 +2253,15 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.block.header.englang",
+    "text": "on {",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "storage.type.block.englang",
-    "text": "on {"
+    "text": "on",
+    "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",

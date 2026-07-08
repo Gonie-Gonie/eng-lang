@@ -409,12 +409,28 @@
                        "blocks":  {
                                       "patterns":  [
                                                        {
-                                                           "name":  "keyword.control.validation.englang",
-                                                           "match":  "\\b(constraints|missing)\\b(?=\\s*\\{)"
+                                                           "name":  "meta.block.validation.englang",
+                                                           "match":  "\\b(constraints|missing)(\\s*)(\\{)",
+                                                           "captures":  {
+                                                                            "1":  {
+                                                                                      "name":  "keyword.control.validation.englang"
+                                                                                  },
+                                                                            "3":  {
+                                                                                      "name":  "punctuation.section.block.begin.englang"
+                                                                                  }
+                                                                        }
                                                        },
                                                        {
-                                                           "name":  "storage.type.block.englang",
-                                                           "match":  "\\b(args|report|test|where|with|on)\\b(?=\\s*\\{)"
+                                                           "name":  "meta.block.header.englang",
+                                                           "match":  "\\b(args|report|test|where|with|on)(\\s*)(\\{)",
+                                                           "captures":  {
+                                                                            "1":  {
+                                                                                      "name":  "storage.type.block.englang"
+                                                                                  },
+                                                                            "3":  {
+                                                                                      "name":  "punctuation.section.block.begin.englang"
+                                                                                  }
+                                                                        }
                                                        }
                                                    ]
                                   },
