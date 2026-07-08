@@ -382,7 +382,14 @@ const PLOT_COMMAND_STYLE_WORDS: &[&str] = &[
     "residuals",
 ];
 
-const PLOT_COMMAND_STYLE_FUNCTIONS: &[&str] = &["histogram", "distribution", "parity", "residuals"];
+const PLOT_COMMAND_STYLE_FUNCTIONS: &[&str] = &[
+    "line",
+    "bar",
+    "histogram",
+    "distribution",
+    "parity",
+    "residuals",
+];
 
 const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "true",
@@ -9123,6 +9130,8 @@ report {
     plot Q_series over Time
     plot Q_series and Q_total_unc over Time
     plot histogram(Q_series)
+    plot line(Q_series)
+    plot bar(Q_series)
     plot parity(reg_eval)
     plot residuals(reg_eval)
 }
@@ -9189,7 +9198,7 @@ struct LegacyArgs
         for label in ["simulate", "equation", "der"] {
             assert_semantic_token_modifier(&snapshot, source, label, "solver");
         }
-        for label in ["summarize", "summary", "distribution", "line"] {
+        for label in ["summarize", "summary", "distribution", "line", "bar"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
         }
         assert_semantic_token_on_line_with_modifier(
@@ -9300,22 +9309,24 @@ struct LegacyArgs
             "keyword",
             "report",
         );
-        assert_semantic_token_on_line_with_modifier(
-            &snapshot,
-            source,
-            "    plot histogram(Q_series)",
-            "histogram",
-            "function",
-            "report",
-        );
-        assert_semantic_token_on_line_with_modifier(
-            &snapshot,
-            source,
-            "    plot histogram(Q_series)",
-            "Q_series",
-            "variable",
-            "report",
-        );
+        for label in ["histogram", "line", "bar"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                &format!("    plot {label}(Q_series)"),
+                label,
+                "function",
+                "report",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                &format!("    plot {label}(Q_series)"),
+                "Q_series",
+                "variable",
+                "report",
+            );
+        }
         for label in ["parity", "residuals"] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,
