@@ -735,6 +735,14 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
             "offline_response",
             "Rename fixture to offline_response",
         )),
+        "W-NET-RESPONSE-HASH-ALIAS" => {
+            optional_code_action(lsp_diagnostic_range_replacement_code_action(
+                uri,
+                diagnostic,
+                "response_hash",
+                "Rename hash to response_hash",
+            ))
+        }
         "E-IO-JSON-FIELD-ACCESS-001" => {
             optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
         }
@@ -831,6 +839,22 @@ fn lsp_replacement_code_action(
         "start": { "line": line_number, "character": start_character },
         "end": { "line": line_number, "character": end_character }
     });
+    Some(json!({
+        "title": title,
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, range, replacement)
+    }))
+}
+
+fn lsp_diagnostic_range_replacement_code_action(
+    uri: &str,
+    diagnostic: &Value,
+    replacement: &str,
+    title: &str,
+) -> Option<Value> {
+    let range = diagnostic.get("range")?.clone();
     Some(json!({
         "title": title,
         "kind": "quickfix",

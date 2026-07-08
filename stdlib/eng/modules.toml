@@ -144,7 +144,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Live HTTP(S) GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries."
 artifacts = ["review.external_boundaries", "typed_payload.network_boundaries", "run_log.network_events", "output_manifest"]
-diagnostics = ["E-NET-INVALID-URL", "E-NET-RETRY-POLICY", "E-NET-TIMEOUT", "E-NET-BODY-METHOD", "E-NET-BODY-POLICY", "E-NET-BODY-SIZE-LIMIT", "E-NET-HASH-MISMATCH", "E-NET-UNPINNED-REPRO", "E-NET-SECRET-LIVE", "W-NET-FIXTURE-ALIAS"]
+diagnostics = ["E-NET-INVALID-URL", "E-NET-RETRY-POLICY", "E-NET-TIMEOUT", "E-NET-BODY-METHOD", "E-NET-BODY-POLICY", "E-NET-BODY-SIZE-LIMIT", "E-NET-HASH-MISMATCH", "E-NET-UNPINNED-REPRO", "E-NET-SECRET-LIVE", "W-NET-FIXTURE-ALIAS", "W-NET-RESPONSE-HASH-ALIAS"]
 examples = ["examples/workflows/01_weather_api_to_standard_file"]
 tests = ["cargo test -p eng_compiler net_", "cargo test -p eng_runtime network", "cargo test -p eng_runtime secret_arg", "cargo test -p eng_runtime run_file_executes_live_http_response_body_json_source", "cargo test -p eng_runtime run_file_sends_live_http_request_body"]
 

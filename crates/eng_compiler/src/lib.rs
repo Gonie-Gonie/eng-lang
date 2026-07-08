@@ -13770,6 +13770,49 @@ system Envelope {
     }
 
     #[test]
+    fn warns_on_legacy_http_response_hash_alias() {
+        let root = env::temp_dir().join(format!(
+            "englang-http-response-hash-alias-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n").expect("response");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/weather\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\nlegacy_hash = response.hash\npreferred_hash = response.response_hash\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-NET-RESPONSE-HASH-ALIAS"
+                && diagnostic.severity == Severity::Warning
+                && diagnostic.line == 6
+                && diagnostic.message.contains("response.hash")
+                && diagnostic
+                    .help
+                    .as_deref()
+                    .is_some_and(|help| help.contains(".response_hash"))
+        }));
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| binding.name == "legacy_hash"
+                && binding.semantic_type.quantity_kind == "String"));
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| binding.name == "preferred_hash"
+                && binding.semantic_type.quantity_kind == "String"));
+    }
+
+    #[test]
     fn accepts_runtime_http_response_body_as_json_source() {
         let root = env::temp_dir().join(format!(
             "englang-runtime-http-body-json-source-{}",

@@ -106,6 +106,18 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "W-NET-RESPONSE-HASH-ALIAS") {
+      const action = diagnosticRangeReplacementAction(
+        document,
+        diagnostic,
+        "response_hash",
+        "Rename hash to response_hash"
+      );
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-IO-JSON-FIELD-ACCESS-001") {
       const action = jsonReadPromotionAction(document, diagnostic);
       if (action) {
@@ -937,6 +949,14 @@ function withOptionAliasAction(document, diagnostic) {
     return undefined;
   }
   return optionKeyReplacementAction(document, diagnostic, fix.from, fix.to, fix.title);
+}
+
+function diagnosticRangeReplacementAction(document, diagnostic, replacement, title) {
+  const action = new vscode.CodeAction(title, vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(document.uri, diagnostic.range, replacement);
+  return action;
 }
 
 function optionKeyReplacementAction(document, diagnostic, from, to, title) {

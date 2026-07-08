@@ -751,6 +751,7 @@ with {
     cache_dir = dir("../outside")
     cache_ttl = forever
 }
+legacy_response_hash = response.hash
 
 bad_url_response = http get url("ftp://example.org/data.json")
 
@@ -946,6 +947,7 @@ report {
         "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
         "W-NET-FIXTURE-ALIAS",
+        "W-NET-RESPONSE-HASH-ALIAS",
         "E-IO-JSON-FIELD-ACCESS-001",
         "E-CACHE-KEY-NONDETERMINISTIC",
         "E-CACHE-DIR",
@@ -1106,6 +1108,12 @@ report {
         &uri,
         "Rename fixture to offline_response",
         "offline_response",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Rename hash to response_hash",
+        "response_hash",
     );
     assert_action_edit_contains(
         actions,

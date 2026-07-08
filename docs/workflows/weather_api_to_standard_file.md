@@ -28,7 +28,7 @@ What it proves:
   and weather quality summary
 - workflow bindings can use `api_response.method`, `api_response.status`,
   `api_response.status_code`, `api_response.status_class`,
-  `api_response.hash`, and `api_response.url_with_query`
+  `api_response.response_hash`, and `api_response.url_with_query`
 - `process_results.json` has `process_count = 0`
 
 Expected review surfaces:

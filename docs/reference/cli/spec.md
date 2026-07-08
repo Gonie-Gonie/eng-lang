@@ -80,6 +80,7 @@ E-NET-BODY-SIZE-LIMIT network response body size limit is not a positive whole-b
 E-NET-HASH-MISMATCH   network response SHA-256 does not match expected_sha256
 E-NET-UNPINNED-REPRO  repro profile network boundary lacks a pinned response file or expected_sha256
 W-NET-FIXTURE-ALIAS   fixture is a legacy alias for offline_response
+W-NET-RESPONSE-HASH-ALIAS response.hash is a legacy alias for response.response_hash
 E-CACHE-HASH-MISMATCH cache record observed hash does not match expected hash
 E-CACHE-DIR           cache_dir is not a safe relative directory
 E-CACHE-KEY-NONDETERMINISTIC cache_key contains nondeterministic or secret-dependent input

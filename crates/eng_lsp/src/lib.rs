@@ -675,7 +675,6 @@ const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("status_code", "HTTP status code"),
     ("status_class", "HTTP status class"),
     ("response_hash", "response SHA-256 hash"),
-    ("hash", "alias for response SHA-256 hash"),
     ("query_string", "resolved request query string"),
     (
         "request_url",
@@ -831,6 +830,11 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
     match diagnostic.code.as_str() {
         "E-IO-JSON-FIELD-ACCESS-001" => {
             if let Some(range) = json_read_field_access_diagnostic_byte_range(line, diagnostic) {
+                return Some(range);
+            }
+        }
+        "W-NET-RESPONSE-HASH-ALIAS" => {
+            if let Some(range) = member_field_byte_range(line, "hash") {
                 return Some(range);
             }
         }
@@ -1146,6 +1150,30 @@ fn find_member_access_byte_range(line: &str, access: &str) -> Option<(usize, usi
             return Some((start, end));
         }
         search_start = end;
+    }
+    None
+}
+
+fn member_field_byte_range(line: &str, field: &str) -> Option<(usize, usize)> {
+    let code_end = comment_start(line).unwrap_or(line.len());
+    let code = &line[..code_end];
+    let needle = format!(".{field}");
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find(&needle) else {
+            break;
+        };
+        let dot_start = search_start + relative_start;
+        let field_start = dot_start + '.'.len_utf8();
+        let field_end = field_start + field.len();
+        let bytes = code.as_bytes();
+        if dot_start > 0
+            && is_ident_byte(bytes[dot_start - 1])
+            && (field_end >= bytes.len() || !is_ident_byte(bytes[field_end]))
+        {
+            return Some((field_start, field_end));
+        }
+        search_start = field_end;
     }
     None
 }
@@ -7589,6 +7617,11 @@ with {
                 "fixture",
             ),
             (
+                "W-NET-RESPONSE-HASH-ALIAS",
+                "response = http get url(\"https://api.example.org/data.json\")\nlegacy_hash = response.hash\n",
+                "hash",
+            ),
+            (
                 "E-NET-BODY-METHOD",
                 "response = http get url(\"https://example.org/submit\")\nwith {\n    body = \"submitted=true\"\n}\n",
                 "\"submitted=true\"",
@@ -8773,6 +8806,9 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "url_with_query"));
+        assert!(!member_completions
+            .iter()
+            .any(|completion| completion.label == "hash"));
         assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
             token.token_type == "property"
                 && source

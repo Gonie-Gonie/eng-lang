@@ -1487,6 +1487,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut diagnostics,
     );
     validate_json_read_field_access_policy(program, &mut diagnostics);
+    warn_legacy_http_response_hash_field_usage(program, &typed_bindings, &mut diagnostics);
     warn_legacy_select_first_row_usage(program, &mut diagnostics);
 
     let mut assembly_components = if component_instances.is_empty() {
@@ -11678,6 +11679,52 @@ fn validate_json_read_field_access_policy(
                 Some(&format!(
                     "Promote the JSON payload to a schema first, for example `typed = promote json {binding} as SchemaName`; arrays can be materialized with `promote json records {binding}.{field} as RecordSchema`."
                 )),
+            ));
+        }
+    }
+}
+
+fn warn_legacy_http_response_hash_field_usage(
+    program: &ParsedProgram,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let response_bindings = typed_bindings
+        .iter()
+        .filter(|binding| binding.semantic_type.quantity_kind == "HttpResponse")
+        .map(|binding| binding.name.clone())
+        .collect::<HashSet<_>>();
+    if response_bindings.is_empty() {
+        return;
+    }
+
+    let mut reported = HashSet::new();
+    for line in &program.lines {
+        for window in line.tokens.windows(3) {
+            let [crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Identifier(binding),
+                ..
+            }, crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Symbol(crate::lexer::Symbol::Dot),
+                ..
+            }, crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Identifier(field),
+                ..
+            }] = window
+            else {
+                continue;
+            };
+            if field != "hash" || !response_bindings.contains(binding) {
+                continue;
+            }
+            if !reported.insert((line.line, binding.clone())) {
+                continue;
+            }
+            diagnostics.push(Diagnostic::warning(
+                "W-NET-RESPONSE-HASH-ALIAS",
+                line.line,
+                &format!("`{binding}.hash` is a legacy alias for `{binding}.response_hash`."),
+                Some("Use `.response_hash` so the value is clearly the HTTP response SHA-256."),
             ));
         }
     }

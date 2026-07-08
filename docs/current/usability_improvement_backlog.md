@@ -4835,6 +4835,21 @@ the preferred `offline_response` API.
   reference, and stdlib cache wording so new authoring guidance stays centered
   on pinned offline responses.
 
+## Batch 389: HTTP Response Hash Alias Warning
+
+Status: implemented after auditing the `HttpResponse` member surface for
+ambiguous hash wording.
+
+- Added compiler warning `W-NET-RESPONSE-HASH-ALIAS` when workflow code uses
+  the legacy `response.hash` alias.
+- Kept `.hash` accepted for compatibility while steering new code and docs to
+  `.response_hash`.
+- Added LSP and VS Code fallback quick fixes that rename the member field to
+  `response_hash`.
+- Removed `hash` from HTTP response member completions so the exposed API no
+  longer advertises the ambiguous alias.
+- Updated workflow 01 and the workflow docs to use `api_response.response_hash`.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

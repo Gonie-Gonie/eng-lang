@@ -2553,10 +2553,6 @@
                                                             "label":  "response_hash"
                                                         },
                                                         {
-                                                            "detail":  "alias for response SHA-256 hash",
-                                                            "label":  "hash"
-                                                        },
-                                                        {
                                                             "detail":  "resolved request query string",
                                                             "label":  "query_string"
                                                         },

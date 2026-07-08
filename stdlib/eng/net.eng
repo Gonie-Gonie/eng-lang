@@ -18,8 +18,10 @@
 #   B/KB/MB/GB or KiB/MiB/GiB units. Pinned offline response and live `http://`
 #   response hashes are SHA-256 values and `expected_sha256` is checked when
 #   provided. Pinned-response and live `http get` bindings expose `.body`,
-#   `.status`, `.status_code`, `.status_class`, `.response_hash`, `.hash`, and
-#   `.url` fields for downstream native workflow steps. Live `http://`
+#   `.status`, `.status_code`, `.status_class`, `.response_hash`, and `.url`
+#   fields for downstream native workflow steps. `.hash` remains accepted as a
+#   compatibility-only alias for `.response_hash`, but new workflow code should
+#   use `.response_hash`. Live `http://`
 #   requests/downloads materialize response or target files with retry,
 #   timeout, body-size-limit, expected-hash, cache miss materialization, and
 #   cache replay support. Live `https://` currently needs a packaged TLS
