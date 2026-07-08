@@ -3113,9 +3113,13 @@ function Assert-VscodeExtensionContract {
         "completionItemsFromPayload",
         "argsFieldCompletionsFromDocument",
         "schemaBindingFieldCompletionsFromDocument",
+        "workflowBindingFieldCompletionsFromDocument",
+        "workflowBindingFieldCompletionsFromSource",
         "schemaFieldsFromDocument",
         "promotedSchemaBindingsFromDocument",
         "fieldsForSchemaBinding",
+        "fieldsForWorkflowBinding",
+        "workflowBindingFields",
         "schema field",
         "argsFields",
         "isArgsReceiver",
@@ -3137,6 +3141,9 @@ function Assert-VscodeExtensionContract {
     foreach ($UniqueCompletionFunction in @(
         "argsFieldCompletionsFromDocument",
         "schemaBindingFieldCompletionsFromDocument",
+        "workflowBindingFieldCompletionsFromDocument",
+        "workflowBindingFieldCompletionsFromSource",
+        "fieldsForWorkflowBinding",
         "httpResponseFieldCompletionsForContext",
         "localMemberCompletionsForContext"
     )) {
@@ -3938,6 +3945,13 @@ function Invoke-IdeCheck {
         "memberCompletionItemsForFields",
         "argsFieldCompletionsFromSource",
         "schemaBindingFieldCompletionsFromSource",
+        "workflowBindingFieldCompletionsFromSource",
+        "workflowFieldsForBinding",
+        "workflowMemberCompletionFields",
+        "httpResponseFields",
+        "sampleTableFields",
+        "caseTableFields",
+        "caseOutputTableFields",
         "schemaFieldsForBinding",
         "promotedSchemaBindingsFromSource",
         "firstBlockBodyFromSource",
@@ -4001,6 +4015,9 @@ function Invoke-IdeCheck {
         "memberCompletionContextFromPrefix",
         "argsFieldCompletionsFromSource",
         "schemaBindingFieldCompletionsFromSource",
+        "workflowBindingFieldCompletionsFromSource",
+        "workflowFieldsForBinding",
+        "workflowMemberCompletionFields",
         "schemaFieldCompletionsFromBody"
     )) {
         $FunctionDeclarationCount = [regex]::Matches($IdeUiSource, "function\s+$UniqueNativeCompletionFunction\s*\(").Count

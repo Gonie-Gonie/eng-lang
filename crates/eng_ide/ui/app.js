@@ -127,7 +127,11 @@ function emptySyntaxCatalog() {
     workflowOptions: [],
     publicTypes: [],
     quantities: [],
-    units: []
+    units: [],
+    httpResponseFields: [],
+    sampleTableFields: [],
+    caseTableFields: [],
+    caseOutputTableFields: []
   };
 }
 
@@ -142,7 +146,11 @@ function normalizeSyntaxCatalog(catalog) {
     workflowOptions: catalogItemLabels(source.workflowOptions ?? source.workflow_options),
     publicTypes: catalogPublicTypeLabels(source.publicTypes ?? source.public_types),
     quantities: catalogItemLabels(source.quantities),
-    units: catalogItemLabels(source.units)
+    units: catalogItemLabels(source.units),
+    httpResponseFields: catalogFieldItems(source.httpResponseFields ?? source.http_response_fields),
+    sampleTableFields: catalogFieldItems(source.sampleTableFields ?? source.sample_table_fields),
+    caseTableFields: catalogFieldItems(source.caseTableFields ?? source.case_table_fields),
+    caseOutputTableFields: catalogFieldItems(source.caseOutputTableFields ?? source.case_output_table_fields)
   };
 }
 
@@ -180,6 +188,24 @@ function catalogItemLabels(value) {
     })
     .map((item) => String(item || "").trim())
     .filter(Boolean);
+}
+
+function catalogFieldItems(value) {
+  const fields = [];
+  const seen = new Set();
+  for (const item of arrayOrEmpty(value)) {
+    const label = typeof item === "string" ? item : item?.label || item?.base || "";
+    const trimmedLabel = String(label || "").trim();
+    if (!trimmedLabel || seen.has(trimmedLabel)) continue;
+    seen.add(trimmedLabel);
+    const detail = typeof item === "object" && item ? item.detail || item.documentation || "" : "";
+    fields.push({
+      label: trimmedLabel,
+      detail: String(detail || "").trim(),
+      kind: "property"
+    });
+  }
+  return fields;
 }
 
 function catalogPublicTypeLabels(value) {
@@ -4357,6 +4383,7 @@ function completionCandidates(prefix) {
 function localMemberCompletionCandidates(prefix) {
   const context = memberCompletionContextFromPrefix(prefix);
   if (!context) return [];
+  const workflowCatalog = state.syntaxCatalog || emptySyntaxCatalog();
   const groups = [
     {
       fields: argsFieldCompletionsFromSource(state.source),
@@ -4367,6 +4394,34 @@ function localMemberCompletionCandidates(prefix) {
       fields: schemaFieldsForBinding(schemaBindingFieldCompletionsFromSource(state.source), context.receiver),
       detail: "schema field",
       matchesReceiver: () => true
+    },
+    {
+      fields: workflowFieldsForBinding(
+        workflowBindingFieldCompletionsFromSource(state.source, workflowCatalog),
+        context.receiver
+      ),
+      detail: "workflow field",
+      matchesReceiver: () => true
+    },
+    {
+      fields: workflowCatalog.httpResponseFields,
+      detail: "HTTP response field",
+      matchesReceiver: isResponseLikeReceiver
+    },
+    {
+      fields: workflowCatalog.sampleTableFields,
+      detail: "Sample table field",
+      matchesReceiver: isSampleTableLikeReceiver
+    },
+    {
+      fields: workflowCatalog.caseOutputTableFields,
+      detail: "Case output table field",
+      matchesReceiver: isCaseOutputTableLikeReceiver
+    },
+    {
+      fields: workflowCatalog.caseTableFields,
+      detail: "Case table field",
+      matchesReceiver: isCaseTableLikeReceiver
     }
   ];
   const items = [];
@@ -4433,6 +4488,105 @@ function schemaFieldsForBinding(schemaBindingFields, receiver) {
   if (!schemaBindingFields || typeof schemaBindingFields !== "object") return [];
   const fields = schemaBindingFields[receiver];
   return Array.isArray(fields) ? fields : [];
+}
+
+function workflowFieldsForBinding(workflowBindingFields, receiver) {
+  if (!workflowBindingFields || typeof workflowBindingFields !== "object") return [];
+  const fields = workflowBindingFields[receiver];
+  return Array.isArray(fields) ? fields : [];
+}
+
+function workflowBindingFieldCompletionsFromSource(source, catalog) {
+  const text = String(source ?? "");
+  const normalizedCatalog = normalizeSyntaxCatalog(catalog);
+  const result = {};
+  const groups = [
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*http\s+(?:get|post|put|patch|head|request|fetch)\b/gm,
+      fields: normalizedCatalog.httpResponseFields,
+      detail: "HTTP response field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random)\b/gm,
+      fields: normalizedCatalog.sampleTableFields,
+      detail: "Sample table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*materialize\s+cases\b/gm,
+      fields: normalizedCatalog.caseTableFields,
+      detail: "Case table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s+[A-Za-z_][A-Za-z0-9_.-]*\s+over\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
+      fields: normalizedCatalog.caseOutputTableFields,
+      detail: "Case output table field"
+    }
+  ];
+  for (const group of groups) {
+    if (!Array.isArray(group.fields) || !group.fields.length) continue;
+    group.pattern.lastIndex = 0;
+    let match;
+    while ((match = group.pattern.exec(text)) !== null) {
+      result[match[1]] = workflowMemberCompletionFields(group.fields, group.detail);
+    }
+  }
+  return result;
+}
+
+function workflowMemberCompletionFields(fields, fallbackDetail) {
+  return fields
+    .filter((field) => typeof field?.label === "string")
+    .map((field) => ({
+      ...field,
+      detail: field.detail ? `${fallbackDetail}: ${field.detail}` : fallbackDetail,
+      kind: "property"
+    }));
+}
+
+function isResponseLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return (
+    normalized.includes("response") ||
+    normalized.includes("http") ||
+    normalized.includes("api") ||
+    normalized.includes("network")
+  );
+}
+
+function isSampleTableLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return (
+    normalized.includes("sample") ||
+    normalized.includes("design") ||
+    normalized.includes("lhs")
+  );
+}
+
+function isCaseOutputTableLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return (
+    normalized.includes("case") &&
+    (
+      normalized.includes("input") ||
+      normalized.includes("output") ||
+      normalized.includes("planned") ||
+      normalized.includes("manifest")
+    )
+  );
+}
+
+function isCaseTableLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return (
+    !isCaseOutputTableLikeReceiver(receiver) &&
+    (
+      normalized === "case" ||
+      normalized === "cases" ||
+      normalized.includes("case_table") ||
+      normalized.endsWith("_case") ||
+      normalized.endsWith("_cases")
+    )
+  );
 }
 
 function schemaFieldsFromSource(source) {

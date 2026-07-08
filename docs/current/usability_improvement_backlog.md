@@ -5381,6 +5381,19 @@ Status: implemented after comparing the native IDE initial lexical fallback with
 - Added plot/report words such as `line`, `bar`, `histogram`, `distribution`, `parity`, and `residuals` to the native IDE fallback keyword list.
 - Extended `ide-check` contract coverage so the fallback vocabulary keeps those report plot words while the compiler-owned syntax catalog remains the primary source after bootstrap.
 
+## Batch 452: Workflow Member Completion Binding Fallback
+
+Status: implemented after comparing current workflow examples with local member completion fallback behavior.
+
+- Added VS Code current-buffer binding inference for `http ...`, `sample ...`,
+  `materialize cases ...`, and `apply ... over ...` assignments so custom names
+  such as `api_response.`, `training_designs.`, and `case_inputs.` get member
+  completions before live LSP results arrive.
+- Added matching native IDE member-completion fallback using the shared generated
+  syntax catalog fields.
+- Extended `ide-check` contract coverage so workflow result field completions
+  stay wired in both editor surfaces.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

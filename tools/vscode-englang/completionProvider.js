@@ -21,6 +21,12 @@ class EngCompletionProvider {
     const localCompletions = localMemberCompletionsForContext(document, position, {
       argsFields: argsFieldCompletionsFromDocument(document),
       schemaBindingFields: schemaBindingFieldCompletionsFromDocument(document),
+      workflowBindingFields: workflowBindingFieldCompletionsFromDocument(document, {
+        httpResponseFields: this.httpResponseFields,
+        sampleTableFields: this.sampleTableFields,
+        caseTableFields: this.caseTableFields,
+        caseOutputTableFields: this.caseOutputTableFields
+      }),
       httpResponseFields: this.httpResponseFields,
       sampleTableFields: this.sampleTableFields,
       caseTableFields: this.caseTableFields,
@@ -96,6 +102,57 @@ function schemaBindingFieldCompletionsFromDocument(document) {
       ...field,
       detail: field.detail ? `${schemaName} field: ${field.detail}` : `${schemaName} field`
     }));
+  }
+  return result;
+}
+
+function workflowBindingFieldCompletionsFromDocument(document, catalogs) {
+  const text = document?.getText?.();
+  if (typeof text !== "string") {
+    return {};
+  }
+  return workflowBindingFieldCompletionsFromSource(text, catalogs);
+}
+
+function workflowBindingFieldCompletionsFromSource(source, catalogs) {
+  const text = String(source ?? "");
+  const result = {};
+  const groups = [
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*http\s+(?:get|post|put|patch|head|request|fetch)\b/gm,
+      fields: catalogs?.httpResponseFields,
+      detail: "HTTP response field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random)\b/gm,
+      fields: catalogs?.sampleTableFields,
+      detail: "Sample table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*materialize\s+cases\b/gm,
+      fields: catalogs?.caseTableFields,
+      detail: "Case table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s+[A-Za-z_][A-Za-z0-9_.-]*\s+over\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
+      fields: catalogs?.caseOutputTableFields,
+      detail: "Case output table field"
+    }
+  ];
+  for (const group of groups) {
+    if (!Array.isArray(group.fields) || !group.fields.length) {
+      continue;
+    }
+    group.pattern.lastIndex = 0;
+    let match;
+    while ((match = group.pattern.exec(text)) !== null) {
+      result[match[1]] = group.fields.map((field) => ({
+        ...field,
+        detail: field.detail ? `${group.detail}: ${field.detail}` : group.detail,
+        kind: "property",
+        lsp_kind: "property"
+      }));
+    }
   }
   return result;
 }
@@ -225,6 +282,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: () => true
     },
     {
+      fields: fieldsForWorkflowBinding(catalogs?.workflowBindingFields, memberContext.receiver),
+      detail: "workflow field",
+      matchesReceiver: () => true
+    },
+    {
       fields: catalogs?.httpResponseFields,
       detail: "HTTP response field",
       matchesReceiver: isResponseLikeReceiver
@@ -266,6 +328,14 @@ function fieldsForSchemaBinding(schemaBindingFields, receiver) {
     return [];
   }
   const fields = schemaBindingFields[receiver];
+  return Array.isArray(fields) ? fields : [];
+}
+
+function fieldsForWorkflowBinding(workflowBindingFields, receiver) {
+  if (!workflowBindingFields || typeof workflowBindingFields !== "object") {
+    return [];
+  }
+  const fields = workflowBindingFields[receiver];
   return Array.isArray(fields) ? fields : [];
 }
 
@@ -370,6 +440,8 @@ module.exports = {
   completionItemsFromPayload,
   argsFieldCompletionsFromDocument,
   schemaBindingFieldCompletionsFromDocument,
+  workflowBindingFieldCompletionsFromDocument,
+  workflowBindingFieldCompletionsFromSource,
   httpResponseFieldCompletionsForContext,
   localMemberCompletionsForContext,
   memberAccessCompletionContext
