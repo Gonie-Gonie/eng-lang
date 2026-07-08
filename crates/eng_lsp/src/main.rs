@@ -779,6 +779,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         code if code.starts_with("E-UNC-ARGS-") => {
             lsp_uncertainty_argument_code_actions(uri, text, diagnostic)
         }
+        "E-UNC-DIRECT-COMPARE" => optional_code_action(lsp_uncertainty_direct_compare_code_action(
+            uri, text, diagnostic,
+        )),
         "E-CMD-AMBIG-001" => optional_code_action(lsp_parenthesize_command_target_code_action(
             uri, text, diagnostic,
         )),
@@ -2150,6 +2153,73 @@ fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Val
     }
 
     actions
+}
+
+fn lsp_uncertainty_direct_compare_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let expression = direct_uncertainty_expression_from_diagnostic(diagnostic_message(diagnostic))?;
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let (start_byte, end_byte) = direct_uncertainty_expression_range(line, expression)?;
+    let replacement = format!("mean({expression})");
+    Some(json!({
+        "title": format!("Compare mean({expression}) instead"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            &replacement
+        )
+    }))
+}
+
+fn direct_uncertainty_expression_from_diagnostic(message: &str) -> Option<&str> {
+    let expression = first_backtick_payload(message)?.trim();
+    if expression.is_empty()
+        || expression.contains('\n')
+        || expression.contains('\r')
+        || expression.starts_with("mean(")
+    {
+        return None;
+    }
+    Some(expression)
+}
+
+fn direct_uncertainty_expression_range(line: &str, expression: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let mut search_start = 0usize;
+    while search_start <= code.len() {
+        let Some(relative_start) = code[search_start..].find(expression) else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let end = start + expression.len();
+        if expression_boundary(code, start, end) {
+            return Some((start, end));
+        }
+        search_start = end;
+    }
+    None
+}
+
+fn expression_boundary(text: &str, start: usize, end: usize) -> bool {
+    let before = if start == 0 {
+        None
+    } else {
+        text[..start].chars().next_back()
+    };
+    let after = text[end..].chars().next();
+    before.is_none_or(|character| !is_expression_edge_character(character))
+        && after.is_none_or(|character| !is_expression_edge_character(character))
+}
+
+fn is_expression_edge_character(character: char) -> bool {
+    is_identifier_character(character) || character == '.'
 }
 
 fn lsp_uncertainty_source_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

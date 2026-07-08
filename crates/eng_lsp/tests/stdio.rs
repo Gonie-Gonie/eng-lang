@@ -804,6 +804,7 @@ Q_bad_normal = normal()
 Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
 Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
 Q_prop_source = normal(mean=5 kW, std=0.8 kW, samples=31)
+validate Q_prop_source < 10 kW
 Q_bad_propagation = propagate(Q_prop_source, method=monte_carlo, scale=1.0)
 Q_plain_source = 5 kW
 Q_bad_source = propagate(Q_plain_source, method=linear)
@@ -978,6 +979,7 @@ report {
         "E-UNC-ARGS-001",
         "E-UNC-ARGS-002",
         "E-UNC-ARGS-003",
+        "E-UNC-DIRECT-COMPARE",
         "E-UNC-SOURCE-001",
         "E-UNC-SOURCE-002",
     ] {
@@ -1236,6 +1238,12 @@ report {
     assert_action_edit(actions, &uri, "Set distribution kind to normal", "normal");
     assert_action_edit(actions, &uri, "Set uncertainty samples to 31", "31");
     assert_action_edit(actions, &uri, "Set uncertainty method to linear", "linear");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Compare mean(Q_prop_source) instead",
+        "mean(Q_prop_source)",
+    );
     assert_action_edit_contains(
         actions,
         &uri,
@@ -1488,6 +1496,7 @@ Q_bad_normal = normal()
 Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
 Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
 Q_prop_source = normal(mean=5 kW, std=0.8 kW, samples=31)
+validate Q_prop_source < 10 kW
 Q_bad_propagation = propagate(Q_prop_source, method=monte_carlo, scale=1.0)
 Q_plain_source = 5 kW
 Q_bad_source = propagate(Q_plain_source, method=linear)
@@ -1603,6 +1612,12 @@ report {
     assert_action_edit(actions, &uri, "Set distribution kind to normal", "normal");
     assert_action_edit(actions, &uri, "Set uncertainty samples to 31", "31");
     assert_action_edit(actions, &uri, "Set uncertainty method to linear", "linear");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Compare mean(Q_prop_source) instead",
+        "mean(Q_prop_source)",
+    );
     assert_action_edit_contains(
         actions,
         &uri,

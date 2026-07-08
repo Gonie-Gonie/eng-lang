@@ -4908,6 +4908,14 @@ highlighting.
 - Extended state-space semantic-token coverage to assert the operator binding
   name carries the solver role alongside state/input/output vector roles.
 
+## Batch 394: Direct Uncertainty Compare Quick Fix
+
+Status: implemented after reviewing linter quick-fix coverage for uncertainty diagnostics.
+
+- Added LSP and VS Code fallback quick fixes for `E-UNC-DIRECT-COMPARE` that wrap the uncertain expression with `mean(...)`.
+- Extended stdio code-action coverage so direct validation comparisons such as `validate Q < ...` keep an editor repair path.
+- Updated VS Code README quick-fix wording for direct uncertainty comparison repairs.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -194,6 +194,13 @@ function localCodeActions(document, context, options = {}) {
     if (code === "E-UNC-SOURCE-001" || code === "E-UNC-SOURCE-002") {
       actions.push(...uncertaintySourceActions(document, diagnostic));
     }
+    if (code === "E-UNC-DIRECT-COMPARE") {
+      const action = uncertaintyDirectCompareAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-CMD-AMBIG-001") {
       const action = commandTargetParenthesesAction(document, diagnostic);
       if (action) {
@@ -1371,6 +1378,65 @@ function uncertaintySourceActions(document, diagnostic) {
   }
 
   return actions;
+}
+
+function uncertaintyDirectCompareAction(document, diagnostic) {
+  const expression = directUncertaintyExpressionFromDiagnostic(diagnostic.message);
+  if (!expression) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const range = directUncertaintyExpressionRange(line.text, expression);
+  if (!range) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    `Compare mean(${expression}) instead`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, range.start, line.lineNumber, range.end),
+    `mean(${expression})`
+  );
+  return action;
+}
+
+function directUncertaintyExpressionFromDiagnostic(message) {
+  const expression = firstBacktickPayload(message);
+  if (!expression || expression.includes("\n") || expression.includes("\r")) {
+    return undefined;
+  }
+  return expression.startsWith("mean(") ? undefined : expression;
+}
+
+function directUncertaintyExpressionRange(lineText, expression) {
+  const code = stripLineComment(lineText);
+  let searchStart = 0;
+  while (searchStart <= code.length) {
+    const start = code.indexOf(expression, searchStart);
+    if (start < 0) {
+      return undefined;
+    }
+    const end = start + expression.length;
+    if (expressionBoundary(code, start, end)) {
+      return { start, end };
+    }
+    searchStart = end;
+  }
+  return undefined;
+}
+
+function expressionBoundary(text, start, end) {
+  const before = start > 0 ? text[start - 1] : undefined;
+  const after = end < text.length ? text[end] : undefined;
+  return !isExpressionEdgeCharacter(before) && !isExpressionEdgeCharacter(after);
+}
+
+function isExpressionEdgeCharacter(value) {
+  return isIdentifierCharacter(value) || value === ".";
 }
 
 function uncertaintySourceNameFromDiagnostic(message) {
