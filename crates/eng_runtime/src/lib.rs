@@ -17196,6 +17196,50 @@ mod tests {
         assert!(surrogate_output
             .process_results_json
             .contains("\"process_count\": 0"));
+        let surrogate_result_json =
+            serde_json::from_str::<Value>(&surrogate_output.result_json).expect("surrogate result");
+        let training_sample = json_array_item_by_binding(
+            &surrogate_result_json,
+            "/typed_payload/sample_tables",
+            "training_designs",
+        )
+        .expect("training designs sample table");
+        assert_eq!(
+            training_sample.get("generation").and_then(Value::as_str),
+            Some("sample_lhs")
+        );
+        assert_eq!(
+            training_sample.get("method").and_then(Value::as_str),
+            Some("lhs")
+        );
+        assert_eq!(
+            training_sample.get("seed").and_then(Value::as_str),
+            Some("42")
+        );
+        assert_eq!(
+            training_sample.get("sample_count").and_then(Value::as_u64),
+            Some(8)
+        );
+        let prediction_sample = json_array_item_by_binding(
+            &surrogate_result_json,
+            "/typed_payload/sample_tables",
+            "designs",
+        )
+        .expect("prediction designs sample table");
+        assert_eq!(
+            prediction_sample.get("generation").and_then(Value::as_str),
+            Some("sample_lhs")
+        );
+        assert_eq!(
+            prediction_sample.get("seed").and_then(Value::as_str),
+            Some("84")
+        );
+        assert_eq!(
+            prediction_sample
+                .get("sample_count")
+                .and_then(Value::as_u64),
+            Some(3)
+        );
         assert!(surrogate_output
             .output_manifest_json
             .contains("outputs/case_001/input.txt"));

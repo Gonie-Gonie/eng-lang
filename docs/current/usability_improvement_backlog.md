@@ -4916,6 +4916,14 @@ Status: implemented after reviewing linter quick-fix coverage for uncertainty di
 - Extended stdio code-action coverage so direct validation comparisons such as `validate Q < ...` keep an editor repair path.
 - Updated VS Code README quick-fix wording for direct uncertainty comparison repairs.
 
+## Batch 395: Native Workflow Sampling Contract Guard
+
+Status: implemented after re-auditing workflow 01/02/03 for Python-free native execution.
+
+- Re-ran `dev.bat workflows-test` and confirmed workflow 01/02/03 execute with `process_count = 0`.
+- Strengthened the workflow 02 runtime artifact contract so `training_designs` and `designs` must remain generated `sample_lhs` tables with pinned seeds and counts.
+- This prevents the native surrogate workflow from silently regressing to reading pre-generated sample data while still claiming native sampling.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
