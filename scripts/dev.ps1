@@ -2955,7 +2955,8 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing englang semantic token scope mappings"
     }
     foreach ($RequiredTokenScope in @(
-        "type", "class.declaration", "class.defaultLibrary", "comment", "comment.documentation", "function.declaration",
+        "type", "class.declaration", "class.defaultLibrary", "comment", "comment.documentation",
+        "function", "interface", "method", "method.declaration", "namespace", "variable.local", "function.declaration",
         "function.definition", "function.report", "interface.declaration", "interface.defaultLibrary",
         "keyword", "keyword.declaration", "keyword.local", "namespace.declaration", "number",
         "parameter", "parameter.readonly", "property", "property.declaration", "variable",
@@ -2983,6 +2984,42 @@ function Assert-VscodeExtensionContract {
     foreach ($SemanticFallbackScope in $SemanticFallbackScopes) {
         if (-not $TokenScopesDoc.Contains($SemanticFallbackScope)) {
             throw "editor token scope contract missing semantic fallback scope $SemanticFallbackScope"
+        }
+    }
+    $RequiredSemanticObservedFallbacks = @{
+        "function" = @(
+            "entity.name.function.call.englang",
+            "entity.name.function.englang"
+        )
+        "interface" = @(
+            "entity.name.type.englang",
+            "support.type.englang"
+        )
+        "method" = @(
+            "entity.name.function.call.englang",
+            "entity.name.function.englang"
+        )
+        "method.declaration" = @(
+            "entity.name.function.englang"
+        )
+        "namespace" = @(
+            "support.namespace.module.englang"
+        )
+        "variable.local" = @(
+            "variable.other.local.englang",
+            "variable.other.definition.englang"
+        )
+    }
+    foreach ($Selector in $RequiredSemanticObservedFallbacks.Keys) {
+        $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$Selector]
+        if ($null -eq $ScopeProperty) {
+            throw "VS Code extension missing observed semantic token scope mapping $Selector"
+        }
+        $ScopeValues = @($ScopeProperty.Value)
+        foreach ($RequiredFallbackScope in $RequiredSemanticObservedFallbacks[$Selector]) {
+            if ($ScopeValues -notcontains $RequiredFallbackScope) {
+                throw "VS Code extension observed semantic token scope mapping $Selector missing fallback scope $RequiredFallbackScope"
+            }
         }
     }
     $RequiredSemanticKeywordFallbacks = @{

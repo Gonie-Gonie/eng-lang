@@ -157,6 +157,10 @@
           "comment.documentation": [
             "comment.line.documentation.englang"
           ],
+          "function": [
+            "entity.name.function.call.englang",
+            "entity.name.function.englang"
+          ],
           "function.declaration": [
             "entity.name.function.englang"
           ],
@@ -166,6 +170,10 @@
           "function.report": [
             "keyword.control.report.englang",
             "support.function.builtin.englang"
+          ],
+          "interface": [
+            "entity.name.type.englang",
+            "support.type.englang"
           ],
           "interface.declaration": [
             "entity.name.type.englang"
@@ -186,6 +194,16 @@
           ],
           "keyword.local": [
             "keyword.control.workflow.englang"
+          ],
+          "method": [
+            "entity.name.function.call.englang",
+            "entity.name.function.englang"
+          ],
+          "method.declaration": [
+            "entity.name.function.englang"
+          ],
+          "namespace": [
+            "support.namespace.module.englang"
           ],
           "namespace.declaration": [
             "support.namespace.module.englang"
@@ -218,6 +236,10 @@
             "string.quoted.double.englang"
           ],
           "variable": [
+            "variable.other.local.englang",
+            "variable.other.definition.englang"
+          ],
+          "variable.local": [
             "variable.other.local.englang",
             "variable.other.definition.englang"
           ],

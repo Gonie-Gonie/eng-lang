@@ -242,18 +242,18 @@ in sync with the generated legend. Important pairings:
 | Semantic selector | Fallback scope intent |
 | --- | --- |
 | `type` | Type names, generic type expressions, and bracketed type arguments. |
-| `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
+| `class`, `interface`, `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
 | `class.defaultLibrary`, `interface.defaultLibrary` | Bundled type/domain names surfaced by the compiler. |
 | `comment` | Ordinary (`#`, `//`) and documentation (`///`) line comments. |
 | `comment.documentation` | Documentation comments (`///`) when semantic highlighting is available. |
-| `function.declaration`, `function.definition` | User-defined function and method names. |
+| `function`, `function.declaration`, `function.definition`, `method`, `method.declaration` | User-defined function and method calls plus declaration names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
 | `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, and local keyword-like roles. |
-| `namespace.declaration` | Imported or declared module namespaces. |
+| `namespace`, `namespace.declaration` | Imported or declared module namespaces. |
 | `number` | Numeric literals. |
 | `parameter`, `parameter.readonly` | Function parameters, args-like parameters, and read-only parameter roles. |
 | `property`, `property.declaration` | Property paths and declared schema/class/system fields. |
-| `variable`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly` | Plain variables, declared bindings, bundled value symbols, and read-only constants. |
+| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly` | Plain variables, local references, declared bindings, bundled value symbols, and read-only constants. |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
@@ -277,7 +277,7 @@ in sync with the generated legend. Important pairings:
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
-Keyword semantic selectors that represent clause words or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
+Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. Keyword semantic selectors that represent clause words or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
 
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
