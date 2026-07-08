@@ -5088,6 +5088,18 @@ Status: implemented after comparing compiler lexer keywords with VS Code grammar
 - This keeps first-paint VS Code highlighting from silently dropping compiler
   keywords that are already supported by the grammar source.
 
+## Batch 416: Editor Metadata Loader Contract
+
+Status: implemented after checking the VS Code grammar generator dependencies
+against the extension metadata loader validation.
+
+- Extended `editorMetadata.js` validation so the generated syntax catalog must
+  include compiler-owned public types, quantities, and units in addition to
+  keywords, workflow helpers, options, and structured member fields.
+- Extended `ide-check` contract coverage so the VS Code extension keeps reading
+  the compiler-owned syntax catalog instead of drifting back toward local
+  language tables.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
