@@ -5517,3 +5517,11 @@ Status: implemented after reviewing native IDE comment-toggle behavior against t
 - Changed native IDE Ctrl+/ detection so ordinary `//` comments are recognized without treating `///` documentation comments as normal line comments.
 - Added an `ide-check` guard rejecting the stale regex that would strip two slashes from `///` and leave an invalid `/` prefix.
 - Preserved the canonical `#` insertion behavior for newly commented lines.
+
+## Batch 469: Empty Interpolation Quick Fix
+
+Status: implemented after reviewing string-format diagnostics for quick-fix gaps.
+
+- Added VS Code local and eng-lsp code actions for `E-PRINT-FMT-002` and `E-WRITE-FMT-002` that remove empty `{}` interpolations.
+- Added LSP stdio regression coverage for the new quick fix.
+- Extended `ide-check` and VS Code README wording so empty interpolation repairs remain part of the editor contract.

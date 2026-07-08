@@ -761,6 +761,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-UNIT-001" => optional_code_action(
             lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
         ),
+        "E-PRINT-FMT-002" | "E-WRITE-FMT-002" => optional_code_action(
+            lsp_remove_empty_interpolation_code_action(uri, text, diagnostic),
+        ),
         "E-LOG-LEVEL-001" => {
             optional_code_action(lsp_log_level_info_code_action(uri, text, diagnostic))
         }
@@ -880,6 +883,69 @@ fn lsp_diagnostic_range_replacement_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, replacement)
     }))
+}
+
+fn lsp_remove_empty_interpolation_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let (start_byte, end_byte) = empty_interpolation_range(line, diagnostic)?;
+    Some(json!({
+        "title": "Remove empty interpolation",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            ""
+        )
+    }))
+}
+
+fn empty_interpolation_range(line: &str, diagnostic: &Value) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let ranges = empty_interpolation_ranges(code);
+    if ranges.is_empty() {
+        return None;
+    }
+    let diagnostic_start = diagnostic
+        .pointer("/range/start/character")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    if let Some(diagnostic_start) = diagnostic_start {
+        if let Some(range) = ranges.iter().copied().find(|(start, end)| {
+            let start_character = utf16_len(&line[..*start]);
+            let end_character = utf16_len(&line[..*end]);
+            diagnostic_start >= start_character && diagnostic_start <= end_character
+        }) {
+            return Some(range);
+        }
+    }
+    ranges.first().copied()
+}
+
+fn empty_interpolation_ranges(code: &str) -> Vec<(usize, usize)> {
+    let mut ranges = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < code.len() {
+        let Some(relative_open) = code[cursor..].find('{') else {
+            break;
+        };
+        let open = cursor + relative_open;
+        let Some(relative_close) = code[open + 1..].find('}') else {
+            break;
+        };
+        let close = open + 1 + relative_close;
+        if code[open + 1..close].trim().is_empty() {
+            ranges.push((open, close + 1));
+        }
+        cursor = close + 1;
+    }
+    ranges
 }
 
 fn lsp_heat_rate_sum_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {

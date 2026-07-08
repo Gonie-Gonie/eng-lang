@@ -167,6 +167,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PRINT-FMT-002" || code === "E-WRITE-FMT-002") {
+      const action = removeEmptyInterpolationAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-PRINT-FMT-003" || code === "E-WRITE-FMT-003") {
       const action = removeInterpolationDisplayUnitAction(document, diagnostic);
       if (action) {
@@ -1223,6 +1230,48 @@ function unterminatedInterpolationClosePosition(lineText, diagnosticRange) {
     return undefined;
   }
   return quoteEnd;
+}
+
+function removeEmptyInterpolationAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const removal = emptyInterpolationRange(line.text, diagnostic.range);
+  if (!removal) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Remove empty interpolation", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.delete(
+    document.uri,
+    new vscode.Range(line.lineNumber, removal.start, line.lineNumber, removal.end)
+  );
+  return action;
+}
+
+function emptyInterpolationRange(lineText, diagnosticRange) {
+  const ranges = emptyInterpolationRanges(stripLineComment(lineText));
+  if (!ranges.length) {
+    return undefined;
+  }
+  const diagnosticStart = diagnosticRange?.start?.character ?? -1;
+  return ranges.find((range) => diagnosticStart >= range.start && diagnosticStart <= range.end)
+    ?? ranges[0];
+}
+
+function emptyInterpolationRanges(code) {
+  const ranges = [];
+  let cursor = 0;
+  while (cursor < code.length) {
+    const open = code.indexOf("{", cursor);
+    if (open < 0) break;
+    const close = code.indexOf("}", open + 1);
+    if (close < 0) break;
+    if (code.slice(open + 1, close).trim() === "") {
+      ranges.push({ start: open, end: close + 1 });
+    }
+    cursor = close + 1;
+  }
+  return ranges;
 }
 
 function interpolationOpenIndex(lineText, diagnosticRange) {

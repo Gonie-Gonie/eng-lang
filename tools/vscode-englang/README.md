@@ -28,7 +28,7 @@ embedding compiler logic in JavaScript.
 - snippets from `snippets/eng.json`
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
-  missing-unit suffix fixes for unit arithmetic diagnostics, unterminated string
+  missing-unit suffix fixes for unit arithmetic diagnostics, unterminated/empty string
   interpolation closures, interpolation display-unit removals, command target
   parenthesizing, unknown stdlib module replacements, planned/internal stdlib
   import removal, schema column annotation migrations, required file-mutation

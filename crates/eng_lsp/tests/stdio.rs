@@ -891,6 +891,7 @@ with {
     algorithm = tree
 }
 
+print "empty {} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -1000,6 +1001,7 @@ report {
         "E-ML-ARGS-003",
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
+        "E-PRINT-FMT-002",
         "E-LOG-LEVEL-001",
         "W-TABLE-LEGACY-SELECT-FIRST-ROW",
         "E-UNC-ARGS-001",
@@ -1112,6 +1114,7 @@ report {
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
     assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
+    assert_action_edit(actions, &uri, "Remove empty interpolation", "");
     assert_action_edit(
         actions,
         &uri,
@@ -1600,6 +1603,7 @@ with {
     samples = 64
 }
 
+print "empty {} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -1676,6 +1680,7 @@ report {
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
     assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
+    assert_action_edit(actions, &uri, "Remove empty interpolation", "");
     assert_action_edit(
         actions,
         &uri,

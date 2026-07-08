@@ -3627,6 +3627,8 @@ function Assert-VscodeExtensionContract {
         "E-WITH-UNIT-001",
         "E-PRINT-FMT-001",
         "E-WRITE-FMT-001",
+        "E-PRINT-FMT-002",
+        "E-WRITE-FMT-002",
         "E-PRINT-FMT-003",
         "E-WRITE-FMT-003",
         "E-LOG-LEVEL-001",
@@ -3766,7 +3768,10 @@ function Assert-VscodeExtensionContract {
         "Set sample seed",
         "optionQuickFix",
         "optionValueReplacementAction",
-        "optionAssignmentRange"
+        "optionAssignmentRange",
+        "removeEmptyInterpolationAction",
+        "emptyInterpolationRange",
+        "Remove empty interpolation"
     )) {
         if (-not $QuickFixSource.Contains($RequiredQuickFixToken)) {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
@@ -3954,6 +3959,9 @@ function Assert-VscodeExtensionContract {
         "Replace URL with https://example.org",
         "E-NET-BODY-METHOD",
         "lsp_http_body_method_code_action",
+        "E-PRINT-FMT-002",
+        "lsp_remove_empty_interpolation_code_action",
+        "Remove empty interpolation",
         "Change HTTP method to post",
         "E-NET-RETRY-POLICY",
         "E-WITH-UNCERTAINTY-POLICY-001",
