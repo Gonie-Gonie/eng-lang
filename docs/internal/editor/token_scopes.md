@@ -98,7 +98,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
-Command-style TimeSeries and review verbs such as `fill`, `align`, `resample`, `integrate`, and `mean` use `keyword.control.*.englang`; call-style helpers such as `integrate(...)` and `mean(...)` stay under `support.function.builtin.englang`.
+Command-style workflow, TimeSeries, and review verbs such as `sample`, `filter`, `derive`, `predict`, `train`, `fill`, `integrate`, and `mean` use `keyword.control.*.englang`; call-style helpers such as `apply(...)`, `integrate(...)`, and `mean(...)` stay under `support.function.builtin.englang`.
 
 Prefer adding a phrase-level `meta.workflow.*.englang` scope when a native
 workflow operation is more readable as a single action than as unrelated

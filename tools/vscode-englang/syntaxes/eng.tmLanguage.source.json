@@ -788,15 +788,15 @@
             "name": "meta.workflow.sample-method.englang",
             "match": "\\b(sample)\\s+(lhs|latin_hypercube|latin-hypercube|grid|random|uniform)\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "support.function.builtin.englang" }
+              "1": { "name": "keyword.control.workflow.englang" },
+              "2": { "name": "constant.language.englang" }
             }
           },
           {
             "name": "meta.workflow.filter-table.englang",
             "match": "\\b(filter)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" }
@@ -806,7 +806,7 @@
             "name": "meta.workflow.select-columns.englang",
             "begin": "\\b(select)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\b",
             "beginCaptures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" },
@@ -825,7 +825,7 @@
             "name": "meta.workflow.derive-column.englang",
             "match": "\\b(derive)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" },
@@ -838,7 +838,7 @@
             "name": "meta.workflow.sort-table.englang",
             "match": "\\b(sort)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(by)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(asc|desc))?\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" },
@@ -851,7 +851,7 @@
             "name": "meta.workflow.join-table.englang",
             "match": "\\b(join)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" },
@@ -865,7 +865,7 @@
             "name": "meta.workflow.materialize-cases.englang",
             "match": "\\b(materialize)\\s+(cases)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" },
               "3": { "name": "variable.parameter.property.englang" },
               "4": { "name": "variable.other.property.englang" },
@@ -876,7 +876,7 @@
             "name": "meta.workflow.collect-results.englang",
             "match": "\\b(collect)\\s+(results)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" },
               "3": { "name": "variable.parameter.property.englang" },
               "4": { "name": "variable.other.property.englang" },
@@ -887,8 +887,8 @@
             "name": "meta.workflow.predict-model.englang",
             "match": "\\b(predict)\\s+(model)\\s+(using)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
+              "2": { "name": "keyword.control.workflow.englang" },
               "3": { "name": "keyword.operator.word.englang" },
               "4": { "name": "variable.parameter.property.englang" },
               "5": { "name": "variable.other.property.englang" },
@@ -899,7 +899,7 @@
             "name": "meta.workflow.predict-model.englang",
             "match": "\\b(predict)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(using)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" },
@@ -913,8 +913,8 @@
             "name": "meta.workflow.train-regression.englang",
             "match": "\\b(train)\\s+(regression)\\s+(?:(from|on)\\s+)?(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
+              "2": { "name": "keyword.control.workflow.englang" },
               "3": { "name": "keyword.operator.word.englang" },
               "4": { "name": "variable.parameter.property.englang" },
               "5": { "name": "variable.other.property.englang" },
@@ -1047,7 +1047,7 @@
             "name": "meta.workflow.require-one.englang",
             "match": "\\b(require_one)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "variable.other.local.englang" }
@@ -1075,7 +1075,7 @@
             "name": "meta.workflow.apply-step.englang",
             "match": "\\b(apply)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "variable.parameter.property.englang" },
               "3": { "name": "variable.other.property.englang" },
               "4": { "name": "entity.name.function.workflow-step.englang" },
@@ -1310,7 +1310,7 @@
             "name": "meta.workflow.promote-csv.englang",
             "begin": "\\b(promote)\\s+(csv)\\b",
             "beginCaptures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" }
             },
             "end": "(?=#|$)",
@@ -1346,7 +1346,7 @@
             "name": "meta.workflow.promote-json.englang",
             "begin": "\\b(promote)\\s+(json)\\b(?!\\s+records\\b)",
             "beginCaptures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" }
             },
             "end": "(?=#|$)",
@@ -1382,7 +1382,7 @@
             "name": "meta.workflow.promote-toml.englang",
             "begin": "\\b(promote)\\s+(toml)\\b",
             "beginCaptures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" }
             },
             "end": "(?=#|$)",
@@ -1418,7 +1418,7 @@
             "name": "meta.workflow.promote-json-records.englang",
             "match": "\\b(promote)\\s+(json)\\s+(records)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
             "captures": {
-              "1": { "name": "support.function.builtin.englang" },
+              "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" },
               "3": { "name": "keyword.control.workflow.englang" },
               "4": { "name": "variable.parameter.property.englang" },

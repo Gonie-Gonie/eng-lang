@@ -1233,10 +1233,10 @@
                                                                     "match":  "\\b(sample)\\s+(lhs|latin_hypercube|latin-hypercube|grid|random|uniform)\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "constant.language.englang"
                                                                                            }
                                                                                  }
                                                                 },
@@ -1245,7 +1245,7 @@
                                                                     "match":  "\\b(filter)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1263,7 +1263,7 @@
                                                                     "begin":  "\\b(select)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "keyword.control.workflow.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "variable.parameter.property.englang"
@@ -1294,7 +1294,7 @@
                                                                     "match":  "\\b(derive)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1321,7 +1321,7 @@
                                                                     "match":  "\\b(sort)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(by)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(asc|desc))?\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1348,7 +1348,7 @@
                                                                     "match":  "\\b(join)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1378,7 +1378,7 @@
                                                                     "match":  "\\b(materialize)\\s+(cases)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "keyword.control.workflow.englang"
@@ -1399,7 +1399,7 @@
                                                                     "match":  "\\b(collect)\\s+(results)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "keyword.control.workflow.englang"
@@ -1420,10 +1420,10 @@
                                                                     "match":  "\\b(predict)\\s+(model)\\s+(using)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "3":  {
                                                                                                "name":  "keyword.operator.word.englang"
@@ -1444,7 +1444,7 @@
                                                                     "match":  "\\b(predict)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(using)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1474,10 +1474,10 @@
                                                                     "match":  "\\b(train)\\s+(regression)\\s+(?:(from|on)\\s+)?(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "3":  {
                                                                                                "name":  "keyword.operator.word.englang"
@@ -1696,7 +1696,7 @@
                                                                     "match":  "\\b(require_one)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1756,7 +1756,7 @@
                                                                     "match":  "\\b(apply)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -2235,7 +2235,7 @@
                                                                     "begin":  "\\b(promote)\\s+(csv)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "keyword.control.workflow.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "keyword.control.workflow.englang"
@@ -2289,7 +2289,7 @@
                                                                     "begin":  "\\b(promote)\\s+(json)\\b(?!\\s+records\\b)",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "keyword.control.workflow.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "keyword.control.workflow.englang"
@@ -2343,7 +2343,7 @@
                                                                     "begin":  "\\b(promote)\\s+(toml)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "keyword.control.workflow.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "keyword.control.workflow.englang"
@@ -2397,7 +2397,7 @@
                                                                     "match":  "\\b(promote)\\s+(json)\\s+(records)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "keyword.control.workflow.englang"

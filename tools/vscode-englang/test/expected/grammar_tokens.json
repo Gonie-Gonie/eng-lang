@@ -588,7 +588,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "constant.language.englang",
     "text": "lhs"
   },
   {
@@ -599,8 +599,20 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "sample",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.sample-method.englang",
     "text": "sample uniform",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "uniform",
     "fullMatch": true
   },
   {
@@ -628,13 +640,13 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "constant.language.englang",
     "text": "latin_hypercube",
     "fullMatch": true
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "constant.language.englang",
     "text": "latin-hypercube",
     "fullMatch": true
   },
@@ -642,6 +654,12 @@
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.train-regression.englang",
     "text": "train regression designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "regression",
     "fullMatch": true
   },
   {
@@ -670,7 +688,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "train",
     "fullMatch": true
   },
@@ -802,7 +820,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "predict",
     "fullMatch": true
   },
@@ -814,7 +832,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "model",
     "fullMatch": true
   },
@@ -828,6 +846,12 @@
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.filter-table.englang",
     "text": "filter designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "filter",
     "fullMatch": true
   },
   {
@@ -846,6 +870,12 @@
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.select-columns.englang",
     "text": "select designs columns people_density, cooling_cop",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "select",
     "fullMatch": true
   },
   {
@@ -880,6 +910,12 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "sort",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "constant.language.englang",
     "text": "desc",
     "fullMatch": true
@@ -904,7 +940,13 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "keyword.control.workflow.englang",
+    "text": "join",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
     "text": "require_one",
     "fullMatch": true
   },
@@ -943,6 +985,12 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "derive",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.derive-column.englang",
     "text": "derive designs columns annual_cooling =",
     "fullMatch": true
@@ -973,7 +1021,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "materialize"
   },
   {
@@ -1006,6 +1054,12 @@
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.apply-step.englang",
     "text": "apply run_case over designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "apply",
     "fullMatch": true
   },
   {
@@ -1062,7 +1116,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "collect"
   },
   {
