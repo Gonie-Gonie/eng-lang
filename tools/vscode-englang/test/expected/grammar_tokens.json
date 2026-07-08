@@ -3242,5 +3242,46 @@
     "scope": "variable.other.property.englang",
     "text": "sensor.cooling_max",
     "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.function-call.englang",
+    "text": "calibrate(args.input, sensor.T_supply, message, 1 kW + 2 kW, axis=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "entity.name.function.call.englang",
+    "text": "calibrate",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.input",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "sensor.T_supply",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.local.englang",
+    "text": "message",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.operator.englang",
+    "text": "+",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "axis="
   }
 ]

@@ -27,6 +27,7 @@ api_payload = read json api_response.body
 message = "Q = {sensor.T_supply: .2 degC}"
 message_with_expr = "Mean = {mean(sensor.T_supply + 1 K, axis=Time): .2 degC}"
 message_with_binding = "Rows = {weather_rows}"
+custom_value = calibrate(args.input, sensor.T_supply, message, 1 kW + 2 kW, axis=Time)
 
 write text file("outputs/summary.txt"), message
 write standard_text sensor

@@ -1609,13 +1609,26 @@
               },
               { "include": "#functionCalls" },
               { "include": "#strings" },
-              { "include": "#members" },
               { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#types" },
               { "include": "#numbers" },
-              { "include": "#punctuation" }
+              { "include": "#operators" },
+              { "include": "#punctuation" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              { "include": "#members" }
             ]
           }
         ]

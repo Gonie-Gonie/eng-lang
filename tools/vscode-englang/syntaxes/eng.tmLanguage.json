@@ -2652,9 +2652,6 @@
                                                                                        "include":  "#strings"
                                                                                    },
                                                                                    {
-                                                                                       "include":  "#members"
-                                                                                   },
-                                                                                   {
                                                                                        "include":  "#units"
                                                                                    },
                                                                                    {
@@ -2670,7 +2667,25 @@
                                                                                        "include":  "#numbers"
                                                                                    },
                                                                                    {
+                                                                                       "include":  "#operators"
+                                                                                   },
+                                                                                   {
                                                                                        "include":  "#punctuation"
+                                                                                   },
+                                                                                   {
+                                                                                       "name":  "variable.parameter.property.englang",
+                                                                                       "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                   },
+                                                                                   {
+                                                                                       "name":  "variable.other.property.englang",
+                                                                                       "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                   },
+                                                                                   {
+                                                                                       "name":  "variable.other.local.englang",
+                                                                                       "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                   },
+                                                                                   {
+                                                                                       "include":  "#members"
                                                                                    }
                                                                                ]
                                                               }

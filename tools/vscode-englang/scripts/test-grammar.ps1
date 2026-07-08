@@ -528,6 +528,37 @@ function Assert-WorkflowPatternIncludes {
     }
 }
 
+function Assert-FunctionCallFallbacks {
+    $patterns = @($Grammar.repository.functionCalls.patterns | Where-Object {
+        [string]$_.name -eq "meta.function-call.englang"
+    })
+    if ($patterns.Count -ne 1) {
+        throw "TextMate grammar must define exactly one generic function-call pattern"
+    }
+
+    $includes = @($patterns[0].patterns | Where-Object {
+        $null -ne $_.include
+    } | ForEach-Object {
+        [string]$_.include
+    })
+    foreach ($include in @("#operators", "#units", "#builtins", "#numbers", "#punctuation")) {
+        if ($includes -notcontains $include) {
+            throw "TextMate generic function-call pattern must include $include"
+        }
+    }
+
+    $scopes = @($patterns[0].patterns | Where-Object {
+        $null -ne $_.name
+    } | ForEach-Object {
+        [string]$_.name
+    })
+    foreach ($scope in @("variable.parameter.property.englang", "variable.other.property.englang", "variable.other.local.englang")) {
+        if ($scopes -notcontains $scope) {
+            throw "TextMate generic function-call pattern must include $scope fallback"
+        }
+    }
+}
+
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
@@ -755,6 +786,7 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $
 Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
+Assert-FunctionCallFallbacks
 
 function Resolve-GrammarFixturePath {
     param([Parameter(Mandatory = $true)][string] $Fixture)
