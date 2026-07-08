@@ -6506,6 +6506,13 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
             if !output.review_json.contains("PredictionResult")
                 || !native_workflow_has_zero_process_results(&output.process_results_json)
                 || !output.result_json.contains("\"sample_tables\"")
+                || !native_workflow_has_sample_table(
+                    &output.result_json,
+                    "training_designs",
+                    "42",
+                    8,
+                )
+                || !native_workflow_has_sample_table(&output.result_json, "designs", "84", 3)
                 || !output
                     .result_json
                     .contains("\"binding\": \"training_results\"")
@@ -6979,6 +6986,47 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         }
     }
     true
+}
+
+fn native_workflow_has_sample_table(
+    result_json: &str,
+    binding: &str,
+    seed: &str,
+    sample_count: u64,
+) -> bool {
+    let Ok(result) = serde_json::from_str::<Value>(result_json) else {
+        return false;
+    };
+    let sample_tables = result
+        .get("sample_tables")
+        .or_else(|| {
+            result
+                .get("typed_payload")
+                .and_then(|payload| payload.get("sample_tables"))
+        })
+        .and_then(Value::as_array);
+    let Some(sample_tables) = sample_tables else {
+        return false;
+    };
+    sample_tables.iter().any(|table| {
+        table.get("binding").and_then(Value::as_str) == Some(binding)
+            && table.get("schema_name").and_then(Value::as_str) == Some("GeneratedSample")
+            && table.get("source").and_then(Value::as_str) == Some("sample lhs")
+            && table.get("generation").and_then(Value::as_str) == Some("sample_lhs")
+            && table.get("method").and_then(Value::as_str) == Some("lhs")
+            && table.get("seed").and_then(Value::as_str) == Some(seed)
+            && table.get("status").and_then(Value::as_str) == Some("generated_sample_table")
+            && table.get("sample_count").and_then(Value::as_u64) == Some(sample_count)
+            && table.get("row_hash_count").and_then(Value::as_u64) == Some(sample_count)
+            && table
+                .get("duplicate_case_ids")
+                .and_then(Value::as_array)
+                .is_some_and(Vec::is_empty)
+            && table
+                .get("parameter_columns")
+                .and_then(Value::as_array)
+                .is_some_and(|columns| columns.len() == 6)
+    })
 }
 
 fn native_workflow_has_zero_process_results(process_results_json: &str) -> bool {

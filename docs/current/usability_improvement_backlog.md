@@ -5219,6 +5219,13 @@ Status: implemented after reviewing `EngLang: Show Tooling Status` for user-faci
 - Reworded the status payload from fresh/short-lived request phrasing to on-demand live editor checks.
 - Extended `ide-check` to reject the older internal request wording in the VS Code command handler.
 
+## Batch 431: Workflow 02 Dual Sample Table Smoke
+
+Status: implemented after checking workflow 02 artifacts for native sampling evidence beyond Python/process absence.
+
+- Strengthened `workflows-test` so both generated LHS sample tables must be present: `training_designs` with seed 42/count 8 and `designs` with seed 84/count 3.
+- Added the same structured sample-table contract to the Rust example smoke gate, including generated status, row hashes, parameter columns, and duplicate-case checks.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

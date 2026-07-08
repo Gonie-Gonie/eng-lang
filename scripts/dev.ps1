@@ -577,6 +577,29 @@ function Invoke-WorkflowsTest {
             $ResultJson = Get-Content -LiteralPath $ResultPath -Raw
             $ReviewJson = Get-Content -LiteralPath $ReviewPath -Raw
             $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
+            $ResultData = $ResultJson | ConvertFrom-Json
+            $SampleTables = $ResultData.sample_tables
+            if ($null -eq $SampleTables -and $null -ne $ResultData.typed_payload) {
+                $SampleTables = $ResultData.typed_payload.sample_tables
+            }
+            foreach ($RequiredSampleTable in @(
+                @{ Binding = "training_designs"; Seed = "42"; Count = 8 },
+                @{ Binding = "designs"; Seed = "84"; Count = 3 }
+            )) {
+                $MatchingSampleTables = @($SampleTables | Where-Object {
+                    [string]$_.binding -eq $RequiredSampleTable.Binding -and
+                    [string]$_.generation -eq "sample_lhs" -and
+                    [string]$_.method -eq "lhs" -and
+                    [string]$_.seed -eq $RequiredSampleTable.Seed -and
+                    [int]$_.sample_count -eq $RequiredSampleTable.Count -and
+                    [int]$_.row_hash_count -eq $RequiredSampleTable.Count -and
+                    @($_.duplicate_case_ids).Count -eq 0 -and
+                    @($_.parameter_columns).Count -eq 6
+                })
+                if ($MatchingSampleTables.Count -ne 1) {
+                    throw "Workflow 02 native sample table missing generated LHS contract for $($RequiredSampleTable.Binding)"
+                }
+            }
             foreach ($RequiredSurrogateResultToken in @(
                 '"sample_tables"',
                 '"method": "lhs"',
