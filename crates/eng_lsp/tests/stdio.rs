@@ -1285,6 +1285,8 @@ report {
         "0.5",
     );
     assert_action_edit(actions, &uri, "Set solver initial value: initial = 1", "1");
+    assert_action_edit(actions, &uri, "Set model test split: test = 0.25", "0.25");
+    assert_action_edit(actions, &uri, "Set model seed: seed = 7", "7");
     assert_action_edit(
         actions,
         &uri,

@@ -807,10 +807,7 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
             lsp_remove_stdlib_module_import_code_action(uri, text, diagnostic, "internal"),
         ),
         code => optional_code_action(lsp_option_value_replacement_code_action(
-            uri,
-            text,
-            diagnostic,
-            option_quick_fix(code),
+            uri, text, diagnostic, code,
         )),
     }
 }
@@ -1422,6 +1419,11 @@ struct OptionQuickFix {
     label: &'static str,
 }
 
+struct OptionValueQuickFix {
+    value: &'static str,
+    label: &'static str,
+}
+
 fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
     match code {
         "E-NET-RETRY-POLICY" | "E-PROCESS-RETRY-POLICY" => Some(OptionQuickFix {
@@ -1598,23 +1600,76 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
     }
 }
 
+fn option_quick_fix_option_names(code: &str) -> Option<&'static [&'static str]> {
+    option_quick_fix(code)
+        .map(|fix| fix.option_names)
+        .or_else(|| model_option_quick_fix_option_names(code))
+}
+
+fn option_quick_fix_for_option(code: &str, option_name: &str) -> Option<OptionValueQuickFix> {
+    if let Some(fix) = option_quick_fix(code) {
+        if fix.option_names.contains(&option_name) {
+            return Some(OptionValueQuickFix {
+                value: fix.value,
+                label: fix.label,
+            });
+        }
+    }
+    model_option_quick_fix(code, option_name)
+}
+
+fn model_option_quick_fix_option_names(code: &str) -> Option<&'static [&'static str]> {
+    match code {
+        "E-ML-ARGS-001" => Some(&["test", "test_fraction", "hidden", "layers", "epochs"]),
+        "E-ML-ARGS-002" => Some(&[
+            "test",
+            "test_fraction",
+            "seed",
+            "hidden",
+            "layers",
+            "epochs",
+        ]),
+        _ => None,
+    }
+}
+
+fn model_option_quick_fix(code: &str, option_name: &str) -> Option<OptionValueQuickFix> {
+    match (code, option_name) {
+        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "test" | "test_fraction") => {
+            Some(OptionValueQuickFix {
+                value: "0.25",
+                label: "Set model test split",
+            })
+        }
+        ("E-ML-ARGS-002", "seed") => Some(OptionValueQuickFix {
+            value: "7",
+            label: "Set model seed",
+        }),
+        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "hidden" | "layers") => Some(OptionValueQuickFix {
+            value: "[8]",
+            label: "Set model hidden layers",
+        }),
+        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "epochs") => Some(OptionValueQuickFix {
+            value: "20",
+            label: "Set model epochs",
+        }),
+        _ => None,
+    }
+}
+
 fn lsp_option_value_replacement_code_action(
     uri: &str,
     text: &str,
     diagnostic: &Value,
-    fix: Option<OptionQuickFix>,
+    code: &str,
 ) -> Option<Value> {
-    let fix = fix?;
+    let option_names = option_quick_fix_option_names(code)?;
     let line_number = diagnostic_line(diagnostic)?;
     let line = text.lines().nth(line_number)?;
-    let assignment = option_assignment_range(line, fix.option_names)?;
-    let option_label = if fix.option_names.len() == 1 {
-        fix.option_names[0]
-    } else {
-        &assignment.option_name
-    };
+    let assignment = option_assignment_range(line, option_names)?;
+    let fix = option_quick_fix_for_option(code, &assignment.option_name)?;
     Some(json!({
-        "title": format!("{}: {} = {}", fix.label, option_label, fix.value),
+        "title": format!("{}: {} = {}", fix.label, assignment.option_name, fix.value),
         "kind": "quickfix",
         "isPreferred": true,
         "diagnostics": [diagnostic.clone()],

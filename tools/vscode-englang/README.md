@@ -38,8 +38,9 @@ embedding compiler logic in JavaScript.
   HeatRate TimeSeries sum-to-integrate repairs,
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
-  sampling seeds, simulation/solver option repairs, unsupported regression
-  algorithm repairs, legacy `select_first_row` migration skeletons,
+  sampling seeds, simulation/solver option repairs, model option fallback
+  repairs for invalid test splits, seeds, hidden layers, and epochs,
+  unsupported regression algorithm repairs, legacy `select_first_row` migration skeletons,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
   definition/conversion repairs, and golden expected path wrappers. Live
@@ -165,9 +166,10 @@ Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid
 network/process/sampling options such as retry, timeout, body-size, duplicate
 process bindings, process command/env/cwd, allow-failure, sample count, sample
-seed values, deterministic cache keys, cache directories, cache TTL values, and
-common simulation/solver option values such as timestep, duration, tolerance,
-solver, max-iteration, and initial values.
+seed values, deterministic cache keys, cache directories, cache TTL values,
+model test splits, model seeds, hidden-layer lists, model epochs, and common
+simulation/solver option values such as timestep, duration, tolerance, solver,
+max-iteration, and initial values.
 Simple same-block `where` local ordering diagnostics can move the later
 definition before its first use.
 Uncertainty diagnostics can also repair common constructor mistakes such as

@@ -3400,6 +3400,12 @@ function Assert-VscodeExtensionContract {
         "E-WITH-UNCERTAINTY-SAMPLES-001",
         "E-WITH-UNCERTAINTY-SEED-001",
         "W-WITH-UNCERTAINTY-SEED-001",
+        "E-ML-ARGS-001",
+        "E-ML-ARGS-002",
+        "E-ML-ARGS-003",
+        "E-CACHE-KEY-NONDETERMINISTIC",
+        "E-CACHE-DIR",
+        "E-CACHE-TTL",
         "E-GOLDEN-002",
         "removeScriptWrapperAction",
         "quantityAnnotationActions",
@@ -3476,6 +3482,15 @@ function Assert-VscodeExtensionContract {
         "Set uncertainty samples",
         "Set uncertainty seed",
         "Add uncertainty seed: seed = 7",
+        "Set deterministic cache key",
+        "Set cache directory",
+        "Set cache TTL to 1 h",
+        "Set model test split",
+        "Set model seed",
+        "Set model hidden layers",
+        "Set model epochs",
+        "modelOptionValueAction",
+        "modelOptionFixes",
         "uncertaintySeedMissingAction",
         "withBlockContainingLine",
         "E-STDLIB-MODULE-UNKNOWN",
@@ -3588,6 +3603,20 @@ function Assert-VscodeExtensionContract {
 
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
     $LspCliSource = Get-Content -LiteralPath $LspCliSourcePath -Raw
+    foreach ($RequiredLspQuickFixToken in @(
+        "OptionValueQuickFix",
+        "model_option_quick_fix",
+        "model_option_quick_fix_option_names",
+        "option_quick_fix_for_option",
+        "Set model test split",
+        "Set model seed",
+        "Set model hidden layers",
+        "Set model epochs"
+    )) {
+        if (-not $LspCliSource.Contains($RequiredLspQuickFixToken)) {
+            throw "eng-lsp code action source missing quick fix token $RequiredLspQuickFixToken"
+        }
+    }
     foreach ($RequiredLspDefinitionToken in @(
         "--definition-stdin",
         "command_definition_stdin",

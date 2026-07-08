@@ -337,3 +337,14 @@ Add or update grammar fixture expectations when a token is user-visible and a
 theme should color it without semantic tokens. Add or update LSP snapshot
 coverage when the role depends on compiler context, source metadata, review
 risk, quantity/unit analysis, or workflow artifact semantics.
+
+## Backlog Batch 454 - Model Option Quick Fix Parity
+
+- Add LSP and VS Code local fallback quick fixes for invalid model test split,
+  seed, hidden/layer list, and epoch option values so live editor actions and
+  fallback actions use the same wording and replacement values.
+- Keep target/features repairs out of the fallback list until the compiler can
+  infer a safe project-specific column name; current repairs only rewrite an
+  already-present option value.
+- `ide-check` must guard the new diagnostic codes, labels, and helper names so
+  future quick-fix refactors do not silently drop model option coverage.

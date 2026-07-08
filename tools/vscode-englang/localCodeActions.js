@@ -265,6 +265,11 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    const modelOptionAction = modelOptionValueAction(document, diagnostic, code);
+    if (modelOptionAction) {
+      modelOptionAction.isPreferred = true;
+      actions.push(modelOptionAction);
+    }
     const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
     if (optionAction) {
       optionAction.isPreferred = true;
@@ -722,8 +727,52 @@ function optionValueReplacementAction(document, diagnostic, fix) {
     return undefined;
   }
   const optionLabel = fix.optionNames.length === 1 ? fix.optionNames[0] : assignment.optionName;
+  return optionValueAction(document, diagnostic, line, assignment, fix.label, fix.value, optionLabel);
+}
+
+function modelOptionValueAction(document, diagnostic, code) {
+  const fixes = modelOptionFixes(code);
+  if (fixes.length === 0) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const assignment = optionAssignmentRange(
+    line.text,
+    fixes.map((fix) => fix.optionName)
+  );
+  if (!assignment) {
+    return undefined;
+  }
+  const fix = fixes.find((candidate) => candidate.optionName === assignment.optionName);
+  if (!fix) {
+    return undefined;
+  }
+  return optionValueAction(document, diagnostic, line, assignment, fix.label, fix.value, assignment.optionName);
+}
+
+function modelOptionFixes(code) {
+  const sharedFixes = [
+    { optionName: "test", value: "0.25", label: "Set model test split" },
+    { optionName: "test_fraction", value: "0.25", label: "Set model test split" },
+    { optionName: "hidden", value: "[8]", label: "Set model hidden layers" },
+    { optionName: "layers", value: "[8]", label: "Set model hidden layers" },
+    { optionName: "epochs", value: "20", label: "Set model epochs" }
+  ];
+  if (code === "E-ML-ARGS-001") {
+    return sharedFixes;
+  }
+  if (code === "E-ML-ARGS-002") {
+    return [
+      ...sharedFixes,
+      { optionName: "seed", value: "7", label: "Set model seed" }
+    ];
+  }
+  return [];
+}
+
+function optionValueAction(document, diagnostic, line, assignment, label, value, optionLabel) {
   const action = new vscode.CodeAction(
-    `${fix.label}: ${optionLabel} = ${fix.value}`,
+    `${label}: ${optionLabel} = ${value}`,
     vscode.CodeActionKind.QuickFix
   );
   action.diagnostics = [diagnostic];
@@ -731,7 +780,7 @@ function optionValueReplacementAction(document, diagnostic, fix) {
   action.edit.replace(
     document.uri,
     new vscode.Range(line.lineNumber, assignment.valueStart, line.lineNumber, assignment.valueEnd),
-    fix.value
+    value
   );
   return action;
 }
