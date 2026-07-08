@@ -14,15 +14,12 @@ use crate::jit_bench::{
 use crate::print_diagnostics;
 
 pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
+    if let Err(error) = ensure_required_workflow_main_sources() {
+        eprintln!("{error}");
+        return ExitCode::from(2);
+    }
     let workflow_examples = match workflow_main_sources() {
-        Ok(examples) if examples.len() >= 3 => examples,
-        Ok(examples) => {
-            eprintln!(
-                "expected at least workflow 01/02/03 main.eng files, found {}",
-                examples.len()
-            );
-            return ExitCode::from(2);
-        }
+        Ok(examples) => examples,
         Err(error) => {
             eprintln!("failed to enumerate workflow examples: {error}");
             return ExitCode::from(2);
@@ -6933,15 +6930,12 @@ report {
 }
 
 fn native_workflow_sources_avoid_external_processes() -> bool {
+    if let Err(error) = ensure_required_workflow_main_sources() {
+        eprintln!("{error}");
+        return false;
+    }
     let workflow_sources = match workflow_main_sources() {
-        Ok(sources) if sources.len() >= 3 => sources,
-        Ok(sources) => {
-            eprintln!(
-                "expected at least workflow 01/02/03 main.eng files, found {}",
-                sources.len()
-            );
-            return false;
-        }
+        Ok(sources) => sources,
         Err(error) => {
             eprintln!("failed to enumerate native workflow sources: {error}");
             return false;
@@ -7004,6 +6998,25 @@ fn native_workflow_has_zero_process_results(process_results_json: &str) -> bool 
         && execution_profile == Some("normal")
         && process_count == Some(0)
         && processes_empty
+}
+
+const REQUIRED_WORKFLOW_MAIN_SOURCES: &[&str] = &[
+    "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "examples/workflows/03_uncertain_sensor_report/main.eng",
+];
+
+fn ensure_required_workflow_main_sources() -> Result<(), std::io::Error> {
+    for source in REQUIRED_WORKFLOW_MAIN_SOURCES {
+        let path = Path::new(source);
+        if !path.is_file() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                format!("missing required workflow example {}", path.display()),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn workflow_main_sources() -> Result<Vec<PathBuf>, std::io::Error> {

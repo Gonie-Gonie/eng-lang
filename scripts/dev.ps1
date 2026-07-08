@@ -368,8 +368,15 @@ function Invoke-WorkflowsTest {
     } | Where-Object {
         Test-Path -LiteralPath $_ -PathType Leaf
     } | Sort-Object)
-    if ($WorkflowSourcePaths.Count -lt 3) {
-        throw "Native workflow smoke expected at least workflow 01/02/03 main.eng files"
+    $RequiredWorkflowSourcePaths = @(
+        (Join-Path $WorkflowRoot "01_weather_api_to_standard_file\main.eng"),
+        (Join-Path $WorkflowRoot "02_native_surrogate_case_workflow\main.eng"),
+        (Join-Path $WorkflowRoot "03_uncertain_sensor_report\main.eng")
+    )
+    foreach ($RequiredWorkflowSourcePath in $RequiredWorkflowSourcePaths) {
+        if (-not (Test-Path -LiteralPath $RequiredWorkflowSourcePath -PathType Leaf)) {
+            throw "Native workflow smoke missing required workflow entrypoint: $RequiredWorkflowSourcePath"
+        }
     }
     $WorkflowPublicDocPaths = @(
         @(Get-ChildItem -LiteralPath $WorkflowRoot -Recurse -File -Include "*.md", "*.txt" | Sort-Object FullName)

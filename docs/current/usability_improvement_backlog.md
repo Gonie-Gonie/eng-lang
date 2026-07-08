@@ -5058,6 +5058,13 @@ Status: implemented after checking that representative grammar fixtures covered 
 - Let the VS Code grammar smoke harness resolve expected-token fixtures from either the fixture directory or repository-relative source paths.
 - Added smoke expectations against the real workflow 01/02/03 `main.eng` files for native HTTP, coverage, standard-text write, sampling, case materialization, template application, model training/prediction, SQLite write/read, plotting, and confidence-band option phrases.
 
+## Batch 413: Required Native Workflow Entrypoint Guards
+
+Status: implemented after reviewing workflow 01/02/03 native-execution gates for weak existence checks.
+
+- Changed `dev.bat workflows-test` to require the named workflow 01/02/03 `main.eng` files instead of accepting any three workflow directories.
+- Added the same required-entrypoint guard to the Rust example smoke path so missing canonical native workflow examples cannot be hidden by unrelated workflow additions.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
