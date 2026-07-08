@@ -336,7 +336,7 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                 }
             }
             for request in &report.semantic_program.net_requests {
-                if request.fixture.is_none() || request.expected_sha256.is_none() {
+                if request.offline_response.is_none() || request.expected_sha256.is_none() {
                     diagnostics.push(ProfileDiagnostic {
                         severity: "error",
                         code: "E-NET-UNPINNED-REPRO",
@@ -349,7 +349,7 @@ fn profile_diagnostics(profile: &ExecutionProfile, report: &CheckReport) -> Vec<
                 }
             }
             for download in &report.semantic_program.net_downloads {
-                if download.fixture.is_none() || download.expected_sha256.is_none() {
+                if download.offline_response.is_none() || download.expected_sha256.is_none() {
                     diagnostics.push(ProfileDiagnostic {
                         severity: "error",
                         code: "E-NET-UNPINNED-REPRO",
@@ -1774,7 +1774,7 @@ fn execute_live_network_boundaries(
     let request_count = report.semantic_program.net_requests.len();
     for index in 0..request_count {
         if report.semantic_program.net_requests[index]
-            .fixture
+            .offline_response
             .is_some()
         {
             continue;
@@ -1800,7 +1800,7 @@ fn execute_live_network_boundaries(
     let download_count = report.semantic_program.net_downloads.len();
     for index in 0..download_count {
         if report.semantic_program.net_downloads[index]
-            .fixture
+            .offline_response
             .is_some()
         {
             continue;
@@ -2150,7 +2150,7 @@ fn bind_runtime_network_response(
         .iter_mut()
         .find(|request| request.binding == binding)
     {
-        request.fixture = Some(body_path.clone());
+        request.offline_response = Some(body_path.clone());
         request.response_hash = Some(response.hash.clone());
         request.status_code = Some(response.status_code);
         request.status_class = response.status_class.clone();
@@ -2177,7 +2177,7 @@ fn bind_runtime_network_download(
         .iter_mut()
         .find(|download| download.target_value == target_value)
     {
-        download.fixture = Some(body_path);
+        download.offline_response = Some(body_path);
         download.response_hash = Some(response.hash);
         download.status_code = Some(response.status_code);
         download.status_class = response.status_class;
@@ -2642,7 +2642,7 @@ fn materialize_network_cache_entries(
         if request.response_hash.is_none() {
             continue;
         }
-        let Some(fixture) = &request.fixture else {
+        let Some(offline_response) = &request.offline_response else {
             continue;
         };
         let Some(record) = records.iter_mut().find(|record| {
@@ -2650,13 +2650,13 @@ fn materialize_network_cache_entries(
         }) else {
             continue;
         };
-        materialize_network_cache_entry(fixture, source_base, record, build_root)?;
+        materialize_network_cache_entry(offline_response, source_base, record, build_root)?;
     }
     for download in &report.semantic_program.net_downloads {
         if download.response_hash.is_none() {
             continue;
         }
-        let Some(fixture) = &download.fixture else {
+        let Some(offline_response) = &download.offline_response else {
             continue;
         };
         let Some(record) = records.iter_mut().find(|record| {
@@ -2664,13 +2664,13 @@ fn materialize_network_cache_entries(
         }) else {
             continue;
         };
-        materialize_network_cache_entry(fixture, source_base, record, build_root)?;
+        materialize_network_cache_entry(offline_response, source_base, record, build_root)?;
     }
     Ok(())
 }
 
 fn materialize_network_cache_entry(
-    fixture: &str,
+    offline_response: &str,
     source_base: Option<&Path>,
     record: &mut CacheManifestRecord,
     build_root: &Path,
@@ -2678,7 +2678,7 @@ fn materialize_network_cache_entry(
     if record.lookup_status == "hit" {
         return Ok(());
     }
-    let source = runtime_resolve_source_relative_path(fixture, source_base);
+    let source = runtime_resolve_source_relative_path(offline_response, source_base);
     if !source.exists() {
         return Ok(());
     }
@@ -6956,7 +6956,7 @@ fn static_run_plan_json(
                 "timeout": &request.timeout,
                 "body_sha256": request.body.as_deref().map(eng_compiler::request_body_sha256),
                 "body_size_limit_bytes": request.body_size_limit_bytes,
-                "offline_response": &request.fixture
+                "offline_response": &request.offline_response
             })],
             rerun_decision,
         ));
@@ -6980,7 +6980,7 @@ fn static_run_plan_json(
                 "cache": download.cache,
                 "timeout": &download.timeout,
                 "body_size_limit_bytes": download.body_size_limit_bytes,
-                "offline_response": &download.fixture
+                "offline_response": &download.offline_response
             })],
             rerun_decision,
         ));
@@ -8167,21 +8167,26 @@ fn source_records_for_registry(registry: &ArtifactRegistryContext<'_>) -> Vec<So
                 line: dependency.line,
             }),
     );
-    records.extend(network_fixture_source_records(registry));
+    records.extend(network_offline_response_source_records(registry));
     records
 }
 
-fn network_fixture_source_records(registry: &ArtifactRegistryContext<'_>) -> Vec<SourceRecord> {
+fn network_offline_response_source_records(
+    registry: &ArtifactRegistryContext<'_>,
+) -> Vec<SourceRecord> {
     let source_base = registry.report.source_path.parent();
     let mut records = Vec::new();
     for request in &registry.report.semantic_program.net_requests {
-        let Some(fixture) = &request.fixture else {
+        let Some(offline_response) = &request.offline_response else {
             continue;
         };
         records.push(SourceRecord {
             kind: "source_file".to_owned(),
             binding: request.binding.clone(),
-            path: path_for_manifest(&runtime_resolve_source_relative_path(fixture, source_base)),
+            path: path_for_manifest(&runtime_resolve_source_relative_path(
+                offline_response,
+                source_base,
+            )),
             hash: request.response_hash.clone(),
             schema: None,
             row_count: None,
@@ -8190,13 +8195,16 @@ fn network_fixture_source_records(registry: &ArtifactRegistryContext<'_>) -> Vec
         });
     }
     for download in &registry.report.semantic_program.net_downloads {
-        let Some(fixture) = &download.fixture else {
+        let Some(offline_response) = &download.offline_response else {
             continue;
         };
         records.push(SourceRecord {
             kind: "source_file".to_owned(),
             binding: format!("download:{}", download.target_value),
-            path: path_for_manifest(&runtime_resolve_source_relative_path(fixture, source_base)),
+            path: path_for_manifest(&runtime_resolve_source_relative_path(
+                offline_response,
+                source_base,
+            )),
             hash: download.response_hash.clone(),
             schema: None,
             row_count: None,
@@ -9443,8 +9451,9 @@ fn evaluate_network_response_field_expression(
         .find(|request| request.binding == binding.trim())?;
     match field.trim() {
         "body" | "text" => {
-            let fixture = request.fixture.as_ref()?;
-            let path = runtime_resolve_source_relative_path(fixture, report.source_path.parent());
+            let offline_response = request.offline_response.as_ref()?;
+            let path =
+                runtime_resolve_source_relative_path(offline_response, report.source_path.parent());
             fs::read_to_string(path).ok().map(RuntimeFormatValue::Text)
         }
         "method" => Some(RuntimeFormatValue::Text(request.method.clone())),

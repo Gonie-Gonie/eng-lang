@@ -48,7 +48,7 @@ pub struct NetRequestInfo {
     pub expected_sha256: Option<String>,
     pub timeout: Option<String>,
     pub body_size_limit_bytes: Option<usize>,
-    pub fixture: Option<String>,
+    pub offline_response: Option<String>,
     pub status_code: Option<u16>,
     pub status_class: String,
     pub response_hash: Option<String>,
@@ -68,7 +68,7 @@ pub struct NetDownloadInfo {
     pub expected_sha256: Option<String>,
     pub timeout: Option<String>,
     pub body_size_limit_bytes: Option<usize>,
-    pub fixture: Option<String>,
+    pub offline_response: Option<String>,
     pub status_code: Option<u16>,
     pub status_class: String,
     pub response_hash: Option<String>,
@@ -169,17 +169,17 @@ fn build_request(
     let url_value =
         resolve_value(url_literal, arg_values).unwrap_or_else(|| url_literal.to_owned());
     validate_url(&url_value, line, diagnostics);
-    let fixture = offline_response_value(options)
+    let offline_response = offline_response_value(options)
         .map(|value| resolve_value(value, arg_values).unwrap_or_else(|| value.to_owned()));
-    let fixture_read = fixture
+    let offline_response_read = offline_response
         .as_ref()
-        .and_then(|fixture| read_fixture(source_base, fixture));
+        .and_then(|offline_response| read_offline_response(source_base, offline_response));
     let expected_sha256 = expected_sha256_option(options);
     let hash_valid = validate_expected_sha256(
         expected_sha256
             .as_ref()
             .map(|(value, _line)| value.as_str()),
-        fixture_read.as_ref(),
+        offline_response_read.as_ref(),
         expected_sha256
             .as_ref()
             .map(|(_value, line)| *line)
@@ -188,7 +188,7 @@ fn build_request(
     );
     let status_code = option_value(options, "status_code")
         .and_then(parse_u16)
-        .or_else(|| fixture_read.as_ref().map(|_| 200));
+        .or_else(|| offline_response_read.as_ref().map(|_| 200));
     NetRequestInfo {
         binding: binding.to_owned(),
         method: method.to_owned(),
@@ -202,11 +202,11 @@ fn build_request(
         expected_sha256: expected_sha256.map(|(value, _line)| value),
         timeout: timeout_policy(options, diagnostics),
         body_size_limit_bytes: body_size_limit_policy(options, diagnostics),
-        fixture,
+        offline_response,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
-        response_hash: fixture_read.as_ref().map(|read| read.hash.clone()),
-        status: fixture_status(fixture_read.as_ref(), hash_valid),
+        response_hash: offline_response_read.as_ref().map(|read| read.hash.clone()),
+        status: offline_response_status(offline_response_read.as_ref(), hash_valid),
         line,
     }
 }
@@ -226,17 +226,17 @@ fn build_download(
     validate_url(&url_value, line, diagnostics);
     let target_value =
         resolve_value(target_literal, arg_values).unwrap_or_else(|| target_literal.to_owned());
-    let fixture = offline_response_value(options)
+    let offline_response = offline_response_value(options)
         .map(|value| resolve_value(value, arg_values).unwrap_or_else(|| value.to_owned()));
-    let fixture_read = fixture
+    let offline_response_read = offline_response
         .as_ref()
-        .and_then(|fixture| read_fixture(source_base, fixture));
+        .and_then(|offline_response| read_offline_response(source_base, offline_response));
     let expected_sha256 = expected_sha256_option(options);
     let hash_valid = validate_expected_sha256(
         expected_sha256
             .as_ref()
             .map(|(value, _line)| value.as_str()),
-        fixture_read.as_ref(),
+        offline_response_read.as_ref(),
         expected_sha256
             .as_ref()
             .map(|(_value, line)| *line)
@@ -245,7 +245,7 @@ fn build_download(
     );
     let status_code = option_value(options, "status_code")
         .and_then(parse_u16)
-        .or_else(|| fixture_read.as_ref().map(|_| 200));
+        .or_else(|| offline_response_read.as_ref().map(|_| 200));
     NetDownloadInfo {
         url_literal: url_literal.to_owned(),
         url_value,
@@ -257,11 +257,11 @@ fn build_download(
         expected_sha256: expected_sha256.map(|(value, _line)| value),
         timeout: timeout_policy(options, diagnostics),
         body_size_limit_bytes: body_size_limit_policy(options, diagnostics),
-        fixture,
+        offline_response,
         status_code,
         status_class: http_status_class(status_code).to_owned(),
-        response_hash: fixture_read.as_ref().map(|read| read.hash.clone()),
-        status: fixture_status(fixture_read.as_ref(), hash_valid),
+        response_hash: offline_response_read.as_ref().map(|read| read.hash.clone()),
+        status: offline_response_status(offline_response_read.as_ref(), hash_valid),
         line,
     }
 }
@@ -647,7 +647,7 @@ fn validate_url(value: &str, line: usize, diagnostics: &mut Vec<Diagnostic>) {
 
 fn validate_expected_sha256(
     expected_sha256: Option<&str>,
-    fixture_read: Option<&FixtureRead>,
+    offline_response_read: Option<&OfflineResponseRead>,
     line: usize,
     diagnostics: &mut Vec<Diagnostic>,
 ) -> bool {
@@ -663,16 +663,16 @@ fn validate_expected_sha256(
         ));
         return false;
     }
-    let Some(fixture_read) = fixture_read else {
+    let Some(offline_response_read) = offline_response_read else {
         return true;
     };
-    if expected_sha256 != fixture_read.hash {
+    if expected_sha256 != offline_response_read.hash {
         diagnostics.push(Diagnostic::error(
             "E-NET-HASH-MISMATCH",
             line,
             &format!(
                 "Expected response SHA256 `{expected_sha256}` but offline response SHA256 was `{}`.",
-                fixture_read.hash
+                offline_response_read.hash
             ),
             Some("Update `expected_sha256` or the offline response file so the digest matches."),
         ));
@@ -697,23 +697,29 @@ pub fn request_body_sha256(body: &str) -> String {
     format!("{:x}", Sha256::digest(body.as_bytes()))
 }
 
-struct FixtureRead {
+struct OfflineResponseRead {
     hash: String,
     status: String,
 }
 
-fn fixture_status(fixture_read: Option<&FixtureRead>, hash_valid: bool) -> String {
-    match fixture_read {
+fn offline_response_status(
+    offline_response_read: Option<&OfflineResponseRead>,
+    hash_valid: bool,
+) -> String {
+    match offline_response_read {
         Some(read) if hash_valid => read.status.clone(),
         Some(_) => "hash_mismatch".to_owned(),
         None => "declared".to_owned(),
     }
 }
 
-fn read_fixture(source_base: Option<&Path>, fixture: &str) -> Option<FixtureRead> {
-    let path = resolve_source_relative_path(fixture, source_base);
+fn read_offline_response(
+    source_base: Option<&Path>,
+    offline_response: &str,
+) -> Option<OfflineResponseRead> {
+    let path = resolve_source_relative_path(offline_response, source_base);
     let source = fs::read(&path).ok()?;
-    Some(FixtureRead {
+    Some(OfflineResponseRead {
         hash: hash_bytes(&source),
         status: "offline_response".to_owned(),
     })

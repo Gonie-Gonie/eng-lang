@@ -850,14 +850,16 @@ fn response_body_sources(
         {
             continue;
         }
-        let source = if let Some(fixture_expression) =
+        let source = if let Some(offline_response_expression) =
             with_option_any_value(program, binding.line, &["offline_response", "fixture"])
         {
-            let Ok(fixture_value) = resolve_source_value(fixture_expression, arg_values) else {
+            let Ok(offline_response_value) =
+                resolve_source_value(offline_response_expression, arg_values)
+            else {
                 continue;
             };
             ResponseBodySource {
-                resolved_path: resolve_source_path(source_base, &fixture_value),
+                resolved_path: resolve_source_path(source_base, &offline_response_value),
                 runtime_bound: false,
             }
         } else {
@@ -873,7 +875,7 @@ fn response_body_sources(
     sources
 }
 
-pub(crate) fn response_body_fixture_sources(
+pub(crate) fn response_body_offline_response_sources(
     program: &crate::parser::ParsedProgram,
     source_base: Option<&Path>,
     arg_values: &[ArgValueInfo],

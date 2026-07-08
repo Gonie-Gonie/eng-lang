@@ -947,7 +947,7 @@ fn collect_environment_dependencies(
 ) -> Vec<EnvironmentDependencyInfo> {
     let mut dependencies = Vec::new();
     let response_body_sources =
-        schema::response_body_fixture_sources(parsed, source_base, &program.arg_values);
+        schema::response_body_offline_response_sources(parsed, source_base, &program.arg_values);
     for args_block in &program.args_blocks {
         for field in &args_block.fields {
             let Some(default_value) = &field.default_value else {
@@ -1088,7 +1088,7 @@ fn evaluate_read_expression(
     if program.net_requests.iter().any(|request| {
         let body = format!("{}.body", request.binding);
         let text = format!("{}.text", request.binding);
-        request.fixture.is_none()
+        request.offline_response.is_none()
             && matches!(path_expression.trim(), value if value == body || value == text)
     }) {
         return Some(ReadObservation {
@@ -4850,7 +4850,7 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
         push_optional_json_string(
             json,
             "offline_response",
-            request.fixture.as_deref(),
+            request.offline_response.as_deref(),
             indent + 4,
         );
         push_optional_json_string(
@@ -4914,7 +4914,7 @@ fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usiz
         push_optional_json_string(
             json,
             "offline_response",
-            download.fixture.as_deref(),
+            download.offline_response.as_deref(),
             indent + 4,
         );
         push_optional_json_string(
@@ -13757,7 +13757,9 @@ system Envelope {
                     .is_some_and(|help| help.contains("offline_response"))
         }));
         assert_eq!(
-            report.semantic_program.net_requests[0].fixture.as_deref(),
+            report.semantic_program.net_requests[0]
+                .offline_response
+                .as_deref(),
             Some("data/response.json")
         );
         assert!(report
