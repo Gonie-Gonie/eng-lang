@@ -4619,7 +4619,11 @@ function Invoke-VscodeInstall {
     if ($null -eq $Code) {
         throw "VS Code CLI not found. Install the VSIX manually from $VsixPath, or add the VS Code 'code' command to PATH."
     }
-    Invoke-Native $Code "--install-extension" $VsixPath "--force"
+    try {
+        Invoke-Native $Code "--install-extension" $VsixPath "--force"
+    } catch {
+        throw "VS Code extension install failed. Close all VS Code windows and rerun .\dev.bat vscode-install, or install the generated VSIX manually from $VsixPath. $($_.Exception.Message)"
+    }
     Write-Host "Installed EngLang VS Code extension from $VsixPath"
     Write-Host "Reload VS Code windows that already had EngLang files open."
 }

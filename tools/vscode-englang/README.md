@@ -95,7 +95,9 @@ To build and install the extension from the current checkout:
 This builds a release `eng.exe` and `eng-lsp.exe`, packages
 `dist\local-vscode\tools\englang-vscode-<version>.vsix`, and installs it with
 the VS Code `code` CLI. Reload any VS Code windows that already had `.eng`
-files open.
+files open. If reinstalling fails because VS Code asks to restart before
+reinstalling EngLang, close all VS Code windows and rerun the same command; the
+VSIX remains available at the generated `dist\local-vscode\tools` path.
 
 To build the VSIX without installing it:
 
