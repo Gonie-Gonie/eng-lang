@@ -5257,6 +5257,15 @@ Status: implemented after reviewing user-facing VS Code command and Settings wor
 - Reworded the quick pick placeholder, confirmation message, settings descriptions, README, and tooling status payload from "Problems source" to diagnostics mode so users see the behavior rather than the internal source switch.
 - Updated `ide-check` contracts to pin the clearer command title, lint-on-change setting wording, and tooling status `diagnostics_mode` field.
 
+## Batch 436: VS Code Diagnostics Mode Setting Alias
+
+Status: implemented after noticing the Settings UI still exposed the legacy `englang.problemsSource` key even though the visible command wording had moved to diagnostics mode.
+
+- Added `englang.diagnosticsMode` as the primary contributed setting and changed `EngLang: Switch Diagnostics Mode...` to write that key.
+- Kept existing `englang.problemsSource` and `englang.diagnosticsBackend` values as code-only compatibility aliases, with `diagnosticsMode` taking priority when both are present.
+- Added a new visible command id, `englang.switchDiagnosticsMode`, while still registering the old `englang.switchProblemsSource` command id for existing keybindings and scripts.
+- Updated `ide-check` to reject exposing the legacy setting/command in package metadata and to verify the new setting, command id, and compatibility read path.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

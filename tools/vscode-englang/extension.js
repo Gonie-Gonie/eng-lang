@@ -128,7 +128,8 @@ function activate(context) {
     vscode.commands.registerCommand("englang.runFile", () => commandHandlers.runActiveFile(context)),
     vscode.commands.registerCommand("englang.runExample", () => commandHandlers.runExample(context)),
     vscode.commands.registerCommand("englang.switchProfile", () => commandHandlers.switchExecutionProfile()),
-    vscode.commands.registerCommand("englang.switchProblemsSource", () => commandHandlers.switchProblemsSource()),
+    vscode.commands.registerCommand("englang.switchDiagnosticsMode", () => commandHandlers.switchDiagnosticsMode()),
+    vscode.commands.registerCommand("englang.switchProblemsSource", () => commandHandlers.switchDiagnosticsMode()),
     vscode.commands.registerCommand("englang.showToolingStatus", () => commandHandlers.showToolingStatus(context)),
     vscode.commands.registerCommand("englang.reviewFile", () => commandHandlers.reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => commandHandlers.openReviewPanel(context)),
@@ -265,9 +266,13 @@ function diagnosticsBackendLabel(backend) {
 
 function problemsSource(document) {
   const config = engConfig(document);
-  const configuredSource = explicitlyConfiguredEngValue(config, "problemsSource");
-  if (configuredSource === "file" || configuredSource === "live") {
-    return configuredSource;
+  const configuredMode = explicitlyConfiguredEngValue(config, "diagnosticsMode");
+  if (configuredMode === "file" || configuredMode === "live") {
+    return configuredMode;
+  }
+  const legacySource = explicitlyConfiguredEngValue(config, "problemsSource");
+  if (legacySource === "file" || legacySource === "live") {
+    return legacySource;
   }
   const legacyBackend = config.get("diagnosticsBackend", "eng-cli");
   return legacyBackend === "lsp-snapshot" ? "live" : "file";

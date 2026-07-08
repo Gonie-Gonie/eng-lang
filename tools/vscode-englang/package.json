@@ -541,7 +541,7 @@
           "default": "",
           "description": "Path to the EngLang live editor tool (eng-lsp.exe). Leave empty to use the bundled executable, workspace executable, or PATH."
         },
-        "englang.problemsSource": {
+        "englang.diagnosticsMode": {
           "type": "string",
           "default": "file",
           "enum": [
@@ -609,7 +609,7 @@
         "title": "EngLang: Switch Execution Profile..."
       },
       {
-        "command": "englang.switchProblemsSource",
+        "command": "englang.switchDiagnosticsMode",
         "title": "EngLang: Switch Diagnostics Mode..."
       },
       {

@@ -138,7 +138,7 @@ function createCommandHandlers(options = {}) {
     vscode.window.showInformationMessage(`EngLang execution profile set to ${picked.profile}.`);
   }
 
-  async function switchProblemsSource() {
+  async function switchDiagnosticsMode() {
     const document = vscode.window.activeTextEditor?.document;
     const current = problemsSource(document);
     const picked = await vscode.window.showQuickPick(
@@ -157,7 +157,7 @@ function createCommandHandlers(options = {}) {
     const target = vscode.workspace.workspaceFolders?.length
       ? vscode.ConfigurationTarget.Workspace
       : vscode.ConfigurationTarget.Global;
-    await engConfig(document).update("problemsSource", picked.source, target);
+    await engConfig(document).update("diagnosticsMode", picked.source, target);
     const suffix = picked.source === "live"
       ? "Problems will update while typing when englang.lintOnChange is enabled."
       : "Problems will use saved-file diagnostics on open, save, and manual check.";
@@ -416,12 +416,34 @@ function createCommandHandlers(options = {}) {
 
   function problemsSource(document) {
     const config = engConfig(document);
-    const configured = config.get("problemsSource", "file");
-    if (configured === "file" || configured === "live") {
-      return configured;
+    const configuredMode = explicitlyConfiguredEngValue(config, "diagnosticsMode");
+    if (configuredMode === "file" || configuredMode === "live") {
+      return configuredMode;
+    }
+    const legacySource = explicitlyConfiguredEngValue(config, "problemsSource");
+    if (legacySource === "file" || legacySource === "live") {
+      return legacySource;
     }
     const legacyBackend = config.get("diagnosticsBackend", "eng-cli");
     return legacyBackend === "lsp-snapshot" ? "live" : "file";
+  }
+
+  function explicitlyConfiguredEngValue(config, key) {
+    const inspection = config.inspect(key);
+    if (!inspection) {
+      return undefined;
+    }
+    for (const scope of [
+      "workspaceFolderValue",
+      "workspaceValue",
+      "globalValue"
+    ]) {
+      const value = inspection[scope];
+      if (value !== undefined) {
+        return value;
+      }
+    }
+    return undefined;
   }
 
   function toolingStatusDocument() {
@@ -536,7 +558,8 @@ function createCommandHandlers(options = {}) {
     runActiveFile,
     runExample,
     switchExecutionProfile,
-    switchProblemsSource,
+    switchDiagnosticsMode,
+    switchProblemsSource: switchDiagnosticsMode,
     showToolingStatus,
     reviewActiveFile,
     openReviewPanel,

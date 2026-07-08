@@ -80,7 +80,7 @@ Problems while typing. In `settings.json`, set:
 
 ```json
 {
-  "englang.problemsSource": "live"
+  "englang.diagnosticsMode": "live"
 }
 ```
 
@@ -125,12 +125,11 @@ symbols, workspace symbols, folding, semantic tokens, definition, formatting,
 and quick fixes. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set
-`englang.problemsSource` to `live` to update Problems from the current unsaved
+`englang.diagnosticsMode` to `live` to update Problems from the current unsaved
 buffer while typing, or run `EngLang: Switch Diagnostics Mode...` and choose
-`live`. If an older workspace already has
-`englang.diagnosticsBackend`, the extension
-still accepts it as a compatibility alias. New workspaces should use
-`englang.problemsSource`.
+`live`. If an older workspace already has `englang.problemsSource` or
+`englang.diagnosticsBackend`, the extension still accepts it as a compatibility
+alias. New workspaces should use `englang.diagnosticsMode`.
 `EngLang: Run Current File`
 passes `--profile <englang.executionProfile> --save-artifacts`, so the
 generated `build/result` review artifacts are available to the open-artifact

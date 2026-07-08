@@ -2519,12 +2519,15 @@ function Assert-VscodeExtensionContract {
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
     & (Join-Path $ExtensionRoot "scripts\build-editor-metadata.ps1") -ExtensionRoot $ExtensionRoot -Check
     $Commands = @($Package.contributes.commands | ForEach-Object { $_.command })
+    if ($Commands -contains "englang.switchProblemsSource") {
+        throw "VS Code extension must not expose legacy switchProblemsSource command in package metadata"
+    }
     foreach ($Required in @(
         "englang.checkFile",
         "englang.runFile",
         "englang.runExample",
         "englang.switchProfile",
-        "englang.switchProblemsSource",
+        "englang.switchDiagnosticsMode",
         "englang.showToolingStatus",
         "englang.reviewFile",
         "englang.openReviewPanel",
@@ -2572,7 +2575,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Data" },
         @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Output List" },
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
-        @{ Command = "englang.switchProblemsSource"; Text = "Switch Diagnostics Mode" },
+        @{ Command = "englang.switchDiagnosticsMode"; Text = "Switch Diagnostics Mode" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
@@ -2582,20 +2585,23 @@ function Assert-VscodeExtensionContract {
         }
     }
     $Properties = $Package.contributes.configuration.properties
-    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.problemsSource", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
+    foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
             throw "VS Code extension missing configuration property $RequiredProperty"
         }
     }
-    $ProblemsSourceDescription = [string]$Properties."englang.problemsSource".description
-    if ($ProblemsSourceDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
-        throw "VS Code problemsSource description must use user-facing wording, not implementation details"
+    $DiagnosticsModeDescription = [string]$Properties."englang.diagnosticsMode".description
+    if ($DiagnosticsModeDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata|Problems source") {
+        throw "VS Code diagnosticsMode description must use user-facing wording, not implementation details"
     }
-    $ProblemsSourceEnumDescriptions = @($Properties."englang.problemsSource".enumDescriptions)
-    foreach ($ProblemsSourceEnumDescription in $ProblemsSourceEnumDescriptions) {
-        if ([string]$ProblemsSourceEnumDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata") {
-            throw "VS Code problemsSource enum descriptions must use user-facing wording, not implementation details"
+    $DiagnosticsModeEnumDescriptions = @($Properties."englang.diagnosticsMode".enumDescriptions)
+    foreach ($DiagnosticsModeEnumDescription in $DiagnosticsModeEnumDescriptions) {
+        if ([string]$DiagnosticsModeEnumDescription -match "eng-cli|lsp-snapshot|snapshot path|metadata|Problems source") {
+            throw "VS Code diagnosticsMode enum descriptions must use user-facing wording, not implementation details"
         }
+    }
+    if ($null -ne $Properties."englang.problemsSource") {
+        throw "VS Code extension must not expose legacy problemsSource in Settings; keep it as a code-only compatibility alias"
     }
     if ($null -ne $Properties."englang.diagnosticsBackend") {
         throw "VS Code extension must not expose deprecated diagnosticsBackend in Settings; keep it as a code-only compatibility alias"
@@ -2923,7 +2929,7 @@ function Assert-VscodeExtensionContract {
         "async function runActiveFile",
         "async function runExample",
         "async function switchExecutionProfile",
-        "async function switchProblemsSource",
+        "async function switchDiagnosticsMode",
         "async function showToolingStatus",
         "async function reviewActiveFile",
         "async function openReviewPanel",
@@ -2969,7 +2975,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
     if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsBackend?.(document) !== "lsp-snapshot"')) {
-        throw "VS Code live buffer diagnostics must only run when englang.problemsSource is live"
+        throw "VS Code live buffer diagnostics must only run when diagnostics mode is live"
     }
     $LspRequestSourceCombined = $ExtensionSource + "`n" + $LspRequestsSource
     if (-not $ExtensionSource.Contains('require("./lspRequests")') -or -not $LspRequestsSource.Contains("function createLspRequests")) {
@@ -3474,19 +3480,19 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
         throw "VS Code extension must keep LSP range conversion in lspRanges.js"
     }
-    foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
+    foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
         if (-not $ExtensionSource.Contains($RequiredProblemsSourceToken)) {
             throw "VS Code extension missing user-facing diagnostics mode token $RequiredProblemsSourceToken"
         }
     }
-    $ProblemsSourceEnum = @($Properties."englang.problemsSource".enum)
-    foreach ($RequiredProblemsSource in @("file", "live")) {
-        if ($ProblemsSourceEnum -notcontains $RequiredProblemsSource) {
-            throw "VS Code extension problemsSource missing enum value $RequiredProblemsSource"
+    $DiagnosticsModeEnum = @($Properties."englang.diagnosticsMode".enum)
+    foreach ($RequiredDiagnosticsMode in @("file", "live")) {
+        if ($DiagnosticsModeEnum -notcontains $RequiredDiagnosticsMode) {
+            throw "VS Code extension diagnosticsMode missing enum value $RequiredDiagnosticsMode"
         }
     }
-    if (@($Properties."englang.problemsSource".enumDescriptions).Count -lt 2) {
-        throw "VS Code extension problemsSource must include user-facing enum descriptions"
+    if (@($Properties."englang.diagnosticsMode".enumDescriptions).Count -lt 2) {
+        throw "VS Code extension diagnosticsMode must include user-facing enum descriptions"
     }
     foreach ($RequiredLegacyProblemsToken in @('config.get("diagnosticsBackend", "eng-cli")', 'legacyBackend === "lsp-snapshot" ? "live" : "file"')) {
         if (-not $ExtensionSource.Contains($RequiredLegacyProblemsToken)) {
