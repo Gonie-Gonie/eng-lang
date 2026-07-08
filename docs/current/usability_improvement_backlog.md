@@ -5141,6 +5141,17 @@ Status: implemented after comparing compiler lexer keywords with LSP keyword com
 - This keeps compiler-recognized keywords available to generated editor metadata,
   TextMate fallback highlighting, and semantic token fallback paths.
 
+## Batch 421: Hyphenated Workflow Builtin Metadata Guard
+
+Status: implemented after checking generated syntax catalog fields against the VS Code loader and grammar smoke contracts.
+
+- Made the VS Code metadata loader require `hyphenated_workflow_builtins` so new
+  generated catalog fields cannot be silently ignored by the extension.
+- Updated the grammar builder and smoke harness to consume and verify the
+  hyphenated workflow builtin catalog directly, including `latin-hypercube`.
+- Extended LSP metadata and `ide-check` guards so the compiler-owned catalog,
+  generated editor metadata, and VS Code grammar remain aligned.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

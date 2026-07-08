@@ -418,6 +418,7 @@ function Assert-ExpectedWorkflowScopesCoverGrammar {
 
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
+$HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 $GrammarOnlyWorkflowBuiltinAliases = @(
     "regression_table",
@@ -441,6 +442,7 @@ $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]
 
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowBuiltinAliases -Description "grammar-only workflow builtin alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowOptions -Description "LSP workflow option"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowOptionAliases -Description "grammar-only workflow option alias"
@@ -626,7 +628,8 @@ $KeywordFallbackScopes = @(
 )
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
-Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels $WorkflowBuiltins -Description "LSP workflow builtin call" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
+Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins) -Description "LSP workflow builtin call" -Suffix "("
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"

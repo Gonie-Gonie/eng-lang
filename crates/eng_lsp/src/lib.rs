@@ -7497,6 +7497,12 @@ mod tests {
             "syntax catalog should expose workflow builtin labels"
         );
         assert!(
+            syntax_catalog["hyphenated_workflow_builtins"]
+                .as_array()
+                .is_some_and(|labels| labels.iter().any(|label| label == "latin-hypercube")),
+            "syntax catalog should expose hyphenated workflow builtin labels"
+        );
+        assert!(
             syntax_catalog["workflow_options"]
                 .as_array()
                 .is_some_and(|options| options

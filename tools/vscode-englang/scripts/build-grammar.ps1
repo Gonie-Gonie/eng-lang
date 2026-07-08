@@ -50,6 +50,7 @@ if ($null -eq $SyntaxCatalog) {
     throw "generated editor metadata is missing syntax_catalog. Run .\dev.bat vscode-build-editor-metadata"
 }
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
+$HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 # Keep legacy workflow helper spellings colored for existing files without
 # suggesting them through the generated completion catalog.
@@ -124,7 +125,7 @@ $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
-    "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)
+    "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)
     "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
 }
 

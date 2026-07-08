@@ -20,6 +20,7 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(completionSeed) ||
     !Array.isArray(syntaxCatalog.keywords) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
+    !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
     !Array.isArray(syntaxCatalog.workflow_options) ||
     !Array.isArray(syntaxCatalog.public_types) ||
     !Array.isArray(syntaxCatalog.quantities) ||
