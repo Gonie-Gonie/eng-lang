@@ -12,7 +12,7 @@ embedding compiler logic in JavaScript.
 - optional live editor diagnostics, hover, completion, document/workspace
   symbols, and folding for the current unsaved buffer
 - debounced diagnostics for unsaved buffers after a short typing pause
-- semantic highlighting for unsaved buffers, covering roles such as
+- role-aware highlighting for unsaved buffers, covering roles such as
   variables, parameters, properties, built-in workflow helpers, module
   namespaces, quantities, units, reports, validations, and side-effect/external
   workflow boundaries
@@ -60,7 +60,7 @@ embedding compiler logic in JavaScript.
 - `EngLang: Switch Diagnostics Mode...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette
 - `EngLang: Show Tooling Status` for inspecting the active check/run and live
-  editor tool paths, diagnostics mode, lint toggles, semantic highlighting, and
+  editor tool paths, diagnostics mode, lint toggles, role-aware highlighting, and
   extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
@@ -126,7 +126,7 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 
 The extension is a local editor client for the bundled EngLang tooling. It uses
 on-demand live editor checks for live Problems, hover, completion, document
-symbols, workspace symbols, folding, semantic tokens, definition, formatting,
+symbols, workspace symbols, folding, role-aware highlight data, definition, formatting,
 and quick fixes. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set
@@ -181,9 +181,9 @@ blocks can repair invalid uncertainty policy, sample-count, and seed option
 values, and can insert a reproducible seed for Monte Carlo propagation.
 
 Hover is computed from the current unsaved buffer, so quantity, unit, kind, and
-status details stay aligned with live diagnostics and semantic highlighting.
+status details stay aligned with live diagnostics and role-aware highlighting.
 
-Semantic highlighting also works on unsaved edits, so role-aware token colors do
+Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. The extension declares EngLang-specific
 role categories and theme fallback hints for units, quantities, axes, time
 series, validation/report roles, side effects, external boundaries, inputs,
@@ -194,17 +194,17 @@ EngLang-specific rules still receive stable color hints. Set
 highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping
 rules live in `docs/internal/editor/token_scopes.md`.
-`EngLang: Inspect Highlight Tokens (Semantic)` opens a highlight data view with a
+`EngLang: Inspect Highlight Tokens` opens a highlight data view with a
 summary, legend, representative source-text samples, normalized highlight rows
 with primary selector, mapped/missing fallback status, theme fallback scopes,
 and raw highlight payload for debugging theme or scope mismatches.
 `EngLang: Inspect Highlight Token at Cursor` opens the token under the caret plus
-the nearest semantic tokens and the other highlight tokens on the same line.
+the nearest highlight tokens and the other highlight tokens on the same line.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set
 `englang.reviewRiskDecorations.enabled = false` to hide those markers while
-keeping diagnostics and semantic highlighting enabled.
+keeping diagnostics and role-aware highlighting enabled.
 
 Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.

@@ -3017,7 +3017,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.switchDiagnosticsMode"; Text = "Switch Diagnostics Mode" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
-        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens (Semantic)" },
+        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" },
         @{ Command = "englang.showSemanticTokenAtCursor"; Text = "Inspect Highlight Token at Cursor" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]
@@ -3396,8 +3396,10 @@ function Assert-VscodeExtensionContract {
         "request_model",
         "long_running_language_server",
         "features",
+        "const problemsSource = mode",
         "updates_while_typing",
         "role_aware_colors",
+        "role_aware_highlighting",
         "diagnostics_mode",
         "semantic_highlighting",
         "review_risk_decorations"
@@ -3717,7 +3719,7 @@ function Assert-VscodeExtensionContract {
         "token_samples_by_modifier: tokenSamplesByModifier",
         "highlight_data: semanticTokens",
         "semantic_tokens: semanticTokens",
-        'inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)"',
+        'inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens"',
         'inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor"'
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredSemanticDebugToken)) {

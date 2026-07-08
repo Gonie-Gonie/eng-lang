@@ -52,6 +52,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 495: Aligned LSP semantic token types and VS Code keyword fallback scopes for command-style workflow verbs.
 - Batch 496: Added Native IDE Copy visible highlights for filtered Highlight panel token rows.
 - Batch 497: Documented VS Code `keyword.defaultLibrary` fallback intent for command-style builtins.
+- Batch 498: Clarified VS Code highlight inspection wording and fixed Tooling Status diagnostics-source output.
 
 ## Documentation Policy
 

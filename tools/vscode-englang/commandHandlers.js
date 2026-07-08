@@ -610,6 +610,7 @@ function createCommandHandlers(options = {}) {
     const checkAndRunTool = executableStatus(runtime, config.get("runtimePath", ""));
     const liveEditorTool = executableStatus(lsp, config.get("lspPath", ""));
     const mode = diagnosticsMode(document);
+    const problemsSource = mode;
     const lintOnChange = config.get("lintOnChange", true);
     const semanticHighlighting = config.get("semanticHighlighting.enabled", true);
     return {
@@ -639,10 +640,10 @@ function createCommandHandlers(options = {}) {
       },
       features: {
         problems: {
-          source,
-          mode: source === "live" ? "live buffer" : "saved file",
-          updates_while_typing: source === "live" && lintOnChange,
-          tool: source === "live" ? "live_editor" : "check_and_run"
+          source: problemsSource,
+          mode: problemsSource === "live" ? "live buffer" : "saved file",
+          updates_while_typing: problemsSource === "live" && lintOnChange,
+          tool: problemsSource === "live" ? "live_editor" : "check_and_run"
         },
         hover: liveEditorFeature("live_editor"),
         completion: liveEditorFeature("live_editor"),
@@ -662,13 +663,14 @@ function createCommandHandlers(options = {}) {
         diagnostics_mode: mode,
         lint_on_save: config.get("lintOnSave", true),
         lint_on_change: lintOnChange,
+        role_aware_highlighting: semanticHighlighting,
         semantic_highlighting: semanticHighlighting,
         review_risk_decorations: config.get("reviewRiskDecorations.enabled", true),
         execution_profile: executionProfile(document)
       },
       commands: {
         switch_diagnostics_mode: "EngLang: Switch Diagnostics Mode...",
-        inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)",
+        inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
         inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor",
         check_current_file: "EngLang: Check Current File"
       }
