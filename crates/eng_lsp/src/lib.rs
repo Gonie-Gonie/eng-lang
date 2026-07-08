@@ -4121,7 +4121,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         line_index,
                         token_start,
                         index - token_start,
-                        "function",
+                        workflow_builtin_token_type_for_line(line, token, token_start),
                         workflow_builtin_modifiers_for_line(line, token, token_start),
                     );
                 } else if COMPLETION_KEYWORDS.contains(&token) {
@@ -4278,8 +4278,8 @@ impl<'a> SemanticTokenBuilder<'a> {
                         line_index,
                         token_start,
                         token.len(),
-                        "function",
-                        workflow_builtin_modifiers(token),
+                        workflow_builtin_token_type_for_line(line, token, token_start),
+                        workflow_builtin_modifiers_for_line(line, token, token_start),
                     );
                 }
                 search_start = token_end;
@@ -4750,6 +4750,41 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
     }
 }
 
+fn workflow_builtin_token_type_for_line(
+    line: &str,
+    keyword: &str,
+    token_start: usize,
+) -> &'static str {
+    if next_non_whitespace_after(line, token_start + keyword.len()) == Some('(') {
+        return "function";
+    }
+    if is_workflow_command_keyword(line, keyword, token_start) {
+        "keyword"
+    } else {
+        "function"
+    }
+}
+
+fn is_workflow_command_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    match keyword {
+        "sample" | "filter" | "select" | "derive" | "sort" | "require_one" | "materialize"
+        | "collect" | "fill" | "align" | "resample" => true,
+        "apply" => is_apply_step_phrase(line, token_start),
+        "join" => is_table_join_phrase(line, token_start),
+        "train" => next_identifier_after(line, token_start + keyword.len()) == Some("regression"),
+        "regression" => previous_identifier_before(line, token_start) == Some("train"),
+        "predict" => is_predict_using_phrase(line, token_start),
+        "check" => next_identifier_after(line, token_start + keyword.len()) == Some("coverage"),
+        "coverage" => previous_identifier_before(line, token_start) == Some("check"),
+        "grid" | "random" | "lhs" | "latin_hypercube" | "latin-hypercube" => {
+            previous_identifier_before(line, token_start) == Some("sample")
+        }
+        "uniform" => previous_identifier_before(line, token_start) == Some("sample"),
+        "integrate" | "mean" | "max" | "min" => is_over_command_phrase(line, token_start, keyword),
+        _ => false,
+    }
+}
+
 fn workflow_builtin_modifiers_for_line(
     line: &str,
     keyword: &str,
@@ -4759,7 +4794,15 @@ fn workflow_builtin_modifiers_for_line(
         && previous_identifier_before(line, token_start)
             .is_some_and(|previous| previous == "sample")
     {
-        return &["defaultLibrary", "uncertain", "workflowStep"];
+        return &["defaultLibrary", "workflowStep"];
+    }
+    if (keyword == "train"
+        && next_identifier_after(line, token_start + keyword.len()) == Some("regression"))
+        || (keyword == "regression"
+            && previous_identifier_before(line, token_start) == Some("train"))
+        || (keyword == "predict" && is_predict_using_phrase(line, token_start))
+    {
+        return &["defaultLibrary", "model", "workflowStep"];
     }
     if keyword == "distribution"
         && previous_identifier_before(line, token_start).is_some_and(|previous| previous == "plot")
@@ -4989,8 +5032,8 @@ fn add_command_style_semantic_tokens(
                 return;
             };
             let modifiers = &["validation", "workflowStep", "timeseries"];
-            builder.push_on_line(command.line, "check", "function", modifiers);
-            builder.push_on_line(command.line, "coverage", "function", modifiers);
+            builder.push_on_line(command.line, "check", "keyword", modifiers);
+            builder.push_on_line(command.line, "coverage", "keyword", modifiers);
             push_command_style_identifier_paths(builder, command.line, target, &[], modifiers);
         }
         "fill" => {
@@ -5144,6 +5187,74 @@ fn is_table_join_phrase(line: &str, token_start: usize) -> bool {
     is_simple_identifier_path(left_table)
         && with_keyword == "with"
         && is_simple_identifier_path(right_table)
+}
+
+fn is_apply_step_phrase(line: &str, token_start: usize) -> bool {
+    let Some(after_apply) = line.get(token_start + "apply".len()..) else {
+        return false;
+    };
+    let mut parts = after_apply.split_whitespace();
+    let Some(step) = parts.next() else {
+        return false;
+    };
+    let Some(over_keyword) = parts.next() else {
+        return false;
+    };
+    let Some(table) = parts.next() else {
+        return false;
+    };
+    is_simple_identifier_path(step) && over_keyword == "over" && is_simple_identifier_path(table)
+}
+
+fn is_predict_using_phrase(line: &str, token_start: usize) -> bool {
+    let Some(after_predict) = line.get(token_start + "predict".len()..) else {
+        return false;
+    };
+    let mut parts = after_predict.split_whitespace();
+    let Some(model) = parts.next() else {
+        return false;
+    };
+    let Some(using_keyword) = parts.next() else {
+        return false;
+    };
+    let Some(table) = parts.next() else {
+        return false;
+    };
+    is_simple_identifier_path(model) && using_keyword == "using" && is_simple_identifier_path(table)
+}
+
+fn is_over_command_phrase(line: &str, token_start: usize, keyword: &str) -> bool {
+    let Some(after_keyword) = line.get(token_start + keyword.len()..) else {
+        return false;
+    };
+    let mut parts = after_keyword.split_whitespace();
+    let Some(target) = parts.next() else {
+        return false;
+    };
+    let Some(over_keyword) = parts.next() else {
+        return false;
+    };
+    let Some(axis) = parts.next() else {
+        return false;
+    };
+    is_simple_identifier_path(target) && over_keyword == "over" && is_simple_identifier_path(axis)
+}
+
+fn next_identifier_after(line: &str, start: usize) -> Option<&str> {
+    let bytes = line.as_bytes();
+    let mut index = start.min(bytes.len());
+    while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+        index += 1;
+    }
+    if index >= bytes.len() || !is_ident_start(bytes[index]) {
+        return None;
+    }
+    let token_start = index;
+    index += 1;
+    while index < bytes.len() && is_ident_byte(bytes[index]) {
+        index += 1;
+    }
+    Some(&line[token_start..index])
 }
 
 fn is_simple_identifier_path(value: &str) -> bool {
@@ -9726,7 +9837,7 @@ system StateSpaceFixture {
     }
 
     #[test]
-    fn snapshot_marks_native_workflow_builtins_as_semantic_functions() {
+    fn snapshot_marks_native_workflow_builtins_as_semantic_tokens() {
         let source = r#"designs = sample lhs
 with {
     count = 2
@@ -9825,9 +9936,6 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "collect",
             "train",
             "regression",
-            "ann",
-            "evaluate",
-            "model_card",
             "predict",
             "derive",
             "check",
@@ -9835,6 +9943,15 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "fill",
             "align",
             "resample",
+        ] {
+            assert_semantic_token_type(&snapshot, source, label, "keyword");
+            assert_semantic_token_modifier(&snapshot, source, label, "defaultLibrary");
+        }
+        for label in [
+            "uniform",
+            "ann",
+            "evaluate",
+            "model_card",
             "select_first_row",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "function");
@@ -9966,7 +10083,12 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "materialize",
             "apply",
             "collect",
+            "train",
+            "regression",
+            "predict",
             "derive",
+            "check",
+            "coverage",
             "fill",
             "align",
             "resample",

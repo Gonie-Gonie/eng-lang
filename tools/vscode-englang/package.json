@@ -185,6 +185,14 @@
           "keyword": [
             "keyword.control.workflow.englang"
           ],
+          "keyword.defaultLibrary": [
+            "keyword.control.workflow.englang",
+            "keyword.operator.word.englang",
+            "keyword.control.validation.englang",
+            "keyword.control.report.englang",
+            "keyword.control.solver.englang",
+            "constant.language.englang"
+          ],
           "keyword.declaration": [
             "storage.type.declaration.englang",
             "storage.type.function.englang",
@@ -477,11 +485,11 @@
             "entity.name.function.englang"
           ],
           "keyword.model": [
-            "support.function.builtin.englang",
-            "entity.name.function.englang",
             "keyword.control.workflow.englang",
             "keyword.operator.word.englang",
-            "constant.language.englang"
+            "constant.language.englang",
+            "support.function.builtin.englang",
+            "entity.name.function.englang"
           ],
           "property.model": [
             "entity.name.function.englang",
@@ -520,11 +528,11 @@
             "variable.other.property.englang"
           ],
           "keyword.workflowStep": [
-            "entity.name.function.workflow-step.englang",
             "keyword.control.workflow.englang",
             "keyword.operator.word.englang",
             "keyword.control.validation.englang",
             "constant.language.englang",
+            "entity.name.function.workflow-step.englang",
             "support.function.builtin.englang"
           ],
           "function.workflowStep": [

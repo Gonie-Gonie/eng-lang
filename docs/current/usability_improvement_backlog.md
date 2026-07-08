@@ -49,6 +49,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 492: Broadened workflow 01/02/03 native-only source guards to every `.eng` file in each workflow directory.
 - Batch 493: Split VS Code TextMate TimeSeries command verbs from call-style helper highlighting.
 - Batch 494: Reclassified command-style VS Code TextMate workflow verbs as workflow keywords while preserving call-style helper function coloring.
+- Batch 495: Aligned LSP semantic token types and VS Code keyword fallback scopes for command-style workflow verbs.
 
 ## Documentation Policy
 
