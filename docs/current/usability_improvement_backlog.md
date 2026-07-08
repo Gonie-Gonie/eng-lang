@@ -4803,6 +4803,23 @@ diagnostic, LSP quick fixes, and VS Code fallback quick fixes.
 - Extended stdio code-action and diagnostic-range regression tests, and updated
   the VS Code extension contract/README so the new repair stays visible.
 
+## Batch 387: Legacy Row Selection Warning
+
+Status: implemented after auditing remaining `select_first_row(...)` exposure
+against the current `filter` + `require_one` table workflow surface.
+
+- Added compiler warning `W-TABLE-LEGACY-SELECT-FIRST-ROW` for
+  `select_first_row(...)` so deprecated row-selection usage appears in Problems
+  instead of only semantic highlighting.
+- Added LSP range coverage so the warning underlines `select_first_row` rather
+  than the assignment target.
+- Reworded stdlib and artifact reference docs to describe
+  `select_first_row(...)` as compatibility-only and keep new authoring guidance
+  centered on `filter` + `require_one`.
+- Updated the CLI diagnostic code list and module summary wording so public
+  API tables stop advertising deterministic row selection as the preferred
+  surface.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

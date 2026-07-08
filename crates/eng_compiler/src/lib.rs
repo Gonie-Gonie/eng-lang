@@ -12569,6 +12569,27 @@ system Envelope {
     }
 
     #[test]
+    fn warns_on_legacy_select_first_row_helper() {
+        let report = check_source(
+            "legacy-selection.eng",
+            "selected_station_id = select_first_row(stations, return_column=\"station_id\")\n",
+            &CheckOptions::default(),
+        );
+
+        let diagnostic = report
+            .diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic.code == "W-TABLE-LEGACY-SELECT-FIRST-ROW")
+            .expect("legacy select_first_row warning");
+        assert_eq!(diagnostic.severity, Severity::Warning);
+        assert_eq!(diagnostic.line, 1);
+        assert!(diagnostic
+            .help
+            .as_deref()
+            .is_some_and(|help| help.contains("require_one filtered")));
+    }
+
+    #[test]
     fn records_table_filter_require_one_transforms() {
         let root =
             env::temp_dir().join(format!("englang-table-transform-ok-{}", std::process::id()));

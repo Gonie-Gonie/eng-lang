@@ -1486,6 +1486,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
         &mut diagnostics,
     );
     validate_json_read_field_access_policy(program, &mut diagnostics);
+    warn_legacy_select_first_row_usage(program, &mut diagnostics);
 
     let mut assembly_components = if component_instances.is_empty() {
         components.clone()
@@ -11655,6 +11656,21 @@ fn validate_json_read_field_access_policy(
                 )),
             ));
         }
+    }
+}
+
+fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut Vec<Diagnostic>) {
+    for line in &program.lines {
+        let code = line.text.split('#').next().unwrap_or("");
+        if !code.contains("select_first_row(") {
+            continue;
+        }
+        diagnostics.push(Diagnostic::warning(
+            "W-TABLE-LEGACY-SELECT-FIRST-ROW",
+            line.line,
+            "`select_first_row` is a legacy row-selection helper.",
+            Some("Use `filter <table>` with `where { ... }`, then `row = require_one filtered` and access `row.column`."),
+        ));
     }
 }
 

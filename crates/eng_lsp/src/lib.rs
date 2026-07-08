@@ -7555,6 +7555,11 @@ with {
                 "payload.case",
             ),
             (
+                "W-TABLE-LEGACY-SELECT-FIRST-ROW",
+                "selected_station_id = select_first_row(stations, return_column=\"station_id\")\n",
+                "select_first_row",
+            ),
+            (
                 "E-NET-BODY-METHOD",
                 "response = http get url(\"https://example.org/submit\")\nwith {\n    body = \"submitted=true\"\n}\n",
                 "\"submitted=true\"",

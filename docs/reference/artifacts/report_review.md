@@ -770,8 +770,8 @@ low/medium/high risk, shared risk category, and risk severity.
 
 ## Promoted Table Selection And Transform Metadata
 
-Legacy `select_first_row(...)` records deterministic row selection over
-promoted CSV tables in:
+Compatibility-only `select_first_row(...)` records deterministic row selection
+over promoted CSV tables in:
 
 ```text
 review.json                 table_selections
@@ -779,8 +779,10 @@ result.engres               typed_payload.table_selections
 report.html                 selected binding values when shown in report blocks
 ```
 
-Each legacy selection entry records the source table, return column, filters,
-matched row count, selected row values, status, reason, and source line.
+Each compatibility selection entry records the source table, return column,
+filters, matched row count, selected row values, status, reason, and source
+line. New workflows should use the schema-aware `filter` + `require_one`
+surface below; `select_first_row(...)` emits a warning in source files.
 
 `filter <table>` with a `where { ... }` predicate block,
 `select <table> column a` or `select <table> columns a, b`,

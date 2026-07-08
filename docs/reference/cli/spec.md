@@ -148,6 +148,7 @@ E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted
 E-IO-JSON-PARSE        read json source is not valid JSON
 E-IO-TOML-PARSE        read toml source is not valid TOML
 E-IO-JSON-FIELD-ACCESS-001 read json values do not support direct field access
+W-TABLE-LEGACY-SELECT-FIRST-ROW select_first_row is compatibility-only; use filter + require_one
 E-TEST-001             test block syntax is invalid
 E-TEST-NAME-001        test block name is missing or invalid
 E-ASSERT-001           assert is outside a test block
