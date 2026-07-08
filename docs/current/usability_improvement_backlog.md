@@ -5478,3 +5478,15 @@ structured debug payload.
 - Added contract coverage for the structured debug JSON sections: `summary`,
   `legend`, `samples`, normalized `tokens`, `raw`, and the legacy compatibility
   fields consumed by older docs or scripts.
+
+## Batch 465: Diagnostics Mode Internal Naming
+
+Status: implemented after auditing VS Code diagnostics setting wording for stale
+Problems-source/backend names.
+
+- Renamed the VS Code extension's internal diagnostics selector helpers from
+  `problemsSource`/`diagnosticsBackend` to `diagnosticsMode` and
+  `diagnosticsRuntime`, while keeping old settings as code-only compatibility
+  aliases.
+- Kept output-panel wording on user-facing `file` and `live editor` labels so
+  runtime keys such as `eng-cli` and `lsp-snapshot` stay internal.

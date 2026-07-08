@@ -3241,7 +3241,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
-    if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsBackend?.(document) !== "lsp-snapshot"')) {
+    if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsRuntime?.(document) !== "lsp-snapshot"')) {
         throw "VS Code live buffer diagnostics must only run when diagnostics mode is live"
     }
     $LspRequestSourceCombined = $ExtensionSource + "`n" + $LspRequestsSource
@@ -3451,8 +3451,8 @@ function Assert-VscodeExtensionContract {
         "firstLineRange",
         "lintOnSave",
         "lintOnChange",
-        "diagnosticsBackend",
-        "diagnosticsBackendLabel",
+        "diagnosticsRuntime",
+        "diagnosticsRuntimeLabel",
         "live buffer check",
         "EngLang runtime did not return editor JSON"
     )) {
@@ -3826,9 +3826,9 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
         throw "VS Code extension must keep LSP range conversion in lspRanges.js"
     }
-    foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
-        if (-not $ExtensionSource.Contains($RequiredProblemsSourceToken)) {
-            throw "VS Code extension missing user-facing diagnostics mode token $RequiredProblemsSourceToken"
+    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)")) {
+        if (-not $ExtensionSource.Contains($RequiredDiagnosticsModeToken)) {
+            throw "VS Code extension missing diagnostics mode compatibility token $RequiredDiagnosticsModeToken"
         }
     }
     $DiagnosticsModeEnum = @($Properties."englang.diagnosticsMode".enum)
@@ -3840,8 +3840,8 @@ function Assert-VscodeExtensionContract {
     if (@($Properties."englang.diagnosticsMode".enumDescriptions).Count -lt 2) {
         throw "VS Code extension diagnosticsMode must include user-facing enum descriptions"
     }
-    foreach ($RequiredLegacyProblemsToken in @('config.get("diagnosticsBackend", "eng-cli")', 'legacyBackend === "lsp-snapshot" ? "live" : "file"')) {
-        if (-not $ExtensionSource.Contains($RequiredLegacyProblemsToken)) {
+    foreach ($RequiredLegacyDiagnosticsModeToken in @('config.get("diagnosticsBackend", "eng-cli")', 'legacyBackend === "lsp-snapshot" ? "live" : "file"')) {
+        if (-not $ExtensionSource.Contains($RequiredLegacyDiagnosticsModeToken)) {
             throw "VS Code extension must keep diagnosticsBackend as a code-only compatibility alias"
         }
     }

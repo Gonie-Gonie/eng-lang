@@ -10,8 +10,8 @@ class EngDiagnosticsController {
     this.output = options.output;
     this.isEngDocument = options.isEngDocument ?? (() => true);
     this.clearSnapshotCache = options.clearSnapshotCache ?? (() => undefined);
-    this.diagnosticsBackend = options.diagnosticsBackend;
-    this.diagnosticsBackendLabel = options.diagnosticsBackendLabel ?? ((backend) => backend);
+    this.diagnosticsRuntime = options.diagnosticsRuntime;
+    this.diagnosticsRuntimeLabel = options.diagnosticsRuntimeLabel ?? ((runtimeMode) => runtimeMode);
     this.findLspRuntime = options.findLspRuntime;
     this.findRuntime = options.findRuntime;
     this.snapshotDocumentSource = options.snapshotDocumentSource;
@@ -39,7 +39,7 @@ class EngDiagnosticsController {
       return;
     }
     this.clearSnapshotCache(document);
-    if (this.diagnosticsBackend?.(document) !== "lsp-snapshot") {
+    if (this.diagnosticsRuntime?.(document) !== "lsp-snapshot") {
       return;
     }
     const config = vscode.workspace.getConfiguration("englang", document.uri);
@@ -78,23 +78,24 @@ class EngDiagnosticsController {
   }
 
   checkDocument(document) {
-    const backend = this.diagnosticsBackend(document);
-    const runtime = backend === "lsp-snapshot"
+    const runtimeMode = this.diagnosticsRuntime(document);
+    const runtime = runtimeMode === "lsp-snapshot"
       ? this.findLspRuntime(this.context, document)
       : this.findRuntime(this.context, document);
-    const args = backend === "lsp-snapshot"
+    const args = runtimeMode === "lsp-snapshot"
       ? ["--snapshot", document.uri.fsPath]
       : ["ide-check", document.uri.fsPath];
     const cwd = this.workspaceRoot(document);
     const documentVersion = document.version;
-    this.appendLine(`${this.diagnosticsBackendLabel(backend)} check ${document.uri.fsPath}`);
+    const runtimeLabel = this.diagnosticsRuntimeLabel(runtimeMode);
+    this.appendLine(`${runtimeLabel} check ${document.uri.fsPath}`);
 
     cp.execFile(
       runtime,
       args,
       { cwd, maxBuffer: 10 * 1024 * 1024 },
       (error, stdout, stderr) => {
-        this.finishDocumentCheck(document, backend, documentVersion, error, stdout, stderr);
+        this.finishDocumentCheck(document, runtimeLabel, documentVersion, error, stdout, stderr);
       }
     );
   }
@@ -139,7 +140,7 @@ class EngDiagnosticsController {
     }
   }
 
-  finishDocumentCheck(document, backend, documentVersion, error, stdout, stderr) {
+  finishDocumentCheck(document, runtimeLabel, documentVersion, error, stdout, stderr) {
     if (document.version !== documentVersion) {
       return;
     }
@@ -151,7 +152,7 @@ class EngDiagnosticsController {
     try {
       review = JSON.parse(stdout);
     } catch (parseError) {
-      this.appendLine(`Unable to parse EngLang ${backend} output: ${parseError.message}`);
+      this.appendLine(`Unable to parse EngLang ${runtimeLabel} output: ${parseError.message}`);
       if (error) {
         this.appendLine(error.message);
       }
@@ -159,10 +160,10 @@ class EngDiagnosticsController {
       return;
     }
 
-    this.finishParsedDocumentCheck(document, backend, documentVersion, review);
+    this.finishParsedDocumentCheck(document, runtimeLabel, documentVersion, review);
   }
 
-  finishParsedDocumentCheck(document, backend, documentVersion, review) {
+  finishParsedDocumentCheck(document, runtimeLabel, documentVersion, review) {
     if (document.version !== documentVersion) {
       return;
     }

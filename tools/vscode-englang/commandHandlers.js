@@ -20,7 +20,7 @@ const {
   reviewPanelArtifacts
 } = require("./reviewPanelRenderer");
 
-const PROBLEMS_SOURCES = [
+const DIAGNOSTICS_MODES = [
   {
     id: "file",
     label: "File diagnostics",
@@ -140,13 +140,13 @@ function createCommandHandlers(options = {}) {
 
   async function switchDiagnosticsMode() {
     const document = vscode.window.activeTextEditor?.document;
-    const current = problemsSource(document);
+    const current = diagnosticsMode(document);
     const picked = await vscode.window.showQuickPick(
-      PROBLEMS_SOURCES.map((source) => ({
-        label: source.label,
-        description: source.id === current ? `${source.description} (current)` : source.description,
-        detail: source.detail,
-        source: source.id
+      DIAGNOSTICS_MODES.map((mode) => ({
+        label: mode.label,
+        description: mode.id === current ? `${mode.description} (current)` : mode.description,
+        detail: mode.detail,
+        mode: mode.id
       })),
       { placeHolder: `Current EngLang diagnostics mode: ${current}` }
     );
@@ -157,11 +157,11 @@ function createCommandHandlers(options = {}) {
     const target = vscode.workspace.workspaceFolders?.length
       ? vscode.ConfigurationTarget.Workspace
       : vscode.ConfigurationTarget.Global;
-    await engConfig(document).update("diagnosticsMode", picked.source, target);
-    const suffix = picked.source === "live"
+    await engConfig(document).update("diagnosticsMode", picked.mode, target);
+    const suffix = picked.mode === "live"
       ? "Problems will update while typing when englang.lintOnChange is enabled."
       : "Problems will use saved-file diagnostics on open, save, and manual check.";
-    vscode.window.showInformationMessage(`EngLang diagnostics mode set to ${picked.source}. ${suffix}`);
+    vscode.window.showInformationMessage(`EngLang diagnostics mode set to ${picked.mode}. ${suffix}`);
   }
 
   async function showToolingStatus(context) {
@@ -443,7 +443,7 @@ function createCommandHandlers(options = {}) {
       : "normal";
   }
 
-  function problemsSource(document) {
+  function diagnosticsMode(document) {
     const config = engConfig(document);
     const configuredMode = explicitlyConfiguredEngValue(config, "diagnosticsMode");
     if (configuredMode === "file" || configuredMode === "live") {
@@ -496,7 +496,7 @@ function createCommandHandlers(options = {}) {
     const lsp = document ? findLspRuntime(context, document) : "eng-lsp.exe";
     const checkAndRunTool = executableStatus(runtime, config.get("runtimePath", ""));
     const liveEditorTool = executableStatus(lsp, config.get("lspPath", ""));
-    const source = problemsSource(document);
+    const mode = diagnosticsMode(document);
     const lintOnChange = config.get("lintOnChange", true);
     const semanticHighlighting = config.get("semanticHighlighting.enabled", true);
     return {
@@ -546,7 +546,7 @@ function createCommandHandlers(options = {}) {
         }
       },
       settings: {
-        diagnostics_mode: source,
+        diagnostics_mode: mode,
         lint_on_save: config.get("lintOnSave", true),
         lint_on_change: lintOnChange,
         semantic_highlighting: semanticHighlighting,

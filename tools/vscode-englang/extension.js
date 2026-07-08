@@ -75,8 +75,8 @@ function activate(context) {
     output,
     isEngDocument,
     clearSnapshotCache: lspRequests.clearSnapshotCache,
-    diagnosticsBackend,
-    diagnosticsBackendLabel,
+    diagnosticsRuntime,
+    diagnosticsRuntimeLabel,
     findLspRuntime,
     findRuntime,
     snapshotDocumentSource: lspRequests.snapshotDocumentSource,
@@ -255,16 +255,16 @@ function isEngDocument(document) {
   return document.languageId === LANGUAGE_ID || document.fileName.endsWith(".eng");
 }
 
-function diagnosticsBackend(document) {
-  const source = problemsSource(document);
-  return source === "live" ? "lsp-snapshot" : "eng-cli";
+function diagnosticsRuntime(document) {
+  const mode = diagnosticsMode(document);
+  return mode === "live" ? "lsp-snapshot" : "eng-cli";
 }
 
-function diagnosticsBackendLabel(backend) {
-  return backend === "lsp-snapshot" ? "live editor" : "file";
+function diagnosticsRuntimeLabel(runtimeMode) {
+  return runtimeMode === "lsp-snapshot" ? "live editor" : "file";
 }
 
-function problemsSource(document) {
+function diagnosticsMode(document) {
   const config = engConfig(document);
   const configuredMode = explicitlyConfiguredEngValue(config, "diagnosticsMode");
   if (configuredMode === "file" || configuredMode === "live") {
