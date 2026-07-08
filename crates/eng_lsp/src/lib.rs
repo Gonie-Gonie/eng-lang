@@ -243,6 +243,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "outputs",
     "over",
     "package",
+    "parity",
     "patch",
     "parameter",
     "plot",
@@ -261,6 +262,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "replace",
     "request",
     "report",
+    "residuals",
     "return",
     "results",
     "rollback",
@@ -4500,7 +4502,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         | "text" | "csv" | "json" | "toml" => &["workflowStep"],
         "from" | "on" | "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
-        | "distribution" | "print" | "log" => &["report"],
+        | "distribution" | "parity" | "residuals" | "print" | "log" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within"
         | "constraints" | "missing" | "interpolate" | "monotonic" | "between" => &["validation"],
         "simulate" | "solve" | "connect" | "conservation" | "equation" | "operator" | "states"
@@ -7574,6 +7576,15 @@ mod tests {
         );
         let syntax_catalog = &metadata["syntax_catalog"];
         assert_eq!(syntax_catalog["keywords"][0], COMPLETION_KEYWORDS[0]);
+        let syntax_keywords = syntax_catalog["keywords"]
+            .as_array()
+            .expect("syntax catalog keywords should be an array");
+        for label in ["parity", "residuals"] {
+            assert!(
+                syntax_keywords.iter().any(|keyword| keyword == label),
+                "syntax catalog should expose plot report keyword {label}"
+            );
+        }
         assert!(
             syntax_catalog["workflow_builtins"]
                 .as_array()

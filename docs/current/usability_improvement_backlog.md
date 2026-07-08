@@ -5367,6 +5367,13 @@ Status: implemented after finding current/reference docs that still described th
 - Reworded current status, track, roadmap, CLI, and development docs to call `eng-ide.exe` the portable native IDE.
 - Left implementation-file and archived release-note wording alone where it is historical or describes the underlying UI stack.
 
+## Batch 450: Plot Keyword Catalog Parity
+
+Status: implemented after checking native IDE stale-buffer lexical fallback against the LSP semantic plot-function coverage.
+
+- Added `parity` and `residuals` to the compiler-owned editor syntax keyword catalog with report modifiers.
+- Regenerated VS Code editor metadata so native IDE fallback highlighting and VS Code completion fallback see the same plot report vocabulary before semantic analysis returns.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
