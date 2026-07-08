@@ -452,6 +452,10 @@
           "keyword.cache": [
             "keyword.control.workflow.englang"
           ],
+          "function.cache": [
+            "keyword.control.workflow.englang",
+            "support.function.builtin.englang"
+          ],
           "property.cache": [
             "keyword.control.workflow.englang",
             "variable.other.property.englang"

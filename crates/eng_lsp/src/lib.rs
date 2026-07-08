@@ -2370,6 +2370,7 @@ fn add_with_option_value_semantic_token(
     block: &WithBlockInfo,
     option: &WithOptionInfo,
 ) {
+    add_with_option_path_helper_semantic_tokens(builder, program, block, option);
     if matches!(option.key.as_str(), "features" | "x")
         && is_model_with_block(program, block.owner_line)
     {
@@ -2385,6 +2386,46 @@ fn add_with_option_value_semantic_token(
         with_option_value_semantic_class(program, block, &option.key, value)
     {
         builder.push_on_line(option.line, value, token_type, modifiers);
+    }
+}
+
+fn add_with_option_path_helper_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+    option: &WithOptionInfo,
+) {
+    let Some(modifiers) = with_option_path_helper_semantic_modifiers(program, block, &option.key)
+    else {
+        return;
+    };
+    let Some(line_index) = option.line.checked_sub(1) else {
+        return;
+    };
+    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+}
+
+fn with_option_path_helper_semantic_modifiers(
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+    key: &str,
+) -> Option<&'static [&'static str]> {
+    match key {
+        "cache_dir" => Some(&["cache"]),
+        "expected_outputs" => Some(&["sideEffect", "external"]),
+        "offline_response" | "fixture" if is_net_with_block(program, block.owner_line) => {
+            Some(&["external"])
+        }
+        "cwd" if is_net_with_block(program, block.owner_line) => Some(&["external"]),
+        "output_root" => Some(&["sideEffect", "workflowStep"]),
+        "template" if is_template_workflow_with_block(program, block.owner_line) => {
+            Some(&["workflowStep"])
+        }
+        "output" if is_template_workflow_with_block(program, block.owner_line) => {
+            Some(&["sideEffect", "workflowStep"])
+        }
+        "output" => Some(&["sideEffect"]),
+        _ => None,
     }
 }
 
@@ -8048,7 +8089,7 @@ with {
 
 process_result = run command "cmd"
 with {
-    expected_outputs = ["outputs/result.txt"]
+    expected_outputs = [file("outputs/result.txt")]
 }
 
 args {
@@ -8081,6 +8122,22 @@ system RoomThermal {
         assert_semantic_token_modifier(&snapshot, source, "reading", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "T_measured", "riskMedium");
         assert_semantic_token_modifier(&snapshot, source, "RoomThermal", "riskMedium");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    expected_outputs = [file("outputs/result.txt")]"#,
+            "file",
+            "function",
+            "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    expected_outputs = [file("outputs/result.txt")]"#,
+            "file",
+            "function",
+            "sideEffect",
+        );
     }
 
     #[test]
@@ -8231,6 +8288,22 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "materialize", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "step", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "output_root", "workflowStep");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    output_root = dir("outputs/cases")"#,
+            "dir",
+            "function",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    output_root = dir("outputs/cases")"#,
+            "dir",
+            "function",
+            "sideEffect",
+        );
         assert_semantic_token_modifier(&snapshot, source, "case_id", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "resume", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
@@ -8271,6 +8344,14 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "query", "external");
         assert_semantic_token_modifier(&snapshot, source, "station", "external");
         assert_semantic_token_modifier(&snapshot, source, "offline_response", "external");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    offline_response = file("data/weather-response.json")"#,
+            "file",
+            "function",
+            "external",
+        );
         assert_semantic_token_modifier(&snapshot, source, "expected_sha256", "external");
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
         assert_semantic_token_modifier(&snapshot, source, "body_size_limit", "external");

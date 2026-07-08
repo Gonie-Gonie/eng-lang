@@ -4972,6 +4972,14 @@ Status: implemented after auditing remaining file/data boundary phrases against 
 - Added explicit SQLite connection semantic tokens for `open sqlite file(...)`, including DB/external modifiers on the binding and `file`/`dir`/`join` target helpers.
 - Extended LSP semantic-token regressions and VS Code fallback scope mappings for realistic export path expressions and SQLite connection targets.
 
+## Batch 402: With-Option Path Helper Semantic Overlay Alignment
+
+Status: implemented after auditing owner-specific `with { ... }` option value highlighting.
+
+- Added LSP semantic tokens for `file`, `dir`, and `join` helpers inside path-like with-option values, including list values such as `expected_outputs = [file(...)]`.
+- Preserved owner-specific modifiers for network fallbacks, process outputs, cache directories, materialize output roots, and render/apply template inputs/outputs.
+- Extended semantic-token regressions and VS Code fallback scope mappings so option value helpers stay colored after semantic overlays arrive.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
