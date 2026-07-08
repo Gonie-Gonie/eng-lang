@@ -14,7 +14,8 @@ const {
 } = require("./runtimeDiscovery");
 const {
   addSemanticTokenDebugSample,
-  semanticTokenDebugSample
+  semanticTokenDebugSample,
+  semanticTokenRange
 } = require("./lspSemanticTokens");
 const {
   renderReviewSummaryHtml,
@@ -362,21 +363,8 @@ function createCommandHandlers(options = {}) {
         addSemanticTokenDebugSample(tokenSamplesByModifier, modifier || "-", sample);
       }
     }
-    const tokenRows = (semanticTokens.tokens ?? []).map((token) => {
-      const sample = semanticTokenDebugSample(document, token, semanticTokenScopeMap);
-      const start = Number(sample.start);
-      return {
-        line: sample.line,
-        column: Number.isFinite(start) ? start + 1 : null,
-        start: sample.start,
-        length: sample.length,
-        text: sample.text,
-        type: sample.type,
-        modifiers: sample.modifiers,
-        semantic_selectors: sample.semantic_selectors,
-        fallback_scopes: sample.fallback_scopes
-      };
-    });
+    const tokenRows = (semanticTokens.tokens ?? [])
+      .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
     const tokenCount = semanticTokens.tokens?.length ?? 0;
     const payload = {
       source: document.uri.fsPath,
@@ -416,6 +404,73 @@ function createCommandHandlers(options = {}) {
       content: JSON.stringify(payload, null, 2)
     });
     await vscode.window.showTextDocument(debugDocument, { preview: false });
+  }
+
+
+  async function showSemanticTokenAtCursor(context) {
+    const editor = vscode.window.activeTextEditor;
+    const document = editor?.document;
+    if (!editor || !document || !isEngDocument(document)) {
+      vscode.window.showWarningMessage("Open an EngLang .eng file first.");
+      return;
+    }
+    const snapshot = await lspRequests.snapshotDocumentSource(document, context);
+    if (!snapshot) {
+      vscode.window.showWarningMessage("No highlight data is available. See the EngLang output panel.");
+      return;
+    }
+    reviewCache.set(document.uri.fsPath, snapshot);
+    updateSemanticSymbolDecorations(document, snapshot);
+    const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
+    const cursor = editor.selection.active;
+    const matchingTokens = (semanticTokens.tokens ?? [])
+      .filter((token) => semanticTokenRange(document, token)?.contains(cursor))
+      .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
+    const lineTokens = (semanticTokens.tokens ?? [])
+      .filter((token) => Number(token.line) === cursor.line)
+      .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
+    const payload = {
+      source: document.uri.fsPath,
+      semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
+      cursor: {
+        line: cursor.line + 1,
+        column: cursor.character + 1,
+        zero_based_line: cursor.line,
+        zero_based_character: cursor.character
+      },
+      summary: {
+        matching_token_count: matchingTokens.length,
+        line_token_count: lineTokens.length,
+        scope_map_entry_count: Object.keys(semanticTokenScopeMap).length
+      },
+      matching_tokens: matchingTokens,
+      line_tokens: lineTokens,
+      legend: semanticTokens.legend ?? {},
+      raw: {
+        semantic_tokens: semanticTokens
+      }
+    };
+    const debugDocument = await vscode.workspace.openTextDocument({
+      language: "json",
+      content: JSON.stringify(payload, null, 2)
+    });
+    await vscode.window.showTextDocument(debugDocument, { preview: false });
+  }
+
+  function semanticTokenDebugRow(document, token, semanticScopeMap) {
+    const sample = semanticTokenDebugSample(document, token, semanticScopeMap);
+    const start = Number(sample.start);
+    return {
+      line: sample.line,
+      column: Number.isFinite(start) ? start + 1 : null,
+      start: sample.start,
+      length: sample.length,
+      text: sample.text,
+      type: sample.type,
+      modifiers: sample.modifiers,
+      semantic_selectors: sample.semantic_selectors,
+      fallback_scopes: sample.fallback_scopes
+    };
   }
 
   function findExampleFiles(root) {
@@ -579,6 +634,7 @@ function createCommandHandlers(options = {}) {
       commands: {
         switch_diagnostics_mode: "EngLang: Switch Diagnostics Mode...",
         inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)",
+        inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor",
         check_current_file: "EngLang: Check Current File"
       }
     };
@@ -615,7 +671,8 @@ function createCommandHandlers(options = {}) {
     showToolingStatus,
     reviewActiveFile,
     openReviewPanel,
-    showSemanticTokensDebug
+    showSemanticTokensDebug,
+    showSemanticTokenAtCursor
   };
 }
 

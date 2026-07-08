@@ -748,6 +748,10 @@
       {
         "command": "englang.showSemanticTokensDebug",
         "title": "EngLang: Inspect Highlight Tokens (Semantic)"
+      },
+      {
+        "command": "englang.showSemanticTokenAtCursor",
+        "title": "EngLang: Inspect Highlight Token at Cursor"
       }
     ]
   }

@@ -197,6 +197,8 @@ semantic-token mapping rules live in `docs/internal/editor/token_scopes.md`.
 summary, legend, representative source-text samples, normalized token rows with
 semantic selector and TextMate fallback scope details, and raw semantic-token
 payload for debugging theme or scope mismatches.
+`EngLang: Inspect Highlight Token at Cursor` opens the token under the caret plus
+the other highlight tokens on the same line.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set

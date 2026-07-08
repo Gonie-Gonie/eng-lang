@@ -32,6 +32,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 475: Broadened VS Code semantic fallback scopes for keyword workflow/model/timeseries clauses and added contract guards.
 - Batch 476: Added VS Code highlight inspection semantic selector and TextMate fallback-scope debug output.
 - Batch 477: Added observed base semantic selector fallback scopes for VS Code highlighting consistency.
+- Batch 478: Added VS Code cursor-specific highlight token inspection.
 
 ## Documentation Policy
 

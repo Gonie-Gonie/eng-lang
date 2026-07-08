@@ -429,3 +429,5 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   `fallback_scopes`; the summary reports missing fallback-scope selectors.
 - Keep existing `highlight_*`, `token_*`, `highlight_data`, and
   `semantic_tokens` fields for compatibility with older docs and tests.
+- Add a cursor-specific highlight inspection command that reports `matching_tokens`
+  and `line_tokens` with the same selector and fallback-scope details.

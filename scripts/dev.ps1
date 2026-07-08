@@ -2816,7 +2816,8 @@ function Assert-VscodeExtensionContract {
         "englang.openPlotSpec",
         "englang.openPlotManifest",
         "englang.openPlotSvg",
-        "englang.showSemanticTokensDebug"
+        "englang.showSemanticTokensDebug",
+        "englang.showSemanticTokenAtCursor"
     )) {
         if ($Commands -notcontains $Required) {
             throw "VS Code extension missing command $Required"
@@ -2845,7 +2846,8 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.switchDiagnosticsMode"; Text = "Switch Diagnostics Mode" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
-        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens (Semantic)" }
+        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens (Semantic)" },
+        @{ Command = "englang.showSemanticTokenAtCursor"; Text = "Inspect Highlight Token at Cursor" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]
         if ([string]::IsNullOrWhiteSpace($Title) -or -not $Title.Contains($RequiredTitle.Text)) {
@@ -3292,6 +3294,7 @@ function Assert-VscodeExtensionContract {
         "async function reviewActiveFile",
         "async function openReviewPanel",
         "async function showSemanticTokensDebug",
+        "async function showSemanticTokenAtCursor",
         "function runReviewForDocument",
         "function findExampleFiles",
         "function executionProfile",
@@ -3479,6 +3482,11 @@ function Assert-VscodeExtensionContract {
     $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticDebugToken in @(
         "showSemanticTokensDebug",
+        "showSemanticTokenAtCursor",
+        "matching_tokens: matchingTokens",
+        "line_tokens: lineTokens",
+        "semanticTokenDebugRow",
+        "semanticTokenRange(document, token)?.contains(cursor)",
         "semanticTokenScopeMapFromPackage",
         "semantic_highlighting_enabled",
         "summary: {",
@@ -3507,7 +3515,8 @@ function Assert-VscodeExtensionContract {
         "token_samples_by_modifier: tokenSamplesByModifier",
         "highlight_data: semanticTokens",
         "semantic_tokens: semanticTokens",
-        'inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)"'
+        'inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)"',
+        'inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor"'
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredSemanticDebugToken)) {
             throw "VS Code semantic highlight inspection output missing contract token $RequiredSemanticDebugToken"
