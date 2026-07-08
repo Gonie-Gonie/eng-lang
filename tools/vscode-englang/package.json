@@ -643,7 +643,7 @@
       },
       {
         "command": "englang.openReportSpec",
-        "title": "EngLang: Open Last Run Report Data"
+        "title": "EngLang: Open Last Run Report Source Data"
       },
       {
         "command": "englang.openOutputManifest",

@@ -5012,6 +5012,14 @@ Status: implemented after comparing the report/uncertainty grammar fixture with 
 - Extended the richer keyword semantic-token regression to cover list-style report summaries with multiple statistic helpers, including VS Code fallback scope coverage for `function.timeseries`.
 - Kept the semantic-token legend unchanged; this only applies existing modifiers more consistently.
 
+## Batch 407: VS Code Report Source Data Wording
+
+Status: implemented after re-checking last-run report artifact labels next to the rendered HTML report.
+
+- Renamed the user-visible `report_spec.json` artifact label from `Report Data` to `Report Source Data`, so it is distinct from the rendered `Report HTML` artifact without exposing the internal `Report Spec` name.
+- Renamed the command-palette title to `EngLang: Open Last Run Report Source Data` while keeping the `englang.openReportSpec` command ID and artifact path stable.
+- Extended `ide-check` command-title coverage for the clearer report source-data wording.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

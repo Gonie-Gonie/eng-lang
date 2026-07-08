@@ -23,7 +23,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "reportSpec",
-    label: "Report Data",
+    label: "Report Source Data",
     description: "build/result/report_spec.json",
     relativePath: ["build", "result", "report_spec.json"]
   },

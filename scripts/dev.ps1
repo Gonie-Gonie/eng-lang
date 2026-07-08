@@ -2511,7 +2511,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openGeneratedOutput"; Text = "Last Generated Output" },
         @{ Command = "englang.openReviewJson"; Text = "Last Run Review Data" },
         @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Data" },
-        @{ Command = "englang.openReportSpec"; Text = "Last Run Report Data" },
+        @{ Command = "englang.openReportSpec"; Text = "Last Run Report Source Data" },
         @{ Command = "englang.openOutputManifest"; Text = "Last Run Output List" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
         @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Graph" },
