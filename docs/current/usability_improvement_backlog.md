@@ -5226,6 +5226,13 @@ Status: implemented after checking workflow 02 artifacts for native sampling evi
 - Strengthened `workflows-test` so both generated LHS sample tables must be present: `training_designs` with seed 42/count 8 and `designs` with seed 84/count 3.
 - Added the same structured sample-table contract to the Rust example smoke gate, including generated status, row hashes, parameter columns, and duplicate-case checks.
 
+## Batch 432: LSP Unit/Builtin Semantic Token Split
+
+Status: implemented after inspecting workflow 03 semantic tokens for unit/function overlap.
+
+- Changed the LSP lexical semantic scanner to identify unit ranges before word/builtin ranges so unit tokens such as `min` in `10 min` and denominator unit names in `1/min` are not also emitted as report/timeseries functions.
+- Added a regression that keeps `min(Q_series)` highlighted as a builtin function while preserving `min` duration units as unit tokens only, even when a unit symbol and builtin name overlap.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

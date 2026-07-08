@@ -3854,11 +3854,19 @@ impl<'a> SemanticTokenBuilder<'a> {
             self.scan_string_tokens(line_index, comment_start_index.unwrap_or(line.len()));
 
             for (start, end) in code_ranges(line) {
-                self.scan_word_tokens(line_index, start, end, &quantity_names, &public_types);
+                let unit_ranges = self.scan_unit_tokens(line_index, start, end, &units);
+                self.scan_word_tokens(
+                    line_index,
+                    start,
+                    end,
+                    &quantity_names,
+                    &public_types,
+                    &unit_ranges,
+                    &units,
+                );
                 self.scan_legacy_declaration_names(line_index, start, end);
                 self.scan_hyphenated_workflow_builtin_tokens(line_index, start, end);
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
-                let unit_ranges = self.scan_unit_tokens(line_index, start, end, &units);
                 self.scan_number_tokens(line_index, start, end);
                 self.scan_symbol_operator_tokens(line_index, start, end, &unit_ranges);
             }
@@ -3899,6 +3907,8 @@ impl<'a> SemanticTokenBuilder<'a> {
         end: usize,
         quantity_names: &BTreeSet<&str>,
         public_types: &BTreeSet<&str>,
+        unit_ranges: &[(usize, usize)],
+        units: &[&str],
     ) {
         let line = self.lines[line_index];
         let bytes = line.as_bytes();
@@ -3911,6 +3921,13 @@ impl<'a> SemanticTokenBuilder<'a> {
                     index += 1;
                 }
                 let token = &line[token_start..index];
+                if unit_ranges
+                    .iter()
+                    .any(|(left, right)| ranges_overlap(token_start, index, *left, *right))
+                    || is_unit_denominator_token(line, token_start, token, units)
+                {
+                    continue;
+                }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
                     self.push_byte_range(
                         line_index,
@@ -4101,6 +4118,15 @@ impl<'a> SemanticTokenBuilder<'a> {
                 let unit_end = unit_start + unit.len();
                 search_start = unit_end;
                 if !is_unit_boundary(line, unit_start, unit_end) {
+                    continue;
+                }
+                let after_unit = skip_ascii_whitespace(line.as_bytes(), unit_end, end);
+                if after_unit < end
+                    && line
+                        .as_bytes()
+                        .get(after_unit)
+                        .is_some_and(|byte| *byte == b'(')
+                {
                     continue;
                 }
                 if occupied
@@ -5080,6 +5106,16 @@ fn member_receiver_boundary(line: &str, start: usize) -> bool {
         .is_none_or(|byte| !is_ident_byte(byte))
 }
 
+fn is_unit_denominator_token(line: &str, start: usize, token: &str, units: &[&str]) -> bool {
+    if !units.contains(&token) {
+        return false;
+    }
+    let bytes = line.as_bytes();
+    start
+        .checked_sub(1)
+        .and_then(|index| bytes.get(index).copied())
+        == Some(b'/')
+}
 fn is_unit_boundary(line: &str, start: usize, end: usize) -> bool {
     let bytes = line.as_bytes();
     let before = start
@@ -9096,6 +9132,8 @@ ratio = Q / cp_water
 specific = 4180 J/kg/K
 irradiance = 850 W/m^2
 density = 0.12 people/m2
+max_gap = 10 min
+min_value = min(Q_series)
 valid = Q >= 0 kW and Q != 1 kW
 operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]]
 "#;
@@ -9123,9 +9161,35 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             ("specific =", "J/kg/K"),
             ("irradiance =", "W/m^2"),
             ("density =", "people/m2"),
+            ("max_gap =", "min"),
         ] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot, source, line, label, "type", "unit",
+            );
+        }
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "min_value =",
+            "min",
+            "function",
+            "report",
+        );
+        for line in ["max_gap =", "operator A:"] {
+            let line_index = source
+                .lines()
+                .position(|candidate| candidate.contains(line))
+                .unwrap_or_else(|| panic!("source line `{line}` should be present"));
+            assert!(
+                !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == line_index
+                        && token.token_type == "function"
+                        && source.lines().nth(token.line).is_some_and(|line| {
+                            line.get(token.start..token.start + token.length) == Some("min")
+                        })
+                }),
+                "unit token `min` on `{line}` must not also be marked as a builtin function"
             );
         }
 
