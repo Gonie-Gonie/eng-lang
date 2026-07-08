@@ -3493,5 +3493,100 @@
     "scope": "keyword.control.report.englang",
     "text": "residuals",
     "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.type.declaration.englang",
+    "text": "across",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.type.declaration.englang",
+    "text": "through",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "der",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "mode ="
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-command.englang",
+    "text": "plot line(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.report.englang",
+    "text": "line",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "vs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "is",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "or",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "if",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "else",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "in",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "into",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "not",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "null",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "policy",
+    "fullMatch": true
   }
 ]

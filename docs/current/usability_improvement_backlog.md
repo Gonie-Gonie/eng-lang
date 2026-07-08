@@ -54,6 +54,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 497: Documented VS Code `keyword.defaultLibrary` fallback intent for command-style builtins.
 - Batch 498: Clarified VS Code highlight inspection wording and fixed Tooling Status diagnostics-source output.
 - Batch 499: Expanded VS Code grammar smoke coverage for sampling, DB mode, boolean/nullish, and plot keyword variants.
+- Batch 500: Covered every generated VS Code syntax keyword at least once in grammar smoke expectations.
 
 ## Documentation Policy
 

@@ -81,6 +81,7 @@ report {
     plot Q_series over Time
     plot Q_series and Q_total_unc over Time
     plot histogram(Q_series)
+    plot line(Q_series)
     plot bar(Q_series)
     plot parity(Q_series)
     plot residuals(Q_series)
@@ -104,4 +105,5 @@ arg_mean_command = mean args.Q_series over args.Time
 arg_summary = summarize args.Q_total_unc by [mean, p95]
 arg_show = show args.Q_total_unc
 arg_plot_series = plot args.Q_series over args.Time
+rmse_value = rmse measured_data.T_zone vs sim.T_zone
 arg_plot_dist = plot distribution(args.Q_dist)

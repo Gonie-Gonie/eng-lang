@@ -36,6 +36,7 @@ surrogate_predictions = predict surrogate_model using designs
 filtered_designs = filter designs
 where {
     cooling_cop > 3.0
+    valid_to is none or valid_to >= date(args.year, 12, 31)
 }
 selected_designs = select designs columns people_density, cooling_cop
 selected_single = select designs column people_density

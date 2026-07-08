@@ -2,6 +2,7 @@ script LegacyScript
 struct LegacyArgs
 
 draft_declaration_keywords = [schema, class, system, domain, component, fn, method, test, const, state, input, parameter, output, port, across, through, operator, index]
+draft_operator_keywords = [if, else, in, into, is, null, not, or, policy, vs]
 
 const cp_water: SpecificHeat [J/kg/K] = 4.18 kJ/K
 
