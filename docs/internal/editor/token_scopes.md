@@ -90,6 +90,9 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.report.*.englang` | Report phrase scopes. |
 | `meta.quantity.literal.englang` | Unit-bearing numeric expressions. |
 | `meta.interpolation.englang` | String interpolation bodies. |
+| `punctuation.separator.format.englang` | Format separator inside string interpolation (`:`). |
+| `constant.numeric.format.englang` | Numeric precision fragments inside string interpolation, such as `.2`. |
+| `constant.other.unit.format.englang` | Unit display fragments inside string interpolation format specs. |
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 

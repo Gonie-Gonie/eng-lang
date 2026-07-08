@@ -115,10 +115,6 @@
                                                                                                  },
                                                                                  "patterns":  [
                                                                                                   {
-                                                                                                      "name":  "variable.other.interpolation.englang",
-                                                                                                      "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
-                                                                                                  },
-                                                                                                  {
                                                                                                       "name":  "punctuation.separator.format.englang",
                                                                                                       "match":  ":"
                                                                                                   },
@@ -129,6 +125,45 @@
                                                                                                   {
                                                                                                       "name":  "constant.other.unit.format.englang",
                                                                                                       "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "variable.parameter.function.englang",
+                                                                                                      "match":  "\\b(axis|over|target|y|features|x|test|test_fraction|seed|mean|std|sigma|uncertainty|error|relative_error|samples|n|method|scale|gain|offset|bias|lower|upper)\\b(?=\\s*=)"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "variable.parameter.property.englang",
+                                                                                                      "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "support.function.builtin.englang",
+                                                                                                      "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)(?=\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "entity.name.function.call.englang",
+                                                                                                      "match":  "\\b(?!(?:time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)\\s*\\()[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "include":  "#units"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "include":  "#constants"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "include":  "#numbers"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "include":  "#operators"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "include":  "#punctuation"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "variable.other.property.englang",
+                                                                                                      "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                                  },
+                                                                                                  {
+                                                                                                      "name":  "variable.other.interpolation.englang",
+                                                                                                      "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                                   }
                                                                                               ]
                                                                              }

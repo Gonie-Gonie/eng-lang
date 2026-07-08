@@ -73,10 +73,6 @@
                 },
                 "patterns": [
                   {
-                    "name": "variable.other.interpolation.englang",
-                    "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*\\b"
-                  },
-                  {
                     "name": "punctuation.separator.format.englang",
                     "match": ":"
                   },
@@ -87,6 +83,35 @@
                   {
                     "name": "constant.other.unit.format.englang",
                     "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
+                  },
+                  {
+                    "name": "variable.parameter.function.englang",
+                    "match": "\\b(axis|over|target|y|features|x|test|test_fraction|seed|mean|std|sigma|uncertainty|error|relative_error|samples|n|method|scale|gain|offset|bias|lower|upper)\\b(?=\\s*=)"
+                  },
+                  {
+                    "name": "variable.parameter.property.englang",
+                    "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                  },
+                  {
+                    "name": "support.function.builtin.englang",
+                    "match": "\\b({{WORKFLOW_BUILTINS}})(?=\\s*\\()"
+                  },
+                  {
+                    "name": "entity.name.function.call.englang",
+                    "match": "\\b(?!(?:{{WORKFLOW_BUILTINS}})\\s*\\()[A-Za-z_][A-Za-z0-9_]*(?=\\s*\\()"
+                  },
+                  { "include": "#units" },
+                  { "include": "#constants" },
+                  { "include": "#numbers" },
+                  { "include": "#operators" },
+                  { "include": "#punctuation" },
+                  {
+                    "name": "variable.other.property.englang",
+                    "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                  },
+                  {
+                    "name": "variable.other.interpolation.englang",
+                    "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                   }
                 ]
               }

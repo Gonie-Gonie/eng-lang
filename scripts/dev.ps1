@@ -2527,6 +2527,8 @@ function Assert-VscodeExtensionContract {
         "fixture",
         "variable.parameter.function.englang", "storage.type.function.englang",
         "storage.type.test.englang", "storage.modifier.englang",
+        "variable.other.interpolation.englang", "punctuation.separator.format.englang",
+        "constant.numeric.format.englang", "constant.other.unit.format.englang", "entity.name.function.call.englang",
         "variable.other.state.englang", "variable.other.input.englang", "variable.other.output.englang",
         "variable.other.parameter.englang", "entity.name.function.solver.englang", "meta.declaration.equation.englang",
         "\\b(schema|class|system|domain|component)\\b", "\\b(fn|method)\\b",

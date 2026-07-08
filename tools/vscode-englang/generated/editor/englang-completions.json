@@ -1875,7 +1875,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Supported narrow: Explicit generated-output copy, move, and delete operations.",
+                                "detail":  "Supported narrow: Explicit generated-output copy, move, delete, and mkdir operations.",
                                 "kind":  "stdlib",
                                 "label":  "eng.fs",
                                 "lsp_kind":  9

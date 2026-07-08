@@ -5283,6 +5283,14 @@ Status: implemented after comparing native workflow TODO items with current modu
 - Updated `eng.fs` notes and module registry wording so `mkdir` is listed with implemented copy/move/delete generated-output operations.
 - Added a `docs-check` guard that scans `stdlib/eng/*.eng` for the stale planned/future wording.
 
+## Batch 439: VS Code String Interpolation Expression Highlighting
+
+Status: implemented after reviewing the syntax-highlighting TODO item that still called out interpolation as too identifier-centered.
+
+- Expanded TextMate interpolation patterns so `{...}` bodies can color function calls, dotted properties, `args.*` references, unit-bearing literals, operators, punctuation, and bare bindings before semantic tokens arrive.
+- Added grammar fixture coverage for an interpolation expression with `mean(...)`, `sensor.T_supply + 1 K`, `axis=Time`, and a format spec.
+- Documented the interpolation format scopes and pinned them in the VS Code grammar contract.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

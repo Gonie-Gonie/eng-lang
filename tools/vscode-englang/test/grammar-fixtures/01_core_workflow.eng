@@ -25,6 +25,8 @@ notes_text = read text args.notes
 toml_text = read toml args.config_toml
 api_payload = read json api_response.body
 message = "Q = {sensor.T_supply: .2 degC}"
+message_with_expr = "Mean = {mean(sensor.T_supply + 1 K, axis=Time): .2 degC}"
+message_with_binding = "Rows = {weather_rows}"
 
 write text file("outputs/summary.txt"), message
 write standard_text sensor

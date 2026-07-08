@@ -213,7 +213,7 @@
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "variable.other.interpolation.englang",
+    "scope": "variable.other.property.englang",
     "text": "sensor.T_supply",
     "fullMatch": true
   },
@@ -2178,9 +2178,8 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
-    "text": "axis",
-    "fullMatch": true
+    "scope": "variable.parameter.function.englang",
+    "text": "axis="
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
@@ -2608,6 +2607,51 @@
     "fixture": "04_system_component.eng",
     "scope": "entity.name.function.solver.englang",
     "text": "A",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"Mean = {mean(sensor.T_supply + 1 K, axis=Time): .2 degC}\""
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.interpolation.englang",
+    "text": "{mean(sensor.T_supply + 1 K, axis=Time): .2 degC}"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "mean",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.property.englang",
+    "text": "sensor.T_supply",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "1 K",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.operator.englang",
+    "text": "+",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "axis="
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.other.interpolation.englang",
+    "text": "weather_rows",
     "fullMatch": true
   }
 ]
