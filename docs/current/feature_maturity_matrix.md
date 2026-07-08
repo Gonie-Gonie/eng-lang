@@ -31,7 +31,7 @@ separate.
 ### Typed Data Boundary
 
 - Public package: `Stable`
-- Main status: `Stable` plus data-quality fixtures
+- Main status: `Stable` plus data-quality test coverage
 - User-facing scope: schema/promote, CSV import, DateTime index metadata,
   source hashes, typed args paths, and missing-value policies.
 - Evidence: `examples/official/01_csv_plot`, data-quality diagnostics,

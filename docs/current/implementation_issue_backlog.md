@@ -134,7 +134,7 @@ Current coverage:
   dependencies and derivative states are visible without raw JSON.
 - IDE smoke covers residual dependency rows from
   `assembly_summary[].residual_graph.dependencies` and behavior graph nodes for
-  delay, Predictor, and external adapter seeds from `component_graph`.
+  delay, Predictor, and external adapter nodes from `component_graph`.
 - IDE smoke covers the solved Thermal component assembly path by checking
   boundary RHS equations, dense linear solve status, solved variables, and
   normalized residual metadata from `assembly_summary`.
@@ -171,7 +171,7 @@ Current coverage:
 - `eng test examples` directly exercises the fixed-step ODE solver API for
   two-state explicit Euler/RK4 trajectories, final partial timestep handling,
   and non-finite RHS/update failure artifacts.
-- Runtime has an internal adaptive Heun/Euler ODE seed that keeps the public
+- Runtime has an internal adaptive Heun/Euler ODE path that keeps the public
   output `TimeGrid` fixed while adapting internal substeps by an error estimate;
   it returns `SolverResult` trajectories plus accepted/rejected substep reports
   and exposes tolerance, non-finite RHS, and step-limit failures through solver
@@ -187,16 +187,16 @@ Current coverage:
   advanced.
 - `SolverInput::validate_layouts` rejects non-finite initial state, input, and
   parameter values before solver algorithms run.
-- State-space RHS/discrete seeds reject non-finite A/B matrix, sampled input,
+- State-space RHS/discrete paths reject non-finite A/B matrix, sampled input,
   derivative, and updated state values before those values can enter
   trajectories.
-- Dense linear solver seeds reject non-finite matrix/RHS values and invalid
+- Dense linear solver paths reject non-finite matrix/RHS values and invalid
   tolerances before pivoting.
-- Newton solver seeds reject non-finite initial guesses before residual or
+- Newton solver paths reject non-finite initial guesses before residual or
   Jacobian evaluation.
 - Solver residual diagnostics use a shared scaled Euclidean norm helper to
   avoid overflow for large finite residual values.
-- Fixed-point, Newton, and dense linear solver seeds reject non-finite
+- Fixed-point, Newton, and dense linear solver paths reject non-finite
   intermediate values produced by relaxation, line search, finite differences,
   or elimination.
 - ResidualGraph linear-system assembly rejects non-finite residual
@@ -204,15 +204,15 @@ Current coverage:
 - ResidualEvaluator rejects non-finite residual inputs, scales, evaluated
   residuals, normalized residuals, and residual norms instead of emitting
   non-finite diagnostics.
-- DAE seeds reject non-finite solver inputs/parameters, state-derivative
+- DAE paths reject non-finite solver inputs/parameters, state-derivative
   intermediates, mass-matrix application results, and algebraic-initialization
   inputs.
-- Fixed-step ODE, fixed-point, and dynamic-component solver seeds reject
+- Fixed-step ODE, fixed-point, and dynamic-component solver paths reject
   non-finite RHS/update values before those values can enter trajectories or
   algebraic artifacts.
 - `SolverInput::validate_layouts` now validates non-empty `OutputLayout`
   entries against declared outputs and state quantity/unit metadata while still
-  allowing empty output layouts for internal vector-output seeds.
+  allowing empty output layouts for internal vector-output paths.
 - The supported one-state thermal runtime path now delegates RHS evaluation and
   fixed-step execution to `solver::thermal::solve_first_order_thermal`; runtime
   materialization only recognizes the system shape and prepares canonical input.
@@ -309,11 +309,11 @@ Current coverage:
 
 ## State-Space
 
-Title: `state-space: close stable workflow boundaries after vector runtime seed`
+Title: `state-space: close stable workflow boundaries after vector runtime path`
 
 Definition of Done:
 
-- Keep the vector runtime seed clearly scoped until the stable workflow
+- Keep the vector runtime path clearly scoped until the stable workflow
   boundary is decided.
 - Current runtime covers `StateVector`, `InputVector`, and `LinearOperator`
   metadata, operator row/column checks, non-rectangular matrix diagnostics,
@@ -326,11 +326,11 @@ Definition of Done:
   solver input/result contracts, and solver-inspector metadata for states,
   inputs, outputs, timestep, tolerance, iterations, convergence, and failure
   reason. Plot/report output, IDE inspector support, and continuous/discrete
-  state-space smoke fixtures are in place for the current seed scope.
+  state-space smoke fixtures are in place for the current path scope.
 - Discrete and continuous state-space fixed-step execution now live in
   `solver::state_space`; runtime materialization supplies the TimeSeries/scalar
   input sampler and adapts the `SolverResult`.
-- Continuous state-space execution can use the shared adaptive Heun/Euler seed
+- Continuous state-space execution can use the shared adaptive Heun/Euler path
   via `solver = adaptive_heun`; discrete `next(x)` state-space remains
   fixed-step only.
 - State-space runtime materialization consumes compiler-provided
@@ -343,26 +343,26 @@ Definition of Done:
 
 ## Nonlinear / DAE Solver
 
-Title: `solver: integrate nonlinear and DAE paths beyond standalone algorithm seeds`
+Title: `solver: integrate nonlinear and DAE paths beyond standalone algorithm paths`
 
 Current coverage:
 
-- Runtime has a standalone damped Newton algorithm seed with finite-difference
+- Runtime has a standalone damped Newton algorithm path with finite-difference
   fallback, supplied analytic/JIT Jacobian hook, largest-residual summary,
   residual-history, convergence-status, invalid-option, and nonconvergence
   tests exposed through the solver API. Singular Newton linear solves and failed
   line-search candidates are returned as `NewtonResult` failure artifacts so
   callers can preserve solver diagnostics instead of losing the iteration state.
-- Runtime also has dense linear and solver-API fixed-point algorithm seeds; the
+- Runtime also has dense linear and solver-API fixed-point algorithm paths; the
   CLI example smoke now covers linear residual graph convergence and singular
   failure artifacts plus fixed-point convergence and nonconvergence failure
   artifacts.
 - `eng test examples` now directly exercises the solver-API Newton and
-  implicit-Euler DAE seeds, including two-variable nonlinear convergence,
+  implicit-Euler DAE paths, including two-variable nonlinear convergence,
   supplied Jacobian hook use, Newton nonconvergence failure artifacts,
   state/algebraic DAE convergence, mass-matrix derivative use, inconsistent
   initial-condition failure, and per-step DAE nonconvergence artifacts.
-- Runtime has a standalone implicit-Euler DAE seed over
+- Runtime has a standalone implicit-Euler DAE path over
   `F(x, xdot, z, u, t, p)` with optional mass matrix, initial-condition
   consistency checks, algebraic-variable initialization, ODE residual,
   algebraic-variable, mass-matrix, inconsistent-initial-condition, and step
@@ -371,14 +371,14 @@ Current coverage:
   implemented method, and `DaeMethod::Bdf { order }` returns
   `E-DAE-METHOD-UNSUPPORTED` through runtime tests and `eng test examples`
   smoke coverage instead of silently falling back.
-- Runtime has a standalone adaptive Heun/Euler ODE seed that preserves fixed
+- Runtime has a standalone adaptive Heun/Euler ODE path that preserves fixed
   output-grid trajectories while adapting internal substeps, exposes
   accepted/rejected substep reports, and is covered by runtime and
   `eng test examples` solver-API smokes.
 - The one-state thermal `simulate` path wires `solver = adaptive_heun` into that
-  adaptive seed for language-level SolverResult artifacts; general adaptive
+  adaptive path for language-level SolverResult artifacts; general adaptive
   equation-system solving remains outside the supported scope.
-- Runtime has a standalone dynamic-component explicit-Euler seed that supports
+- Runtime has a standalone dynamic-component explicit-Euler path that supports
   algebraic-free two-state updates and semi-implicit fixed-point algebraic
   solves at each timestep, updates state trajectories, carries algebraic
   trajectories through the common `SolverResult` output contract, and returns
@@ -387,7 +387,7 @@ Current coverage:
   diagnostics through report spec, HTML, `.engres`, and the IDE assembly
   summary.
 - Dynamic-component RHS evaluation can be driven from derivative-form
-  `ResidualGraph` equations, giving the internal explicit-Euler seed a concrete
+  `ResidualGraph` equations, giving the internal explicit-Euler path a concrete
   residual-to-RHS bridge for algebraic-free dynamic systems.
 - Runtime exposes a residual-graph explicit-Euler dynamic-component entrypoint
   that validates solver input layouts, rejects algebraic variables for the
@@ -422,7 +422,7 @@ Title: `solver: integrate behavior graph nodes into numeric evaluation`
 
 Current coverage:
 
-- Runtime has a solver-API delay buffer seed with linear and previous-sample
+- Runtime has a solver-API delay buffer path with linear and previous-sample
   interpolation policies, explicit initial-history policy, relationship
   artifacts, out-of-order/history-underflow diagnostics, and solver-style
   behavior-node evaluation tests.
@@ -441,7 +441,7 @@ Current coverage:
   signal quantity/unit contract when used as behavior-call inputs.
   Example-smoke fixtures cover each public component behavior diagnostic code.
 - Component local Predictor and external behavior expressions now diagnose
-  invalid seed syntax and unknown component signals before they become
+  invalid behavior-call syntax and unknown component signals before they become
   behavior-node metadata.
 - Runtime has a solver-API Predictor behavior contract wrapper with input/output
   quantity-unit metadata, valid-range warnings, provenance/model hash,
@@ -470,7 +470,7 @@ Current coverage:
 - Runtime component solver artifacts now add an explicit reason/failure note
   when behavior graph nodes are present but not yet integrated into numeric
   residual evaluation; if a square residual graph would otherwise solve while
-  ignoring behavior seeds, runtime marks it
+  ignoring behavior nodes, runtime marks it
   `not_solved_behavior_not_integrated` with `E-BEHAVIOR-NOT-INTEGRATED`.
 - `examples/internal/25_component_behavior_nodes` exercises valid delay,
   Predictor, and external adapter behavior-node artifacts, including prior
@@ -585,7 +585,7 @@ Current coverage:
   language-level algebraic-loop fixture surface is added.
 - Runtime has an internal dynamic-component assembly bridge that lowers
   `EquationAssembly` layouts and simple linear derivative/algebraic residuals
-  into the dynamic-component numeric seed. This remains an internal solver API
+  into the dynamic-component numeric path. This remains an internal solver API
   fixture path, not a production language-level component graph workflow.
 - Component connection/assembly diagnostics use checklist canonical codes for
   domain mismatch, medium mismatch, unknown port, unconnected port,

@@ -460,7 +460,7 @@ fn validate_dae_method(method: &DaeMethod) -> Result<(), SolverFailure> {
         DaeMethod::Bdf { order } => Err(SolverFailure::new(
             "E-DAE-METHOD-UNSUPPORTED",
             format!(
-                "BDF order {order} is planned but not implemented; use implicit Euler for the current DAE solver seed"
+                "BDF order {order} is not available in the current DAE solver; use implicit Euler for this model"
             ),
         )),
     }

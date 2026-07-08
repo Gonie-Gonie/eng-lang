@@ -9,7 +9,7 @@ and next cleanup action.
 - Purpose: keep engineering programs small, explicit, typed, and reviewable.
 - Public scope: `=`, no `:=`, top-level execution, `args`, importable `const`,
   scalar `fn`, relative imports, unit diagnostics, and current formatter path.
-- Main internal: broader expression and system syntax seeds exist.
+- Main internal: broader expression and system syntax experiments exist.
 - Next cleanup: keep syntax docs centered on workflow clarity, not feature
   volume.
 
@@ -39,7 +39,7 @@ and next cleanup action.
 - Public scope: measured-vs-simulated workflow and documented narrow
   system/equation examples.
 - Main internal: dense linear, fixed-point, Newton, DAE, adaptive ODE,
-  state-space, dynamic component, and behavior-node solver seeds.
+  state-space, dynamic component, and behavior-node solver paths.
 - Next cleanup: keep detailed solver ledgers in [solver docs](../internal/solver/README.md)
   and out of first-user docs.
 
