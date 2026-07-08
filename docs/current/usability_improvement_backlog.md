@@ -46,6 +46,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 489: Added Native IDE Problems copy actions for shareable diagnostic details.
 - Batch 490: Added Native IDE Copy visible diagnostics for filtered Problems results.
 - Batch 491: Tightened VS Code TextMate validation highlighting for `check coverage` clause words.
+- Batch 492: Broadened workflow 01/02/03 native-only source guards to every `.eng` file in each workflow directory.
 
 ## Documentation Policy
 

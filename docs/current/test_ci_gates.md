@@ -132,9 +132,10 @@ Current coverage:
   zero external process executions.
 - `eng test examples` asserts that all three workflows produce review,
   output-manifest, process, report, and typed result artifacts.
-- `dev.bat workflows-test` rejects `run command`, Python calls/library markers, malformed
-  process-results artifacts, non-normal workflow smoke profiles, and nonzero
-  process counts in the three native workflow examples.
+- `dev.bat workflows-test` rejects `run command`, Python calls/library markers,
+  and legacy row-selection helpers across every `.eng` source under the three
+  native workflow directories, then rejects malformed process-results artifacts,
+  non-normal workflow smoke profiles, and nonzero process counts.
 - The same gate checks workflow 02 structured sampler, model-card, prediction, DB,
   and case-manifest evidence so it cannot pass by reading file-backed surrogate data.
 - These examples are intentionally covered by workflow smoke rather than public

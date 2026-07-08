@@ -378,6 +378,56 @@ function Invoke-WorkflowsTest {
             throw "Native workflow smoke missing required workflow entrypoint: $RequiredWorkflowSourcePath"
         }
     }
+    $ForbiddenNativeWorkflowSourceMarkers = @(
+        "\bpython(?:\d+(?:\.\d+)*)?(?:\.exe)?\b",
+        "\bpy(?:\.exe)?\b",
+        "\.py\b",
+        "\bpip(?:3)?\b",
+        "\bconda\b",
+        "\bvirtualenv\b",
+        "\bvenv\b",
+        "\bipython\b",
+        "\bpytest\b",
+        "\bsubprocess\b",
+        "\bpandas\b",
+        "\bnumpy\b",
+        "\bscipy\b",
+        "\bsklearn\b",
+        "\bstatsmodels\b",
+        "\bpolars\b",
+        "\bmatplotlib\b",
+        "\brequests\b",
+        "\burllib\b",
+        "\bpyarrow\b",
+        "\bxarray\b",
+        "\btensorflow\b",
+        "\bpytorch\b",
+        "\btorch\b",
+        "\bjupyter\b",
+        "\bnotebook\b"
+    )
+    $NativeWorkflowSourceAuditPaths = @($RequiredWorkflowSourcePaths | ForEach-Object {
+        Split-Path -Parent $_
+    } | Sort-Object -Unique | ForEach-Object {
+        Get-ChildItem -LiteralPath $_ -Recurse -File -Filter "*.eng"
+    } | ForEach-Object {
+        $_.FullName
+    } | Sort-Object -Unique)
+    foreach ($NativeWorkflowSourceAuditPath in $NativeWorkflowSourceAuditPaths) {
+        $Workflow = $NativeWorkflowSourceAuditPath.Substring($RepoRoot.Length).TrimStart('\')
+        $WorkflowSource = Get-Content -LiteralPath $NativeWorkflowSourceAuditPath -Raw
+        if ($WorkflowSource -match "(?im)\brun\s+command\b") {
+            throw "Native workflow source must not use run command: $Workflow"
+        }
+        foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
+            if ($WorkflowSource -match "(?i)$PythonMarker") {
+                throw "Native workflow source must not contain Python/notebook marker $PythonMarker`: $Workflow"
+            }
+        }
+        if ($WorkflowSource -match "(?i)\bselect_first_row\s*\(") {
+            throw "Native workflow source must use filter + require_one instead of legacy select_first_row: $Workflow"
+        }
+    }
     $WorkflowPublicDocPaths = @(
         @(Get-ChildItem -LiteralPath $WorkflowRoot -Recurse -File -Include "*.md", "*.txt" | Sort-Object FullName)
         @(
@@ -421,34 +471,7 @@ function Invoke-WorkflowsTest {
         if ($WorkflowSource -match "(?im)\brun\s+command\b") {
             throw "Native workflow source must not use run command: $Workflow"
         }
-        foreach ($PythonMarker in @(
-            "\bpython(?:\d+(?:\.\d+)*)?(?:\.exe)?\b",
-            "\bpy(?:\.exe)?\b",
-            "\.py\b",
-            "\bpip(?:3)?\b",
-            "\bconda\b",
-            "\bvirtualenv\b",
-            "\bvenv\b",
-            "\bipython\b",
-            "\bpytest\b",
-            "\bsubprocess\b",
-            "\bpandas\b",
-            "\bnumpy\b",
-            "\bscipy\b",
-            "\bsklearn\b",
-            "\bstatsmodels\b",
-            "\bpolars\b",
-            "\bmatplotlib\b",
-            "\brequests\b",
-            "\burllib\b",
-            "\bpyarrow\b",
-            "\bxarray\b",
-            "\btensorflow\b",
-            "\bpytorch\b",
-            "\btorch\b",
-            "\bjupyter\b",
-            "\bnotebook\b"
-        )) {
+        foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
             if ($WorkflowSource -match "(?i)$PythonMarker") {
                 throw "Native workflow source must not contain Python/notebook marker $PythonMarker`: $Workflow"
             }
