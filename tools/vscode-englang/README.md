@@ -104,8 +104,9 @@ If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
-Status` to confirm the bundled check/run tool and live editor tool paths plus
-the current Problems source. If you run directly from source without packaging,
+Status` to confirm the bundled check/run tool and live editor tool paths,
+the current Problems source, the request model, and per-feature live editor
+routing. If you run directly from source without packaging,
 set:
 
 ```text

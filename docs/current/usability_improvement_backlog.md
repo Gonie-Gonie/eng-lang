@@ -4988,6 +4988,14 @@ Status: implemented after re-auditing workflow 01/02/03 for Python and external-
 - Extended both `dev.bat workflows-test` and the Rust example smoke guard to reject common Python sampling, ML, dataframe, plotting, statistics, and HTTP library markers such as `scipy`, `sklearn`, `statsmodels`, `polars`, `requests`, and `urllib`.
 - Updated CI-gate wording so the workflow guard is described as blocking Python library markers, not only direct Python executable calls.
 
+## Batch 404: VS Code Live Editor Status Clarity
+
+Status: implemented after reviewing the long-running editor protocol surface against the current VS Code wiring.
+
+- Added an `editor_client` block to `EngLang: Show Tooling Status` so users can see that the extension currently uses short-lived live editor requests instead of keeping a long-running language server process open.
+- Added a per-feature `features` block that maps Problems, hover, completion, definition, symbols, folding, formatting, quick fixes, and role-aware colors to the `live_editor` or `check_and_run` tool aliases.
+- Extended `ide-check` coverage so future status changes keep the user-facing request model and tool aliases visible.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
@@ -5014,8 +5022,8 @@ Status: implemented after re-auditing workflow 01/02/03 for Python and external-
 
 ## VS Code Linter And Highlighting Candidates
 
-- Promote the VS Code extension from short editor-service bridge calls to a
-  persistent LSP client when the protocol surface is stable.
+- Promote the VS Code extension from short-lived live editor requests to a
+  long-running editor client when the protocol surface is stable.
 - Broaden cross-file go-to-definition beyond static file imports once bundled
   module symbols expose definition URI/range metadata.
 - Continue expanding compiler-backed semantic token coverage for richer workflow

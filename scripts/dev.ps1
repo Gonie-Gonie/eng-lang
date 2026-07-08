@@ -2783,6 +2783,12 @@ function Assert-VscodeExtensionContract {
         "function toolingStatusPayload",
         "function executableStatus",
         "findLspRuntime",
+        "editor_client",
+        "request_model",
+        "long_running_language_server",
+        "features",
+        "updates_while_typing",
+        "role_aware_colors",
         "problems_source",
         "semantic_highlighting",
         "review_risk_decorations"
@@ -2798,7 +2804,11 @@ function Assert-VscodeExtensionContract {
         "check_and_run: checkAndRunTool",
         "live_editor: liveEditorTool",
         "eng: checkAndRunTool",
-        "eng_lsp: liveEditorTool"
+        "eng_lsp: liveEditorTool",
+        'request_model: "short-lived live editor requests"',
+        "long_running_language_server: false",
+        'live_buffer_tool: "live_editor"',
+        'file_check_tool: "check_and_run"'
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredToolingStatusAlias)) {
             throw "VS Code tooling status must expose user-facing tool aliases while keeping executable compatibility keys"

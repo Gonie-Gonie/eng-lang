@@ -445,6 +445,9 @@ function createCommandHandlers(options = {}) {
     const lsp = document ? findLspRuntime(context, document) : "eng-lsp.exe";
     const checkAndRunTool = executableStatus(runtime, config.get("runtimePath", ""));
     const liveEditorTool = executableStatus(lsp, config.get("lspPath", ""));
+    const source = problemsSource(document);
+    const lintOnChange = config.get("lintOnChange", true);
+    const semanticHighlighting = config.get("semanticHighlighting.enabled", true);
     return {
       extension: {
         id: "englang.englang",
@@ -463,11 +466,39 @@ function createCommandHandlers(options = {}) {
         eng: checkAndRunTool,
         eng_lsp: liveEditorTool
       },
+      editor_client: {
+        request_model: "short-lived live editor requests",
+        long_running_language_server: false,
+        live_buffer_tool: "live_editor",
+        file_check_tool: "check_and_run",
+        status_note: "VS Code starts a fresh live editor request for each hover, completion, symbol, highlight, formatting, quick-fix, or live Problems update."
+      },
+      features: {
+        problems: {
+          source,
+          mode: source === "live" ? "live buffer" : "saved file",
+          updates_while_typing: source === "live" && lintOnChange,
+          tool: source === "live" ? "live_editor" : "check_and_run"
+        },
+        hover: liveEditorFeature("live_editor"),
+        completion: liveEditorFeature("live_editor"),
+        definition: liveEditorFeature("live_editor"),
+        document_symbols: liveEditorFeature("live_editor"),
+        workspace_symbols: liveEditorFeature("live_editor"),
+        folding: liveEditorFeature("live_editor"),
+        formatting: liveEditorFeature("live_editor"),
+        quick_fixes: liveEditorFeature("live_editor"),
+        role_aware_colors: {
+          enabled: semanticHighlighting,
+          tool: "live_editor",
+          request_model: "short-lived live editor request"
+        }
+      },
       settings: {
-        problems_source: problemsSource(document),
+        problems_source: source,
         lint_on_save: config.get("lintOnSave", true),
-        lint_on_change: config.get("lintOnChange", true),
-        semantic_highlighting: config.get("semanticHighlighting.enabled", true),
+        lint_on_change: lintOnChange,
+        semantic_highlighting: semanticHighlighting,
         review_risk_decorations: config.get("reviewRiskDecorations.enabled", true),
         execution_profile: executionProfile(document)
       },
@@ -476,6 +507,14 @@ function createCommandHandlers(options = {}) {
         inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
         check_current_file: "EngLang: Check Current File"
       }
+    };
+  }
+
+  function liveEditorFeature(tool) {
+    return {
+      enabled: true,
+      tool,
+      request_model: "short-lived live editor request"
     };
   }
 
