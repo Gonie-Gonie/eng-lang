@@ -1,6 +1,7 @@
 # Fast Assignment
 
-EngLang v8 introduced, and v9 preserves, the `=`-centered local declaration policy.
+EngLang uses `=` for local binding and assignment. A new name creates a local
+binding; an existing name is assigned after compatibility checks.
 
 ## Rule
 
@@ -78,13 +79,7 @@ E-PUBLIC-ANNOTATION-001
 
 ## Review Output
 
-v0.2 backfill records:
-
-```text
-InferredDeclaration
-TypeInfo
-UnitDerivation
-HoverHint
-```
-
-This data is intentionally shaped for future IDE/LSP hover and quick-fix support.
+Review artifacts include the inferred declaration, type information, unit
+derivation, and hover hint for each local binding. IDE, LSP hover, and quick-fix
+features consume that metadata directly instead of re-inferring the assignment
+rules in editor code.

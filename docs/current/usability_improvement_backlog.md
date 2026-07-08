@@ -5100,6 +5100,17 @@ against the extension metadata loader validation.
   the compiler-owned syntax catalog instead of drifting back toward local
   language tables.
 
+## Batch 417: Fast Assignment Reference Wording
+
+Status: implemented after checking public language reference pages for old
+version-track wording.
+
+- Reworded `docs/reference/language/fast_assignment.md` so the local binding
+  rule is described as current EngLang behavior instead of historical v8/v9
+  policy.
+- Replaced the old `v0.2 backfill records` phrasing with current
+  review-artifact and IDE/LSP metadata wording.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
