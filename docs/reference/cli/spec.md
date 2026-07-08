@@ -1,6 +1,6 @@
 # CLI Specification
 
-The core user-facing CLI is `eng.exe`. Portable tester IDE releases also ship
+The core user-facing CLI is `eng.exe`. Portable native IDE releases also ship
 `eng-ide.exe` as a native GUI companion.
 
 ## Command Summary
@@ -373,9 +373,9 @@ Exit code:
 
 ## `eng-ide.exe`
 
-Launches the portable native tester IDE.
+Launches the portable native IDE.
 
-Current tester IDE features:
+Current native IDE features:
 
 ```text
 - Explorer for examples, stdlib, and docs

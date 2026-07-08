@@ -5360,6 +5360,13 @@ Status: implemented after comparing the VS Code plot grammar fallback with the s
 - Added report-function semantic tokens for function-style plot heads such as `plot histogram(...)`, `plot parity(...)`, and `plot residuals(...)`.
 - Pinned multi-series `plot <a> and <b> over <axis>` semantic coverage so native IDE and VS Code highlighting keep report variables and clause keywords colorful after the first LSP check.
 
+## Batch 449: Current Native IDE Wording Cleanup
+
+Status: implemented after finding current/reference docs that still described the public IDE as a Tauri/WebView tester surface.
+
+- Reworded current status, track, roadmap, CLI, and development docs to call `eng-ide.exe` the portable native IDE.
+- Left implementation-file and archived release-note wording alone where it is historical or describes the underlying UI stack.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

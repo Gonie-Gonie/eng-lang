@@ -30,7 +30,7 @@ workflow. It is not a complete engineering simulation solver.
   and output manifest artifacts.
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
-- Tauri/WebView tester IDE smoke path and packaged LSP smoke/snapshot tooling.
+- Portable native IDE smoke path and packaged LSP smoke/snapshot tooling.
 
 ## Artifact Family
 

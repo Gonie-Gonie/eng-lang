@@ -111,7 +111,7 @@ review material. It is not a broad solver claim.
 
 - Standalone packaged runner with `.engpkg`, `.lock`, Args help, dependency
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
-- Native Tauri/WebView tester IDE smoke path for open/check/save/run,
+- Portable native IDE smoke path for open/check/save/run,
   diagnostics, variable summaries, schema/TimeSeries/metric/validation
   inspectors, compiler-backed semantic highlight overlay, module registry
   browser, table transform inspector rows, PlotSpec viewing, report opening,
@@ -225,7 +225,7 @@ is not mistaken for public module support.
 | `eng_jit` | Internal hot-kernel detection and numeric lowering-plan metadata |
 | `eng_runtime` | Runtime execution, VM, CSV/data policies, `.engres` output |
 | `eng_report` | PlotSpec/SVG/report/review rendering and artifact schemas |
-| `eng_ide` | Tauri/WebView tester IDE and package smoke UI checks |
+| `eng_ide` | Portable native IDE and package smoke UI checks |
 | `eng_lsp` | Internal editor tooling, smoke checks, and metadata JSON |
 
 Future crate splitting should be documented as planned work, not assumed as the

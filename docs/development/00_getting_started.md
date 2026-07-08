@@ -125,7 +125,7 @@ spaces and Korean characters, and runs the packaged `eng.exe` plus
 `eng-ide.exe --smoke` without relying on Rust or Python in the target folder.
 It also builds a standalone bundle and runs that bundle's `run.bat`.
 
-## Native Tester IDE
+## Native IDE
 
 During development:
 
@@ -139,10 +139,10 @@ From a portable release package:
 eng-ide.exe
 ```
 
-The Tauri tester IDE supports file browsing, multi-file source editing, live
+The native IDE supports file browsing, multi-file source editing, live
 compiler diagnostics, caret completion insertion, symbol metadata, running the
 current file, terminal output, variable summaries, PlotSpec viewing, and
-on-demand report/plot opening. See [Tauri tester IDE](../user/howto/use_native_ide.md).
+on-demand report/plot opening. See [native IDE](../user/howto/use_native_ide.md).
 
 ## Troubleshooting
 

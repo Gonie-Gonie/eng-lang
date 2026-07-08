@@ -63,7 +63,7 @@ separate.
   Review inspector plus first CLI section-hash and item-level semantic diff.
 - User-facing scope: review JSON, report HTML, report spec, result artifact,
   output manifest with artifact registry, run log, process results, test
-  results, and native tester IDE
+  results, and native IDE
   inspection for the current package workflows. `review.json.review_document`
   now normalizes semantic/section hashes, inputs, schemas, units/quantities,
   time axes, symbols, derived values, calculations, report outputs,
@@ -107,12 +107,12 @@ separate.
   sandboxing, workspace-wide test discovery.
 - Next cleanup action: keep every effect typed, explicit, and reviewable.
 
-### Package And Native Tester IDE
+### Package And Native IDE
 
 - Public package: `Stable`
 - Main status: `Stable` with internal inspector coverage
 - User-facing scope: portable package, standalone runner, curated PDFs, package
-  smoke, native tester IDE for check/run/inspect, PlotSpec/report opening, and
+  smoke, native IDE for check/run/inspect, PlotSpec/report opening, and
   side-effect panels.
 - Evidence: release-check, package-smoke, IDE smoke.
 - Not included: persistent LSP editor contract, production editor platform.

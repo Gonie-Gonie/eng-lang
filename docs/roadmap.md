@@ -33,7 +33,7 @@ Public package scope:
 - explicit print/log/export/process/test/file-operation artifacts where covered
   by official examples
 - standalone packaging for the official CSV workflow
-- native tester IDE smoke path
+- native IDE smoke path
 - packaged eng-lsp.exe smoke/snapshot tooling
 - curated user PDF and language grammar PDF
 ```
@@ -109,7 +109,7 @@ name should remain separate from the release label and maturity status.
 
 ## IDE Direction
 
-The tester IDE is a Tauri/WebView shell with a Rust backend and static
+The native IDE is a portable GUI companion with a Rust backend and static
 HTML/CSS/JS frontend:
 
 ```text

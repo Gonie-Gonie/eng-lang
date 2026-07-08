@@ -47,7 +47,7 @@ and next cleanup action.
 
 - Purpose: give engineers a review cockpit for variables, units, schemas,
   TimeSeries, plots, reports, provenance, and side effects.
-- Public scope: packaged Tauri/WebView tester IDE and smoke path.
+- Public scope: packaged portable native IDE and smoke path.
 - Main internal: solver/component inspector rows, editor metadata smoke checks,
   and optional VS Code extension source.
 - Next cleanup: present TimeSeries/schema/unit/report panels before component
