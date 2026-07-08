@@ -9,6 +9,9 @@ with {
     cooling_cop = uniform(2.5, 5.0)
 }
 
+arg_distribution = normal(args.cooling_mean, std=args.cooling_std)
+property_distribution = uniform(sensor.cooling_min, sensor.cooling_max)
+
 model = train regression designs
 with {
     target = annual_electricity

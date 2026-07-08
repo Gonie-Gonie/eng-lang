@@ -406,3 +406,11 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   simple local summary values receive distinct TextMate scopes.
 - Add side-effect grammar fixtures for argument-backed and property-backed
   summary fields so export CSV highlighting stays aligned with workflow phrases.
+
+## Backlog Batch 461 - Distribution Argument Scopes
+
+- Split distribution helper argument fallback scopes so `normal(...)`,
+  `uniform(...)`, and related uncertainty helpers color `args.*`, dotted paths,
+  and local identifiers consistently.
+- Add sampling/model grammar fixtures for argument-backed and property-backed
+  distribution helper calls.

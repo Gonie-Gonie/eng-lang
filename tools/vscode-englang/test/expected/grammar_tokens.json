@@ -3164,4 +3164,41 @@
     "text": "report.peak_Q",
     "fullMatch": true
   }
+,
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "normal(args.cooling_mean, std=args.cooling_std)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.distribution-call.englang",
+    "text": "uniform(sensor.cooling_min, sensor.cooling_max)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.cooling_mean",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.cooling_std",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "sensor.cooling_min",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "sensor.cooling_max",
+    "fullMatch": true
+  }
 ]
