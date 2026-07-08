@@ -754,6 +754,7 @@ Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Lab
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
 Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
 
 function Resolve-GrammarFixturePath {
     param([Parameter(Mandatory = $true)][string] $Fixture)

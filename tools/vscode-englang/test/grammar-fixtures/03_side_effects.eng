@@ -41,3 +41,4 @@ write text join(args.output, "summary.txt"), "done"
 write json "outputs/energy.json", E_coil
 print "Q total = {Q_total: .2 kWh}"
 log info "summary exported"
+download args.file_url to args.raw_file

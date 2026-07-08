@@ -66,3 +66,13 @@ with {
 }
 
 collected = collect results case_results
+arg_cases = materialize cases args.designs
+property_cases = materialize cases study.designs
+arg_case_results = apply args.case_step over args.designs
+property_case_results = apply workflow.case_step over study.designs
+arg_predictions = predict args.model_ref using args.designs
+property_predictions = predict surrogate.model using study.designs
+arg_model = train regression from args.training_results
+property_model = train regression on study.training_results
+collected_args = collect results args.case_results
+collected_property = collect results cases.results

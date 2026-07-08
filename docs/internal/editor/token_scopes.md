@@ -348,3 +348,14 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   already-present option value.
 - `ide-check` must guard the new diagnostic codes, labels, and helper names so
   future quick-fix refactors do not silently drop model option coverage.
+
+## Backlog Batch 455 - Workflow Phrase Argument Highlighting
+
+- Split TextMate captures for workflow phrase arguments into `args.*`, dotted
+  property paths, and simple local bindings for materialize/collect/apply,
+  predict, and train-regression phrases.
+- Add download phrase coverage for `args.*` and dotted path arguments so
+  `download args.file_url to args.raw_file` colors consistently with other
+  workflow phrases.
+- Guard `meta.workflow.download-to.englang` operator includes through
+  `vscode-grammar-test` alongside the existing render-template guard.

@@ -1265,7 +1265,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.materialize-cases.englang",
-                                                                    "match":  "\\b(materialize)\\s+(cases)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(materialize)\\s+(cases)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1274,13 +1274,19 @@
                                                                                                "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "3":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "5":  {
                                                                                                "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.collect-results.englang",
-                                                                    "match":  "\\b(collect)\\s+(results)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(collect)\\s+(results)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1289,13 +1295,19 @@
                                                                                                "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "3":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "4":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "5":  {
                                                                                                "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.predict-model.englang",
-                                                                    "match":  "\\b(predict)\\s+(model)\\s+(using)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(predict)\\s+(model)\\s+(using)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1307,31 +1319,49 @@
                                                                                                "name":  "keyword.operator.word.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "6":  {
                                                                                                "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.predict-model.englang",
-                                                                    "match":  "\\b(predict)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(using)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(predict)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(using)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "variable.other.local.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
                                                                                                "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.train-regression.englang",
-                                                                    "match":  "\\b(train)\\s+(regression)\\s+(?:(from|on)\\s+)?([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(train)\\s+(regression)\\s+(?:(from|on)\\s+)?(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -1343,6 +1373,12 @@
                                                                                                "name":  "keyword.operator.word.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "6":  {
                                                                                                "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
@@ -1559,18 +1595,30 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.apply-step.englang",
-                                                                    "match":  "\\b(apply)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(over)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\b",
+                                                                    "match":  "\\b(apply)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "entity.name.function.workflow-step.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "3":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "4":  {
+                                                                                               "name":  "entity.name.function.workflow-step.englang"
+                                                                                           },
+                                                                                     "5":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "6":  {
+                                                                                               "name":  "variable.parameter.property.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "variable.other.property.englang"
+                                                                                           },
+                                                                                     "8":  {
                                                                                                "name":  "variable.other.local.englang"
                                                                                            }
                                                                                  }
@@ -2126,7 +2174,22 @@
                                                                                          "include":  "#numbers"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      }
                                                                                  ]
                                                                 },

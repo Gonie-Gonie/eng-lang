@@ -2688,5 +2688,83 @@
     "scope": "variable.other.interpolation.englang",
     "text": "weather_rows",
     "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "study.designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.case_step",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "workflow.case_step",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.model_ref",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "surrogate.model",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.training_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "study.training_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.case_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.property.englang",
+    "text": "cases.results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.download-to.englang",
+    "text": "download args.file_url to args.raw_file",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.file_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.raw_file",
+    "fullMatch": true
   }
 ]
