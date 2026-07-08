@@ -6385,6 +6385,12 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                 || !output
                     .result_json
                     .contains("\"status\": \"propagated_sensor_std\"")
+                || !output.result_json.contains(
+                    "\"method\": \"independent_pointwise_sensor_std_duration_above_finite_difference\"",
+                )
+                || !output
+                    .result_json
+                    .contains("\"statistic\": \"duration_above(5 kW)\"")
                 || !output.result_json.contains("\"status\": \"metadata_only\"")
                 || !native_workflow_has_zero_process_results(&output.process_results_json)
                 || !output.result_json.contains("\"timeseries_coverage\"")

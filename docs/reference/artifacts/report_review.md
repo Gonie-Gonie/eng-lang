@@ -633,11 +633,11 @@ Pointwise TimeSeries sensor standard deviation metadata is recorded in
 `review.json.timeseries_uncertainty[]`; invalid TimeSeries owner, missing unit,
 negative value, or incompatible unit produces `E-UNC-TS-STD-001`.
 TimeSeries statistics and integrations that consume such a source are recorded
-in `review.json.timeseries_uncertainty_calculations[]` with
-`metadata_only` status. `duration_above(...)` summary statistics are recorded
-as `duration_above` operations in the same section, and plots can request
-`confidence_band = sensor_std` to carry a pointwise confidence band in
-PlotSpec/SVG.
+in static `review.json.timeseries_uncertainty_calculations[]` linkage entries.
+Runtime `result.engres` propagates independent pointwise `sensor_std` through
+mean, integration, and `duration_above(...)` calculations; percentile
+statistics remain metadata-only. Plots can request `confidence_band =
+sensor_std` to carry a pointwise confidence band in PlotSpec/SVG.
 Propagation source terms are also carried through `review.json`,
 `result.engres`, runtime-updated `report_spec.json`, HTML reports, and the
 native IDE Runtime Summary.

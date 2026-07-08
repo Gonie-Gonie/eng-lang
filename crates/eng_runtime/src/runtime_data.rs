@@ -8274,10 +8274,22 @@ fn statistic_uncertainty_stddev(
             },
         );
     }
+    if name.starts_with("duration_above(") {
+        let stddev = duration_above_uncertainty_stddev(name, series, sensor_std);
+        return (
+            stddev,
+            "independent_pointwise_sensor_std_duration_above_finite_difference".to_owned(),
+            if stddev.is_some() {
+                "propagated_sensor_std".to_owned()
+            } else {
+                "unavailable".to_owned()
+            },
+        );
+    }
     (
         None,
         "pointwise_sensor_std_metadata_only".to_owned(),
-        if name.starts_with('p') || name.starts_with("duration_above(") {
+        if name.starts_with('p') {
             "metadata_only".to_owned()
         } else {
             "unsupported_statistic".to_owned()
@@ -8285,6 +8297,39 @@ fn statistic_uncertainty_stddev(
     )
 }
 
+fn duration_above_uncertainty_stddev(
+    name: &str,
+    series: &RuntimeTimeSeries,
+    sensor_std: f64,
+) -> Option<f64> {
+    let threshold = duration_above_threshold(name, &series.display_unit)?;
+    duration_above(series, threshold)?;
+    let mut variance = 0.0;
+    for index in 0..series.points.len() {
+        let step = finite_difference_step(series.points[index].y, sensor_std);
+        if step <= 0.0 || !step.is_finite() {
+            return None;
+        }
+        let mut plus = series.clone();
+        plus.points[index].y += step;
+        let plus_duration = duration_above(&plus, threshold)?;
+
+        let mut minus = series.clone();
+        minus.points[index].y -= step;
+        let minus_duration = duration_above(&minus, threshold)?;
+
+        let derivative = (plus_duration - minus_duration) / (2.0 * step);
+        if !derivative.is_finite() {
+            return None;
+        }
+        variance += derivative * derivative * sensor_std * sensor_std;
+    }
+    Some(variance.sqrt())
+}
+
+fn finite_difference_step(value: f64, sensor_std: f64) -> f64 {
+    value.abs().max(sensor_std.abs()).max(1.0) * 1.0e-6
+}
 fn time_weighted_mean_uncertainty_stddev(
     series: &RuntimeTimeSeries,
     sensor_std: f64,
@@ -21360,6 +21405,58 @@ Q_band = Q_low + Q_aux
         assert_eq!(derived.kind, "Interval");
         assert_eq!(derived.lower, Some(5.0));
         assert_eq!(derived.upper, Some(8.0));
+    }
+
+    #[test]
+    fn propagates_duration_above_sensor_std_uncertainty() {
+        let series = RuntimeTimeSeries {
+            name: "Q_series".to_owned(),
+            axis: "Time".to_owned(),
+            x_unit: "s".to_owned(),
+            quantity_kind: "HeatRate".to_owned(),
+            display_unit: "kW".to_owned(),
+            source_table: "synthetic".to_owned(),
+            source_expression: "Q_series".to_owned(),
+            points: vec![
+                RuntimePoint { x: 0.0, y: 4.0 },
+                RuntimePoint { x: 10.0, y: 6.0 },
+                RuntimePoint { x: 20.0, y: 4.0 },
+            ],
+        };
+
+        let (stddev, method, status) =
+            statistic_uncertainty_stddev("duration_above(5 kW)", &series, 0.2);
+
+        assert_eq!(
+            method,
+            "independent_pointwise_sensor_std_duration_above_finite_difference"
+        );
+        assert_eq!(status, "propagated_sensor_std");
+        assert_eq!(round2(stddev.expect("duration stddev")), 1.22);
+    }
+
+    #[test]
+    fn materialized_uncertain_sensor_workflow_propagates_duration_uncertainty() {
+        let source_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../..")
+            .join("examples/workflows/03_uncertain_sensor_report/main.eng");
+        let source = std::fs::read_to_string(&source_path).unwrap();
+        let report = check_file(&source_path, &CheckOptions::default()).unwrap();
+        let runtime = materialize_runtime_data(&report, &source);
+
+        let duration = runtime
+            .timeseries_uncertainty_calculations
+            .iter()
+            .find(|calculation| calculation.statistic.as_deref() == Some("duration_above(5 kW)"))
+            .expect("duration uncertainty calculation");
+
+        assert_eq!(duration.status, "propagated_sensor_std");
+        assert_eq!(
+            duration.method,
+            "independent_pointwise_sensor_std_duration_above_finite_difference"
+        );
+        assert!(duration.stddev.is_some_and(|stddev| stddev >= 0.0));
+        assert_eq!(duration.unit, "s");
     }
 
     #[test]

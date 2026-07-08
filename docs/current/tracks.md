@@ -64,8 +64,8 @@ and next cleanup action.
   statistic/probability validation type-checking, runtime pass/fail
   materialization for explicit statistic/probability/between validations, and
   pointwise TimeSeries sensor standard deviation review metadata, runtime
-  mean/integration `sensor_std` propagation artifacts with metadata-only
-  percentile/duration linkage, `sensor_std` confidence-band
+  mean/integration/duration `sensor_std` propagation artifacts with
+  metadata-only percentile linkage, `sensor_std` confidence-band
   PlotSpec rendering, internal IDE variable/inspector metadata, plus histogram
   artifacts.
 - Next cleanup: keep as internal until full probabilistic TimeSeries

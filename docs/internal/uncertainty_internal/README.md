@@ -102,12 +102,13 @@ with {
 It must be a non-negative unitful value compatible with the TimeSeries value
 quantity. The compiler records it in `review.json.timeseries_uncertainty[]`.
 When `summarize` or `integrate(...)` consumes that TimeSeries, the compiler
-also records `review.json.timeseries_uncertainty_calculations[]` entries with
-status `metadata_only`; `duration_above(...)` summaries are separated as
-duration operations. A line plot can request `confidence_band = sensor_std`,
-which records a pointwise measured-standard-deviation band in PlotSpec/SVG.
-Runtime probabilistic propagation through TimeSeries mean/integrate/duration
-remains follow-up work.
+also records static `review.json.timeseries_uncertainty_calculations[]`
+linkage entries; `duration_above(...)` summaries are separated as duration
+operations. Runtime `result.engres` propagates independent pointwise
+`sensor_std` through mean, integrate, and duration-above calculations, while
+percentile statistics remain metadata-only. A line plot can request
+`confidence_band = sensor_std`, which records a pointwise
+measured-standard-deviation band in PlotSpec/SVG.
 
 Each runtime uncertainty includes mean, standard deviation, relative error when
 declared, lower/upper bounds, `p05`, `p50`, `p95`, `distribution`, `method`,
