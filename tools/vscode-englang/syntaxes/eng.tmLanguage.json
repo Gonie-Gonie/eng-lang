@@ -2605,7 +2605,7 @@
                                          "patterns":  [
                                                           {
                                                               "name":  "keyword.operator.word.englang",
-                                                              "match":  "\\b(eq|is|none|null|and|or|not|between|over|by|using|in|where|into|of|vs)\\b"
+                                                              "match":  "\\b(eq|is|none|null|and|or|not|between|from|on|over|by|using|with|in|where|into|of|vs)\\b"
                                                           },
                                                           {
                                                               "name":  "keyword.operator.englang",

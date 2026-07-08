@@ -646,6 +646,30 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.train-regression.englang",
+    "text": "train regression from args.training_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "from",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.train-regression.englang",
+    "text": "train regression on study.training_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "on",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "train",
     "fullMatch": true
