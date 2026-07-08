@@ -29,7 +29,8 @@ embedding compiler logic in JavaScript.
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
   missing-unit suffix fixes for unit arithmetic diagnostics, command target
-  parenthesizing, schema column annotation migrations, required file-mutation
+  parenthesizing, unknown stdlib module replacements, planned/internal stdlib
+  import removal, schema column annotation migrations, required file-mutation
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
   legacy network `fixture` aliases, legacy response `.hash` aliases,
   raw `read json` field access promotion skeletons,

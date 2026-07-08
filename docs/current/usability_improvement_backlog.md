@@ -5036,6 +5036,14 @@ Status: implemented after reviewing warning-only linter diagnostics for missing 
 - Pinned the diagnostic underline range to the `sum` function name so the warning points at the actionable token instead of the binding name.
 - Extended stdio code-action coverage, diagnostic-range coverage, README wording, and `ide-check` contract tokens for the new repair.
 
+## Batch 410: Stdlib Module Status Quick Fixes
+
+Status: implemented after reviewing warning-only stdlib import diagnostics for missing repair actions.
+
+- Added LSP and VS Code fallback quick fixes for planned/internal stdlib module warnings, deleting the current `use/import eng.*` line when the user chooses to remove unsupported module metadata.
+- Kept unknown-module replacement separate from status-warning removal, so misspellings still suggest the closest supported registry module.
+- Extended stdio code-action coverage, README wording, and `ide-check` contract tokens for the new warning repairs.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

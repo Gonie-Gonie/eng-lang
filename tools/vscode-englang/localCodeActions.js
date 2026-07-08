@@ -229,6 +229,14 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "W-STDLIB-MODULE-PLANNED" || code === "W-STDLIB-MODULE-INTERNAL") {
+      const status = code === "W-STDLIB-MODULE-PLANNED" ? "planned" : "internal";
+      const action = removeStdlibModuleImportAction(document, diagnostic, status);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
     if (optionAction) {
       optionAction.isPreferred = true;
@@ -327,6 +335,29 @@ function stdlibModuleReplacementAction(document, diagnostic, completionSeed) {
     new vscode.Range(line.lineNumber, index, line.lineNumber, index + unknown.length),
     replacement
   );
+  return action;
+}
+
+function removeStdlibModuleImportAction(document, diagnostic, status) {
+  const moduleName = stdlibModuleNameFromDiagnostic(diagnostic.message);
+  if (!moduleName) {
+    return undefined;
+  }
+  const lineNumber = diagnostic.range.start.line;
+  if (lineNumber < 0 || lineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const line = document.lineAt(lineNumber);
+  if (!stripLineComment(line.text).includes(moduleName)) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    `Remove ${status} stdlib module import`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.delete(document.uri, fullLineRange(document, lineNumber));
   return action;
 }
 

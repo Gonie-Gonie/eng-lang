@@ -713,6 +713,8 @@ fn stdio_code_actions_offer_linter_quick_fixes() {
         .expect("fixture directory should be writable");
     std::fs::write(&fixture_path, "{\"ok\":true}\n").expect("fixture should be writable");
     let source = r#"use eng.nte
+use eng.stats
+use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
 assert Q_total == 12 kW
@@ -940,6 +942,8 @@ report {
         "E-CMD-AMBIG-001",
         "E-ASSERT-001",
         "W-STATS-SUM-001",
+        "W-STDLIB-MODULE-PLANNED",
+        "W-STDLIB-MODULE-INTERNAL",
         "E-WHERE-FWD-001",
         "E-NAME-LOCAL-001",
         "E-PUBLIC-ANNOTATION-001",
@@ -1056,6 +1060,28 @@ report {
         .as_array()
         .expect("code action result should be an array");
     assert_action_edit(actions, &uri, "Replace eng.nte with eng.net", "eng.net");
+    let planned_stdlib_line = source
+        .lines()
+        .position(|line| line.trim_start() == "use eng.stats")
+        .expect("source should include planned stdlib import");
+    let internal_stdlib_line = source
+        .lines()
+        .position(|line| line.trim_start() == "use eng.system")
+        .expect("source should include internal stdlib import");
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Remove planned stdlib module import",
+        "",
+        planned_stdlib_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Remove internal stdlib module import",
+        "",
+        internal_stdlib_line,
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1448,7 +1474,9 @@ fn code_actions_stdin_returns_linter_quick_fixes_for_unsaved_source() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/code_actions_stdin.eng");
     let uri = file_uri(&source_path);
-    let source = r#"power = 10 kW
+    let source = r#"use eng.stats
+use eng.system
+power = 10 kW
 Q_total = 10 + 2 kW
 assert Q_total == 12 kW
 Q1 = 1 kW
@@ -1563,6 +1591,28 @@ report {
     let actions = payload["actions"]
         .as_array()
         .expect("actions should be an array");
+    let planned_stdlib_line = source
+        .lines()
+        .position(|line| line.trim_start() == "use eng.stats")
+        .expect("source should include planned stdlib import");
+    let internal_stdlib_line = source
+        .lines()
+        .position(|line| line.trim_start() == "use eng.system")
+        .expect("source should include internal stdlib import");
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Remove planned stdlib module import",
+        "",
+        planned_stdlib_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Remove internal stdlib module import",
+        "",
+        internal_stdlib_line,
+    );
     assert_action_edit(
         actions,
         &uri,

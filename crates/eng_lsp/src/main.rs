@@ -794,6 +794,12 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-STDLIB-MODULE-UNKNOWN" => optional_code_action(
             lsp_stdlib_module_replacement_code_action(uri, text, diagnostic),
         ),
+        "W-STDLIB-MODULE-PLANNED" => optional_code_action(
+            lsp_remove_stdlib_module_import_code_action(uri, text, diagnostic, "planned"),
+        ),
+        "W-STDLIB-MODULE-INTERNAL" => optional_code_action(
+            lsp_remove_stdlib_module_import_code_action(uri, text, diagnostic, "internal"),
+        ),
         code => optional_code_action(lsp_option_value_replacement_code_action(
             uri,
             text,
@@ -3037,6 +3043,27 @@ fn lsp_stdlib_module_replacement_code_action(
             line_byte_range(line_number, line, start_byte, end_byte),
             &replacement
         )
+    }))
+}
+
+fn lsp_remove_stdlib_module_import_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+    status: &str,
+) -> Option<Value> {
+    let module = stdlib_module_name_from_diagnostic(diagnostic_message(diagnostic))?;
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    if !strip_line_comment(line).contains(module) {
+        return None;
+    }
+    Some(json!({
+        "title": format!("Remove {status} stdlib module import"),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), "")
     }))
 }
 
