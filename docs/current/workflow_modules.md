@@ -280,9 +280,10 @@ status, result collection status, cache hit/miss counts, scheduler hooks,
 duplicate diagnostics, and
 optional process-enriched case materialization fields only when a workflow uses
 an `eng.process` adapter with matching expected outputs. Current native
-`materialize cases`, `apply ... over cases`, and `collect results` syntax makes
-the supported table/case/template path explicit; broader run-case scheduler
-policy should extend the same record shape:
+`materialize cases`, `apply ... over cases`, and `collect results <CaseOutput>`
+make the supported table/case/template path explicit by materializing CaseTable,
+CaseOutput, and CaseResultCollection rows; broader run-case scheduler policy
+should extend the same record shape:
 
 ```text
 case_id

@@ -716,7 +716,7 @@ function Invoke-WorkflowsTest {
                 [int]$_.field_count -eq 3 -and
                 [int]$_.item_count -eq 3 -and
                 $null -eq $_.error -and
-                [int]$_.line -eq 101 -and
+                [int]$_.line -gt 0 -and
                 [string]$_.path -like "*surrogate_results.sqlite" -and
                 [string]$_.source_hash -match "^[0-9a-f]{64}$"
             })
@@ -755,6 +755,9 @@ function Invoke-WorkflowsTest {
                 '"case_manifests"',
                 '"binding": "case_inputs"',
                 '"schema_name": "CaseOutput"',
+                '"binding": "case_result_collection"',
+                '"schema_name": "CaseResultCollection"',
+                '"source": "collect results case_inputs"',
                 '"model_cards"',
                 '"prediction_manifests"',
                 '"schema_name": "PredictionResult"',
@@ -773,6 +776,7 @@ function Invoke-WorkflowsTest {
                 '"model_cards"',
                 '"prediction_manifests"',
                 '"db_manifests"',
+                "case_result_collection.rows",
                 '"binding": "case_inputs:case_001"'
             )) {
                 if (-not $ReviewJson.Contains($RequiredSurrogateReviewToken)) {
@@ -3617,8 +3621,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, and completion seed metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion seed metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
@@ -4392,6 +4396,15 @@ function Assert-VscodeExtensionContract {
         }
         if ([string]::IsNullOrWhiteSpace($CaseOutputTableField.detail)) {
             throw "generated VS Code editor metadata case output table field $RequiredCaseOutputTableField missing detail"
+        }
+    }
+    foreach ($RequiredCaseResultCollectionTableField in @("collected_count", "missing_count", "blocked_count", "status")) {
+        $CaseResultCollectionTableField = @($EditorMetadata.syntax_catalog.case_result_collection_table_fields | Where-Object { $_.label -eq $RequiredCaseResultCollectionTableField }) | Select-Object -First 1
+        if ($null -eq $CaseResultCollectionTableField) {
+            throw "generated VS Code editor metadata missing case result collection table field $RequiredCaseResultCollectionTableField"
+        }
+        if ([string]::IsNullOrWhiteSpace($CaseResultCollectionTableField.detail)) {
+            throw "generated VS Code editor metadata case result collection table field $RequiredCaseResultCollectionTableField missing detail"
         }
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)

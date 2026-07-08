@@ -13183,12 +13183,15 @@ system Envelope {
                 "with {\n",
                 "    template = file(\"model/native_case_template.txt\")\n",
                 "    output = \"{case_dir}/input.txt\"\n",
-                "}\n\n",
+                "}\n",
+                "case_results = collect results case_inputs\n\n",
                 "case_count = cases.case_count\n",
                 "pending_count = cases.pending_count\n",
                 "case_status = cases.status\n",
                 "planned_count = case_inputs.planned_count\n",
                 "manifest_count = case_inputs.manifest_count\n",
+                "collected_count = case_results.collected_count\n",
+                "collection_status = case_results.status\n",
             ),
             &CheckOptions::default(),
         );
@@ -13205,8 +13208,14 @@ system Envelope {
         assert_eq!(binding_type("case_count"), Some("Count"));
         assert_eq!(binding_type("pending_count"), Some("Count"));
         assert_eq!(binding_type("case_status"), Some("String"));
+        assert_eq!(
+            binding_type("case_results"),
+            Some("Table[CaseResultCollection]")
+        );
         assert_eq!(binding_type("planned_count"), Some("Count"));
         assert_eq!(binding_type("manifest_count"), Some("Count"));
+        assert_eq!(binding_type("collected_count"), Some("Count"));
+        assert_eq!(binding_type("collection_status"), Some("String"));
     }
 
     #[test]

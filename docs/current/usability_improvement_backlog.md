@@ -55,6 +55,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 498: Clarified VS Code highlight inspection wording and fixed Tooling Status diagnostics-source output.
 - Batch 499: Expanded VS Code grammar smoke coverage for sampling, DB mode, boolean/nullish, and plot keyword variants.
 - Batch 500: Covered every generated VS Code syntax keyword at least once in grammar smoke expectations.
+- Batch 501: Implemented native `collect results <CaseOutput>` as CaseResultCollection tables and wired workflow 02/editor metadata coverage.
 
 ## Documentation Policy
 

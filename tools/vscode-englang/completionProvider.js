@@ -9,6 +9,9 @@ class EngCompletionProvider {
     this.sampleTableFields = Array.isArray(options.sampleTableFields) ? options.sampleTableFields : [];
     this.caseTableFields = Array.isArray(options.caseTableFields) ? options.caseTableFields : [];
     this.caseOutputTableFields = Array.isArray(options.caseOutputTableFields) ? options.caseOutputTableFields : [];
+    this.caseResultCollectionTableFields = Array.isArray(options.caseResultCollectionTableFields)
+      ? options.caseResultCollectionTableFields
+      : [];
     this.completionSnapshotForPosition = options.completionSnapshotForPosition;
     this.cachedSnapshotForDocument = options.cachedSnapshotForDocument ?? (() => undefined);
   }
@@ -25,12 +28,14 @@ class EngCompletionProvider {
         httpResponseFields: this.httpResponseFields,
         sampleTableFields: this.sampleTableFields,
         caseTableFields: this.caseTableFields,
-        caseOutputTableFields: this.caseOutputTableFields
+        caseOutputTableFields: this.caseOutputTableFields,
+        caseResultCollectionTableFields: this.caseResultCollectionTableFields
       }),
       httpResponseFields: this.httpResponseFields,
       sampleTableFields: this.sampleTableFields,
       caseTableFields: this.caseTableFields,
-      caseOutputTableFields: this.caseOutputTableFields
+      caseOutputTableFields: this.caseOutputTableFields,
+      caseResultCollectionTableFields: this.caseResultCollectionTableFields
     });
     return completionItemsFromPayload(completionPayload, this.completionSeed, { localCompletions });
   }
@@ -137,6 +142,11 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s+[A-Za-z_][A-Za-z0-9_.-]*\s+over\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
       fields: catalogs?.caseOutputTableFields,
       detail: "Case output table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_]*\b/gm,
+      fields: catalogs?.caseResultCollectionTableFields,
+      detail: "Case result collection field"
     }
   ];
   for (const group of groups) {

@@ -2491,6 +2491,52 @@
                                                                 "label":  "source_hash"
                                                             }
                                                         ],
+                           "case_result_collection_table_fields":  [
+                                                                       {
+                                                                           "detail":  "case result row count",
+                                                                           "label":  "case_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "collected case result count",
+                                                                           "label":  "collected_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "missing case result count",
+                                                                           "label":  "missing_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "blocked case result count",
+                                                                           "label":  "blocked_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "collected output path count",
+                                                                           "label":  "output_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "collected manifest path count",
+                                                                           "label":  "manifest_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "case result collection aggregate status",
+                                                                           "label":  "status"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "table row count",
+                                                                           "label":  "row_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "table column count",
+                                                                           "label":  "column_count"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "runtime table schema name",
+                                                                           "label":  "schema_name"
+                                                                       },
+                                                                       {
+                                                                           "detail":  "runtime table source hash",
+                                                                           "label":  "source_hash"
+                                                                       }
+                                                                   ],
                            "case_table_fields":  [
                                                      {
                                                          "detail":  "case row count",

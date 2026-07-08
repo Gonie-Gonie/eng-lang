@@ -260,8 +260,8 @@ separate.
   Table[Prediction] rows and `typed_payload.prediction_manifests[]`; live
   HTTP(S) GET/download execution materializes pinned response/download bodies
   with cache replay; current native `materialize cases`, `apply ... over cases`,
-  and `collect results` syntax is implemented for the supported case-table
-  path; `Planned` for broad run-cases scheduling, broad DB support, and broader
+  and `collect results <CaseOutput>` syntax materializes CaseTable, CaseOutput,
+  and CaseResultCollection rows for the supported case-table path; `Planned` for broad run-cases scheduling, broad DB support, and broader
   model train syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the
@@ -283,8 +283,9 @@ separate.
   inspector smoke coverage, and
   `docs/current/workflow_modules.md`.
   The native surrogate workflow now records native sample rows,
-  CaseOutput rows from `apply ... over cases`, case_input artifacts, surrogate
-  model specs/cards, prediction manifests with output quantity/unit and
+  CaseOutput rows from `apply ... over cases`, CaseResultCollection rows from
+  `collect results case_inputs`, case_input artifacts, surrogate model specs/cards,
+  prediction manifests with output quantity/unit and
   confidence-column metadata, DB write manifests with schema diagnostics,
   table records, transaction status, and typed DB readback as reviewable native
   artifacts.

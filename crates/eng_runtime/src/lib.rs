@@ -9326,7 +9326,12 @@ fn evaluate_table_metadata_field_expression(
         "source_hash" => Some(RuntimeFormatValue::Text(
             table.source_hash.clone().unwrap_or_default(),
         )),
-        "case_count" if matches!(table.schema_name.as_str(), "CaseTable" | "CaseOutput") => {
+        "case_count"
+            if matches!(
+                table.schema_name.as_str(),
+                "CaseTable" | "CaseOutput" | "CaseResultCollection"
+            ) =>
+        {
             Some(count_value(table.row_count))
         }
         "pending_count" if table.schema_name == "CaseTable" => {
@@ -9347,15 +9352,42 @@ fn evaluate_table_metadata_field_expression(
         "planned_count" if table.schema_name == "CaseOutput" => {
             Some(count_value(table_status_count(table, "planned")))
         }
-        "blocked_count" if table.schema_name == "CaseOutput" => {
+        "blocked_count"
+            if matches!(
+                table.schema_name.as_str(),
+                "CaseOutput" | "CaseResultCollection"
+            ) =>
+        {
             Some(count_value(table_status_count(table, "blocked")))
         }
-        "output_count" if table.schema_name == "CaseOutput" => Some(count_value(
-            non_empty_text_column_count(table, "output_path"),
-        )),
-        "manifest_count" if table.schema_name == "CaseOutput" => Some(count_value(
-            non_empty_text_column_count(table, "manifest_path"),
-        )),
+        "collected_count" if table.schema_name == "CaseResultCollection" => {
+            Some(count_value(table_status_count(table, "collected")))
+        }
+        "missing_count" if table.schema_name == "CaseResultCollection" => {
+            Some(count_value(table_status_count(table, "missing")))
+        }
+        "output_count"
+            if matches!(
+                table.schema_name.as_str(),
+                "CaseOutput" | "CaseResultCollection"
+            ) =>
+        {
+            Some(count_value(non_empty_text_column_count(
+                table,
+                "output_path",
+            )))
+        }
+        "manifest_count"
+            if matches!(
+                table.schema_name.as_str(),
+                "CaseOutput" | "CaseResultCollection"
+            ) =>
+        {
+            Some(count_value(non_empty_text_column_count(
+                table,
+                "manifest_path",
+            )))
+        }
         "status" if table.schema_name == "CaseTable" => {
             Some(RuntimeFormatValue::Text(case_table_status(
                 table_status_count(table, "failed"),
@@ -9366,6 +9398,12 @@ fn evaluate_table_metadata_field_expression(
             Some(RuntimeFormatValue::Text(case_output_table_status(
                 table_status_count(table, "blocked"),
                 table_status_count(table, "planned"),
+            )))
+        }
+        "status" if table.schema_name == "CaseResultCollection" => {
+            Some(RuntimeFormatValue::Text(case_result_collection_status(
+                table_status_count(table, "blocked"),
+                table_status_count(table, "missing"),
             )))
         }
         _ => None,
@@ -9426,6 +9464,16 @@ fn case_output_table_status(blocked_count: usize, planned_count: usize) -> Strin
         "blocked".to_owned()
     } else if planned_count > 0 {
         "planned".to_owned()
+    } else {
+        "complete".to_owned()
+    }
+}
+
+fn case_result_collection_status(blocked_count: usize, missing_count: usize) -> String {
+    if blocked_count > 0 {
+        "blocked".to_owned()
+    } else if missing_count > 0 {
+        "missing".to_owned()
     } else {
         "complete".to_owned()
     }
@@ -17582,15 +17630,22 @@ mod tests {
                 "    output = \"{case_dir}/input.txt\"\n",
                 "    missing = error\n",
                 "    overwrite = true\n",
-                "}\n\n",
+                "}\n",
+                "case_results = collect results case_inputs\n\n",
                 "case_input_planned_count = case_inputs.planned_count\n",
                 "case_input_manifest_count = case_inputs.manifest_count\n",
+                "case_result_collected_count = case_results.collected_count\n",
+                "case_result_missing_count = case_results.missing_count\n",
+                "case_result_status = case_results.status\n",
                 "print \"case inputs={case_inputs.rows}\"\n",
                 "print \"cases={case_count} pending={case_pending_count} status={case_status} planned_inputs={case_input_planned_count} manifests={case_input_manifest_count}\"\n",
+                "print \"case results={case_results.rows} collected={case_result_collected_count} missing={case_result_missing_count} status={case_result_status}\"\n",
                 "report {\n",
                 "    show case_inputs.rows\n",
+                "    show case_results.rows\n",
                 "    show case_pending_count\n",
                 "    show case_input_planned_count\n",
+                "    show case_result_collected_count\n",
                 "}\n",
             ),
         )
@@ -17626,10 +17681,20 @@ mod tests {
         assert!(output
             .stdout
             .contains("cases=2 pending=2 status=pending planned_inputs=2 manifests=2"));
+        assert!(output
+            .stdout
+            .contains("case results=2 collected=2 missing=0 status=complete"));
         assert!(output.result_json.contains("\"binding\": \"case_inputs\""));
         assert!(output
             .result_json
             .contains("\"schema_name\": \"CaseOutput\""));
+        assert!(output.result_json.contains("\"binding\": \"case_results\""));
+        assert!(output
+            .result_json
+            .contains("\"schema_name\": \"CaseResultCollection\""));
+        assert!(output
+            .result_json
+            .contains("\"source\": \"collect results case_inputs\""));
         assert!(output
             .result_json
             .contains("\"source\": \"apply(case_input_template, over=cases)\""));

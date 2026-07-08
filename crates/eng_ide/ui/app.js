@@ -131,7 +131,8 @@ function emptySyntaxCatalog() {
     httpResponseFields: [],
     sampleTableFields: [],
     caseTableFields: [],
-    caseOutputTableFields: []
+    caseOutputTableFields: [],
+    caseResultCollectionTableFields: []
   };
 }
 
@@ -150,7 +151,10 @@ function normalizeSyntaxCatalog(catalog) {
     httpResponseFields: catalogFieldItems(source.httpResponseFields ?? source.http_response_fields),
     sampleTableFields: catalogFieldItems(source.sampleTableFields ?? source.sample_table_fields),
     caseTableFields: catalogFieldItems(source.caseTableFields ?? source.case_table_fields),
-    caseOutputTableFields: catalogFieldItems(source.caseOutputTableFields ?? source.case_output_table_fields)
+    caseOutputTableFields: catalogFieldItems(source.caseOutputTableFields ?? source.case_output_table_fields),
+    caseResultCollectionTableFields: catalogFieldItems(
+      source.caseResultCollectionTableFields ?? source.case_result_collection_table_fields
+    )
   };
 }
 
@@ -4462,6 +4466,11 @@ function localMemberCompletionCandidates(prefix) {
       matchesReceiver: isCaseOutputTableLikeReceiver
     },
     {
+      fields: workflowCatalog.caseResultCollectionTableFields,
+      detail: "Case result collection field",
+      matchesReceiver: isCaseResultCollectionLikeReceiver
+    },
+    {
       fields: workflowCatalog.caseTableFields,
       detail: "Case table field",
       matchesReceiver: isCaseTableLikeReceiver
@@ -4563,6 +4572,11 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s+[A-Za-z_][A-Za-z0-9_.-]*\s+over\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
       fields: normalizedCatalog.caseOutputTableFields,
       detail: "Case output table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_]*\b/gm,
+      fields: normalizedCatalog.caseResultCollectionTableFields,
+      detail: "Case result collection field"
     }
   ];
   for (const group of groups) {
@@ -4618,10 +4632,19 @@ function isCaseOutputTableLikeReceiver(receiver) {
   );
 }
 
+function isCaseResultCollectionLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return (
+    normalized.includes("collection") ||
+    (normalized.includes("case") && normalized.includes("result"))
+  );
+}
+
 function isCaseTableLikeReceiver(receiver) {
   const normalized = String(receiver || "").toLowerCase();
   return (
     !isCaseOutputTableLikeReceiver(receiver) &&
+    !isCaseResultCollectionLikeReceiver(receiver) &&
     (
       normalized === "case" ||
       normalized === "cases" ||

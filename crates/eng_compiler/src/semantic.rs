@@ -5901,7 +5901,12 @@ fn table_metadata_field_semantic_type(
     match field.trim() {
         "row_count" | "column_count" => semantic_type("Count", "count"),
         "schema_name" | "source_hash" => semantic_type("String", ""),
-        "case_count" if matches!(quantity_kind, "Table[Case]" | "Table[CaseOutput]") => {
+        "case_count"
+            if matches!(
+                quantity_kind,
+                "Table[Case]" | "Table[CaseOutput]" | "Table[CaseResultCollection]"
+            ) =>
+        {
             semantic_type("Count", "count")
         }
         "pending_count" | "running_count" | "succeeded_count" | "failed_count"
@@ -5910,12 +5915,32 @@ fn table_metadata_field_semantic_type(
         {
             semantic_type("Count", "count")
         }
-        "planned_count" | "blocked_count" | "output_count" | "manifest_count"
-            if quantity_kind == "Table[CaseOutput]" =>
+        "planned_count" if quantity_kind == "Table[CaseOutput]" => semantic_type("Count", "count"),
+        "blocked_count"
+            if matches!(
+                quantity_kind,
+                "Table[CaseOutput]" | "Table[CaseResultCollection]"
+            ) =>
         {
             semantic_type("Count", "count")
         }
-        "status" if matches!(quantity_kind, "Table[Case]" | "Table[CaseOutput]") => {
+        "output_count" | "manifest_count"
+            if matches!(
+                quantity_kind,
+                "Table[CaseOutput]" | "Table[CaseResultCollection]"
+            ) =>
+        {
+            semantic_type("Count", "count")
+        }
+        "collected_count" | "missing_count" if quantity_kind == "Table[CaseResultCollection]" => {
+            semantic_type("Count", "count")
+        }
+        "status"
+            if matches!(
+                quantity_kind,
+                "Table[Case]" | "Table[CaseOutput]" | "Table[CaseResultCollection]"
+            ) =>
+        {
             semantic_type("String", "")
         }
         _ => None,
@@ -12163,6 +12188,10 @@ fn infer_quantity(name: &str, expression: &str) -> Option<SemanticType> {
         return semantic_type("Table[CaseOutput]", "eng.case");
     }
 
+    if collect_results_source_binding(expression).is_some() {
+        return semantic_type("Table[CaseResultCollection]", "eng.case");
+    }
+
     if lowered_expression.contains("promote csv")
         || lowered_expression.contains("promote json records")
     {
@@ -12331,6 +12360,15 @@ fn case_apply_cases_binding(expression: &str) -> Option<&str> {
         return None;
     }
     Some(cases)
+}
+
+fn collect_results_source_binding(expression: &str) -> Option<&str> {
+    let source = expression.trim().strip_prefix("collect results ")?.trim();
+    if is_simple_binding_name(source) {
+        Some(source)
+    } else {
+        None
+    }
 }
 
 fn is_simple_binding_name(value: &str) -> bool {

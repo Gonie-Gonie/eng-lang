@@ -3079,6 +3079,9 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
     data.tables.extend(explicit_case_tables);
     let case_apply_output_tables = materialize_case_apply_output_tables(report, &data.tables);
     data.tables.extend(case_apply_output_tables);
+    let case_result_collection_tables =
+        materialize_case_result_collection_tables(report, &data.tables);
+    data.tables.extend(case_result_collection_tables);
     data.time_axes = materialize_time_axes(&data.tables);
     data.timeseries_coverage =
         materialize_timeseries_coverage(report, &data.tables, &data.time_axes);
@@ -7520,6 +7523,108 @@ fn materialize_case_apply_output_table(
         ],
         parse_failures: Vec::new(),
         line: declaration.line,
+    }
+}
+
+fn materialize_case_result_collection_tables(
+    report: &CheckReport,
+    tables: &[RuntimeTable],
+) -> Vec<RuntimeTable> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter(|declaration| declaration.quantity_kind == "Table[CaseResultCollection]")
+        .filter_map(|declaration| {
+            let source_binding = collect_results_source_binding(&declaration.expression)?;
+            let output_table = tables.iter().find(|table| {
+                table.binding == source_binding && table.schema_name == "CaseOutput"
+            })?;
+            Some(materialize_case_result_collection_table(
+                declaration,
+                output_table,
+            ))
+        })
+        .collect()
+}
+
+fn materialize_case_result_collection_table(
+    declaration: &eng_compiler::InferredDeclaration,
+    output_table: &RuntimeTable,
+) -> RuntimeTable {
+    let case_ids = text_column_values_by_name(output_table, "case_id").unwrap_or_default();
+    let case_dirs = text_column_values_by_name(output_table, "case_dir").unwrap_or_default();
+    let output_paths = text_column_values_by_name(output_table, "output_path").unwrap_or_default();
+    let manifest_paths =
+        text_column_values_by_name(output_table, "manifest_path").unwrap_or_default();
+    let input_statuses = text_column_values_by_name(output_table, "status").unwrap_or_default();
+
+    let mut collection_case_ids = Vec::new();
+    let mut collection_case_dirs = Vec::new();
+    let mut collection_output_paths = Vec::new();
+    let mut collection_manifest_paths = Vec::new();
+    let mut collection_input_statuses = Vec::new();
+    let mut collection_statuses = Vec::new();
+    for row_index in 0..output_table.row_count {
+        let case_id = case_ids.get(row_index).cloned().unwrap_or_default();
+        let case_dir = case_dirs.get(row_index).cloned().unwrap_or_default();
+        let output_path = output_paths.get(row_index).cloned().unwrap_or_default();
+        let manifest_path = manifest_paths.get(row_index).cloned().unwrap_or_default();
+        let input_status = input_statuses.get(row_index).cloned().unwrap_or_default();
+        let status = case_result_collection_row_status(&input_status, &output_path, &manifest_path);
+        collection_case_ids.push(case_id);
+        collection_case_dirs.push(case_dir);
+        collection_output_paths.push(output_path);
+        collection_manifest_paths.push(manifest_path);
+        collection_input_statuses.push(input_status);
+        collection_statuses.push(status);
+    }
+    let hash_payload = format!(
+        "{}|{}|{}|{}|{}",
+        declaration.name,
+        declaration.expression,
+        output_table.source_hash.clone().unwrap_or_default(),
+        collection_output_paths.join(","),
+        collection_statuses.join(",")
+    );
+    RuntimeTable {
+        binding: declaration.name.clone(),
+        schema_name: "CaseResultCollection".to_owned(),
+        source: declaration.expression.clone(),
+        source_hash: Some(stable_hash_text(&hash_payload)),
+        row_count: output_table.row_count,
+        columns: vec![
+            text_runtime_column("case_id", "String", collection_case_ids),
+            text_runtime_column("case_dir", "DirectoryPath", collection_case_dirs),
+            text_runtime_column("output_path", "FilePath", collection_output_paths),
+            text_runtime_column("manifest_path", "FilePath", collection_manifest_paths),
+            text_runtime_column("input_status", "String", collection_input_statuses),
+            text_runtime_column("status", "String", collection_statuses),
+        ],
+        parse_failures: Vec::new(),
+        line: declaration.line,
+    }
+}
+
+fn case_result_collection_row_status(
+    input_status: &str,
+    output_path: &str,
+    manifest_path: &str,
+) -> String {
+    if input_status.trim() == "blocked" {
+        "blocked".to_owned()
+    } else if output_path.trim().is_empty() || manifest_path.trim().is_empty() {
+        "missing".to_owned()
+    } else {
+        "collected".to_owned()
+    }
+}
+
+fn collect_results_source_binding(expression: &str) -> Option<&str> {
+    let source = expression.trim().strip_prefix("collect results ")?.trim();
+    if is_simple_binding_name(source) {
+        Some(source)
+    } else {
+        None
     }
 }
 
