@@ -3860,7 +3860,7 @@ function Invoke-IdeCheck {
         }
     }
     $ExpectedNativeIdeSideTabOrder = @(
-        'sideTabButton("variables", "Vars")',
+        'sideTabButton("variables", "Variables")',
         'sideTabButton("checks", "Checks")',
         'sideTabButton("schema", "Schema")',
         'sideTabButton("time", "Time")',
@@ -3868,10 +3868,13 @@ function Invoke-IdeCheck {
         'sideTabButton("review", "Review")',
         'sideTabButton("quality", "Quality")',
         'sideTabButton("effects", "Effects")',
+        'sideTabButton("network", "Network")',
         'sideTabButton("artifacts", "Artifacts")',
         'sideTabButton("run", "Run")',
         'sideTabButton("modules", "Modules")',
-        'sideTabButton("assembly", "Asm")',
+        'sideTabButton("workflow", "Workflow")',
+        'sideTabButton("objects", "Objects")',
+        'sideTabButton("assembly", "Assembly")',
         'sideTabButton("kernels", "Kernel")'
     )
     $PreviousNativeIdeSideTabIndex = -1
@@ -3884,6 +3887,17 @@ function Invoke-IdeCheck {
             throw "Native IDE side tab order should keep review panels before advanced panels"
         }
         $PreviousNativeIdeSideTabIndex = $NativeIdeSideTabIndex
+    }
+    foreach ($ForbiddenNativeIdeSideTabLabel in @(
+        'sideTabButton("variables", "Vars")',
+        'sideTabButton("network", "Net")',
+        'sideTabButton("workflow", "Flow")',
+        'sideTabButton("objects", "Obj")',
+        'sideTabButton("assembly", "Asm")'
+    )) {
+        if ($IdeUiSource.Contains($ForbiddenNativeIdeSideTabLabel)) {
+            throw "Native IDE side tab label must use clear wording instead of $ForbiddenNativeIdeSideTabLabel"
+        }
     }
     if ($IdeUiSource.Contains('<div class="panel-title compact">External Process Results</div>')) {
         throw "Native IDE Effects panel must compute process result wording from process_count"

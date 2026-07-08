@@ -1117,7 +1117,7 @@ function renderSidePanel() {
   return `
     <aside class="variables inspector">
       <div class="side-tabs">
-        ${sideTabButton("variables", "Vars")}
+        ${sideTabButton("variables", "Variables")}
         ${sideTabButton("checks", "Checks")}
         ${sideTabButton("schema", "Schema")}
         ${sideTabButton("time", "Time")}
@@ -1128,13 +1128,13 @@ function renderSidePanel() {
         ${sideTabButton("quality", "Quality")}
         ${sideTabButton("highlight", "Highlight")}
         ${sideTabButton("effects", "Effects")}
-        ${sideTabButton("network", "Net")}
+        ${sideTabButton("network", "Network")}
         ${sideTabButton("artifacts", "Artifacts")}
         ${sideTabButton("run", "Run")}
         ${sideTabButton("modules", "Modules")}
-        ${sideTabButton("workflow", "Flow")}
-        ${sideTabButton("objects", "Obj")}
-        ${sideTabButton("assembly", "Asm")}
+        ${sideTabButton("workflow", "Workflow")}
+        ${sideTabButton("objects", "Objects")}
+        ${sideTabButton("assembly", "Assembly")}
         ${sideTabButton("kernels", "Kernel")}
         ${sideTabButton("case", "Case")}
         ${sideTabButton("model", "Model")}

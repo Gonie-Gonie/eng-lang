@@ -5198,6 +5198,13 @@ Status: implemented after comparing VS Code TextMate doc-comment scopes with nat
 - Added a `documentation` semantic token modifier for `///` comments so VS Code semantic highlighting and native IDE checked buffers can distinguish documentation comments from ordinary comments.
 - Added native IDE lexical fallback styling for `///` comments and mapped `comment.documentation` back to the TextMate documentation-comment scope.
 
+## Batch 428: Native IDE Sidebar Label Clarity
+
+Status: implemented after reviewing native IDE side-tab labels against the IDE usability wording checklist.
+
+- Replaced abbreviated native IDE side-tab labels (`Vars`, `Net`, `Flow`, `Obj`, `Asm`) with clearer labels (`Variables`, `Network`, `Workflow`, `Objects`, `Assembly`).
+- Extended `ide-check` to reject the old abbreviated labels so the primary review/navigation surface stays understandable.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
