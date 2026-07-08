@@ -514,6 +514,42 @@
     "fullMatch": true
   },
   {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.type.declaration.englang",
+    "text": "domain",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "package",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "version",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "equation",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "conservation",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "connect",
+    "fullMatch": true
+  },
+  {
     "fixture": "05_sampling_model.eng",
     "scope": "support.function.builtin.englang",
     "text": "lhs"

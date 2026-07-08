@@ -5077,6 +5077,17 @@ Status: implemented after reviewing warning/error diagnostics for uncertainty `w
 - Extended stdio code-action coverage, README wording, and `ide-check` contract
   tokens for the new uncertainty repairs.
 
+## Batch 415: Solver Metadata Keyword Grammar Guards
+
+Status: implemented after comparing compiler lexer keywords with VS Code grammar smoke expectations.
+
+- Added TextMate grammar smoke expectations for domain metadata keywords `package`
+  and `version`, plus the `domain` declaration keyword.
+- Added smoke expectations for solver keywords `equation`, `conservation`, and
+  `connect` using the existing system/component fixture.
+- This keeps first-paint VS Code highlighting from silently dropping compiler
+  keywords that are already supported by the grammar source.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
