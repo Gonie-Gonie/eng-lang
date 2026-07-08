@@ -5467,3 +5467,14 @@ machine without Node.
 - Kept `node --check` as the authoritative syntax check whenever Node is
   installed and executable; actual Node syntax failures now remain failures
   instead of being reported as skipped checks.
+
+## Batch 464: Semantic Highlight Debug Contract Guard
+
+Status: implemented after the VS Code highlight inspection command gained a
+structured debug payload.
+
+- Extended `ide-check` so the VS Code highlight inspection command title must
+  stay user-facing as `EngLang: Inspect Highlight Tokens (Semantic)`.
+- Added contract coverage for the structured debug JSON sections: `summary`,
+  `legend`, `samples`, normalized `tokens`, `raw`, and the legacy compatibility
+  fields consumed by older docs or scripts.

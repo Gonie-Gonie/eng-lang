@@ -2844,7 +2844,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.switchDiagnosticsMode"; Text = "Switch Diagnostics Mode" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
-        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
+        @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens (Semantic)" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]
         if ([string]::IsNullOrWhiteSpace($Title) -or -not $Title.Contains($RequiredTitle.Text)) {
@@ -3386,8 +3386,35 @@ function Assert-VscodeExtensionContract {
     }
 
     $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
-    if (-not $CommandSourceCombined.Contains("showSemanticTokensDebug") -or -not $CommandHandlersSource.Contains("token_counts_by_type") -or -not $CommandHandlersSource.Contains("token_counts_by_modifier") -or -not $CommandHandlersSource.Contains("token_samples_by_type") -or -not $CommandHandlersSource.Contains("token_samples_by_modifier")) {
-        throw "VS Code extension must expose semantic token debug output"
+    foreach ($RequiredSemanticDebugToken in @(
+        "showSemanticTokensDebug",
+        "semantic_highlighting_enabled",
+        "summary: {",
+        "token_count: tokenCount",
+        "counts_by_type: tokenCounts",
+        "counts_by_modifier: modifierCounts",
+        "legend: semanticTokens.legend ?? {}",
+        "samples: {",
+        "by_type: tokenSamplesByType",
+        "by_modifier: tokenSamplesByModifier",
+        "tokens: tokenRows",
+        "raw: {",
+        "highlight_count: tokenCount",
+        "highlight_counts_by_category: tokenCounts",
+        "highlight_counts_by_detail: modifierCounts",
+        "highlight_samples_by_category: tokenSamplesByType",
+        "highlight_samples_by_detail: tokenSamplesByModifier",
+        "token_counts_by_type: tokenCounts",
+        "token_counts_by_modifier: modifierCounts",
+        "token_samples_by_type: tokenSamplesByType",
+        "token_samples_by_modifier: tokenSamplesByModifier",
+        "highlight_data: semanticTokens",
+        "semantic_tokens: semanticTokens",
+        'inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)"'
+    )) {
+        if (-not $CommandHandlersSource.Contains($RequiredSemanticDebugToken)) {
+            throw "VS Code semantic highlight inspection output missing contract token $RequiredSemanticDebugToken"
+        }
     }
     if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
         throw "VS Code extension must load semantic token provider orchestration from semanticTokensProvider.js"
@@ -3406,11 +3433,6 @@ function Assert-VscodeExtensionContract {
     }
     if ($ExtensionSource.Contains("class EngSemanticTokensProvider") -or $ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {
         throw "VS Code extension must keep LSP semantic token conversion in lspSemanticTokens.js"
-    }
-    foreach ($RequiredHighlightDebugToken in @("highlight_count", "highlight_counts_by_category", "highlight_counts_by_detail", "highlight_samples_by_category", "highlight_samples_by_detail", "highlight_data")) {
-        if (-not $CommandHandlersSource.Contains($RequiredHighlightDebugToken)) {
-            throw "VS Code highlight inspection output missing user-facing token $RequiredHighlightDebugToken"
-        }
     }
     if ($CommandSourceCombined.Contains("No semantic token snapshot is available")) {
         throw "VS Code highlight inspection warning must use highlight wording"
