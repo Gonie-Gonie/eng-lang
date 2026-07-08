@@ -1,5 +1,7 @@
 designs = sample lhs
 alias_designs = sample uniform
+grid_designs = sample grid
+random_designs = sample random
 latin_designs = sample latin_hypercube
 latin_hyphen_designs = sample latin-hypercube
 with {

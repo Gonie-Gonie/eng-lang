@@ -20,6 +20,8 @@ write process_result to db.table("runs")
 persisted_runs = read sqlite db.table("runs") as ProcessResult
 with {
     mode = append
+    mode = insert
+    mode = upsert
     mode = replace
     transaction = commit
     transaction = rollback

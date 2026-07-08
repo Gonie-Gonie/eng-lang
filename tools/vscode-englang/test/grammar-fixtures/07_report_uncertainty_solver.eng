@@ -81,6 +81,9 @@ report {
     plot Q_series over Time
     plot Q_series and Q_total_unc over Time
     plot histogram(Q_series)
+    plot bar(Q_series)
+    plot parity(Q_series)
+    plot residuals(Q_series)
     plot distribution(Q_coil_dist)
     with {
         unit y = kW

@@ -3403,5 +3403,95 @@
     "fixture": "01_core_workflow.eng",
     "scope": "variable.parameter.function.englang",
     "text": "axis="
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sample-method.englang",
+    "text": "sample grid",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "grid",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.workflow.sample-method.englang",
+    "text": "sample random",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "random",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "insert",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "upsert",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "constant.language.englang",
+    "text": "true",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "constant.language.englang",
+    "text": "false",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "none",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-command.englang",
+    "text": "plot bar(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.report.englang",
+    "text": "bar",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-command.englang",
+    "text": "plot parity(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.report.englang",
+    "text": "parity",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.plot-command.englang",
+    "text": "plot residuals(Q_series)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.report.englang",
+    "text": "residuals",
+    "fullMatch": true
   }
 ]
