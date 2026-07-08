@@ -88,7 +88,8 @@ Editor
   empty pair. Format applies the same compiler-owned formatter used by VS Code
   and keeps the buffer dirty until you save or run. The editor meta bar shows
   the current caret line, column, bracket match location, highlight category,
-  and quantity/unit detail when the caret is on a checked token.
+  and quantity/unit detail when the caret is on a checked token; when the caret
+  is between checked tokens, it names the nearest highlight on the same line.
 
 Right Sidebar
   Variables, Checks, Schema, Time, Tables, Reads, Plot, Review, Quality, Effects,

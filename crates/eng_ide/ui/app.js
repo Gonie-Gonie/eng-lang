@@ -1422,7 +1422,15 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
     return `<div class="empty-state">Check current file to refresh highlight data.</div>`;
   }
   if (!caret?.token) {
-    return `<div class="empty-state">No highlight at the caret.</div>`;
+    const nearestTokens = arrayOrEmpty(caret?.nearestTokens);
+    if (!nearestTokens.length) {
+      return `<div class="empty-state">No exact highlight at the caret.</div>`;
+    }
+    return `
+      <div class="empty-state">No exact highlight at the caret.</div>
+      <div class="panel-title compact">Nearby Highlights</div>
+      ${renderNearbySemanticTokenRows(nearestTokens)}
+    `;
   }
   const token = caret.token;
   const text = semanticTokenText(token);
@@ -1454,6 +1462,26 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
         <tr><th>Hover</th><td>${escapeHtml(hover)}</td></tr>
         <tr><th>Filter</th><td>${filterButtons || "-"}</td></tr>
       </tbody>
+    </table>
+  `;
+}
+
+function renderNearbySemanticTokenRows(tokens) {
+  const rows = tokens.map((token) => {
+    const modifiers = arrayOrEmpty(token.modifiers);
+    return `
+      <tr>
+        <td>${sourceTokenButton(token)}<div class="muted">${sourceTokenCopyButton(token, "text", "Copy")}</div></td>
+        <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
+        <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
+        <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table semantic-token-table">
+      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th></tr></thead>
+      <tbody>${rows}</tbody>
     </table>
   `;
 }
@@ -4741,11 +4769,12 @@ function currentCaretSemanticToken() {
   if (String(editor.value ?? "") !== String(state.source ?? "")) return null;
   const position = editorCursorPosition(editor.value, editor.selectionStart ?? 0);
   const token = semanticTokenAtCaret(editor, position);
-  if (!token) return null;
+  const nearestTokens = token ? [] : semanticTokensNearCaret(editor, position, 3);
   return {
     position,
     token,
-    hover: hoverForSemanticToken(token, position.line)
+    nearestTokens,
+    hover: token ? hoverForSemanticToken(token, position.line) : null
   };
 }
 
@@ -4754,6 +4783,9 @@ function renderCursorInsight() {
   const source = editor?.value ?? state.source ?? "";
   const position = editorCursorPosition(source, editor?.selectionStart ?? 0);
   const token = editor ? semanticTokenAtCaret(editor, position) : null;
+  const nearestToken = !token && editor && state.source === state.highlightSource
+    ? semanticTokensNearCaret(editor, position, 1)[0]
+    : null;
   const hover = token ? hoverForSemanticToken(token, position.line) : null;
   const bracket = editor ? editorBracketMatch(source, editor.selectionStart) : null;
   const parts = [`L${position.line + 1}:C${position.column + 1}`];
@@ -4766,6 +4798,8 @@ function renderCursorInsight() {
       const unit = hover.display_unit || hover.displayUnit || "-";
       parts.push(`${quantity} [${unit}]`);
     }
+  } else if (nearestToken) {
+    parts.push(`near ${tokenLabel(nearestToken)}`);
   } else {
     parts.push("plain");
   }
@@ -4777,13 +4811,13 @@ function renderCursorInsight() {
   const title = hover ? hoverTitle(hover) : parts.join(" / ");
   return `
     <span title="${escapeAttr(title)}">${escapeHtml(parts.join(" / "))}</span>
-    ${token ? renderCursorInsightActions(token) : ""}
+    ${token ? renderCursorInsightActions(token) : nearestToken ? renderCursorInsightActions(nearestToken, "Select Nearby") : ""}
   `;
 }
 
-function renderCursorInsightActions(token) {
+function renderCursorInsightActions(token, selectLabel = "Select") {
   return `
-    ${sourceTokenButton(token, "Select")}
+    ${sourceTokenButton(token, selectLabel)}
     ${sourceTokenCopyButton(token, "text", "Copy")}
     <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
   `;
@@ -4878,6 +4912,35 @@ function semanticTokenAtCaret(editor, position) {
     const end = start + Number(token.length ?? 0);
     return columnByte >= start && columnByte < end;
   }) || null;
+}
+
+function semanticTokensNearCaret(editor, position, limit = 3) {
+  if (state.source !== state.highlightSource) return [];
+  const line = editor.value.split(/\r\n|\r|\n/)[position.line] || "";
+  const columnByte = codeUnitToByteOffset(line, position.column);
+  const tokens = semanticTokensByLine(semanticTokenPayload().tokens || []).get(position.line) || [];
+  return tokens
+    .map((token) => ({
+      ...token,
+      caretDistance: semanticTokenCaretDistance(token, columnByte)
+    }))
+    .sort((left, right) =>
+      left.caretDistance - right.caretDistance || Number(left.start ?? 0) - Number(right.start ?? 0)
+    )
+    .slice(0, limit);
+}
+
+function semanticTokenCaretDistance(token, columnByte) {
+  const start = Number(token.start ?? 0);
+  const length = Number(token.length ?? 0);
+  if (!Number.isFinite(start) || !Number.isFinite(length) || length <= 0) {
+    return Number.MAX_SAFE_INTEGER;
+  }
+  const end = start + length;
+  if (columnByte >= start && columnByte <= end) {
+    return 0;
+  }
+  return columnByte < start ? start - columnByte : columnByte - end;
 }
 
 function hoverForSemanticToken(token, lineIndex) {
