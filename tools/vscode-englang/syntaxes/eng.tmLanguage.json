@@ -1786,10 +1786,10 @@
                                                                     "match":  "\\b(check)\\s+(coverage)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.validation.englang"
                                                                                            },
                                                                                      "2":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.validation.englang"
                                                                                            },
                                                                                      "3":  {
                                                                                                "name":  "variable.parameter.property.englang"

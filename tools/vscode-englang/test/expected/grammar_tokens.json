@@ -1972,6 +1972,18 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "check",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "coverage",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.other.property.englang",
     "text": "measured.T_zone",
     "fullMatch": true

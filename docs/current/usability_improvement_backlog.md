@@ -45,6 +45,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 488: Added a VS Code reinstall preflight so open VS Code windows are caught before release packaging.
 - Batch 489: Added Native IDE Problems copy actions for shareable diagnostic details.
 - Batch 490: Added Native IDE Copy visible diagnostics for filtered Problems results.
+- Batch 491: Tightened VS Code TextMate validation highlighting for `check coverage` clause words.
 
 ## Documentation Policy
 
