@@ -1748,6 +1748,7 @@ generation.
 | `E-ASSERT-UNIT-001` | Assert operands use incompatible units | Compare compatible quantities |
 | `E-ASSERT-TOL-001` | Tolerance used with an unsupported operator | Use `within` with `==` or `!=` |
 | `E-GOLDEN-001` | Invalid golden check syntax | Use `golden "artifact" matches file("expected")` |
+| `E-GOLDEN-002` | Golden expected path does not use `file("...")` | Wrap the expected path with `file(...)` |
 | `E-UNC-DIRECT-COMPARE` | Uncertain value compared directly | Use `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)` |
 | `E-UNC-PROBABILITY-EXPR-INVALID` | `probability(...)` is not an uncertain-threshold comparison | Compare exactly one uncertain value with a compatible threshold |
 | `E-UNC-PERCENTILE-UNIT-MISMATCH` | Uncertainty percentile threshold has incompatible units | Use a threshold with the percentile quantity's dimension |

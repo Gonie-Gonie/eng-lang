@@ -195,6 +195,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-GOLDEN-002") {
+      const action = goldenExpectedFileAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WHERE-FWD-001") {
       const action = reorderWhereLocalDefinitionAction(document, diagnostic);
       if (action) {
@@ -1300,6 +1307,50 @@ function wrapAssertionAction(document, diagnostic) {
   return action;
 }
 
+function goldenExpectedFileAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const range = goldenBareExpectedStringRange(code);
+  if (!range) {
+    return undefined;
+  }
+  const expected = code.slice(range.start, range.end);
+  const action = new vscode.CodeAction(
+    "Wrap golden expected path with file(...)",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, range.start, line.lineNumber, range.end),
+    `file(${expected})`
+  );
+  return action;
+}
+
+function goldenBareExpectedStringRange(lineText) {
+  const indent = lineIndent(lineText).length;
+  if (!lineText.slice(indent).startsWith("golden ")) {
+    return undefined;
+  }
+  const matchesIndex = lineText.indexOf(" matches ");
+  if (matchesIndex < 0) {
+    return undefined;
+  }
+  let cursor = matchesIndex + " matches ".length;
+  while (cursor < lineText.length && /\s/.test(lineText[cursor])) {
+    cursor += 1;
+  }
+  if (lineText.slice(cursor).startsWith("file(")) {
+    return undefined;
+  }
+  const range = stringLiteralRangeAt(lineText, cursor);
+  if (!range || lineText.slice(range.end).trim() !== "") {
+    return undefined;
+  }
+  return range;
+}
 function uncertaintyArgumentActions(document, diagnostic) {
   const line = document.lineAt(diagnostic.range.start.line);
   const message = String(diagnostic.message ?? "");

@@ -776,6 +776,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-ASSERT-001" => {
             optional_code_action(lsp_wrap_assertion_code_action(uri, text, diagnostic))
         }
+        "E-GOLDEN-002" => {
+            optional_code_action(lsp_golden_expected_file_code_action(uri, text, diagnostic))
+        }
         "E-WHERE-FWD-001" => optional_code_action(lsp_reorder_where_local_definition_code_action(
             uri, text, diagnostic,
         )),
@@ -2192,6 +2195,49 @@ fn lsp_wrap_assertion_code_action(uri: &str, text: &str, diagnostic: &Value) -> 
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), &replacement)
     }))
+}
+
+fn lsp_golden_expected_file_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let (start_byte, end_byte) = golden_bare_expected_string_range(code)?;
+    let expected = &code[start_byte..end_byte];
+    Some(json!({
+        "title": "Wrap golden expected path with file(...)",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            &format!("file({expected})")
+        )
+    }))
+}
+
+fn golden_bare_expected_string_range(line: &str) -> Option<(usize, usize)> {
+    let trimmed_start = line_indent(line).len();
+    if !line[trimmed_start..].starts_with("golden ") {
+        return None;
+    }
+    let matches_index = line.find(" matches ")?;
+    let mut cursor = matches_index + " matches ".len();
+    while cursor < line.len() && line.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    if line[cursor..].starts_with("file(") {
+        return None;
+    }
+    let range = string_literal_range_at(line, cursor)?;
+    if !line[range.1..].trim().is_empty() {
+        return None;
+    }
+    Some(range)
 }
 
 fn lsp_uncertainty_argument_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

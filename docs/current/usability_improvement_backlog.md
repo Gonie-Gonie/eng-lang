@@ -5111,6 +5111,17 @@ version-track wording.
 - Replaced the old `v0.2 backfill records` phrasing with current
   review-artifact and IDE/LSP metadata wording.
 
+## Batch 418: Golden Expected Path Quick Fix
+
+Status: implemented after comparing golden diagnostics, compiler semantics, and IDE quick-fix coverage.
+
+- Tightened compiler validation so `golden ... matches "..."` now emits
+  `E-GOLDEN-002` instead of deferring the invalid expected path to runtime.
+- Added LSP and VS Code fallback quick fixes that wrap bare golden expected
+  strings as `file("...")`.
+- Extended stdio code-action coverage, language reference diagnostics, README
+  wording, and `ide-check` contract tokens for the golden repair.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

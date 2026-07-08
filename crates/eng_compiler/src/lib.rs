@@ -10330,7 +10330,7 @@ system Envelope {
     fn rejects_invalid_test_assertions() {
         let report = check_source(
             "bad_test.eng",
-            "assert Q == 1 kW\n\ntest \"bad\" {\n    assert Q\n    assert 1 m == 1 kW\n    golden \"summary.csv\"\n}\n",
+            "assert Q == 1 kW\n\ntest \"bad\" {\n    assert Q\n    assert 1 m == 1 kW\n    golden \"summary.csv\"\n    golden \"summary.csv\" matches \"golden/summary.csv\"\n}\n",
             &CheckOptions::default(),
         );
 
@@ -10350,6 +10350,10 @@ system Envelope {
             .diagnostics
             .iter()
             .any(|diagnostic| diagnostic.code == "E-GOLDEN-002" && diagnostic.line == 6));
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-GOLDEN-002" && diagnostic.line == 7));
     }
 
     #[test]

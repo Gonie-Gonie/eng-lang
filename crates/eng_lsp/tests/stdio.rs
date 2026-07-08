@@ -718,6 +718,9 @@ use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
 assert Q_total == 12 kW
+test "golden path" {
+    golden "summary.csv" matches "golden/summary.csv"
+}
 Q1 = 1 kW
 Q2 = 2 kW
 Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW
@@ -954,6 +957,7 @@ report {
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
         "E-ASSERT-001",
+        "E-GOLDEN-002",
         "W-STATS-SUM-001",
         "W-STDLIB-MODULE-PLANNED",
         "W-STDLIB-MODULE-INTERNAL",
@@ -1470,6 +1474,12 @@ report {
         "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
         top_level_assert_line,
     );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Wrap golden expected path with file(...)",
+        "file(\"golden/summary.csv\")",
+    );
 
     write_message(
         &mut stdin,
@@ -1505,6 +1515,9 @@ use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
 assert Q_total == 12 kW
+test "golden path" {
+    golden "summary.csv" matches "golden/summary.csv"
+}
 Q1 = 1 kW
 Q2 = 2 kW
 Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW
@@ -1888,6 +1901,12 @@ report {
         "Wrap assertion in test block",
         "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
         top_level_assert_line,
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Wrap golden expected path with file(...)",
+        "file(\"golden/summary.csv\")",
     );
 }
 

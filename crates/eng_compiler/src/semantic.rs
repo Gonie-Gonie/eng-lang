@@ -3957,6 +3957,15 @@ fn analyze_golden_decl(
         ));
         return;
     }
+    if !is_golden_expected_file_path(&golden.expected) {
+        diagnostics.push(Diagnostic::error(
+            "E-GOLDEN-002",
+            golden.line,
+            "`golden` expected path must use `file(\"...\")`.",
+            Some("Wrap the expected path as `file(\"golden/summary.csv\")`."),
+        ));
+        return;
+    }
     if let Some(test) = tests.get_mut(test_index) {
         test.goldens.push(GoldenInfo {
             artifact: golden.artifact.clone(),
@@ -3964,6 +3973,37 @@ fn analyze_golden_decl(
             line: golden.line,
         });
     }
+}
+
+fn is_golden_expected_file_path(expected: &str) -> bool {
+    let expected = expected.trim();
+    let Some(inner) = expected
+        .strip_prefix("file(")
+        .and_then(|value| value.strip_suffix(')'))
+    else {
+        return false;
+    };
+    is_golden_expected_string_literal(inner)
+}
+
+fn is_golden_expected_string_literal(value: &str) -> bool {
+    let value = value.trim();
+    if !value.starts_with('"') {
+        return false;
+    }
+    let mut escaped = false;
+    for (relative_index, character) in value[1..].char_indices() {
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '"' => return value[relative_index + 2..].trim().is_empty(),
+            _ => {}
+        }
+    }
+    false
 }
 
 fn validate_file_operation_options(
