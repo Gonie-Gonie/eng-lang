@@ -406,6 +406,7 @@ function Invoke-WorkflowsTest {
             "Python-made",
             "Python-backed",
             "Python-side",
+            "CSV fixture",
             "02_external_simulation_surrogate",
             "external_simulation_surrogate.md"
         )) {

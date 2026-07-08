@@ -5549,3 +5549,10 @@ Status: implemented after comparing string interpolation local quick fixes with 
 - Added an eng-lsp code action for `E-PRINT-FMT-001` and `E-WRITE-FMT-001` that inserts the missing `}` before the closing string quote.
 - Added stdio regression coverage for the unterminated interpolation close action.
 - Extended `ide-check` coverage so the LSP string-format repair set stays aligned with the VS Code local fallback.
+
+## Batch 473: Workflow Fixture Wording Cleanup
+
+Status: implemented after re-checking workflow 01/02/03 docs against the no-Python native workflow contract.
+
+- Reworded workflow 03 expected review wording from a CSV fixture to a checked CSV input.
+- Extended `workflows-test` public-doc guards so workflow docs cannot reintroduce that fixture-first wording.

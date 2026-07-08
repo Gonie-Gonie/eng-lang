@@ -4,7 +4,7 @@ Expected review artifacts include:
 
 ```text
 schema boundary for SensorData
-source-hash provenance for the CSV fixture
+source-hash provenance for the checked CSV input
 timeseries_uncertainty entry for Q_sensor
 timeseries_uncertainty_calculations entries for summary, duration, and integration
 coverage entry for sensor.time with complete status
