@@ -12,8 +12,8 @@ const FALLBACK_LEXICAL_KEYWORDS = [
   "promote", "read", "write", "export", "render", "template", "run", "command",
   "open", "sqlite", "http", "get", "post", "put", "patch", "head", "request",
   "fetch", "download", "simulate", "solve", "connect", "conservation", "equation",
-  "validate", "assert", "golden", "show", "plot", "summarize", "summary", "return",
-  "if", "else"
+  "validate", "assert", "golden", "show", "plot", "line", "bar", "histogram",
+  "distribution", "parity", "residuals", "summarize", "summary", "return", "if", "else"
 ];
 const FALLBACK_LEXICAL_OPERATOR_WORDS = [
   "eq", "is", "and", "or", "not", "between", "over", "by", "using", "in", "into",

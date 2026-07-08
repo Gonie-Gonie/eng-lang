@@ -5374,6 +5374,13 @@ Status: implemented after checking native IDE stale-buffer lexical fallback agai
 - Added `parity` and `residuals` to the compiler-owned editor syntax keyword catalog with report modifiers.
 - Regenerated VS Code editor metadata so native IDE fallback highlighting and VS Code completion fallback see the same plot report vocabulary before semantic analysis returns.
 
+## Batch 451: Native IDE Fallback Plot Keywords
+
+Status: implemented after comparing the native IDE initial lexical fallback with the compiler-owned plot keyword catalog.
+
+- Added plot/report words such as `line`, `bar`, `histogram`, `distribution`, `parity`, and `residuals` to the native IDE fallback keyword list.
+- Extended `ide-check` contract coverage so the fallback vocabulary keeps those report plot words while the compiler-owned syntax catalog remains the primary source after bootstrap.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
