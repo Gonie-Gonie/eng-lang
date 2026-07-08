@@ -1,4 +1,5 @@
 input_file = render template file("model/base.txt")
+rendered_template = render template args.template_source to args.rendered_output
 with {
     values = { case_id = "case_001" }
     output = file("outputs/input.txt")

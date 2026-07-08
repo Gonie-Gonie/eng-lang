@@ -505,6 +505,29 @@ function Assert-ExpectedWorkflowScopesCoverGrammar {
     }
 }
 
+function Assert-WorkflowPatternIncludes {
+    param(
+        [Parameter(Mandatory = $true)][string] $Name,
+        [Parameter(Mandatory = $true)][string] $Include,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $patterns = @($Grammar.repository.workflowPhrases.patterns | Where-Object {
+        [string]$_.name -eq $Name
+    })
+    if ($patterns.Count -ne 1) {
+        throw "TextMate grammar must define exactly one $Description workflow pattern"
+    }
+    $includes = @($patterns[0].patterns | Where-Object {
+        $null -ne $_.include
+    } | ForEach-Object {
+        [string]$_.include
+    })
+    if ($includes -notcontains $Include) {
+        throw "TextMate grammar $Description workflow pattern must include $Include"
+    }
+}
+
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
@@ -730,6 +753,7 @@ Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Lab
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
 Assert-ExpectedWorkflowScopesCoverGrammar
+Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 
 function Resolve-GrammarFixturePath {
     param([Parameter(Mandatory = $true)][string] $Fixture)

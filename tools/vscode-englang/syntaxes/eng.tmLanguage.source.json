@@ -407,6 +407,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -449,6 +450,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -476,6 +478,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -598,6 +601,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -625,6 +629,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -682,6 +687,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -1176,6 +1182,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -1211,6 +1218,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -1246,6 +1254,7 @@
               { "include": "#strings" },
               { "include": "#modules" },
               { "include": "#builtins" },
+              { "include": "#operators" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",

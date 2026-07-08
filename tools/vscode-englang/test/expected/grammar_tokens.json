@@ -288,6 +288,29 @@
   },
   {
     "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.render-template.englang",
+    "text": "render template args.template_source to args.rendered_output",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "keyword.operator.word.englang",
+    "text": "to"
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.template_source",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.rendered_output",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
     "scope": "support.function.builtin.englang",
     "text": "file",
     "fullMatch": true

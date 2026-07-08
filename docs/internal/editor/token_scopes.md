@@ -144,7 +144,7 @@ Current workflow phrase scopes:
 | `meta.workflow.regression-table.englang` | Legacy-compatible `regression_table(<table>, target=..., features=..., ...)` table-model training calls. |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` or `resample <series> with <series>` |
-| `meta.workflow.render-template.englang` | `render template <source>` |
+| `meta.workflow.render-template.englang` | `render template <source>` and `render template <source> to <output>` |
 | `meta.workflow.return-statement.englang` | `return <value>` function return lines. |
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |

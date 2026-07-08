@@ -5394,6 +5394,19 @@ Status: implemented after comparing current workflow examples with local member 
 - Extended `ide-check` contract coverage so workflow result field completions
   stay wired in both editor surfaces.
 
+## Batch 453: Workflow Phrase Operator Highlighting
+
+Status: implemented after comparing public `render template ... to ...` examples with TextMate phrase highlighting.
+
+- Added operator-token inclusion inside single-line workflow phrase bodies such
+  as write, read, promote, open sqlite, export summary, and render template, so
+  `to`, `as`, and other clause operators color consistently across command-style
+  workflow syntax.
+- Added a focused grammar fixture and smoke expectations for
+  `render template args.template_source to args.rendered_output`.
+- Added a grammar-test guard that keeps the `render template` phrase wired to
+  operator highlighting during future TextMate refactors.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

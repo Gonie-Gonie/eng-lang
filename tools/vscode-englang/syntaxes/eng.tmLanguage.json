@@ -632,6 +632,9 @@
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
@@ -698,6 +701,9 @@
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
@@ -735,6 +741,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -921,6 +930,9 @@
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
@@ -958,6 +970,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -1049,6 +1064,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -1927,6 +1945,9 @@
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
@@ -1978,6 +1999,9 @@
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
@@ -2027,6 +2051,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
