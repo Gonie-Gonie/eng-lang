@@ -199,12 +199,14 @@
           ],
           "parameter": [
             "variable.parameter.function.englang",
-            "variable.parameter.property.englang"
+            "variable.parameter.property.englang",
+            "variable.other.parameter.englang"
           ],
           "parameter.readonly": [
             "variable.parameter.function.englang",
             "variable.parameter.property.englang",
-            "variable.other.property.englang"
+            "variable.other.property.englang",
+            "variable.other.parameter.englang"
           ],
           "property": [
             "variable.other.property.englang"
@@ -379,18 +381,21 @@
           ],
           "function.solver": [
             "keyword.control.solver.englang",
-            "support.function.builtin.englang"
+            "support.function.builtin.englang",
+            "entity.name.function.solver.englang"
           ],
           "keyword.solver": [
             "keyword.control.solver.englang"
           ],
           "variable.solver": [
             "keyword.control.solver.englang",
-            "variable.other.definition.englang"
+            "variable.other.definition.englang",
+            "entity.name.function.solver.englang"
           ],
           "property.solver": [
             "keyword.control.solver.englang",
-            "variable.other.property.englang"
+            "variable.other.property.englang",
+            "entity.name.function.solver.englang"
           ],
           "keyword.deprecated": [
             "keyword.control.deprecated.englang"
@@ -401,25 +406,30 @@
           "variable.state": [
             "storage.modifier.englang",
             "variable.other.definition.englang",
-            "variable.other.property.englang"
+            "variable.other.property.englang",
+            "variable.other.state.englang"
           ],
           "property.state": [
             "storage.modifier.englang",
-            "variable.other.property.englang"
+            "variable.other.property.englang",
+            "variable.other.state.englang"
           ],
           "variable.input": [
             "storage.modifier.englang",
             "variable.other.definition.englang",
-            "variable.other.property.englang"
+            "variable.other.property.englang",
+            "variable.other.input.englang"
           ],
           "parameter.input": [
             "variable.parameter.property.englang",
-            "storage.modifier.englang"
+            "storage.modifier.englang",
+            "variable.other.input.englang"
           ],
           "variable.output": [
             "storage.modifier.englang",
             "variable.other.definition.englang",
-            "variable.other.property.englang"
+            "variable.other.property.englang",
+            "variable.other.output.englang"
           ],
           "variable.model": [
             "entity.name.function.englang",

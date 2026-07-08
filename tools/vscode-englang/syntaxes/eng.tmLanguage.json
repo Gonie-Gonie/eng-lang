@@ -235,13 +235,76 @@
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.system-member.englang",
-                                                                 "match":  "\\b(state|input|parameter|output|operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "match":  "\\b(state)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
                                                                                             "name":  "storage.modifier.englang"
                                                                                         },
                                                                                   "2":  {
-                                                                                            "name":  "variable.other.property.englang"
+                                                                                            "name":  "variable.other.state.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.system-member.englang",
+                                                                 "match":  "\\b(input)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.modifier.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.input.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.system-member.englang",
+                                                                 "match":  "\\b(parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.modifier.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.parameter.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.system-member.englang",
+                                                                 "match":  "\\b(output)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.modifier.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "variable.other.output.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.system-member.englang",
+                                                                 "match":  "\\b(operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "storage.modifier.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "entity.name.function.solver.englang"
+                                                                                        }
+                                                                              }
+                                                             },
+                                                             {
+                                                                 "name":  "meta.declaration.equation.englang",
+                                                                 "match":  "\\b(equation)\\s+([A-Za-z_][A-Za-z0-9_]*)(\\s*:)",
+                                                                 "captures":  {
+                                                                                  "1":  {
+                                                                                            "name":  "keyword.control.solver.englang"
+                                                                                        },
+                                                                                  "2":  {
+                                                                                            "name":  "entity.name.function.solver.englang"
+                                                                                        },
+                                                                                  "3":  {
+                                                                                            "name":  "punctuation.separator.colon.englang"
                                                                                         }
                                                                               }
                                                              },

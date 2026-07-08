@@ -2568,5 +2568,46 @@
     "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
     "scope": "variable.parameter.property.englang",
     "text": "confidence_band ="
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "meta.declaration.equation.englang",
+    "text": "equation energy_balance:"
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.function.solver.englang",
+    "text": "energy_balance",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.state.englang",
+    "text": "T",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.input.englang",
+    "text": "Q_internal",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.output.englang",
+    "text": "Q_load",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "variable.other.parameter.englang",
+    "text": "C",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "entity.name.function.solver.englang",
+    "text": "A",
+    "fullMatch": true
   }
 ]

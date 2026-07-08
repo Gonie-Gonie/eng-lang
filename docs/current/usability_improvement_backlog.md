@@ -5266,6 +5266,14 @@ Status: implemented after noticing the Settings UI still exposed the legacy `eng
 - Added a new visible command id, `englang.switchDiagnosticsMode`, while still registering the old `englang.switchProblemsSource` command id for existing keybindings and scripts.
 - Updated `ide-check` to reject exposing the legacy setting/command in package metadata and to verify the new setting, command id, and compatibility read path.
 
+## Batch 437: VS Code System Member Highlight Roles
+
+Status: implemented after reviewing the syntax-highlighting TODO and finding that solver/system declarations still collapsed several different member names into the same generic property color.
+
+- Split TextMate captures for `state`, `input`, `parameter`, `output`, and `operator` member declarations so their names can receive role-specific fallback colors before semantic tokens arrive.
+- Added lexical coverage for `equation <name>:` declarations so solver equation names are visible like function/operator names.
+- Extended VS Code semantic fallback mappings, token-scope docs, grammar smoke expectations, and `ide-check` contracts for the new role scopes.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

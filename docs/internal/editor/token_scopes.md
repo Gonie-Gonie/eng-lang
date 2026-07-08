@@ -60,8 +60,13 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `entity.name.function.englang` | Captured `fn` and `method` names. |
 | `entity.name.function.call.englang` | User-defined function call names. |
 | `entity.name.function.workflow-step.englang` | Workflow step names and compiler-backed workflow-step semantic fallbacks. |
+| `entity.name.function.solver.englang` | Equation and operator declaration names used by solver blocks. |
 | `meta.declaration.constant.englang` | Full `const` declaration phrases. |
 | `variable.other.constant.englang` | Captured `const` names. |
+| `variable.other.state.englang` | Captured `state` member names. |
+| `variable.other.input.englang` | Captured `input` member names. |
+| `variable.other.output.englang` | Captured `output` member names. |
+| `variable.other.parameter.englang` | Captured system parameter names. |
 | `meta.declaration.test.englang` | Full `test "..."` declaration phrases. |
 | `entity.name.section.englang` | Captured quoted test names. |
 | `support.type.englang` | Quantity/type names. |
@@ -281,6 +286,7 @@ constant.numeric.englang
 constant.other.unit.englang
 entity.name.function.englang
 entity.name.function.workflow-step.englang
+entity.name.function.solver.englang
 invalid.deprecated.englang
 keyword.control.deprecated.englang
 keyword.control.external-boundary.englang
@@ -302,6 +308,10 @@ support.function.builtin.englang
 support.namespace.module.englang
 support.type.englang
 variable.other.definition.englang
+variable.other.state.englang
+variable.other.input.englang
+variable.other.output.englang
+variable.other.parameter.englang
 variable.other.property.englang
 variable.parameter.type.englang
 variable.parameter.property.englang
