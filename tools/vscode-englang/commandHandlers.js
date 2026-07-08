@@ -23,14 +23,14 @@ const {
 const PROBLEMS_SOURCES = [
   {
     id: "file",
-    label: "file",
-    description: "Quieter saved-file checks",
-    detail: "Problems update when an EngLang file opens, saves, or is checked manually."
+    label: "File diagnostics",
+    description: "file",
+    detail: "Quieter Problems updates when an EngLang file opens, saves, or is checked manually."
   },
   {
     id: "live",
-    label: "live",
-    description: "Live buffer checks",
+    label: "Live diagnostics",
+    description: "live",
     detail: "Problems update from the current unsaved editor buffer after a short typing pause."
   }
 ];
@@ -148,7 +148,7 @@ function createCommandHandlers(options = {}) {
         detail: source.detail,
         source: source.id
       })),
-      { placeHolder: `Current EngLang Problems source: ${current}` }
+      { placeHolder: `Current EngLang diagnostics mode: ${current}` }
     );
     if (!picked) {
       return;
@@ -160,8 +160,8 @@ function createCommandHandlers(options = {}) {
     await engConfig(document).update("problemsSource", picked.source, target);
     const suffix = picked.source === "live"
       ? "Problems will update while typing when englang.lintOnChange is enabled."
-      : "Problems will use saved-file checks on open, save, and manual check.";
-    vscode.window.showInformationMessage(`EngLang Problems source set to ${picked.source}. ${suffix}`);
+      : "Problems will use saved-file diagnostics on open, save, and manual check.";
+    vscode.window.showInformationMessage(`EngLang diagnostics mode set to ${picked.source}. ${suffix}`);
   }
 
   async function showToolingStatus(context) {
@@ -495,7 +495,7 @@ function createCommandHandlers(options = {}) {
         }
       },
       settings: {
-        problems_source: source,
+        diagnostics_mode: source,
         lint_on_save: config.get("lintOnSave", true),
         lint_on_change: lintOnChange,
         semantic_highlighting: semanticHighlighting,
@@ -503,7 +503,7 @@ function createCommandHandlers(options = {}) {
         execution_profile: executionProfile(document)
       },
       commands: {
-        switch_problems_source: "EngLang: Switch Problems Source...",
+        switch_diagnostics_mode: "EngLang: Switch Diagnostics Mode...",
         inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
         check_current_file: "EngLang: Check Current File"
       }

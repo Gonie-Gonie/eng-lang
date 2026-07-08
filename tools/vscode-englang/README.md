@@ -55,10 +55,10 @@ embedding compiler logic in JavaScript.
   data, report data, output lists, run logs, run graphs, reproducibility locks,
   process results, cache records, test results, plot data, plot output
   lists, and plot SVGs
-- `EngLang: Switch Problems Source...` for choosing quieter saved-file checks
+- `EngLang: Switch Diagnostics Mode...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette
 - `EngLang: Show Tooling Status` for inspecting the active check/run and live
-  editor tool paths, Problems source, lint toggles, semantic highlighting, and
+  editor tool paths, diagnostics mode, lint toggles, semantic highlighting, and
   extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
@@ -74,8 +74,8 @@ embedding compiler logic in JavaScript.
 
 The packaged VSIX contains the EngLang command-line and editor tooling, so no
 Rust setup is required for diagnostics or live editor checks. The default
-Problems source uses stable file checks. In Settings, switch EngLang diagnostics
-to live editor checks, or run `EngLang: Switch Problems Source...`, to update
+diagnostics mode uses stable file checks. In Settings, switch EngLang diagnostics
+to live editor checks, or run `EngLang: Switch Diagnostics Mode...`, to update
 Problems while typing. In `settings.json`, set:
 
 ```json
@@ -108,7 +108,7 @@ Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the bundled check/run tool and live editor tool paths,
-the current Problems source and per-feature live editor
+the current diagnostics mode and per-feature live editor
 routing. If you run directly from source without packaging,
 set:
 
@@ -123,10 +123,10 @@ The extension is a local editor client for the bundled EngLang tooling. It uses
 on-demand live editor checks for live Problems, hover, completion, document
 symbols, workspace symbols, folding, semantic tokens, definition, formatting,
 and quick fixes. This keeps VS Code behavior aligned with the compiler while
-the long-running editor protocol continues to evolve. The default Problems
-source runs stable file checks on open/save and manual check. Set
+the long-running editor protocol continues to evolve. The default diagnostics
+mode runs stable file checks on open/save and manual check. Set
 `englang.problemsSource` to `live` to update Problems from the current unsaved
-buffer while typing, or run `EngLang: Switch Problems Source...` and choose
+buffer while typing, or run `EngLang: Switch Diagnostics Mode...` and choose
 `live`. If an older workspace already has
 `englang.diagnosticsBackend`, the extension
 still accepts it as a compatibility alias. New workspaces should use
@@ -154,7 +154,7 @@ Data` opens the `build/result/review.json` artifact from the last saved run.
 last run, including generated CSV/text outputs and review artifacts that are not
 listed as fixed commands.
 
-When the Problems source is `live`, dirty buffers are checked after a short
+When the diagnostics mode is `live`, dirty buffers are checked after a short
 typing pause, so Problems can update before the file is saved. Set
 `englang.lintOnChange = false` to disable those live typing checks while keeping
 live open/save analysis.

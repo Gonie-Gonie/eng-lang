@@ -549,10 +549,10 @@
             "live"
           ],
           "enumDescriptions": [
-            "Run quieter file checks when a file opens, saves, or is checked manually.",
-            "Update Problems while typing from the current unsaved buffer."
+            "Use quieter saved-file diagnostics when a file opens, saves, or is checked manually.",
+            "Use live diagnostics while typing from the current unsaved buffer."
           ],
-          "description": "Choose how the Problems panel is updated. File checks are quieter; live checks update while typing from the current unsaved buffer."
+          "description": "Choose the diagnostics mode for the Problems panel. File mode is quieter; live mode updates while typing from the current unsaved buffer."
         },
         "englang.executionProfile": {
           "type": "string",
@@ -577,7 +577,7 @@
         "englang.lintOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "When Problems source is live, update EngLang diagnostics for unsaved .eng buffers after a short typing pause."
+          "description": "When diagnostics mode is live, update EngLang diagnostics for unsaved .eng buffers after a short typing pause."
         },
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",
@@ -610,7 +610,7 @@
       },
       {
         "command": "englang.switchProblemsSource",
-        "title": "EngLang: Switch Problems Source..."
+        "title": "EngLang: Switch Diagnostics Mode..."
       },
       {
         "command": "englang.showToolingStatus",

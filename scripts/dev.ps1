@@ -2572,7 +2572,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSpec"; Text = "Last Run Plot Data" },
         @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Output List" },
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
-        @{ Command = "englang.switchProblemsSource"; Text = "Switch Problems Source" },
+        @{ Command = "englang.switchProblemsSource"; Text = "Switch Diagnostics Mode" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" }
     )) {
@@ -2612,8 +2612,8 @@ function Assert-VscodeExtensionContract {
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
         throw "VS Code lintOnChange description must avoid editor-service implementation details"
     }
-    if (-not $LintOnChangeDescription.Contains("Problems source is live")) {
-        throw "VS Code lintOnChange description must say it applies when Problems source is live"
+    if (-not $LintOnChangeDescription.Contains("diagnostics mode is live")) {
+        throw "VS Code lintOnChange description must say it applies when diagnostics mode is live"
     }
     $LspPathDescription = [string]$Properties."englang.lspPath".description
     if ($LspPathDescription -match "editor service") {
@@ -2838,7 +2838,7 @@ function Assert-VscodeExtensionContract {
         "features",
         "updates_while_typing",
         "role_aware_colors",
-        "problems_source",
+        "diagnostics_mode",
         "semantic_highlighting",
         "review_risk_decorations"
     )) {
@@ -3476,7 +3476,7 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredProblemsSourceToken in @("function problemsSource(document)", 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return source === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsBackendLabel(backend)")) {
         if (-not $ExtensionSource.Contains($RequiredProblemsSourceToken)) {
-            throw "VS Code extension missing user-facing Problems source token $RequiredProblemsSourceToken"
+            throw "VS Code extension missing user-facing diagnostics mode token $RequiredProblemsSourceToken"
         }
     }
     $ProblemsSourceEnum = @($Properties."englang.problemsSource".enum)
