@@ -4475,9 +4475,12 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         | "mlp" | "ann" | "evaluate" | "model_card" | "leakage_lint" | "predict" => {
             &["defaultLibrary", "model"]
         }
+        "rmse" => &["defaultLibrary", "report", "timeseries", "validation"],
+        "mean" | "time_weighted_mean" | "min" | "max" | "median" | "std" | "p90" | "p95"
+        | "duration_above" => &["defaultLibrary", "report", "timeseries"],
         "integrate" | "der" | "delay" | "sum" => &["defaultLibrary", "solver"],
         "fill" | "align" | "resample" => &["defaultLibrary", "validation", "workflowStep"],
-        "check" | "coverage" | "fill_missing" | "rmse" => &["defaultLibrary", "validation"],
+        "check" | "coverage" | "fill_missing" => &["defaultLibrary", "validation"],
         "select_first_row" => &["defaultLibrary", "deprecated"],
         _ => &["defaultLibrary"],
     }
@@ -8427,7 +8430,7 @@ Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
 E_series = integrate Q_series over Time
 mean_Q = mean Q_series over Time
 report {
-    summarize Q_series by [mean, p95]
+    summarize Q_series by [mean, time_weighted_mean, p90, p95]
     plot Q_series over Time
 }
 schema JoinRow {
@@ -8498,19 +8501,29 @@ struct LegacyArgs
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
-            "    summarize Q_series by [mean, p95]",
+            "    summarize Q_series by [mean, time_weighted_mean, p90, p95]",
             "by",
             "keyword",
             "report",
         );
-        assert_semantic_token_on_line_with_modifier(
-            &snapshot,
-            source,
-            "    summarize Q_series by [mean, p95]",
-            "mean",
-            "function",
-            "report",
-        );
+        for label in ["mean", "time_weighted_mean", "p90", "p95"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "    summarize Q_series by [mean, time_weighted_mean, p90, p95]",
+                label,
+                "function",
+                "report",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                "    summarize Q_series by [mean, time_weighted_mean, p90, p95]",
+                label,
+                "function",
+                "timeseries",
+            );
+        }
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,

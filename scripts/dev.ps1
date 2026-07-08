@@ -2645,7 +2645,7 @@ function Assert-VscodeExtensionContract {
         "variable.input", "parameter.input", "variable.output", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "property.db",
-        "function.model", "keyword.model", "function.defaultLibrary", "namespace.defaultLibrary",
+        "function.model", "keyword.model", "function.defaultLibrary", "function.timeseries", "namespace.defaultLibrary",
         "namespace.imported", "namespace.internal", "namespace.planned", "type.axis", "variable.cache", "keyword.cache", "keyword.workflowStep",
         "function.workflowStep"
     )) {

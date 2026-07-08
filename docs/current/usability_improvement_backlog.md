@@ -5004,6 +5004,14 @@ Status: implemented after checking the textarea-backed caret insight and highlig
 - Reused the existing source-token line/start/length metadata and UTF-8 byte-to-code-unit conversion so copied text matches the range selected by the existing token selector.
 - Extended `ide-check` coverage for the copy action helpers and data attributes.
 
+## Batch 406: Timeseries Statistic Semantic Overlay Alignment
+
+Status: implemented after comparing the report/uncertainty grammar fixture with compiler-backed semantic overlays.
+
+- Marked built-in statistic helpers such as `mean`, `time_weighted_mean`, `p90`, and `p95` with `report` and `timeseries` modifiers so semantic highlighting does not flatten them to plain default-library functions.
+- Extended the richer keyword semantic-token regression to cover list-style report summaries with multiple statistic helpers, including VS Code fallback scope coverage for `function.timeseries`.
+- Kept the semantic-token legend unchanged; this only applies existing modifiers more consistently.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

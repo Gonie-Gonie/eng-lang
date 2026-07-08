@@ -246,7 +246,7 @@ in sync with the generated legend. Important pairings:
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
-| `variable.timeseries`, `property.timeseries` | TimeSeries value emphasis. |
+| `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries value and statistic helper emphasis. |
 | `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in functions and modules. |
 | `namespace.imported` | User-imported module namespaces. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |

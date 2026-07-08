@@ -277,6 +277,10 @@
             "entity.name.function.englang",
             "variable.other.property.englang"
           ],
+          "function.timeseries": [
+            "entity.name.function.englang",
+            "support.function.builtin.englang"
+          ],
           "function.defaultLibrary": [
             "support.function.builtin.englang"
           ],
