@@ -80,9 +80,8 @@ api_request_status = api_response.status
 api_request_status_code = api_response.status_code
 api_request_status_class = api_response.status_class
 api_response_hash = api_response.response_hash
-api_payload = read json api_response.body
-api_contract = promote json api_payload as WeatherApiPayload
-weather = promote json records api_payload.records as WeatherApiRecord
+api_contract = promote json api_response.body as WeatherApiPayload
+weather = promote json records api_contract.records as WeatherApiRecord
 coverage = check coverage weather.time
 with {
     expected_step = 1 h

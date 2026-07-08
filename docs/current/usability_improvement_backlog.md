@@ -601,8 +601,8 @@ Status: implemented after compiler keyword/TextMate coverage review.
 Status: implemented after workflow 01 native-contract review.
 
 - Added `WeatherApiRecord` and `WeatherApiPayload` schemas to workflow 01 so
-  the API fixture JSON is validated through native `read json` +
-  `promote json ... as WeatherApiPayload`.
+  the API response JSON is validated through native
+  `promote json api_response.body as WeatherApiPayload`.
 - Verified the saved run records `api_contract` as a validated config
   promotion and still has `process_results.json.process_count = 0`.
 - Follow-up completed in Batch 51: direct JSON-record-to-table materialization
@@ -620,7 +620,7 @@ Status: implemented after workflow 01 native-table review.
   diagnostics, DateTime coverage, missing policies, constraints, and
   provenance paths.
 - Updated workflow 01 to remove the `weather_hourly` CSV arg and promote
-  `api_payload.records` as `WeatherApiRecord`; the workflow contract test
+  `api_contract.records` as `WeatherApiRecord`; the workflow contract test
   now asserts `source:json_records:weather` and absence of
   `sample_weather_hourly.csv` in the result.
 
@@ -678,14 +678,16 @@ Status: implemented after keyword-highlighting drift review.
 
 Status: implemented after workflow 1 native-dataflow review.
 
-- Workflow 01 now reads its typed API payload from `api_response.body` instead
-  of reading `args.api_fixture` directly after the network boundary.
+- Workflow 01 now promotes its typed API payload directly from
+  `api_response.body` instead of routing through a separate raw `read json`
+  binding after the network boundary.
 - Compiler schema analysis now treats fixture-backed `http get` response
-  bodies as structured JSON sources for `read json <response>.body`, enabling
-  config promotion and JSON-record table promotion to follow the native
+  bodies as structured JSON sources for direct `promote json <response>.body`
+  bindings and for downstream `promote json records <contract>.records`, so
+  config promotion and JSON-record table promotion follow the native
   network/cache boundary.
 - Added compiler and workflow contract coverage so `source_value` stays
-  `api_response.body`, review metadata records `read json api_response.body`,
+  `api_response.body`, config metadata records `source_literal = api_response.body`,
   and workflows 1-3 still run with `process_count = 0`.
 
 ## Batch 57: Generated VS Code Editor Metadata
@@ -2062,7 +2064,7 @@ argument, and dotted source references.
   `read text/json/toml` expressions.
 - Added grammar fixture and expectation coverage for
   `read json file(...)`, `read text args.notes`, `read toml args.config_toml`,
-  and `read json api_response.body`.
+  and dotted response-body read sources.
 
 ## Batch 168: Render Template Phrase Highlighting
 

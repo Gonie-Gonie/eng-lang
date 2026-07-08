@@ -539,8 +539,8 @@ function Invoke-WorkflowsTest {
             foreach ($RequiredWeatherReviewToken in @(
                 '"owner_kind": "network_request"',
                 '"owner_name": "api_response"',
-                '"expression": "read json api_response.body"',
-                '"expression": "promote json records api_payload.records as WeatherApiRecord"',
+                '"expression": "promote json api_response.body as WeatherApiPayload"',
+                '"expression": "promote json records api_contract.records as WeatherApiRecord"',
                 '"kind": "uses_cache"',
                 '"offline_response": "data/offline_weather_response.json"',
                 '"expected_sha256"'

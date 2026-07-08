@@ -17148,8 +17148,8 @@ mod tests {
             .result_json
             .contains("\"source_value\": \"api_response.body\""));
         assert!(weather_output
-            .review_json
-            .contains("\"expression\": \"read json api_response.body\""));
+            .result_json
+            .contains("\"source\": \"api_response.body\""));
         assert!(weather_output
             .result_json
             .contains("\"source_format\": \"json_records\""));
@@ -22590,7 +22590,7 @@ mod tests {
         fs::write(
             &source_path,
             format!(
-                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\nresponse_status_class = response.status_class\nresponse_method = response.method\nresponse_query = response.query_string\nresponse_request_url = response.url_with_query\nprint \"status={{response_status}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\nprint \"method={{response_method}} status_class={{response_status_class}} query={{response_query}} url={{response_request_url}}\"\n"
+                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\ncontract = promote json response.body as WeatherPayload\nweather = promote json records contract.records as WeatherRecord\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\nresponse_status_class = response.status_class\nresponse_method = response.method\nresponse_query = response.query_string\nresponse_request_url = response.url_with_query\nprint \"status={{response_status}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\nprint \"method={{response_method}} status_class={{response_status_class}} query={{response_query}} url={{response_request_url}}\"\n"
             ),
         )
         .expect("write source");

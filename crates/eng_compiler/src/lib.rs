@@ -13687,23 +13687,18 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"https://api.example.org/weather\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
+            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"https://api.example.org/weather\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\ncontract = promote json response.body as WeatherPayload\nweather = promote json records contract.records as WeatherRecord\n",
         )
         .expect("source");
 
         let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
 
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
-        let dependency = report
+        assert!(report
             .semantic_program
             .environment_dependencies
             .iter()
-            .find(|dependency| dependency.name == "payload")
-            .expect("payload structured read");
-        assert_eq!(dependency.kind, "filesystem_read_json");
-        assert_eq!(dependency.expression, "read json response.body");
-        assert!(dependency.resolved_value.contains("response.json"));
-        assert!(dependency.source_hash.is_some());
+            .all(|dependency| dependency.expression != "read json response.body"));
 
         let promotion = report
             .semantic_program
@@ -13711,7 +13706,7 @@ system Envelope {
             .iter()
             .find(|promotion| promotion.binding == "contract")
             .expect("config promotion");
-        assert_eq!(promotion.source_literal, "payload");
+        assert_eq!(promotion.source_literal, "response.body");
         assert_eq!(promotion.source_value, "response.body");
         assert_eq!(promotion.status, "validated");
 
@@ -13724,7 +13719,7 @@ system Envelope {
         assert_eq!(table_promotion.source_format, "json_records");
         assert_eq!(
             table_promotion.json_source_binding.as_deref(),
-            Some("payload")
+            Some("contract")
         );
         assert_eq!(
             table_promotion.json_records_field.as_deref(),
@@ -13827,22 +13822,18 @@ system Envelope {
         let source_path = root.join("main.eng");
         fs::write(
             &source_path,
-            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"http://127.0.0.1:9/weather\")\nwith {\n    timeout = 1 s\n    body_size_limit = 16 KB\n}\n\npayload = read json response.body\ncontract = promote json payload as WeatherPayload\nweather = promote json records payload.records as WeatherRecord\n",
+            "schema WeatherRecord {\n    time: DateTime index\n    value: Float\n}\n\nschema WeatherPayload {\n    station_id: String\n    records: Array[WeatherRecord]\n}\n\nresponse = http get url(\"http://127.0.0.1:9/weather\")\nwith {\n    timeout = 1 s\n    body_size_limit = 16 KB\n}\n\ncontract = promote json response.body as WeatherPayload\nweather = promote json records contract.records as WeatherRecord\n",
         )
         .expect("source");
 
         let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
 
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
-        let dependency = report
+        assert!(report
             .semantic_program
             .environment_dependencies
             .iter()
-            .find(|dependency| dependency.name == "payload")
-            .expect("payload structured read");
-        assert_eq!(dependency.kind, "filesystem_read_json");
-        assert_eq!(dependency.status, "runtime_pending");
-        assert_eq!(dependency.resolved_value, "runtime:response.body");
+            .all(|dependency| dependency.expression != "read json response.body"));
 
         let promotion = report
             .semantic_program

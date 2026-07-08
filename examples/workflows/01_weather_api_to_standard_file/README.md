@@ -14,7 +14,7 @@ The workflow uses:
 ```text
 eng.net       http get args.api_url with selected station query, pinned response, SHA-256, retry, timeout, cache key, response status/hash/query URL fields
 eng.cache     cache records and replayable response materialization from args-driven key parts
-eng.config    read/promote JSON validation from the native HTTP response body
+eng.config    direct JSON promotion validation from the native HTTP response body
 eng.table     station CSV promotion, JSON records table promotion, and filter/require_one row selection
 eng.timeseries coverage review for the hourly weather time axis
 eng.artifact  write standard_text table artifact plus generated text artifacts with hashes and output manifest entries

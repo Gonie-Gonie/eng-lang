@@ -308,9 +308,9 @@ pub fn analyze_schema(
                         "E-SCHEMA-JSON-001",
                         binding.line,
                         &format!(
-                            "JSON records promotion references `{source_binding}`, but no matching `read json` source is available."
+                            "JSON records promotion references `{source_binding}`, but no matching JSON source is available."
                         ),
-                        Some("Bind the payload first, for example `payload = read json args.input`, then use `promote json records payload.records as SchemaName`."),
+                        Some("Bind the payload first with `read json` or `promote json ... as PayloadSchema`, then use `promote json records payload.records as SchemaName`."),
                     ));
                     csv_promotions.push(CsvPromotion {
                         binding: binding.name.clone(),
@@ -744,6 +744,17 @@ fn collect_raw_config_sources(
 ) -> HashMap<String, RawConfigSource> {
     let mut sources = HashMap::new();
     let response_body_sources = response_body_sources(program, source_base, arg_values);
+    for (source_literal, response_source) in &response_body_sources {
+        sources.insert(
+            source_literal.clone(),
+            RawConfigSource {
+                format: "json".to_owned(),
+                resolved_path: response_source.resolved_path.clone(),
+                source_value: source_literal.clone(),
+                runtime_bound: response_source.runtime_bound,
+            },
+        );
+    }
     for item in &program.items {
         let AstItem::FastBinding(binding) = item else {
             continue;
@@ -782,6 +793,39 @@ fn collect_raw_config_sources(
             },
         );
     }
+
+    for item in &program.items {
+        let AstItem::FastBinding(binding) = item else {
+            continue;
+        };
+        if binding.context != ParseContext::TopLevel {
+            continue;
+        }
+        let Some((format, source_literal, _schema_name)) =
+            parse_promote_config(&binding.expression)
+        else {
+            continue;
+        };
+        let source = if let Some(source) = sources
+            .get(source_literal.as_str())
+            .filter(|source| source.format == format)
+            .cloned()
+        {
+            source
+        } else {
+            let Ok(source_value) = resolve_source_value(&source_literal, arg_values) else {
+                continue;
+            };
+            RawConfigSource {
+                format,
+                resolved_path: resolve_source_path(source_base, &source_value),
+                source_value,
+                runtime_bound: false,
+            }
+        };
+        sources.insert(binding.name.clone(), source);
+    }
+
     sources
 }
 
@@ -825,6 +869,7 @@ fn response_body_sources(
         sources.insert(format!("{}.body", binding.name), source.clone());
         sources.insert(format!("{}.text", binding.name), source);
     }
+
     sources
 }
 
