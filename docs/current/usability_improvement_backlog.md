@@ -5051,6 +5051,13 @@ Status: implemented after checking source-visible planned/internal stdlib import
 - Added grammar smoke fixture coverage for `use eng.stats` and `use eng.system`, matching the LSP semantic-token coverage for planned/internal stdlib module imports.
 - Pinned the `use` keyword and both `eng.*` namespace tokens in TextMate expectations so first-paint highlighting cannot regress while semantic tokens load.
 
+## Batch 412: Workflow Example Grammar Smoke Coverage
+
+Status: implemented after checking that representative grammar fixtures covered workflow phrases but not the actual workflow 01/02/03 entry files.
+
+- Let the VS Code grammar smoke harness resolve expected-token fixtures from either the fixture directory or repository-relative source paths.
+- Added smoke expectations against the real workflow 01/02/03 `main.eng` files for native HTTP, coverage, standard-text write, sampling, case materialization, template application, model training/prediction, SQLite write/read, plotting, and confidence-band option phrases.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

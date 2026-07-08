@@ -636,12 +636,25 @@ Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $C
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
 Assert-ExpectedWorkflowScopesCoverGrammar
 
+function Resolve-GrammarFixturePath {
+    param([Parameter(Mandatory = $true)][string] $Fixture)
+
+    $fixturePath = Join-Path $FixtureRoot $Fixture
+    if (Test-Path -LiteralPath $fixturePath -PathType Leaf) {
+        return $fixturePath
+    }
+
+    $repoFixturePath = Join-Path $RepoRoot $Fixture
+    if (Test-Path -LiteralPath $repoFixturePath -PathType Leaf) {
+        return $repoFixturePath
+    }
+
+    throw "missing grammar fixture $Fixture"
+}
+
 $Results = New-Object System.Collections.Generic.List[object]
 foreach ($case in $Expected) {
-    $fixturePath = Join-Path $FixtureRoot $case.fixture
-    if (-not (Test-Path -LiteralPath $fixturePath -PathType Leaf)) {
-        throw "missing grammar fixture $($case.fixture)"
-    }
+    $fixturePath = Resolve-GrammarFixturePath -Fixture ([string] $case.fixture)
     $fixtureText = Get-Content -LiteralPath $fixturePath -Raw -Encoding UTF8
     if (-not $fixtureText.Contains([string] $case.text)) {
         throw "fixture $($case.fixture) does not contain expected text '$($case.text)'"

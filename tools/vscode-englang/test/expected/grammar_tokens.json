@@ -2413,5 +2413,88 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.property.englang",
     "text": "cache_ttl ="
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "meta.workflow.http-request.englang",
+    "text": "http get args.api_url",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "meta.workflow.check-coverage.englang",
+    "text": "check coverage weather.time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "meta.workflow.write-standard-text.englang",
+    "text": "write standard_text weather",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.sample-method.englang",
+    "text": "sample lhs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.materialize-cases.englang",
+    "text": "materialize cases training_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.apply-step.englang",
+    "text": "apply case_input_template over cases",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.train-regression.englang",
+    "text": "train regression training_results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.predict-model.englang",
+    "text": "predict surrogate_model using designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.open-sqlite.englang",
+    "text": "open sqlite args.database_target",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.db-write.englang",
+    "text": "write training_results to db.table(\"simulation_results\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.workflow.db-read.englang",
+    "text": "read sqlite db.table(\"predictions\") as PersistedPredictionResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "meta.workflow.check-coverage.englang",
+    "text": "check coverage sensor.time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "meta.workflow.plot-series.englang",
+    "text": "plot Q_sensor over Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "confidence_band ="
   }
 ]
