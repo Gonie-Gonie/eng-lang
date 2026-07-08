@@ -172,9 +172,9 @@ From a source checkout, build and install the local VSIX with:
 
 Use `.\dev.bat vscode-package` to only write
 `dist\local-vscode\tools\englang-vscode-<version>.vsix` and install it through
-VS Code's `Extensions: Install from VSIX...` command. If reinstalling the local
-VSIX fails because VS Code says to restart before reinstalling EngLang, close
-all VS Code windows and run `.\dev.bat vscode-install` again.
+VS Code's `Extensions: Install from VSIX...` command. Close all VS Code windows before reinstalling EngLang;
+an open VS Code window can keep the existing extension folder locked, and
+`.\dev.bat vscode-install` checks for that before starting the release build.
 
 After installing, run `EngLang: Show Tooling Status` in VS Code to confirm the
 extension version, bundled `eng.exe` and `eng-lsp.exe` paths, diagnostics mode,

@@ -42,6 +42,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 485: Added workflow 02 smoke coverage for native typed SQLite readback structured reads.
 - Batch 486: Reworded user tutorial execution headings away from `Run Command` and added a docs-check guard.
 - Batch 487: Added nearest same-line highlight hints to the native IDE caret insight and Highlight panel.
+- Batch 488: Added a VS Code reinstall preflight so open VS Code windows are caught before release packaging.
 
 ## Documentation Policy
 

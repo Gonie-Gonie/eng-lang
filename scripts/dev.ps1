@@ -2866,13 +2866,25 @@ function Assert-VscodeExtensionContract {
         ".\dev.bat vscode-install",
         ".\dev.bat vscode-package",
         "dist\local-vscode\tools\englang-vscode-<version>.vsix",
-        "Extensions: Install from VSIX..."
+        "Extensions: Install from VSIX...",
+        "Close all VS Code windows before reinstalling EngLang"
     )) {
         if (-not $VscodeReadmeSource.Contains($RequiredVscodeInstallDocToken)) {
             throw "VS Code README missing local install token $RequiredVscodeInstallDocToken"
         }
         if (-not $NativeIdeHowtoSource.Contains($RequiredVscodeInstallDocToken)) {
             throw "native IDE how-to missing VS Code install token $RequiredVscodeInstallDocToken"
+        }
+    }
+    foreach ($RequiredVscodeInstallPreflightToken in @(
+        "Assert-VscodeInstallPreflight",
+        "Get-InstalledVscodeEnglangExtensionPaths",
+        "Get-RunningVscodeProcessSummaries",
+        "Close all VS Code windows before reinstalling EngLang",
+        "vscode-package"
+    )) {
+        if (-not $DevScriptSource.Contains($RequiredVscodeInstallPreflightToken)) {
+            throw "dev wrapper missing VS Code install preflight token $RequiredVscodeInstallPreflightToken"
         }
     }
     $DocCommentEnterRule = @($LanguageConfiguration.onEnterRules) | Where-Object {
@@ -5290,6 +5302,32 @@ function Get-VscodeCli {
     return $null
 }
 
+function Get-InstalledVscodeEnglangExtensionPaths {
+    $ExtensionRoot = Join-Path $env:USERPROFILE ".vscode\extensions"
+    if (-not (Test-Path -LiteralPath $ExtensionRoot -PathType Container)) {
+        return @()
+    }
+    return @(Get-ChildItem -LiteralPath $ExtensionRoot -Directory -Filter "englang.englang-*" -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName })
+}
+
+function Get-RunningVscodeProcessSummaries {
+    return @(Get-Process -Name "Code" -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProcessName)#$($_.Id)" })
+}
+
+function Assert-VscodeInstallPreflight {
+    $InstalledExtensions = Get-InstalledVscodeEnglangExtensionPaths
+    if ($InstalledExtensions.Count -eq 0) {
+        return
+    }
+    $RunningVscode = Get-RunningVscodeProcessSummaries
+    if ($RunningVscode.Count -eq 0) {
+        return
+    }
+    $InstalledList = $InstalledExtensions -join ", "
+    $ProcessList = $RunningVscode -join ", "
+    throw "Close all VS Code windows before reinstalling EngLang. Existing extension folder(s): $InstalledList. Running VS Code process(es): $ProcessList. To only build the VSIX, run .\dev.bat vscode-package."
+}
+
 function Invoke-VscodePackage {
     Set-DevEnvironment
     $cargo = Get-Cargo
@@ -5307,6 +5345,7 @@ function Invoke-VscodePackage {
 }
 
 function Invoke-VscodeInstall {
+    Assert-VscodeInstallPreflight
     $VsixPath = Invoke-VscodePackage
     $Code = Get-VscodeCli
     if ($null -eq $Code) {
