@@ -4964,6 +4964,14 @@ Status: implemented after checking write/export lines for the same TextMate-to-s
 - Kept `write standard_text ... to file(...)` target helpers aligned with workflow-step coloring so generated narrative outputs remain visibly distinct from ordinary builtins.
 - Added line-specific semantic-token regression coverage for file, directory, and joined write targets.
 
+## Batch 401: Export And SQLite Boundary Semantic Overlay Alignment
+
+Status: implemented after auditing remaining file/data boundary phrases against compiler-backed semantic tokens.
+
+- Marked `export summary to csv ...` target connectors and path helpers as side-effect tokens so joined output paths stay visible after semantic highlighting overlays TextMate scopes.
+- Added explicit SQLite connection semantic tokens for `open sqlite file(...)`, including DB/external modifiers on the binding and `file`/`dir`/`join` target helpers.
+- Extended LSP semantic-token regressions and VS Code fallback scope mappings for realistic export path expressions and SQLite connection targets.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

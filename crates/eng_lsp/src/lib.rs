@@ -2162,6 +2162,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for export in &program.csv_exports {
         builder.push_on_line(export.line, &export.source, "variable", &["report"]);
+        add_csv_export_target_semantic_tokens(&mut builder, export.line, &export.path);
         for field in &export.fields {
             builder.push_on_line(field.line, &field.name, "property", &["report"]);
         }
@@ -2190,6 +2191,14 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for declaration in &report.inferred_declarations {
+        if add_open_sqlite_semantic_tokens(
+            &mut builder,
+            declaration.line,
+            &declaration.name,
+            &declaration.expression,
+        ) {
+            continue;
+        }
         let Some(read) = db_read_expression(&declaration.expression) else {
             continue;
         };
@@ -4504,6 +4513,47 @@ fn add_http_request_semantic_tokens(
         return;
     };
     builder.push_identifiers_on_line(line_index, &["url"], "function", modifiers);
+}
+
+fn add_csv_export_target_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line: usize,
+    path: &str,
+) {
+    let modifiers = &["sideEffect"];
+    builder.push_keywords_on_line(line, &["to", "csv"], modifiers);
+    if path.trim().is_empty() {
+        return;
+    }
+    let Some(line_index) = line.checked_sub(1) else {
+        return;
+    };
+    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+}
+
+fn add_open_sqlite_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line: usize,
+    binding: &str,
+    expression: &str,
+) -> bool {
+    let expression = expression.trim();
+    if !expression.starts_with("open sqlite ") {
+        return false;
+    }
+    let modifiers = &["sideEffect", "external", "db"];
+    builder.push_on_line(
+        line,
+        binding,
+        "variable",
+        &["declaration", "external", "db"],
+    );
+    builder.push_keywords_on_line(line, &["open", "sqlite"], modifiers);
+    let Some(line_index) = line.checked_sub(1) else {
+        return true;
+    };
+    builder.push_identifiers_on_line(line_index, &["file", "dir", "join"], "function", modifiers);
+    true
 }
 
 fn add_write_target_semantic_tokens(
@@ -8141,6 +8191,32 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "cache_key", "cache");
         assert_semantic_token_modifier(&snapshot, source, "epochs", "model");
         assert_semantic_token_modifier(&snapshot, source, "db", "db");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"db = open sqlite file("outputs/results.sqlite")"#,
+            "db",
+            "variable",
+            "external",
+        );
+        for (label, token_type, modifier) in [
+            ("open", "keyword", "sideEffect"),
+            ("open", "keyword", "external"),
+            ("open", "keyword", "db"),
+            ("sqlite", "keyword", "db"),
+            ("file", "function", "sideEffect"),
+            ("file", "function", "external"),
+            ("file", "function", "db"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                r#"db = open sqlite file("outputs/results.sqlite")"#,
+                label,
+                token_type,
+                modifier,
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
         assert_semantic_token_modifier(&snapshot, source, "mode", "db");
         assert_semantic_token_modifier(&snapshot, source, "upsert", "db");
@@ -8282,7 +8358,7 @@ joined = join left with right
 on {
     left.id == right.id
 }
-export summary to csv "summary.csv" {
+export summary to csv join(dir("exports"), "summary.csv") {
     T as degC
 }
 write text "summary.txt", "ok"
@@ -8399,6 +8475,21 @@ struct LegacyArgs
             "export", "write", "copy", "mkdir", "move", "delete", "render", "template", "download",
         ] {
             assert_semantic_token_modifier(&snapshot, source, label, "sideEffect");
+        }
+        for (label, token_type) in [
+            ("to", "keyword"),
+            ("csv", "keyword"),
+            ("join", "function"),
+            ("dir", "function"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                r#"export summary to csv join(dir("exports"), "summary.csv") {"#,
+                label,
+                token_type,
+                "sideEffect",
+            );
         }
         for label in ["render", "template"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");

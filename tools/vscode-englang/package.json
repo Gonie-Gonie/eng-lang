@@ -437,6 +437,10 @@
           "keyword.db": [
             "keyword.control.external-boundary.englang"
           ],
+          "function.db": [
+            "keyword.control.external-boundary.englang",
+            "support.function.builtin.englang"
+          ],
           "property.db": [
             "keyword.control.external-boundary.englang",
             "variable.other.property.englang"
