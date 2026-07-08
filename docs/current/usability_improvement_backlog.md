@@ -62,6 +62,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 505: Made unsupported `apply run_case over ...` scheduling explicit instead of inferring CaseOutput.
 - Batch 506: Added Native IDE highlight selector visibility for VS Code semantic-token parity debugging.
 - Batch 507: Reworded external model/DB adapter sample metadata away from fixture terminology.
+- Batch 508: Added Native IDE caret highlight quick filters for semantic selectors.
 
 ## Documentation Policy
 

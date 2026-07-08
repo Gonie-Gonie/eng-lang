@@ -1458,10 +1458,13 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
   const start = Number(token.start ?? 0);
   const length = Number(token.length ?? 0);
   const hover = caret.hover ? hoverTitle(caret.hover) : "-";
+  const selectorButtons = semanticTokenSelectors(token)
+    .map((selector) => highlightFilterButton(selector, `Selector ${selector}`));
   const filterButtons = [
     text && text !== "-" ? highlightFilterButton(text, "Text") : "",
     token.type ? highlightFilterButton(token.type, "Category") : "",
-    ...modifiers.map((modifier) => highlightFilterButton(modifier, `Detail ${modifier}`))
+    ...modifiers.map((modifier) => highlightFilterButton(modifier, `Detail ${modifier}`)),
+    ...selectorButtons
   ].filter(Boolean).join(" ");
   const actionButtons = [
     sourceTokenCopyButton(token, "text", "Copy Text"),
