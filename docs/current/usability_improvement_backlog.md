@@ -5299,6 +5299,14 @@ Status: implemented after reviewing the IDE TODO and finding that local member c
 - Kept these suggestions in the local fallback path only, so compiler/LSP completions still win when available.
 - Pinned the helper names in `ide-check` to keep the fallback from regressing during future provider refactors.
 
+## Batch 441: VS Code Schema Binding Member Completion Fallback
+
+Status: implemented after reviewing current workflow examples and finding that promoted schema bindings such as `stations` and `weather` only receive member completions after LSP/compiler analysis returns.
+
+- Added a current-document schema scanner for `schema Name { ... }` fields and `promote csv/json/toml ... as Name` bindings.
+- Wired those inferred schema fields into the existing local member-completion fallback so `binding.` can suggest schema fields before live completion data arrives.
+- Pinned the schema-completion helpers in `ide-check` so future completion-provider refactors keep the fallback path intact.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

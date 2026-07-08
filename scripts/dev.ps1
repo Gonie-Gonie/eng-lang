@@ -3112,6 +3112,11 @@ function Assert-VscodeExtensionContract {
         "cachedSnapshotForDocument",
         "completionItemsFromPayload",
         "argsFieldCompletionsFromDocument",
+        "schemaBindingFieldCompletionsFromDocument",
+        "schemaFieldsFromDocument",
+        "promotedSchemaBindingsFromDocument",
+        "fieldsForSchemaBinding",
+        "schema field",
         "argsFields",
         "isArgsReceiver",
         "args field",
@@ -3129,6 +3134,18 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing completion provider token $RequiredCompletionToken"
         }
     }
+    foreach ($UniqueCompletionFunction in @(
+        "argsFieldCompletionsFromDocument",
+        "schemaBindingFieldCompletionsFromDocument",
+        "httpResponseFieldCompletionsForContext",
+        "localMemberCompletionsForContext"
+    )) {
+        $FunctionDeclarationCount = [regex]::Matches($CompletionProviderSource, "function\s+$UniqueCompletionFunction\s*\(").Count
+        if ($FunctionDeclarationCount -ne 1) {
+            throw "VS Code completion provider must declare $UniqueCompletionFunction exactly once"
+        }
+    }
+
     $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
     if (-not $CommandSourceCombined.Contains("showSemanticTokensDebug") -or -not $CommandHandlersSource.Contains("token_counts_by_type") -or -not $CommandHandlersSource.Contains("token_counts_by_modifier") -or -not $CommandHandlersSource.Contains("token_samples_by_type") -or -not $CommandHandlersSource.Contains("token_samples_by_modifier")) {
         throw "VS Code extension must expose semantic token debug output"

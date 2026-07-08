@@ -20,6 +20,7 @@ class EngCompletionProvider {
 
     const localCompletions = localMemberCompletionsForContext(document, position, {
       argsFields: argsFieldCompletionsFromDocument(document),
+      schemaBindingFields: schemaBindingFieldCompletionsFromDocument(document),
       httpResponseFields: this.httpResponseFields,
       sampleTableFields: this.sampleTableFields,
       caseTableFields: this.caseTableFields,
@@ -78,14 +79,78 @@ function argsFieldCompletionsFromDocument(document) {
   return fields;
 }
 
-function firstBlockBody(text, openerRegex) {
-  const match = openerRegex.exec(text);
-  if (!match) {
-    return "";
+function schemaBindingFieldCompletionsFromDocument(document) {
+  const text = document?.getText?.();
+  if (typeof text !== "string") {
+    return {};
   }
-  const openIndex = text.indexOf("{", match.index);
+  const schemas = schemaFieldsFromDocument(text);
+  const bindings = promotedSchemaBindingsFromDocument(text);
+  const result = {};
+  for (const [binding, schemaName] of Object.entries(bindings)) {
+    const fields = schemas[schemaName];
+    if (!Array.isArray(fields)) {
+      continue;
+    }
+    result[binding] = fields.map((field) => ({
+      ...field,
+      detail: field.detail ? `${schemaName} field: ${field.detail}` : `${schemaName} field`
+    }));
+  }
+  return result;
+}
+
+function schemaFieldsFromDocument(text) {
+  const schemas = {};
+  const schemaPattern = /\bschema\s+([A-Za-z_][A-Za-z0-9_]*)\s*\{/g;
+  let match;
+  while ((match = schemaPattern.exec(text)) !== null) {
+    const openIndex = text.indexOf("{", match.index);
+    const closeIndex = blockCloseIndex(text, openIndex);
+    if (openIndex < 0 || closeIndex < 0) {
+      continue;
+    }
+    const schemaName = match[1];
+    schemas[schemaName] = schemaFieldCompletionsFromBody(text.slice(openIndex + 1, closeIndex));
+    schemaPattern.lastIndex = closeIndex + 1;
+  }
+  return schemas;
+}
+
+function promotedSchemaBindingsFromDocument(text) {
+  const bindings = {};
+  const promotePattern = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*promote\s+(?:csv|toml|json(?:\s+records)?)\b[^\n]*\bas\s+([A-Za-z_][A-Za-z0-9_]*)\b/gm;
+  let match;
+  while ((match = promotePattern.exec(text)) !== null) {
+    bindings[match[1]] = match[2];
+  }
+  return bindings;
+}
+
+function schemaFieldCompletionsFromBody(body) {
+  const fields = [];
+  const seen = new Set();
+  for (const line of body.split(/\r?\n/)) {
+    const withoutComment = line.replace(/#.*/, "").replace(/\/\/.*/, "");
+    const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]*)/.exec(withoutComment);
+    if (!match || seen.has(match[1])) {
+      continue;
+    }
+    seen.add(match[1]);
+    const typeLabel = match[2].trim();
+    fields.push({
+      label: match[1],
+      detail: typeLabel,
+      kind: "property",
+      lsp_kind: "property"
+    });
+  }
+  return fields;
+}
+
+function blockCloseIndex(text, openIndex) {
   if (openIndex < 0) {
-    return "";
+    return -1;
   }
   let depth = 0;
   let inString = false;
@@ -111,11 +176,25 @@ function firstBlockBody(text, openerRegex) {
     } else if (char === "}") {
       depth -= 1;
       if (depth === 0) {
-        return text.slice(openIndex + 1, index);
+        return index;
       }
     }
   }
-  return "";
+  return -1;
+}
+
+function firstBlockBody(text, openerRegex) {
+  openerRegex.lastIndex = 0;
+  const match = openerRegex.exec(text);
+  if (!match) {
+    return "";
+  }
+  const openIndex = text.indexOf("{", match.index);
+  const closeIndex = blockCloseIndex(text, openIndex);
+  if (openIndex < 0 || closeIndex < 0) {
+    return "";
+  }
+  return text.slice(openIndex + 1, closeIndex);
 }
 
 function httpResponseFieldCompletionsForContext(document, position, httpResponseFields) {
@@ -139,6 +218,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       fields: catalogs?.argsFields,
       detail: "args field",
       matchesReceiver: isArgsReceiver
+    },
+    {
+      fields: fieldsForSchemaBinding(catalogs?.schemaBindingFields, memberContext.receiver),
+      detail: "schema field",
+      matchesReceiver: () => true
     },
     {
       fields: catalogs?.httpResponseFields,
@@ -175,6 +259,14 @@ function localMemberCompletionsForContext(document, position, catalogs) {
     }
   }
   return items;
+}
+
+function fieldsForSchemaBinding(schemaBindingFields, receiver) {
+  if (!schemaBindingFields || typeof schemaBindingFields !== "object") {
+    return [];
+  }
+  const fields = schemaBindingFields[receiver];
+  return Array.isArray(fields) ? fields : [];
 }
 
 function fieldCompletionsForMemberContext(memberContext, fields, fallbackDetail) {
@@ -277,6 +369,7 @@ module.exports = {
   EngCompletionProvider,
   completionItemsFromPayload,
   argsFieldCompletionsFromDocument,
+  schemaBindingFieldCompletionsFromDocument,
   httpResponseFieldCompletionsForContext,
   localMemberCompletionsForContext,
   memberAccessCompletionContext
