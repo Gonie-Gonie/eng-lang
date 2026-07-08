@@ -2,6 +2,8 @@
 # normal comment
 // slash comment
 use eng.path
+use eng.stats
+use eng.system
 import eng.table
 
 schema SensorData {

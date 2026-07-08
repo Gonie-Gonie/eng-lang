@@ -5044,6 +5044,13 @@ Status: implemented after reviewing warning-only stdlib import diagnostics for m
 - Kept unknown-module replacement separate from status-warning removal, so misspellings still suggest the closest supported registry module.
 - Extended stdio code-action coverage, README wording, and `ide-check` contract tokens for the new warning repairs.
 
+## Batch 411: Stdlib Import Grammar Smoke Coverage
+
+Status: implemented after checking source-visible planned/internal stdlib import coverage across semantic tokens and first-paint grammar fixtures.
+
+- Added grammar smoke fixture coverage for `use eng.stats` and `use eng.system`, matching the LSP semantic-token coverage for planned/internal stdlib module imports.
+- Pinned the `use` keyword and both `eng.*` namespace tokens in TextMate expectations so first-paint highlighting cannot regress while semantic tokens load.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -21,6 +21,23 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.import.englang",
+    "text": "use"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.namespace.module.englang",
+    "text": "eng.stats",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.namespace.module.englang",
+    "text": "eng.system",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "entity.name.type.declaration.englang",
     "text": "schema SensorData"
   },
