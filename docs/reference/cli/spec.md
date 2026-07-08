@@ -405,13 +405,16 @@ also supports advanced editor-tooling smoke and metadata JSON commands:
 eng-lsp.exe --smoke
 eng-lsp.exe --snapshot examples\internal\06_domain_port\main.eng
 eng-lsp.exe --snapshot-check examples\official\01_csv_plot\main.eng
+eng-lsp.exe --editor-metadata
 ```
 
 `--smoke` verifies editor metadata extraction for the official CSV workflow and
 the official domain/component track metadata. `--snapshot` emits
 `eng-lsp-snapshot-v1` JSON with diagnostics, completion items, and hover items.
-Domain/component files include hover `kind`/`status` metadata and completion
-labels such as `Thermal`, `RoomBoundary`, `RoomBoundary.heat`,
+`--editor-metadata` emits `eng-lsp-editor-metadata-v1` JSON with the static
+semantic-token legend, syntax catalog, and completion fallback catalog consumed
+by editor tooling. Domain/component files include hover `kind`/`status` metadata
+and completion labels such as `Thermal`, `RoomBoundary`, `RoomBoundary.heat`,
 `component_graph`, and `connection_set_1.across_T_1`.
 
 ## `eng run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]`

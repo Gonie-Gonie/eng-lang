@@ -3,14 +3,16 @@
 This page is for maintainers and editor-tooling authors. Normal users should
 prefer the VS Code extension, native IDE, or `eng.exe check`.
 
-`eng-lsp.exe --snapshot <file.eng>` emits a compact JSON document for editor,
-IDE, and automated smoke-test consumers that need compiler diagnostics,
-completion metadata, hover metadata, semantic highlighting data, document
-symbols, and folding ranges without starting a long-lived editor session.
-`eng-lsp.exe --editor-metadata` emits the static editor catalog used by the VS
-Code extension and grammar smoke checks.
+This page documents two maintainer JSON surfaces:
 
-The current format marker is:
+- `eng-lsp.exe --snapshot <file.eng>` emits live document data for editor, IDE,
+  and automated smoke-test consumers that need compiler diagnostics,
+  completion metadata, hover metadata, semantic highlighting data, document
+  symbols, and folding ranges without starting a long-lived editor session.
+- `eng-lsp.exe --editor-metadata` emits the static editor catalog used by the VS
+  Code extension, grammar smoke checks, and native IDE bootstrap contracts.
+
+The `--snapshot` format marker is:
 
 ```json
 {
@@ -62,7 +64,15 @@ diagnostics or no semantic metadata.
 
 ## Static Editor Metadata
 
-`--editor-metadata` uses `eng-lsp-editor-metadata-v1` and contains:
+`--editor-metadata` uses this format marker:
+
+```json
+{
+  "format": "eng-lsp-editor-metadata-v1"
+}
+```
+
+It contains:
 
 - `semantic_token_legend`: token types and modifiers shared with VS Code.
 - `syntax_catalog`: keyword, workflow builtin, with-option, public type,

@@ -5184,6 +5184,13 @@ Status: implemented after comparing VS Code grammar constants, LSP language cons
 - Added `asc` and `desc` to native IDE fallback constant highlighting so table sort directions match VS Code and LSP semantic highlighting.
 - Extended `ide-check` to compare native IDE fallback constants against the compiler-owned LSP `LANGUAGE_CONSTANT_KEYWORDS` list, preventing future constant vocabulary drift.
 
+## Batch 426: Editor Metadata CLI Wording Split
+
+Status: implemented after reviewing maintainer-facing CLI docs for snapshot/editor metadata ambiguity.
+
+- Reworded the advanced editor metadata reference to present `--snapshot` and `--editor-metadata` as separate maintainer JSON surfaces with separate format markers.
+- Added `eng-lsp.exe --editor-metadata` to the CLI spec command example and described its static semantic legend, syntax catalog, and completion fallback output.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
