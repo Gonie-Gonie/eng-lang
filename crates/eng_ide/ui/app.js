@@ -574,6 +574,10 @@ function bind() {
       render();
     };
   }
+  const copyVisibleHighlightsBtn = byId("copyVisibleHighlightsBtn");
+  if (copyVisibleHighlightsBtn) {
+    copyVisibleHighlightsBtn.onclick = copyVisibleHighlights;
+  }
   const highlightTokenQueryInput = byId("highlightTokenQueryInput");
   if (highlightTokenQueryInput) {
     highlightTokenQueryInput.oninput = (event) => {
@@ -1412,6 +1416,7 @@ function renderHighlightPanel() {
       <div class="module-toolbar">
         <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlights" title="Filter by text, category, detail, or source line" />
         <button id="clearHighlightTokenFilter">Clear</button>
+        <button id="copyVisibleHighlightsBtn" title="Copy filtered highlights" ${filteredTokens.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filteredTokens.length} of ${tokens.length}</span>
       </div>
       <div class="panel-title compact">Caret Highlight</div>
@@ -5534,6 +5539,30 @@ function bindSourceTokenCopyButtons(root) {
       button.dataset.copySourceToken || "text"
     );
   });
+}
+
+async function copyVisibleHighlights() {
+  const tokens = Array.isArray(semanticTokenPayload().tokens) ? semanticTokenPayload().tokens : [];
+  const visible = filteredSemanticTokens(tokens);
+  if (!visible.length) {
+    setStatus("No visible highlights to copy");
+    return;
+  }
+  const copied = await copyTextToClipboard(highlightTokenCopyText(visible));
+  const noun = visible.length === 1 ? "highlight" : "highlights";
+  setStatus(copied ? `Copied ${visible.length} visible ${noun}` : "Copy failed");
+}
+
+function highlightTokenCopyText(tokens) {
+  const lines = [`file: ${state.currentPath || "-"}`];
+  for (const token of tokens) {
+    const line = Number(token.line ?? -1) + 1;
+    const start = Number(token.start ?? 0);
+    const length = Number(token.length ?? 0);
+    const modifiers = arrayOrEmpty(token.modifiers).join(", ") || "-";
+    lines.push(`L${line}:${start}:${length} | ${semanticTokenText(token)} | ${token.type || "-"} | ${modifiers}`);
+  }
+  return lines.join("\n");
 }
 
 async function copySourceTokenRange(line, startByte, lengthBytes, mode = "text") {

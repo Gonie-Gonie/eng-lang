@@ -3863,10 +3863,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "safe/repro profile policy metadata",
         "statusLabel(node.status || \"-\")",
         "relationship=${statusLabel(relationship)}",
+        "copyVisibleHighlightsBtn.onclick = copyVisibleHighlights",
+        "function highlightTokenCopyText(tokens)",
     ] {
         if !app_js.contains(required) {
             return Err(format!(
-                "native IDE app.js should map behavior preview status label `{required}`"
+                "native IDE app.js should include UI behavior contract `{required}`"
             ));
         }
     }
