@@ -505,6 +505,30 @@ function Assert-ExpectedWorkflowScopesCoverGrammar {
     }
 }
 
+function Test-ExpectedTokenTextCoversLabel {
+    param([Parameter(Mandatory = $true)][string] $Label)
+
+    $pattern = "(?<![A-Za-z0-9_])$([regex]::Escape($Label))(?![A-Za-z0-9_])"
+    foreach ($case in $Expected) {
+        if ([string]$case.text -match $pattern) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Assert-ExpectedTokenTextsCoverLabels {
+    param(
+        [Parameter(Mandatory = $true)][string[]] $Labels,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $missing = @($Labels | Where-Object { -not (Test-ExpectedTokenTextCoversLabel -Label $_) } | Sort-Object -Unique)
+    if ($missing.Count -gt 0) {
+        throw "grammar smoke expected tokens missing $Description text coverage: $($missing -join ', ')"
+    }
+}
+
 function Assert-WorkflowPatternIncludes {
     param(
         [Parameter(Mandatory = $true)][string] $Name,
@@ -783,6 +807,8 @@ Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $C
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
+Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
+Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
