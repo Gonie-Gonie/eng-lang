@@ -3,7 +3,9 @@
 The core user-facing CLI is `eng.exe`. Portable tester IDE releases also ship
 `eng-ide.exe` as a native GUI companion.
 
-## Commands
+## Command Summary
+
+User-facing package commands:
 
 ```text
 eng.exe doctor
@@ -11,15 +13,20 @@ eng.exe new <project_name>
 eng.exe check <file.eng> [--review]
 eng.exe review <file.eng> [--json]
 eng.exe fmt <file.eng> [--check|--write]
-eng.exe ide-check <file.eng>
-eng.exe jit-plan <file.eng> [--backend <name>]
-eng.exe jit-bench <file.eng> [--iterations N] [--backend <name>] [--<arg> <value>...]
 eng.exe run <file.eng> [--open-report] [--save-artifacts] [--skip-unchanged] [--<arg> <value>...]
 eng.exe cache invalidate [--manifest build/result/cache_manifest.json] [--all|--owner-kind <kind>|--owner-name <name>|--cache-key-hash <hash>] [--dry-run]
 eng.exe build <file.eng> [--standalone] [--profile repro]
 eng.exe view <result.engres>
 eng.exe test <project_or_examples>
 eng-ide.exe
+```
+
+Advanced, package-smoke, and editor-tooling commands:
+
+```text
+eng.exe ide-check <file.eng>
+eng.exe jit-plan <file.eng> [--backend <name>]
+eng.exe jit-bench <file.eng> [--iterations N] [--backend <name>] [--<arg> <value>...]
 eng-ide.exe --smoke
 eng-lsp.exe --smoke
 eng-lsp.exe --snapshot <file.eng>

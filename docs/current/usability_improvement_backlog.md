@@ -5161,6 +5161,15 @@ Status: implemented after checking reference navigation for stale version-policy
 - Kept the link target stable while making the focused current language pages the
   primary navigation path.
 
+## Batch 423: CLI Command Surface Wording Split
+
+Status: implemented after reviewing public CLI reference navigation for internal editor-tooling commands mixed into the core command list.
+
+- Split the CLI specification command summary into user-facing package commands
+  and advanced/package-smoke/editor-tooling commands.
+- Renamed the snapshot metadata reference link so it reads as maintainer/editor
+  tooling material rather than a normal user API.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
