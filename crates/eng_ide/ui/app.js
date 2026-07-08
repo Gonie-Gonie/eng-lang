@@ -524,6 +524,10 @@ function bind() {
       }
     };
   }
+  const copyVisibleProblemsBtn = byId("copyVisibleProblemsBtn");
+  if (copyVisibleProblemsBtn) {
+    copyVisibleProblemsBtn.onclick = copyVisibleProblems;
+  }
   document.querySelectorAll("[data-problem-line]").forEach((row) => {
     row.onclick = (event) => {
       if (event.target.closest("button")) return;
@@ -5752,6 +5756,7 @@ function renderProblems() {
         </select>
         <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter text" title="Filter by code, message, help, or line" />
         <button id="clearProblemFilters">Clear</button>
+        <button id="copyVisibleProblemsBtn" title="Copy filtered diagnostics" ${filtered.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filtered.length} of ${diagnostics.length}</span>
       </div>
       <div class="scroll problem-scroll">
@@ -5810,6 +5815,18 @@ async function copyProblemDiagnostic(index) {
   const copied = await copyTextToClipboard(problemCopyText(diag));
   const label = `${diag.code || "diagnostic"} L${sourceLineValue(diag) || "-"}`;
   setStatus(copied ? `Copied problem ${label}` : "Copy failed");
+}
+
+async function copyVisibleProblems() {
+  const diagnostics = state.check.diagnostics || [];
+  const visible = filteredProblems(activeProblemCode(diagnostics));
+  if (!visible.length) {
+    setStatus("No visible problems to copy");
+    return;
+  }
+  const copied = await copyTextToClipboard(visible.map(problemCopyText).join("\n\n"));
+  const noun = visible.length === 1 ? "problem" : "problems";
+  setStatus(copied ? `Copied ${visible.length} visible ${noun}` : "Copy failed");
 }
 
 function problemCopyText(diag) {

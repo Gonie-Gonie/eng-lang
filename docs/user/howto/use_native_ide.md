@@ -112,13 +112,15 @@ Advanced panels
 
 Bottom Panel
   Problems and Terminal tabs. Problems can be filtered by severity, diagnostic
-  code, free text, or line; clicking a row jumps to its source line, and Copy
-  copies the file, line, severity, code, message, and help text for sharing or
-  issue notes. The Terminal uses an EngLang prompt, supports `clear`, `reset`,
-  `check`, `run`, and one-line top-level commands. Terminal history is
-  append-only during normal use, so diagnostics and prior output do not
-  disappear when the next command runs. `cd <dir>` changes the terminal Run Dir
-  without changing the open file.
+  code, free text, or line; clicking a row jumps to its source line, the row
+  Copy action copies that diagnostic, and Copy visible copies the current
+  filtered list with file, line, severity, code, message, and help text for
+  sharing or issue notes.
+  The Terminal uses an EngLang prompt, supports `clear`, `reset`, `check`,
+  `run`, and one-line top-level commands. Terminal history is append-only
+  during normal use, so diagnostics and prior output do not disappear when the
+  next command runs. `cd <dir>` changes the terminal Run Dir without changing
+  the open file.
 
 Reports and artifacts remain runtime objects by default. The Report toolbar
 button, Output toolbar button, Plot tab artifact button, and artifact-path rows

@@ -4477,6 +4477,8 @@ function Invoke-IdeCheck {
         "activeProblemCode",
         "problemCopyButton",
         "copyProblemDiagnostic",
+        "copyVisibleProblemsBtn",
+        "copyVisibleProblems",
         "problemCopyText",
         "RUN_HISTORY_STORAGE_PREFIX",
         "data-open-file-path",
