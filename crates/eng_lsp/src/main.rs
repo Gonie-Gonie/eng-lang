@@ -764,6 +764,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-PRINT-FMT-002" | "E-WRITE-FMT-002" => optional_code_action(
             lsp_remove_empty_interpolation_code_action(uri, text, diagnostic),
         ),
+        "E-PRINT-FMT-004" | "E-WRITE-FMT-004" => optional_code_action(
+            lsp_convert_unresolved_interpolation_code_action(uri, text, diagnostic),
+        ),
         "E-LOG-LEVEL-001" => {
             optional_code_action(lsp_log_level_info_code_action(uri, text, diagnostic))
         }
@@ -946,6 +949,89 @@ fn empty_interpolation_ranges(code: &str) -> Vec<(usize, usize)> {
         cursor = close + 1;
     }
     ranges
+}
+
+fn lsp_convert_unresolved_interpolation_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let expression = first_backtick_payload(diagnostic_message(diagnostic))?.trim();
+    let edit = unresolved_interpolation_literal_edit(line, expression, diagnostic)?;
+    Some(json!({
+        "title": "Convert unresolved interpolation to literal text",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, edit.start_byte, edit.end_byte),
+            &edit.new_text
+        )
+    }))
+}
+
+struct InterpolationLiteralEdit {
+    start_byte: usize,
+    end_byte: usize,
+    new_text: String,
+}
+
+fn unresolved_interpolation_literal_edit(
+    line: &str,
+    expression: &str,
+    diagnostic: &Value,
+) -> Option<InterpolationLiteralEdit> {
+    let code = strip_line_comment(line);
+    let ranges = interpolation_literal_edits(code, expression);
+    if ranges.is_empty() {
+        return None;
+    }
+    let diagnostic_start = diagnostic
+        .pointer("/range/start/character")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok());
+    if let Some(diagnostic_start) = diagnostic_start {
+        if let Some(index) = ranges.iter().position(|edit| {
+            let start_character = utf16_len(&line[..edit.start_byte]);
+            let end_character = utf16_len(&line[..edit.end_byte]);
+            diagnostic_start >= start_character && diagnostic_start <= end_character
+        }) {
+            return ranges.into_iter().nth(index);
+        }
+    }
+    ranges.into_iter().next()
+}
+
+fn interpolation_literal_edits(code: &str, expression: &str) -> Vec<InterpolationLiteralEdit> {
+    let mut edits = Vec::new();
+    let mut cursor = 0usize;
+    while cursor < code.len() {
+        let Some(relative_open) = code[cursor..].find('{') else {
+            break;
+        };
+        let open = cursor + relative_open;
+        let Some(relative_close) = code[open + 1..].find('}') else {
+            break;
+        };
+        let close = open + 1 + relative_close;
+        let inside = code[open + 1..close].trim();
+        let expression_part = inside
+            .split_once(':')
+            .map_or(inside, |(candidate, _)| candidate)
+            .trim();
+        if !inside.is_empty() && expression_part == expression.trim() {
+            edits.push(InterpolationLiteralEdit {
+                start_byte: open,
+                end_byte: close + 1,
+                new_text: inside.to_owned(),
+            });
+        }
+        cursor = close + 1;
+    }
+    edits
 }
 
 fn lsp_heat_rate_sum_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {

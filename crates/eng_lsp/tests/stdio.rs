@@ -892,6 +892,7 @@ with {
 }
 
 print "empty {} interpolation"
+print "unknown {missing_value} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -1002,6 +1003,7 @@ report {
         "E-WITH-OPTION-001",
         "E-WITH-UNIT-001",
         "E-PRINT-FMT-002",
+        "E-PRINT-FMT-004",
         "E-LOG-LEVEL-001",
         "W-TABLE-LEGACY-SELECT-FIRST-ROW",
         "E-UNC-ARGS-001",
@@ -1115,6 +1117,12 @@ report {
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
     assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
     assert_action_edit(actions, &uri, "Remove empty interpolation", "");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Convert unresolved interpolation to literal text",
+        "missing_value",
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1604,6 +1612,7 @@ with {
 }
 
 print "empty {} interpolation"
+print "unknown {missing_value} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -1681,6 +1690,12 @@ report {
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
     assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
     assert_action_edit(actions, &uri, "Remove empty interpolation", "");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Convert unresolved interpolation to literal text",
+        "missing_value",
+    );
     assert_action_edit(
         actions,
         &uri,

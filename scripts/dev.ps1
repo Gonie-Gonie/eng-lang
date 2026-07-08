@@ -3629,6 +3629,8 @@ function Assert-VscodeExtensionContract {
         "E-WRITE-FMT-001",
         "E-PRINT-FMT-002",
         "E-WRITE-FMT-002",
+        "E-PRINT-FMT-004",
+        "E-WRITE-FMT-004",
         "E-PRINT-FMT-003",
         "E-WRITE-FMT-003",
         "E-LOG-LEVEL-001",
@@ -3771,7 +3773,10 @@ function Assert-VscodeExtensionContract {
         "optionAssignmentRange",
         "removeEmptyInterpolationAction",
         "emptyInterpolationRange",
-        "Remove empty interpolation"
+        "Remove empty interpolation",
+        "convertUnresolvedInterpolationAction",
+        "unresolvedInterpolationLiteralEdit",
+        "Convert unresolved interpolation to literal text"
     )) {
         if (-not $QuickFixSource.Contains($RequiredQuickFixToken)) {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
@@ -3962,6 +3967,9 @@ function Assert-VscodeExtensionContract {
         "E-PRINT-FMT-002",
         "lsp_remove_empty_interpolation_code_action",
         "Remove empty interpolation",
+        "E-PRINT-FMT-004",
+        "lsp_convert_unresolved_interpolation_code_action",
+        "Convert unresolved interpolation to literal text",
         "Change HTTP method to post",
         "E-NET-RETRY-POLICY",
         "E-WITH-UNCERTAINTY-POLICY-001",

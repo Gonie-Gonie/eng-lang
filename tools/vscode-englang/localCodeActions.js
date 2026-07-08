@@ -181,6 +181,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-PRINT-FMT-004" || code === "E-WRITE-FMT-004") {
+      const action = convertUnresolvedInterpolationAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-LOG-LEVEL-001") {
       const action = logLevelInfoAction(document, diagnostic);
       if (action) {
@@ -1268,6 +1275,58 @@ function emptyInterpolationRanges(code) {
     if (close < 0) break;
     if (code.slice(open + 1, close).trim() === "") {
       ranges.push({ start: open, end: close + 1 });
+    }
+    cursor = close + 1;
+  }
+  return ranges;
+}
+
+function convertUnresolvedInterpolationAction(document, diagnostic) {
+  const expression = firstBacktickPayload(diagnostic.message);
+  if (!expression) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const edit = unresolvedInterpolationLiteralEdit(line.text, expression, diagnostic.range);
+  if (!edit) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    "Convert unresolved interpolation to literal text",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, edit.start, line.lineNumber, edit.end),
+    edit.newText
+  );
+  return action;
+}
+
+function unresolvedInterpolationLiteralEdit(lineText, expression, diagnosticRange) {
+  const ranges = interpolationLiteralRanges(stripLineComment(lineText), expression);
+  if (!ranges.length) {
+    return undefined;
+  }
+  const diagnosticStart = diagnosticRange?.start?.character ?? -1;
+  return ranges.find((range) => diagnosticStart >= range.start && diagnosticStart <= range.end)
+    ?? ranges[0];
+}
+
+function interpolationLiteralRanges(code, expression) {
+  const ranges = [];
+  let cursor = 0;
+  while (cursor < code.length) {
+    const open = code.indexOf("{", cursor);
+    if (open < 0) break;
+    const close = code.indexOf("}", open + 1);
+    if (close < 0) break;
+    const inside = code.slice(open + 1, close).trim();
+    const expressionPart = inside.split(":", 1)[0].trim();
+    if (inside && expressionPart === expression.trim()) {
+      ranges.push({ start: open, end: close + 1, newText: inside });
     }
     cursor = close + 1;
   }

@@ -5525,3 +5525,11 @@ Status: implemented after reviewing string-format diagnostics for quick-fix gaps
 - Added VS Code local and eng-lsp code actions for `E-PRINT-FMT-002` and `E-WRITE-FMT-002` that remove empty `{}` interpolations.
 - Added LSP stdio regression coverage for the new quick fix.
 - Extended `ide-check` and VS Code README wording so empty interpolation repairs remain part of the editor contract.
+
+## Batch 470: Unresolved Interpolation Quick Fix
+
+Status: implemented after reviewing string-format diagnostics that still required manual cleanup.
+
+- Added VS Code local and eng-lsp code actions for `E-PRINT-FMT-004` and `E-WRITE-FMT-004` that convert unresolved `{...}` placeholders to literal text.
+- Added LSP stdio regression coverage for the quick fix.
+- Extended `ide-check` and VS Code README wording so unresolved-interpolation repair stays in the editor contract.
