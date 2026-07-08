@@ -4244,7 +4244,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
         | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
         | "text" | "csv" | "json" | "toml" => &["workflowStep"],
-        "using" => &["model"],
+        "from" | "on" | "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "print" | "log" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within"
@@ -8403,6 +8403,7 @@ with {
     test_fraction = 0.25
     seed = 9
 }
+model_on = train regression on designs
 ann_model = ann(split_alias, hidden=[8], epochs=10)
 metrics = evaluate(surrogate)
 card = model_card(surrogate)
@@ -8494,6 +8495,22 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "variable",
             "model",
         );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "model = train regression from designs",
+            "from",
+            "keyword",
+            "model",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "model_on = train regression on designs",
+            "on",
+            "keyword",
+            "model",
+        );
         for (line, label) in [
             ("    y = annual_electricity", "y"),
             ("    x = [people_density]", "x"),
@@ -8520,7 +8537,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
         );
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "designs", "variable", "model"),
-            3,
+            4,
             "regression and prediction table operands should be model tokens"
         );
         for label in ["annual_electricity", "people_density"] {

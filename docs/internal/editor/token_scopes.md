@@ -119,7 +119,7 @@ Current workflow phrase scopes:
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>[, split=...])`, `model_card(<model>)`, and related model summary calls. |
 | `meta.workflow.model-train-call.englang` | `train_test_split(...)`, legacy-compatible `train_regression(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
-| `meta.workflow.train-regression.englang` | `train regression <table>` and `train regression from <table>` table-model training phrases. |
+| `meta.workflow.train-regression.englang` | `train regression <table>`, `train regression from <table>`, and `train regression on <table>` table-model training phrases. |
 | `meta.workflow.open-sqlite.englang` | `open sqlite <source>` |
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.with-block.englang` | `with { ... }` option blocks scoped separately from top-level bindings. |
@@ -252,7 +252,7 @@ in sync with the generated legend. Important pairings:
 | `class.deprecated` | Deprecated legacy declaration names. |
 | `variable.state`, `property.state` | System state tokens. |
 | `variable.input`, `parameter.input` | System inputs and input parameters. |
-| `variable.model`, `function.model`, `property.model` | Model and prediction artifacts. |
+| `variable.model`, `function.model`, `keyword.model`, `property.model` | Model and prediction artifacts. |
 | `variable.db`, `keyword.db`, `property.db` | SQLite and DB-write boundaries. |
 | `variable.cache`, `keyword.cache`, `property.cache` | Cache keys, cache option values, and records. |
 | `keyword.workflowStep`, `function.workflowStep`, `variable.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |
