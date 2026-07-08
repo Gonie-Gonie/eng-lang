@@ -761,6 +761,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-UNIT-001" => optional_code_action(
             lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
         ),
+        "E-PRINT-FMT-001" | "E-WRITE-FMT-001" => optional_code_action(
+            lsp_close_unterminated_interpolation_code_action(uri, text, diagnostic),
+        ),
         "E-PRINT-FMT-002" | "E-WRITE-FMT-002" => optional_code_action(
             lsp_remove_empty_interpolation_code_action(uri, text, diagnostic),
         ),
@@ -889,6 +892,65 @@ fn lsp_diagnostic_range_replacement_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, replacement)
     }))
+}
+
+fn lsp_close_unterminated_interpolation_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let insert_byte = unterminated_interpolation_close_byte(line, diagnostic)?;
+    Some(json!({
+        "title": "Close interpolation with }",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, insert_byte, insert_byte),
+            "}"
+        )
+    }))
+}
+
+fn unterminated_interpolation_close_byte(line: &str, diagnostic: &Value) -> Option<usize> {
+    let open = interpolation_open_byte_index(line, diagnostic)?;
+    let quote_end = unescaped_quote_byte_index_after(line, open + 1)?;
+    if line[open + 1..quote_end].contains('}') {
+        return None;
+    }
+    Some(quote_end)
+}
+
+fn interpolation_open_byte_index(line: &str, diagnostic: &Value) -> Option<usize> {
+    let diagnostic_start = diagnostic
+        .pointer("/range/start/character")
+        .and_then(Value::as_u64)
+        .and_then(|value| usize::try_from(value).ok())?;
+    let start_byte = utf16_character_to_byte(line, diagnostic_start);
+    if line.as_bytes().get(start_byte) == Some(&b'{') {
+        return Some(start_byte);
+    }
+    strip_line_comment(line).find('{')
+}
+
+fn unescaped_quote_byte_index_after(line: &str, start: usize) -> Option<usize> {
+    let mut escaped = false;
+    for (relative_index, character) in line[start..].char_indices() {
+        let index = start + relative_index;
+        if escaped {
+            escaped = false;
+            continue;
+        }
+        match character {
+            '\\' => escaped = true,
+            '"' => return Some(index),
+            _ => {}
+        }
+    }
+    None
 }
 
 fn lsp_remove_empty_interpolation_code_action(
