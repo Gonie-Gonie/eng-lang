@@ -5331,6 +5331,14 @@ Status: implemented after reviewing string-format linter diagnostics and finding
 - Scoped the edit to the diagnostic interpolation opener so `print` and `write text` repairs do not rewrite unrelated text on the same line.
 - Updated extension quick-fix docs and pinned the helper names in `ide-check`.
 
+## Batch 445: Native IDE User-Facing Wording Cleanup
+
+Status: implemented after auditing public IDE docs and dev help for implementation-detail wording such as `Tauri IDE`.
+
+- Reworded user/reference docs to describe `eng-ide.exe` as the portable native IDE rather than exposing the UI implementation stack.
+- Updated dev help/package guide text so `ide-check` and packaged workflow labels use native IDE wording.
+- Left internal crate/config references unchanged where they describe implementation files rather than user-facing behavior.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -373,7 +373,7 @@ Exit code:
 
 ## `eng-ide.exe`
 
-Launches the Tauri/WebView portable tester IDE.
+Launches the portable native tester IDE.
 
 Current tester IDE features:
 

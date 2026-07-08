@@ -274,7 +274,7 @@ function Invoke-Setup {
     }
     Invoke-MingwSetup
     Invoke-PortablePythonSetup
-    Write-Host "Tauri IDE uses static HTML/CSS/JS assets; Node/npm is not required."
+    Write-Host "The native IDE uses static HTML/CSS/JS assets; Node/npm is not required."
     Write-Host "Fetching locked dependencies..."
     Invoke-Native $cargo "fetch" "--locked"
     Write-Host "Building workspace..."
@@ -4484,7 +4484,7 @@ function Invoke-DevCurrent {
 EngLang dev-current
 
 This folder is the current commit's non-release test display build.
-Run eng-ide.exe from this folder to open the Tauri/WebView IDE with bundled examples,
+Run eng-ide.exe from this folder to open the native IDE with bundled examples,
 stdlib files, tutorials, and the language grammar guide.
 
 Docs:
@@ -4747,7 +4747,7 @@ function New-UserGuidePdf {
         @{ Kind = "step"; Text = "Run: eng-ide.exe --smoke" },
         @{ Kind = "step"; Text = "Run: eng-lsp.exe --smoke" },
         @{ Kind = "body"; Text = "All three commands should exit successfully. The doctor command verifies runtime, standard library, unit registry, plot renderer, report generator, write permission, and example files. The IDE smoke command verifies that examples and compiler completion metadata are discoverable. The editor tooling smoke command verifies diagnostics, completion, and hover metadata for editor integrations." },
-        @{ Kind = "h1"; Text = "3. Tauri IDE Workflow" },
+        @{ Kind = "h1"; Text = "3. Native IDE Workflow" },
         @{ Kind = "step"; Text = "Run: eng-ide.exe" },
         @{ Kind = "step"; Text = "Use Explorer to open examples/official/01_csv_plot/main.eng or create a scratch .eng file." },
         @{ Kind = "step"; Text = "Use Check for lint diagnostics. Error and warning counts are visible in the toolbar and details are listed in Problems." },
@@ -4891,7 +4891,7 @@ generated_by = dev.bat package
 
 Runtime binaries:
   eng.exe                         command-line checker, runner, viewer, formatter, and packager
-  eng-ide.exe                     native Tauri/WebView IDE for local testing and inspection
+  eng-ide.exe                     portable native IDE for local testing and inspection
   eng-lsp.exe                     language-server binary used by editor tooling and smoke checks
   WebView2Loader.dll              IDE runtime dependency that must stay next to eng-ide.exe
 
@@ -4971,7 +4971,7 @@ EngLang portable package
 
 This folder is self-contained for EngLang execution. Rust and Python are not
 required on the target PC. WebView2Loader.dll is bundled next to eng-ide.exe
-for the Tauri/WebView IDE.
+for the portable native IDE.
 
 Start here:
   docs\$(Get-PackageUserGuideFileName)
@@ -5291,10 +5291,10 @@ Usage:
   .\dev.bat vscode-grammar-test  Check VS Code TextMate grammar source, generated output, and token fixtures
   .\dev.bat vscode-package Build a local installable VS Code extension VSIX
   .\dev.bat vscode-install Build and install the EngLang VS Code extension with the code CLI
-  .\dev.bat ide-check      Validate the Tauri IDE and VS Code extension preview
+  .\dev.bat ide-check      Validate the native IDE and VS Code extension preview
   .\dev.bat lsp-check      Validate eng-lsp.exe stdio, smoke, and snapshot output
   .\dev.bat jit-check      Validate runtime optimization track kernel planning and bench output
-  .\dev.bat ide            Run the Tauri/WebView EngLang tester IDE
+  .\dev.bat ide            Run the native EngLang tester IDE
   .\dev.bat dev-current    Build latest release test IDE into dist\dev-current
   .\dev.bat artifacts-check Validate artifact schemas and golden baselines
   .\dev.bat run-example    Run examples\official\01_csv_plot\main.eng

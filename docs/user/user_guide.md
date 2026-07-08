@@ -39,7 +39,7 @@ as a first-user command.
 Runtime binaries:
 
 - `eng.exe`: command-line checker, runner, viewer, formatter, and packager.
-- `eng-ide.exe`: native Tauri/WebView IDE for local testing and inspection.
+- `eng-ide.exe`: portable native IDE for local testing and inspection.
 - `eng-lsp.exe`: language-server binary used by editor tooling and smoke
   checks.
 - `WebView2Loader.dll`: required beside `eng-ide.exe`.

@@ -1,6 +1,6 @@
 # Native Tester IDE
 
-The release ships `eng-ide.exe` as a portable Tauri/WebView engineering review
+The release ships `eng-ide.exe` as a portable native engineering review
 cockpit. Rust remains the authoritative compiler/runtime backend, while the
 frontend is static HTML/CSS/JS embedded into the executable.
 
@@ -50,7 +50,7 @@ From the repository root:
 .\dev.bat ide
 ```
 
-`setup` installs the pinned local Rust/MinGW/Python tooling. The Tauri IDE
+`setup` installs the pinned local Rust/MinGW/Python tooling. The native IDE
 frontend is static, so setup does not install Node/npm.
 
 ## Interface
