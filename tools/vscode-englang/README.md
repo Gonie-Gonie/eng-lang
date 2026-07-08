@@ -16,8 +16,8 @@ embedding compiler logic in JavaScript.
   variables, parameters, properties, built-in workflow helpers, module
   namespaces, quantities, units, reports, validations, and side-effect/external
   workflow boundaries
-- packaged semantic token modifier and TextMate fallback scope metadata so
-  themes can color EngLang roles consistently
+- packaged role-coloring metadata so themes can color EngLang code
+  consistently without custom rules
 - subtle review-risk line and overview-ruler markers for high and medium risks
 - highlight-token inspection command for checking how the current file is
   colored
@@ -184,19 +184,19 @@ status details stay aligned with live diagnostics and semantic highlighting.
 
 Semantic highlighting also works on unsaved edits, so role-aware token colors do
 not have to wait for a file save. The extension declares EngLang-specific
-semantic token modifiers and TextMate fallback scopes for units,
-quantities, axes, time series, validation/report roles, side effects, external
-boundaries, inputs, state, built-in workflow helper functions, module
-namespaces, model artifacts, DB/cache records, workflow steps, and review risks,
-so themes without EngLang-specific rules still receive stable color hints. Set
+role categories and theme fallback hints for units, quantities, axes, time
+series, validation/report roles, side effects, external boundaries, inputs,
+state, built-in workflow helper functions, module namespaces, model artifacts,
+DB/cache records, workflow steps, and review risks, so themes without
+EngLang-specific rules still receive stable color hints. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting; changing this setting refreshes the current editor colors and
-planned/internal symbol markers immediately. Maintainer-facing scope and
-semantic-token mapping rules live in `docs/internal/editor/token_scopes.md`.
+planned/internal symbol markers immediately. Maintainer-facing color mapping
+rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens (Semantic)` opens a highlight data view with a
-summary, legend, representative source-text samples, normalized token rows with
-semantic selector and TextMate fallback scope details, and raw semantic-token
-payload for debugging theme or scope mismatches.
+summary, legend, representative source-text samples, normalized highlight rows
+with selector and theme fallback details, and raw highlight payload for
+debugging theme or scope mismatches.
 `EngLang: Inspect Highlight Token at Cursor` opens the token under the caret plus
 the other highlight tokens on the same line.
 
@@ -209,8 +209,8 @@ Completion uses the current unsaved buffer and compiler-owned editor metadata.
 JavaScript does not maintain a separate keyword, type, quantity, or unit table.
 If live completion is unavailable, the extension falls back to the generated
 completion catalog from `generated/editor/englang-editor-metadata.json`. The
-same generated metadata also supplies the semantic highlighting legend and
-syntax catalog used by editor contract checks.
+same generated metadata also supplies the highlight legend and syntax catalog
+used by editor contract checks.
 
 Format Document and Format Selection use the current unsaved buffer, so VS Code
 and the command-line formatter share the compiler-owned formatting rules.
@@ -244,14 +244,14 @@ The grammar smoke writes token-check output under
 
 ## Editor Metadata
 
-The extension loads its semantic-token legend and syntax catalog through
+The extension loads its highlight legend and syntax catalog through
 `editorMetadata.js` from `generated/editor/englang-editor-metadata.json`,
 generated from `eng-lsp --editor-metadata`. Split generated files are also
 written for review: `englang-semantic-legend.json`,
 `englang-completions.json`, and `englang-syntax.json`. The same metadata file
 provides the static completion fallback used when live completion is
 unavailable. Regenerate it after LSP completion, keyword, option, type, unit,
-or semantic legend changes:
+or highlight legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata

@@ -36,6 +36,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 479: Added lsp-check coverage for observed VS Code semantic fallback selector mappings.
 - Batch 480: Added structured workflow 02 native sampler/model/prediction/DB artifact guards.
 - Batch 481: Trimmed completed editor batch notes from the token scope contract doc.
+- Batch 482: Reworded user-facing editor highlight docs away from internal token metadata terms.
 
 ## Documentation Policy
 

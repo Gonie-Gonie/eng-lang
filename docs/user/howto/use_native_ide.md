@@ -75,13 +75,12 @@ Editor
   state per tab and shows completion suggestions near the caret from current
   symbols, keywords, snippets, quantity kinds, units, and stdlib workflow
   module surfaces such as `eng.path`, `eng.io`, `eng.fs`, and `eng.process`.
-  The base completion vocabulary comes from the same LSP editor metadata used
-  by the VS Code extension, with only larger native IDE snippets added on top.
-  Checked files use compiler-backed semantic tokens for colored keyword, unit,
-  quantity, workflow, and review-risk highlighting. If the buffer has changed
-  since the last check, the overlay falls back to metadata-backed lexical
-  coloring until Check or Run refreshes token ranges. The fallback vocabulary
-  comes from the same LSP editor syntax catalog used by the VS Code extension.
+  The base completion vocabulary comes from the same generated editor catalog
+  used by the VS Code extension, with only larger native IDE snippets added on
+  top. Checked files use compiler-backed role-aware colors for keywords, units,
+  quantities, workflow operations, and review-risk highlighting. If the buffer
+  has changed since the last check, the editor falls back to the shared lexical
+  color catalog until Check or Run refreshes the precise source ranges.
   Tab and Shift+Tab indent or outdent the current line or selected block,
   Ctrl+/ toggles `#` line comments, Enter preserves block indentation, and
   `{}`, `[]`, `()`, and `"` auto-close or wrap selections. Typing `}` on an

@@ -3020,8 +3020,27 @@ function Assert-VscodeExtensionContract {
             throw "Current status docs must avoid stale implementation wording: $ForbiddenPublicStatusWording"
         }
     }
-    if ($NativeIdeHowtoSource.Contains("semantic-token legend") -or $NativeIdeHowtoSource.Contains("semantic token type/modifiers")) {
-        throw "Native IDE user how-to must describe highlight UI in user-facing terms"
+    foreach ($ForbiddenNativeIdeHowtoWording in @(
+        "semantic-token legend",
+        "semantic token type/modifiers",
+        "LSP editor metadata",
+        "LSP editor syntax catalog",
+        "compiler-backed semantic tokens",
+        "token ranges"
+    )) {
+        if ($NativeIdeHowtoSource.Contains($ForbiddenNativeIdeHowtoWording)) {
+            throw "Native IDE user how-to must describe highlight UI in user-facing terms: $ForbiddenNativeIdeHowtoWording"
+        }
+    }
+    foreach ($ForbiddenVscodeReadmeWording in @(
+        "semantic token modifier and TextMate fallback scope metadata",
+        "semantic token modifiers and TextMate fallback scopes",
+        "raw semantic-token payload",
+        "semantic-token mapping rules"
+    )) {
+        if ($VscodeReadmeSource.Contains($ForbiddenVscodeReadmeWording)) {
+            throw "VS Code README must describe highlighting in user-facing terms: $ForbiddenVscodeReadmeWording"
+        }
     }
     $RiskDecorationDescription = [string]$Properties."englang.reviewRiskDecorations.enabled".description
     if ($RiskDecorationDescription -notmatch "review risks") {
