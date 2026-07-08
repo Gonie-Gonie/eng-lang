@@ -754,6 +754,9 @@ with {
 
 bad_url_response = http get url("ftp://example.org/data.json")
 
+payload = read json file("data/response.json")
+case_name = payload.ok
+
 get_with_body = http get url("https://example.org/submit")
 with {
     body = "submitted=true"
@@ -942,6 +945,7 @@ report {
         "E-NET-INVALID-URL",
         "E-NET-BODY-METHOD",
         "E-NET-HASH-MISMATCH",
+        "E-IO-JSON-FIELD-ACCESS-001",
         "E-CACHE-KEY-NONDETERMINISTIC",
         "E-CACHE-DIR",
         "E-CACHE-TTL",
@@ -1095,6 +1099,24 @@ report {
         &uri,
         "Update expected_sha256 to pinned response SHA-256",
         "\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Promote payload before field access",
+        "schema PayloadSchema",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Promote payload before field access",
+        "payload_typed.ok",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Promote payload before field access",
+        "payload_typed = promote json payload as PayloadSchema",
     );
     assert_action_edit(
         actions,

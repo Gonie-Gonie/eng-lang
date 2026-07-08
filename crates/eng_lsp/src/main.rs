@@ -727,6 +727,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-NET-HASH-MISMATCH" => {
             optional_code_action(lsp_expected_sha256_code_action(uri, text, diagnostic))
         }
+        "E-IO-JSON-FIELD-ACCESS-001" => {
+            optional_code_action(lsp_json_read_promotion_code_action(uri, text, diagnostic))
+        }
         "E-WITH-OPTION-001" => {
             optional_code_action(lsp_with_option_alias_code_action(uri, text, diagnostic))
         }
@@ -1738,6 +1741,13 @@ fn unique_binding_name(text: &str, base: &str) -> String {
     unreachable!("unbounded suffix search should return a unique binding name")
 }
 
+fn available_binding_name(text: &str, base: &str) -> String {
+    if !binding_name_exists(text, base) {
+        return base.to_owned();
+    }
+    unique_binding_name(text, base)
+}
+
 fn binding_name_exists(text: &str, name: &str) -> bool {
     text.lines().any(|line| {
         let code = strip_line_comment(line);
@@ -1761,6 +1771,209 @@ fn lsp_process_command_code_action(uri: &str, text: &str, diagnostic: &Value) ->
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, edit.range, edit.new_text)
     }))
+}
+
+fn lsp_json_read_promotion_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let access = json_read_field_access_from_diagnostic(diagnostic_message(diagnostic))?;
+    let access_line_number = diagnostic_line(diagnostic)?;
+    let access_line = text.lines().nth(access_line_number)?;
+    let (access_start, access_end) =
+        json_field_access_byte_range(access_line, &access.binding, &access.field)?;
+    let schema_name = unique_schema_name(text, &schema_name_from_binding(&access.binding));
+    let typed_binding = available_binding_name(text, &format!("{}_typed", access.binding));
+    let newline = document_newline(text);
+    let read_line = read_json_binding_line(text, &access.binding);
+    let (schema_insert_line, promotion_insert_range, indent) =
+        if let Some((line_number, line)) = read_line {
+            (
+                line_number,
+                line_byte_range(line_number, line, line.len(), line.len()),
+                line_indent(line).to_owned(),
+            )
+        } else {
+            (
+                access_line_number,
+                zero_width_range(access_line_number, 0),
+                line_indent(access_line).to_owned(),
+            )
+        };
+    let schema_text = format!(
+        "{indent}schema {schema_name} {{{newline}{indent}    {}: String{newline}{indent}}}{newline}{newline}",
+        access.field
+    );
+    let promotion_text = if read_line.is_some() {
+        format!(
+            "{newline}{indent}{typed_binding} = promote json {} as {schema_name}",
+            access.binding
+        )
+    } else {
+        format!(
+            "{indent}{typed_binding} = promote json {} as {schema_name}{newline}",
+            access.binding
+        )
+    };
+    let edits = if read_line.is_some() {
+        json!([
+            {
+                "range": zero_width_range(schema_insert_line, 0),
+                "newText": schema_text
+            },
+            {
+                "range": promotion_insert_range,
+                "newText": promotion_text
+            },
+            {
+                "range": line_byte_range(access_line_number, access_line, access_start, access_end),
+                "newText": format!("{typed_binding}.{}", access.field)
+            }
+        ])
+    } else {
+        json!([
+            {
+                "range": zero_width_range(schema_insert_line, 0),
+                "newText": format!("{schema_text}{promotion_text}{newline}")
+            },
+            {
+                "range": line_byte_range(access_line_number, access_line, access_start, access_end),
+                "newText": format!("{typed_binding}.{}", access.field)
+            }
+        ])
+    };
+    Some(json!({
+        "title": format!("Promote {} before field access", access.binding),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": workspace_edit_for_edits(uri, edits)
+    }))
+}
+
+struct JsonReadFieldAccess {
+    binding: String,
+    field: String,
+}
+
+fn json_read_field_access_from_diagnostic(message: &str) -> Option<JsonReadFieldAccess> {
+    for payload in backtick_payloads(message) {
+        let Some((binding, field)) = payload.trim().split_once('.') else {
+            continue;
+        };
+        let binding = binding.trim();
+        let field = field.trim();
+        if is_identifier(binding) && is_identifier(field) {
+            return Some(JsonReadFieldAccess {
+                binding: binding.to_owned(),
+                field: field.to_owned(),
+            });
+        }
+    }
+    None
+}
+
+fn read_json_binding_line<'a>(text: &'a str, binding: &str) -> Option<(usize, &'a str)> {
+    for (line_number, line) in text.lines().enumerate() {
+        let code = strip_line_comment(line);
+        let indent_len = line_indent(code).len();
+        let rest = &code[indent_len..];
+        let Some(after_binding) = rest.strip_prefix(binding) else {
+            continue;
+        };
+        if after_binding
+            .chars()
+            .next()
+            .is_some_and(is_identifier_character)
+        {
+            continue;
+        }
+        let Some(equals_offset) = after_binding.find('=') else {
+            continue;
+        };
+        if !after_binding[..equals_offset].trim().is_empty() {
+            continue;
+        }
+        let expression = after_binding[equals_offset + '='.len_utf8()..].trim_start();
+        if expression.starts_with("read json ") {
+            return Some((line_number, line));
+        }
+    }
+    None
+}
+
+fn json_field_access_byte_range(line: &str, binding: &str, field: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let access = format!("{binding}.{field}");
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find(&access) else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let end = start + access.len();
+        if member_access_boundary(code, start, end) {
+            return Some((start, end));
+        }
+        search_start = end;
+    }
+    None
+}
+
+fn member_access_boundary(line: &str, start: usize, end: usize) -> bool {
+    let before = line[..start].chars().next_back();
+    let after = line[end..].chars().next();
+    !before.is_some_and(is_identifier_character) && !after.is_some_and(is_identifier_character)
+}
+
+fn schema_name_from_binding(binding: &str) -> String {
+    let mut result = String::new();
+    for segment in binding
+        .split(|character: char| !character.is_ascii_alphanumeric())
+        .filter(|segment| !segment.is_empty())
+    {
+        let mut chars = segment.chars();
+        if let Some(first) = chars.next() {
+            result.push(first.to_ascii_uppercase());
+            result.extend(chars.map(|character| character.to_ascii_lowercase()));
+        }
+    }
+    if result.is_empty() {
+        result.push_str("JsonPayload");
+    }
+    result.push_str("Schema");
+    result
+}
+
+fn unique_schema_name(text: &str, base: &str) -> String {
+    if !schema_name_exists(text, base) {
+        return base.to_owned();
+    }
+    for index in 2.. {
+        let candidate = format!("{base}{index}");
+        if !schema_name_exists(text, &candidate) {
+            return candidate;
+        }
+    }
+    unreachable!("unbounded suffix search should return a unique schema name")
+}
+
+fn schema_name_exists(text: &str, name: &str) -> bool {
+    text.lines().any(|line| {
+        let code = strip_line_comment(line);
+        let trimmed = code.trim_start();
+        let Some(rest) = trimmed.strip_prefix("schema") else {
+            return false;
+        };
+        if !rest.chars().next().is_some_and(char::is_whitespace) {
+            return false;
+        }
+        let candidate = rest.trim_start();
+        let Some(after_name) = candidate.strip_prefix(name) else {
+            return false;
+        };
+        !after_name
+            .chars()
+            .next()
+            .is_some_and(is_identifier_character)
+    })
 }
 
 struct ProcessCommandEdit {

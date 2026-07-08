@@ -8434,6 +8434,11 @@ mod tests {
         }));
         assert!(report.diagnostics.iter().any(|diagnostic| {
             diagnostic
+                .message
+                .contains("Direct JSON field access `payload.case`")
+        }));
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic
                 .help
                 .as_deref()
                 .is_some_and(|help| help.contains("promote json payload as SchemaName"))

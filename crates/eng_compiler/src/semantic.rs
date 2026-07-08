@@ -11648,9 +11648,11 @@ fn validate_json_read_field_access_policy(
                 "E-IO-JSON-FIELD-ACCESS-001",
                 line.line,
                 &format!(
-                    "`read json` binding `{binding}` does not support direct field access `{binding}.{field}`."
+                    "Direct JSON field access `{binding}.{field}` is not available on raw `read json` binding `{binding}`."
                 ),
-                Some("Promote the JSON payload to a schema first, for example `typed = promote json payload as SchemaName`."),
+                Some(&format!(
+                    "Promote the JSON payload to a schema first, for example `typed = promote json {binding} as SchemaName`; arrays can be materialized with `promote json records {binding}.{field} as RecordSchema`."
+                )),
             ));
         }
     }

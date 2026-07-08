@@ -823,6 +823,11 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
     }
 
     match diagnostic.code.as_str() {
+        "E-IO-JSON-FIELD-ACCESS-001" => {
+            if let Some(range) = json_read_field_access_diagnostic_byte_range(line, diagnostic) {
+                return Some(range);
+            }
+        }
         "E-PUBLIC-ANNOTATION-001" => {
             if let Some(range) = find_byte_range(line, "=") {
                 return Some(range);
@@ -1090,6 +1095,53 @@ fn backtick_payload_byte_range(line: &str, text: &str) -> Option<(usize, usize)>
         }
         rest = &after_open[close + '`'.len_utf8()..];
     }
+}
+
+fn json_read_field_access_diagnostic_byte_range(
+    line: &str,
+    diagnostic: &Diagnostic,
+) -> Option<(usize, usize)> {
+    let mut rest = diagnostic.message.as_str();
+    loop {
+        let Some(open) = rest.find('`') else {
+            return None;
+        };
+        let payload_start = open + '`'.len_utf8();
+        let after_open = &rest[payload_start..];
+        let Some(close) = after_open.find('`') else {
+            return None;
+        };
+        let payload = &after_open[..close];
+        if let Some((binding, field)) = payload.split_once('.') {
+            let binding = binding.trim();
+            let field = field.trim();
+            if is_identifier(binding) && is_identifier(field) {
+                let access = format!("{binding}.{field}");
+                if let Some(range) = find_member_access_byte_range(line, &access) {
+                    return Some(range);
+                }
+            }
+        }
+        rest = &after_open[close + '`'.len_utf8()..];
+    }
+}
+
+fn find_member_access_byte_range(line: &str, access: &str) -> Option<(usize, usize)> {
+    let code_end = comment_start(line).unwrap_or(line.len());
+    let code = &line[..code_end];
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find(access) else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let end = start + access.len();
+        if is_identifier_boundary(code, start, end) {
+            return Some((start, end));
+        }
+        search_start = end;
+    }
+    None
 }
 
 fn net_url_literal_byte_range(line: &str) -> Option<(usize, usize)> {
@@ -7496,6 +7548,11 @@ with {
                 "E-NET-INVALID-URL",
                 "response = http get url(\"ftp://example.org/data.json\")\n",
                 "\"ftp://example.org/data.json\"",
+            ),
+            (
+                "E-IO-JSON-FIELD-ACCESS-001",
+                "payload = read json file(\"payload.json\")\ncase_name = payload.case\n",
+                "payload.case",
             ),
             (
                 "E-NET-BODY-METHOD",

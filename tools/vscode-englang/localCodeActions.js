@@ -93,6 +93,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-IO-JSON-FIELD-ACCESS-001") {
+      const action = jsonReadPromotionAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WITH-OPTION-001") {
       const action = withOptionAliasAction(document, diagnostic);
       if (action) {
@@ -751,6 +758,164 @@ function expectedSha256FromDiagnostic(diagnostic) {
     diagnostic.message ?? ""
   );
   return match ? match[1].toLowerCase() : undefined;
+}
+
+function jsonReadPromotionAction(document, diagnostic) {
+  const access = jsonReadFieldAccessFromDiagnostic(diagnostic.message);
+  if (!access) {
+    return undefined;
+  }
+  const accessLineNumber = diagnostic.range.start.line;
+  if (accessLineNumber < 0 || accessLineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const accessLine = document.lineAt(accessLineNumber);
+  const accessRange = jsonFieldAccessRange(accessLine.text, access.binding, access.field);
+  if (!accessRange) {
+    return undefined;
+  }
+
+  const schemaName = uniqueSchemaName(document, schemaNameFromBinding(access.binding));
+  const typedBinding = availableBindingName(document, `${access.binding}_typed`);
+  const newline = documentNewline(document);
+  const readLineNumber = readJsonBindingLine(document, access.binding);
+  const insertLineNumber = readLineNumber ?? accessLineNumber;
+  const insertLine = document.lineAt(insertLineNumber);
+  const indent = lineIndent(insertLine.text);
+  const schemaText = `${indent}schema ${schemaName} {${newline}${indent}    ${access.field}: String${newline}${indent}}${newline}${newline}`;
+
+  const action = new vscode.CodeAction(
+    `Promote ${access.binding} before field access`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  if (readLineNumber !== undefined) {
+    action.edit.insert(document.uri, new vscode.Position(readLineNumber, 0), schemaText);
+    action.edit.insert(
+      document.uri,
+      document.lineAt(readLineNumber).range.end,
+      `${newline}${indent}${typedBinding} = promote json ${access.binding} as ${schemaName}`
+    );
+  } else {
+    action.edit.insert(
+      document.uri,
+      new vscode.Position(accessLineNumber, 0),
+      `${schemaText}${indent}${typedBinding} = promote json ${access.binding} as ${schemaName}${newline}`
+    );
+  }
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(
+      accessLine.lineNumber,
+      accessRange.start,
+      accessLine.lineNumber,
+      accessRange.end
+    ),
+    `${typedBinding}.${access.field}`
+  );
+  return action;
+}
+
+function jsonReadFieldAccessFromDiagnostic(message) {
+  for (const payload of backtickPayloads(message)) {
+    const [binding, field, extra] = payload.split(".");
+    if (extra === undefined && isIdentifier(binding) && isIdentifier(field)) {
+      return { binding, field };
+    }
+  }
+  return undefined;
+}
+
+function backtickPayloads(message) {
+  return Array.from(String(message ?? "").matchAll(/`([^`]+)`/g), (match) => match[1].trim());
+}
+
+function readJsonBindingLine(document, binding) {
+  for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber += 1) {
+    const code = stripLineComment(document.lineAt(lineNumber).text);
+    const indent = lineIndent(code);
+    const rest = code.slice(indent.length);
+    if (!rest.startsWith(binding)) {
+      continue;
+    }
+    const afterBinding = rest.slice(binding.length);
+    if (isIdentifierCharacter(afterBinding[0])) {
+      continue;
+    }
+    const equalsIndex = afterBinding.indexOf("=");
+    if (equalsIndex < 0 || afterBinding.slice(0, equalsIndex).trim()) {
+      continue;
+    }
+    if (afterBinding.slice(equalsIndex + 1).trimStart().startsWith("read json ")) {
+      return lineNumber;
+    }
+  }
+  return undefined;
+}
+
+function jsonFieldAccessRange(lineText, binding, field) {
+  const code = stripLineComment(lineText);
+  const access = `${binding}.${field}`;
+  let searchStart = 0;
+  while (searchStart < code.length) {
+    const start = code.indexOf(access, searchStart);
+    if (start < 0) {
+      break;
+    }
+    const end = start + access.length;
+    if (identifierBoundary(code, start, end)) {
+      return { start, end };
+    }
+    searchStart = end;
+  }
+  return undefined;
+}
+
+function availableBindingName(document, base) {
+  if (!bindingNameExists(document, base)) {
+    return base;
+  }
+  return uniqueBindingName(document, base);
+}
+
+function uniqueSchemaName(document, base) {
+  if (!schemaNameExists(document, base)) {
+    return base;
+  }
+  for (let index = 2; ; index += 1) {
+    const candidate = `${base}${index}`;
+    if (!schemaNameExists(document, candidate)) {
+      return candidate;
+    }
+  }
+}
+
+function schemaNameExists(document, name) {
+  for (let lineNumber = 0; lineNumber < document.lineCount; lineNumber += 1) {
+    const code = stripLineComment(document.lineAt(lineNumber).text).trimStart();
+    if (!code.startsWith("schema")) {
+      continue;
+    }
+    const rest = code.slice("schema".length);
+    if (!/\s/.test(rest[0] ?? "")) {
+      continue;
+    }
+    const candidate = rest.trimStart();
+    if (candidate.startsWith(name) && !isIdentifierCharacter(candidate[name.length])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function schemaNameFromBinding(binding) {
+  const base = binding
+    .split(/[^A-Za-z0-9]+/)
+    .filter(Boolean)
+    .map((segment) => segment[0].toUpperCase() + segment.slice(1).toLowerCase())
+    .join("");
+  return `${base || "JsonPayload"}Schema`;
 }
 
 function withOptionAliasAction(document, diagnostic) {

@@ -4787,6 +4787,22 @@ placeholder files.
   publishing scripts still import OODocs directly through the documented docs
   toolchain.
 
+## Batch 386: JSON Read Promotion Editor Repair
+
+Status: implemented after reviewing the raw `read json` field-access
+diagnostic, LSP quick fixes, and VS Code fallback quick fixes.
+
+- Reworded `E-IO-JSON-FIELD-ACCESS-001` so it names the rejected
+  `payload.field` access first and distinguishes raw JSON reads from typed
+  schema promotion.
+- Added LSP diagnostic range targeting so editor underlines pin the actual
+  `payload.field` member access instead of a generic binding token.
+- Added LSP and VS Code fallback quick fixes that insert a schema promotion
+  skeleton next to the originating `read json` binding and replace the direct
+  access with the typed binding member path.
+- Extended stdio code-action and diagnostic-range regression tests, and updated
+  the VS Code extension contract/README so the new repair stays visible.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
