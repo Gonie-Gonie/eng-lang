@@ -212,11 +212,30 @@ function toDiagnostics(document, review) {
     const diagnostic = new vscode.Diagnostic(range, item.message, severity);
     diagnostic.code = item.code;
     diagnostic.source = "eng";
+    const tags = diagnosticTags(item);
+    if (tags.length > 0) {
+      diagnostic.tags = tags;
+    }
     if (item.help) {
       diagnostic.message = `${item.message}\n${item.help}`;
     }
     return diagnostic;
   });
+}
+
+function diagnosticTags(item) {
+  const code = String(item?.code ?? "");
+  const message = String(item?.message ?? "").toLowerCase();
+  if (
+    code === "W-TABLE-LEGACY-SELECT-FIRST-ROW" ||
+    code === "E-SCRIPT-001" ||
+    code === "E-STRUCT-ARGS-001" ||
+    message.includes("legacy") ||
+    message.includes("deprecated")
+  ) {
+    return [vscode.DiagnosticTag.Deprecated];
+  }
+  return [];
 }
 
 function severityName(severity) {
@@ -247,6 +266,7 @@ function firstLineRange(document) {
 
 module.exports = {
   EngDiagnosticsController,
+  diagnosticTags,
   severityName,
   toDiagnostics
 };
