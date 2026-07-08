@@ -2242,6 +2242,238 @@ function Assert-SameStringSequence {
     }
 }
 
+function Assert-JavaScriptStructuralBalance {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $Path
+    )
+
+    $Source = Get-Content -LiteralPath $Path -Raw
+    $Stack = New-Object System.Collections.Generic.List[object]
+    $Line = 1
+    $Column = 0
+    $Index = 0
+    $State = "code"
+    $PreviousSignificant = ""
+    $RegexInClass = $false
+    $StringStartLine = 1
+    $StringStartColumn = 1
+    $SingleQuote = [char]39
+    $DoubleQuote = [char]34
+    $Backtick = [char]96
+    $Backslash = [char]92
+    $Slash = [char]47
+    $Asterisk = [char]42
+    $Cr = [char]13
+    $Lf = [char]10
+    $Openers = @{ "{" = "}"; "[" = "]"; "(" = ")" }
+    $Closers = @{ "}" = "{"; "]" = "["; ")" = "(" }
+
+    while ($Index -lt $Source.Length) {
+        $Ch = $Source[$Index]
+        $Next = if ($Index + 1 -lt $Source.Length) { $Source[$Index + 1] } else { [char]0 }
+
+        if ($State -eq "lineComment") {
+            if ($Ch -eq $Cr -or $Ch -eq $Lf) {
+                if ($Ch -eq $Cr -and $Next -eq $Lf) { $Index += 1 }
+                $Line += 1
+                $Column = 0
+                $State = "code"
+            } else {
+                $Column += 1
+            }
+            $Index += 1
+            continue
+        }
+
+        if ($State -eq "blockComment") {
+            if ($Ch -eq $Cr -or $Ch -eq $Lf) {
+                if ($Ch -eq $Cr -and $Next -eq $Lf) { $Index += 1 }
+                $Line += 1
+                $Column = 0
+            } elseif ($Ch -eq $Asterisk -and $Next -eq $Slash) {
+                $Index += 1
+                $Column += 2
+                $State = "code"
+            } else {
+                $Column += 1
+            }
+            $Index += 1
+            continue
+        }
+
+        if ($State -eq "regexLiteral") {
+            if ($Ch -eq $Cr -or $Ch -eq $Lf) {
+                throw "$Path has unterminated JavaScript regular expression literal starting at line $StringStartLine, column $StringStartColumn"
+            }
+            if ($Ch -eq $Backslash) {
+                $Index += 2
+                $Column += 2
+                continue
+            }
+            if ($Ch -eq [char]91) {
+                $RegexInClass = $true
+            } elseif ($Ch -eq [char]93) {
+                $RegexInClass = $false
+            } elseif ($Ch -eq $Slash -and -not $RegexInClass) {
+                $State = "code"
+                $PreviousSignificant = "regex"
+                $Column += 1
+                $Index += 1
+                continue
+            }
+            $Column += 1
+            $Index += 1
+            continue
+        }
+
+        if ($State -eq "singleString" -or $State -eq "doubleString" -or $State -eq "templateString") {
+            $Terminator = if ($State -eq "singleString") { $SingleQuote } elseif ($State -eq "doubleString") { $DoubleQuote } else { $Backtick }
+            if (($State -eq "singleString" -or $State -eq "doubleString") -and ($Ch -eq $Cr -or $Ch -eq $Lf)) {
+                throw "$Path has unterminated JavaScript string starting at line $StringStartLine, column $StringStartColumn"
+            }
+            if ($Ch -eq $Backslash) {
+                $Index += 2
+                $Column += 2
+                continue
+            }
+            if ($Ch -eq $Terminator) {
+                $State = "code"
+                $PreviousSignificant = "string"
+                $Column += 1
+                $Index += 1
+                continue
+            }
+            if ($Ch -eq $Cr -or $Ch -eq $Lf) {
+                if ($Ch -eq $Cr -and $Next -eq $Lf) { $Index += 1 }
+                $Line += 1
+                $Column = 0
+            } else {
+                $Column += 1
+            }
+            $Index += 1
+            continue
+        }
+
+        if ($Ch -eq $Cr -or $Ch -eq $Lf) {
+            if ($Ch -eq $Cr -and $Next -eq $Lf) { $Index += 1 }
+            $Line += 1
+            $Column = 0
+            $Index += 1
+            continue
+        }
+
+        if ($Ch -eq $Slash -and $Next -ne $Slash -and $Next -ne $Asterisk) {
+            $PrefixStart = [Math]::Max(0, $Index - 16)
+            $PrefixLength = $Index - $PrefixStart
+            $Prefix = if ($PrefixLength -gt 0) { $Source.Substring($PrefixStart, $PrefixLength) } else { "" }
+            $RegexPrefixTokens = @("", "(", "[", "{", "=", ":", ",", ";", "!", "?", "+", "-", "*", "%", "&", "|")
+            if (($RegexPrefixTokens -contains $PreviousSignificant) -or $Prefix -match '(^|[^A-Za-z0-9_$])(return|throw|case|delete|typeof|void|new|in|of)\s*$') {
+                $State = "regexLiteral"
+                $RegexInClass = $false
+                $StringStartLine = $Line
+                $StringStartColumn = $Column + 1
+                $Index += 1
+                $Column += 1
+                continue
+            }
+        }
+
+        if ($Ch -eq $Slash -and $Next -eq $Slash) {
+            $State = "lineComment"
+            $Index += 2
+            $Column += 2
+            continue
+        }
+        if ($Ch -eq $Slash -and $Next -eq $Asterisk) {
+            $State = "blockComment"
+            $Index += 2
+            $Column += 2
+            continue
+        }
+        if ($Ch -eq $SingleQuote -or $Ch -eq $DoubleQuote -or $Ch -eq $Backtick) {
+            $State = if ($Ch -eq $SingleQuote) { "singleString" } elseif ($Ch -eq $DoubleQuote) { "doubleString" } else { "templateString" }
+            $StringStartLine = $Line
+            $StringStartColumn = $Column + 1
+            $Index += 1
+            $Column += 1
+            continue
+        }
+
+        $Token = [string]$Ch
+        if ($Openers.ContainsKey($Token)) {
+            $Stack.Add([pscustomobject]@{ Token = $Token; Line = $Line; Column = $Column + 1 }) | Out-Null
+        } elseif ($Closers.ContainsKey($Token)) {
+            if ($Stack.Count -eq 0) {
+                throw "$Path has unmatched JavaScript '$Token' at line $Line, column $($Column + 1)"
+            }
+            $Top = $Stack[$Stack.Count - 1]
+            $ExpectedOpener = $Closers[$Token]
+            if ($Top.Token -ne $ExpectedOpener) {
+                throw "$Path has mismatched JavaScript '$Token' at line $Line, column $($Column + 1); opened '$($Top.Token)' at line $($Top.Line), column $($Top.Column)"
+            }
+            $Stack.RemoveAt($Stack.Count - 1)
+        }
+
+        if (-not [char]::IsWhiteSpace($Ch)) {
+            $PreviousSignificant = $Token
+        }
+        $Index += 1
+        $Column += 1
+    }
+
+    if ($State -eq "blockComment") {
+        throw "$Path has unterminated JavaScript block comment"
+    }
+    if ($State -eq "singleString" -or $State -eq "doubleString" -or $State -eq "templateString") {
+        throw "$Path has unterminated JavaScript string starting at line $StringStartLine, column $StringStartColumn"
+    }
+    if ($State -eq "regexLiteral") {
+        throw "$Path has unterminated JavaScript regular expression literal starting at line $StringStartLine, column $StringStartColumn"
+    }
+    if ($Stack.Count -gt 0) {
+        $Top = $Stack[$Stack.Count - 1]
+        throw "$Path has unclosed JavaScript '$($Top.Token)' opened at line $($Top.Line), column $($Top.Column)"
+    }
+}
+
+function Invoke-JavaScriptSyntaxCheck {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths,
+
+        [Parameter(Mandatory = $true)]
+        [string] $Label
+    )
+
+    $Node = Get-Command node -ErrorAction SilentlyContinue
+    if ($null -ne $Node) {
+        $NodeUsable = $true
+        try {
+            & $Node.Source "--version" *> $null
+            if ($LASTEXITCODE -ne 0) {
+                throw "node --version failed with exit code $LASTEXITCODE"
+            }
+        } catch {
+            Write-Host "Node found but not executable; running $Label JavaScript structural fallback check. $($_.Exception.Message)"
+            $NodeUsable = $false
+        }
+        if ($NodeUsable) {
+            foreach ($Path in $Paths) {
+                Invoke-Native $Node.Source "--check" $Path
+            }
+            return
+        }
+    } else {
+        Write-Host "Node not found; running $Label JavaScript structural fallback check."
+    }
+
+    foreach ($Path in $Paths) {
+        Assert-JavaScriptStructuralBalance -Path $Path
+    }
+    Write-Host "$Label JavaScript structural fallback check passed."
+}
+
 function Assert-VscodeExtensionContract {
     $ExtensionRoot = Join-Path $RepoRoot "tools\vscode-englang"
     $PackageJsonPath = Join-Path $ExtensionRoot "package.json"
@@ -3821,40 +4053,34 @@ function Assert-VscodeExtensionContract {
         }
     }
 
-    $Node = Get-Command node -ErrorAction SilentlyContinue
-    if ($null -ne $Node) {
-        try {
-            Invoke-Native $Node.Source "--check" $ExtensionJsPath
-            Invoke-Native $Node.Source "--check" $ArtifactOpenersPath
-            Invoke-Native $Node.Source "--check" $CommandHandlersPath
-            Invoke-Native $Node.Source "--check" $DecorationsPath
-            Invoke-Native $Node.Source "--check" $CompletionProviderPath
-            Invoke-Native $Node.Source "--check" $CodeActionProviderPath
-            Invoke-Native $Node.Source "--check" $DiagnosticsProviderPath
-            Invoke-Native $Node.Source "--check" $FoldingRangeProviderPath
-            Invoke-Native $Node.Source "--check" $FormattingProviderPath
-            Invoke-Native $Node.Source "--check" $HoverProviderPath
-            Invoke-Native $Node.Source "--check" $NavigationProvidersPath
-            Invoke-Native $Node.Source "--check" $SemanticTokensProviderPath
-            Invoke-Native $Node.Source "--check" $LocalCodeActionsPath
-            Invoke-Native $Node.Source "--check" $LspCodeActionsPath
-            Invoke-Native $Node.Source "--check" $LspKindsPath
-            Invoke-Native $Node.Source "--check" $LspNavigationPath
-            Invoke-Native $Node.Source "--check" $LspRangesPath
-            Invoke-Native $Node.Source "--check" $LspRequestsPath
-            Invoke-Native $Node.Source "--check" $LspSemanticTokensPath
-            Invoke-Native $Node.Source "--check" $ArtifactRegistryPath
-            Invoke-Native $Node.Source "--check" $EditorMetadataLoaderPath
-            Invoke-Native $Node.Source "--check" $ExecutionProfilesPath
-            Invoke-Native $Node.Source "--check" $ModuleStatusPath
-            Invoke-Native $Node.Source "--check" $RuntimeDiscoveryPath
-            Invoke-Native $Node.Source "--check" $ReviewPanelRendererPath
-        } catch {
-            Write-Host "Node found but not executable; skipped VS Code JavaScript syntax check. $($_.Exception.Message)"
-        }
-    } else {
-        Write-Host "Node not found; skipped VS Code JavaScript syntax check."
-    }
+    $VscodeJavaScriptPaths = @(
+        $ExtensionJsPath,
+        $ArtifactOpenersPath,
+        $CommandHandlersPath,
+        $DecorationsPath,
+        $CompletionProviderPath,
+        $CodeActionProviderPath,
+        $DiagnosticsProviderPath,
+        $FoldingRangeProviderPath,
+        $FormattingProviderPath,
+        $HoverProviderPath,
+        $NavigationProvidersPath,
+        $SemanticTokensProviderPath,
+        $LocalCodeActionsPath,
+        $LspCodeActionsPath,
+        $LspKindsPath,
+        $LspNavigationPath,
+        $LspRangesPath,
+        $LspRequestsPath,
+        $LspSemanticTokensPath,
+        $ArtifactRegistryPath,
+        $EditorMetadataLoaderPath,
+        $ExecutionProfilesPath,
+        $ModuleStatusPath,
+        $RuntimeDiscoveryPath,
+        $ReviewPanelRendererPath
+    )
+    Invoke-JavaScriptSyntaxCheck -Paths $VscodeJavaScriptPaths -Label "VS Code extension"
 
     Write-Host "VS Code extension contract check passed."
 }
@@ -4241,16 +4467,7 @@ function Invoke-IdeCheck {
             throw "Native IDE backend fixture must not expose legacy Python workflow marker $ForbiddenNativeIdeFixtureToken"
         }
     }
-    $Node = Get-Command node -ErrorAction SilentlyContinue
-    if ($null -ne $Node) {
-        try {
-            Invoke-Native $Node.Source "--check" $TauriUiAppPath
-        } catch {
-            Write-Host "Node found but not executable; skipped IDE app.js syntax check. $($_.Exception.Message)"
-        }
-    } else {
-        Write-Host "Node not found; skipped IDE app.js syntax check."
-    }
+    Invoke-JavaScriptSyntaxCheck -Paths @($TauriUiAppPath) -Label "Native IDE app"
     Invoke-Native $cargo "check" "-p" "eng_ide"
     Invoke-Native $cargo "run" "-p" "eng_ide" "--" "--smoke"
     Assert-VscodeExtensionContract

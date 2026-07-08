@@ -5455,3 +5455,15 @@ Status: implemented after comparing public `render template ... to ...` examples
 - Generated tables should name their source, especially module status and
   diagnostics catalogs.
 - Delete stale command examples when the CLI no longer supports them.
+
+## Batch 463: Node-Free JavaScript Structure Check
+
+Status: implemented after `ide-check` skipped JavaScript syntax checks on a
+machine without Node.
+
+- Added a Node-free structural fallback for VS Code extension and native IDE
+  JavaScript files so `ide-check` still catches unbalanced brackets, braces,
+  parentheses, strings, and block comments when Node is unavailable.
+- Kept `node --check` as the authoritative syntax check whenever Node is
+  installed and executable; actual Node syntax failures now remain failures
+  instead of being reported as skipped checks.
