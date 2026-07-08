@@ -3054,5 +3054,77 @@
     "scope": "variable.other.property.englang",
     "text": "axis.Time",
     "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.db-write.englang",
+    "text": "write args.process_rows to args.database.table(\"runs\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.db-write.englang",
+    "text": "write result.rows to storage.database.table(\"runs\")",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.db-read.englang",
+    "text": "read sqlite args.database.table(\"runs\") as ProcessResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.db-read.englang",
+    "text": "read sqlite storage.database.table(\"runs\") as ProcessResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.promote-json-records.englang",
+    "text": "promote json records args.records_payload as ProcessResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.promote-json-records.englang",
+    "text": "promote json records api.payload as ProcessResult",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.process_rows",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.database",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.englang",
+    "text": "args.records_payload",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.property.englang",
+    "text": "result.rows",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.property.englang",
+    "text": "storage.database",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.property.englang",
+    "text": "api.payload",
+    "fullMatch": true
   }
 ]

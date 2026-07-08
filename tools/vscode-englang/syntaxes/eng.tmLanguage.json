@@ -993,7 +993,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.db-read.englang",
-                                                                    "begin":  "\\b(read)\\s+(sqlite)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
+                                                                    "begin":  "\\b(read)\\s+(sqlite)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\.(table)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.external-boundary.englang"
@@ -1002,9 +1002,15 @@
                                                                                                     "name":  "keyword.control.external-boundary.englang"
                                                                                                 },
                                                                                           "3":  {
-                                                                                                    "name":  "variable.other.local.englang"
+                                                                                                    "name":  "variable.parameter.property.englang"
                                                                                                 },
                                                                                           "4":  {
+                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                },
+                                                                                          "5":  {
+                                                                                                    "name":  "variable.other.local.englang"
+                                                                                                },
+                                                                                          "6":  {
                                                                                                     "name":  "support.function.builtin.englang"
                                                                                                 }
                                                                                       },
@@ -1023,6 +1029,9 @@
                                                                                          "include":  "#types"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
@@ -1036,6 +1045,14 @@
                                                                                                                     "name":  "entity.name.type.englang"
                                                                                                                 }
                                                                                                       }
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
                                                                                      },
                                                                                      {
                                                                                          "name":  "variable.other.local.englang",
@@ -1120,21 +1137,33 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.db-write.englang",
-                                                                    "begin":  "\\b(write)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(to)\\s+([A-Za-z_][A-Za-z0-9_]*)\\.(table)\\b",
+                                                                    "begin":  "\\b(write)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(to)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\.(table)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "variable.other.local.englang"
+                                                                                                    "name":  "variable.parameter.property.englang"
                                                                                                 },
                                                                                           "3":  {
-                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                    "name":  "variable.other.property.englang"
                                                                                                 },
                                                                                           "4":  {
                                                                                                     "name":  "variable.other.local.englang"
                                                                                                 },
                                                                                           "5":  {
+                                                                                                    "name":  "keyword.operator.word.englang"
+                                                                                                },
+                                                                                          "6":  {
+                                                                                                    "name":  "variable.parameter.property.englang"
+                                                                                                },
+                                                                                          "7":  {
+                                                                                                    "name":  "variable.other.property.englang"
+                                                                                                },
+                                                                                          "8":  {
+                                                                                                    "name":  "variable.other.local.englang"
+                                                                                                },
+                                                                                          "9":  {
                                                                                                     "name":  "support.function.builtin.englang"
                                                                                                 }
                                                                                       },
@@ -1150,7 +1179,22 @@
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      }
                                                                                  ]
                                                                 },
@@ -2320,7 +2364,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.promote-json-records.englang",
-                                                                    "match":  "\\b(promote)\\s+(json)\\s+(records)\\s+([A-Za-z_][A-Za-z0-9_.]*)\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                                                                    "match":  "\\b(promote)\\s+(json)\\s+(records)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "support.function.builtin.englang"
@@ -2332,12 +2376,18 @@
                                                                                                "name":  "keyword.control.workflow.englang"
                                                                                            },
                                                                                      "4":  {
-                                                                                               "name":  "variable.other.property.englang"
+                                                                                               "name":  "variable.parameter.property.englang"
                                                                                            },
                                                                                      "5":  {
-                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                               "name":  "variable.other.property.englang"
                                                                                            },
                                                                                      "6":  {
+                                                                                               "name":  "variable.other.local.englang"
+                                                                                           },
+                                                                                     "7":  {
+                                                                                               "name":  "keyword.operator.word.englang"
+                                                                                           },
+                                                                                     "8":  {
                                                                                                "name":  "entity.name.type.englang"
                                                                                            }
                                                                                  }

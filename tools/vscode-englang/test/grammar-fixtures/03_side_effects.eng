@@ -42,3 +42,9 @@ write json "outputs/energy.json", E_coil
 print "Q total = {Q_total: .2 kWh}"
 log info "summary exported"
 download args.file_url to args.raw_file
+write args.process_rows to args.database.table("runs")
+write result.rows to storage.database.table("runs")
+args_persisted_runs = read sqlite args.database.table("runs") as ProcessResult
+property_persisted_runs = read sqlite storage.database.table("runs") as ProcessResult
+args_records_payload = promote json records args.records_payload as ProcessResult
+property_records_payload = promote json records api.payload as ProcessResult

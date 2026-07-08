@@ -389,3 +389,13 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   command-style and function-style report workflow forms.
 - Add grammar fixtures for argument-backed report/series phrases so VS Code
   highlighting regressions are caught by `vscode-grammar-test`.
+
+## Backlog Batch 459 - DB Workflow Argument Scopes
+
+- Split DB workflow captures for `read sqlite`, `write ... to ...table(...)`,
+  and `promote json records` so `args.*`, dotted paths, and simple locals
+  receive the same TextMate scopes as other workflow phrases.
+- Add grammar fixtures for argument-backed DB read/write and JSON-record
+  promotion phrases to catch VS Code highlighting regressions.
+- Include operator and argument patterns inside DB read/write phrase bodies so
+  `as`, `to`, table references, and fallback identifiers color consistently.
