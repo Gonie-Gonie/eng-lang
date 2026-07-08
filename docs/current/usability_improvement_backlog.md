@@ -5351,7 +5351,7 @@ Status: implemented after comparing first-paint grammar coverage with real examp
 Status: implemented after finding stale language-reference wording that implied JSON/TOML could not be structured at all.
 
 - Reworded the read-only I/O section so `read json/toml` is described as raw UTF-8 bindings with provenance, while `promote json/toml ... as SchemaName` is the supported structured validation path.
-- Kept the direct-field-access rule intact so users still know to promote raw JSON before using schema fields.
+- Updated the rule table and kept the direct-field-access rule intact so users still know to promote raw JSON before using schema fields.
 
 ## Seed-To-Implementation Candidates
 
