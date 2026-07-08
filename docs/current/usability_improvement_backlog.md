@@ -5065,6 +5065,18 @@ Status: implemented after reviewing workflow 01/02/03 native-execution gates for
 - Changed `dev.bat workflows-test` to require the named workflow 01/02/03 `main.eng` files instead of accepting any three workflow directories.
 - Added the same required-entrypoint guard to the Rust example smoke path so missing canonical native workflow examples cannot be hidden by unrelated workflow additions.
 
+## Batch 414: Uncertainty Policy Quick Fixes
+
+Status: implemented after reviewing warning/error diagnostics for uncertainty `with` options that lacked editor repairs.
+
+- Added LSP and VS Code fallback quick fixes for invalid uncertainty policy,
+  sample-count, and seed options, replacing them with `linear`, `64`, and `7`.
+- Added a quick fix for `W-WITH-UNCERTAINTY-SEED-001` that inserts `seed = 7`
+  into the current `with` block when `monte_carlo` propagation lacks a
+  reproducible seed.
+- Extended stdio code-action coverage, README wording, and `ide-check` contract
+  tokens for the new uncertainty repairs.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

@@ -79,6 +79,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "W-WITH-UNCERTAINTY-SEED-001") {
+      const action = uncertaintySeedMissingAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-NET-INVALID-URL") {
       const action = absoluteHttpUrlAction(document, diagnostic);
       if (action) {
@@ -613,6 +620,12 @@ function optionQuickFix(code) {
       return { optionNames: ["count"], value: "1", label: "Set sample count" };
     case "E-SAMPLING-SEED-INVALID":
       return { optionNames: ["seed"], value: "42", label: "Set sample seed" };
+    case "E-WITH-UNCERTAINTY-POLICY-001":
+      return { optionNames: ["uncertainty"], value: "linear", label: "Set uncertainty policy" };
+    case "E-WITH-UNCERTAINTY-SAMPLES-001":
+      return { optionNames: ["samples"], value: "64", label: "Set uncertainty samples" };
+    case "E-WITH-UNCERTAINTY-SEED-001":
+      return { optionNames: ["seed"], value: "7", label: "Set uncertainty seed" };
     case "E-CACHE-KEY-NONDETERMINISTIC":
       return { optionNames: ["cache_key"], value: "[\"stable\", \"v1\"]", label: "Set deterministic cache key" };
     case "E-CACHE-DIR":
@@ -2185,6 +2198,40 @@ function isSampleGenerationOwnerLine(text) {
   }
   const expression = code.slice(equalsIndex + 1).trim().toLowerCase();
   return /^sample\s+(grid|random|uniform|lhs|latin_hypercube|latin-hypercube)$/.test(expression);
+}
+
+function uncertaintySeedMissingAction(document, diagnostic) {
+  const lineNumber = diagnostic.range.start.line;
+  if (lineNumber < 0 || lineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const block = withBlockContainingLine(document, lineNumber);
+  if (!block || withBlockContainsOption(document, block, "seed")) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Add uncertainty seed: seed = 7", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.insert(
+    document.uri,
+    new vscode.Position(block.endLine, 0),
+    `${block.indent}    seed = 7${documentNewline(document)}`
+  );
+  return action;
+}
+
+function withBlockContainingLine(document, lineNumber) {
+  for (let cursor = lineNumber; cursor >= 0; cursor -= 1) {
+    const line = document.lineAt(cursor);
+    if (stripLineComment(line.text).trim() !== "with {") {
+      continue;
+    }
+    const endLine = findMatchingBlockEnd(document, cursor);
+    if (endLine !== undefined && endLine > lineNumber) {
+      return { startLine: cursor, endLine, indent: lineIndent(line.text) };
+    }
+  }
+  return undefined;
 }
 
 function attachedWithBlock(document, ownerLineNumber) {

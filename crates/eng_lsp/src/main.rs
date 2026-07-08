@@ -721,6 +721,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-SAMPLING-SEED-MISSING" => {
             optional_code_action(lsp_sampling_seed_missing_code_action(uri, text, diagnostic))
         }
+        "W-WITH-UNCERTAINTY-SEED-001" => optional_code_action(
+            lsp_uncertainty_seed_missing_code_action(uri, text, diagnostic),
+        ),
         "E-NET-INVALID-URL" => {
             optional_code_action(lsp_absolute_http_url_code_action(uri, text, diagnostic))
         }
@@ -1325,6 +1328,53 @@ fn is_sample_generation_owner_line(line: &str) -> bool {
     )
 }
 
+fn lsp_uncertainty_seed_missing_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    let block = with_block_containing_line(&lines, line_number)?;
+    if with_block_contains_option(&lines, &block, "seed") {
+        return None;
+    }
+    let newline = document_newline(text);
+    Some(json!({
+        "title": "Add uncertainty seed: seed = 7",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            zero_width_range(block.end_line, 0),
+            &format!("{}    seed = 7{}", block.indent, newline)
+        )
+    }))
+}
+
+fn with_block_containing_line(lines: &[&str], line_number: usize) -> Option<AttachedBlock> {
+    let mut cursor = line_number;
+    loop {
+        let line = *lines.get(cursor)?;
+        if strip_line_comment(line).trim() == "with {" {
+            let end_line = matching_block_end_line(lines, cursor)?;
+            if end_line > line_number {
+                return Some(AttachedBlock {
+                    start_line: cursor,
+                    end_line,
+                    indent: line_indent(line).to_owned(),
+                });
+            }
+        }
+        if cursor == 0 {
+            break;
+        }
+        cursor -= 1;
+    }
+    None
+}
+
 struct AttachedBlock {
     start_line: usize,
     end_line: usize,
@@ -1415,6 +1465,21 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             option_names: &["seed"],
             value: "42",
             label: "Set sample seed",
+        }),
+        "E-WITH-UNCERTAINTY-POLICY-001" => Some(OptionQuickFix {
+            option_names: &["uncertainty"],
+            value: "linear",
+            label: "Set uncertainty policy",
+        }),
+        "E-WITH-UNCERTAINTY-SAMPLES-001" => Some(OptionQuickFix {
+            option_names: &["samples"],
+            value: "64",
+            label: "Set uncertainty samples",
+        }),
+        "E-WITH-UNCERTAINTY-SEED-001" => Some(OptionQuickFix {
+            option_names: &["seed"],
+            value: "7",
+            label: "Set uncertainty seed",
         }),
         "E-CACHE-KEY-NONDETERMINISTIC" => Some(OptionQuickFix {
             option_names: &["cache_key"],

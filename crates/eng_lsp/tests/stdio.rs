@@ -816,6 +816,19 @@ Q_bad_source = propagate(Q_plain_source, method=linear)
 Q_unknown_source = propagate(Q_missing_unc, method=linear)
 Q_missing_source = propagate(method=linear)
 
+Q_bad_uncertainty_policy = Q_prop_source + 1 kW
+with {
+    uncertainty = quadratic
+    samples = 0
+    seed = abc
+}
+
+Q_missing_uncertainty_seed = Q_prop_source + 2 kW
+with {
+    uncertainty = monte_carlo
+    samples = 64
+}
+
 system SimDecay {
     state T: AbsoluteTemperature = 24 degC
     equation {
@@ -991,6 +1004,10 @@ report {
         "E-UNC-DIRECT-COMPARE",
         "E-UNC-SOURCE-001",
         "E-UNC-SOURCE-002",
+        "E-WITH-UNCERTAINTY-POLICY-001",
+        "E-WITH-UNCERTAINTY-SAMPLES-001",
+        "E-WITH-UNCERTAINTY-SEED-001",
+        "W-WITH-UNCERTAINTY-SEED-001",
     ] {
         assert!(
             diagnostics
@@ -1212,6 +1229,15 @@ report {
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set uncertainty policy: uncertainty = linear",
+        "linear",
+    );
+    assert_action_edit(actions, &uri, "Set uncertainty samples: samples = 64", "64");
+    assert_action_edit(actions, &uri, "Set uncertainty seed: seed = 7", "7");
+    assert_action_edit_contains(actions, &uri, "Add uncertainty seed: seed = 7", "seed = 7");
     assert_action_edit(
         actions,
         &uri,
@@ -1546,6 +1572,19 @@ Q_bad_source = propagate(Q_plain_source, method=linear)
 Q_unknown_source = propagate(Q_missing_unc, method=linear)
 Q_missing_source = propagate(method=linear)
 
+Q_bad_uncertainty_policy = Q_prop_source + 1 kW
+with {
+    uncertainty = quadratic
+    samples = 0
+    seed = abc
+}
+
+Q_missing_uncertainty_seed = Q_prop_source + 2 kW
+with {
+    uncertainty = monte_carlo
+    samples = 64
+}
+
 Q_plot: HeatRate [kW] = 1 kW
 report {
     plot Q_plot over Time
@@ -1669,6 +1708,15 @@ report {
     );
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set uncertainty policy: uncertainty = linear",
+        "linear",
+    );
+    assert_action_edit(actions, &uri, "Set uncertainty samples: samples = 64", "64");
+    assert_action_edit(actions, &uri, "Set uncertainty seed: seed = 7", "7");
+    assert_action_edit_contains(actions, &uri, "Add uncertainty seed: seed = 7", "seed = 7");
     assert_action_edit(
         actions,
         &uri,

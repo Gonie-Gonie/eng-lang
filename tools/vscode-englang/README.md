@@ -40,7 +40,8 @@ embedding compiler logic in JavaScript.
   sampling seeds, simulation/solver option repairs, unsupported regression
   algorithm repairs, legacy `select_first_row` migration skeletons,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
-  and uncertainty source definition/conversion repairs. Live
+  uncertainty propagation option/seed repairs, and uncertainty source
+  definition/conversion repairs. Live
   editor quick fixes are shown first
   and merged with local fallback repairs so partial live editor responses do
   not hide available fixes.
@@ -167,11 +168,12 @@ common simulation/solver option values such as timestep, duration, tolerance,
 solver, max-iteration, and initial values.
 Simple same-block `where` local ordering diagnostics can move the later
 definition before its first use.
-Uncertainty diagnostics can also repair common
-constructor mistakes
-such as unsupported distribution kind, unsupported propagation method, invalid
-sample count, missing constructor arguments, unknown sources, missing source
-arguments, and deterministic sources that should be `measured(...)`.
+Uncertainty diagnostics can also repair common constructor mistakes such as
+unsupported distribution kind, unsupported propagation method, invalid sample
+count, missing constructor arguments, unknown sources, missing source arguments,
+and deterministic sources that should be `measured(...)`. Propagation `with`
+blocks can repair invalid uncertainty policy, sample-count, and seed option
+values, and can insert a reproducible seed for Monte Carlo propagation.
 
 Hover is computed from the current unsaved buffer, so quantity, unit, kind, and
 status details stay aligned with live diagnostics and semantic highlighting.
