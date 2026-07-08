@@ -344,14 +344,43 @@ function createCommandHandlers(options = {}) {
         addSemanticTokenDebugSample(tokenSamplesByModifier, modifier || "-", sample);
       }
     }
+    const tokenRows = (semanticTokens.tokens ?? []).map((token) => {
+      const sample = semanticTokenDebugSample(document, token);
+      const start = Number(sample.start);
+      return {
+        line: sample.line,
+        column: Number.isFinite(start) ? start + 1 : null,
+        start: sample.start,
+        length: sample.length,
+        text: sample.text,
+        type: sample.type,
+        modifiers: sample.modifiers
+      };
+    });
+    const tokenCount = semanticTokens.tokens?.length ?? 0;
     const payload = {
       source: document.uri.fsPath,
-      highlight_count: semanticTokens.tokens?.length ?? 0,
+      semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
+      summary: {
+        token_count: tokenCount,
+        counts_by_type: tokenCounts,
+        counts_by_modifier: modifierCounts
+      },
+      legend: semanticTokens.legend ?? {},
+      samples: {
+        by_type: tokenSamplesByType,
+        by_modifier: tokenSamplesByModifier
+      },
+      tokens: tokenRows,
+      raw: {
+        semantic_tokens: semanticTokens
+      },
+      highlight_count: tokenCount,
       highlight_counts_by_category: tokenCounts,
       highlight_counts_by_detail: modifierCounts,
       highlight_samples_by_category: tokenSamplesByType,
       highlight_samples_by_detail: tokenSamplesByModifier,
-      token_count: semanticTokens.tokens?.length ?? 0,
+      token_count: tokenCount,
       token_counts_by_type: tokenCounts,
       token_counts_by_modifier: modifierCounts,
       token_samples_by_type: tokenSamplesByType,
@@ -526,7 +555,7 @@ function createCommandHandlers(options = {}) {
       },
       commands: {
         switch_diagnostics_mode: "EngLang: Switch Diagnostics Mode...",
-        inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
+        inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens (Semantic)",
         check_current_file: "EngLang: Check Current File"
       }
     };

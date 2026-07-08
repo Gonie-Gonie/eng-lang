@@ -414,3 +414,13 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   and local identifiers consistently.
 - Add sampling/model grammar fixtures for argument-backed and property-backed
   distribution helper calls.
+
+## Backlog Batch 462 - Semantic Highlight Debug Output
+
+- Rename the VS Code highlight inspection command title to make semantic-token
+  debugging explicit while keeping the existing command id stable.
+- Add structured `summary`, `legend`, `samples`, `tokens`, and `raw` sections to
+  the debug JSON so users can inspect role-aware colors without reading only the
+  raw LSP payload.
+- Keep existing `highlight_*`, `token_*`, `highlight_data`, and
+  `semantic_tokens` fields for compatibility with older docs and tests.

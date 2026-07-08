@@ -704,7 +704,7 @@
       },
       {
         "command": "englang.showSemanticTokensDebug",
-        "title": "EngLang: Inspect Highlight Tokens"
+        "title": "EngLang: Inspect Highlight Tokens (Semantic)"
       }
     ]
   }
