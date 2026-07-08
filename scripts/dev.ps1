@@ -3442,11 +3442,17 @@ function Assert-VscodeExtensionContract {
     $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticDebugToken in @(
         "showSemanticTokensDebug",
+        "semanticTokenScopeMapFromPackage",
         "semantic_highlighting_enabled",
         "summary: {",
         "token_count: tokenCount",
         "counts_by_type: tokenCounts",
         "counts_by_modifier: modifierCounts",
+        "scope_map_entry_count: Object.keys(semanticTokenScopeMap).length",
+        "tokens_without_fallback_scope: tokensWithoutFallbackScope",
+        "missing_scope_selectors: missingScopeSelectors",
+        "semantic_selectors: sample.semantic_selectors",
+        "fallback_scopes: sample.fallback_scopes",
         "legend: semanticTokens.legend ?? {}",
         "samples: {",
         "by_type: tokenSamplesByType",
@@ -3482,7 +3488,7 @@ function Assert-VscodeExtensionContract {
     if (-not $DecorationsSource.Contains('config.get("semanticHighlighting.enabled", true)') -or -not $DecorationsSource.Contains("refreshVisibleSemanticSymbolDecorations")) {
         throw "VS Code semantic symbol decorations must follow the semantic highlighting setting"
     }
-    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample")) {
+    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample") -or -not $LspSemanticTokensSource.Contains("semanticTokenSelectors") -or -not $LspSemanticTokensSource.Contains("semanticTokenFallbackScopes")) {
         throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
     }
     if ($ExtensionSource.Contains("class EngSemanticTokensProvider") -or $ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {

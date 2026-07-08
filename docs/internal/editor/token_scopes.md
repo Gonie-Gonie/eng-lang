@@ -425,6 +425,7 @@ risk, quantity/unit analysis, or workflow artifact semantics.
   debugging explicit while keeping the existing command id stable.
 - Add structured `summary`, `legend`, `samples`, `tokens`, and `raw` sections to
   the debug JSON so users can inspect role-aware colors without reading only the
-  raw LSP payload.
+  raw LSP payload. Samples and rows include `semantic_selectors` and
+  `fallback_scopes`; the summary reports missing fallback-scope selectors.
 - Keep existing `highlight_*`, `token_*`, `highlight_data`, and
   `semantic_tokens` fields for compatibility with older docs and tests.

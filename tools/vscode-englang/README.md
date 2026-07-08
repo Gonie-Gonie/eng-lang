@@ -194,8 +194,9 @@ highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing scope and
 semantic-token mapping rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens (Semantic)` opens a highlight data view with a
-summary, legend, representative source-text samples, normalized token rows, and
-raw semantic-token payload for debugging theme or scope mismatches.
+summary, legend, representative source-text samples, normalized token rows with
+semantic selector and TextMate fallback scope details, and raw semantic-token
+payload for debugging theme or scope mismatches.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set

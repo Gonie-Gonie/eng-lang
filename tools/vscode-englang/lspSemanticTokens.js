@@ -57,17 +57,53 @@ function semanticTokenRange(document, token) {
   return new vscode.Range(line, start, line, Math.max(start + 1, end));
 }
 
-function semanticTokenDebugSample(document, token) {
+function semanticTokenDebugSample(document, token, semanticScopeMap = {}) {
   const line = Number(token?.line ?? -1);
   const range = semanticTokenRange(document, token);
+  const semantic_selectors = semanticTokenSelectors(token);
   return {
     text: range ? document.getText(range) : "",
     line: Number.isFinite(line) && line >= 0 ? line + 1 : null,
     start: token?.start ?? null,
     length: token?.length ?? null,
     type: token?.type || "-",
-    modifiers: token?.modifiers ?? []
+    modifiers: token?.modifiers ?? [],
+    semantic_selectors,
+    fallback_scopes: semanticTokenFallbackScopes(token, semanticScopeMap, semantic_selectors)
   };
+}
+
+function semanticTokenSelectors(token) {
+  const type = token?.type || "";
+  if (!type) {
+    return [];
+  }
+  const selectors = [];
+  for (const modifier of token?.modifiers ?? []) {
+    if (modifier) {
+      selectors.push(`${type}.${modifier}`);
+    }
+  }
+  selectors.push(type);
+  return [...new Set(selectors)];
+}
+
+function semanticTokenFallbackScopes(token, semanticScopeMap = {}, selectors = undefined) {
+  const scopes = [];
+  for (const selector of selectors ?? semanticTokenSelectors(token)) {
+    const mappedScopes = semanticScopeMap[selector];
+    const values = Array.isArray(mappedScopes)
+      ? mappedScopes
+      : typeof mappedScopes === "string"
+        ? [mappedScopes]
+        : [];
+    for (const scope of values) {
+      if (scope && !scopes.includes(scope)) {
+        scopes.push(scope);
+      }
+    }
+  }
+  return scopes;
 }
 
 function addSemanticTokenDebugSample(samplesByKey, key, sample) {
@@ -85,6 +121,8 @@ module.exports = {
   addSemanticTokenDebugSample,
   createSemanticLegend,
   semanticTokenDebugSample,
+  semanticTokenFallbackScopes,
   semanticTokenRange,
+  semanticTokenSelectors,
   semanticTokensFromSnapshot
 };

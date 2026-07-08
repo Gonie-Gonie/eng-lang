@@ -3,6 +3,7 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 const vscode = require("vscode");
+const packageManifest = require("./package.json");
 const { EXECUTION_PROFILES } = require("./executionProfiles");
 const {
   currentWorkspaceRoot,
@@ -35,11 +36,20 @@ const DIAGNOSTICS_MODES = [
   }
 ];
 
+const DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP = semanticTokenScopeMapFromPackage(packageManifest);
+
+function semanticTokenScopeMapFromPackage(manifest) {
+  const rule = (manifest?.contributes?.semanticTokenScopes ?? [])
+    .find((entry) => entry?.language === "englang");
+  return rule?.scopes ?? {};
+}
+
 function createCommandHandlers(options = {}) {
   const output = options.output;
   const reviewCache = options.reviewCache;
   const artifactOpeners = options.artifactOpeners;
   const lspRequests = options.lspRequests;
+  const semanticTokenScopeMap = options.semanticTokenScopeMap ?? DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP;
   const isEngDocument = options.isEngDocument ?? (() => true);
   const updateSemanticSymbolDecorations =
     options.updateSemanticSymbolDecorations ?? (() => undefined);
@@ -335,9 +345,17 @@ function createCommandHandlers(options = {}) {
     const modifierCounts = {};
     const tokenSamplesByType = {};
     const tokenSamplesByModifier = {};
+    const missingScopeSelectors = {};
+    let tokensWithoutFallbackScope = 0;
     for (const token of semanticTokens.tokens ?? []) {
       tokenCounts[token.type] = (tokenCounts[token.type] ?? 0) + 1;
-      const sample = semanticTokenDebugSample(document, token);
+      const sample = semanticTokenDebugSample(document, token, semanticTokenScopeMap);
+      if ((sample.fallback_scopes ?? []).length === 0) {
+        tokensWithoutFallbackScope += 1;
+        for (const selector of sample.semantic_selectors ?? []) {
+          missingScopeSelectors[selector] = (missingScopeSelectors[selector] ?? 0) + 1;
+        }
+      }
       addSemanticTokenDebugSample(tokenSamplesByType, token.type || "-", sample);
       for (const modifier of token.modifiers ?? []) {
         modifierCounts[modifier] = (modifierCounts[modifier] ?? 0) + 1;
@@ -345,7 +363,7 @@ function createCommandHandlers(options = {}) {
       }
     }
     const tokenRows = (semanticTokens.tokens ?? []).map((token) => {
-      const sample = semanticTokenDebugSample(document, token);
+      const sample = semanticTokenDebugSample(document, token, semanticTokenScopeMap);
       const start = Number(sample.start);
       return {
         line: sample.line,
@@ -354,7 +372,9 @@ function createCommandHandlers(options = {}) {
         length: sample.length,
         text: sample.text,
         type: sample.type,
-        modifiers: sample.modifiers
+        modifiers: sample.modifiers,
+        semantic_selectors: sample.semantic_selectors,
+        fallback_scopes: sample.fallback_scopes
       };
     });
     const tokenCount = semanticTokens.tokens?.length ?? 0;
@@ -364,7 +384,10 @@ function createCommandHandlers(options = {}) {
       summary: {
         token_count: tokenCount,
         counts_by_type: tokenCounts,
-        counts_by_modifier: modifierCounts
+        counts_by_modifier: modifierCounts,
+        scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
+        tokens_without_fallback_scope: tokensWithoutFallbackScope,
+        missing_scope_selectors: missingScopeSelectors
       },
       legend: semanticTokens.legend ?? {},
       samples: {
