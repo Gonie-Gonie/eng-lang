@@ -1478,6 +1478,7 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
         <tr><th>Text</th><td><code>${escapeHtml(text)}</code></td></tr>
         <tr><th>Category</th><td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td></tr>
         <tr><th>Details</th><td>${modifierCells}</td></tr>
+        <tr><th>Selectors</th><td>${semanticTokenSelectorCells(token)}</td></tr>
         <tr><th>Hover</th><td>${escapeHtml(hover)}</td></tr>
         <tr><th>Filter</th><td>${filterButtons || "-"}</td></tr>
       </tbody>
@@ -1494,12 +1495,13 @@ function renderNearbySemanticTokenRows(tokens) {
         <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
         <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
         <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
+        <td>${semanticTokenSelectorCells(token)}</td>
       </tr>
     `;
   }).join("");
   return `
     <table class="var-table semantic-token-table">
-      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th></tr></thead>
+      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th><th>Selectors</th></tr></thead>
       <tbody>${rows}</tbody>
     </table>
   `;
@@ -1535,6 +1537,7 @@ function renderSemanticTokenRows(tokens, filtered = false) {
         <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
         <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
         <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
+        <td>${semanticTokenSelectorCells(token)}</td>
       </tr>
     `;
   }).join("");
@@ -1542,8 +1545,8 @@ function renderSemanticTokenRows(tokens, filtered = false) {
   const empty = filtered ? "No highlights match the current filter." : "No highlights for the current check.";
   return `
     <table class="var-table semantic-token-table">
-      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="4" class="muted">${escapeHtml(empty)}</td></tr>`}</tbody>
+      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th><th>Selectors</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="5" class="muted">${escapeHtml(empty)}</td></tr>`}</tbody>
     </table>
     ${hidden}
   `;
@@ -5320,6 +5323,27 @@ function semanticTokenClass(token) {
   return classes.join(" ");
 }
 
+function semanticTokenSelectors(token) {
+  const type = String(token?.type || "").trim();
+  if (!type) return [];
+  const selectors = [];
+  for (const modifier of arrayOrEmpty(token?.modifiers)) {
+    const detail = String(modifier || "").trim();
+    if (detail) {
+      selectors.push(`${type}.${detail}`);
+    }
+  }
+  selectors.push(type);
+  return [...new Set(selectors)];
+}
+
+function semanticTokenSelectorCells(token) {
+  const selectors = semanticTokenSelectors(token);
+  return selectors.length
+    ? selectors.map((selector) => `<code>${escapeHtml(selector)}</code>`).join(" ")
+    : "-";
+}
+
 function safeCssToken(value) {
   return String(value || "plain").replace(/[^a-zA-Z0-9_-]/g, "-");
 }
@@ -5340,6 +5364,7 @@ function semanticTokenSearchText(token) {
     semanticTokenText(token),
     token?.type,
     ...arrayOrEmpty(token?.modifiers),
+    ...semanticTokenSelectors(token),
     Number.isFinite(line) && line > 0 ? `L${line}` : "",
     Number.isFinite(line) && line > 0 ? `line:${line}` : "",
     token?.start,
@@ -5583,7 +5608,8 @@ function highlightTokenCopyText(tokens) {
     const start = Number(token.start ?? 0);
     const length = Number(token.length ?? 0);
     const modifiers = arrayOrEmpty(token.modifiers).join(", ") || "-";
-    lines.push(`L${line}:${start}:${length} | ${semanticTokenText(token)} | ${token.type || "-"} | ${modifiers}`);
+    const selectors = semanticTokenSelectors(token).join(", ") || "-";
+    lines.push(`L${line}:${start}:${length} | ${semanticTokenText(token)} | ${token.type || "-"} | ${modifiers} | selectors=${selectors}`);
   }
   return lines.join("\n");
 }

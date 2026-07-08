@@ -3865,6 +3865,9 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "relationship=${statusLabel(relationship)}",
         "copyVisibleHighlightsBtn.onclick = copyVisibleHighlights",
         "function highlightTokenCopyText(tokens)",
+        "function semanticTokenSelectors(token)",
+        "<th>Selectors</th>",
+        "selectors=${selectors}",
     ] {
         if !app_js.contains(required) {
             return Err(format!(

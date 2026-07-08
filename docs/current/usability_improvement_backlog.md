@@ -60,6 +60,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 503: Reworded current solver diagnostics and docs away from seed-only implementation language.
 - Batch 504: Added semantic highlighting coverage for function-style `plot line(...)` and `plot bar(...)`.
 - Batch 505: Made unsupported `apply run_case over ...` scheduling explicit instead of inferring CaseOutput.
+- Batch 506: Added Native IDE highlight selector visibility for VS Code semantic-token parity debugging.
 
 ## Documentation Policy
 
