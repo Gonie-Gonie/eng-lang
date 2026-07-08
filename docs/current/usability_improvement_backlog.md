@@ -4992,9 +4992,9 @@ Status: implemented after re-auditing workflow 01/02/03 for Python and external-
 
 Status: implemented after reviewing the long-running editor protocol surface against the current VS Code wiring.
 
-- Added an `editor_client` block to `EngLang: Show Tooling Status` so users can see that the extension currently uses short-lived live editor requests instead of keeping a long-running language server process open.
+- Added an `editor_client` block to `EngLang: Show Tooling Status` so users can see that the extension currently uses on-demand live editor checks instead of keeping a long-running language server process open.
 - Added a per-feature `features` block that maps Problems, hover, completion, definition, symbols, folding, formatting, quick fixes, and role-aware colors to the `live_editor` or `check_and_run` tool aliases.
-- Extended `ide-check` coverage so future status changes keep the user-facing request model and tool aliases visible.
+- Extended `ide-check` coverage so future status changes keep the user-facing editor-check model and tool aliases visible.
 
 ## Batch 405: Native IDE Caret Token Copy Actions
 
@@ -5212,6 +5212,13 @@ Status: implemented after re-checking workflow 01/02/03 public docs for wording 
 - Reworded the native surrogate workflow docs to say the design tables, model card, prediction manifest, DB manifest, and SQLite readback artifacts are materialized during the native run.
 - Extended `workflows-test` public-doc guards to reject `created by Python` and `Python-created` wording in native workflow documentation.
 
+## Batch 430: VS Code Tooling Status Wording
+
+Status: implemented after reviewing `EngLang: Show Tooling Status` for user-facing IDE terminology.
+
+- Reworded the status payload from fresh/short-lived request phrasing to on-demand live editor checks.
+- Extended `ide-check` to reject the older internal request wording in the VS Code command handler.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
@@ -5238,7 +5245,7 @@ Status: implemented after re-checking workflow 01/02/03 public docs for wording 
 
 ## VS Code Linter And Highlighting Candidates
 
-- Promote the VS Code extension from short-lived live editor requests to a
+- Promote the VS Code extension from on-demand live editor checks to a
   long-running editor client when the protocol surface is stable.
 - Broaden cross-file go-to-definition beyond static file imports once bundled
   module symbols expose definition URI/range metadata.

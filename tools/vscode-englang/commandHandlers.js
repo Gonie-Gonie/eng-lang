@@ -467,11 +467,11 @@ function createCommandHandlers(options = {}) {
         eng_lsp: liveEditorTool
       },
       editor_client: {
-        request_model: "short-lived live editor requests",
+        request_model: "on-demand live editor checks",
         long_running_language_server: false,
         live_buffer_tool: "live_editor",
         file_check_tool: "check_and_run",
-        status_note: "VS Code starts a fresh live editor request for each hover, completion, symbol, highlight, formatting, quick-fix, or live Problems update."
+        status_note: "Live editor features read the current buffer for hover, completion, symbols, highlights, formatting, quick fixes, and live Problems updates."
       },
       features: {
         problems: {
@@ -491,7 +491,7 @@ function createCommandHandlers(options = {}) {
         role_aware_colors: {
           enabled: semanticHighlighting,
           tool: "live_editor",
-          request_model: "short-lived live editor request"
+          request_model: "on-demand live editor check"
         }
       },
       settings: {
@@ -514,7 +514,7 @@ function createCommandHandlers(options = {}) {
     return {
       enabled: true,
       tool,
-      request_model: "short-lived live editor request"
+      request_model: "on-demand live editor check"
     };
   }
 

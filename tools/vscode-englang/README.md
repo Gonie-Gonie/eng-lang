@@ -108,7 +108,7 @@ Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the bundled check/run tool and live editor tool paths,
-the current Problems source, the request model, and per-feature live editor
+the current Problems source and per-feature live editor
 routing. If you run directly from source without packaging,
 set:
 
@@ -120,7 +120,7 @@ englang.lspPath = C:\path\to\eng-lsp.exe
 ## Current Scope
 
 The extension is a local editor client for the bundled EngLang tooling. It uses
-short-lived editor requests for live Problems, hover, completion, document
+on-demand live editor checks for live Problems, hover, completion, document
 symbols, workspace symbols, folding, semantic tokens, definition, formatting,
 and quick fixes. This keeps VS Code behavior aligned with the compiler while
 the long-running editor protocol continues to evolve. The default Problems

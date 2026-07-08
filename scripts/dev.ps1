@@ -2814,13 +2814,21 @@ function Assert-VscodeExtensionContract {
         "live_editor: liveEditorTool",
         "eng: checkAndRunTool",
         "eng_lsp: liveEditorTool",
-        'request_model: "short-lived live editor requests"',
+        'request_model: "on-demand live editor checks"',
         "long_running_language_server: false",
         'live_buffer_tool: "live_editor"',
         'file_check_tool: "check_and_run"'
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredToolingStatusAlias)) {
             throw "VS Code tooling status must expose user-facing tool aliases while keeping executable compatibility keys"
+        }
+    }
+    foreach ($ForbiddenToolingStatusWording in @(
+        "fresh live editor request",
+        "short-lived live editor request"
+    )) {
+        if ($CommandHandlersSource.Contains($ForbiddenToolingStatusWording)) {
+            throw "VS Code tooling status must describe editor checks in user-facing wording: $ForbiddenToolingStatusWording"
         }
     }
     if (-not $CommandHandlersSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {
