@@ -5205,6 +5205,13 @@ Status: implemented after reviewing native IDE side-tab labels against the IDE u
 - Replaced abbreviated native IDE side-tab labels (`Vars`, `Net`, `Flow`, `Obj`, `Asm`) with clearer labels (`Variables`, `Network`, `Workflow`, `Objects`, `Assembly`).
 - Extended `ide-check` to reject the old abbreviated labels so the primary review/navigation surface stays understandable.
 
+## Batch 429: Native Workflow Positive Artifact Wording
+
+Status: implemented after re-checking workflow 01/02/03 public docs for wording that could imply Python-created intermediate artifacts.
+
+- Reworded the native surrogate workflow docs to say the design tables, model card, prediction manifest, DB manifest, and SQLite readback artifacts are materialized during the native run.
+- Extended `workflows-test` public-doc guards to reject `created by Python` and `Python-created` wording in native workflow documentation.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache
