@@ -23,6 +23,8 @@ foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $Fi
     }
 }
 
+$GrammarSourceRaw = Get-Content -LiteralPath $GrammarSourcePath -Raw -Encoding UTF8
+$GrammarSource = $GrammarSourceRaw | ConvertFrom-Json
 $GrammarGeneratedRaw = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8
 $Grammar = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $ExpectedJson = Get-Content -LiteralPath $ExpectedPath -Raw -Encoding UTF8 | ConvertFrom-Json
@@ -234,6 +236,34 @@ function Assert-WorkflowOptionsAreScopedToWithBlocks {
     }
 }
 
+function Assert-UnitsPrecedeBuiltinsInIncludeGroups {
+    param(
+        [Parameter(Mandatory = $true)][object] $Node,
+        [string] $Path = "grammar"
+    )
+
+    if ($null -eq $Node) {
+        return
+    }
+    if ($null -ne $Node.patterns) {
+        $patterns = @($Node.patterns)
+        $includes = @($patterns | Where-Object { $null -ne $_.include } | ForEach-Object { [string]$_.include })
+        $unitIndex = [array]::IndexOf($includes, "#units")
+        $builtinIndex = [array]::IndexOf($includes, "#builtins")
+        if ($unitIndex -ge 0 -and $builtinIndex -ge 0 -and $unitIndex -gt $builtinIndex) {
+            throw "TextMate include order must place #units before #builtins at $Path"
+        }
+        for ($i = 0; $i -lt $patterns.Count; $i++) {
+            Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $patterns[$i] -Path "$Path.patterns[$i]"
+        }
+    }
+    if ($null -ne $Node.repository) {
+        foreach ($property in $Node.repository.PSObject.Properties) {
+            Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $property.Value -Path "$Path.repository.$($property.Name)"
+        }
+    }
+}
+
 function Assert-GeneratedGrammarContainsLabels {
     param(
         [Parameter(Mandatory = $true)][string] $Source,
@@ -368,6 +398,65 @@ function Test-PatternMatchesLabelInFixture {
     return $false
 }
 
+function Test-PatternMatchesLabelOnlyInFixture {
+    param(
+        [Parameter(Mandatory = $true)][object] $Pattern,
+        [Parameter(Mandatory = $true)][string] $Label,
+        [Parameter(Mandatory = $true)][string] $FixtureText
+    )
+
+    $patternNode = $Pattern.pattern
+    $captureIndex = $Pattern.capture_index
+    $captureKind = [string] $Pattern.capture_kind
+
+    if ($null -ne $captureIndex) {
+        $patternText = $null
+        if ($captureKind -eq "begin" -and $null -ne $patternNode.begin) {
+            $patternText = [string] $patternNode.begin
+        } elseif ($captureKind -eq "end" -and $null -ne $patternNode.end) {
+            $patternText = [string] $patternNode.end
+        } elseif ($captureKind -eq "match" -and $null -ne $patternNode.match) {
+            $patternText = [string] $patternNode.match
+        }
+        if ($null -eq $patternText) {
+            return $false
+        }
+        foreach ($match in [regex]::Matches($FixtureText, $patternText, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+            if ($captureIndex -lt $match.Groups.Count -and $match.Groups[$captureIndex].Value -eq $Label) {
+                return $true
+            }
+        }
+        return $false
+    }
+
+    if ($null -ne $patternNode.match) {
+        foreach ($match in [regex]::Matches($FixtureText, [string] $patternNode.match, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+            if ($match.Value -eq $Label) {
+                return $true
+            }
+        }
+    }
+    return $false
+}
+
+function Assert-ScopeDoesNotMatchLabelInFixture {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string] $Label,
+        [Parameter(Mandatory = $true)][string] $FixtureText,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    if (-not $PatternsByScope.ContainsKey($Scope)) {
+        return
+    }
+    foreach ($pattern in $PatternsByScope[$Scope]) {
+        if (Test-PatternMatchesLabelOnlyInFixture -Pattern $pattern -Label $Label -FixtureText $FixtureText) {
+            throw "TextMate scope $Scope must not match $Description label $Label in '$FixtureText'"
+        }
+    }
+}
+
 function Assert-AnyScopeMatchesLabels {
     param(
         [Parameter(Mandatory = $true)][string[]] $Scopes,
@@ -449,6 +538,7 @@ Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $Gram
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
+Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $GrammarSource.grammar
 Assert-WorkflowOptionsAreScopedToWithBlocks
 $AllowedGrammarWorkflowOptions = @($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
 $GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $AllowedGrammarWorkflowOptions -notcontains $_ } | Sort-Object -Unique)
@@ -636,6 +726,8 @@ Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGene
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
+Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
 Assert-ExpectedWorkflowScopesCoverGrammar
 

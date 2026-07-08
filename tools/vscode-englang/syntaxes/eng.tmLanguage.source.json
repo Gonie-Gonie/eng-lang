@@ -16,10 +16,10 @@
       { "include": "#keywords" },
       { "include": "#operators" },
       { "include": "#functionCalls" },
+      { "include": "#units" },
       { "include": "#builtins" },
       { "include": "#constants" },
       { "include": "#types" },
-      { "include": "#units" },
       { "include": "#numbers" },
       { "include": "#punctuation" }
     ],
@@ -86,7 +86,7 @@
                   },
                   {
                     "name": "constant.other.unit.format.englang",
-                    "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])"
+                    "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
                   }
                 ]
               }
@@ -232,10 +232,10 @@
             "patterns": [
               { "include": "#strings" },
               { "include": "#modules" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#numbers" },
-              { "include": "#units" },
               { "include": "#punctuation" }
             ]
           },
@@ -250,10 +250,10 @@
             "patterns": [
               { "include": "#strings" },
               { "include": "#modules" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#numbers" },
-              { "include": "#units" },
               { "include": "#punctuation" }
             ]
           },
@@ -271,9 +271,9 @@
               },
               { "include": "#strings" },
               { "include": "#modules" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
-              { "include": "#units" },
               { "include": "#numbers" },
               { "include": "#operators" },
               { "include": "#punctuation" },
@@ -311,9 +311,9 @@
               { "include": "#languageVariables" },
               { "include": "#members" },
               { "include": "#modules" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
-              { "include": "#units" },
               { "include": "#numbers" },
               { "include": "#operators" },
               { "include": "#punctuation" },
@@ -799,10 +799,10 @@
                 }
               },
               { "include": "#strings" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#numbers" },
-              { "include": "#units" },
               { "include": "#operators" },
               { "include": "#punctuation" },
               {
@@ -832,10 +832,10 @@
                 }
               },
               { "include": "#strings" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#numbers" },
-              { "include": "#units" },
               { "include": "#operators" },
               { "include": "#punctuation" },
               {
@@ -1005,10 +1005,10 @@
             "patterns": [
               { "include": "#strings" },
               { "include": "#modules" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#numbers" },
-              { "include": "#units" },
               { "include": "#punctuation" }
             ]
           },
@@ -1044,10 +1044,10 @@
             "patterns": [
               { "include": "#strings" },
               { "include": "#modules" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#numbers" },
-              { "include": "#units" },
               { "include": "#operators" },
               { "include": "#punctuation" }
             ]
@@ -1338,10 +1338,10 @@
               { "include": "#functionCalls" },
               { "include": "#strings" },
               { "include": "#members" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#types" },
-              { "include": "#units" },
               { "include": "#numbers" },
               { "include": "#punctuation" }
             ]
@@ -1383,10 +1383,10 @@
                   { "include": "#strings" },
                   { "include": "#members" },
                   { "include": "#functionCalls" },
+                  { "include": "#units" },
                   { "include": "#builtins" },
                   { "include": "#constants" },
                   { "include": "#types" },
-                  { "include": "#units" },
                   { "include": "#numbers" },
                   { "include": "#punctuation" }
                 ]
@@ -1424,10 +1424,10 @@
               },
               { "include": "#members" },
               { "include": "#functionCalls" },
+              { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#types" },
-              { "include": "#units" },
               { "include": "#numbers" },
               { "include": "#punctuation" }
             ]
@@ -1480,7 +1480,7 @@
         "patterns": [
           {
             "name": "meta.quantity.literal.englang",
-            "match": "\\b[0-9]+(?:\\.[0-9]+)?\\s+({{ASCII_UNITS}})(?![A-Za-z0-9_/])",
+            "match": "\\b[0-9]+(?:\\.[0-9]+)?\\s+({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()",
             "captures": {
               "1": { "name": "constant.other.unit.englang" }
             }
@@ -1491,7 +1491,7 @@
           },
           {
             "name": "constant.other.unit.englang",
-            "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])"
+            "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
           }
         ]
       },

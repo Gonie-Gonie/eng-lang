@@ -1847,6 +1847,18 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "10 min",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "min",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.operator.word.englang",
     "text": "of"
   },
@@ -2131,7 +2143,31 @@
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.stat-axis-call.englang",
+    "text": "min(Q_series, axis=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.stat-axis-call.englang",
     "text": "max(Q_series, axis=Time)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "mean",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "min",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "max",
     "fullMatch": true
   },
   {

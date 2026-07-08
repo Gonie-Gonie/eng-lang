@@ -5233,6 +5233,14 @@ Status: implemented after inspecting workflow 03 semantic tokens for unit/functi
 - Changed the LSP lexical semantic scanner to identify unit ranges before word/builtin ranges so unit tokens such as `min` in `10 min` and denominator unit names in `1/min` are not also emitted as report/timeseries functions.
 - Added a regression that keeps `min(Q_series)` highlighted as a builtin function while preserving `min` duration units as unit tokens only, even when a unit symbol and builtin name overlap.
 
+## Batch 433: TextMate Unit/Builtin Highlight Split
+
+Status: implemented after checking the same `min` unit/function overlap in VS Code TextMate first-render highlighting.
+
+- Moved TextMate `#units` includes ahead of `#builtins` wherever both fallback scopes share a pattern list, so duration literals such as `10 min` color as units before builtin fallback rules can claim them.
+- Added unit regex guards and grammar smoke regressions so `min(Q_series, axis=Time)` remains a builtin stat-axis call while `max_gap=10 min` remains a quantity literal with a unit token.
+- Strengthened `vscode-grammar-test` with an include-order contract and a fixture-context guard that prevents unit scopes from matching function-call names such as `min(...)`.
+
 ## Seed-To-Implementation Candidates
 
 - Cache replay/invalidation: network offline-response cache

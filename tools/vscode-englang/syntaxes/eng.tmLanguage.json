@@ -39,6 +39,9 @@
                          "include":  "#functionCalls"
                      },
                      {
+                         "include":  "#units"
+                     },
+                     {
                          "include":  "#builtins"
                      },
                      {
@@ -46,9 +49,6 @@
                      },
                      {
                          "include":  "#types"
-                     },
-                     {
-                         "include":  "#units"
                      },
                      {
                          "include":  "#numbers"
@@ -128,7 +128,7 @@
                                                                                                   },
                                                                                                   {
                                                                                                       "name":  "constant.other.unit.format.englang",
-                                                                                                      "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])"
+                                                                                                      "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()"
                                                                                                   }
                                                                                               ]
                                                                              }
@@ -339,6 +339,9 @@
                                                                                          "include":  "#modules"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
@@ -346,9 +349,6 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -375,6 +375,9 @@
                                                                                          "include":  "#modules"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
@@ -382,9 +385,6 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -412,13 +412,13 @@
                                                                                          "include":  "#modules"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#constants"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
@@ -478,13 +478,13 @@
                                                                                          "include":  "#modules"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#constants"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
@@ -1264,6 +1264,9 @@
                                                                                          "include":  "#strings"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
@@ -1271,9 +1274,6 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#operators"
@@ -1323,6 +1323,9 @@
                                                                                          "include":  "#strings"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
@@ -1330,9 +1333,6 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#operators"
@@ -1644,6 +1644,9 @@
                                                                                          "include":  "#modules"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
@@ -1651,9 +1654,6 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -1719,6 +1719,9 @@
                                                                                          "include":  "#modules"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#units"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#builtins"
                                                                                      },
                                                                                      {
@@ -1726,9 +1729,6 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
-                                                                                     },
-                                                                                     {
-                                                                                         "include":  "#units"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#operators"
@@ -2133,6 +2133,9 @@
                                                                                        "include":  "#members"
                                                                                    },
                                                                                    {
+                                                                                       "include":  "#units"
+                                                                                   },
+                                                                                   {
                                                                                        "include":  "#builtins"
                                                                                    },
                                                                                    {
@@ -2140,9 +2143,6 @@
                                                                                    },
                                                                                    {
                                                                                        "include":  "#types"
-                                                                                   },
-                                                                                   {
-                                                                                       "include":  "#units"
                                                                                    },
                                                                                    {
                                                                                        "include":  "#numbers"
@@ -2212,6 +2212,9 @@
                                                                                                           "include":  "#functionCalls"
                                                                                                       },
                                                                                                       {
+                                                                                                          "include":  "#units"
+                                                                                                      },
+                                                                                                      {
                                                                                                           "include":  "#builtins"
                                                                                                       },
                                                                                                       {
@@ -2219,9 +2222,6 @@
                                                                                                       },
                                                                                                       {
                                                                                                           "include":  "#types"
-                                                                                                      },
-                                                                                                      {
-                                                                                                          "include":  "#units"
                                                                                                       },
                                                                                                       {
                                                                                                           "include":  "#numbers"
@@ -2279,6 +2279,9 @@
                                                                                      "include":  "#functionCalls"
                                                                                  },
                                                                                  {
+                                                                                     "include":  "#units"
+                                                                                 },
+                                                                                 {
                                                                                      "include":  "#builtins"
                                                                                  },
                                                                                  {
@@ -2286,9 +2289,6 @@
                                                                                  },
                                                                                  {
                                                                                      "include":  "#types"
-                                                                                 },
-                                                                                 {
-                                                                                     "include":  "#units"
                                                                                  },
                                                                                  {
                                                                                      "include":  "#numbers"
@@ -2366,7 +2366,7 @@
                                      "patterns":  [
                                                       {
                                                           "name":  "meta.quantity.literal.englang",
-                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])",
+                                                          "match":  "\\b[0-9]+(?:\\.[0-9]+)?\\s+(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()",
                                                           "captures":  {
                                                                            "1":  {
                                                                                      "name":  "constant.other.unit.englang"
@@ -2379,7 +2379,7 @@
                                                       },
                                                       {
                                                           "name":  "constant.other.unit.englang",
-                                                          "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])"
+                                                          "match":  "(?\u003c![A-Za-z0-9_])(gibibytes|gigabytes|kibibytes|kilobytes|mebibytes|megabytes|people/m2|person/m2|gibibyte|gigabyte|kibibyte|kilobyte|mebibyte|megabyte|J/kg/K|bytes|W/m\\^2|byte|degC|kg/s|kJ/K|W/m2|GiB|J/K|KiB|kPa|kWh|MiB|min|W/K|cm|GB|KB|kJ|kW|m2|m3|MB|MJ|mm|Pa|Wh|%|B|h|J|K|m|s|W)(?![A-Za-z0-9_/])(?!\\s*\\()"
                                                       }
                                                   ]
                                  },
