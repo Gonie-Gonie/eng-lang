@@ -20717,7 +20717,7 @@ mod tests {
             concat!(
                 "{\n",
                 "  \"database\": \"outputs/results.sqlite\",\n",
-                "  \"transaction_status\": \"committed-fixture\",\n",
+                "  \"transaction_status\": \"committed\",\n",
                 "  \"schema_status\": \"ok\",\n",
                 "  \"tables\": [\n",
                 "    {\n",
@@ -20757,7 +20757,7 @@ mod tests {
             .contains("\"database\": \"outputs/results.sqlite\""));
         assert!(output
             .result_json
-            .contains("\"transaction_status\": \"committed-fixture\""));
+            .contains("\"transaction_status\": \"committed\""));
         assert!(output
             .result_json
             .contains("\"name\": \"simulation_results\""));
@@ -21538,8 +21538,8 @@ mod tests {
             source_dir.join("outputs").join("model_card.json"),
             concat!(
                 "{\n",
-                "  \"model\": \"linear-fixture\",\n",
-                "  \"model_kind\": \"surrogate_regression_fixture\",\n",
+                "  \"model\": \"external-linear\",\n",
+                "  \"model_kind\": \"external_linear_regression\",\n",
                 "  \"features\": [\"cooling_cop\", \"lighting_power_density\"],\n",
                 "  \"target\": \"annual_electricity\",\n",
                 "  \"target_quantity\": \"Energy\",\n",
@@ -21548,7 +21548,7 @@ mod tests {
                 "  \"metrics\": {\"rmse\": 0.0, \"mae\": 0.0, \"r2\": 1.0},\n",
                 "  \"training_data_hash\": \"training-hash\",\n",
                 "  \"model_artifact_hash\": \"model-hash\",\n",
-                "  \"status\": \"fixture\"\n",
+                "  \"status\": \"complete\"\n",
                 "}\n",
             ),
         )
@@ -21559,7 +21559,7 @@ mod tests {
                 "{\n",
                 "  \"format\": \"prediction-manifest-v1\",\n",
                 "  \"status\": \"complete\",\n",
-                "  \"model\": \"linear-fixture\",\n",
+                "  \"model\": \"external-linear\",\n",
                 "  \"model_file\": {\"path\": \"outputs/surrogate.json\", \"sha256\": \"model-hash\", \"bytes\": 20},\n",
                 "  \"sample_file\": {\"path\": \"samples/design_samples.csv\", \"sha256\": \"sample-hash\", \"bytes\": 30},\n",
                 "  \"output_file\": {\"path\": \"outputs/predictions.csv\", \"sha256\": \"prediction-hash\", \"bytes\": 40},\n",
@@ -21589,7 +21589,7 @@ mod tests {
         assert!(output.result_json.contains("\"model_cards\""));
         assert!(output
             .result_json
-            .contains("\"model_kind\": \"surrogate_regression_fixture\""));
+            .contains("\"model_kind\": \"external_linear_regression\""));
         assert!(output.result_json.contains("\"model_specs\""));
         assert!(output.result_json.contains("\"features\""));
         assert!(output
