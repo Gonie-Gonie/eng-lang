@@ -1327,6 +1327,18 @@ button:hover {
   background: var(--panel);
 }
 
+.problem-message {
+  overflow-wrap: anywhere;
+}
+
+.problem-actions {
+  margin-top: 4px;
+}
+
+.problem-copy-button {
+  font-size: 11px;
+}
+
 .segmented {
   display: inline-flex;
   align-items: center;

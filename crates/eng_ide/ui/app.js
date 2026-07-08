@@ -530,6 +530,12 @@ function bind() {
       selectSourceLine(Number(row.dataset.problemLine || 0));
     };
   });
+  document.querySelectorAll("[data-copy-problem-index]").forEach((button) => {
+    button.onclick = (event) => {
+      event.stopPropagation();
+      copyProblemDiagnostic(Number(button.dataset.copyProblemIndex || -1));
+    };
+  });
   document.querySelectorAll("[data-module-category]").forEach((button) => {
     button.onclick = () => {
       state.moduleCategory = button.dataset.moduleCategory;
@@ -5717,14 +5723,17 @@ function renderVariableDetail(variable) {
 function renderProblems() {
   const diagnostics = state.check.diagnostics || [];
   const codes = problemCodeOptions(diagnostics);
-  const activeCode = codes.includes(state.problemCode) ? state.problemCode : "all";
+  const activeCode = activeProblemCode(diagnostics);
   const filtered = filteredProblems(activeCode);
-  const rows = filtered.map((diag) => `
+  const rows = filtered.map((diag, index) => `
     <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" title="Jump to source line ${escapeAttr(diag.line || "-")}">
       <td class="${diag.severity === "error" ? "error" : "warning"}">${escapeHtml(diag.severity)}</td>
       <td>${sourceLineButton(diag)}</td>
       <td><code>${escapeHtml(diag.code)}</code></td>
-      <td>${escapeHtml(diag.message)}${diag.help ? `<div class="muted">help: ${escapeHtml(diag.help)}</div>` : ""}</td>
+      <td>
+        <div class="problem-message">${escapeHtml(diag.message)}${diag.help ? `<div class="muted">help: ${escapeHtml(diag.help)}</div>` : ""}</div>
+        <div class="problem-actions">${problemCopyButton(index)}</div>
+      </td>
     </tr>
   `).join("");
   return `
@@ -5772,6 +5781,11 @@ function filteredProblems(activeCode = state.problemCode) {
   });
 }
 
+function activeProblemCode(diagnostics = state.check.diagnostics || []) {
+  const codes = problemCodeOptions(diagnostics);
+  return codes.includes(state.problemCode) ? state.problemCode : "all";
+}
+
 function problemCodeOptions(diagnostics) {
   return [...new Set(diagnostics.map((diag) => diag.code).filter(Boolean))].sort();
 }
@@ -5780,6 +5794,34 @@ function problemSeverityLabel(severity, diagnostics) {
   if (severity === "all") return `All ${diagnostics.length}`;
   const count = diagnostics.filter((diag) => diag.severity === severity).length;
   return `${severity === "error" ? "Errors" : "Warnings"} ${count}`;
+}
+
+function problemCopyButton(index) {
+  return `<button class="link-button problem-copy-button" data-copy-problem-index="${escapeAttr(index)}" title="Copy diagnostic details">Copy</button>`;
+}
+
+async function copyProblemDiagnostic(index) {
+  const diagnostics = state.check.diagnostics || [];
+  const diag = filteredProblems(activeProblemCode(diagnostics))[index];
+  if (!diag) {
+    setStatus("Problem no longer available");
+    return;
+  }
+  const copied = await copyTextToClipboard(problemCopyText(diag));
+  const label = `${diag.code || "diagnostic"} L${sourceLineValue(diag) || "-"}`;
+  setStatus(copied ? `Copied problem ${label}` : "Copy failed");
+}
+
+function problemCopyText(diag) {
+  const lines = [
+    `file: ${state.currentPath || "-"}`,
+    `line: ${sourceLineValue(diag) || "-"}`,
+    `severity: ${diag?.severity || "-"}`,
+    `code: ${diag?.code || "-"}`,
+    `message: ${diag?.message || "-"}`
+  ];
+  if (diag?.help) lines.push(`help: ${diag.help}`);
+  return lines.join("\n");
 }
 
 function renderTerminal() {
