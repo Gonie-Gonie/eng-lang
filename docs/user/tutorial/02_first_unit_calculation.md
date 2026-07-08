@@ -21,7 +21,7 @@ print "Q = {Q: .2 kW}"
 
 Create a small file such as scratch/first_units.eng in your working directory.
 
-## Run Command
+## Execute The Program
 
 ```bat
 eng.exe run scratch/first_units.eng --save-artifacts

@@ -8,7 +8,7 @@ Use the native IDE as a review surface for diagnostics and generated artifacts.
 
 No new source file is required. Open a supported example in the IDE.
 
-## Run Command
+## Execute The Program
 
 ```bat
 eng.exe ide examples/official/01_csv_plot/main.eng

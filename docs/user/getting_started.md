@@ -1,8 +1,8 @@
 # Getting Started
 
 This page assumes a portable Windows package or a repository build that exposes
-eng.exe. From a package, run commands in the extracted package directory. From
-the repository, run commands from the repository root after building.
+eng.exe. From a package, execute commands in the extracted package directory. From
+the repository, execute commands from the repository root after building.
 
 ## Check The Package
 
@@ -14,7 +14,7 @@ Expected result: the command reports that the package assets and example paths
 are usable. If a package README gives a different executable path, use that
 path consistently in the commands below.
 
-## Run A First Example
+## Execute A First Example
 
 ```bat
 eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts

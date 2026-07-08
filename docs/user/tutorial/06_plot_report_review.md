@@ -25,7 +25,7 @@ report {
 
 Use examples/official/01_csv_plot/main.eng.
 
-## Run Command
+## Execute The Program
 
 ```bat
 eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts

@@ -25,7 +25,7 @@ examples/official/01_csv_plot/main.eng and
 examples/official/12_write_output_manifest/main.eng both show file-oriented
 workflows.
 
-## Run Command
+## Execute The Program
 
 ```bat
 eng.exe run examples/official/01_csv_plot/main.eng --save-artifacts

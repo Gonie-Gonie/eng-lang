@@ -1182,6 +1182,29 @@ function Test-PublicWorkflowDocs {
     Write-Host "Public workflow docs wording check passed."
 }
 
+function Test-UserDocsExecutionWording {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $UserDocsRoot
+    )
+
+    if (-not (Test-Path -LiteralPath $UserDocsRoot -PathType Container)) {
+        throw "missing user docs root at $UserDocsRoot"
+    }
+
+    foreach ($docPath in Get-ChildItem -LiteralPath $UserDocsRoot -Recurse -Filter "*.md") {
+        $text = Get-Content -LiteralPath $docPath.FullName -Raw -Encoding UTF8
+        if ($text -match "(?m)^##\s+Run Commands?\s*$") {
+            throw "user docs should use execution wording instead of Run Command heading: $($docPath.FullName)"
+        }
+        if ($text -match "(?i)\brun commands\b") {
+            throw "user docs should say execute commands instead of run commands: $($docPath.FullName)"
+        }
+    }
+
+    Write-Host "User docs execution wording check passed."
+}
+
 function Test-StdlibModuleBoundaryNotes {
     param(
         [Parameter(Mandatory = $true)]
@@ -1308,6 +1331,8 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "docs\current\workflow_modules.md"),
         (Join-Path $RepoRoot "docs\workflows\index.md")
     )
+    Test-UserDocsExecutionWording `
+        -UserDocsRoot (Join-Path $RepoRoot "docs\user")
 
     $checked = 0
     $skipped = 0

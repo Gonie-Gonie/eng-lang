@@ -10,7 +10,7 @@ errors.
 No new source is required. Run a valid example, then deliberately inspect how
 schema and unit diagnostics are reported when source or input data is wrong.
 
-## Run Commands
+## Execute The Steps
 
 ```bat
 eng.exe check examples/official/01_csv_plot/main.eng

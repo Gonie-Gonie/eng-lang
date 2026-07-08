@@ -10,7 +10,7 @@ user workflows.
 No new source file is required. You will verify the executable, run the package
 doctor, and smoke-test the example suite.
 
-## Run Commands
+## Execute The Steps
 
 From a portable package:
 

@@ -26,7 +26,7 @@ with {
 }
 ```
 
-## Run Commands
+## Execute The Steps
 
 ```bat
 eng.exe run examples/official/12_write_output_manifest/main.eng --save-artifacts
