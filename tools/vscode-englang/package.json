@@ -339,6 +339,10 @@
             "support.function.builtin.englang",
             "constant.language.englang"
           ],
+          "keyword.uncertain": [
+            "constant.language.englang",
+            "keyword.operator.word.englang"
+          ],
           "property.uncertain": [
             "constant.language.englang",
             "variable.other.property.englang"

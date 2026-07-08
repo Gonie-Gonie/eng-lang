@@ -2324,7 +2324,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for block in &program.with_blocks {
-        builder.push_keywords_on_line(block.line, &["with"], &[]);
+        builder.push_keywords_on_line(
+            block.line,
+            &["with"],
+            with_block_semantic_modifiers(program, block),
+        );
         for option in &block.options {
             let modifiers = with_option_semantic_modifiers(program, block, &option.key);
             builder.push_on_line(option.line, &option.key, "property", modifiers);
@@ -2335,6 +2339,92 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     add_review_risk_semantic_tokens(report, &mut builder);
 
     builder.finish()
+}
+
+fn with_block_semantic_modifiers(
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+) -> &'static [&'static str] {
+    if is_model_with_block(program, block.owner_line) {
+        return &["model"];
+    }
+    if is_coverage_with_block(program, block.owner_line) {
+        return &["validation", "workflowStep"];
+    }
+    if is_sample_with_block(program, block.owner_line) {
+        return &["workflowStep"];
+    }
+    if is_template_workflow_with_block(program, block.owner_line) {
+        return &["sideEffect", "workflowStep"];
+    }
+    if let Some(modifiers) = write_with_block_semantic_modifiers(program, block.owner_line) {
+        return modifiers;
+    }
+    if is_net_with_block(program, block.owner_line) {
+        return &["external"];
+    }
+    if is_process_with_block(program, block.owner_line) {
+        return &["sideEffect", "external"];
+    }
+    if is_report_with_block(program, block.owner_line) {
+        return &["report"];
+    }
+    if is_solver_with_block(program, block.owner_line) {
+        return &["solver"];
+    }
+    if is_workflow_step_with_block(program, block.owner_line) {
+        return &["workflowStep"];
+    }
+
+    with_block_option_semantic_modifiers(program, block)
+}
+
+fn with_block_option_semantic_modifiers(
+    program: &SemanticProgram,
+    block: &WithBlockInfo,
+) -> &'static [&'static str] {
+    let mut has_cache = false;
+    let mut has_uncertain = false;
+    for option in &block.options {
+        let modifiers = with_option_semantic_modifiers(program, block, &option.key);
+        if modifiers.iter().any(|modifier| *modifier == "db") {
+            return &["db"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "external") {
+            return &["external"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "sideEffect") {
+            return &["sideEffect"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "solver") {
+            return &["solver"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "report") {
+            return &["report"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "validation") {
+            return &["validation"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "workflowStep") {
+            return &["workflowStep"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "model") {
+            return &["model"];
+        }
+        if modifiers.iter().any(|modifier| *modifier == "cache") {
+            has_cache = true;
+        }
+        if modifiers.iter().any(|modifier| *modifier == "uncertain") {
+            has_uncertain = true;
+        }
+    }
+    if has_cache {
+        return &["cache"];
+    }
+    if has_uncertain {
+        return &["uncertain"];
+    }
+    &[]
 }
 
 fn with_option_semantic_modifiers(
@@ -2658,6 +2748,91 @@ fn is_coverage_with_block(program: &SemanticProgram, owner_line: Option<usize>) 
         command.line == owner_line
             && command.verb == "check"
             && command.target.trim().starts_with("coverage ")
+    })
+}
+
+fn write_with_block_semantic_modifiers(
+    program: &SemanticProgram,
+    owner_line: Option<usize>,
+) -> Option<&'static [&'static str]> {
+    let owner_line = owner_line?;
+    let write = program
+        .writes
+        .iter()
+        .find(|write| write.line == owner_line)?;
+    if write.quantity_kind == "DbWrite" {
+        Some(&["db"])
+    } else if write.format == "standard_text" {
+        Some(&["sideEffect", "workflowStep"])
+    } else {
+        Some(&["sideEffect"])
+    }
+}
+
+fn is_process_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program
+        .process_runs
+        .iter()
+        .any(|process| process.line == owner_line)
+}
+
+fn is_report_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program
+        .csv_exports
+        .iter()
+        .any(|export| export.line == owner_line)
+        || program.command_styles.iter().any(|command| {
+            command.line == owner_line
+                && matches!(
+                    command.verb.as_str(),
+                    "plot"
+                        | "show"
+                        | "report"
+                        | "summarize"
+                        | "summary"
+                        | "mean"
+                        | "max"
+                        | "min"
+                        | "duration"
+                )
+        })
+}
+
+fn is_solver_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program.command_styles.iter().any(|command| {
+        command.line == owner_line
+            && matches!(command.verb.as_str(), "simulate" | "solve" | "integrate")
+    })
+}
+
+fn is_workflow_step_with_block(program: &SemanticProgram, owner_line: Option<usize>) -> bool {
+    let Some(owner_line) = owner_line else {
+        return false;
+    };
+    program.command_styles.iter().any(|command| {
+        command.line == owner_line
+            && matches!(
+                command.verb.as_str(),
+                "apply"
+                    | "materialize"
+                    | "collect"
+                    | "filter"
+                    | "select"
+                    | "sort"
+                    | "derive"
+                    | "fill"
+                    | "align"
+                    | "resample"
+            )
     })
 }
 
@@ -7291,6 +7466,40 @@ mod tests {
         );
     }
 
+    fn assert_semantic_token_after_line_with_modifier(
+        snapshot: &LspSnapshot,
+        source: &str,
+        owner_line_needle: &str,
+        line_needle: &str,
+        label: &str,
+        token_type: &str,
+        modifier: &str,
+    ) {
+        let owner_line_index = source
+            .lines()
+            .position(|line| line.contains(owner_line_needle))
+            .unwrap_or_else(|| panic!("source line `{owner_line_needle}` should be present"));
+        let line_index = source
+            .lines()
+            .enumerate()
+            .skip(owner_line_index + 1)
+            .find(|(_, line)| line.contains(line_needle))
+            .map(|(index, _)| index)
+            .unwrap_or_else(|| {
+                panic!("source line `{line_needle}` should be present after `{owner_line_needle}`")
+            });
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_index
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                            && token.token_type == token_type
+                            && token.modifiers.iter().any(|item| item == modifier)
+                    })
+            }),
+            "semantic token `{label}` after `{owner_line_needle}` should be `{token_type}` with modifier `{modifier}`"
+        );
+    }
     fn assert_first_diagnostic_underlines(source: &str, code: &str, expected_text: &str) {
         let (line, start, end) = first_diagnostic_underline(source, code);
 
@@ -8542,6 +8751,29 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
 "#;
         let snapshot = snapshot_for_source(Path::new("roles.eng"), source);
 
+        for (owner_line, modifier) in [
+            ("reg_model = regression(split, algorithm=linear)", "model"),
+            (r#"write sensor to db.table("sensor")"#, "db"),
+            ("write standard_text sensor", "sideEffect"),
+            ("write standard_text sensor", "workflowStep"),
+            ("selected = require_one sensor", "validation"),
+            (
+                "Q_dist = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)",
+                "uncertain",
+            ),
+            ("sim = simulate RoomThermal", "solver"),
+            ("    plot distribution(Q_dist)", "report"),
+            ("cases = materialize sensor", "workflowStep"),
+            (
+                r#"upload = http get url("https://example.org/weather")"#,
+                "external",
+            ),
+            (r#"write text file("outputs/out.txt"), "ok""#, "sideEffect"),
+        ] {
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot, source, owner_line, "with {", "with", "keyword", modifier,
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "reg_model", "model");
         assert_semantic_token_modifier(&snapshot, source, "reg_model", "cache");
         assert_semantic_token_modifier(&snapshot, source, "cache_key", "cache");

@@ -3127,7 +3127,7 @@ function Assert-VscodeExtensionContract {
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "property.db",
         "function.model", "keyword.model", "function.defaultLibrary", "function.timeseries", "namespace.defaultLibrary",
-        "namespace.imported", "namespace.internal", "namespace.planned", "type.axis", "variable.cache", "keyword.cache", "keyword.workflowStep",
+        "namespace.imported", "namespace.internal", "namespace.planned", "type.axis", "variable.cache", "keyword.cache", "keyword.uncertain", "keyword.workflowStep",
         "function.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
@@ -3214,6 +3214,10 @@ function Assert-VscodeExtensionContract {
         "keyword.cache" = @(
             "keyword.control.workflow.englang",
             "constant.language.englang"
+        )
+        "keyword.uncertain" = @(
+            "constant.language.englang",
+            "keyword.operator.word.englang"
         )
         "keyword.db" = @(
             "keyword.control.external-boundary.englang",
@@ -3639,6 +3643,11 @@ function Assert-VscodeExtensionContract {
         "showSemanticTokensDebug",
         "showSemanticTokenAtCursor",
         "matching_tokens: matchingTokens",
+        "nearest_tokens: nearestTokens",
+        "nearest_token_count: nearestTokens.length",
+        "cursor_token_hint: cursorTokenHint",
+        "semanticTokenCursorDistance",
+        "cursor_distance: semanticTokenCursorDistance(token, cursor.character)",
         "line_tokens: lineTokens",
         "semanticTokenDebugRow",
         "semanticTokenRange(document, token)?.contains(cursor)",
@@ -3651,8 +3660,11 @@ function Assert-VscodeExtensionContract {
         "scope_map_entry_count: Object.keys(semanticTokenScopeMap).length",
         "tokens_without_fallback_scope: tokensWithoutFallbackScope",
         "missing_scope_selectors: missingScopeSelectors",
-        "semantic_selectors: sample.semantic_selectors",
-        "fallback_scopes: sample.fallback_scopes",
+        "primary_selector: semanticSelectors[0] ?? sample.type",
+        'fallback_status: fallbackScopes.length > 0 ? "mapped" : "missing_fallback_scope"',
+        "fallback_scope_count: fallbackScopes.length",
+        "semantic_selectors: semanticSelectors",
+        "fallback_scopes: fallbackScopes",
         "legend: semanticTokens.legend ?? {}",
         "samples: {",
         "by_type: tokenSamplesByType",

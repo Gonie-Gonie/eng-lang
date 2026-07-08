@@ -3915,6 +3915,30 @@ mod tests {
         assert!(check.diagnostics[0].message.contains("not recognized"));
     }
 
+    fn semantic_token_text<'a>(source: &'a str, token: &Value) -> Option<&'a str> {
+        let line = token.get("line")?.as_u64()? as usize;
+        let start = token.get("start")?.as_u64()? as usize;
+        let length = token.get("length")?.as_u64()? as usize;
+        source.lines().nth(line)?.get(start..start + length)
+    }
+
+    fn has_semantic_token_text_with_modifier(
+        source: &str,
+        tokens: &[Value],
+        text: &str,
+        token_type: &str,
+        modifier: &str,
+    ) -> bool {
+        tokens.iter().any(|token| {
+            token.get("type").and_then(Value::as_str) == Some(token_type)
+                && semantic_token_text(source, token) == Some(text)
+                && token
+                    .get("modifiers")
+                    .and_then(Value::as_array)
+                    .is_some_and(|items| items.iter().any(|item| item.as_str() == Some(modifier)))
+        })
+    }
+
     #[test]
     fn check_view_surfaces_lsp_semantic_tokens() {
         let root = workspace_root();
@@ -3955,6 +3979,49 @@ mod tests {
             .hovers
             .as_array()
             .is_some_and(|hovers| hovers.iter().any(|hover| hover["name"] == "Q_coil")));
+
+        let rich_source = r#"designs = sample lhs
+with {
+    count = 2
+    seed = 7
+    people_density = uniform(0.03 person/m2, 0.12 person/m2)
+    annual_electricity = uniform(100 kWh, 200 kWh)
+}
+Q_dist = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)
+with {
+    sensor_std = 0.2 kW
+}
+model = train regression designs
+with {
+    y = annual_electricity
+    x = [people_density]
+    seed = 7
+}
+predictions = predict model using designs
+db = open sqlite file("outputs/results.sqlite")
+write predictions to db.table("predictions")
+with {
+    mode = append
+}
+"#;
+        let rich_check = check_view(Path::new("ide_semantic_roles.eng"), rich_source);
+        let rich_tokens = rich_check
+            .semantic_tokens
+            .get("tokens")
+            .and_then(Value::as_array)
+            .expect("rich semantic tokens");
+        for modifier in ["workflowStep", "uncertain", "model", "db", "sideEffect"] {
+            assert!(
+                has_semantic_token_text_with_modifier(
+                    rich_source,
+                    rich_tokens,
+                    "with",
+                    "keyword",
+                    modifier
+                ),
+                "native IDE semantic payload should surface `with` keyword modifier {modifier}"
+            );
+        }
     }
 
     #[test]

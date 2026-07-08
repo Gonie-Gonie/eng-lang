@@ -259,6 +259,7 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 | `parameter.declaration` | Function and args parameter declarations. |
 | `variable.axis`, `property.axis` | Axis/workflow-step emphasis. |
 | `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries value and statistic helper emphasis. |
+| `variable.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, functions, properties, and block introducers. |
 | `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in functions and modules. |
 | `namespace.imported` | User-imported module namespaces. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |

@@ -429,6 +429,20 @@ function createCommandHandlers(options = {}) {
     const lineTokens = (semanticTokens.tokens ?? [])
       .filter((token) => Number(token.line) === cursor.line)
       .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
+    const nearestTokens = lineTokens
+      .map((token) => ({
+        ...token,
+        cursor_distance: semanticTokenCursorDistance(token, cursor.character)
+      }))
+      .sort((left, right) =>
+        left.cursor_distance - right.cursor_distance || Number(left.start ?? 0) - Number(right.start ?? 0)
+      )
+      .slice(0, 3);
+    const cursorTokenHint = matchingTokens.length > 0
+      ? "matching_token"
+      : nearestTokens.length > 0
+        ? "nearest_token_on_line"
+        : "no_semantic_tokens_on_line";
     const payload = {
       source: document.uri.fsPath,
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
@@ -440,10 +454,13 @@ function createCommandHandlers(options = {}) {
       },
       summary: {
         matching_token_count: matchingTokens.length,
+        nearest_token_count: nearestTokens.length,
         line_token_count: lineTokens.length,
+        cursor_token_hint: cursorTokenHint,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length
       },
       matching_tokens: matchingTokens,
+      nearest_tokens: nearestTokens,
       line_tokens: lineTokens,
       legend: semanticTokens.legend ?? {},
       raw: {
@@ -457,9 +474,24 @@ function createCommandHandlers(options = {}) {
     await vscode.window.showTextDocument(debugDocument, { preview: false });
   }
 
+  function semanticTokenCursorDistance(row, character) {
+    const start = Number(row?.start);
+    const length = Number(row?.length);
+    if (!Number.isFinite(start) || !Number.isFinite(length) || length <= 0) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    const end = start + length;
+    if (character >= start && character <= end) {
+      return 0;
+    }
+    return character < start ? start - character : character - end;
+  }
+
   function semanticTokenDebugRow(document, token, semanticScopeMap) {
     const sample = semanticTokenDebugSample(document, token, semanticScopeMap);
     const start = Number(sample.start);
+    const semanticSelectors = sample.semantic_selectors ?? [];
+    const fallbackScopes = sample.fallback_scopes ?? [];
     return {
       line: sample.line,
       column: Number.isFinite(start) ? start + 1 : null,
@@ -468,8 +500,11 @@ function createCommandHandlers(options = {}) {
       text: sample.text,
       type: sample.type,
       modifiers: sample.modifiers,
-      semantic_selectors: sample.semantic_selectors,
-      fallback_scopes: sample.fallback_scopes
+      primary_selector: semanticSelectors[0] ?? sample.type,
+      fallback_status: fallbackScopes.length > 0 ? "mapped" : "missing_fallback_scope",
+      fallback_scope_count: fallbackScopes.length,
+      semantic_selectors: semanticSelectors,
+      fallback_scopes: fallbackScopes
     };
   }
 

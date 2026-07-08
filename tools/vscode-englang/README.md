@@ -195,10 +195,10 @@ planned/internal symbol markers immediately. Maintainer-facing color mapping
 rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens (Semantic)` opens a highlight data view with a
 summary, legend, representative source-text samples, normalized highlight rows
-with selector and theme fallback details, and raw highlight payload for
-debugging theme or scope mismatches.
+with primary selector, mapped/missing fallback status, theme fallback scopes,
+and raw highlight payload for debugging theme or scope mismatches.
 `EngLang: Inspect Highlight Token at Cursor` opens the token under the caret plus
-the other highlight tokens on the same line.
+the nearest semantic tokens and the other highlight tokens on the same line.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set
