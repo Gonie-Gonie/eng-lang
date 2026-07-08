@@ -135,5 +135,7 @@ Current coverage:
 - `dev.bat workflows-test` rejects `run command`, Python calls/library markers, malformed
   process-results artifacts, non-normal workflow smoke profiles, and nonzero
   process counts in the three native workflow examples.
+- The same gate checks workflow 02 structured sampler, model-card, prediction, DB,
+  and case-manifest evidence so it cannot pass by reading file-backed surrogate data.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.

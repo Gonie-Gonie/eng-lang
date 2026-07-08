@@ -596,6 +596,10 @@ function Invoke-WorkflowsTest {
             $ReviewJson = Get-Content -LiteralPath $ReviewPath -Raw
             $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
             $ResultData = $ResultJson | ConvertFrom-Json
+            $TypedPayload = $ResultData.typed_payload
+            if ($null -eq $TypedPayload) {
+                throw "Workflow 02 native result missing typed_payload"
+            }
             $SampleTables = $ResultData.sample_tables
             if ($null -eq $SampleTables -and $null -ne $ResultData.typed_payload) {
                 $SampleTables = $ResultData.typed_payload.sample_tables
@@ -617,6 +621,93 @@ function Invoke-WorkflowsTest {
                 if ($MatchingSampleTables.Count -ne 1) {
                     throw "Workflow 02 native sample table missing generated LHS contract for $($RequiredSampleTable.Binding)"
                 }
+            }
+            $ModelCards = @($TypedPayload.model_cards)
+            $MatchingModelCards = @($ModelCards | Where-Object {
+                [string]$_.binding -eq "surrogate_model" -and
+                [string]$_.source -eq "training_results" -and
+                [string]$_.model_kind -eq "linear" -and
+                [string]$_.target -eq "annual_electricity" -and
+                [string]$_.target_quantity -eq "Energy" -and
+                [string]$_.target_unit -eq "kWh" -and
+                [int]$_.train_count -eq 6 -and
+                [int]$_.test_count -eq 2 -and
+                [string]$_.status -eq "trained_linear" -and
+                @($_.features).Count -eq 6
+            })
+            if ($MatchingModelCards.Count -ne 1) {
+                throw "Workflow 02 native result missing structured regression model card contract"
+            }
+            $PredictionManifests = @($TypedPayload.prediction_manifests)
+            $MatchingPredictionManifests = @($PredictionManifests | Where-Object {
+                [string]$_.binding -eq "predictions" -and
+                [string]$_.manifest_path -eq "native:predictions" -and
+                [string]$_.model -eq "surrogate_model" -and
+                $null -eq $_.model_file -and
+                $null -eq $_.sample_file -and
+                $null -eq $_.output_file -and
+                [int]$_.row_count -eq 3 -and
+                [string]$_.confidence_column -eq "confidence" -and
+                [string]$_.status -eq "predicted" -and
+                @($_.case_ids).Count -eq 3
+            })
+            if ($MatchingPredictionManifests.Count -ne 1) {
+                throw "Workflow 02 native result missing native prediction manifest contract"
+            }
+            $DbManifests = @($TypedPayload.db_manifests)
+            foreach ($RequiredDbManifest in @(
+                @{ Binding = "training_results"; Table = "simulation_results"; RowCount = 8; Schema = @("case_id", "annual_electricity", "peak_cooling", "unmet_hours") },
+                @{ Binding = "predictions"; Table = "predictions"; RowCount = 3; Schema = @("case_id", "predicted_annual_electricity", "confidence") }
+            )) {
+                $MatchingDbManifests = @($DbManifests | Where-Object {
+                    [string]$_.binding -eq $RequiredDbManifest.Binding -and
+                    [string]$_.database -eq "outputs/surrogate_results.sqlite" -and
+                    [string]$_.transaction_status -eq "committed" -and
+                    [string]$_.schema_status -eq "ok" -and
+                    [string]$_.status -eq "manifest_loaded"
+                })
+                if ($MatchingDbManifests.Count -ne 1) {
+                    throw "Workflow 02 native result missing DB manifest contract for $($RequiredDbManifest.Binding)"
+                }
+                $MatchingDbTables = @($MatchingDbManifests[0].tables | Where-Object {
+                    [string]$_.name -eq $RequiredDbManifest.Table -and
+                    [string]$_.mode -eq "replace" -and
+                    [int]$_.row_count -eq $RequiredDbManifest.RowCount
+                })
+                if ($MatchingDbTables.Count -ne 1) {
+                    throw "Workflow 02 native DB manifest missing table contract for $($RequiredDbManifest.Table)"
+                }
+                $DbTableSchema = @($MatchingDbTables[0].schema)
+                foreach ($RequiredDbColumn in $RequiredDbManifest.Schema) {
+                    if ($DbTableSchema -notcontains $RequiredDbColumn) {
+                        throw "Workflow 02 native DB manifest table $($RequiredDbManifest.Table) missing column $RequiredDbColumn"
+                    }
+                }
+            }
+            $CaseManifests = @($TypedPayload.case_manifests)
+            foreach ($RequiredCaseManifestGroup in @(
+                @{ SampleTable = "training_designs"; Count = 8 },
+                @{ SampleTable = "designs"; Count = 3 }
+            )) {
+                $MatchingCaseManifests = @($CaseManifests | Where-Object {
+                    [string]$_.sample_table -eq $RequiredCaseManifestGroup.SampleTable -and
+                    [string]$_.source -eq "sample lhs" -and
+                    [string]$_.status -eq "pending"
+                })
+                if ($MatchingCaseManifests.Count -ne $RequiredCaseManifestGroup.Count) {
+                    throw "Workflow 02 native result missing generated case manifests for $($RequiredCaseManifestGroup.SampleTable)"
+                }
+            }
+            $AllowedCaseManifestTables = @("training_designs", "designs")
+            $UnexpectedCaseManifests = @($CaseManifests | Where-Object {
+                $AllowedCaseManifestTables -notcontains [string]$_.sample_table -or
+                [string]$_.source -ne "sample lhs" -or
+                [string]$_.status -ne "pending" -or
+                @($_.process_bindings).Count -ne 0 -or
+                @($_.process_statuses).Count -ne 0
+            } | Select-Object -First 1)
+            if ($UnexpectedCaseManifests.Count -gt 0) {
+                throw "Workflow 02 native case manifests must come from sample lhs without process bindings"
             }
             foreach ($RequiredSurrogateResultToken in @(
                 '"sample_tables"',

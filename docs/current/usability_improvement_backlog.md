@@ -34,6 +34,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 477: Added observed base semantic selector fallback scopes for VS Code highlighting consistency.
 - Batch 478: Added VS Code cursor-specific highlight token inspection.
 - Batch 479: Added lsp-check coverage for observed VS Code semantic fallback selector mappings.
+- Batch 480: Added structured workflow 02 native sampler/model/prediction/DB artifact guards.
 
 ## Documentation Policy
 
