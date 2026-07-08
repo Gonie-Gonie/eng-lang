@@ -1807,7 +1807,7 @@
                                                                     "match":  "\\b(fill)\\s+(missing)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.validation.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "keyword.control.validation.englang"
@@ -1828,7 +1828,7 @@
                                                                     "match":  "\\b(align)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with|to)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.validation.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1858,7 +1858,7 @@
                                                                     "match":  "\\b(resample)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(to|with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.validation.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -1930,7 +1930,7 @@
                                                                     "match":  "\\b(integrate)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.solver.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"
@@ -2002,7 +2002,7 @@
                                                                     "match":  "\\b(mean|max|min)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
                                                                     "captures":  {
                                                                                      "1":  {
-                                                                                               "name":  "support.function.builtin.englang"
+                                                                                               "name":  "keyword.control.report.englang"
                                                                                            },
                                                                                      "2":  {
                                                                                                "name":  "variable.parameter.property.englang"

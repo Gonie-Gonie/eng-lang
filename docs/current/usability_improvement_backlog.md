@@ -47,6 +47,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 490: Added Native IDE Copy visible diagnostics for filtered Problems results.
 - Batch 491: Tightened VS Code TextMate validation highlighting for `check coverage` clause words.
 - Batch 492: Broadened workflow 01/02/03 native-only source guards to every `.eng` file in each workflow directory.
+- Batch 493: Split VS Code TextMate TimeSeries command verbs from call-style helper highlighting.
 
 ## Documentation Policy
 

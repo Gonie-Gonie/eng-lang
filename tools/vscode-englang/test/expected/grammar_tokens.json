@@ -1997,12 +1997,24 @@
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.control.validation.englang",
+    "text": "fill",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
     "text": "missing"
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.align-series.englang",
     "text": "align measured.T_zone with simulated.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "align",
     "fullMatch": true
   },
   {
@@ -2021,6 +2033,12 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.resample-series.englang",
     "text": "resample measured.T_zone to simulated.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "resample",
     "fullMatch": true
   },
   {
@@ -2219,6 +2237,12 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.solver.englang",
+    "text": "integrate",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "support.function.builtin.englang",
     "text": "integrate"
   },
@@ -2268,6 +2292,12 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.stat-series.englang",
     "text": "mean Q_series over Time",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.report.englang",
+    "text": "mean",
     "fullMatch": true
   },
   {
