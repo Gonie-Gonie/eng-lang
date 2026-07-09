@@ -3877,6 +3877,8 @@ function Assert-VscodeExtensionContract {
         "sampleTableFields",
         "caseTableFields",
         "caseOutputTableFields",
+        "caseResultCollectionTableFields",
+        "isCaseResultCollectionLikeReceiver",
         "httpResponseFieldCompletionsForContext",
         "localMemberCompletionsForContext",
         "memberAccessCompletionContext",
@@ -3894,7 +3896,8 @@ function Assert-VscodeExtensionContract {
         "workflowBindingFieldCompletionsFromSource",
         "fieldsForWorkflowBinding",
         "httpResponseFieldCompletionsForContext",
-        "localMemberCompletionsForContext"
+        "localMemberCompletionsForContext",
+        "isCaseResultCollectionLikeReceiver"
     )) {
         $FunctionDeclarationCount = [regex]::Matches($CompletionProviderSource, "function\s+$UniqueCompletionFunction\s*\(").Count
         if ($FunctionDeclarationCount -ne 1) {

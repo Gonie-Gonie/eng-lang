@@ -325,6 +325,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: isCaseOutputTableLikeReceiver
     },
     {
+      fields: catalogs?.caseResultCollectionTableFields,
+      detail: "Case result collection field",
+      matchesReceiver: isCaseResultCollectionLikeReceiver
+    },
+    {
       fields: catalogs?.caseTableFields,
       detail: "Case table field",
       matchesReceiver: isCaseTableLikeReceiver
@@ -423,10 +428,19 @@ function isCaseOutputTableLikeReceiver(receiver) {
   );
 }
 
+function isCaseResultCollectionLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return (
+    normalized.includes("collection") ||
+    (normalized.includes("case") && normalized.includes("result"))
+  );
+}
+
 function isCaseTableLikeReceiver(receiver) {
   const normalized = receiver.toLowerCase();
   return (
     !isCaseOutputTableLikeReceiver(receiver) &&
+    !isCaseResultCollectionLikeReceiver(receiver) &&
     (
       normalized === "case" ||
       normalized === "cases" ||
