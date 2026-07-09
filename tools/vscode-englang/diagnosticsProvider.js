@@ -2,6 +2,16 @@ const cp = require("child_process");
 const vscode = require("vscode");
 
 const CHECK_DEBOUNCE_MS = 350;
+const DIAGNOSTIC_DOC_ROOT = "https://github.com/Gonie-Gonie/eng-lang/blob/main/docs";
+const DIAGNOSTIC_CODE_DOC = `${DIAGNOSTIC_DOC_ROOT}/reference/cli/spec.md#diagnostic-codes`;
+const DIAGNOSTIC_DOC_TARGETS = new Map([
+  ["E-SCRIPT-001", `${DIAGNOSTIC_DOC_ROOT}/reference/language/top_level_execution_policy.md#execution-model`],
+  ["E-STRUCT-ARGS-001", `${DIAGNOSTIC_DOC_ROOT}/reference/language/top_level_execution_policy.md#args`],
+  [
+    "W-TABLE-LEGACY-SELECT-FIRST-ROW",
+    `${DIAGNOSTIC_DOC_ROOT}/reference/artifacts/report_review.md#promoted-table-selection-and-transform-metadata`
+  ]
+]);
 
 class EngDiagnosticsController {
   constructor(context, diagnostics, options = {}) {
@@ -210,7 +220,10 @@ function toDiagnostics(document, review) {
     const range = new vscode.Range(line, startCharacter, line, endCharacter);
     const severity = toVscodeSeverity(item.severity);
     const diagnostic = new vscode.Diagnostic(range, item.message, severity);
-    diagnostic.code = item.code;
+    const code = diagnosticCode(item);
+    if (code !== undefined) {
+      diagnostic.code = code;
+    }
     diagnostic.source = "eng";
     const tags = diagnosticTags(item);
     if (tags.length > 0) {
@@ -223,8 +236,33 @@ function toDiagnostics(document, review) {
   });
 }
 
+function diagnosticCode(item) {
+  const value = diagnosticCodeValue(item);
+  if (!value) {
+    return undefined;
+  }
+  const target = diagnosticCodeTarget(value);
+  return target ? { value, target } : value;
+}
+
+function diagnosticCodeValue(item) {
+  const code = item?.code;
+  if (typeof code === "string" && code.length > 0) {
+    return code;
+  }
+  const value = code?.value;
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function diagnosticCodeTarget(code) {
+  if (!/^[EW]-/.test(code)) {
+    return undefined;
+  }
+  return vscode.Uri.parse(DIAGNOSTIC_DOC_TARGETS.get(code) ?? DIAGNOSTIC_CODE_DOC);
+}
+
 function diagnosticTags(item) {
-  const code = String(item?.code ?? "");
+  const code = diagnosticCodeValue(item) ?? "";
   const message = String(item?.message ?? "").toLowerCase();
   if (
     code === "W-TABLE-LEGACY-SELECT-FIRST-ROW" ||
@@ -266,6 +304,8 @@ function firstLineRange(document) {
 
 module.exports = {
   EngDiagnosticsController,
+  diagnosticCode,
+  diagnosticCodeTarget,
   diagnosticTags,
   severityName,
   toDiagnostics

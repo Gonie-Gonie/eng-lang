@@ -45,7 +45,8 @@ mixed so interactive work can be saved into a file without a wrapper.
 ## Args
 
 `args { ... }` declares the root execution arguments. This is the only
-supported args declaration syntax.
+supported args declaration syntax. Legacy `struct Args { ... }` blocks are
+diagnosed with `E-STRUCT-ARGS-001`; replace them with `args { ... }`.
 
 ```eng
 const default_input: CsvFile = file("sensor.csv")

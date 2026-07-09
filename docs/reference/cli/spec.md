@@ -58,6 +58,8 @@ top-level workflow.
 
 Current diagnostics:
 
+### Diagnostic Codes
+
 ```text
 E-SYNTAX-DECL-001      := is not EngLang syntax
 E-PUBLIC-ANNOTATION-001 schema columns require explicit quantity/unit annotations
@@ -100,6 +102,7 @@ E-ARGS-TYPE-001        Args value cannot be converted to the declared type
 E-ARGS-CSV-001         CSV promotion references an Args field without a value
 E-ARGS-CONFIG-001      config promotion references an Args field without a value
 E-SCRIPT-001           `script` blocks are not supported as execution roots
+E-STRUCT-ARGS-001      `struct Args` is not supported for execution arguments
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match

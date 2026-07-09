@@ -67,6 +67,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 510: Added VS Code fallback scope mapping for deprecated function semantic tokens.
 - Batch 511: Added VS Code highlight inspection selector counts and selector sample groups.
 - Batch 512: Tagged VS Code legacy/deprecated diagnostics with the VS Code Deprecated diagnostic tag.
+- Batch 513: Added VS Code Problems diagnostic-code links to the relevant EngLang reference docs.
 
 ## Documentation Policy
 
