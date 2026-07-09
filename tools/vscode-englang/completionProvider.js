@@ -424,42 +424,12 @@ function isCaseTableLikeReceiver(receiver) {
   );
 }
 
-const COMPLETION_INSERT_SNIPPETS = new Map([
-  ["file(...)", "file(\"${1:data/input.csv}\")"],
-  ["dir(...)", "dir(\"${1:build/result}\")"],
-  ["join(...)", "join(${1:args.output}, \"${2:summary.csv}\")"],
-  ["parent(...)", "parent(${1:args.input})"],
-  ["stem(...)", "stem(${1:args.input})"],
-  ["extension(...)", "extension(${1:args.input})"],
-  ["exists path", "exists ${1:args.input}"],
-  ["read text", "read text ${1:args.input}"],
-  ["read json", "read json ${1:args.config}"],
-  ["read toml", "read toml ${1:args.config}"],
-  ["write text", "write text \"${1:outputs/log.txt}\", ${2:text}"],
-  ["write json", "write json \"${1:outputs/summary.json}\", ${2:summary}"],
-  ["copy file", "copy file(\"${1:data/template.txt}\") to \"${2:outputs/template.txt}\""],
-  ["move file", "move \"${1:outputs/tmp.txt}\" to \"${2:outputs/archive/tmp.txt}\""],
-  ["delete file", "delete \"${1:outputs/tmp.txt}\""],
-  ["mkdir dir", "mkdir \"${1:outputs/archive}\""],
-  ["run command", "run command \"${1:tool}\""],
-  ["promote json config", "promote json file(\"${1:workflow.json}\") as ${2:WorkflowConfig}"],
-  ["promote toml config", "promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}"]
-]);
-
-function completionInsertSnippetForLabel(label) {
-  if (typeof label !== "string") {
-    return undefined;
+function completionInsertTextFromCompletion(completion) {
+  if (typeof completion?.insert_snippet === "string" && completion.insert_snippet.length > 0) {
+    return new vscode.SnippetString(completion.insert_snippet);
   }
-  const snippet = COMPLETION_INSERT_SNIPPETS.get(label);
-  if (snippet) {
-    return snippet;
-  }
-  const genericType = /^([A-Za-z_][A-Za-z0-9_]*)\[T\]$/.exec(label);
-  if (genericType) {
-    return `${genericType[1]}[\${1:T}]`;
-  }
-  if (label === "LinearOperator[From -> To]") {
-    return "LinearOperator[${1:From} -> ${2:To}]";
+  if (typeof completion?.insert === "string" && completion.insert.length > 0) {
+    return completion.insert;
   }
   return undefined;
 }
@@ -470,9 +440,9 @@ function completionItemFromLsp(completion) {
     completionKindFromLsp(completion.lsp_kind ?? completion.kind)
   );
   item.detail = completion.detail;
-  const insertSnippet = completionInsertSnippetForLabel(completion.label);
-  if (insertSnippet) {
-    item.insertText = new vscode.SnippetString(insertSnippet);
+  const insertText = completionInsertTextFromCompletion(completion);
+  if (insertText) {
+    item.insertText = insertText;
   }
   if (completion.documentation) {
     item.documentation = completion.documentation;
@@ -491,7 +461,7 @@ function addCompletion(items, seen, item) {
 
 module.exports = {
   EngCompletionProvider,
-  completionInsertSnippetForLabel,
+  completionInsertTextFromCompletion,
   completionItemsFromPayload,
   argsFieldCompletionsFromDocument,
   schemaBindingFieldCompletionsFromDocument,

@@ -4127,7 +4127,7 @@ function Assert-VscodeExtensionContract {
     if (-not $CompletionProviderSource.Contains('require("./lspKinds")')) {
         throw "VS Code completion provider must reuse shared LSP kind conversion"
     }
-    foreach ($RequiredCompletionInsertToken in @("completionInsertSnippetForLabel", "COMPLETION_INSERT_SNIPPETS", "new vscode.SnippetString", '\${1:T}', 'LinearOperator[${1:From} -> ${2:To}]', 'file(\"${1:data/input.csv}\")', 'run command \"${1:tool}\"')) {
+    foreach ($RequiredCompletionInsertToken in @("completionInsertTextFromCompletion", "completion.insert_snippet", "completion.insert", "new vscode.SnippetString")) {
         if (-not $CompletionProviderSource.Contains($RequiredCompletionInsertToken)) {
             throw "VS Code completion provider missing insert-text token $RequiredCompletionInsertToken"
         }
@@ -4374,7 +4374,14 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata completion seed $RequiredCompletion missing lsp_kind"
         }
     }
-    foreach ($RequiredHyphenatedWorkflowBuiltin in @("latin-hypercube")) {
+    $ReadJsonCompletion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
+    if ($ReadJsonCompletion.insert -ne "read json args.config" -or $ReadJsonCompletion.insert_snippet -ne 'read json ${1:args.config}') {
+        throw "generated VS Code editor metadata read json completion must include insert and insert_snippet"
+    }
+    $LinearOperatorCompletion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq "LinearOperator[From -> To]" }) | Select-Object -First 1
+    if ($LinearOperatorCompletion.insert_snippet -ne 'LinearOperator[${1:From} -> ${2:To}]') {
+        throw "generated VS Code editor metadata LinearOperator completion must include insert_snippet"
+    }    foreach ($RequiredHyphenatedWorkflowBuiltin in @("latin-hypercube")) {
         $HyphenatedWorkflowBuiltin = @($EditorMetadata.syntax_catalog.hyphenated_workflow_builtins | Where-Object { $_ -eq $RequiredHyphenatedWorkflowBuiltin }) | Select-Object -First 1
         if ($null -eq $HyphenatedWorkflowBuiltin) {
             throw "generated VS Code editor metadata missing hyphenated workflow builtin $RequiredHyphenatedWorkflowBuiltin"
@@ -4859,7 +4866,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_seed", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", "native_insert_for_lsp_completion", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_seed", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

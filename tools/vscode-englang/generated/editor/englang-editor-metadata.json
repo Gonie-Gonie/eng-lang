@@ -2,6 +2,7 @@
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
+                                "insert_snippet":  "Array[${1:T}]",
                                 "kind":  "class",
                                 "label":  "Array[T]",
                                 "lsp_kind":  7
@@ -50,6 +51,7 @@
                             },
                             {
                                 "detail":  "Derivative vector or scalar type",
+                                "insert_snippet":  "Derivative[${1:T}]",
                                 "kind":  "class",
                                 "label":  "Derivative[T]",
                                 "lsp_kind":  7
@@ -74,6 +76,7 @@
                             },
                             {
                                 "detail":  "State-space input vector",
+                                "insert_snippet":  "InputVector[${1:T}]",
                                 "kind":  "class",
                                 "label":  "InputVector[T]",
                                 "lsp_kind":  7
@@ -92,12 +95,14 @@
                             },
                             {
                                 "detail":  "State-space linear operator",
+                                "insert_snippet":  "LinearOperator[${1:From} -\u003e ${2:To}]",
                                 "kind":  "class",
                                 "label":  "LinearOperator[From -\u003e To]",
                                 "lsp_kind":  7
                             },
                             {
                                 "detail":  "Schema list value",
+                                "insert_snippet":  "List[${1:T}]",
                                 "kind":  "class",
                                 "label":  "List[T]",
                                 "lsp_kind":  7
@@ -122,12 +127,14 @@
                             },
                             {
                                 "detail":  "Optional value",
+                                "insert_snippet":  "Optional[${1:T}]",
                                 "kind":  "class",
                                 "label":  "Optional[T]",
                                 "lsp_kind":  7
                             },
                             {
                                 "detail":  "State-space output vector",
+                                "insert_snippet":  "OutputVector[${1:T}]",
                                 "kind":  "class",
                                 "label":  "OutputVector[T]",
                                 "lsp_kind":  7
@@ -170,6 +177,7 @@
                             },
                             {
                                 "detail":  "State-space state vector",
+                                "insert_snippet":  "StateVector[${1:T}]",
                                 "kind":  "class",
                                 "label":  "StateVector[T]",
                                 "lsp_kind":  7
@@ -182,6 +190,7 @@
                             },
                             {
                                 "detail":  "Typed table value",
+                                "insert_snippet":  "Table[${1:T}]",
                                 "kind":  "class",
                                 "label":  "Table[T]",
                                 "lsp_kind":  7
@@ -200,6 +209,7 @@
                             },
                             {
                                 "detail":  "Typed time-indexed series value",
+                                "insert_snippet":  "TimeSeries[${1:T}]",
                                 "kind":  "class",
                                 "label":  "TimeSeries[T]",
                                 "lsp_kind":  7
@@ -1940,42 +1950,56 @@
                             },
                             {
                                 "detail":  "eng.path file(path: String) -\u003e FilePath",
+                                "insert":  "file(\"data/input.csv\")",
+                                "insert_snippet":  "file(\"${1:data/input.csv}\")",
                                 "kind":  "stdlib",
                                 "label":  "file(...)",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.path dir(path: String) -\u003e DirectoryPath",
+                                "insert":  "dir(\"build/result\")",
+                                "insert_snippet":  "dir(\"${1:build/result}\")",
                                 "kind":  "stdlib",
                                 "label":  "dir(...)",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.path join(base: DirectoryPath, child: String) -\u003e FilePath | DirectoryPath",
+                                "insert":  "join(args.output, \"summary.csv\")",
+                                "insert_snippet":  "join(${1:args.output}, \"${2:summary.csv}\")",
                                 "kind":  "stdlib",
                                 "label":  "join(...)",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.path parent(path: FilePath) -\u003e DirectoryPath",
+                                "insert":  "parent(args.input)",
+                                "insert_snippet":  "parent(${1:args.input})",
                                 "kind":  "stdlib",
                                 "label":  "parent(...)",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.path stem(path: FilePath) -\u003e String",
+                                "insert":  "stem(args.input)",
+                                "insert_snippet":  "stem(${1:args.input})",
                                 "kind":  "stdlib",
                                 "label":  "stem(...)",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.path extension(path: FilePath) -\u003e String",
+                                "insert":  "extension(args.input)",
+                                "insert_snippet":  "extension(${1:args.input})",
                                 "kind":  "stdlib",
                                 "label":  "extension(...)",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.path exists(path: FilePath | DirectoryPath) -\u003e Bool",
+                                "insert":  "exists args.input",
+                                "insert_snippet":  "exists ${1:args.input}",
                                 "kind":  "stdlib",
                                 "label":  "exists path",
                                 "lsp_kind":  9
@@ -2066,30 +2090,40 @@
                             },
                             {
                                 "detail":  "eng.io raw text read",
+                                "insert":  "read text args.input",
+                                "insert_snippet":  "read text ${1:args.input}",
                                 "kind":  "stdlib",
                                 "label":  "read text",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.io raw JSON read",
+                                "insert":  "read json args.config",
+                                "insert_snippet":  "read json ${1:args.config}",
                                 "kind":  "stdlib",
                                 "label":  "read json",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.io raw TOML read",
+                                "insert":  "read toml args.config",
+                                "insert_snippet":  "read toml ${1:args.config}",
                                 "kind":  "stdlib",
                                 "label":  "read toml",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.io text output",
+                                "insert":  "write text \"outputs/log.txt\", text",
+                                "insert_snippet":  "write text \"${1:outputs/log.txt}\", ${2:text}",
                                 "kind":  "stdlib",
                                 "label":  "write text",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.io JSON output",
+                                "insert":  "write json \"outputs/summary.json\", summary",
+                                "insert_snippet":  "write json \"${1:outputs/summary.json}\", ${2:summary}",
                                 "kind":  "stdlib",
                                 "label":  "write json",
                                 "lsp_kind":  9
@@ -2108,36 +2142,48 @@
                             },
                             {
                                 "detail":  "eng.fs copy generated output",
+                                "insert":  "copy file(\"data/template.txt\") to \"outputs/template.txt\"",
+                                "insert_snippet":  "copy file(\"${1:data/template.txt}\") to \"${2:outputs/template.txt}\"",
                                 "kind":  "stdlib",
                                 "label":  "copy file",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.fs move generated output",
+                                "insert":  "move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\"",
+                                "insert_snippet":  "move \"${1:outputs/tmp.txt}\" to \"${2:outputs/archive/tmp.txt}\"",
                                 "kind":  "stdlib",
                                 "label":  "move file",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.fs delete generated output",
+                                "insert":  "delete \"outputs/tmp.txt\"",
+                                "insert_snippet":  "delete \"${1:outputs/tmp.txt}\"",
                                 "kind":  "stdlib",
                                 "label":  "delete file",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.fs create generated output directory",
+                                "insert":  "mkdir \"outputs/archive\"",
+                                "insert_snippet":  "mkdir \"${1:outputs/archive}\"",
                                 "kind":  "stdlib",
                                 "label":  "mkdir dir",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.process command boundary",
+                                "insert":  "run command \"tool\"",
+                                "insert_snippet":  "run command \"${1:tool}\"",
                                 "kind":  "stdlib",
                                 "label":  "run command",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.config JSON file promotion",
+                                "insert":  "promote json file(\"workflow.json\") as WorkflowConfig",
+                                "insert_snippet":  "promote json file(\"${1:workflow.json}\") as ${2:WorkflowConfig}",
                                 "kind":  "stdlib",
                                 "label":  "promote json config",
                                 "lsp_kind":  9
@@ -2150,6 +2196,8 @@
                             },
                             {
                                 "detail":  "eng.config TOML file promotion",
+                                "insert":  "promote toml file(\"workflow.toml\") as WorkflowConfig",
+                                "insert_snippet":  "promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}",
                                 "kind":  "stdlib",
                                 "label":  "promote toml config",
                                 "lsp_kind":  9

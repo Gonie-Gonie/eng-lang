@@ -939,7 +939,9 @@ fn base_completion_items() -> Vec<CompletionView> {
 
 impl CompletionView {
     fn from_lsp(completion: eng_lsp::LspCompletion) -> Self {
-        let insert = native_insert_for_lsp_completion(&completion.label)
+        let insert = completion
+            .insert
+            .clone()
             .unwrap_or_else(|| completion.label.clone());
         Self {
             insert,
@@ -948,32 +950,6 @@ impl CompletionView {
             kind: completion.kind,
         }
     }
-}
-
-fn native_insert_for_lsp_completion(label: &str) -> Option<String> {
-    let insert = match label {
-        "file(...)" => "file(\"data/input.csv\")",
-        "dir(...)" => "dir(\"build/result\")",
-        "join(...)" => "join(args.output, \"summary.csv\")",
-        "parent(...)" => "parent(args.input)",
-        "stem(...)" => "stem(args.input)",
-        "extension(...)" => "extension(args.input)",
-        "exists path" => "exists args.input",
-        "read text" => "read text args.input",
-        "read json" => "read json args.config",
-        "read toml" => "read toml args.config",
-        "write text" => "write text \"outputs/log.txt\", text",
-        "write json" => "write json \"outputs/summary.json\", summary",
-        "copy file" => "copy file(\"data/template.txt\") to \"outputs/template.txt\"",
-        "move file" => "move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\"",
-        "delete file" => "delete \"outputs/tmp.txt\"",
-        "mkdir dir" => "mkdir \"outputs/archive\"",
-        "run command" => "run command \"tool\"",
-        "promote json config" => "promote json file(\"workflow.json\") as WorkflowConfig",
-        "promote toml config" => "promote toml file(\"workflow.toml\") as WorkflowConfig",
-        _ => return None,
-    };
-    Some(insert.to_owned())
 }
 
 fn push_native_completion(items: &mut Vec<CompletionView>, completion: CompletionView) {

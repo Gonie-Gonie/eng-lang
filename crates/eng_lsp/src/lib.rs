@@ -39,6 +39,8 @@ pub struct LspCompletion {
     pub label: String,
     pub kind: String,
     pub detail: String,
+    pub insert: Option<String>,
+    pub insert_snippet: Option<String>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -5518,20 +5520,29 @@ pub fn diagnostic_json(diagnostic: &LspDiagnostic) -> Value {
 }
 
 pub fn completion_json(completion: &LspCompletion) -> Value {
-    json!({
-        "label": completion.label,
-        "kind": completion_kind(&completion.kind),
-        "detail": completion.detail,
-    })
+    completion_json_with_kind(completion, json!(completion_kind(&completion.kind)))
 }
 
 pub fn editor_completion_json(completion: &LspCompletion) -> Value {
-    json!({
-        "label": completion.label,
-        "kind": completion.kind,
-        "lsp_kind": completion_kind(&completion.kind),
-        "detail": completion.detail,
-    })
+    completion_json_with_kind(completion, json!(completion.kind))
+}
+
+fn completion_json_with_kind(completion: &LspCompletion, kind: Value) -> Value {
+    let mut object = serde_json::Map::new();
+    object.insert("label".to_owned(), json!(completion.label));
+    object.insert("kind".to_owned(), kind);
+    object.insert(
+        "lsp_kind".to_owned(),
+        json!(completion_kind(&completion.kind)),
+    );
+    object.insert("detail".to_owned(), json!(completion.detail));
+    if let Some(insert) = &completion.insert {
+        object.insert("insert".to_owned(), json!(insert));
+    }
+    if let Some(insert_snippet) = &completion.insert_snippet {
+        object.insert("insert_snippet".to_owned(), json!(insert_snippet));
+    }
+    Value::Object(object)
 }
 
 pub fn hover_json(hover: &LspHover) -> Value {
@@ -7045,6 +7056,8 @@ fn push_completion(
         label: label.to_owned(),
         kind: kind.to_owned(),
         detail: detail.to_owned(),
+        insert: completion_insert_for_label(label).map(str::to_owned),
+        insert_snippet: completion_insert_snippet_for_label(label),
     };
     if let Some(index) = seen.get(label).copied() {
         if should_replace_completion(label, &items[index].kind, kind) {
@@ -7060,6 +7073,70 @@ fn should_replace_completion(label: &str, existing_kind: &str, candidate_kind: &
     matches!(label, "output" | "inputs")
         && existing_kind == "keyword"
         && candidate_kind == "property"
+}
+
+fn completion_insert_for_label(label: &str) -> Option<&'static str> {
+    match label {
+        "file(...)" => Some("file(\"data/input.csv\")"),
+        "dir(...)" => Some("dir(\"build/result\")"),
+        "join(...)" => Some("join(args.output, \"summary.csv\")"),
+        "parent(...)" => Some("parent(args.input)"),
+        "stem(...)" => Some("stem(args.input)"),
+        "extension(...)" => Some("extension(args.input)"),
+        "exists path" => Some("exists args.input"),
+        "read text" => Some("read text args.input"),
+        "read json" => Some("read json args.config"),
+        "read toml" => Some("read toml args.config"),
+        "write text" => Some("write text \"outputs/log.txt\", text"),
+        "write json" => Some("write json \"outputs/summary.json\", summary"),
+        "copy file" => Some("copy file(\"data/template.txt\") to \"outputs/template.txt\""),
+        "move file" => Some("move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\""),
+        "delete file" => Some("delete \"outputs/tmp.txt\""),
+        "mkdir dir" => Some("mkdir \"outputs/archive\""),
+        "run command" => Some("run command \"tool\""),
+        "promote json config" => Some("promote json file(\"workflow.json\") as WorkflowConfig"),
+        "promote toml config" => Some("promote toml file(\"workflow.toml\") as WorkflowConfig"),
+        _ => None,
+    }
+}
+
+fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
+    if let Some(base) = label.strip_suffix("[T]") {
+        return Some(format!("{base}[${{1:T}}]"));
+    }
+    if label == "LinearOperator[From -> To]" {
+        return Some("LinearOperator[${1:From} -> ${2:To}]".to_owned());
+    }
+    match label {
+        "file(...)" => Some("file(\"${1:data/input.csv}\")".to_owned()),
+        "dir(...)" => Some("dir(\"${1:build/result}\")".to_owned()),
+        "join(...)" => Some("join(${1:args.output}, \"${2:summary.csv}\")".to_owned()),
+        "parent(...)" => Some("parent(${1:args.input})".to_owned()),
+        "stem(...)" => Some("stem(${1:args.input})".to_owned()),
+        "extension(...)" => Some("extension(${1:args.input})".to_owned()),
+        "exists path" => Some("exists ${1:args.input}".to_owned()),
+        "read text" => Some("read text ${1:args.input}".to_owned()),
+        "read json" => Some("read json ${1:args.config}".to_owned()),
+        "read toml" => Some("read toml ${1:args.config}".to_owned()),
+        "write text" => Some("write text \"${1:outputs/log.txt}\", ${2:text}".to_owned()),
+        "write json" => Some("write json \"${1:outputs/summary.json}\", ${2:summary}".to_owned()),
+        "copy file" => Some(
+            "copy file(\"${1:data/template.txt}\") to \"${2:outputs/template.txt}\"".to_owned(),
+        ),
+        "move file" => {
+            Some("move \"${1:outputs/tmp.txt}\" to \"${2:outputs/archive/tmp.txt}\"".to_owned())
+        }
+        "delete file" => Some("delete \"${1:outputs/tmp.txt}\"".to_owned()),
+        "mkdir dir" => Some("mkdir \"${1:outputs/archive}\"".to_owned()),
+        "run command" => Some("run command \"${1:tool}\"".to_owned()),
+        "promote json config" => {
+            Some("promote json file(\"${1:workflow.json}\") as ${2:WorkflowConfig}".to_owned())
+        }
+        "promote toml config" => {
+            Some("promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}".to_owned())
+        }
+        _ => None,
+    }
 }
 
 fn domain_signature(name: &str, parameters: &[DomainTypeParameterInfo]) -> String {
@@ -8042,6 +8119,23 @@ mod tests {
                 "editor metadata should include completion {label} as {kind}"
             );
         }
+        let read_json_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "read json")
+            .expect("editor metadata should include read json completion");
+        assert_eq!(read_json_completion["insert"], "read json args.config");
+        assert_eq!(
+            read_json_completion["insert_snippet"],
+            "read json ${1:args.config}"
+        );
+        let linear_operator_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "LinearOperator[From -> To]")
+            .expect("editor metadata should include LinearOperator completion");
+        assert_eq!(
+            linear_operator_completion["insert_snippet"],
+            "LinearOperator[${1:From} -> ${2:To}]"
+        );
         let offline_response_completion = completions
             .iter()
             .find(|completion| completion["label"] == "offline_response")
