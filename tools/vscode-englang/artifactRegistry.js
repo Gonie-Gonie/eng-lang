@@ -29,7 +29,7 @@ const LAST_RUN_ARTIFACTS = [
   },
   {
     id: "outputManifest",
-    label: "Output List",
+    label: "Generated Output List",
     description: "build/result/output_manifest.json",
     relativePath: ["build", "result", "output_manifest.json"]
   },

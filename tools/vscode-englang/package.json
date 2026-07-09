@@ -781,7 +781,7 @@
       },
       {
         "command": "englang.openOutputManifest",
-        "title": "EngLang: Open Last Run Output List"
+        "title": "EngLang: Open Last Run Generated Output List"
       },
       {
         "command": "englang.openRunLog",

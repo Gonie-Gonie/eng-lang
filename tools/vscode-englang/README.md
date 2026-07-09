@@ -58,7 +58,7 @@ embedding compiler logic in JavaScript.
 - commands to check, run the current file or a bundled example with saved
   artifacts, open a current-file review panel, open current-file review data,
   open the latest generated report, and inspect last-run review data, result
-  data, report data, output lists, run logs, run graphs, reproducibility locks,
+  data, report data, generated output lists, run logs, run graphs, reproducibility locks,
   process results, cache records, test results, plot data, plot output
   lists, and plot SVGs
 - `EngLang: Switch Diagnostics Mode...` for choosing quieter saved-file checks

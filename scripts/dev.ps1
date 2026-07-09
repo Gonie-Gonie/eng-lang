@@ -357,7 +357,7 @@ function Invoke-WorkflowsTest {
         "plot svg",
         "plot data",
         "plot output list",
-        "output list",
+        "generated output list",
         "report html"
     )) {
         if (-not $CliRunSource.Contains($RequiredCliRunLabel) -or -not $CliRunDocs.Contains($RequiredCliRunLabel)) {
@@ -3072,7 +3072,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openReviewJson"; Text = "Last Run Review Data" },
         @{ Command = "englang.openResultArtifact"; Text = "Last Run Result Data" },
         @{ Command = "englang.openReportSpec"; Text = "Last Run Report Source Data" },
-        @{ Command = "englang.openOutputManifest"; Text = "Last Run Output List" },
+        @{ Command = "englang.openOutputManifest"; Text = "Last Run Generated Output List" },
         @{ Command = "englang.openRunLog"; Text = "Last Run Log" },
         @{ Command = "englang.openStaticRunPlan"; Text = "Last Static Run Graph" },
         @{ Command = "englang.openRunPlan"; Text = "Last Run Graph" },
@@ -3631,7 +3631,7 @@ function Assert-VscodeExtensionContract {
     if (-not $OpenLastRunPickerPreamble.Contains("if (!root)") -or -not $OpenLastRunPickerPreamble.Contains('vscode.window.showWarningMessage("Open an EngLang workspace folder first.");') -or -not $OpenLastRunPickerPreamble.Contains("return;")) {
         throw "VS Code last-run artifact picker must require an EngLang workspace before showing choices"
     }
-    if (-not $ArtifactOpenersSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Output List")) {
+    if (-not $ArtifactOpenersSource.Contains('require("./artifactRegistry")') -or -not $ArtifactRegistrySource.Contains("LAST_RUN_ARTIFACTS") -or -not $ArtifactRegistrySource.Contains("Report HTML") -or -not $ArtifactRegistrySource.Contains("Generated Output List")) {
         throw "VS Code extension must load user-facing artifact labels from artifactRegistry.js"
     }
     if (-not $ArtifactRegistrySource.Contains("function lastRunArtifactDisplay") -or -not $ArtifactRegistrySource.Contains("0 external processes") -or -not $ArtifactOpenersSource.Contains("lastRunArtifactDisplay") -or -not $ReviewPanelRendererSource.Contains("lastRunArtifactDisplay")) {

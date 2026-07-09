@@ -519,7 +519,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 print_run_artifact_path("plot svg", &output.plot_path);
                 print_run_artifact_path("plot data", &output.plot_spec_path);
                 print_run_artifact_path("plot output list", &output.plot_manifest_path);
-                print_run_artifact_path("output list", &output.output_manifest_path);
+                print_run_artifact_path("generated output list", &output.output_manifest_path);
                 print_run_artifact_path("report html", &output.report_path);
             } else {
                 println!("run: ok");
@@ -537,7 +537,7 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 print_run_artifact_bytes("plot svg", output.plot_svg.len());
                 print_run_artifact_bytes("plot data", output.plot_spec_json.len());
                 print_run_artifact_bytes("plot output list", output.plot_manifest_json.len());
-                print_run_artifact_bytes("output list", output.output_manifest_json.len());
+                print_run_artifact_bytes("generated output list", output.output_manifest_json.len());
                 print_run_artifact_bytes("report html", output.report_html.len());
                 println!("use --save-artifacts to write build\\result files");
             }

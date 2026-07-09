@@ -2,8 +2,8 @@
 
 `eng run` executes one file's top-level workflow through bytecode and the native VM.
 By default it keeps result data, review data, report data, report HTML, run log,
-process results, test results, plot data, plot SVG, plot output list, output
-list, and bytecode payloads as runtime objects and does not write ordinary
+process results, test results, plot data, plot SVG, plot output list, generated
+output list, and bytecode payloads as runtime objects and does not write ordinary
 artifacts.
 Explicit `export ... to csv`, `write text/json`, and constrained
 `copy/move/delete/mkdir` statements are user-requested artifacts and mutate
@@ -36,7 +36,7 @@ report data:               2345 bytes
 plot svg:                  3456 bytes
 plot data:                 4567 bytes
 plot output list:          678 bytes
-output list:               234 bytes
+generated output list:     234 bytes
 report html:               7890 bytes
 use --save-artifacts to write build\result files
 ```
