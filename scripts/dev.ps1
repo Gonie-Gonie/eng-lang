@@ -3394,13 +3394,11 @@ function Assert-VscodeExtensionContract {
         if ($RequiredTheme.Theme.semanticHighlighting -ne $true -or $null -eq $RequiredTheme.Theme.semanticTokenColors -or @($RequiredTheme.Theme.tokenColors).Count -lt 8) {
             throw "VS Code extension theme $($RequiredTheme.Label) must define TextMate and semantic token colors"
         }
-        foreach ($RequiredThemeSelector in @(
-            "namespace", "type", "class", "interface", "parameter", "variable", "property", "function", "method", "keyword", "modifier", "string", "number", "operator", "comment",
-            "variable.readonly", "property.readonly", "parameter.readonly", "function.defaultLibrary", "variable.defaultLibrary", "namespace.defaultLibrary", "namespace.imported", "variable.deprecated", "function.deprecated", "property.deprecated",
-            "type.unit", "type.quantity", "keyword.workflowStep", "keyword.validation", "keyword.report",
-            "keyword.sideEffect", "keyword.external", "function.model", "variable.db", "variable.cache",
-            "variable.riskHigh", "keyword.riskHigh", "namespace.planned", "namespace.internal"
-        )) {
+        $RequiredThemeSelectors = @($SemanticScopeRule.scopes.PSObject.Properties.Name | Sort-Object -Unique)
+        if ($RequiredThemeSelectors.Count -lt 100) {
+            throw "VS Code extension semantic token scope map is unexpectedly small"
+        }
+        foreach ($RequiredThemeSelector in $RequiredThemeSelectors) {
             if ($null -eq $RequiredTheme.Theme.semanticTokenColors.PSObject.Properties[$RequiredThemeSelector]) {
                 throw "VS Code extension theme $($RequiredTheme.Label) missing semantic token color $RequiredThemeSelector"
             }

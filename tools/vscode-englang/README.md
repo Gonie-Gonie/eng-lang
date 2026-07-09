@@ -20,8 +20,8 @@ embedding compiler logic in JavaScript.
 - packaged role-coloring metadata so themes can color EngLang code
   consistently without custom rules
 - optional `EngLang Dark` and `EngLang Light` color themes with explicit
-  semantic colors for units, quantities, workflow steps, model/DB/cache roles,
-  validation/report roles, external boundaries, and review risks
+  semantic colors for every EngLang semantic selector contributed by the
+  extension
 - subtle review-risk line and overview-ruler markers for high and medium risks
 - highlight-token inspection command for checking how the current file is
   colored
@@ -201,9 +201,9 @@ series, validation/report roles, side effects, external boundaries, inputs,
 state, built-in workflow helper functions, solver and uncertainty policy
 literals, module namespaces, model artifacts, DB/cache records, workflow steps,
 and review risks, so themes without EngLang-specific rules still receive stable
-color hints. For stronger role
-separation, choose `EngLang Dark` or `EngLang Light` from VS Code's Color Theme
-picker. Set
+color hints. For stronger role separation, choose `EngLang Dark` or `EngLang
+Light` from VS Code's Color Theme picker; the bundled themes define direct
+colors for every EngLang semantic selector contributed by the extension. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping

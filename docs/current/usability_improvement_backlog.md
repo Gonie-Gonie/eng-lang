@@ -58,6 +58,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 560: Aligned VS Code and native IDE caret-near highlight distance checks with half-open token ranges so token-end positions no longer read as inside the previous token.
 - Batch 561: Added a plain Native IDE Highlight panel status summary so stale checks, empty highlight results, and filters that hide all ranges are visible before reading token tables.
 - Batch 562: Added per-token copy actions to the Native IDE Highlight table so individual highlight text and source ranges can be copied without using the full visible-highlight export.
+- Batch 563: Made the bundled VS Code EngLang Dark/Light themes directly color every semantic selector contributed by the extension and guarded that coverage against drift.
 
 ## Documentation Policy
 
