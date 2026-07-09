@@ -37,7 +37,7 @@ let commandHandlers;
 const editorMetadata = loadEditorMetadata(__dirname);
 const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
-const COMPLETION_SEED = editorMetadata.completionSeed;
+const COMPLETION_ITEMS = editorMetadata.completionItems;
 const HTTP_RESPONSE_FIELDS = editorMetadata.syntaxCatalog.http_response_fields;
 const SAMPLE_TABLE_FIELDS = editorMetadata.syntaxCatalog.sample_table_fields;
 const CASE_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_table_fields;
@@ -165,7 +165,7 @@ function activate(context) {
     vscode.languages.registerCompletionItemProvider(
       LANGUAGE_ID,
       new EngCompletionProvider(context, {
-        completionSeed: COMPLETION_SEED,
+        completionItems: COMPLETION_ITEMS,
         httpResponseFields: HTTP_RESPONSE_FIELDS,
         sampleTableFields: SAMPLE_TABLE_FIELDS,
         caseTableFields: CASE_TABLE_FIELDS,
@@ -235,7 +235,7 @@ function activate(context) {
       LANGUAGE_ID,
       new EngCodeActionProvider(context, {
         codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource,
-        completionSeed: COMPLETION_SEED
+        completionItems: COMPLETION_ITEMS
       }),
       {
         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]

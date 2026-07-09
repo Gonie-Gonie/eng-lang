@@ -3668,7 +3668,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must not hardcode semantic token legend arrays"
     }
     $CompletionSource = $ExtensionSource + "`n" + $CompletionProviderSource + "`n" + $LspRequestsSource
-    if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $CompletionProviderSource.Contains("completion.lsp_kind")) {
+    if (-not $ExtensionSource.Contains("COMPLETION_ITEMS") -or -not $CompletionProviderSource.Contains("completion.lsp_kind")) {
         throw "VS Code extension must use generated completion item metadata as the completion fallback"
     }
     foreach ($RequiredCompletionToken in @(
@@ -4126,7 +4126,7 @@ function Assert-VscodeExtensionContract {
         "removeStdlibModuleImportAction",
         'Remove ${status} stdlib module import',
         "stdlibModuleNameFromDiagnostic",
-        "stdlibModuleNamesFromCompletionSeed",
+        "stdlibModuleNamesFromCompletionItems",
         "closestStdlibModuleName",
         "editDistance",
         "Use plot y-axis option: unit y =",
@@ -4156,7 +4156,7 @@ function Assert-VscodeExtensionContract {
     if (-not $CodeActionProviderSource.Contains('require("./localCodeActions")') -or -not $LocalCodeActionsSource.Contains("localCodeActions") -or -not $LocalCodeActionsSource.Contains("diagnosticCode")) {
         throw "VS Code code action provider must load local quick fix helpers from localCodeActions.js"
     }
-    if (-not $ExtensionSource.Contains('completionSeed: COMPLETION_SEED') -or -not $CodeActionProviderSource.Contains('this.completionSeed = Array.isArray(options.completionSeed)') -or -not $CodeActionProviderSource.Contains('completionSeed: this.completionSeed')) {
+    if (-not $ExtensionSource.Contains('completionItems: COMPLETION_ITEMS') -or -not $CodeActionProviderSource.Contains('this.completionItems = Array.isArray(options.completionItems)') -or -not $CodeActionProviderSource.Contains('completionItems: this.completionItems')) {
         throw "VS Code code action provider must pass generated completion catalog to local quick fixes"
     }
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {

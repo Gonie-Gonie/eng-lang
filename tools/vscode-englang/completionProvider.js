@@ -4,7 +4,7 @@ const { completionKindFromLsp } = require("./lspKinds");
 class EngCompletionProvider {
   constructor(context, options = {}) {
     this.context = context;
-    this.completionSeed = Array.isArray(options.completionSeed) ? options.completionSeed : [];
+    this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
     this.httpResponseFields = Array.isArray(options.httpResponseFields) ? options.httpResponseFields : [];
     this.sampleTableFields = Array.isArray(options.sampleTableFields) ? options.sampleTableFields : [];
     this.caseTableFields = Array.isArray(options.caseTableFields) ? options.caseTableFields : [];
@@ -37,11 +37,11 @@ class EngCompletionProvider {
       caseOutputTableFields: this.caseOutputTableFields,
       caseResultCollectionTableFields: this.caseResultCollectionTableFields
     });
-    return completionItemsFromPayload(completionPayload, this.completionSeed, { localCompletions });
+    return completionItemsFromPayload(completionPayload, this.completionItems, { localCompletions });
   }
 }
 
-function completionItemsFromPayload(completionPayload, completionSeed, options = {}) {
+function completionItemsFromPayload(completionPayload, fallbackCompletionItems, options = {}) {
   const items = [];
   const seen = new Set();
   const localCompletions = Array.isArray(options.localCompletions) ? options.localCompletions : [];
@@ -49,7 +49,7 @@ function completionItemsFromPayload(completionPayload, completionSeed, options =
     ? [...completionPayload.completions, ...localCompletions]
     : [
         ...localCompletions,
-        ...(Array.isArray(completionSeed) ? completionSeed : [])
+        ...(Array.isArray(fallbackCompletionItems) ? fallbackCompletionItems : [])
       ];
   for (const completion of completions) {
     if (!completion?.label) {

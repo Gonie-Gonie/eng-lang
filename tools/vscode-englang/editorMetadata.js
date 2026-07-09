@@ -37,7 +37,6 @@ function loadEditorMetadata(extensionRoot) {
     semanticTokenTypes,
     semanticTokenModifiers,
     completionItems,
-    completionSeed: completionItems,
     syntaxCatalog
   };
 }

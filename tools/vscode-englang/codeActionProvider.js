@@ -6,12 +6,12 @@ class EngCodeActionProvider {
   constructor(context, options = {}) {
     this.context = context;
     this.codeActionsForDocumentSource = options.codeActionsForDocumentSource;
-    this.completionSeed = Array.isArray(options.completionSeed) ? options.completionSeed : [];
+    this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
   }
 
   async provideCodeActions(document, _range, context, cancellationToken) {
     const localActions = () => localCodeActions(document, context, {
-      completionSeed: this.completionSeed
+      completionItems: this.completionItems
     });
     if (cancellationToken?.isCancellationRequested) {
       return [];

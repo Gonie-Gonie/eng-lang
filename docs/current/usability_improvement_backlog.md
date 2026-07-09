@@ -90,6 +90,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 533: Clarified Native IDE Problems and Terminal placeholder/help wording for supported commands and one-line EngLang statements.
 - Batch 534: Added `completion_items` editor metadata as the preferred completion catalog API while retaining `completion_seed` as a compatibility alias.
 - Batch 535: Added version-aware LSP document cache and versioned publishDiagnostics coverage for persistent editor sessions.
+- Batch 536: Renamed VS Code extension completion provider wiring from completionSeed to completionItems while keeping generated `completion_seed` as a metadata-only legacy alias.
 
 ## Documentation Policy
 

@@ -265,7 +265,7 @@ function localCodeActions(document, context, options = {}) {
       }
     }
     if (code === "E-STDLIB-MODULE-UNKNOWN") {
-      const action = stdlibModuleReplacementAction(document, diagnostic, options.completionSeed);
+      const action = stdlibModuleReplacementAction(document, diagnostic, options.completionItems);
       if (action) {
         action.isPreferred = true;
         actions.push(action);
@@ -357,12 +357,12 @@ function sumFunctionNameRange(lineText) {
   return undefined;
 }
 
-function stdlibModuleReplacementAction(document, diagnostic, completionSeed) {
+function stdlibModuleReplacementAction(document, diagnostic, completionItems) {
   const unknown = stdlibModuleNameFromDiagnostic(diagnostic.message);
   if (!unknown) {
     return undefined;
   }
-  const replacement = closestStdlibModuleName(unknown, completionSeed);
+  const replacement = closestStdlibModuleName(unknown, completionItems);
   if (!replacement) {
     return undefined;
   }
@@ -414,8 +414,8 @@ function stdlibModuleNameFromDiagnostic(message) {
   return last ? last.slice(1, -1) : undefined;
 }
 
-function closestStdlibModuleName(unknown, completionSeed) {
-  const moduleNames = stdlibModuleNamesFromCompletionSeed(completionSeed)
+function closestStdlibModuleName(unknown, completionItems) {
+  const moduleNames = stdlibModuleNamesFromCompletionItems(completionItems)
     .filter((name) => name !== unknown);
   let best;
   for (const name of moduleNames) {
@@ -430,10 +430,10 @@ function closestStdlibModuleName(unknown, completionSeed) {
   return best.distance <= 2 || (best.distance <= 3 && unknown.length >= 8) ? best.name : undefined;
 }
 
-function stdlibModuleNamesFromCompletionSeed(completionSeed) {
+function stdlibModuleNamesFromCompletionItems(completionItems) {
   return Array.from(
     new Set(
-      (Array.isArray(completionSeed) ? completionSeed : [])
+      (Array.isArray(completionItems) ? completionItems : [])
         .map((completion) => completion?.label)
         .filter((label) => /^eng\.[A-Za-z0-9_.-]+$/.test(label ?? ""))
     )
