@@ -83,6 +83,44 @@
     ],
     "description": "Create a deterministic native LHS sample table."
   },
+  "Sample grid table": {
+    "prefix": "sample grid",
+    "body": [
+      "${1:grid_samples} = sample grid",
+      "with {",
+      "    count = ${2:9}",
+      "    ${3:cooling_cop} = uniform(${4:2.5}, ${5:5.0})",
+      "    ${6:load_index} = uniform(${7:0.85}, ${8:1.20})",
+      "}"
+    ],
+    "description": "Create a deterministic native grid sample table."
+  },
+  "Sample random table": {
+    "prefix": "sample random",
+    "body": [
+      "${1:random_samples} = sample random",
+      "with {",
+      "    count = ${2:8}",
+      "    seed = ${3:42}",
+      "    ${4:cooling_cop} = uniform(${5:2.5}, ${6:5.0})",
+      "    ${7:load_index} = uniform(${8:0.85}, ${9:1.20})",
+      "}"
+    ],
+    "description": "Create a seeded native random sample table."
+  },
+  "Sample uniform table": {
+    "prefix": "sample uniform",
+    "body": [
+      "${1:uniform_samples} = sample uniform",
+      "with {",
+      "    count = ${2:8}",
+      "    seed = ${3:42}",
+      "    ${4:cooling_cop} = uniform(${5:2.5}, ${6:5.0})",
+      "    ${7:load_index} = uniform(${8:0.85}, ${9:1.20})",
+      "}"
+    ],
+    "description": "Create a seeded native uniform/random sample table."
+  },
   "Materialize cases": {
     "prefix": "materialize cases",
     "body": [
