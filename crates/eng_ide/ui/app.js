@@ -4628,7 +4628,12 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       detail: "Case output table field"
     },
     {
-      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_]*\b/gm,
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*apply\s*\(\s*[A-Za-z_][A-Za-z0-9_.-]*\s*,\s*over\s*=\s*[A-Za-z_][A-Za-z0-9_.-]*\s*\)/gm,
+      fields: normalizedCatalog.caseOutputTableFields,
+      detail: "Case output table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_.]*\b/gm,
       fields: normalizedCatalog.caseResultCollectionTableFields,
       detail: "Case result collection field"
     }

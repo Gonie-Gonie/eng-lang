@@ -62,6 +62,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 564: Made native case-template apply outputs report rendered CaseOutput status/counts after files and render manifests are actually written, replacing workflow 02's planned-count surface with rendered-count evidence.
 - Batch 565: Made CaseResultCollection aggregate status report collected/partial/missing/blocked/empty so workflow 02 no longer shows collected rows as status=complete.
 - Batch 566: Extended native workflow smoke gates to reject process/run-command/Python metadata in saved static and runtime run graphs, not just source text and process_results.json.
+- Batch 567: Made VS Code and native IDE fallback member completions recognize function-style `apply(..., over=...)` CaseOutput bindings and property-source `collect results` bindings.
 
 ## Documentation Policy
 
