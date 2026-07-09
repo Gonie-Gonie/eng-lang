@@ -13,5 +13,5 @@ Scope:
 
 - unitful AbsoluteTemperature component state
 - explicit-Euler source behavior RHS only
-- deterministic typed predictor wrapper seed
+- deterministic typed predictor wrapper path
 - not a model-loading or broad black-box solver workflow

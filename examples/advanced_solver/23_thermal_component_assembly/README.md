@@ -10,8 +10,8 @@ It exercises:
 - component templates with `port` declarations;
 - system-local component instances using `name = Component()`;
 - `connect instance.port to instance.port` component graph assembly syntax;
-- a component-local boundary seed written as `name = port.signal = literal`;
-- a component-local equation seed written as `port.signal eq literal`;
+- a component-local boundary source written as `name = port.signal = literal`;
+- a component-local equation source written as `port.signal eq literal`;
 - generated across equality and through conservation equations;
 - a square four-equation/four-unknown linear residual graph solved by the
   runtime artifact path.

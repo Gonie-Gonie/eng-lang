@@ -13,5 +13,5 @@ Scope:
 
 - unitful AbsoluteTemperature component state
 - explicit-Euler source behavior RHS only
-- deterministic typed external function wrapper seed
+- deterministic typed external function wrapper path
 - not a process backend or broad external co-simulation workflow

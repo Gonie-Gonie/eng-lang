@@ -46,6 +46,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 548: Added a Tooling Status action and output-panel hint when VS Code highlight inspection cannot obtain semantic highlight data.
 - Batch 549: Scoped VS Code quick-fix computation to Quick Fix requests so refactor/source-action menus stay clean.
 - Batch 550: Added VS Code and native IDE fallback coloring for solver Jacobian and uncertainty policy literals.
+- Batch 551: Reworded advanced solver example docs so implemented narrow solve fixtures do not read as seed-only paths.
 
 ## Documentation Policy
 

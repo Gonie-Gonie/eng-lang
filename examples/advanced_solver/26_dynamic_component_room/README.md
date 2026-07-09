@@ -15,7 +15,7 @@ Current support boundary:
 
 - the dynamic source path supports simple linear residual terms over assembled
   component port signals and materialized component-parameter coefficients;
-- the wall heat flow is still a fixed linear boundary seed in this example, not
+- the wall heat flow is still a fixed linear boundary relation in this example, not
   a unit-parameterized conductance model;
 - nonlinear component equations, broad args/object/non-arithmetic constructor bindings,
   adaptive component timestepping, and full DAE solving remain
