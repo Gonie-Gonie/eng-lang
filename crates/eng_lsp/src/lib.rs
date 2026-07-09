@@ -4237,6 +4237,11 @@ impl<'a> SemanticTokenBuilder<'a> {
                 );
             }
             self.scan_string_tokens(line_index, comment_start_index.unwrap_or(line.len()));
+            self.scan_string_interpolation_tokens(
+                line_index,
+                comment_start_index.unwrap_or(line.len()),
+                &units,
+            );
 
             for (start, end) in code_ranges(line) {
                 let unit_ranges = self.scan_unit_tokens(line_index, start, end, &units);
@@ -4282,6 +4287,145 @@ impl<'a> SemanticTokenBuilder<'a> {
                 index += 1;
             }
             self.push_byte_range(line_index, token_start, index - token_start, "string", &[]);
+        }
+    }
+
+    fn scan_string_interpolation_tokens(&mut self, line_index: usize, end: usize, units: &[&str]) {
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        for (literal_start, literal_end) in string_literal_byte_ranges(line) {
+            if literal_start >= end {
+                continue;
+            }
+            let literal_end = literal_end.min(end);
+            if literal_end <= literal_start + '"'.len_utf8() {
+                continue;
+            }
+            let content_start = literal_start + '"'.len_utf8();
+            let content_end = literal_end.saturating_sub('"'.len_utf8());
+            if content_start > content_end {
+                continue;
+            }
+            let Some(content) = line.get(content_start..content_end) else {
+                continue;
+            };
+            let mut cursor = 0usize;
+            while let Some(open_offset) = content[cursor..].find('{') {
+                let open = cursor + open_offset;
+                let field_start = open + '{'.len_utf8();
+                if content[field_start..].starts_with('{') {
+                    cursor = field_start + '{'.len_utf8();
+                    continue;
+                }
+                let Some(close_offset) = content[field_start..].find('}') else {
+                    break;
+                };
+                let close = field_start + close_offset;
+                let field = &content[field_start..close];
+                self.scan_string_interpolation_field_tokens(
+                    line_index,
+                    field,
+                    content_start + field_start,
+                    units,
+                );
+                cursor = close + '}'.len_utf8();
+            }
+        }
+    }
+
+    fn scan_string_interpolation_field_tokens(
+        &mut self,
+        line_index: usize,
+        field: &str,
+        field_line_offset: usize,
+        units: &[&str],
+    ) {
+        let expression_end = field.find(':').unwrap_or(field.len());
+        self.scan_string_interpolation_expression_tokens(
+            line_index,
+            &field[..expression_end],
+            field_line_offset,
+        );
+        let Some(colon) = field.find(':') else {
+            return;
+        };
+        let spec_start = colon + ':'.len_utf8();
+        let spec = &field[spec_start..];
+        let mut cursor = leading_whitespace_len(spec);
+        if spec[cursor..].starts_with('.') {
+            cursor += '.'.len_utf8();
+            let digit_start = cursor;
+            cursor += spec[cursor..]
+                .chars()
+                .take_while(|character| character.is_ascii_digit())
+                .map(char::len_utf8)
+                .sum::<usize>();
+            if cursor > digit_start {
+                self.push_byte_range(
+                    line_index,
+                    field_line_offset + spec_start + digit_start,
+                    cursor - digit_start,
+                    "number",
+                    &[],
+                );
+            }
+        }
+        self.scan_unit_tokens(
+            line_index,
+            field_line_offset + spec_start + cursor,
+            field_line_offset + field.len(),
+            units,
+        );
+    }
+
+    fn scan_string_interpolation_expression_tokens(
+        &mut self,
+        line_index: usize,
+        expression: &str,
+        expression_line_offset: usize,
+    ) {
+        let bytes = expression.as_bytes();
+        let mut index = 0usize;
+        while index < bytes.len() {
+            if !is_ident_start(bytes[index]) {
+                index += 1;
+                continue;
+            }
+            let mut segments = Vec::<(usize, usize)>::new();
+            let mut segment_start = index;
+            loop {
+                let mut segment_end = segment_start + 1;
+                while segment_end < bytes.len() && is_ident_byte(bytes[segment_end]) {
+                    segment_end += 1;
+                }
+                segments.push((segment_start, segment_end));
+                if segment_end + 1 < bytes.len()
+                    && bytes[segment_end] == b'.'
+                    && is_ident_start(bytes[segment_end + 1])
+                {
+                    segment_start = segment_end + 1;
+                    continue;
+                }
+                index = segment_end;
+                break;
+            }
+            for (segment_index, (start, end)) in segments.iter().copied().enumerate() {
+                let token_type = if segment_index == 0 && &expression[start..end] == "args" {
+                    "parameter"
+                } else if segment_index == 0 {
+                    "variable"
+                } else {
+                    "property"
+                };
+                self.push_byte_range(
+                    line_index,
+                    expression_line_offset + start,
+                    end - start,
+                    token_type,
+                    &[],
+                );
+            }
         }
     }
 
@@ -10448,7 +10592,7 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
 
     #[test]
     fn snapshot_marks_lexical_strings_and_symbol_operators_as_semantic_tokens() {
-        let source = r#"print "flow {Q: .2 kW}"
+        let source = r#"print "flow {Q: .2 kW} status={coverage.status} arg={args.region}"
 ratio = Q / cp_water
 specific = 4180 J/kg/K
 irradiance = 850 W/m^2
@@ -10460,7 +10604,36 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
 "#;
         let snapshot = snapshot_for_source(Path::new("lexical_tokens.eng"), source);
 
-        assert_semantic_token_type(&snapshot, source, "\"flow {Q: .2 kW}\"", "string");
+        assert_semantic_token_type(
+            &snapshot,
+            source,
+            "\"flow {Q: .2 kW} status={coverage.status} arg={args.region}\"",
+            "string",
+        );
+        for (label, token_type) in [
+            ("Q", "variable"),
+            ("2", "number"),
+            ("coverage", "variable"),
+            ("status", "property"),
+            ("args", "parameter"),
+            ("region", "property"),
+        ] {
+            assert_semantic_token_on_line_type(
+                &snapshot,
+                source,
+                "print \"flow",
+                label,
+                token_type,
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "print \"flow",
+            "kW",
+            "type",
+            "unit",
+        );
         for (line, label) in [
             ("ratio = Q / cp_water", "/"),
             ("valid = Q >= 0 kW and Q != 1 kW", "="),

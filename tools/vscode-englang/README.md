@@ -202,6 +202,7 @@ role categories and theme fallback hints for units, quantities, axes, time
 series, validation/report roles, side effects, external boundaries, inputs,
 state, built-in workflow helper functions, solver and uncertainty policy
 literals, module namespaces, model artifacts, DB/cache records, workflow steps,
+string interpolation variables/properties, format precision, format units,
 and review risks, so themes without EngLang-specific rules still receive stable
 color hints. For stronger role separation, choose `EngLang Dark` or `EngLang
 Light` from VS Code's Color Theme picker; the bundled themes define direct

@@ -238,6 +238,7 @@ Core semantic role expectations:
 | Supported/native `eng.*` module import | `namespace` with `declaration`, `imported`, and `defaultLibrary`. |
 | Planned `eng.*` module import | `namespace` with `declaration`, `imported`, `defaultLibrary`, and `planned`. |
 | Internal `eng.*` module import | `namespace` with `declaration`, `imported`, `defaultLibrary`, and `internal`. |
+| String interpolation expression | `variable`/`parameter` plus `property` path segments inside `{...}` fields; format precision digits use `number`, and format units use `type` with `unit`. |
 
 `planned` is currently emitted for source-visible planned stdlib module imports
 such as `use eng.stats`; internal stdlib imports such as `use eng.system` carry
