@@ -17,6 +17,7 @@ class EngCodeActionProvider {
       return [];
     }
 
+    const documentVersion = document.version;
     let payload;
     try {
       payload = await this.codeActionsForDocumentSource?.(
@@ -25,9 +26,12 @@ class EngCodeActionProvider {
         cancellationToken
       );
     } catch (_error) {
+      if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+        return [];
+      }
       return localActions();
     }
-    if (cancellationToken?.isCancellationRequested) {
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
       return [];
     }
 

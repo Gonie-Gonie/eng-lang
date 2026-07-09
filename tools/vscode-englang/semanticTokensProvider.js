@@ -25,11 +25,15 @@ class EngSemanticTokensProvider {
       return emptySemanticTokens();
     }
 
+    const documentVersion = document.version;
     const snapshot = await this.snapshotDocumentSource?.(
       document,
       this.context,
       cancellationToken
     );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return emptySemanticTokens();
+    }
     if (!snapshot) {
       return emptySemanticTokens();
     }

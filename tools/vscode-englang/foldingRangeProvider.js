@@ -13,11 +13,15 @@ class EngFoldingRangeProvider {
     if (!this.isEngDocument(document)) {
       return [];
     }
+    const documentVersion = document.version;
     const snapshot = await this.snapshotDocumentSource?.(
       document,
       this.context,
       cancellationToken
     );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
     if (!snapshot) {
       return [];
     }

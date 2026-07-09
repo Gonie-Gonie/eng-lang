@@ -18,7 +18,11 @@ class EngDocumentSymbolProvider {
     if (!this.isEngDocument(document)) {
       return [];
     }
+    const documentVersion = document.version;
     const snapshot = await this.snapshotDocumentSource?.(document, this.context, cancellationToken);
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
     if (!snapshot) {
       return [];
     }
@@ -57,8 +61,18 @@ class EngDefinitionProvider {
     if (!this.isEngDocument(document)) {
       return undefined;
     }
+    const documentVersion = document.version;
+    const liveDefinitionPayload = await this.definitionSnapshotForPosition?.(
+      document,
+      position,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
     const liveDefinition = definitionLocationFromLsp(
-      await this.definitionSnapshotForPosition?.(document, position, this.context, cancellationToken),
+      liveDefinitionPayload,
       document.uri,
       this.appendOutputLine
     );
@@ -66,9 +80,11 @@ class EngDefinitionProvider {
       return liveDefinition;
     }
 
-    const snapshot =
-      (await this.snapshotDocumentSource?.(document, this.context, cancellationToken)) ??
-      this.cachedSnapshotForDocument(document);
+    const liveSnapshot = await this.snapshotDocumentSource?.(document, this.context, cancellationToken);
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
+    const snapshot = liveSnapshot ?? this.cachedSnapshotForDocument(document);
     if (!snapshot) {
       return undefined;
     }

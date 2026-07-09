@@ -3630,6 +3630,21 @@ function Assert-VscodeExtensionContract {
             throw "VS Code stdin live editor requests must guard stale document versions with $RequiredStdinRequestFreshnessToken"
         }
     }
+    $ProviderFreshnessContracts = @(
+        @{ Label = "completion"; Source = $CompletionProviderSource; MinimumVersionGuardCount = 1 },
+        @{ Label = "hover"; Source = $HoverProviderSource; MinimumVersionGuardCount = 1 },
+        @{ Label = "navigation"; Source = $NavigationProvidersSource; MinimumVersionGuardCount = 2 },
+        @{ Label = "folding"; Source = $FoldingRangeProviderSource; MinimumVersionGuardCount = 1 },
+        @{ Label = "semantic tokens"; Source = $SemanticTokensProviderSource; MinimumVersionGuardCount = 1 },
+        @{ Label = "formatting"; Source = $FormattingProviderSource; MinimumVersionGuardCount = 2 },
+        @{ Label = "code action"; Source = $CodeActionProviderSource; MinimumVersionGuardCount = 1 }
+    )
+    foreach ($ProviderFreshnessContract in $ProviderFreshnessContracts) {
+        $VersionGuardCount = [regex]::Matches($ProviderFreshnessContract.Source, "const documentVersion = document\.version;").Count
+        if ($VersionGuardCount -lt $ProviderFreshnessContract.MinimumVersionGuardCount -or -not $ProviderFreshnessContract.Source.Contains("document.version !== documentVersion")) {
+            throw "VS Code $($ProviderFreshnessContract.Label) provider must guard stale document versions before using live or cached editor results"
+        }
+    }
     foreach ($RequiredLiveEditorOutputToken in @(
         "Live editor check failed:",
         "Unable to parse EngLang live editor data:",

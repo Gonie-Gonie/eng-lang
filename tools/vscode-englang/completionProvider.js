@@ -17,9 +17,17 @@ class EngCompletionProvider {
   }
 
   async provideCompletionItems(document, position, cancellationToken) {
-    const completionPayload =
-      (await this.completionSnapshotForPosition?.(document, position, this.context, cancellationToken)) ??
-      this.cachedSnapshotForDocument(document);
+    const documentVersion = document.version;
+    const liveCompletionPayload = await this.completionSnapshotForPosition?.(
+      document,
+      position,
+      this.context,
+      cancellationToken
+    );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
+    const completionPayload = liveCompletionPayload ?? this.cachedSnapshotForDocument(document);
 
     const localCompletions = localMemberCompletionsForContext(document, position, {
       argsFields: argsFieldCompletionsFromDocument(document),

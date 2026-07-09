@@ -11,11 +11,15 @@ class EngFormattingProvider {
     if (!this.isEngDocument(document)) {
       return [];
     }
+    const documentVersion = document.version;
     const payload = await this.formatDocumentSource?.(
       document,
       this.context,
       cancellationToken
     );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
     if (!payload?.changed || typeof payload.formatted !== "string") {
       return [];
     }
@@ -26,11 +30,15 @@ class EngFormattingProvider {
     if (!this.isEngDocument(document)) {
       return [];
     }
+    const documentVersion = document.version;
     const payload = await this.formatDocumentSource?.(
       document,
       this.context,
       cancellationToken
     );
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return [];
+    }
     if (!payload?.changed || typeof payload.formatted !== "string") {
       return [];
     }

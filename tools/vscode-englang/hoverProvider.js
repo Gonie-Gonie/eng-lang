@@ -17,9 +17,12 @@ class EngHoverProvider {
     if (!this.isEngDocument(document)) {
       return undefined;
     }
-    const snapshot =
-      (await this.snapshotDocumentSource?.(document, this.context, cancellationToken)) ??
-      this.cachedSnapshotForDocument(document);
+    const documentVersion = document.version;
+    const liveSnapshot = await this.snapshotDocumentSource?.(document, this.context, cancellationToken);
+    if (document.version !== documentVersion || cancellationToken?.isCancellationRequested) {
+      return undefined;
+    }
+    const snapshot = liveSnapshot ?? this.cachedSnapshotForDocument(document);
     if (!snapshot) {
       return undefined;
     }
