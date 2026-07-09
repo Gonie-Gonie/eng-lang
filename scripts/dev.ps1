@@ -3318,7 +3318,7 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredTokenScopeDocToken in @(
         "syntax_catalog.workflow_status_literals",
-        "native IDE lexical fallback also consumes",
+        "native IDE lexical fallback consumes",
         "status ==",
         "status !=",
         "status ="

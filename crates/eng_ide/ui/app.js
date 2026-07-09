@@ -31,10 +31,6 @@ const FALLBACK_LEXICAL_CONSTANTS = [
   "dynamic_component_explicit_euler", "dynamic_component_semi_implicit_euler",
   "dynamic_component_adaptive_heun", "trapezoidal"
 ];
-const FALLBACK_WORKFLOW_STATUS_LITERALS = [
-  "pending", "planned", "partial", "running", "passed", "failed", "succeeded",
-  "skipped", "blocked", "completed", "rendered", "collected", "missing", "empty"
-];
 const FALLBACK_LEXICAL_UNITS = [
   "J/kg/K", "people/m2", "person/m2", "W/m^2", "W/m2", "kg/s", "W/K",
   "J/K", "kJ/K", "degC", "kWh", "kPa", "kW", "kJ", "MJ", "MB", "KB",
@@ -206,10 +202,7 @@ function buildLexicalCatalog(catalog) {
     keywords: keywordSet,
     keywordGroups: keywordGroupSets(normalized.keywordGroups),
     workflowBuiltins: workflowBuiltinSet,
-    workflowStatusLiterals: new Set([
-      ...FALLBACK_WORKFLOW_STATUS_LITERALS,
-      ...normalized.workflowStatusLiterals
-    ]),
+    workflowStatusLiterals: new Set(normalized.workflowStatusLiterals),
     operatorWords: new Set([...FALLBACK_LEXICAL_OPERATOR_WORDS, ...normalized.operatorWords]),
     constants: new Set([...FALLBACK_LEXICAL_CONSTANTS, ...normalized.constants]),
     workflowOptions: new Set(normalized.workflowOptions),

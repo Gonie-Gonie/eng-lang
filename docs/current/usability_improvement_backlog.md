@@ -91,6 +91,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 590: Made the native IDE lexical fallback consume `syntax_catalog.workflow_status_literals` and color `status =`, `status ==`, and `status !=` literals as workflow-step tokens before semantic results arrive.
 - Batch 591: Updated workflow 02 to expose native sampler `row_preview` bindings in console output, reports, and `sampling_summary.txt`, with runtime contract coverage so the workflow shows generated sample rows rather than only seed/count metadata.
 - Batch 592: Documented `syntax_catalog.workflow_status_literals` in the editor token-scope contract and added a VS Code extension contract guard so workflow status literal coloring stays generated across TextMate and native IDE fallback paths.
+- Batch 593: Removed the native IDE hardcoded workflow-status literal fallback list so `status =`, `status ==`, and `status !=` coloring uses only the LSP-generated `syntax_catalog.workflow_status_literals` catalog.
 
 ## Documentation Policy
 

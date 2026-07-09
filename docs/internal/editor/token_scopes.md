@@ -306,9 +306,9 @@ Base semantic selectors observed in LSP snapshots must keep fallback scopes even
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
 source-visible stdlib module imports plus bundled stdlib namespace tokens. The
-native IDE lexical fallback also consumes `syntax_catalog.workflow_status_literals`
-so `status =`, `status ==`, and `status !=` literals keep workflow-step
-coloring before semantic tokens arrive.
+native IDE lexical fallback consumes `syntax_catalog.workflow_status_literals` without
+a separate status-literal list, so `status =`, `status ==`, and `status !=`
+literals keep workflow-step coloring before semantic tokens arrive.
 
 The extension also contributes optional `EngLang Dark` and `EngLang Light`
 color themes. Those themes define both TextMate fallback colors and direct
