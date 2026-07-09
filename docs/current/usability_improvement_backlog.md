@@ -40,6 +40,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 542: Expanded VS Code TextMate fallback highlighting for native workflow command verbs, validation verbs, and sampling method literals outside full phrase matches.
 - Batch 543: Ran VS Code extension install through an ignored temporary working directory so CLI debug logs do not dirty the checkout, and documented the reinstall behavior.
 - Batch 544: Added summary-first VS Code tooling status output with clearer executable source, fallback, availability, diagnostics, and role-coloring wording.
+- Batch 545: Aligned VS Code TextMate fallback colors for TimeSeries quality verbs and added partial-edit fallback coverage for `require_one`.
 
 ## Documentation Policy
 

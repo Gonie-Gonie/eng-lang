@@ -2670,7 +2670,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.validation.englang",
-                                                             "match":  "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic|check|coverage)\\b"
+                                                             "match":  "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic|fill|align|resample|check|coverage)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.side-effect.englang",
@@ -2686,7 +2686,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else|sample|filter|select|derive|sort|materialize|cases|collect|results|apply|train|regression|predict|fill|align|resample)\\b"
+                                                             "match":  "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else|sample|filter|select|derive|sort|require_one|materialize|cases|collect|results|apply|train|regression|predict)\\b"
                                                          }
                                                      ]
                                     },

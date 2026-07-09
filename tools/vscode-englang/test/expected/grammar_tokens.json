@@ -3725,6 +3725,12 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.workflow.englang",
+    "text": "require_one",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
     "text": "materialize",
     "fullMatch": true
   },
@@ -3772,19 +3778,19 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "keyword.control.workflow.englang",
+    "scope": "keyword.control.validation.englang",
     "text": "fill",
     "fullMatch": true
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "keyword.control.workflow.englang",
+    "scope": "keyword.control.validation.englang",
     "text": "align",
     "fullMatch": true
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "keyword.control.workflow.englang",
+    "scope": "keyword.control.validation.englang",
     "text": "resample",
     "fullMatch": true
   },
