@@ -31,6 +31,10 @@ const FALLBACK_LEXICAL_CONSTANTS = [
   "dynamic_component_explicit_euler", "dynamic_component_semi_implicit_euler",
   "dynamic_component_adaptive_heun", "trapezoidal"
 ];
+const FALLBACK_WORKFLOW_STATUS_LITERALS = [
+  "pending", "planned", "partial", "running", "passed", "failed", "succeeded",
+  "skipped", "blocked", "completed", "rendered", "collected", "missing", "empty"
+];
 const FALLBACK_LEXICAL_UNITS = [
   "J/kg/K", "people/m2", "person/m2", "W/m^2", "W/m2", "kg/s", "W/K",
   "J/K", "kJ/K", "degC", "kWh", "kPa", "kW", "kJ", "MJ", "MB", "KB",
@@ -144,6 +148,7 @@ function emptySyntaxCatalog() {
     keywords: [],
     keywordGroups: {},
     constants: [],
+    workflowStatusLiterals: [],
     operatorWords: [],
     workflowBuiltins: [],
     hyphenatedWorkflowBuiltins: [],
@@ -165,6 +170,7 @@ function normalizeSyntaxCatalog(catalog) {
     keywords: stringArray(source.keywords),
     keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups),
     constants: stringArray(source.constants),
+    workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals),
     operatorWords: stringArray(source.operatorWords ?? source.operator_words),
     workflowBuiltins: stringArray(source.workflowBuiltins ?? source.workflow_builtins),
     hyphenatedWorkflowBuiltins: stringArray(
@@ -200,6 +206,10 @@ function buildLexicalCatalog(catalog) {
     keywords: keywordSet,
     keywordGroups: keywordGroupSets(normalized.keywordGroups),
     workflowBuiltins: workflowBuiltinSet,
+    workflowStatusLiterals: new Set([
+      ...FALLBACK_WORKFLOW_STATUS_LITERALS,
+      ...normalized.workflowStatusLiterals
+    ]),
     operatorWords: new Set([...FALLBACK_LEXICAL_OPERATOR_WORDS, ...normalized.operatorWords]),
     constants: new Set([...FALLBACK_LEXICAL_CONSTANTS, ...normalized.constants]),
     workflowOptions: new Set(normalized.workflowOptions),
@@ -5416,6 +5426,9 @@ function renderLexicalInterpolation(text) {
 function lexicalClassForWord(word, line, index) {
   if (line[index - 1] === ".") return "hl-property";
   const lexical = state.lexicalCatalog || buildLexicalCatalog(emptySyntaxCatalog());
+  if (lexical.workflowStatusLiterals?.has(word) && isWorkflowStatusLiteralContext(line, index)) {
+    return "hl-keyword hl-mod-workflowStep";
+  }
   if (lexical.constants.has(word)) return "hl-constant";
   if (lexical.operatorWords.has(word)) return "hl-operator";
   const keywordClass = lexicalKeywordGroupClass(word, lexical);
@@ -5426,6 +5439,10 @@ function lexicalClassForWord(word, line, index) {
   if (lexical.publicTypes.has(word)) return "hl-type";
   if (lexical.quantities.has(word)) return "hl-mod-quantity";
   return lexicalCompletionClass(word);
+}
+
+function isWorkflowStatusLiteralContext(line, index) {
+  return /\bstatus\s*(?:=|==|!=)\s*$/.test(String(line || "").slice(0, index));
 }
 
 function lexicalKeywordGroupClass(word, lexical) {

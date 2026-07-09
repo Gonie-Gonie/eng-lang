@@ -3828,6 +3828,10 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function semanticTokenSelectors(token)",
         "keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups)",
         "function catalogKeywordGroups(value)",
+        "FALLBACK_WORKFLOW_STATUS_LITERALS",
+        "workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals)",
+        "lexical.workflowStatusLiterals?.has(word)",
+        "function isWorkflowStatusLiteralContext(line, index)",
         "function lexicalKeywordGroupClass(word, lexical)",
         "hl-mod-workflowStep",
         "<th>Selectors</th>",
@@ -4104,6 +4108,13 @@ with {
         assert!(catalog["workflow_builtins"]
             .as_array()
             .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("train"))));
+        assert!(catalog["workflow_status_literals"]
+            .as_array()
+            .is_some_and(|items| {
+                ["partial", "missing", "empty"]
+                    .iter()
+                    .all(|label| items.iter().any(|item| item.as_str() == Some(*label)))
+            }));
         assert!(catalog["hyphenated_workflow_builtins"]
             .as_array()
             .is_some_and(|items| items

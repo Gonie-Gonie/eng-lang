@@ -88,6 +88,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 587: Added LSP semantic-token context for `status ==`/`status !=` workflow conditions so condition keys and status literals keep workflow-step coloring after semantic overlay.
 - Batch 588: Added TextMate grammar expected-token guards for `status == partial` and `status != empty` so first-paint workflow status condition coloring cannot drift from the fixture coverage.
 - Batch 589: Moved workflow status-condition literal generation to LSP editor metadata via `syntax_catalog.workflow_status_literals`, removing the hardcoded TextMate status list and adding build/test guards against drift.
+- Batch 590: Made the native IDE lexical fallback consume `syntax_catalog.workflow_status_literals` and color `status =`, `status ==`, and `status !=` literals as workflow-step tokens before semantic results arrive.
 
 ## Documentation Policy
 
