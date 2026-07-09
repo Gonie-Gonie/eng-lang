@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_items_count":  412,
+    "completion_items_count":  416,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -2098,6 +2098,22 @@
                                  "lsp_kind":  9
                              },
                              {
+                                 "detail":  "eng.net HTTP GET boundary",
+                                 "insert":  "http get args.api_url",
+                                 "insert_snippet":  "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "http get",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.net HTTP POST boundary",
+                                 "insert":  "http post args.api_url",
+                                 "insert_snippet":  "http post ${1:args.api_url}\nwith {\n    headers = {\n        content_type = \"application/json\"\n    }\n    body = ${2:request_body}\n    offline_response = file(\"${3:data/response.json}\")\n    expected_sha256 = \"${4:sha256}\"\n    timeout = ${5:30 s}\n    body_size_limit = ${6:2 MB}\n    cache = true\n    cache_key = [\"${7:post}\", ${8:args.case_id}]\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "http post",
+                                 "lsp_kind":  9
+                             },
+                             {
                                  "detail":  "eng.io raw text read",
                                  "insert":  "read text args.input",
                                  "insert_snippet":  "read text ${1:args.input}",
@@ -2139,14 +2155,34 @@
                              },
                              {
                                  "detail":  "Write a stable text artifact from table rows",
+                                 "insert":  "write standard_text table",
+                                 "insert_snippet":  "write standard_text ${1:table}\nwith {\n    output = join(${2:args.output}, \"${3:standard_weather_file.txt}\")\n    overwrite = true\n}",
                                  "kind":  "stdlib",
                                  "label":  "write standard_text",
                                  "lsp_kind":  9
                              },
                              {
                                  "detail":  "eng.io one-row summary CSV export",
+                                 "insert":  "export summary to csv join(args.output, \"summary.csv\")",
+                                 "insert_snippet":  "export summary to csv join(${1:args.output}, \"${2:summary.csv}\") {\n    ${3:metric} = ${4:value}\n}",
                                  "kind":  "stdlib",
                                  "label":  "export summary to csv",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.db SQLite database handle",
+                                 "insert":  "open sqlite args.database_target",
+                                 "insert_snippet":  "open sqlite ${1:args.database_target}",
+                                 "kind":  "stdlib",
+                                 "label":  "open sqlite",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.db SQLite table write",
+                                 "insert":  "open sqlite args.database_target",
+                                 "insert_snippet":  "${1:db} = open sqlite ${2:args.database_target}\nwrite ${3:predictions} to ${1:db}.table(\"${4:predictions}\")\nwith {\n    mode = ${5:replace}\n    transaction = commit\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "write sqlite",
                                  "lsp_kind":  9
                              },
                              {
@@ -2538,7 +2574,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_seed_count":  412,
+    "completion_seed_count":  416,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -4636,6 +4672,22 @@
                                 "lsp_kind":  9
                             },
                             {
+                                "detail":  "eng.net HTTP GET boundary",
+                                "insert":  "http get args.api_url",
+                                "insert_snippet":  "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}",
+                                "kind":  "stdlib",
+                                "label":  "http get",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.net HTTP POST boundary",
+                                "insert":  "http post args.api_url",
+                                "insert_snippet":  "http post ${1:args.api_url}\nwith {\n    headers = {\n        content_type = \"application/json\"\n    }\n    body = ${2:request_body}\n    offline_response = file(\"${3:data/response.json}\")\n    expected_sha256 = \"${4:sha256}\"\n    timeout = ${5:30 s}\n    body_size_limit = ${6:2 MB}\n    cache = true\n    cache_key = [\"${7:post}\", ${8:args.case_id}]\n}",
+                                "kind":  "stdlib",
+                                "label":  "http post",
+                                "lsp_kind":  9
+                            },
+                            {
                                 "detail":  "eng.io raw text read",
                                 "insert":  "read text args.input",
                                 "insert_snippet":  "read text ${1:args.input}",
@@ -4677,14 +4729,34 @@
                             },
                             {
                                 "detail":  "Write a stable text artifact from table rows",
+                                "insert":  "write standard_text table",
+                                "insert_snippet":  "write standard_text ${1:table}\nwith {\n    output = join(${2:args.output}, \"${3:standard_weather_file.txt}\")\n    overwrite = true\n}",
                                 "kind":  "stdlib",
                                 "label":  "write standard_text",
                                 "lsp_kind":  9
                             },
                             {
                                 "detail":  "eng.io one-row summary CSV export",
+                                "insert":  "export summary to csv join(args.output, \"summary.csv\")",
+                                "insert_snippet":  "export summary to csv join(${1:args.output}, \"${2:summary.csv}\") {\n    ${3:metric} = ${4:value}\n}",
                                 "kind":  "stdlib",
                                 "label":  "export summary to csv",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.db SQLite database handle",
+                                "insert":  "open sqlite args.database_target",
+                                "insert_snippet":  "open sqlite ${1:args.database_target}",
+                                "kind":  "stdlib",
+                                "label":  "open sqlite",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.db SQLite table write",
+                                "insert":  "open sqlite args.database_target",
+                                "insert_snippet":  "${1:db} = open sqlite ${2:args.database_target}\nwrite ${3:predictions} to ${1:db}.table(\"${4:predictions}\")\nwith {\n    mode = ${5:replace}\n    transaction = commit\n}",
+                                "kind":  "stdlib",
+                                "label":  "write sqlite",
                                 "lsp_kind":  9
                             },
                             {

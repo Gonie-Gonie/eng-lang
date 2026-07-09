@@ -6073,6 +6073,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     }
 
     for (label, detail) in [
+        ("http get", "eng.net HTTP GET boundary"),
+        ("http post", "eng.net HTTP POST boundary"),
         ("read text", "eng.io raw text read"),
         ("read json", "eng.io raw JSON read"),
         ("read toml", "eng.io raw TOML read"),
@@ -6083,6 +6085,8 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "Write a stable text artifact from table rows",
         ),
         ("export summary to csv", "eng.io one-row summary CSV export"),
+        ("open sqlite", "eng.db SQLite database handle"),
+        ("write sqlite", "eng.db SQLite table write"),
         ("copy file", "eng.fs copy generated output"),
         ("move file", "eng.fs move generated output"),
         ("delete file", "eng.fs delete generated output"),
@@ -7281,11 +7285,17 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
         "stem(...)" => Some("stem(args.input)"),
         "extension(...)" => Some("extension(args.input)"),
         "exists path" => Some("exists args.input"),
+        "http get" => Some("http get args.api_url"),
+        "http post" => Some("http post args.api_url"),
         "read text" => Some("read text args.input"),
         "read json" => Some("read json args.config"),
         "read toml" => Some("read toml args.config"),
         "write text" => Some("write text \"outputs/log.txt\", text"),
         "write json" => Some("write json \"outputs/summary.json\", summary"),
+        "write standard_text" => Some("write standard_text table"),
+        "export summary to csv" => Some("export summary to csv join(args.output, \"summary.csv\")"),
+        "open sqlite" => Some("open sqlite args.database_target"),
+        "write sqlite" => Some("open sqlite args.database_target"),
         "copy file" => Some("copy file(\"data/template.txt\") to \"outputs/template.txt\""),
         "move file" => Some("move \"outputs/tmp.txt\" to \"outputs/archive/tmp.txt\""),
         "delete file" => Some("delete \"outputs/tmp.txt\""),
@@ -7316,11 +7326,32 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
         "stem(...)" => Some("stem(${1:args.input})".to_owned()),
         "extension(...)" => Some("extension(${1:args.input})".to_owned()),
         "exists path" => Some("exists ${1:args.input}".to_owned()),
+        "http get" => Some(
+            "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}"
+                .to_owned(),
+        ),
+        "http post" => Some(
+            "http post ${1:args.api_url}\nwith {\n    headers = {\n        content_type = \"application/json\"\n    }\n    body = ${2:request_body}\n    offline_response = file(\"${3:data/response.json}\")\n    expected_sha256 = \"${4:sha256}\"\n    timeout = ${5:30 s}\n    body_size_limit = ${6:2 MB}\n    cache = true\n    cache_key = [\"${7:post}\", ${8:args.case_id}]\n}"
+                .to_owned(),
+        ),
         "read text" => Some("read text ${1:args.input}".to_owned()),
         "read json" => Some("read json ${1:args.config}".to_owned()),
         "read toml" => Some("read toml ${1:args.config}".to_owned()),
         "write text" => Some("write text \"${1:outputs/log.txt}\", ${2:text}".to_owned()),
         "write json" => Some("write json \"${1:outputs/summary.json}\", ${2:summary}".to_owned()),
+        "write standard_text" => Some(
+            "write standard_text ${1:table}\nwith {\n    output = join(${2:args.output}, \"${3:standard_weather_file.txt}\")\n    overwrite = true\n}"
+                .to_owned(),
+        ),
+        "export summary to csv" => Some(
+            "export summary to csv join(${1:args.output}, \"${2:summary.csv}\") {\n    ${3:metric} = ${4:value}\n}"
+                .to_owned(),
+        ),
+        "open sqlite" => Some("open sqlite ${1:args.database_target}".to_owned()),
+        "write sqlite" => Some(
+            "${1:db} = open sqlite ${2:args.database_target}\nwrite ${3:predictions} to ${1:db}.table(\"${4:predictions}\")\nwith {\n    mode = ${5:replace}\n    transaction = commit\n}"
+                .to_owned(),
+        ),
         "copy file" => Some(
             "copy file(\"${1:data/template.txt}\") to \"${2:outputs/template.txt}\"".to_owned(),
         ),
@@ -8393,8 +8424,14 @@ mod tests {
         for (label, kind) in [
             ("records", "keyword"),
             ("promote json records", "stdlib"),
+            ("http get", "stdlib"),
+            ("http post", "stdlib"),
             ("sample uniform", "stdlib"),
             ("sample latin-hypercube", "stdlib"),
+            ("open sqlite", "stdlib"),
+            ("write sqlite", "stdlib"),
+            ("write standard_text", "stdlib"),
+            ("export summary to csv", "stdlib"),
             ("materialize cases", "stdlib"),
             ("apply cases", "stdlib"),
             ("collect results", "stdlib"),
@@ -8417,6 +8454,23 @@ mod tests {
                 "editor metadata should include completion {label} as {kind}"
             );
         }
+        let http_get_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "http get")
+            .expect("editor metadata should include http get completion");
+        assert_eq!(http_get_completion["lsp_kind"], 9);
+        assert_eq!(
+            http_get_completion["insert_snippet"],
+            "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}"
+        );
+        let write_sqlite_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "write sqlite")
+            .expect("editor metadata should include write sqlite completion");
+        assert_eq!(
+            write_sqlite_completion["insert_snippet"],
+            "${1:db} = open sqlite ${2:args.database_target}\nwrite ${3:predictions} to ${1:db}.table(\"${4:predictions}\")\nwith {\n    mode = ${5:replace}\n    transaction = commit\n}"
+        );
         let sample_uniform_completion = completions
             .iter()
             .find(|completion| completion["label"] == "sample uniform")
