@@ -64,6 +64,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `entity.name.function.workflow-step.englang` | Workflow step names and compiler-backed workflow-step semantic fallbacks. |
 | `entity.name.function.solver.englang` | Equation and operator declaration names used by solver blocks. |
 | `meta.declaration.constant.englang` | Full `const` declaration phrases. |
+| `meta.declaration.constant.typed.englang` | Typed `const name: Type [unit]` declaration phrases. |
 | `variable.other.constant.englang` | Captured `const` names. |
 | `variable.other.state.englang` | Captured `state` member names. |
 | `variable.other.input.englang` | Captured `input` member names. |

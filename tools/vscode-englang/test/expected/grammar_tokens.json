@@ -1288,6 +1288,12 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.constant.typed.englang",
+    "text": "const cp_water: SpecificHeat [J/kg/K]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.other.constant.englang",
     "text": "cp_water",
     "fullMatch": true

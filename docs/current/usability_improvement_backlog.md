@@ -71,6 +71,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 514: Broadened native workflow public-doc wording guards to every docs/workflows page.
 - Batch 515: Added TextMate first-paint highlighting for `args { ... }` argument declarations.
 - Batch 516: Scoped TextMate declaration colons for args and field declarations.
+- Batch 517: Added TextMate first-paint highlighting for typed const declarations.
 
 ## Documentation Policy
 
