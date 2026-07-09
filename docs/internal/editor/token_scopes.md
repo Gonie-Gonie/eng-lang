@@ -94,6 +94,10 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.declaration.typed-binding.englang` | Typed value declarations written with `name: Type = ...`. |
 | `meta.declaration.field.englang` | Field declarations written with `name:`. |
 | `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
+| `meta.path.property.englang` | Full dotted property paths such as `samples.row_preview` for TextMate first-paint grouping. |
+| `meta.path.parameter.englang` | Full `args.*` paths for TextMate first-paint grouping. |
+| `variable.other.member.englang` | Member segments after a dot in dotted property paths. |
+| `variable.parameter.property.member.englang` | Member segments after `args.` in dotted parameter paths. |
 | `variable.other.definition.englang` | Runtime binding names written with `name = ...`. |
 | `meta.workflow.*.englang` | Phrase scopes for multi-token workflow operations. |
 | `meta.report.*.englang` | Report phrase scopes. |

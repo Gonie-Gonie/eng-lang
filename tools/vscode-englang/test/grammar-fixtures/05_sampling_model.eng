@@ -11,6 +11,8 @@ with {
     cooling_cop = uniform(2.5, 5.0)
 }
 
+sample_preview = designs.row_preview
+
 arg_distribution = normal(args.cooling_mean, std=args.cooling_std)
 property_distribution = uniform(sensor.cooling_min, sensor.cooling_max)
 

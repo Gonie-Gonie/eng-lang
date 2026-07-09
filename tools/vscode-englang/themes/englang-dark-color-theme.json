@@ -73,6 +73,14 @@
       "settings": { "foreground": "#D7E0EA" }
     },
     {
+      "scope": ["variable.other.member.englang"],
+      "settings": { "foreground": "#9CDCFE" }
+    },
+    {
+      "scope": ["variable.parameter.property.member.englang"],
+      "settings": { "foreground": "#F4D35E" }
+    },
+    {
       "scope": ["invalid.deprecated.englang"],
       "settings": { "foreground": "#FF5C7A", "fontStyle": "bold underline" }
     },

@@ -616,6 +616,30 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.path.property.englang",
+    "text": "designs.row_preview",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.other.member.englang",
+    "text": "row_preview",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.path.parameter.englang",
+    "text": "args.designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "variable.parameter.property.member.englang",
+    "text": "designs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "sample",
     "fullMatch": true
