@@ -1422,6 +1422,7 @@ function renderHighlightPanel() {
       <span class="badge">Details ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
       <span class="badge ${tokenCurrent ? "" : "warn"}">${tokenCurrent ? "Current" : "Check needed"}</span>
     </div>
+    ${renderHighlightPanelStatus(tokens, filteredTokens, tokenCurrent)}
     <div class="scroll highlight-panel">
       <div class="module-toolbar">
         <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlights" title="Filter by text, category, detail, selector, or source line" />
@@ -1442,6 +1443,19 @@ function renderHighlightPanel() {
       ${rawJsonToggle("Raw highlight data", semantic)}
     </div>
   `;
+}
+
+function renderHighlightPanelStatus(tokens, filteredTokens, tokenCurrent) {
+  if (!tokenCurrent) {
+    return `<div class="empty-state">Check current file to refresh precise highlight ranges.</div>`;
+  }
+  if (!tokens.length) {
+    return `<div class="empty-state">No role-aware highlights were returned for the current check.</div>`;
+  }
+  if (state.highlightTokenQuery.trim() && !filteredTokens.length) {
+    return `<div class="empty-state">Filter hides all current highlights. Clear the filter to inspect the checked ranges.</div>`;
+  }
+  return `<div class="empty-state">Highlight data is current. Showing ${escapeHtml(String(filteredTokens.length))} of ${escapeHtml(String(tokens.length))} checked ranges.</div>`;
 }
 
 function renderCaretHighlightSummary(caret, tokenCurrent) {

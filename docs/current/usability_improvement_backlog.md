@@ -56,6 +56,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 558: Made VS Code last-run artifact pickers and review-panel artifact links share availability state so existing outputs sort first and missing optional artifacts are labeled clearly.
 - Batch 559: Added plain status summaries to VS Code highlight inspection JSON so token absence and missing fallback-scope coverage are visible without reading raw rows first.
 - Batch 560: Aligned VS Code and native IDE caret-near highlight distance checks with half-open token ranges so token-end positions no longer read as inside the previous token.
+- Batch 561: Added a plain Native IDE Highlight panel status summary so stale checks, empty highlight results, and filters that hide all ranges are visible before reading token tables.
 
 ## Documentation Policy
 

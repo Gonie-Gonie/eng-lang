@@ -97,8 +97,9 @@ Right Sidebar
   source symbols, runtime variables, Args values, schema summaries, unit
   conversions, TimeSeries ranges/statistics, metrics, validations, uncertainty
   summaries/propagation metadata, time alignments, artifact paths, and JSON
-  artifact outlines are summarized in tables. The Highlight tab shows highlight
-  categories, token counts, and source ranges from the current check. The Network
+  artifact outlines are summarized in tables. The Highlight tab shows a current
+  or check-needed status, filtered count, highlight categories, token counts, and
+  source ranges from the current check. The Network
   tab summarizes network boundaries, network events, cache events, hashes, and
   cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
   bindings also appear in the variable view with their representation and
