@@ -6073,6 +6073,13 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
     }
 
     for (label, detail) in [
+        ("top workflow", "Top-level EngLang workflow starter"),
+        ("args block", "Root CLI argument block starter"),
+        ("schema csv", "Typed CSV schema starter"),
+        ("test block", "Unit-aware test block starter"),
+        ("promote csv", "Typed CSV promotion starter"),
+        ("plot line", "Line plot command starter"),
+        ("log info", "Structured run log starter"),
         ("http get", "eng.net HTTP GET boundary"),
         ("http post", "eng.net HTTP POST boundary"),
         ("read text", "eng.io raw text read"),
@@ -6133,7 +6140,12 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "eng.sampling Latin hypercube sample table alias",
         ),
     ] {
-        push_completion(&mut items, &mut seen, label, "stdlib", detail);
+        let kind = if is_starter_snippet_label(label) {
+            "snippet"
+        } else {
+            "stdlib"
+        };
+        push_completion(&mut items, &mut seen, label, kind, detail);
     }
 
     for binding in &report.semantic_program.typed_bindings {
@@ -7276,6 +7288,19 @@ fn should_replace_completion(label: &str, existing_kind: &str, candidate_kind: &
         && candidate_kind == "property"
 }
 
+fn is_starter_snippet_label(label: &str) -> bool {
+    matches!(
+        label,
+        "top workflow"
+            | "args block"
+            | "schema csv"
+            | "test block"
+            | "promote csv"
+            | "plot line"
+            | "log info"
+    )
+}
+
 fn completion_insert_for_label(label: &str) -> Option<&'static str> {
     match label {
         "file(...)" => Some("file(\"data/input.csv\")"),
@@ -7285,6 +7310,15 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
         "stem(...)" => Some("stem(args.input)"),
         "extension(...)" => Some("extension(args.input)"),
         "exists path" => Some("exists args.input"),
+        "top workflow" => Some("args {\n    input: CsvFile = file(\"data/sensor.csv\")\n}"),
+        "args block" => Some("args {\n    input: CsvFile = file(\"data/sensor.csv\")\n}"),
+        "schema csv" => Some("schema Sensor {\n    time: DateTime [iso8601]\n}"),
+        "test block" => Some("test \"summary values\" {\n    assert mean_Q > 0 kW\n}"),
+        "promote csv" => Some("promote csv file(\"data/sensor.csv\") as SensorData"),
+        "plot line" => {
+            Some("report {\n    plot Q over Time\n    with {\n        unit y = kW\n        title = \"Series over time\"\n    }\n}")
+        },
+        "log info" => Some("log info \"message\""),
         "http get" => Some("http get args.api_url"),
         "http post" => Some("http post args.api_url"),
         "read text" => Some("read text args.input"),
@@ -7326,6 +7360,30 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
         "stem(...)" => Some("stem(${1:args.input})".to_owned()),
         "extension(...)" => Some("extension(${1:args.input})".to_owned()),
         "exists path" => Some("exists ${1:args.input}".to_owned()),
+        "top workflow" => Some(
+            "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}\n\n${3:Q}: HeatRate [kW] = ${4:1 kW}\nprint \"${5:case ready}\"\nlog info \"${6:Q = {Q: .2 kW}}\"\n\nreport {\n    show ${3:Q}\n}"
+                .to_owned(),
+        ),
+        "args block" => Some(
+            "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}"
+                .to_owned(),
+        ),
+        "schema csv" => Some(
+            "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:T_supply}: AbsoluteTemperature [degC]\n    ${4:heat}: HeatRate [kW]\n}"
+                .to_owned(),
+        ),
+        "test block" => Some(
+            "test \"${1:summary values}\" {\n    assert ${2:mean_Q} > ${3:0 kW}\n    assert ${4:E_coil} == ${5:1.26 kWh} within ${6:0.02 kWh}\n    golden \"${7:summary.csv}\" matches file(\"${8:golden/summary.csv}\")\n}"
+                .to_owned(),
+        ),
+        "promote csv" => Some(
+            "promote csv file(\"${1:data/sensor.csv}\") as ${2:SensorData}".to_owned(),
+        ),
+        "plot line" => Some(
+            "report {\n    plot ${1:series} over Time\n    with {\n        unit y = ${2:kW}\n        title = \"${3:Series over time}\"\n    }\n}"
+                .to_owned(),
+        ),
+        "log info" => Some("log info \"${1:message}\"".to_owned()),
         "http get" => Some(
             "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}"
                 .to_owned(),
@@ -7477,6 +7535,7 @@ fn completion_kind(kind: &str) -> u8 {
         "function" => 3,
         "method" => 2,
         "stdlib" => 9,
+        "snippet" => 15,
         "unit" => 11,
         "value" => 12,
         _ => 1,
@@ -8423,6 +8482,13 @@ mod tests {
         );
         for (label, kind) in [
             ("records", "keyword"),
+            ("top workflow", "snippet"),
+            ("args block", "snippet"),
+            ("schema csv", "snippet"),
+            ("test block", "snippet"),
+            ("promote csv", "snippet"),
+            ("plot line", "snippet"),
+            ("log info", "snippet"),
             ("promote json records", "stdlib"),
             ("http get", "stdlib"),
             ("http post", "stdlib"),
@@ -8454,6 +8520,24 @@ mod tests {
                 "editor metadata should include completion {label} as {kind}"
             );
         }
+        let top_workflow_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "top workflow")
+            .expect("editor metadata should include top workflow completion");
+        assert_eq!(top_workflow_completion["lsp_kind"], 15);
+        assert_eq!(
+            top_workflow_completion["insert_snippet"],
+            "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}\n\n${3:Q}: HeatRate [kW] = ${4:1 kW}\nprint \"${5:case ready}\"\nlog info \"${6:Q = {Q: .2 kW}}\"\n\nreport {\n    show ${3:Q}\n}"
+        );
+        let schema_csv_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "schema csv")
+            .expect("editor metadata should include schema csv completion");
+        assert_eq!(schema_csv_completion["lsp_kind"], 15);
+        assert_eq!(
+            schema_csv_completion["insert_snippet"],
+            "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:T_supply}: AbsoluteTemperature [degC]\n    ${4:heat}: HeatRate [kW]\n}"
+        );
         let http_get_completion = completions
             .iter()
             .find(|completion| completion["label"] == "http get")

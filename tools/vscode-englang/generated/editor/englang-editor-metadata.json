@@ -2096,6 +2096,62 @@
                                  "lsp_kind":  9
                              },
                              {
+                                 "detail":  "Top-level EngLang workflow starter",
+                                 "insert":  "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n}",
+                                 "insert_snippet":  "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}\n\n${3:Q}: HeatRate [kW] = ${4:1 kW}\nprint \"${5:case ready}\"\nlog info \"${6:Q = {Q: .2 kW}}\"\n\nreport {\n    show ${3:Q}\n}",
+                                 "kind":  "snippet",
+                                 "label":  "top workflow",
+                                 "lsp_kind":  15
+                             },
+                             {
+                                 "detail":  "Root CLI argument block starter",
+                                 "insert":  "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n}",
+                                 "insert_snippet":  "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}",
+                                 "kind":  "snippet",
+                                 "label":  "args block",
+                                 "lsp_kind":  15
+                             },
+                             {
+                                 "detail":  "Typed CSV schema starter",
+                                 "insert":  "schema Sensor {\n    time: DateTime [iso8601]\n}",
+                                 "insert_snippet":  "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:T_supply}: AbsoluteTemperature [degC]\n    ${4:heat}: HeatRate [kW]\n}",
+                                 "kind":  "snippet",
+                                 "label":  "schema csv",
+                                 "lsp_kind":  15
+                             },
+                             {
+                                 "detail":  "Unit-aware test block starter",
+                                 "insert":  "test \"summary values\" {\n    assert mean_Q \u003e 0 kW\n}",
+                                 "insert_snippet":  "test \"${1:summary values}\" {\n    assert ${2:mean_Q} \u003e ${3:0 kW}\n    assert ${4:E_coil} == ${5:1.26 kWh} within ${6:0.02 kWh}\n    golden \"${7:summary.csv}\" matches file(\"${8:golden/summary.csv}\")\n}",
+                                 "kind":  "snippet",
+                                 "label":  "test block",
+                                 "lsp_kind":  15
+                             },
+                             {
+                                 "detail":  "Typed CSV promotion starter",
+                                 "insert":  "promote csv file(\"data/sensor.csv\") as SensorData",
+                                 "insert_snippet":  "promote csv file(\"${1:data/sensor.csv}\") as ${2:SensorData}",
+                                 "kind":  "snippet",
+                                 "label":  "promote csv",
+                                 "lsp_kind":  15
+                             },
+                             {
+                                 "detail":  "Line plot command starter",
+                                 "insert":  "report {\n    plot Q over Time\n    with {\n        unit y = kW\n        title = \"Series over time\"\n    }\n}",
+                                 "insert_snippet":  "report {\n    plot ${1:series} over Time\n    with {\n        unit y = ${2:kW}\n        title = \"${3:Series over time}\"\n    }\n}",
+                                 "kind":  "snippet",
+                                 "label":  "plot line",
+                                 "lsp_kind":  15
+                             },
+                             {
+                                 "detail":  "Structured run log starter",
+                                 "insert":  "log info \"message\"",
+                                 "insert_snippet":  "log info \"${1:message}\"",
+                                 "kind":  "snippet",
+                                 "label":  "log info",
+                                 "lsp_kind":  15
+                             },
+                             {
                                  "detail":  "eng.net HTTP GET boundary",
                                  "insert":  "http get args.api_url",
                                  "insert_snippet":  "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}",
@@ -2572,7 +2628,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  416,
+    "completion_items_count":  423,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -4670,6 +4726,62 @@
                                 "lsp_kind":  9
                             },
                             {
+                                "detail":  "Top-level EngLang workflow starter",
+                                "insert":  "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n}",
+                                "insert_snippet":  "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}\n\n${3:Q}: HeatRate [kW] = ${4:1 kW}\nprint \"${5:case ready}\"\nlog info \"${6:Q = {Q: .2 kW}}\"\n\nreport {\n    show ${3:Q}\n}",
+                                "kind":  "snippet",
+                                "label":  "top workflow",
+                                "lsp_kind":  15
+                            },
+                            {
+                                "detail":  "Root CLI argument block starter",
+                                "insert":  "args {\n    input: CsvFile = file(\"data/sensor.csv\")\n}",
+                                "insert_snippet":  "args {\n    ${1:input}: CsvFile = file(\"${2:data/sensor.csv}\")\n}",
+                                "kind":  "snippet",
+                                "label":  "args block",
+                                "lsp_kind":  15
+                            },
+                            {
+                                "detail":  "Typed CSV schema starter",
+                                "insert":  "schema Sensor {\n    time: DateTime [iso8601]\n}",
+                                "insert_snippet":  "schema ${1:Sensor} {\n    ${2:time}: DateTime [iso8601]\n    ${3:T_supply}: AbsoluteTemperature [degC]\n    ${4:heat}: HeatRate [kW]\n}",
+                                "kind":  "snippet",
+                                "label":  "schema csv",
+                                "lsp_kind":  15
+                            },
+                            {
+                                "detail":  "Unit-aware test block starter",
+                                "insert":  "test \"summary values\" {\n    assert mean_Q \u003e 0 kW\n}",
+                                "insert_snippet":  "test \"${1:summary values}\" {\n    assert ${2:mean_Q} \u003e ${3:0 kW}\n    assert ${4:E_coil} == ${5:1.26 kWh} within ${6:0.02 kWh}\n    golden \"${7:summary.csv}\" matches file(\"${8:golden/summary.csv}\")\n}",
+                                "kind":  "snippet",
+                                "label":  "test block",
+                                "lsp_kind":  15
+                            },
+                            {
+                                "detail":  "Typed CSV promotion starter",
+                                "insert":  "promote csv file(\"data/sensor.csv\") as SensorData",
+                                "insert_snippet":  "promote csv file(\"${1:data/sensor.csv}\") as ${2:SensorData}",
+                                "kind":  "snippet",
+                                "label":  "promote csv",
+                                "lsp_kind":  15
+                            },
+                            {
+                                "detail":  "Line plot command starter",
+                                "insert":  "report {\n    plot Q over Time\n    with {\n        unit y = kW\n        title = \"Series over time\"\n    }\n}",
+                                "insert_snippet":  "report {\n    plot ${1:series} over Time\n    with {\n        unit y = ${2:kW}\n        title = \"${3:Series over time}\"\n    }\n}",
+                                "kind":  "snippet",
+                                "label":  "plot line",
+                                "lsp_kind":  15
+                            },
+                            {
+                                "detail":  "Structured run log starter",
+                                "insert":  "log info \"message\"",
+                                "insert_snippet":  "log info \"${1:message}\"",
+                                "kind":  "snippet",
+                                "label":  "log info",
+                                "lsp_kind":  15
+                            },
+                            {
                                 "detail":  "eng.net HTTP GET boundary",
                                 "insert":  "http get args.api_url",
                                 "insert_snippet":  "http get ${1:args.api_url}\nwith {\n    query = {\n        ${2:station} = ${3:args.station_id}\n    }\n    offline_response = file(\"${4:data/response.json}\")\n    expected_sha256 = \"${5:sha256}\"\n    retry = ${6:2}\n    timeout = ${7:30 s}\n    body_size_limit = ${8:2 MB}\n    cache = true\n    cache_key = [\"${9:http}\", ${10:args.year}]\n}",
@@ -5146,7 +5258,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  416,
+    "completion_seed_count":  423,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

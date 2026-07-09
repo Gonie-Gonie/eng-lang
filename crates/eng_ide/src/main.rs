@@ -904,21 +904,6 @@ fn base_completion_items() -> Vec<CompletionView> {
         .collect::<Vec<_>>();
     for snippet in [
         (
-            "promote csv",
-            "promote csv \"data/sensor.csv\" as SensorData",
-            "CSV promotion command",
-        ),
-        (
-            "plot line",
-            "plot Q over Time with {\n    type = line\n    title = \"Heat rate\"\n}",
-            "PlotSpec line plot block",
-        ),
-        (
-            "log info",
-            "log info \"message\"",
-            "structured run log message",
-        ),
-        (
             "class object",
             "class Construction {\n    name: String\n    u_value: Conductance [W/K]\n    validate {\n        u_value > 0 W/K\n    }\n    method summary() -> String = self.name\n}\n\nwall = Construction {\n    name = \"south_wall\"\n    u_value = 120 W/K\n}\n\nbetter_wall = wall with {\n    u_value = 100 W/K\n}",
             "class declaration, validation, method, object literal, and copy-with",
@@ -4040,7 +4025,7 @@ with {
                 "native IDE completions should include LSP label {required}"
             );
         }
-        for completion in &lsp_seed {
+        for completion in &lsp_items {
             assert!(
                 completions.iter().any(|item| item.label == completion.label
                     && item.detail == completion.detail
