@@ -3241,11 +3241,15 @@ function Assert-VscodeExtensionContract {
         "LSP editor metadata",
         "LSP editor syntax catalog",
         "compiler-backed semantic tokens",
-        "token ranges"
+        "token ranges",
+        "lint toggles"
     )) {
         if ($NativeIdeHowtoSource.Contains($ForbiddenNativeIdeHowtoWording)) {
             throw "Native IDE user how-to must describe highlight UI in user-facing terms: $ForbiddenNativeIdeHowtoWording"
         }
+    }
+    if (-not $NativeIdeHowtoSource.Contains("saved-file/live Problems diagnostics toggles")) {
+        throw "Native IDE user how-to must describe VS Code diagnostics toggles with Problems wording"
     }
     foreach ($ForbiddenVscodeReadmeWording in @(
         "semantic token modifier and TextMate fallback scope metadata",
