@@ -183,9 +183,10 @@ an open VS Code window can keep the existing extension folder locked, and
 The wrapper runs the VS Code CLI from an ignored temporary directory so local
 VS Code log files do not appear as source changes.
 
-After installing, run `EngLang: Show Tooling Status` in VS Code to confirm the
-extension version, bundled `eng.exe` and `eng-lsp.exe` paths, diagnostics mode,
-lint toggles, and semantic-highlighting setting.
+After installing, run `EngLang: Show Tooling Status` in VS Code to open a
+summary-first JSON status view with the extension version, selected `eng.exe`
+and `eng-lsp.exe` paths, configured-path fallback status, diagnostics mode, lint
+toggles, and semantic-highlighting setting.
 
 The VS Code extension defaults to quieter file checks for the Problems panel.
 Run `EngLang: Switch Diagnostics Mode...` and choose `live`, or set

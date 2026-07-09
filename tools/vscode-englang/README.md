@@ -63,9 +63,9 @@ embedding compiler logic in JavaScript.
   lists, and plot SVGs
 - `EngLang: Switch Diagnostics Mode...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette
-- `EngLang: Show Tooling Status` for inspecting the active check/run and live
-  editor tool paths, diagnostics mode, lint toggles, role-aware highlighting, and
-  extension version
+- `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
+  with the active check/run and live editor tool paths, fallback/source labels,
+  diagnostics mode, lint toggles, role-aware highlighting, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -117,9 +117,9 @@ If the `code` CLI is not on PATH, run `Extensions: Install from VSIX...` in VS
 Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
-Status` to confirm the bundled check/run tool and live editor tool paths,
-the current diagnostics mode and per-feature live editor
-routing. If you run directly from source without packaging,
+Status` to confirm the summary, bundled check/run tool and live editor tool
+paths, fallback/source labels, the current diagnostics mode, and per-feature live
+editor routing. If you run directly from source without packaging,
 set:
 
 ```text

@@ -625,7 +625,17 @@ function createCommandHandlers(options = {}) {
     const problemsSource = mode;
     const lintOnChange = config.get("lintOnChange", true);
     const semanticHighlighting = config.get("semanticHighlighting.enabled", true);
+    const diagnosticsSummary = diagnosticsStatusSummary(problemsSource, lintOnChange);
+    const roleAwareColorSummary = semanticHighlighting
+      ? "Compiler-backed role-aware colors are enabled for the current editor."
+      : "Compiler-backed role-aware colors are disabled; VS Code will use TextMate syntax colors only.";
     return {
+      summary: {
+        check_and_run_tool: toolStatusSummary(checkAndRunTool, "saved-file checks and program runs"),
+        live_editor_tool: toolStatusSummary(liveEditorTool, "live editor requests"),
+        diagnostics: diagnosticsSummary,
+        role_aware_colors: roleAwareColorSummary
+      },
       extension: {
         id: "englang.englang",
         version: context.extension?.packageJSON?.version ?? "unknown",
@@ -654,6 +664,7 @@ function createCommandHandlers(options = {}) {
         problems: {
           source: problemsSource,
           mode: problemsSource === "live" ? "live buffer" : "saved file",
+          summary: diagnosticsSummary,
           updates_while_typing: problemsSource === "live" && lintOnChange,
           tool: problemsSource === "live" ? "live_editor" : "check_and_run"
         },
@@ -667,6 +678,7 @@ function createCommandHandlers(options = {}) {
         quick_fixes: liveEditorFeature("live_editor"),
         role_aware_colors: {
           enabled: semanticHighlighting,
+          summary: roleAwareColorSummary,
           tool: "live_editor",
           request_model: "on-demand live editor check"
         }
@@ -689,6 +701,21 @@ function createCommandHandlers(options = {}) {
     };
   }
 
+  function diagnosticsStatusSummary(mode, lintOnChange) {
+    if (mode !== "live") {
+      return "Problems use saved-file checks when a file opens, saves, or is checked manually.";
+    }
+    if (!lintOnChange) {
+      return "Live diagnostics mode is selected, but typing updates are off because englang.lintOnChange is false.";
+    }
+    return "Problems update from the current unsaved editor buffer after a short typing pause.";
+  }
+
+  function toolStatusSummary(status, purpose) {
+    const name = path.basename(status.resolved_path);
+    return `${name} is used for ${purpose}; ${status.availability}.`;
+  }
+
   function liveEditorFeature(tool) {
     return {
       enabled: true,
@@ -697,17 +724,49 @@ function createCommandHandlers(options = {}) {
     };
   }
 
+  function executablePathKey(value) {
+    const normalized = path.normalize(value);
+    return process.platform === "win32" ? normalized.toLowerCase() : normalized;
+  }
+
   function executableStatus(resolvedPath, configuredPath) {
+    const trimmedConfiguredPath = typeof configuredPath === "string" ? configuredPath.trim() : "";
     const pathLike = /[\\/]/.test(resolvedPath);
+    const exists = pathLike ? fs.existsSync(resolvedPath) : null;
+    const configuredSelected = trimmedConfiguredPath.length > 0
+      && executablePathKey(resolvedPath) === executablePathKey(trimmedConfiguredPath);
+    const configuredFallback = trimmedConfiguredPath.length > 0 && !configuredSelected;
+    const source = configuredSelected
+      ? "setting"
+      : pathLike
+        ? "bundled-or-workspace"
+        : "PATH";
+    const sourceLabel = configuredSelected
+      ? "Configured in settings"
+      : configuredFallback
+        ? "Fallback because the configured path was not found"
+        : pathLike
+          ? "Bundled or workspace executable"
+          : "Resolved from PATH when invoked";
     return {
       resolved_path: resolvedPath,
-      configured_path: configuredPath || null,
-      source: configuredPath
-        ? "setting"
-        : pathLike
-          ? "bundled-or-workspace"
-          : "PATH",
-      exists: pathLike ? fs.existsSync(resolvedPath) : null
+      configured_path: trimmedConfiguredPath || null,
+      configured_path_status: trimmedConfiguredPath
+        ? configuredSelected
+          ? "selected"
+          : "not found; using fallback"
+        : "unset",
+      source,
+      source_label: sourceLabel,
+      exists,
+      availability: pathLike
+        ? exists
+          ? "the file exists"
+          : "the selected path is missing"
+        : "the command will be resolved from PATH when invoked",
+      launch_hint: pathLike
+        ? "VS Code will launch this exact executable path."
+        : "VS Code will ask the operating system to find this command on PATH."
     };
   }
 
