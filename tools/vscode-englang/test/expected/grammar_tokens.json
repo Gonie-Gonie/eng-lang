@@ -72,6 +72,17 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "meta.declaration.argument.englang",
+    "text": "input:"
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.argument.englang",
+    "text": "input",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.block.header.englang",
     "text": "report {",
     "fullMatch": true

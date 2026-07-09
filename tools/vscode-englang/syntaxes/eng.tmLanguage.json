@@ -360,6 +360,62 @@
                                                                  "match":  "\\b(index)\\b"
                                                              },
                                                              {
+                                                                 "name":  "meta.declaration.args-block.englang",
+                                                                 "begin":  "\\b(args)\\s*(\\{)",
+                                                                 "beginCaptures":  {
+                                                                                       "1":  {
+                                                                                                 "name":  "storage.type.block.englang"
+                                                                                             },
+                                                                                       "2":  {
+                                                                                                 "name":  "punctuation.section.block.begin.englang"
+                                                                                             }
+                                                                                   },
+                                                                 "end":  "\\}",
+                                                                 "endCaptures":  {
+                                                                                     "0":  {
+                                                                                               "name":  "punctuation.section.block.end.englang"
+                                                                                           }
+                                                                                 },
+                                                                 "patterns":  [
+                                                                                  {
+                                                                                      "name":  "meta.declaration.argument.englang",
+                                                                                      "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
+                                                                                      "captures":  {
+                                                                                                       "2":  {
+                                                                                                                 "name":  "variable.parameter.argument.englang"
+                                                                                                             }
+                                                                                                   }
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#comments"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#strings"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#functionCalls"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#types"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#units"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#constants"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#numbers"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#operators"
+                                                                                  },
+                                                                                  {
+                                                                                      "include":  "#punctuation"
+                                                                                  }
+                                                                              ]
+                                                             },
+                                                             {
                                                                  "name":  "meta.declaration.typed-binding.englang",
                                                                  "begin":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s*:)(?=[^\\n=]*=)",
                                                                  "beginCaptures":  {

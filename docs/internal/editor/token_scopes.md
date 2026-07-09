@@ -80,6 +80,9 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `constant.other.unit*.englang` | Unit literals. |
 | `constant.language.englang` | Language constants and uncertainty/fallback words. |
 | `variable.parameter.property.englang` | `args.*`, `with` options, and parameter-like property paths. |
+| `meta.declaration.args-block.englang` | Full `args { ... }` execution-argument blocks. |
+| `meta.declaration.argument.englang` | Argument field declaration fragments inside `args { ... }`. |
+| `variable.parameter.argument.englang` | Captured execution argument names inside `args { ... }`. |
 | `variable.parameter.function.englang` | Function and method parameter declarations plus named call arguments such as `std=` or `target=`. |
 | `variable.language.self.englang` | `self` references inside class methods. |
 | `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
@@ -325,6 +328,7 @@ variable.other.output.englang
 variable.other.parameter.englang
 variable.other.property.englang
 variable.parameter.type.englang
+variable.parameter.argument.englang
 variable.parameter.property.englang
 ```
 
