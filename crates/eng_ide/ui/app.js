@@ -1536,16 +1536,14 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
     sourceTokenCopyButton(token, "text", "Copy Text"),
     sourceTokenCopyButton(token, "range", "Copy Range")
   ].filter(Boolean).join(" ");
-  const modifierCells = modifiers.length
-    ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ")
-    : "-";
+  const modifierCells = semanticTokenModifierChips(modifiers);
   return `
     <table class="var-table caret-highlight-table">
       <tbody>
         <tr><th>Range</th><td>${sourceTokenButton(token, `L${line}`)} <span class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</span></td></tr>
         <tr><th>Actions</th><td>${actionButtons || "-"}</td></tr>
         <tr><th>Text</th><td><code>${escapeHtml(text)}</code></td></tr>
-        <tr><th>Category</th><td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td></tr>
+        <tr><th>Category</th><td>${semanticTokenTypeChip(token.type)}</td></tr>
         <tr><th>Details</th><td>${modifierCells}</td></tr>
         <tr><th>Selectors</th><td>${semanticTokenSelectorCells(token)}</td></tr>
         <tr><th>Hover</th><td>${escapeHtml(hover)}</td></tr>
@@ -1562,8 +1560,8 @@ function renderNearbySemanticTokenRows(tokens) {
       <tr>
         <td>${sourceTokenButton(token)}<div class="muted">${sourceTokenCopyButton(token, "text", "Copy")}</div></td>
         <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
-        <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
-        <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
+        <td>${semanticTokenTypeChip(token.type)}</td>
+        <td>${semanticTokenModifierChips(modifiers)}</td>
         <td>${semanticTokenSelectorCells(token)}</td>
       </tr>
     `;
@@ -1580,10 +1578,34 @@ function highlightFilterButton(query, label) {
   return `<button class="link-button token-range-button" data-highlight-token-filter="${escapeAttr(query)}">${escapeHtml(label)}</button>`;
 }
 
+function highlightFilterChip(query, label, kind, title = "") {
+  const safeKind = String(kind || "selector").replace(/[^A-Za-z0-9_-]/g, "") || "selector";
+  const chipTitle = title || `Filter ${label}`;
+  return `<button class="token-chip token-${escapeAttr(safeKind)} token-filter-chip" data-highlight-token-filter="${escapeAttr(query)}" title="${escapeAttr(chipTitle)}">${escapeHtml(label)}</button>`;
+}
+
+function semanticTokenTypeChip(type) {
+  const value = String(type || "-");
+  if (value === "-") return `<span class="token-chip token-type">-</span>`;
+  return highlightFilterChip(value, value, "type", `Filter category ${value}`);
+}
+
+function semanticTokenModifierChips(modifiers) {
+  const items = arrayOrEmpty(modifiers).filter(Boolean);
+  return items.length
+    ? items.map((modifier) => highlightFilterChip(modifier, modifier, "modifier", `Filter detail ${modifier}`)).join(" ")
+    : "-";
+}
+
+function semanticTokenLegendChip(item, kind) {
+  const role = kind === "type" ? "category" : "detail";
+  return highlightFilterChip(item, item, kind, `Filter ${role} ${item}`);
+}
+
 function renderSemanticLegendTable(items, counts, kind) {
   const rows = items.map((item) => `
     <tr>
-      <td><span class="token-chip token-${escapeAttr(kind)}">${escapeHtml(item)}</span></td>
+      <td>${semanticTokenLegendChip(item, kind)}</td>
       <td>${escapeHtml(String(counts.get(item) || 0))}</td>
     </tr>
   `).join("");
@@ -1621,8 +1643,8 @@ function renderSemanticTokenRows(tokens, filtered = false) {
       <tr>
         <td>${sourceTokenButton(token)}<div class="muted">${escapeHtml(String(start))}:${escapeHtml(String(length))}</div></td>
         <td><code>${escapeHtml(semanticTokenText(token))}</code></td>
-        <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
-        <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
+        <td>${semanticTokenTypeChip(token.type)}</td>
+        <td>${semanticTokenModifierChips(modifiers)}</td>
         <td>${semanticTokenSelectorCells(token)}</td>
         <td>${sourceTokenActions(token)}</td>
       </tr>
@@ -5531,7 +5553,7 @@ function semanticTokenSelectors(token) {
 function semanticTokenSelectorCells(token) {
   const selectors = semanticTokenSelectors(token);
   return selectors.length
-    ? selectors.map((selector) => `<code>${escapeHtml(selector)}</code>`).join(" ")
+    ? selectors.map((selector) => highlightFilterChip(selector, selector, "selector", `Filter selector ${selector}`)).join(" ")
     : "-";
 }
 

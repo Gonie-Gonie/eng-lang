@@ -1072,6 +1072,18 @@ button:hover {
   color: #225a9f;
 }
 
+.token-filter-chip {
+  appearance: none;
+  cursor: pointer;
+}
+
+.token-filter-chip:hover,
+.token-filter-chip:focus-visible {
+  border-color: var(--accent);
+  background: #edf6ff;
+  color: var(--accent);
+}
+
 .status-pill {
   display: inline-flex;
   align-items: center;

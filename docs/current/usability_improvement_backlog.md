@@ -68,6 +68,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 570: Moved shared starter snippets such as top workflow, args block, schema csv, test block, promote csv, plot line, and log info into LSP-generated completion metadata so VS Code and the native IDE use the same catalog.
 - Batch 571: Made the native IDE lexical fallback preserve compiler-owned keyword groups and reuse role colors before semantic-highlight data is available.
 - Batch 572: Removed VS Code static snippets whose prefixes duplicate generated completion labels and added package guards so compiler-owned snippet insert text remains the single source for those suggestions.
+- Batch 573: Made Native IDE Highlight panel category, detail, and selector chips clickable filters so users can inspect role-aware colors by token type or semantic modifier directly.
 
 ## Documentation Policy
 
