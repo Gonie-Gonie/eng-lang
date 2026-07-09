@@ -471,6 +471,7 @@ const EDITOR_DEPRECATED_KEYWORDS: &[&str] = &["script", "struct"];
 const EDITOR_DECLARATION_KEYWORDS: &[&str] = &["schema", "class", "system", "domain", "component"];
 const EDITOR_FUNCTION_KEYWORDS: &[&str] = &["fn", "method"];
 const EDITOR_TEST_KEYWORDS: &[&str] = &["test"];
+const EDITOR_BLOCK_KEYWORDS: &[&str] = &["args", "where", "with", "on"];
 const EDITOR_MODIFIER_KEYWORDS: &[&str] = &[
     "const",
     "state",
@@ -1687,6 +1688,7 @@ pub fn editor_syntax_catalog_json() -> Value {
             "declaration": EDITOR_DECLARATION_KEYWORDS,
             "function": EDITOR_FUNCTION_KEYWORDS,
             "test": EDITOR_TEST_KEYWORDS,
+            "block": EDITOR_BLOCK_KEYWORDS,
             "modifier": EDITOR_MODIFIER_KEYWORDS,
             "report": EDITOR_REPORT_KEYWORDS,
             "validation": EDITOR_VALIDATION_KEYWORDS,
@@ -8215,6 +8217,7 @@ mod tests {
         for (group, label) in [
             ("import", "use"),
             ("declaration", "schema"),
+            ("block", "args"),
             ("modifier", "state"),
             ("report", "summarize"),
             ("validation", "coverage"),

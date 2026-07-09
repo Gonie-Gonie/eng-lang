@@ -1585,6 +1585,10 @@
             "match": "\\b({{KEYWORD_GROUP_TEST}})\\b"
           },
           {
+            "name": "storage.type.block.englang",
+            "match": "\\b({{KEYWORD_GROUP_BLOCK}})\\b"
+          },
+          {
             "name": "storage.modifier.englang",
             "match": "\\b({{KEYWORD_GROUP_MODIFIER}})\\b"
           },

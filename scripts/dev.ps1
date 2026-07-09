@@ -3013,8 +3013,9 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredGrammarPlaceholder in @(
         "{{KEYWORD_GROUP_IMPORT}}", "{{KEYWORD_GROUP_DEPRECATED}}", "{{KEYWORD_GROUP_DECLARATION}}",
-        "{{KEYWORD_GROUP_FUNCTION}}", "{{KEYWORD_GROUP_TEST}}", "{{KEYWORD_GROUP_MODIFIER}}",
-        "{{KEYWORD_GROUP_REPORT}}", "{{KEYWORD_GROUP_VALIDATION}}", "{{KEYWORD_GROUP_SIDE_EFFECT}}",
+        "{{KEYWORD_GROUP_FUNCTION}}", "{{KEYWORD_GROUP_TEST}}", "{{KEYWORD_GROUP_BLOCK}}",
+        "{{KEYWORD_GROUP_MODIFIER}}", "{{KEYWORD_GROUP_REPORT}}", "{{KEYWORD_GROUP_VALIDATION}}",
+        "{{KEYWORD_GROUP_SIDE_EFFECT}}",
         "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}", "{{KEYWORD_GROUP_SOLVER}}", "{{KEYWORD_GROUP_WORKFLOW}}"
     )) {
         if (-not $GrammarTemplateSource.Contains($RequiredGrammarPlaceholder)) {
@@ -4584,7 +4585,7 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata missing operator word $RequiredOperatorWord"
         }
     }
-    $RequiredKeywordGroups = @("import", "deprecated", "declaration", "function", "test", "modifier", "report", "validation", "side_effect", "external_boundary", "solver", "workflow")
+    $RequiredKeywordGroups = @("import", "deprecated", "declaration", "function", "test", "block", "modifier", "report", "validation", "side_effect", "external_boundary", "solver", "workflow")
     foreach ($RequiredKeywordGroup in $RequiredKeywordGroups) {
         $KeywordGroupProperty = $EditorMetadata.syntax_catalog.keyword_groups.PSObject.Properties[$RequiredKeywordGroup]
         if ($null -eq $KeywordGroupProperty -or @($KeywordGroupProperty.Value).Count -eq 0) {

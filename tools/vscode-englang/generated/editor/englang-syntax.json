@@ -249,6 +249,12 @@
                                                                 "latin-hypercube"
                                                             ],
                            "keyword_groups":  {
+                                                  "block":  [
+                                                                "args",
+                                                                "where",
+                                                                "with",
+                                                                "on"
+                                                            ],
                                                   "declaration":  [
                                                                       "schema",
                                                                       "class",

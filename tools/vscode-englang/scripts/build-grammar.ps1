@@ -91,6 +91,7 @@ $KeywordGroupNames = @(
     "declaration",
     "function",
     "test",
+    "block",
     "modifier",
     "report",
     "validation",
@@ -216,6 +217,7 @@ $TemplateValues = @{
     "{{KEYWORD_GROUP_DECLARATION}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["declaration"])
     "{{KEYWORD_GROUP_FUNCTION}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["function"])
     "{{KEYWORD_GROUP_TEST}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["test"])
+    "{{KEYWORD_GROUP_BLOCK}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["block"])
     "{{KEYWORD_GROUP_MODIFIER}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["modifier"])
     "{{KEYWORD_GROUP_REPORT}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["report"])
     "{{KEYWORD_GROUP_VALIDATION}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["validation"])

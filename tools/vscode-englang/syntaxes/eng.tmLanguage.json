@@ -2661,6 +2661,10 @@
                                                              "match":  "\\b(test)\\b"
                                                          },
                                                          {
+                                                             "name":  "storage.type.block.englang",
+                                                             "match":  "\\b(where|args|with|on)\\b"
+                                                         },
+                                                         {
                                                              "name":  "storage.modifier.englang",
                                                              "match":  "\\b(parameter|operator|through|across|output|const|index|input|state|port)\\b"
                                                          },

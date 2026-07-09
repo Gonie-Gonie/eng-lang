@@ -21,6 +21,7 @@ function loadEditorMetadata(extensionRoot) {
     "declaration",
     "function",
     "test",
+    "block",
     "modifier",
     "report",
     "validation",

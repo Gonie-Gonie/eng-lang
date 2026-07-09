@@ -596,6 +596,7 @@ $KeywordGroupScopeChecks = @(
     @{ Name = "declaration"; Scope = "storage.type.declaration.englang"; Labels = @($KeywordGroups.declaration | ForEach-Object { [string]$_ }) },
     @{ Name = "function"; Scope = "storage.type.function.englang"; Labels = @($KeywordGroups.function | ForEach-Object { [string]$_ }) },
     @{ Name = "test"; Scope = "storage.type.test.englang"; Labels = @($KeywordGroups.test | ForEach-Object { [string]$_ }) },
+    @{ Name = "block"; Scope = "storage.type.block.englang"; Labels = @($KeywordGroups.block | ForEach-Object { [string]$_ }) },
     @{ Name = "modifier"; Scope = "storage.modifier.englang"; Labels = @($KeywordGroups.modifier | ForEach-Object { [string]$_ }) },
     @{ Name = "report"; Scope = "keyword.control.report.englang"; Labels = @($KeywordGroups.report | ForEach-Object { [string]$_ }) },
     @{ Name = "validation"; Scope = "keyword.control.validation.englang"; Labels = @($KeywordGroups.validation | ForEach-Object { [string]$_ }) },
