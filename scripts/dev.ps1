@@ -1295,7 +1295,13 @@ function Test-PublicWorkflowDocs {
             throw "missing public workflow doc at $path"
         }
         $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
-        foreach ($stalePhrase in @("workflow skeletons", "External process seed", "implementation seed")) {
+        foreach ($stalePhrase in @(
+            "workflow skeletons",
+            "External process seed",
+            "implementation seed",
+            "case_inputs.planned_count",
+            "case-input planned/blocked counts"
+        )) {
             if ($text.Contains($stalePhrase)) {
                 throw "public workflow doc still contains stale phrase '$stalePhrase' at $path"
             }
@@ -1453,7 +1459,9 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"),
         (Join-Path $RepoRoot "docs\current\tracks.md"),
         (Join-Path $RepoRoot "docs\current\workflow_modules.md"),
-        (Join-Path $RepoRoot "docs\workflows\index.md")
+        (Join-Path $RepoRoot "docs\workflows\index.md"),
+        (Join-Path $RepoRoot "docs\workflows\native_surrogate_case_workflow.md"),
+        (Join-Path $RepoRoot "examples\workflows\02_native_surrogate_case_workflow\expected\review_summary.md")
     )
     Test-UserDocsExecutionWording `
         -UserDocsRoot (Join-Path $RepoRoot "docs\user")

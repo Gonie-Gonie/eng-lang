@@ -9,7 +9,7 @@ native `derive` transforms materializing annual_electricity, annual_cooling, pea
 explicit native `materialize cases training_results` CaseTable rows with case directories and sample row hashes
 native `apply case_input_template over cases` CaseOutput rows for per-case template inputs
 native `collect results case_inputs` CaseResultCollection rows for collected per-case output paths
-workflow bindings expose case pending/failed counts, case-input planned/blocked counts, and collected/missing result counts
+workflow bindings expose case pending/failed counts, case-input rendered/blocked counts, and collected/missing/blocked result counts
 native filter/require_one transforms selecting case_001 for summary metrics
 summary metrics derived from the selected case_001 derived-result row rather than fixed literals
 native `train regression` model with feature, target, split, residual, training-hash, and model-hash metadata

@@ -31,7 +31,8 @@ What it proves:
 - native `apply case_input_template over cases` CaseOutput materialization
 - native `collect results case_inputs` CaseResultCollection materialization
 - case metadata bindings such as `cases.pending_count`,
-  `case_inputs.planned_count`, and `case_result_collection.collected_count`
+  `case_inputs.rendered_count`, `case_inputs.blocked_count`, and
+  `case_result_collection.collected_count`
 - native case_input artifact rendering plus summary values from case_001
 - native table-based `train regression <table>` model training with explicit `with` options
 - native `predict surrogate_model using designs` prediction table materialization

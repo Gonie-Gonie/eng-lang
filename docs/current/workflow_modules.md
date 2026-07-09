@@ -282,7 +282,8 @@ optional process-enriched case materialization fields only when a workflow uses
 an `eng.process` adapter with matching expected outputs. Current native
 `materialize cases`, `apply ... over cases`, and `collect results <CaseOutput>`
 make the supported table/case/template path explicit by materializing CaseTable,
-CaseOutput rows with rendered/planned status, and CaseResultCollection rows; broader run-case scheduler policy
+CaseOutput rows with rendered, blocked, and remaining planned counts, and
+CaseResultCollection rows; broader run-case scheduler policy
 should extend the same record shape:
 
 ```text
