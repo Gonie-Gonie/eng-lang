@@ -4127,7 +4127,7 @@ function Assert-VscodeExtensionContract {
     if (-not $CompletionProviderSource.Contains('require("./lspKinds")')) {
         throw "VS Code completion provider must reuse shared LSP kind conversion"
     }
-    foreach ($RequiredCompletionInsertToken in @("completionInsertSnippetForLabel", "new vscode.SnippetString", '\${1:T}', 'LinearOperator[${1:From} -> ${2:To}]')) {
+    foreach ($RequiredCompletionInsertToken in @("completionInsertSnippetForLabel", "COMPLETION_INSERT_SNIPPETS", "new vscode.SnippetString", '\${1:T}', 'LinearOperator[${1:From} -> ${2:To}]', 'file(\"${1:data/input.csv}\")', 'run command \"${1:tool}\"')) {
         if (-not $CompletionProviderSource.Contains($RequiredCompletionInsertToken)) {
             throw "VS Code completion provider missing insert-text token $RequiredCompletionInsertToken"
         }

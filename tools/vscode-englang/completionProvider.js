@@ -424,9 +424,35 @@ function isCaseTableLikeReceiver(receiver) {
   );
 }
 
+const COMPLETION_INSERT_SNIPPETS = new Map([
+  ["file(...)", "file(\"${1:data/input.csv}\")"],
+  ["dir(...)", "dir(\"${1:build/result}\")"],
+  ["join(...)", "join(${1:args.output}, \"${2:summary.csv}\")"],
+  ["parent(...)", "parent(${1:args.input})"],
+  ["stem(...)", "stem(${1:args.input})"],
+  ["extension(...)", "extension(${1:args.input})"],
+  ["exists path", "exists ${1:args.input}"],
+  ["read text", "read text ${1:args.input}"],
+  ["read json", "read json ${1:args.config}"],
+  ["read toml", "read toml ${1:args.config}"],
+  ["write text", "write text \"${1:outputs/log.txt}\", ${2:text}"],
+  ["write json", "write json \"${1:outputs/summary.json}\", ${2:summary}"],
+  ["copy file", "copy file(\"${1:data/template.txt}\") to \"${2:outputs/template.txt}\""],
+  ["move file", "move \"${1:outputs/tmp.txt}\" to \"${2:outputs/archive/tmp.txt}\""],
+  ["delete file", "delete \"${1:outputs/tmp.txt}\""],
+  ["mkdir dir", "mkdir \"${1:outputs/archive}\""],
+  ["run command", "run command \"${1:tool}\""],
+  ["promote json config", "promote json file(\"${1:workflow.json}\") as ${2:WorkflowConfig}"],
+  ["promote toml config", "promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}"]
+]);
+
 function completionInsertSnippetForLabel(label) {
   if (typeof label !== "string") {
     return undefined;
+  }
+  const snippet = COMPLETION_INSERT_SNIPPETS.get(label);
+  if (snippet) {
+    return snippet;
   }
   const genericType = /^([A-Za-z_][A-Za-z0-9_]*)\[T\]$/.exec(label);
   if (genericType) {

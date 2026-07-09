@@ -216,6 +216,8 @@ same generated metadata also supplies the highlight legend and syntax catalog
 used by editor contract checks. Generic type completions keep their public labels
 visible, but insert editable snippets such as `Array[T]` and
 `LinearOperator[From -> To]` so type arguments can be replaced immediately.
+Common helper and workflow completions such as `file(...)` and `read text` also
+insert editable snippets instead of raw labels.
 
 Format Document and Format Selection use the current unsaved buffer, so VS Code
 and the command-line formatter share the compiler-owned formatting rules.
