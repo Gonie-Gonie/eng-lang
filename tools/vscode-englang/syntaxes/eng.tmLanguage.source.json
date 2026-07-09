@@ -88,6 +88,7 @@
                     "name": "variable.parameter.function.englang",
                     "match": "\\b({{WORKFLOW_NAMED_ARGS}})\\b(?=\\s*=)"
                   },
+                  { "include": "#members" },
                   {
                     "name": "variable.parameter.property.englang",
                     "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -395,6 +396,7 @@
               { "include": "#constants" },
               { "include": "#numbers" },
               { "include": "#operators" },
+              { "include": "#members" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -1686,6 +1688,7 @@
               { "include": "#types" },
               { "include": "#numbers" },
               { "include": "#operators" },
+              { "include": "#members" },
               { "include": "#punctuation" },
               {
                 "name": "variable.parameter.property.englang",
@@ -1698,8 +1701,7 @@
               {
                 "name": "variable.other.local.englang",
                 "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-              },
-              { "include": "#members" }
+              }
             ]
           }
         ]
@@ -1766,6 +1768,7 @@
               },
               { "include": "#comments" },
               { "include": "#strings" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -1778,7 +1781,6 @@
                 "name": "variable.other.local.englang",
                 "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
               },
-              { "include": "#members" },
               { "include": "#functionCalls" },
               { "include": "#units" },
               { "include": "#builtins" },

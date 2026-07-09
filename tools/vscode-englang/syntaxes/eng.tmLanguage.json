@@ -131,6 +131,9 @@
                                                                                                       "match":  "\\b(algebraic_initialization|finite_difference_step|consistency_tolerance|response_body_limit|initial_derivative|initial_algebraic|line_search_steps|expected_outputs|offline_response|body_size_limit|confidence_band|expected_sha256|residual_scales|variable_scales|relative_error|residual_scale|variable_scale|allow_failure|artifact_kind|expected_step|return_column|test_fraction|display_unit|tool_version|mass_matrix|output_root|status_code|transaction|uncertainty|relaxation|sensor_std|algorithm|cache_dir|cache_key|cache_ttl|overwrite|recursive|tolerance|duration|features|jacobian|max_iter|template|timestep|backend|case_id|confirm|damping|fixture|headers|initial|max_gap|missing|on_many|on_none|samples|timeout|epochs|hidden|inputs|layers|method|offset|output|resume|solver|status|target|values|cache|count|error|lower|query|retry|scale|sigma|split|start|title|upper|args|axis|bias|body|gain|kind|mean|mode|over|seed|step|test|type|year|cwd|end|env|key|std|mu|n|x|y)\\b(?=\\s*=)"
                                                                                                   },
                                                                                                   {
+                                                                                                      "include":  "#members"
+                                                                                                  },
+                                                                                                  {
                                                                                                       "name":  "variable.parameter.property.englang",
                                                                                                       "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                                   },
@@ -628,6 +631,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#operators"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -2797,6 +2803,9 @@
                                                                                        "include":  "#operators"
                                                                                    },
                                                                                    {
+                                                                                       "include":  "#members"
+                                                                                   },
+                                                                                   {
                                                                                        "include":  "#punctuation"
                                                                                    },
                                                                                    {
@@ -2810,9 +2819,6 @@
                                                                                    {
                                                                                        "name":  "variable.other.local.englang",
                                                                                        "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-                                                                                   },
-                                                                                   {
-                                                                                       "include":  "#members"
                                                                                    }
                                                                                ]
                                                               }
@@ -2925,6 +2931,9 @@
                                                                                      "include":  "#strings"
                                                                                  },
                                                                                  {
+                                                                                     "include":  "#members"
+                                                                                 },
+                                                                                 {
                                                                                      "name":  "variable.parameter.property.englang",
                                                                                      "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                  },
@@ -2935,9 +2944,6 @@
                                                                                  {
                                                                                      "name":  "variable.other.local.englang",
                                                                                      "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-                                                                                 },
-                                                                                 {
-                                                                                     "include":  "#members"
                                                                                  },
                                                                                  {
                                                                                      "include":  "#functionCalls"

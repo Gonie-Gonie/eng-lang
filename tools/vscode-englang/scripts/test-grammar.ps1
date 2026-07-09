@@ -583,6 +583,82 @@ function Assert-FunctionCallFallbacks {
     }
 }
 
+function Get-PatternOrderLabel {
+    param([object] $Pattern)
+
+    if ($null -ne $Pattern.include) {
+        return "include:$($Pattern.include)"
+    }
+    if ($null -eq $Pattern.name) {
+        return ""
+    }
+
+    $name = [string]$Pattern.name
+    $match = if ($null -ne $Pattern.match) { [string]$Pattern.match } else { "" }
+    if ($name -eq "variable.parameter.property.englang" -and $match.Contains("args\.")) {
+        return "scope:variable.parameter.property.path"
+    }
+    if ($name -eq "variable.other.property.englang" -and $match.Contains("(?:\.")) {
+        return "scope:variable.other.property.path"
+    }
+    return "scope:$name"
+}
+
+function Get-RequiredPatternByName {
+    param(
+        [Parameter(Mandatory = $true)][object[]] $Patterns,
+        [Parameter(Mandatory = $true)][string] $Name,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $matches = @($Patterns | Where-Object { [string]$_.name -eq $Name })
+    if ($matches.Count -ne 1) {
+        throw "TextMate grammar must define exactly one $Description pattern"
+    }
+    return $matches[0]
+}
+
+function Assert-PatternOrderBefore {
+    param(
+        [Parameter(Mandatory = $true)][object[]] $Patterns,
+        [Parameter(Mandatory = $true)][string] $BeforeLabel,
+        [Parameter(Mandatory = $true)][string[]] $AfterLabels,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $labels = @($Patterns | ForEach-Object { Get-PatternOrderLabel $_ } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $beforeIndex = [array]::IndexOf($labels, $BeforeLabel)
+    if ($beforeIndex -lt 0) {
+        throw "TextMate grammar $Description must include $BeforeLabel"
+    }
+
+    foreach ($afterLabel in $AfterLabels) {
+        $afterIndex = [array]::IndexOf($labels, $afterLabel)
+        if ($afterIndex -ge 0 -and $beforeIndex -gt $afterIndex) {
+            throw "TextMate grammar $Description must place $BeforeLabel before $afterLabel"
+        }
+    }
+}
+
+function Assert-MemberPathFallbackOrder {
+    $dottedFallbacks = @(
+        "scope:variable.parameter.property.path",
+        "scope:variable.other.property.path"
+    )
+
+    $stringPattern = Get-RequiredPatternByName -Patterns @($Grammar.repository.strings.patterns) -Name "string.quoted.double.englang" -Description "double-quoted string"
+    $interpolationPattern = Get-RequiredPatternByName -Patterns @($stringPattern.patterns) -Name "meta.interpolation.englang" -Description "string interpolation"
+    Assert-PatternOrderBefore -Patterns @($interpolationPattern.patterns) -BeforeLabel "include:#members" -AfterLabels $dottedFallbacks -Description "string interpolation member paths"
+
+    $validationPattern = Get-RequiredPatternByName -Patterns @($Grammar.repository.workflowPhrases.patterns) -Name "meta.workflow.validation.englang" -Description "validation workflow"
+    Assert-PatternOrderBefore -Patterns @($validationPattern.patterns) -BeforeLabel "include:#members" -AfterLabels $dottedFallbacks -Description "validation member paths"
+
+    $functionPattern = Get-RequiredPatternByName -Patterns @($Grammar.repository.functionCalls.patterns) -Name "meta.function-call.englang" -Description "generic function-call"
+    Assert-PatternOrderBefore -Patterns @($functionPattern.patterns) -BeforeLabel "include:#members" -AfterLabels $dottedFallbacks -Description "generic function-call member paths"
+
+    $withPattern = Get-RequiredPatternByName -Patterns @($Grammar.repository.withOptions.patterns) -Name "meta.workflow.with-block.englang" -Description "with-block"
+    Assert-PatternOrderBefore -Patterns @($withPattern.patterns) -BeforeLabel "include:#members" -AfterLabels $dottedFallbacks -Description "with-block member paths"
+}
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
@@ -851,6 +927,7 @@ Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
 Assert-FunctionCallFallbacks
+Assert-MemberPathFallbackOrder
 
 function Resolve-GrammarFixturePath {
     param([Parameter(Mandatory = $true)][string] $Fixture)
