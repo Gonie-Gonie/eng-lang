@@ -94,6 +94,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 593: Removed the native IDE hardcoded workflow-status literal fallback list so `status =`, `status ==`, and `status !=` coloring uses only the LSP-generated `syntax_catalog.workflow_status_literals` catalog.
 - Batch 594: Routed generated `syntax_catalog.units` labels into VS Code local quick fixes so missing-unit repairs only suggest compiler-owned units when editor metadata is available.
 - Batch 595: Removed the native IDE hardcoded unit lexical fallback list so unit coloring uses generated `syntax_catalog.units` as the source of truth.
+- Batch 596: Removed the native IDE hardcoded operator-word fallback list so operator-word coloring uses generated `syntax_catalog.operator_words`.
 
 ## Documentation Policy
 

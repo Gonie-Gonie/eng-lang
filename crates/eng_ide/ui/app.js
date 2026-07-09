@@ -15,10 +15,7 @@ const FALLBACK_LEXICAL_KEYWORDS = [
   "validate", "assert", "golden", "show", "plot", "line", "bar", "histogram",
   "distribution", "parity", "residuals", "summarize", "summary", "return", "if", "else"
 ];
-const FALLBACK_LEXICAL_OPERATOR_WORDS = [
-  "eq", "is", "and", "or", "not", "between", "over", "by", "using", "in", "into",
-  "of", "vs", "to", "within", "matches"
-];
+
 const FALLBACK_LEXICAL_CONSTANTS = [
   "true", "false", "none", "null", "info", "warn", "debug", "error",
   "safe", "normal", "repro", "append", "insert", "upsert", "replace",
@@ -198,7 +195,7 @@ function buildLexicalCatalog(catalog) {
     keywordGroups: keywordGroupSets(normalized.keywordGroups),
     workflowBuiltins: workflowBuiltinSet,
     workflowStatusLiterals: new Set(normalized.workflowStatusLiterals),
-    operatorWords: new Set([...FALLBACK_LEXICAL_OPERATOR_WORDS, ...normalized.operatorWords]),
+    operatorWords: new Set(normalized.operatorWords),
     constants: new Set([...FALLBACK_LEXICAL_CONSTANTS, ...normalized.constants]),
     workflowOptions: new Set(normalized.workflowOptions),
     publicTypes: new Set(normalized.publicTypes),

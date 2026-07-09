@@ -3318,6 +3318,7 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredTokenScopeDocToken in @(
         "syntax_catalog.workflow_status_literals",
+        "syntax_catalog.operator_words",
         "syntax_catalog.units",
         "compiler-owned unit catalog",
         "native IDE lexical fallback consumes",
@@ -4964,6 +4965,7 @@ function Invoke-IdeCheck {
         "operator_words",
         "normalized.constants",
         "normalized.operatorWords",
+        "operatorWords: new Set(normalized.operatorWords)",
         "normalized.units",
         "const unitLabels = uniqueStrings(normalized.units)",
         "hyphenatedWorkflowBuiltins",
@@ -5257,6 +5259,9 @@ function Invoke-IdeCheck {
         if ($CompilerSemanticSource.Contains($ForbiddenAssemblyBalanceStatusToken)) {
             throw "Compiler assembly balance status must not expose legacy seed status $ForbiddenAssemblyBalanceStatusToken"
         }
+    }
+    if ($IdeUiSource.Contains("FALLBACK_LEXICAL_OPERATOR_WORDS")) {
+        throw "Native IDE operator fallback must use syntax_catalog.operator_words instead of a hardcoded JS list"
     }
     if ($IdeUiSource.Contains("FALLBACK_LEXICAL_UNITS")) {
         throw "Native IDE unit fallback must use syntax_catalog.units instead of a hardcoded JS list"

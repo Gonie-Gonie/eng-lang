@@ -311,6 +311,8 @@ a separate status-literal list, so `status =`, `status ==`, and `status !=`
 literals keep workflow-step coloring before semantic tokens arrive. The native IDE
 lexical fallback also consumes `syntax_catalog.units` without a separate unit list,
 so numeric/unit coloring uses the compiler-owned unit catalog before semantic tokens arrive.
+Native IDE operator-word coloring uses `syntax_catalog.operator_words` directly,
+so words such as `between`, `within`, and `matches` follow the LSP catalog.
 
 The extension also contributes optional `EngLang Dark` and `EngLang Light`
 color themes. Those themes define both TextMate fallback colors and direct
