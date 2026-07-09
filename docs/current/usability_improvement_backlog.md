@@ -65,6 +65,8 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 567: Made VS Code and native IDE fallback member completions recognize function-style `apply(..., over=...)` CaseOutput bindings and property-source `collect results` bindings.
 - Batch 568: Aligned VS Code fallback member completions with the native IDE for CaseResultCollection-like receivers such as `case_results.` and `case_result_collection.`.
 - Batch 569: Updated VS Code and native IDE CaseOutput fallback receiver heuristics to recognize rendered/blocked wording alongside planned/input/output/manifest names.
+- Batch 570: Moved shared starter snippets such as top workflow, args block, schema csv, test block, promote csv, plot line, and log info into LSP-generated completion metadata so VS Code and the native IDE use the same catalog.
+- Batch 571: Made the native IDE lexical fallback preserve compiler-owned keyword groups and reuse role colors before semantic-highlight data is available.
 
 ## Documentation Policy
 
