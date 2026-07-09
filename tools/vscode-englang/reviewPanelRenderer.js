@@ -1,7 +1,6 @@
-const fs = require("fs");
-const path = require("path");
 const {
   LAST_RUN_ARTIFACTS,
+  lastRunArtifactAvailability,
   lastRunArtifactDisplay
 } = require("./artifactRegistry");
 const {
@@ -523,14 +522,16 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
 function reviewPanelArtifacts(root, artifacts = LAST_RUN_ARTIFACTS) {
   return artifacts.map((artifact) => {
-    const artifactPath = root ? path.join(root, ...artifact.relativePath) : undefined;
+    const availability = lastRunArtifactAvailability(artifact, root);
     const display = lastRunArtifactDisplay(artifact, root);
     return {
       id: artifact.id,
       label: display.label,
       detail: display.detail,
       description: artifact.description,
-      exists: Boolean(artifactPath && fs.existsSync(artifactPath))
+      exists: availability.exists,
+      path: availability.path,
+      status: availability.status
     };
   });
 }

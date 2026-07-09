@@ -154,10 +154,11 @@ inputs, symbols, schemas, units/quantities, time axes, derived values,
 diagnostics, external boundaries, side effects, table transforms, calculations,
 validations, caches, risks, and workflow modules. Line cells in the panel jump
 back to the matching source line, and the Last Run Artifacts section opens
-available `build/result` outputs directly. `EngLang: Open Current File Review
-Data` runs the same current-file review command and opens the normalized review
-data directly, without requiring a prior run. `EngLang: Open Last Run Review
-Data` opens the `build/result/review.json` artifact from the last saved run.
+available `build/result` outputs directly, with the same availability labels as
+the artifact picker. `EngLang: Open Current File Review Data` runs the same
+current-file review command and opens the normalized review data directly,
+without requiring a prior run. `EngLang: Open Last Run Review Data` opens the
+`build/result/review.json` artifact from the last saved run.
 `EngLang: Open Last Generated Output...` reads
 `build/result/output_manifest.json` and opens any existing file recorded by the
 last run, including generated CSV/text outputs and review artifacts that are not

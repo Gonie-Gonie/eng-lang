@@ -96,12 +96,32 @@ const LAST_RUN_ARTIFACTS = [
   }
 ];
 
-function lastRunArtifactDisplay(artifact, root) {
-  if (artifact.id !== "processResults" || !root) {
-    return { label: artifact.label, detail: "" };
+function lastRunArtifactAvailability(artifact, root) {
+  const artifactPath = lastRunArtifactPath(artifact, root);
+  const exists = Boolean(artifactPath && fs.existsSync(artifactPath));
+  return {
+    exists,
+    path: artifactPath,
+    status: exists ? "available" : "missing"
+  };
+}
+
+function lastRunArtifactPath(artifact, root) {
+  if (!root || !Array.isArray(artifact?.relativePath)) {
+    return undefined;
   }
-  const artifactPath = path.join(root, ...artifact.relativePath);
-  const processCount = readProcessCount(artifactPath);
+  return path.join(root, ...artifact.relativePath);
+}
+
+function lastRunArtifactDisplay(artifact, root) {
+  const availability = lastRunArtifactAvailability(artifact, root);
+  if (artifact.id !== "processResults" || !root) {
+    return {
+      label: artifact.label,
+      detail: lastRunArtifactAvailabilityDetail(availability, root)
+    };
+  }
+  const processCount = readProcessCount(availability.path);
   if (processCount === 0) {
     return {
       label: "Process Results (0 external processes)",
@@ -114,11 +134,23 @@ function lastRunArtifactDisplay(artifact, root) {
       detail: `${processCount} external process execution${processCount === 1 ? "" : "s"} recorded.`
     };
   }
-  return { label: artifact.label, detail: "Run a file to read the latest process count." };
+  return {
+    label: artifact.label,
+    detail: lastRunArtifactAvailabilityDetail(availability, root)
+  };
+}
+
+function lastRunArtifactAvailabilityDetail(availability, root) {
+  if (!root) {
+    return "Open an EngLang workspace to inspect artifact availability.";
+  }
+  return availability.exists
+    ? "Available from the latest saved-artifacts run."
+    : "Missing from the latest saved-artifacts run. Run the current file first.";
 }
 
 function readProcessCount(artifactPath) {
-  if (!fs.existsSync(artifactPath)) {
+  if (!artifactPath || !fs.existsSync(artifactPath)) {
     return undefined;
   }
   try {
@@ -132,6 +164,8 @@ function readProcessCount(artifactPath) {
 
 module.exports = {
   LAST_RUN_ARTIFACTS,
+  lastRunArtifactAvailability,
   lastRunArtifactDisplay,
+  lastRunArtifactPath,
   readProcessCount
 };

@@ -53,6 +53,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 555: Moved VS Code TextMate keyword-group fallback lists into generated LSP editor metadata so first-paint keyword scopes share the compiler-owned catalog.
 - Batch 556: Added compiler-owned block-opener keyword groups so partial `args`, `where`, `with`, and `on` edits keep block-keyword coloring before full parse context is available.
 - Batch 557: Mapped semantic keyword declaration/local fallbacks to block-opener TextMate scopes so `args` and `where` retain block coloring after semantic overlay.
+- Batch 558: Made VS Code last-run artifact pickers and review-panel artifact links share availability state so existing outputs sort first and missing optional artifacts are labeled clearly.
 
 ## Documentation Policy
 

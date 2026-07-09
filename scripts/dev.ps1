@@ -3666,6 +3666,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ArtifactRegistrySource.Contains("function lastRunArtifactDisplay") -or -not $ArtifactRegistrySource.Contains("0 external processes") -or -not $ArtifactOpenersSource.Contains("lastRunArtifactDisplay") -or -not $ReviewPanelRendererSource.Contains("lastRunArtifactDisplay")) {
         throw "VS Code artifact picker and review panel must share zero-process process-results wording"
     }
+    if (-not $ArtifactRegistrySource.Contains("function lastRunArtifactAvailability") -or -not $ArtifactOpenersSource.Contains("lastRunArtifactAvailability") -or -not $ReviewPanelRendererSource.Contains("lastRunArtifactAvailability") -or -not $ArtifactOpenersSource.Contains("available: availability.exists")) {
+        throw "VS Code artifact picker and review panel must share last-run artifact availability state"
+    }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }

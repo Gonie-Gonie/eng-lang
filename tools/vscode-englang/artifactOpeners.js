@@ -3,6 +3,7 @@ const path = require("path");
 const vscode = require("vscode");
 const {
   LAST_RUN_ARTIFACTS,
+  lastRunArtifactAvailability,
   lastRunArtifactDisplay
 } = require("./artifactRegistry");
 
@@ -73,12 +74,12 @@ function createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot }) {
       vscode.window.showWarningMessage("Open an EngLang workspace folder first.");
       return;
     }
-    const artifactPath = path.join(root, ...artifact.relativePath);
-    if (!fs.existsSync(artifactPath)) {
+    const availability = lastRunArtifactAvailability(artifact, root);
+    if (!availability.exists) {
       vscode.window.showWarningMessage(`No ${artifact.description} found yet. Run the current file first.`);
       return;
     }
-    const uri = vscode.Uri.file(artifactPath);
+    const uri = vscode.Uri.file(availability.path);
     if (artifact.external) {
       await vscode.env.openExternal(uri);
       return;
@@ -97,12 +98,19 @@ function createArtifactOpeners({ currentWorkspaceRoot, workspaceRoot }) {
 function lastRunArtifactQuickPickItems(root) {
   return LAST_RUN_ARTIFACTS.map((artifact) => {
     const display = lastRunArtifactDisplay(artifact, root);
+    const availability = lastRunArtifactAvailability(artifact, root);
     return {
       label: display.label,
-      description: artifact.description,
+      description: `${availability.status} | ${artifact.description}`,
       detail: display.detail,
-      artifact
+      artifact,
+      available: availability.exists
     };
+  }).sort((left, right) => {
+    if (left.available !== right.available) {
+      return left.available ? -1 : 1;
+    }
+    return left.label.localeCompare(right.label);
   });
 }
 
