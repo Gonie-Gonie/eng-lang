@@ -44,16 +44,61 @@ function Expand-GrammarTemplates {
     return $Expanded
 }
 
+function Assert-SyntaxCatalogArray {
+    param(
+        [Parameter(Mandatory = $true)][object] $Catalog,
+        [Parameter(Mandatory = $true)][string] $Name
+    )
+
+    $property = $Catalog.PSObject.Properties[$Name]
+    if ($null -eq $property -or $null -eq $property.Value) {
+        throw "generated editor metadata syntax_catalog is missing $Name. Run .\dev.bat vscode-build-editor-metadata"
+    }
+    $items = @($property.Value)
+    if ($items.Count -eq 0) {
+        throw "generated editor metadata syntax_catalog.$Name is empty"
+    }
+    return $items
+}
+
+function Assert-CatalogItemsHaveProperty {
+    param(
+        [Parameter(Mandatory = $true)][object[]] $Items,
+        [Parameter(Mandatory = $true)][string] $CatalogName,
+        [Parameter(Mandatory = $true)][string] $PropertyName
+    )
+
+    foreach ($item in $Items) {
+        $property = $item.PSObject.Properties[$PropertyName]
+        if ($null -eq $property -or [string]::IsNullOrWhiteSpace([string]$property.Value)) {
+            throw "generated editor metadata syntax_catalog.$CatalogName item is missing $PropertyName"
+        }
+    }
+}
+
 $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $SyntaxCatalog = $EditorMetadata.syntax_catalog
 if ($null -eq $SyntaxCatalog) {
     throw "generated editor metadata is missing syntax_catalog. Run .\dev.bat vscode-build-editor-metadata"
 }
-$WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
-$HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
-$WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
-$LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
-$OperatorWords = @($SyntaxCatalog.operator_words | ForEach-Object { [string]$_ })
+$KeywordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "keywords"
+$WorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_builtins"
+$HyphenatedWorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "hyphenated_workflow_builtins"
+$WorkflowOptionItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_options"
+$LanguageConstantItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "constants"
+$OperatorWordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "operator_words"
+$PublicTypeItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "public_types"
+$QuantityItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "quantities"
+$UnitItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "units"
+Assert-CatalogItemsHaveProperty -Items $WorkflowOptionItems -CatalogName "workflow_options" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $PublicTypeItems -CatalogName "public_types" -PropertyName "base"
+Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $UnitItems -CatalogName "units" -PropertyName "label"
+$WorkflowBuiltins = @($WorkflowBuiltinItems | ForEach-Object { [string]$_ })
+$HyphenatedWorkflowBuiltins = @($HyphenatedWorkflowBuiltinItems | ForEach-Object { [string]$_ })
+$WorkflowOptions = @($WorkflowOptionItems | ForEach-Object { [string]$_.label })
+$LanguageConstants = @($LanguageConstantItems | ForEach-Object { [string]$_ })
+$OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
 # Keep legacy workflow helper spellings colored for existing files without
 # suggesting them through the generated completion catalog.
 $GrammarOnlyWorkflowBuiltinAliases = @(
@@ -135,9 +180,9 @@ $GrammarOnlyUnitAliases = @(
     "kJ",
     "%"
 )
-$PublicTypeBases = @($SyntaxCatalog.public_types | ForEach-Object { [string]$_.base }) + $GrammarOnlyTypeAliases
-$QuantityLabels = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label })
-$AsciiUnits = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Where-Object {
+$PublicTypeBases = @($PublicTypeItems | ForEach-Object { [string]$_.base }) + $GrammarOnlyTypeAliases
+$QuantityLabels = @($QuantityItems | ForEach-Object { [string]$_.label })
+$AsciiUnits = @($UnitItems | ForEach-Object { [string]$_.label } | Where-Object {
     $_ -cmatch '^[\x20-\x7E]+$'
 }) + $GrammarOnlyUnitAliases
 $TemplateValues = @{

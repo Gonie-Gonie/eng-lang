@@ -49,6 +49,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 551: Reworded advanced solver example docs so implemented narrow solve fixtures do not read as seed-only paths.
 - Batch 552: Promoted editor constants and operator words into generated LSP metadata so VS Code grammar and native IDE lexical coloring can stay aligned.
 - Batch 553: Switched VS Code TextMate operator-word fallback generation to the LSP syntax catalog with compatibility aliases for legacy clause words.
+- Batch 554: Added TextMate grammar build and smoke guards so generated constants and operator words cannot silently drift from LSP editor metadata.
 
 ## Documentation Policy
 

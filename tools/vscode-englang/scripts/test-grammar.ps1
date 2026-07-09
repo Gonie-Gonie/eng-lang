@@ -587,6 +587,8 @@ $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
+$LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
+$OperatorWords = @($SyntaxCatalog.operator_words | ForEach-Object { [string]$_ })
 $GrammarOnlyWorkflowBuiltinAliases = @(
     "regression_table",
     "train_regression"
@@ -620,11 +622,15 @@ Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $Hyph
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowBuiltinAliases -Description "grammar-only workflow builtin alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowOptions -Description "LSP workflow option"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowOptionAliases -Description "grammar-only workflow option alias"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LanguageConstants -Description "LSP language constant"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $OperatorWords -Description "LSP operator word"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $GrammarSource.grammar
 Assert-WorkflowOptionsAreScopedToWithBlocks
+Assert-ScopeMatchesLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "LSP language constant"
+Assert-ScopeMatchesLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "LSP operator word"
 $AllowedGrammarWorkflowOptions = @($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
 $GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $AllowedGrammarWorkflowOptions -notcontains $_ } | Sort-Object -Unique)
 if ($GrammarOptionsMissingFromLsp.Count -gt 0) {
