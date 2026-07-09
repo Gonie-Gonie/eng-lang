@@ -446,6 +446,7 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
 ];
 
 const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
+    ("Array[T]", "Schema array value"),
     ("Bool", "Boolean value"),
     ("CsvFile", "CSV file path"),
     ("Date", "Calendar date"),
@@ -461,6 +462,7 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("Int", "Integer value"),
     ("JsonFile", "JSON file path"),
     ("LinearOperator[From -> To]", "State-space linear operator"),
+    ("List[T]", "Schema list value"),
     ("ModelArtifact", "Trained model artifact"),
     ("ModelCard", "Model-card review artifact"),
     ("Number", "Dimensionless numeric value"),
@@ -9661,6 +9663,9 @@ schema SensorData {
 schema WorkflowArtifactRefs {
     api_key: Secret[String]
     predictions: Table[T]
+    records: Array[WeatherApiRecord]
+    tags: List[String]
+    flags: Bool[]
     maybe_output: Optional[DirectoryPath]
     heat_series: TimeSeries[Time]
 }
@@ -9699,6 +9704,9 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
             "String",
             "Table",
             "T",
+            "Array",
+            "WeatherApiRecord",
+            "List",
             "Optional",
             "DirectoryPath",
             "TimeSeries",

@@ -4042,7 +4042,14 @@ with {
             .map(|completion| completion.label.as_str())
             .collect::<BTreeSet<_>>();
         assert_eq!(labels.len(), completions.len());
-        for required in ["promote json records", "eng.table", "HeatRate", "kW"] {
+        for required in [
+            "promote json records",
+            "eng.table",
+            "HeatRate",
+            "Array[T]",
+            "List[T]",
+            "kW",
+        ] {
             assert!(
                 labels.contains(required),
                 "native IDE completion seed should include LSP label {required}"

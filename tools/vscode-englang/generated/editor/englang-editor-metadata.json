@@ -1,6 +1,12 @@
 {
     "completion_seed":  [
                             {
+                                "detail":  "Schema array value",
+                                "kind":  "class",
+                                "label":  "Array[T]",
+                                "lsp_kind":  7
+                            },
+                            {
                                 "detail":  "Boolean value",
                                 "kind":  "class",
                                 "label":  "Bool",
@@ -88,6 +94,12 @@
                                 "detail":  "State-space linear operator",
                                 "kind":  "class",
                                 "label":  "LinearOperator[From -\u003e To]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Schema list value",
+                                "kind":  "class",
+                                "label":  "List[T]",
                                 "lsp_kind":  7
                             },
                             {
@@ -2395,7 +2407,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  399,
+    "completion_seed_count":  401,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -2782,6 +2794,11 @@
                                         ],
                            "public_types":  [
                                                 {
+                                                    "base":  "Array",
+                                                    "detail":  "Schema array value",
+                                                    "label":  "Array[T]"
+                                                },
+                                                {
                                                     "base":  "Bool",
                                                     "detail":  "Boolean value",
                                                     "label":  "Bool"
@@ -2855,6 +2872,11 @@
                                                     "base":  "LinearOperator",
                                                     "detail":  "State-space linear operator",
                                                     "label":  "LinearOperator[From -\u003e To]"
+                                                },
+                                                {
+                                                    "base":  "List",
+                                                    "detail":  "Schema list value",
+                                                    "label":  "List[T]"
                                                 },
                                                 {
                                                     "base":  "ModelArtifact",

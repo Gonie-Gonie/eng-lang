@@ -334,6 +334,11 @@
                                         ],
                            "public_types":  [
                                                 {
+                                                    "base":  "Array",
+                                                    "detail":  "Schema array value",
+                                                    "label":  "Array[T]"
+                                                },
+                                                {
                                                     "base":  "Bool",
                                                     "detail":  "Boolean value",
                                                     "label":  "Bool"
@@ -407,6 +412,11 @@
                                                     "base":  "LinearOperator",
                                                     "detail":  "State-space linear operator",
                                                     "label":  "LinearOperator[From -\u003e To]"
+                                                },
+                                                {
+                                                    "base":  "List",
+                                                    "detail":  "Schema list value",
+                                                    "label":  "List[T]"
                                                 },
                                                 {
                                                     "base":  "ModelArtifact",

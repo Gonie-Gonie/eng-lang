@@ -1,7 +1,13 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_seed_count":  399,
+    "completion_seed_count":  401,
     "completion_seed":  [
+                            {
+                                "detail":  "Schema array value",
+                                "kind":  "class",
+                                "label":  "Array[T]",
+                                "lsp_kind":  7
+                            },
                             {
                                 "detail":  "Boolean value",
                                 "kind":  "class",
@@ -90,6 +96,12 @@
                                 "detail":  "State-space linear operator",
                                 "kind":  "class",
                                 "label":  "LinearOperator[From -\u003e To]",
+                                "lsp_kind":  7
+                            },
+                            {
+                                "detail":  "Schema list value",
+                                "kind":  "class",
+                                "label":  "List[T]",
                                 "lsp_kind":  7
                             },
                             {
