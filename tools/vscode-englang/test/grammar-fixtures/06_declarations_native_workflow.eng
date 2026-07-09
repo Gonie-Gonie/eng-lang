@@ -38,6 +38,9 @@ schema WorkflowArtifactRefs {
     model_card: ModelCard
     model_artifact: ModelArtifact
     predictions: Table[T]
+    records: Array[WeatherApiRecord]
+    tags: List[String]
+    flags: Bool[]
     maybe_output: Optional[DirectoryPath]
     heat_series: TimeSeries[Time]
     process: ProcessResult

@@ -1779,6 +1779,15 @@
       "types": {
         "patterns": [
           {
+            "name": "meta.type.array-suffix.englang",
+            "match": "\\b({{PUBLIC_TYPE_BASES}}|{{QUANTITY_LABELS}})\\s*(\\[)\\s*(\\])",
+            "captures": {
+              "1": { "name": "support.type.englang" },
+              "2": { "name": "punctuation.section.brackets.begin.englang" },
+              "3": { "name": "punctuation.section.brackets.end.englang" }
+            }
+          },
+          {
             "name": "meta.type.generic.englang",
             "match": "\\b(LinearOperator)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)(\\s*->\\s*)((?:[A-Za-z_][A-Za-z0-9_]*)(?:\\s*\\[\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\])?)\\s*(\\])",
             "captures": {
@@ -1792,7 +1801,7 @@
           },
           {
             "name": "meta.type.generic.englang",
-            "match": "\\b(Table|SampleTable|CaseTable|Secret|Optional|TimeSeries|StateVector|InputVector|OutputVector|Derivative|Object)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\])",
+            "match": "\\b(Array|List|Table|SampleTable|CaseTable|Secret|Optional|TimeSeries|StateVector|InputVector|OutputVector|Derivative|Object)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\])",
             "captures": {
               "1": { "name": "support.type.englang" },
               "2": { "name": "punctuation.section.brackets.begin.englang" },

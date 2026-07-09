@@ -73,7 +73,8 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.declaration.test.englang` | Full `test "..."` declaration phrases. |
 | `entity.name.section.englang` | Captured quoted test names. |
 | `support.type.englang` | Quantity/type names. |
-| `meta.type.generic.englang` | Generic type expressions such as `Table[T]`, `Optional[DirectoryPath]`, and `TimeSeries[Time]`. |
+| `meta.type.generic.englang` | Generic type expressions such as `Array[Record]`, `List[String]`, `Table[T]`, `Optional[DirectoryPath]`, and `TimeSeries[Time]`. |
+| `meta.type.array-suffix.englang` | Array suffix type expressions such as `Bool[]` and `String[]`. |
 | `variable.parameter.type.englang` | Generic type arguments inside bracketed type expressions. |
 | `support.function.builtin.englang` | Built-in functions and helpers. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |
@@ -314,6 +315,7 @@ keyword.operator.englang
 keyword.operator.word.englang
 markup.warning.englang
 meta.type.generic.englang
+meta.type.array-suffix.englang
 storage.type.declaration.englang
 storage.type.function.englang
 storage.type.test.englang

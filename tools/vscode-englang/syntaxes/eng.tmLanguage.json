@@ -2941,6 +2941,21 @@
                        "types":  {
                                      "patterns":  [
                                                       {
+                                                          "name":  "meta.type.array-suffix.englang",
+                                                          "match":  "\\b(PredictionManifest|ArtifactManifest|DbWriteManifest|CoverageResult|LinearOperator|OutputManifest|ReviewDocument|CacheManifest|DirectoryPath|ModelArtifact|ProcessResult|QualityResult|CaseManifest|DbConnection|HttpResponse|NetworkCache|OutputVector|InputVector|SampleTable|StateVector|DbTableRef|Derivative|Prediction|ReportFile|TimeSeries|CaseTable|ModelCard|DateTime|Duration|FilePath|JsonFile|Optional|PlotFile|TableRow|TextFile|TomlFile|CsvFile|RunLock|RunPlan|Number|Object|Report|RunLog|Secret|String|Volume|Float|Table|Area|Bool|Date|Mass|Path|Time|Int|Url|AbsoluteTemperature|DimensionlessNumber|TemperatureDelta|MechanicalPower|ReynoldsNumber|ElectricPower|PeopleDensity|HeatCapacity|MassFlowRate|SpecificHeat|Conductance|Irradiance|Duration|HeatRate|Pressure|Energy|Length|Ratio)\\s*(\\[)\\s*(\\])",
+                                                          "captures":  {
+                                                                           "1":  {
+                                                                                     "name":  "support.type.englang"
+                                                                                 },
+                                                                           "2":  {
+                                                                                     "name":  "punctuation.section.brackets.begin.englang"
+                                                                                 },
+                                                                           "3":  {
+                                                                                     "name":  "punctuation.section.brackets.end.englang"
+                                                                                 }
+                                                                       }
+                                                      },
+                                                      {
                                                           "name":  "meta.type.generic.englang",
                                                           "match":  "\\b(LinearOperator)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)(\\s*-\u003e\\s*)((?:[A-Za-z_][A-Za-z0-9_]*)(?:\\s*\\[\\s*[A-Za-z_][A-Za-z0-9_]*\\s*\\])?)\\s*(\\])",
                                                           "captures":  {
@@ -2966,7 +2981,7 @@
                                                       },
                                                       {
                                                           "name":  "meta.type.generic.englang",
-                                                          "match":  "\\b(Table|SampleTable|CaseTable|Secret|Optional|TimeSeries|StateVector|InputVector|OutputVector|Derivative|Object)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\])",
+                                                          "match":  "\\b(Array|List|Table|SampleTable|CaseTable|Secret|Optional|TimeSeries|StateVector|InputVector|OutputVector|Derivative|Object)\\s*(\\[)\\s*([A-Za-z_][A-Za-z0-9_]*)\\s*(\\])",
                                                           "captures":  {
                                                                            "1":  {
                                                                                      "name":  "support.type.englang"

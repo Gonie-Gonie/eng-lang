@@ -808,6 +808,8 @@ Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Label
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"
+Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels @("Array[String]", "List[Int]") -Description "schema collection generic type"
+Assert-ScopeMatchesLabels -Scope "meta.type.array-suffix.englang" -Labels @("Bool[]", "String[]") -Description "schema array suffix type"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
