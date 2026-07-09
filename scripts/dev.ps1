@@ -3186,12 +3186,16 @@ function Assert-VscodeExtensionContract {
     if (-not $RuntimePathDescription.Contains("check/run tool")) {
         throw "VS Code runtimePath description must describe the check/run tool"
     }
+    $LintOnSaveDescription = [string]$Properties."englang.lintOnSave".description
+    if (-not $LintOnSaveDescription.Contains("saved-file EngLang Problems diagnostics")) {
+        throw "VS Code lintOnSave description must explain saved-file Problems diagnostics"
+    }
     $LintOnChangeDescription = [string]$Properties."englang.lintOnChange".description
     if ($LintOnChangeDescription -match "eng-lsp|snapshot") {
         throw "VS Code lintOnChange description must avoid editor-service implementation details"
     }
-    if (-not $LintOnChangeDescription.Contains("diagnostics mode is live")) {
-        throw "VS Code lintOnChange description must say it applies when diagnostics mode is live"
+    if (-not $LintOnChangeDescription.Contains("diagnostics mode is live") -or -not $LintOnChangeDescription.Contains("VS Code Problems diagnostics")) {
+        throw "VS Code lintOnChange description must say it applies to live VS Code Problems diagnostics"
     }
     $LspPathDescription = [string]$Properties."englang.lspPath".description
     if ($LspPathDescription -match "editor service") {
@@ -3572,6 +3576,7 @@ function Assert-VscodeExtensionContract {
         "long_running_language_server",
         "features",
         "summary:",
+        "diagnosticsModeChangeSummary",
         "diagnosticsStatusSummary",
         "toolStatusSummary",
         "const problemsSource = mode",
@@ -3582,6 +3587,8 @@ function Assert-VscodeExtensionContract {
         "role_aware_colors",
         "role_aware_highlighting",
         "diagnostics_mode",
+        "saved_file_diagnostics_on_open_save",
+        "live_typing_diagnostics_enabled",
         "semantic_highlighting",
         "review_risk_decorations"
     )) {

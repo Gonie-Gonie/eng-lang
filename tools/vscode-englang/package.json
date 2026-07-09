@@ -682,10 +682,10 @@
             "live"
           ],
           "enumDescriptions": [
-            "Use quieter saved-file diagnostics when a file opens, saves, or is checked manually.",
-            "Use live diagnostics while typing from the current unsaved buffer."
+            "Use saved-file Problems diagnostics when a file opens, saves, or is checked manually.",
+            "Use current-buffer Problems diagnostics while typing from the unsaved editor."
           ],
-          "description": "Choose the diagnostics mode for the Problems panel. File mode is quieter; live mode updates while typing from the current unsaved buffer."
+          "description": "Choose how VS Code Problems diagnostics are produced for EngLang files. File mode is quieter; live mode checks the current unsaved buffer while typing."
         },
         "englang.executionProfile": {
           "type": "string",
@@ -705,12 +705,12 @@
         "englang.lintOnSave": {
           "type": "boolean",
           "default": true,
-          "description": "Run EngLang diagnostics when .eng files are opened or saved."
+          "description": "Enable saved-file EngLang Problems diagnostics when .eng files are opened or saved."
         },
         "englang.lintOnChange": {
           "type": "boolean",
           "default": true,
-          "description": "When diagnostics mode is live, update EngLang diagnostics for unsaved .eng buffers after a short typing pause."
+          "description": "When diagnostics mode is live, update VS Code Problems diagnostics for unsaved .eng buffers after a short typing pause."
         },
         "englang.semanticHighlighting.enabled": {
           "type": "boolean",

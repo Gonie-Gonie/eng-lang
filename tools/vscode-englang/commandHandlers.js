@@ -27,13 +27,13 @@ const DIAGNOSTICS_MODES = [
     id: "file",
     label: "File diagnostics",
     description: "file",
-    detail: "Quieter Problems updates when an EngLang file opens, saves, or is checked manually."
+    detail: "Saved-file Problems diagnostics when an EngLang file opens, saves, or is checked manually."
   },
   {
     id: "live",
     label: "Live diagnostics",
     description: "live",
-    detail: "Problems update from the current unsaved editor buffer after a short typing pause."
+    detail: "Current-buffer Problems diagnostics after a short typing pause."
   }
 ];
 
@@ -169,9 +169,8 @@ function createCommandHandlers(options = {}) {
       ? vscode.ConfigurationTarget.Workspace
       : vscode.ConfigurationTarget.Global;
     await engConfig(document).update("diagnosticsMode", picked.mode, target);
-    const suffix = picked.mode === "live"
-      ? "Problems will update while typing when englang.lintOnChange is enabled."
-      : "Problems will use saved-file diagnostics on open, save, and manual check.";
+    const lintOnChange = engConfig(document).get("lintOnChange", true);
+    const suffix = diagnosticsModeChangeSummary(picked.mode, lintOnChange);
     vscode.window.showInformationMessage(`EngLang diagnostics mode set to ${picked.mode}. ${suffix}`);
   }
 
@@ -726,6 +725,8 @@ function createCommandHandlers(options = {}) {
       },
       settings: {
         diagnostics_mode: mode,
+        saved_file_diagnostics_on_open_save: config.get("lintOnSave", true),
+        live_typing_diagnostics_enabled: problemsSource === "live" && lintOnChange,
         lint_on_save: config.get("lintOnSave", true),
         lint_on_change: lintOnChange,
         role_aware_highlighting: semanticHighlighting,
@@ -742,14 +743,24 @@ function createCommandHandlers(options = {}) {
     };
   }
 
+  function diagnosticsModeChangeSummary(mode, lintOnChange) {
+    if (mode !== "live") {
+      return "VS Code Problems will use saved-file diagnostics on open, save, and manual check.";
+    }
+    if (!lintOnChange) {
+      return "Live diagnostics mode is selected, but typing updates remain off because englang.lintOnChange is false.";
+    }
+    return "VS Code Problems will update from the current unsaved buffer while typing.";
+  }
+
   function diagnosticsStatusSummary(mode, lintOnChange) {
     if (mode !== "live") {
-      return "Problems use saved-file checks when a file opens, saves, or is checked manually.";
+      return "VS Code Problems use saved-file diagnostics when a file opens, saves, or is checked manually.";
     }
     if (!lintOnChange) {
       return "Live diagnostics mode is selected, but typing updates are off because englang.lintOnChange is false.";
     }
-    return "Problems update from the current unsaved editor buffer after a short typing pause.";
+    return "VS Code Problems update from the current unsaved editor buffer after a short typing pause.";
   }
 
   function toolStatusSummary(status, purpose) {

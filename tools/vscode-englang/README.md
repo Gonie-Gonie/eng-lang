@@ -65,7 +65,7 @@ embedding compiler logic in JavaScript.
   or live unsaved-buffer checks from the Command Palette
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
-  diagnostics mode, lint toggles, role-aware highlighting, and extension version
+  diagnostics mode, Problems diagnostics toggles, role-aware highlighting, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -167,9 +167,11 @@ listed as fixed commands.
 When the diagnostics mode is `live`, dirty buffers are checked after a short
 typing pause, so Problems can update before the file is saved. The EngLang output
 panel records whether Problems came from file diagnostics or live-buffer
-diagnostics and which tool path was selected. If diagnostics cannot parse editor
-JSON, run `EngLang: Show Tooling Status` to inspect the selected paths. Set
-`englang.lintOnChange = false` to disable those live typing checks while keeping
+diagnostics and which tool path was selected. Saved-file open/save diagnostics
+are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
+`englang.lintOnChange`. If diagnostics cannot parse editor JSON, run
+`EngLang: Show Tooling Status` to inspect the selected paths. Set
+`englang.lintOnChange = false` to disable live typing checks while keeping
 live open/save analysis.
 
 Quick fixes are available for common syntax migrations, quantity/unit
