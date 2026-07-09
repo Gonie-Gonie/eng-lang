@@ -86,6 +86,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 585: Gave native workflow `status = planned/rendered/collected/missing` option values workflow-step semantic modifiers, with LSP snapshot coverage so semantic overlay keeps the same role-aware coloring after first paint.
 - Batch 586: Aligned native case collection status literals `partial` and `empty` with the editor constant catalog, TextMate status-condition fallback, grammar fixtures, and workflow-step semantic-token coverage.
 - Batch 587: Added LSP semantic-token context for `status ==`/`status !=` workflow conditions so condition keys and status literals keep workflow-step coloring after semantic overlay.
+- Batch 588: Added TextMate grammar expected-token guards for `status == partial` and `status != empty` so first-paint workflow status condition coloring cannot drift from the fixture coverage.
 
 ## Documentation Policy
 

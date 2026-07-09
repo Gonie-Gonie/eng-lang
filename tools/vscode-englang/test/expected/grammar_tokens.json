@@ -2493,6 +2493,18 @@
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.status-condition.englang",
+    "text": "status == partial",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "partial",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
     "text": "status != rendered",
     "fullMatch": true
   },
@@ -2500,6 +2512,18 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "constant.language.englang",
     "text": "rendered",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status != empty",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "empty",
     "fullMatch": true
   },
   {
