@@ -2308,7 +2308,7 @@ fn terminal_unrecognized_command_error(command: &str, run_dir: &Path) -> Option<
             code: "E-IDE-TERMINAL-SYNTAX".to_owned(),
             line: 1,
             message: "terminal command was not recognized.".to_owned(),
-            help: Some("Use a binding like `x = 3`, an expression print like `print x`, `run`, `check`, `reset`, or `clear`.".to_owned()),
+            help: Some("Use `run`, `check`, `reset`, `clear`, `cd <dir>`, or a one-line EngLang statement such as `x = 3` or `print x`.".to_owned()),
         }],
         symbols: Vec::new(),
         status: "1 error(s), 0 warning(s)".to_owned(),
@@ -3905,6 +3905,11 @@ mod tests {
             terminal_unrecognized_command_error("unknown_command", Path::new(".")).expect("error");
         assert_eq!(check.diagnostics[0].code, "E-IDE-TERMINAL-SYNTAX");
         assert!(check.diagnostics[0].message.contains("not recognized"));
+        assert!(check.diagnostics[0]
+            .help
+            .as_deref()
+            .unwrap()
+            .contains("cd <dir>"));
     }
 
     fn semantic_token_text<'a>(source: &'a str, token: &Value) -> Option<&'a str> {

@@ -4568,6 +4568,9 @@ function Invoke-IdeCheck {
         "compactObjectSummary",
         "problemQuery",
         "problemQueryInput",
+        'placeholder="Filter diagnostics"',
+        'placeholder="check, run, cd <dir>, or EngLang statement"',
+        "Supports check, run, reset, clear, cd <dir>, and one-line EngLang statements.",
         "filteredProblems",
         "moduleCategory",
         "moduleQueryInput",
@@ -4904,7 +4907,7 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_seed", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens")) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_seed", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>")) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }

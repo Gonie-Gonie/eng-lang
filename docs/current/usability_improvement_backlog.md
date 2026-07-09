@@ -87,6 +87,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 530: Reworded VS Code quick-fix docs away from skeleton language and added a wording guard.
 - Batch 531: Reworded current workflow track scope away from skeleton language and added it to docs wording guards.
 - Batch 532: Added portable package and VSIX smoke coverage for VS Code grammar, snippets, generated editor metadata, and EngLang color themes.
+- Batch 533: Clarified Native IDE Problems and Terminal placeholder/help wording for supported commands and one-line EngLang statements.
 
 ## Documentation Policy
 

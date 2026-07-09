@@ -5931,7 +5931,7 @@ function renderProblems() {
           <option value="all">All codes</option>
           ${codes.map((code) => `<option value="${escapeAttr(code)}" ${activeCode === code ? "selected" : ""}>${escapeHtml(code)}</option>`).join("")}
         </select>
-        <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter text" title="Filter by code, message, help, or line" />
+        <input id="problemQueryInput" class="problem-query" value="${escapeAttr(state.problemQuery)}" placeholder="Filter diagnostics" title="Filter by code, message, help, or line" />
         <button id="clearProblemFilters">Clear</button>
         <button id="copyVisibleProblemsBtn" title="Copy filtered diagnostics" ${filtered.length ? "" : "disabled"}>Copy visible</button>
         <span class="muted">${filtered.length} of ${diagnostics.length}</span>
@@ -6032,7 +6032,7 @@ function renderTerminal() {
       <div class="terminal-log">${renderTerminalEntries()}</div>
       <div class="terminal-input">
         <span class="prompt">${escapeHtml(terminalPrompt())}</span>
-        <input id="terminalInput" placeholder="type EngLang command, run, check, reset, clear" />
+        <input id="terminalInput" placeholder="check, run, cd <dir>, or EngLang statement" title="Supports check, run, reset, clear, cd <dir>, and one-line EngLang statements." />
         <button class="primary" id="terminalSend">Enter</button>
       </div>
     </div>
