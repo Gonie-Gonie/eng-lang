@@ -3875,6 +3875,7 @@ function Assert-VscodeExtensionContract {
         "args field",
         "httpResponseFields",
         "sampleTableFields",
+        "latin[_-]hypercube|grid|random|uniform",
         "caseTableFields",
         "caseOutputTableFields",
         "normalized.includes(""rendered"")",
@@ -4884,6 +4885,7 @@ function Invoke-IdeCheck {
         "workflowMemberCompletionFields",
         "httpResponseFields",
         "sampleTableFields",
+        "latin[_-]hypercube|grid|random|uniform",
         "caseTableFields",
         "caseOutputTableFields",
         "normalized.includes(""rendered"")",
@@ -4982,6 +4984,9 @@ function Invoke-IdeCheck {
         if ($FunctionDeclarationCount -ne 1) {
             throw "Native IDE completion UI must declare $UniqueNativeCompletionFunction exactly once"
         }
+    }
+    if (-not $IdeUiSource.Contains("latin[_-]hypercube|grid|random|uniform")) {
+        throw "Native IDE sample table completions must recognize sample uniform fallback bindings"
     }
     $ExpectedNativeIdeSideTabOrder = @(
         'sideTabButton("variables", "Variables")',

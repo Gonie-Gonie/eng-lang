@@ -137,7 +137,7 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       detail: "HTTP response field"
     },
     {
-      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random)\b/gm,
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
       fields: catalogs?.sampleTableFields,
       detail: "Sample table field"
     },
