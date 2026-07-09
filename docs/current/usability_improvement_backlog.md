@@ -15,9 +15,9 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 ## Open Candidates
 
 - Cache replay and invalidation: network offline-response cache materialization/replay is implemented with hash checks; broader process/model replay and explicit invalidation still need an artifact-safety design.
-- Live network execution: live HTTP(S) GET/download is implemented with timeout, retry, body limit, SHA-256 verification, and cache replay; request body/auth policy still needs a broader public contract.
+- Live network execution: live HTTP(S) GET/download and POST/PUT/PATCH string request bodies are implemented with timeout, retry, body limits, SHA-256 verification, body hashes, cache replay, and redacted Secret query/header records; broader live secret injection and auth schemes still need a public contract.
 - Model training surface: native `train regression <table>` feeds model-card, metrics, and prediction-table paths; broader algorithm coverage and clearer multi-model naming remain open.
-- Case orchestration: current materialize cases, pply ... over cases, and
+- Case orchestration: current materialize cases, apply ... over cases, and
   collect results paths materialize CaseTable/CaseOutput/CaseResultCollection
   records; the remaining work is a general run-case scheduler/resume/cache/failure
   policy.
@@ -74,6 +74,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 573: Made Native IDE Highlight panel category, detail, and selector chips clickable filters so users can inspect role-aware colors by token type or semantic modifier directly.
 - Batch 574: Clarified current workflow docs so implemented CaseTable/CaseOutput materialization is not confused with the still-planned general run-case scheduler/resume/cache policy.
 - Batch 575: Extended VS Code highlight inspection to report direct semantic selector coverage, so generic fallback coloring can be distinguished from fully mapped role colors.
+- Batch 576: Documented the implemented native network request-body and secret redaction contract in public reference docs and CLI diagnostic code lists.
 
 ## Documentation Policy
 

@@ -12,6 +12,11 @@ the run and are captured in the process results payload as external process
 entries. Named `test` blocks run after generated artifacts are available and
 are captured in the test results payload.
 
+Explicit `http ...` and `download ...` boundaries execute or replay through the
+native network/cache path. Saved runs record network boundary metadata, response
+hashes, request `body_sha256`, cache events, and generated download outputs in
+the review/result/run-log/output-manifest artifacts.
+
 ## Basic Run
 
 ```bat

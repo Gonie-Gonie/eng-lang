@@ -85,9 +85,12 @@ E-TABLE-SCHEMA-MISMATCH table join key columns have incompatible schema types
 E-NET-INVALID-URL     network boundary URL is not absolute HTTP(S)
 E-NET-RETRY-POLICY    network retry value is not an integer from 0 to 5
 E-NET-TIMEOUT         network timeout value is not a positive finite duration
+E-NET-BODY-METHOD    request body is used with a method that cannot send a body
+E-NET-BODY-POLICY    request body is not a supported non-secret string value
 E-NET-BODY-SIZE-LIMIT network response body size limit is not a positive whole-byte size
 E-NET-HASH-MISMATCH   network response SHA-256 does not match expected_sha256
 E-NET-UNPINNED-REPRO  repro profile network boundary lacks a pinned response file or expected_sha256
+E-NET-SECRET-LIVE    live network request needs a redacted secret query/header value
 W-NET-FIXTURE-ALIAS   fixture is a legacy alias for offline_response
 W-NET-RESPONSE-HASH-ALIAS response.hash is a legacy alias for response.response_hash
 E-CACHE-HASH-MISMATCH cache record observed hash does not match expected hash

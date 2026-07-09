@@ -1089,6 +1089,91 @@ status, schema status, diagnostics, table name, mode, key columns, schema
 columns, and row count. The runtime also writes `_eng_schema_metadata` with
 type/unit metadata for each exported source column.
 
+## Network Requests And Downloads
+
+Use `http ...` and `download ...` when a workflow needs an explicit HTTP(S)
+boundary. Network boundaries are reviewable side effects: URLs, query/header
+keys, response hashes, cache records, and source lines are recorded. Raw request
+bodies are not written to review artifacts; `body_sha256` is recorded instead.
+
+```eng partial
+args {
+    api_url: Url = url("https://api.example.org/submit")
+    api_key: Secret[String] = secret env("API_KEY")
+}
+
+submitted = http post args.api_url
+with {
+    query = {
+        station = "108"
+        serviceKey = args.api_key
+    }
+    headers = {
+        Accept = "application/json"
+        Authorization = args.api_key
+    }
+    body = "submitted=true"
+    offline_response = file("data/response.json")
+    expected_sha256 = "e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726"
+    retry = 2
+    timeout = 30 s
+    body_size_limit = 2 MB
+    cache = true
+}
+
+download url("https://example.org/file.csv") to file("build/raw/file.csv")
+with {
+    offline_response = file("data/file.csv")
+    expected_sha256 = "1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7"
+    response_body_limit = 512 KiB
+}
+```
+
+Current request forms:
+
+| Form | Meaning |
+|---|---|
+| `http get <url>` | HTTP GET request |
+| `http post <url>` | HTTP POST request, optionally with `body` |
+| `http put <url>` | HTTP PUT request, optionally with `body` |
+| `http patch <url>` | HTTP PATCH request, optionally with `body` |
+| `http head <url>` | HTTP HEAD request |
+| `download <url> to <path>` | Materialize a response body as an output file |
+
+Current network options:
+
+| Option | Meaning |
+|---|---|
+| `query = { ... }` | Query parameters; `Secret[T]` values are redacted in artifacts |
+| `headers = { ... }` | Request headers; `Secret[T]` values are redacted in artifacts |
+| `body` | String literal or non-secret `args.<name>` request body for POST/PUT/PATCH |
+| `offline_response` | Source-relative pinned response body used instead of live network |
+| `expected_sha256` | Required digest for pinned/replayed response verification |
+| `status_code` | Expected/offline status code metadata for request records |
+| `retry` | Integer retry count from 0 to 5 |
+| `timeout` | Positive duration such as `500 ms`, `30 s`, `10 min`, or `1 h` |
+| `body_size_limit` | Maximum response body size for requests |
+| `response_body_limit` | Alias used by downloads for maximum response body size |
+| `cache`, `cache_key`, `cache_dir`, `cache_ttl` | Cache materialization/replay controls |
+
+Rules:
+
+| Rule | Meaning |
+|---|---|
+| Absolute HTTP(S) URLs | Network URLs must resolve to `http://` or `https://` |
+| Body method policy | `body` is accepted only for POST, PUT, and PATCH |
+| Body secrecy policy | Request bodies may not be `secret ...`; raw bodies stay out of artifacts |
+| Secret query/header policy | Secret query/header values are redacted; live execution rejects redacted values with `E-NET-SECRET-LIVE` until secret injection is supported |
+| Repro profile | Network boundaries need `offline_response` or cache replay plus `expected_sha256` |
+| Reviewable records | `review.json`, `result.engres`, `run_log.json`, and `output_manifest.json` include network/cache records |
+
+The runnable workflow example is:
+
+```text
+examples/workflows/01_weather_api_to_standard_file/main.eng
+```
+
+
 ## Template Rendering
 
 Use `render template` when an external simulator or adapter needs a generated
