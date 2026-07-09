@@ -336,7 +336,7 @@ function createCommandHandlers(options = {}) {
     }
     const snapshot = await lspRequests.snapshotDocumentSource(document, context);
     if (!snapshot) {
-      vscode.window.showWarningMessage("No highlight data is available. See the EngLang output panel.");
+      await showHighlightUnavailableWarning(context, document);
       return;
     }
     reviewCache.set(document.uri.fsPath, snapshot);
@@ -419,6 +419,17 @@ function createCommandHandlers(options = {}) {
   }
 
 
+  async function showHighlightUnavailableWarning(context, document) {
+    const semanticHighlighting = engConfig(document).get("semanticHighlighting.enabled", true);
+    const settingState = semanticHighlighting ? "enabled" : "disabled";
+    const message = `No highlight data is available. Semantic highlighting is ${settingState}; run EngLang: Show Tooling Status to confirm the live editor tool path.`;
+    output.appendLine(`highlight data unavailable: semanticHighlighting.enabled=${semanticHighlighting}; use EngLang: Show Tooling Status to inspect the live editor tool path.`);
+    const picked = await vscode.window.showWarningMessage(message, "Show Tooling Status");
+    if (picked === "Show Tooling Status") {
+      await showToolingStatus(context);
+    }
+  }
+
   async function showSemanticTokenAtCursor(context) {
     const editor = vscode.window.activeTextEditor;
     const document = editor?.document;
@@ -428,7 +439,7 @@ function createCommandHandlers(options = {}) {
     }
     const snapshot = await lspRequests.snapshotDocumentSource(document, context);
     if (!snapshot) {
-      vscode.window.showWarningMessage("No highlight data is available. See the EngLang output panel.");
+      await showHighlightUnavailableWarning(context, document);
       return;
     }
     reviewCache.set(document.uri.fsPath, snapshot);

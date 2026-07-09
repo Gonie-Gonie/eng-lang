@@ -208,7 +208,8 @@ rules live in `docs/internal/editor/token_scopes.md`.
 summary, legend, selector/type/detail counts, representative source-text samples,
 normalized highlight rows with primary selector, mapped/missing fallback status,
 theme fallback scopes, and raw highlight payload for debugging theme or scope
-mismatches.
+mismatches. If no highlight data is available, the warning can open
+`EngLang: Show Tooling Status` so the selected live editor tool path is visible.
 `EngLang: Inspect Highlight Token at Cursor` opens the token under the caret plus
 the nearest highlight tokens and the other highlight tokens on the same line.
 

@@ -3833,6 +3833,9 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredSemanticDebugToken in @(
         "showSemanticTokensDebug",
         "showSemanticTokenAtCursor",
+        "showHighlightUnavailableWarning",
+        "highlight data unavailable:",
+        "Show Tooling Status",
         "matching_tokens: matchingTokens",
         "nearest_tokens: nearestTokens",
         "nearest_token_count: nearestTokens.length",
