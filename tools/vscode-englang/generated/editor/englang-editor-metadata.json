@@ -5486,6 +5486,7 @@
                                              "desc",
                                              "pending",
                                              "planned",
+                                             "partial",
                                              "running",
                                              "passed",
                                              "failed",

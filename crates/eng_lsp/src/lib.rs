@@ -429,6 +429,7 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "desc",
     "pending",
     "planned",
+    "partial",
     "running",
     "passed",
     "failed",
@@ -5057,6 +5058,7 @@ fn is_workflow_status_literal(value: &str) -> bool {
         value,
         "pending"
             | "planned"
+            | "partial"
             | "running"
             | "passed"
             | "failed"
@@ -5067,16 +5069,21 @@ fn is_workflow_status_literal(value: &str) -> bool {
             | "rendered"
             | "collected"
             | "missing"
+            | "empty"
     )
 }
 
 fn is_status_or_policy_literal(value: &str) -> bool {
-    is_workflow_status_literal(value) || matches!(value, "error" | "keep" | "empty" | "interpolate")
+    is_workflow_status_literal(value) || matches!(value, "error" | "keep" | "interpolate")
+}
+
+fn is_workflow_status_role_literal(value: &str) -> bool {
+    is_workflow_status_literal(value) && value != "empty"
 }
 
 fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
-        _ if is_workflow_status_literal(keyword) => &["workflowStep"],
+        _ if is_workflow_status_role_literal(keyword) => &["workflowStep"],
         "cached" | "stale" | "hit" | "miss" => &["cache"],
         "asc" | "desc" => &["workflowStep"],
         "created" | "updated" | "metadata_ready" | "warnings_present" | "diagnostics_present" => {
@@ -9781,7 +9788,9 @@ with {
     status = planned
     status = rendered
     status = collected
+    status = partial
     status = missing
+    status = empty
 }
 
 upload = http get url("https://example.org/weather")
@@ -9890,7 +9899,14 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         );
         assert_semantic_token_modifier(&snapshot, source, "case_id", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "resume", "workflowStep");
-        for status in ["planned", "rendered", "collected", "missing"] {
+        for status in [
+            "planned",
+            "rendered",
+            "collected",
+            "partial",
+            "missing",
+            "empty",
+        ] {
             let line = format!("    status = {status}");
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,

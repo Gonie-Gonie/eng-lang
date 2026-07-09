@@ -86,7 +86,9 @@ validate Q_probability > 0.95
 
 on {
     status == passed
+    status == partial
     status != rendered
+    status != empty
 }
 
 report {

@@ -3897,6 +3897,18 @@
     "fullMatch": true
   },
   {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "partial",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "empty",
+    "fullMatch": true
+  },
+  {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "constant.language.englang",
     "text": "monte_carlo",
