@@ -99,6 +99,7 @@ class EngDiagnosticsController {
     const documentVersion = document.version;
     const runtimeLabel = this.diagnosticsRuntimeLabel(runtimeMode);
     this.appendLine(`${runtimeLabel} check ${document.uri.fsPath}`);
+    this.appendLine(`diagnostics source: ${runtimeLabel}; tool: ${runtime}`);
 
     cp.execFile(
       runtime,
@@ -113,21 +114,23 @@ class EngDiagnosticsController {
   checkDocumentSource(document) {
     if (this.snapshotDocumentSource) {
       const documentVersion = document.version;
+      const runtime = this.findLspRuntime?.(this.context, document) ?? "eng-lsp.exe";
       this.appendLine(`live buffer check ${document.uri.fsPath}`);
+      this.appendLine(`diagnostics source: live buffer; tool: ${runtime}`);
       this.snapshotDocumentSource(document, this.context)
         .then((review) => {
           if (document.version !== documentVersion) {
             return;
           }
           if (!review) {
-            this.applyUnavailableSnapshotDiagnostic(document);
+            this.applyUnavailableSnapshotDiagnostic(document, "live buffer");
             return;
           }
           this.finishParsedDocumentCheck(document, "live buffer", documentVersion, review);
         })
         .catch((error) => {
           this.appendLine(`live buffer check failed: ${error.message}`);
-          this.applyUnavailableSnapshotDiagnostic(document);
+          this.applyUnavailableSnapshotDiagnostic(document, "live buffer");
         });
       return;
     }
@@ -136,6 +139,7 @@ class EngDiagnosticsController {
     const cwd = this.workspaceRoot(document);
     const documentVersion = document.version;
     this.appendLine(`live buffer check ${document.uri.fsPath}`);
+    this.appendLine(`diagnostics source: live buffer; tool: ${runtime}`);
 
     const child = cp.execFile(
       runtime,
@@ -166,7 +170,7 @@ class EngDiagnosticsController {
       if (error) {
         this.appendLine(error.message);
       }
-      this.applyUnavailableSnapshotDiagnostic(document);
+      this.applyUnavailableSnapshotDiagnostic(document, runtimeLabel);
       return;
     }
 
@@ -183,14 +187,15 @@ class EngDiagnosticsController {
     this.updateSemanticSymbolDecorations(document, review);
     const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
     const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
-    this.appendLine(`diagnostics: ${errors} error(s), ${warnings} warning(s)`);
+    this.appendLine(`diagnostics (${runtimeLabel}): ${errors} error(s), ${warnings} warning(s)`);
   }
 
-  applyUnavailableSnapshotDiagnostic(document) {
+  applyUnavailableSnapshotDiagnostic(document, runtimeLabel = "editor") {
+    const settingHint = diagnosticsSettingHint(runtimeLabel);
     this.diagnostics.set(document.uri, [
       new vscode.Diagnostic(
         firstLineRange(document),
-        "EngLang runtime did not return editor JSON. Check englang.runtimePath or englang.lspPath.",
+        `EngLang ${runtimeLabel} diagnostics did not return editor JSON. Run EngLang: Show Tooling Status to confirm selected tool paths, or check ${settingHint}.`,
         vscode.DiagnosticSeverity.Error
       )
     ]);
@@ -276,6 +281,17 @@ function diagnosticTags(item) {
   return [];
 }
 
+function diagnosticsSettingHint(runtimeLabel) {
+  const label = String(runtimeLabel ?? "").toLowerCase();
+  if (label.includes("live")) {
+    return "englang.lspPath";
+  }
+  if (label.includes("file")) {
+    return "englang.runtimePath";
+  }
+  return "englang.runtimePath or englang.lspPath";
+}
+
 function severityName(severity) {
   if (severity === 1 || severity === "error") {
     return "error";
@@ -307,6 +323,7 @@ module.exports = {
   diagnosticCode,
   diagnosticCodeTarget,
   diagnosticTags,
+  diagnosticsSettingHint,
   severityName,
   toDiagnostics
 };

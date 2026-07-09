@@ -42,6 +42,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 544: Added summary-first VS Code tooling status output with clearer executable source, fallback, availability, diagnostics, and role-coloring wording.
 - Batch 545: Aligned VS Code TextMate fallback colors for TimeSeries quality verbs and added partial-edit fallback coverage for `require_one`.
 - Batch 546: Renamed the top-level output manifest label to generated output list across CLI, VS Code commands, and docs.
+- Batch 547: Made VS Code diagnostics output show the selected diagnostics source/tool path and point editor-JSON failures to Tooling Status.
 
 ## Documentation Policy
 

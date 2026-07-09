@@ -164,7 +164,10 @@ last run, including generated CSV/text outputs and review artifacts that are not
 listed as fixed commands.
 
 When the diagnostics mode is `live`, dirty buffers are checked after a short
-typing pause, so Problems can update before the file is saved. Set
+typing pause, so Problems can update before the file is saved. The EngLang output
+panel records whether Problems came from file diagnostics or live-buffer
+diagnostics and which tool path was selected. If diagnostics cannot parse editor
+JSON, run `EngLang: Show Tooling Status` to inspect the selected paths. Set
 `englang.lintOnChange = false` to disable those live typing checks while keeping
 live open/save analysis.
 
