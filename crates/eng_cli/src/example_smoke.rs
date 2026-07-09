@@ -6957,7 +6957,7 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         eprintln!("{error}");
         return false;
     }
-    let workflow_sources = match workflow_main_sources() {
+    let workflow_sources = match native_workflow_sources() {
         Ok(sources) => sources,
         Err(error) => {
             eprintln!("failed to enumerate native workflow sources: {error}");
@@ -7004,7 +7004,7 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         };
         let lowered = source.to_ascii_lowercase();
         for (banned, reason) in banned_fragments {
-            if lowered.contains(banned) {
+            if contains_native_workflow_banned_marker(&lowered, banned) {
                 eprintln!(
                     "native workflow source {} must not contain `{banned}` ({reason})",
                     source_path.display()
@@ -7014,6 +7014,36 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         }
     }
     true
+}
+
+fn contains_native_workflow_banned_marker(source: &str, marker: &str) -> bool {
+    if marker == "run command" || marker.starts_with('.') {
+        return source.contains(marker);
+    }
+    contains_ascii_word(source, marker)
+}
+
+fn contains_ascii_word(source: &str, marker: &str) -> bool {
+    let mut offset = 0;
+    while let Some(index) = source[offset..].find(marker) {
+        let start = offset + index;
+        let end = start + marker.len();
+        let before = start
+            .checked_sub(1)
+            .and_then(|index| source.as_bytes().get(index));
+        let after = source.as_bytes().get(end);
+        if before.is_none_or(|byte| !is_ascii_word_byte(*byte))
+            && after.is_none_or(|byte| !is_ascii_word_byte(*byte))
+        {
+            return true;
+        }
+        offset = end;
+    }
+    false
+}
+
+fn is_ascii_word_byte(byte: u8) -> bool {
+    byte == b'_' || byte.is_ascii_alphanumeric()
 }
 
 fn native_workflow_has_sample_table(
@@ -7107,6 +7137,13 @@ fn workflow_main_sources() -> Result<Vec<PathBuf>, std::io::Error> {
             sources.push(main);
         }
     }
+    sources.sort();
+    Ok(sources)
+}
+
+fn native_workflow_sources() -> Result<Vec<PathBuf>, std::io::Error> {
+    let mut sources = Vec::new();
+    collect_eng_files(Path::new("examples/workflows"), &mut sources)?;
     sources.sort();
     Ok(sources)
 }
