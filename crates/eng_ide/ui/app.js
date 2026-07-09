@@ -31,12 +31,7 @@ const FALLBACK_LEXICAL_CONSTANTS = [
   "dynamic_component_explicit_euler", "dynamic_component_semi_implicit_euler",
   "dynamic_component_adaptive_heun", "trapezoidal"
 ];
-const FALLBACK_LEXICAL_UNITS = [
-  "J/kg/K", "people/m2", "person/m2", "W/m^2", "W/m2", "kg/s", "W/K",
-  "J/K", "kJ/K", "degC", "kWh", "kPa", "kW", "kJ", "MJ", "MB", "KB",
-  "Wh", "Pa", "kg", "cm", "mm", "m2", "m3", "min", "K", "m", "s", "h",
-  "W", "J", "B", "%"
-];
+
 const LEXICAL_KEYWORD_GROUP_ORDER = [
   "deprecated", "import", "declaration", "function", "test", "block", "modifier",
   "side_effect", "external_boundary", "validation", "report", "solver", "workflow"
@@ -197,7 +192,7 @@ function buildLexicalCatalog(catalog) {
     ...normalized.keywords,
     ...workflowBuiltinSet
   ]);
-  const unitLabels = uniqueStrings([...FALLBACK_LEXICAL_UNITS, ...normalized.units]);
+  const unitLabels = uniqueStrings(normalized.units);
   return {
     keywords: keywordSet,
     keywordGroups: keywordGroupSets(normalized.keywordGroups),

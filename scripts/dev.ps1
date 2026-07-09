@@ -3318,6 +3318,8 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredTokenScopeDocToken in @(
         "syntax_catalog.workflow_status_literals",
+        "syntax_catalog.units",
+        "compiler-owned unit catalog",
         "native IDE lexical fallback consumes",
         "status ==",
         "status !=",
@@ -4962,6 +4964,8 @@ function Invoke-IdeCheck {
         "operator_words",
         "normalized.constants",
         "normalized.operatorWords",
+        "normalized.units",
+        "const unitLabels = uniqueStrings(normalized.units)",
         "hyphenatedWorkflowBuiltins",
         "hyphenated_workflow_builtins",
         "FALLBACK_LEXICAL_KEYWORDS",
@@ -5253,6 +5257,9 @@ function Invoke-IdeCheck {
         if ($CompilerSemanticSource.Contains($ForbiddenAssemblyBalanceStatusToken)) {
             throw "Compiler assembly balance status must not expose legacy seed status $ForbiddenAssemblyBalanceStatusToken"
         }
+    }
+    if ($IdeUiSource.Contains("FALLBACK_LEXICAL_UNITS")) {
+        throw "Native IDE unit fallback must use syntax_catalog.units instead of a hardcoded JS list"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", ".semantic-token-table th:last-child", "token-chip", "token-filter-chip", "token-range-button", "cursor-insight", "variable-source-line")) {

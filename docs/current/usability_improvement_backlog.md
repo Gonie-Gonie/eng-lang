@@ -93,6 +93,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 592: Documented `syntax_catalog.workflow_status_literals` in the editor token-scope contract and added a VS Code extension contract guard so workflow status literal coloring stays generated across TextMate and native IDE fallback paths.
 - Batch 593: Removed the native IDE hardcoded workflow-status literal fallback list so `status =`, `status ==`, and `status !=` coloring uses only the LSP-generated `syntax_catalog.workflow_status_literals` catalog.
 - Batch 594: Routed generated `syntax_catalog.units` labels into VS Code local quick fixes so missing-unit repairs only suggest compiler-owned units when editor metadata is available.
+- Batch 595: Removed the native IDE hardcoded unit lexical fallback list so unit coloring uses generated `syntax_catalog.units` as the source of truth.
 
 ## Documentation Policy
 

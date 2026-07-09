@@ -3830,6 +3830,8 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function catalogKeywordGroups(value)",
         "workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals)",
         "workflowStatusLiterals: new Set(normalized.workflowStatusLiterals)",
+        "units: catalogItemLabels(source.units)",
+        "const unitLabels = uniqueStrings(normalized.units)",
         "lexical.workflowStatusLiterals?.has(word)",
         "function isWorkflowStatusLiteralContext(line, index)",
         "function lexicalKeywordGroupClass(word, lexical)",
@@ -3849,6 +3851,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
                 "native IDE app.js should include UI behavior contract `{required}`"
             ));
         }
+    }
+    if app_js.contains("FALLBACK_LEXICAL_UNITS") {
+        return Err(
+            "native IDE unit fallback must use syntax_catalog.units instead of a JS fallback list"
+                .to_owned(),
+        );
     }
     Ok(())
 }
