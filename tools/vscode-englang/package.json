@@ -43,6 +43,18 @@
         "path": "./snippets/eng.json"
       }
     ],
+    "themes": [
+      {
+        "label": "EngLang Dark",
+        "uiTheme": "vs-dark",
+        "path": "./themes/englang-dark-color-theme.json"
+      },
+      {
+        "label": "EngLang Light",
+        "uiTheme": "vs",
+        "path": "./themes/englang-light-color-theme.json"
+      }
+    ],
     "semanticTokenModifiers": [
       {
         "id": "unit",

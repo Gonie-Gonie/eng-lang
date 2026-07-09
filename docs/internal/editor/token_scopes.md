@@ -16,6 +16,7 @@ the files that keep VS Code and the native IDE aligned.
 | Generated syntax catalog | `tools/vscode-englang/generated/editor/englang-syntax.json` |
 | Native IDE lexical fallback catalog | `eng-lsp --editor-metadata` via `ide_bootstrap.syntaxCatalog` |
 | VS Code semantic fallback scopes | `tools/vscode-englang/package.json` |
+| Optional VS Code color themes | `tools/vscode-englang/themes/englang-dark-color-theme.json` and `tools/vscode-englang/themes/englang-light-color-theme.json` |
 | Grammar smoke fixtures | `tools/vscode-englang/test/grammar-fixtures/*.eng` |
 | Grammar smoke expectations | `tools/vscode-englang/test/expected/grammar_tokens.json` |
 
@@ -292,6 +293,15 @@ Base semantic selectors observed in LSP snapshots must keep fallback scopes even
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
 source-visible stdlib module imports plus bundled stdlib namespace tokens.
+
+The extension also contributes optional `EngLang Dark` and `EngLang Light`
+color themes. Those themes define both TextMate fallback colors and explicit
+`semanticTokenColors` for the role selectors that should be visibly distinct in
+engineering workflows: units, quantities, axes, TimeSeries values, uncertainty,
+workflow steps, validation, reports, side effects, external boundaries, solver
+terms, model artifacts, DB/cache records, inputs/state/outputs, and review
+risks. Keep theme selectors aligned with this fallback map so users can choose
+between their normal VS Code theme and a more colorful EngLang-specific theme.
 
 The fallback map currently references these TextMate scopes directly:
 

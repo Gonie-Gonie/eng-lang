@@ -19,6 +19,9 @@ embedding compiler logic in JavaScript.
   workflow boundaries
 - packaged role-coloring metadata so themes can color EngLang code
   consistently without custom rules
+- optional `EngLang Dark` and `EngLang Light` color themes with explicit
+  semantic colors for units, quantities, workflow steps, model/DB/cache roles,
+  validation/report roles, external boundaries, and review risks
 - subtle review-risk line and overview-ruler markers for high and medium risks
 - highlight-token inspection command for checking how the current file is
   colored
@@ -190,7 +193,9 @@ role categories and theme fallback hints for units, quantities, axes, time
 series, validation/report roles, side effects, external boundaries, inputs,
 state, built-in workflow helper functions, module namespaces, model artifacts,
 DB/cache records, workflow steps, and review risks, so themes without
-EngLang-specific rules still receive stable color hints. Set
+EngLang-specific rules still receive stable color hints. For stronger role
+separation, choose `EngLang Dark` or `EngLang Light` from VS Code's Color Theme
+picker. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
 highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping

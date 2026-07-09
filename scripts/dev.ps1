@@ -2675,6 +2675,8 @@ function Assert-VscodeExtensionContract {
     $TokenScopesDocPath = Join-Path $RepoRoot "docs\internal\editor\token_scopes.md"
     $DevScriptPath = Join-Path $RepoRoot "scripts\dev.ps1"
     $VscodeReadmePath = Join-Path $ExtensionRoot "README.md"
+    $VscodeDarkThemePath = Join-Path $ExtensionRoot "themes\englang-dark-color-theme.json"
+    $VscodeLightThemePath = Join-Path $ExtensionRoot "themes\englang-light-color-theme.json"
     $NativeIdeHowtoPath = Join-Path $RepoRoot "docs\user\howto\use_native_ide.md"
     $UserGuidePath = Join-Path $RepoRoot "docs\user\user_guide.md"
     $FeatureMaturityPath = Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"
@@ -2785,6 +2787,8 @@ function Assert-VscodeExtensionContract {
 
     $PackageSource = Get-Content -LiteralPath $PackageJsonPath -Raw
     $Package = $PackageSource | ConvertFrom-Json
+    $VscodeDarkTheme = Get-Content -LiteralPath $VscodeDarkThemePath -Raw | ConvertFrom-Json
+    $VscodeLightTheme = Get-Content -LiteralPath $VscodeLightThemePath -Raw | ConvertFrom-Json
     $TokenScopesDoc = Get-Content -LiteralPath $TokenScopesDocPath -Raw
     $DevScriptSource = Get-Content -LiteralPath $DevScriptPath -Raw
     $VscodeReadmeSource = Get-Content -LiteralPath $VscodeReadmePath -Raw
@@ -3284,6 +3288,34 @@ function Assert-VscodeExtensionContract {
     }
     if ($null -ne $Properties."englang.runEntry") {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
+    }
+    $ContributedThemes = @($Package.contributes.themes)
+    foreach ($RequiredTheme in @(
+        @{ Label = "EngLang Dark"; UiTheme = "vs-dark"; Path = "./themes/englang-dark-color-theme.json"; File = $VscodeDarkThemePath; Theme = $VscodeDarkTheme },
+        @{ Label = "EngLang Light"; UiTheme = "vs"; Path = "./themes/englang-light-color-theme.json"; File = $VscodeLightThemePath; Theme = $VscodeLightTheme }
+    )) {
+        $ThemeContribution = @($ContributedThemes | Where-Object { $_.label -eq $RequiredTheme.Label }) | Select-Object -First 1
+        if ($null -eq $ThemeContribution -or $ThemeContribution.uiTheme -ne $RequiredTheme.UiTheme -or $ThemeContribution.path -ne $RequiredTheme.Path) {
+            throw "VS Code extension missing theme contribution $($RequiredTheme.Label)"
+        }
+        if (-not (Test-Path -LiteralPath $RequiredTheme.File -PathType Leaf)) {
+            throw "VS Code extension theme file missing for $($RequiredTheme.Label): $($RequiredTheme.File)"
+        }
+        if ($RequiredTheme.Theme.semanticHighlighting -ne $true -or $null -eq $RequiredTheme.Theme.semanticTokenColors -or @($RequiredTheme.Theme.tokenColors).Count -lt 8) {
+            throw "VS Code extension theme $($RequiredTheme.Label) must define TextMate and semantic token colors"
+        }
+        foreach ($RequiredThemeSelector in @(
+            "type.unit", "type.quantity", "keyword.workflowStep", "keyword.validation", "keyword.report",
+            "keyword.sideEffect", "keyword.external", "function.model", "variable.db", "variable.cache",
+            "variable.riskHigh", "keyword.riskHigh", "namespace.planned", "namespace.internal"
+        )) {
+            if ($null -eq $RequiredTheme.Theme.semanticTokenColors.PSObject.Properties[$RequiredThemeSelector]) {
+                throw "VS Code extension theme $($RequiredTheme.Label) missing semantic token color $RequiredThemeSelector"
+            }
+        }
+    }
+    if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {
+        throw "VS Code docs must mention the optional EngLang color themes"
     }
     $ExtensionSource = Get-Content -LiteralPath $ExtensionJsPath -Raw
     $ArtifactOpenersSource = Get-Content -LiteralPath $ArtifactOpenersPath -Raw

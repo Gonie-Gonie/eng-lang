@@ -1,0 +1,159 @@
+{
+  "$schema": "vscode://schemas/color-theme",
+  "name": "EngLang Dark",
+  "type": "dark",
+  "semanticHighlighting": true,
+  "colors": {
+    "editor.background": "#101317",
+    "editor.foreground": "#D7E0EA",
+    "editorLineNumber.foreground": "#667180",
+    "editorCursor.foreground": "#F4D35E",
+    "editor.selectionBackground": "#244766",
+    "editor.inactiveSelectionBackground": "#203242",
+    "editorGutter.background": "#101317",
+    "sideBar.background": "#151A20",
+    "activityBar.background": "#0C1015",
+    "statusBar.background": "#153243"
+  },
+  "tokenColors": [
+    {
+      "scope": ["comment.line.number-sign.englang", "comment.line.double-slash.englang", "comment.line.documentation.englang"],
+      "settings": { "foreground": "#7B8491", "fontStyle": "italic" }
+    },
+    {
+      "scope": ["string.quoted.double.englang"],
+      "settings": { "foreground": "#8DD694" }
+    },
+    {
+      "scope": ["constant.numeric.englang", "constant.numeric.format.englang"],
+      "settings": { "foreground": "#F0A45D" }
+    },
+    {
+      "scope": ["constant.other.unit.englang", "constant.other.unit.format.englang"],
+      "settings": { "foreground": "#F4D35E" }
+    },
+    {
+      "scope": ["support.type.englang", "meta.type.generic.englang", "meta.type.array-suffix.englang", "entity.name.type.englang"],
+      "settings": { "foreground": "#66D9E8" }
+    },
+    {
+      "scope": ["entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang"],
+      "settings": { "foreground": "#9CDCFE" }
+    },
+    {
+      "scope": ["keyword.control.workflow.englang", "keyword.operator.word.englang", "entity.name.function.workflow-step.englang"],
+      "settings": { "foreground": "#82AAFF" }
+    },
+    {
+      "scope": ["keyword.control.validation.englang"],
+      "settings": { "foreground": "#F7C56B" }
+    },
+    {
+      "scope": ["keyword.control.report.englang"],
+      "settings": { "foreground": "#C792EA" }
+    },
+    {
+      "scope": ["keyword.control.side-effect.englang"],
+      "settings": { "foreground": "#FF8A8A" }
+    },
+    {
+      "scope": ["keyword.control.external-boundary.englang"],
+      "settings": { "foreground": "#FFB86B" }
+    },
+    {
+      "scope": ["keyword.control.solver.englang"],
+      "settings": { "foreground": "#80CBC4" }
+    },
+    {
+      "scope": ["storage.type.declaration.englang", "storage.type.function.englang", "storage.modifier.englang"],
+      "settings": { "foreground": "#B9F27C" }
+    },
+    {
+      "scope": ["variable.other.definition.englang", "variable.other.local.englang", "variable.other.property.englang", "variable.parameter.property.englang"],
+      "settings": { "foreground": "#D7E0EA" }
+    },
+    {
+      "scope": ["invalid.deprecated.englang"],
+      "settings": { "foreground": "#FF5C7A", "fontStyle": "bold underline" }
+    },
+    {
+      "scope": ["markup.warning.englang"],
+      "settings": { "foreground": "#FFB454", "fontStyle": "underline" }
+    }
+  ],
+  "semanticTokenColors": {
+    "type.unit": "#F4D35E",
+    "property.unit": "#F4D35E",
+    "type.quantity": "#66D9E8",
+    "variable.quantity": "#66D9E8",
+    "property.quantity": "#66D9E8",
+    "parameter.quantity": "#66D9E8",
+    "variable.axis": "#56C2C1",
+    "property.axis": "#56C2C1",
+    "type.axis": "#56C2C1",
+    "variable.timeseries": "#8DD694",
+    "property.timeseries": "#8DD694",
+    "function.timeseries": "#8DD694",
+    "keyword.timeseries": "#8DD694",
+    "variable.uncertain": "#D6A3FF",
+    "function.uncertain": "#D6A3FF",
+    "keyword.uncertain": "#D6A3FF",
+    "property.uncertain": "#D6A3FF",
+    "keyword.workflowStep": "#82AAFF",
+    "function.workflowStep": "#82AAFF",
+    "variable.workflowStep": "#82AAFF",
+    "property.workflowStep": "#82AAFF",
+    "keyword.validation": "#F7C56B",
+    "function.validation": "#F7C56B",
+    "variable.validation": "#F7C56B",
+    "property.validation": "#F7C56B",
+    "keyword.report": "#C792EA",
+    "function.report": "#C792EA",
+    "variable.report": "#C792EA",
+    "property.report": "#C792EA",
+    "keyword.sideEffect": "#FF8A8A",
+    "function.sideEffect": "#FF8A8A",
+    "method.sideEffect": "#FF8A8A",
+    "variable.sideEffect": "#FF8A8A",
+    "property.sideEffect": "#FF8A8A",
+    "keyword.external": "#FFB86B",
+    "function.external": "#FFB86B",
+    "method.external": "#FFB86B",
+    "variable.external": "#FFB86B",
+    "property.external": "#FFB86B",
+    "keyword.solver": "#80CBC4",
+    "function.solver": "#80CBC4",
+    "variable.solver": "#80CBC4",
+    "property.solver": "#80CBC4",
+    "keyword.model": "#C792EA",
+    "function.model": "#C792EA",
+    "variable.model": "#C792EA",
+    "property.model": "#C792EA",
+    "keyword.db": "#4DD0E1",
+    "function.db": "#4DD0E1",
+    "method.db": "#4DD0E1",
+    "variable.db": "#4DD0E1",
+    "property.db": "#4DD0E1",
+    "keyword.cache": "#A3E635",
+    "function.cache": "#A3E635",
+    "variable.cache": "#A3E635",
+    "property.cache": "#A3E635",
+    "variable.state": "#B9F27C",
+    "property.state": "#B9F27C",
+    "variable.input": "#9CDCFE",
+    "parameter.input": "#9CDCFE",
+    "variable.output": "#F4D35E",
+    "variable.riskHigh": { "foreground": "#FF5C7A", "fontStyle": "bold underline" },
+    "keyword.riskHigh": { "foreground": "#FF5C7A", "fontStyle": "bold underline" },
+    "class.riskHigh": { "foreground": "#FF5C7A", "fontStyle": "bold underline" },
+    "property.riskHigh": { "foreground": "#FF5C7A", "fontStyle": "bold underline" },
+    "variable.riskMedium": { "foreground": "#FFB454", "fontStyle": "underline" },
+    "keyword.riskMedium": { "foreground": "#FFB454", "fontStyle": "underline" },
+    "class.riskMedium": { "foreground": "#FFB454", "fontStyle": "underline" },
+    "property.riskMedium": { "foreground": "#FFB454", "fontStyle": "underline" },
+    "namespace.planned": { "foreground": "#7B8491", "fontStyle": "italic" },
+    "namespace.internal": { "foreground": "#7B8491", "fontStyle": "italic" },
+    "variable.planned": { "foreground": "#7B8491", "fontStyle": "italic" },
+    "variable.internal": { "foreground": "#7B8491", "fontStyle": "italic" }
+  }
+}
