@@ -134,7 +134,7 @@ Current coverage:
   output-manifest, process, report, and typed result artifacts.
 - `eng test examples` and `dev.bat workflows-test` reject external-process adapters,
   external scripting/library markers, and legacy row-selection helpers across every `.eng` source
-  under the three native workflow directories; `workflows-test` also rejects stale public-doc wording,
+  under the three native workflow directories and rejects process/run-command/external-scripting nodes in saved run graphs; `workflows-test` also rejects stale public-doc wording,
   malformed process-results artifacts, non-normal workflow smoke profiles, and nonzero process counts.
 - The same gate checks workflow 02 structured sampler, model-card, prediction, DB,
   and case-manifest evidence so it cannot pass by reading file-backed surrogate data.

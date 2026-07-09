@@ -582,6 +582,47 @@ function Invoke-WorkflowsTest {
         if ($ProcessCount -ne 0 -or $ProcessListCount -ne 0) {
             throw "Native workflow smoke must not execute external processes: $Workflow"
         }
+        foreach ($NativeWorkflowRunGraphPath in @(
+            (Join-Path $RepoRoot "build\result\static_run_plan.json"),
+            (Join-Path $RepoRoot "build\result\run_plan.json")
+        )) {
+            if (-not (Test-Path -LiteralPath $NativeWorkflowRunGraphPath -PathType Leaf)) {
+                throw "Native workflow smoke missing run graph artifact: $NativeWorkflowRunGraphPath"
+            }
+            $NativeWorkflowRunGraph = Get-Content -LiteralPath $NativeWorkflowRunGraphPath -Raw | ConvertFrom-Json
+            foreach ($NativeWorkflowRunGraphNode in @($NativeWorkflowRunGraph.graph.nodes)) {
+                foreach ($NativeWorkflowRunGraphField in @(
+                    [string]$NativeWorkflowRunGraphNode.id,
+                    [string]$NativeWorkflowRunGraphNode.kind,
+                    [string]$NativeWorkflowRunGraphNode.label
+                )) {
+                    if ($NativeWorkflowRunGraphField -match "(?i)^process:" -or $NativeWorkflowRunGraphField -match "(?i)\brun\s+command\b") {
+                        throw "Native workflow run graph must not contain process/run-command node metadata '$NativeWorkflowRunGraphField': $Workflow"
+                    }
+                    foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
+                        if ($NativeWorkflowRunGraphField -match "(?i)$PythonMarker") {
+                            throw "Native workflow run graph must not contain Python/notebook marker $PythonMarker in '$NativeWorkflowRunGraphField': $Workflow"
+                        }
+                    }
+                }
+            }
+            foreach ($NativeWorkflowRunGraphEdge in @($NativeWorkflowRunGraph.graph.edges)) {
+                foreach ($NativeWorkflowRunGraphField in @(
+                    [string]$NativeWorkflowRunGraphEdge.from,
+                    [string]$NativeWorkflowRunGraphEdge.to,
+                    [string]$NativeWorkflowRunGraphEdge.kind
+                )) {
+                    if ($NativeWorkflowRunGraphField -match "(?i)^process:" -or $NativeWorkflowRunGraphField -match "(?i)\brun\s+command\b") {
+                        throw "Native workflow run graph must not contain process/run-command edge metadata '$NativeWorkflowRunGraphField': $Workflow"
+                    }
+                    foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
+                        if ($NativeWorkflowRunGraphField -match "(?i)$PythonMarker") {
+                            throw "Native workflow run graph must not contain Python/notebook marker $PythonMarker in '$NativeWorkflowRunGraphField': $Workflow"
+                        }
+                    }
+                }
+            }
+        }
         if ($Workflow -like "*01_weather_api_to_standard_file*") {
             $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
             $ReviewPath = Join-Path $RepoRoot "build\result\review.json"
