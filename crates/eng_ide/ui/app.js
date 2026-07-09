@@ -4772,18 +4772,95 @@ function currentPrefix(editor) {
   return match ? match[0] : "";
 }
 
+function completionInsertEdit(item) {
+  const fallback = typeof item.insert === "string" ? item.insert : String(item.label || "");
+  if (typeof item.insertSnippet !== "string" || !item.insertSnippet) {
+    return {
+      text: fallback,
+      selectionStart: fallback.length,
+      selectionEnd: fallback.length
+    };
+  }
+  const edit = snippetInsertEdit(item.insertSnippet);
+  if (!edit.text) {
+    return {
+      text: fallback,
+      selectionStart: fallback.length,
+      selectionEnd: fallback.length
+    };
+  }
+  return edit;
+}
+
+function snippetInsertEdit(snippet) {
+  let text = "";
+  let firstPlaceholder = null;
+  for (let index = 0; index < snippet.length;) {
+    const char = snippet[index];
+    if (char === "\\" && index + 1 < snippet.length && ["$", "}", "\\"].includes(snippet[index + 1])) {
+      text += snippet[index + 1];
+      index += 2;
+      continue;
+    }
+    if (char !== "$" || index + 1 >= snippet.length) {
+      text += char;
+      index += 1;
+      continue;
+    }
+    const next = snippet[index + 1];
+    if (next === "{") {
+      const close = snippet.indexOf("}", index + 2);
+      if (close === -1) {
+        text += char;
+        index += 1;
+        continue;
+      }
+      const body = snippet.slice(index + 2, close);
+      const placeholderMatch = /^(\d+)(?::([\s\S]*))?$/.exec(body);
+      if (!placeholderMatch) {
+        text += snippet.slice(index, close + 1);
+        index = close + 1;
+        continue;
+      }
+      const placeholderText = placeholderMatch[2] || "";
+      if (!firstPlaceholder && placeholderMatch[1] !== "0") {
+        firstPlaceholder = { start: text.length, end: text.length + placeholderText.length };
+      }
+      text += placeholderText;
+      index = close + 1;
+      continue;
+    }
+    if (/\d/.test(next)) {
+      let digitEnd = index + 2;
+      while (digitEnd < snippet.length && /\d/.test(snippet[digitEnd])) digitEnd += 1;
+      if (!firstPlaceholder && snippet.slice(index + 1, digitEnd) !== "0") {
+        firstPlaceholder = { start: text.length, end: text.length };
+      }
+      index = digitEnd;
+      continue;
+    }
+    text += char;
+    index += 1;
+  }
+  return {
+    text,
+    selectionStart: firstPlaceholder ? firstPlaceholder.start : text.length,
+    selectionEnd: firstPlaceholder ? firstPlaceholder.end : text.length
+  };
+}
+
 function insertCompletion(item) {
   const editor = byId("editor");
   if (!editor || !item) return;
+  const edit = completionInsertEdit(item);
   const prefix = currentPrefix(editor);
   const start = editor.selectionStart - prefix.length;
   const end = editor.selectionEnd;
   const before = editor.value.slice(0, start);
   const after = editor.value.slice(end);
-  editor.value = `${before}${item.insert}${after}`;
-  const cursor = before.length + item.insert.length;
-  editor.selectionStart = cursor;
-  editor.selectionEnd = cursor;
+  editor.value = `${before}${edit.text}${after}`;
+  editor.selectionStart = before.length + edit.selectionStart;
+  editor.selectionEnd = before.length + edit.selectionEnd;
   state.source = editor.value;
   state.dirty = true;
   rememberCurrentTab();
@@ -4793,7 +4870,6 @@ function insertCompletion(item) {
   hideCompletions();
   editor.focus();
 }
-
 function updateCursorInsight() {
   const target = byId("cursorInsight");
   if (!target) return;

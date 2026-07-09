@@ -87,6 +87,8 @@ struct SymbolView {
 struct CompletionView {
     label: String,
     insert: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    insert_snippet: Option<String>,
     detail: String,
     kind: String,
 }
@@ -930,6 +932,7 @@ fn base_completion_items() -> Vec<CompletionView> {
         push_native_completion(&mut items, CompletionView {
             label: snippet.0.to_owned(),
             insert: snippet.1.to_owned(),
+            insert_snippet: None,
             detail: snippet.2.to_owned(),
             kind: "snippet".to_owned(),
         });
@@ -945,6 +948,7 @@ impl CompletionView {
             .unwrap_or_else(|| completion.label.clone());
         Self {
             insert,
+            insert_snippet: completion.insert_snippet,
             label: completion.label,
             detail: completion.detail,
             kind: completion.kind,
@@ -3846,6 +3850,11 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function renderSemanticSelectorTable(counts)",
         "Selector ${selector}",
         "selectors=${selectors}",
+        "function completionInsertEdit(item)",
+        "function snippetInsertEdit(snippet)",
+        "item.insertSnippet",
+        "placeholderText",
+        "editor.selectionStart = before.length + edit.selectionStart",
     ] {
         if !app_js.contains(required) {
             return Err(format!(
@@ -4035,7 +4044,8 @@ with {
             assert!(
                 completions.iter().any(|item| item.label == completion.label
                     && item.detail == completion.detail
-                    && item.kind == completion.kind),
+                    && item.kind == completion.kind
+                    && item.insert_snippet.as_deref() == completion.insert_snippet.as_deref()),
                 "native IDE completion seed should mirror LSP completion {}",
                 completion.label
             );
@@ -4060,6 +4070,15 @@ with {
             .find(|completion| completion.label == "file(...)")
             .expect("file helper completion");
         assert_eq!(file_helper.insert, "file(\"data/input.csv\")");
+        assert_eq!(
+            file_helper.insert_snippet.as_deref(),
+            Some("file(\"${1:data/input.csv}\")")
+        );
+        let array_type = completions
+            .iter()
+            .find(|completion| completion.label == "Array[T]")
+            .expect("Array[T] completion");
+        assert_eq!(array_type.insert_snippet.as_deref(), Some("Array[${1:T}]"));
     }
 
     #[test]

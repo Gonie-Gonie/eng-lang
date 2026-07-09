@@ -82,6 +82,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 525: Moved completion insert text/snippets into LSP editor metadata.
 - Batch 526: Covered the full LSP semantic legend with VS Code fallback scopes.
 - Batch 527: Made uncertainty-source quick fixes infer units from the diagnostic line.
+- Batch 528: Made Native IDE completions consume LSP insert snippets and select the first editable placeholder.
 
 ## Documentation Policy
 
