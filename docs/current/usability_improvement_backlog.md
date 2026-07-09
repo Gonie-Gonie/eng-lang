@@ -73,6 +73,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 572: Removed VS Code static snippets whose prefixes duplicate generated completion labels and added package guards so compiler-owned snippet insert text remains the single source for those suggestions.
 - Batch 573: Made Native IDE Highlight panel category, detail, and selector chips clickable filters so users can inspect role-aware colors by token type or semantic modifier directly.
 - Batch 574: Clarified current workflow docs so implemented CaseTable/CaseOutput materialization is not confused with the still-planned general run-case scheduler/resume/cache policy.
+- Batch 575: Extended VS Code highlight inspection to report direct semantic selector coverage, so generic fallback coloring can be distinguished from fully mapped role colors.
 
 ## Documentation Policy
 

@@ -3965,6 +3965,7 @@ function Assert-VscodeExtensionContract {
         "cursor_token_hint: cursorTokenHint",
         "status: cursorHighlightStatus(matchingTokens, nearestTokens)",
         "function highlightInspectionStatus",
+        "function highlightDirectSelectorStatus",
         "function cursorHighlightStatus",
         "semanticTokenCursorDistance",
         "cursor_distance: semanticTokenCursorDistance(token, cursor.character)",
@@ -3977,17 +3978,22 @@ function Assert-VscodeExtensionContract {
         "summary: {",
         "status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope)",
         "fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope)",
+        "direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors)",
         "token_count: tokenCount",
         "counts_by_type: tokenCounts",
         "counts_by_modifier: modifierCounts",
         "counts_by_selector: selectorCounts",
         "scope_map_entry_count: Object.keys(semanticTokenScopeMap).length",
         "tokens_without_fallback_scope: tokensWithoutFallbackScope",
+        "tokens_with_unmapped_selectors: tokensWithUnmappedSelectors",
         "missing_scope_selectors: missingScopeSelectors",
+        "unmapped_selector_counts: unmappedSelectorCounts",
         "primary_selector: semanticSelectors[0] ?? sample.type",
         'fallback_status: fallbackScopes.length > 0 ? "mapped" : "missing_fallback_scope"',
+        'direct_selector_status: unmappedSelectors.length > 0 ? "missing_direct_scope" : "mapped"',
         "fallback_scope_count: fallbackScopes.length",
         "semantic_selectors: semanticSelectors",
+        "unmapped_semantic_selectors: unmappedSelectors",
         "fallback_scopes: fallbackScopes",
         "legend: semanticTokens.legend ?? {}",
         "samples: {",
@@ -4030,7 +4036,7 @@ function Assert-VscodeExtensionContract {
     if (-not $DecorationsSource.Contains('config.get("semanticHighlighting.enabled", true)') -or -not $DecorationsSource.Contains("refreshVisibleSemanticSymbolDecorations")) {
         throw "VS Code semantic symbol decorations must follow the semantic highlighting setting"
     }
-    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample") -or -not $LspSemanticTokensSource.Contains("semanticTokenSelectors") -or -not $LspSemanticTokensSource.Contains("semanticTokenFallbackScopes")) {
+    if (-not $SemanticProviderSource.Contains('require("./lspSemanticTokens")') -or -not $LspSemanticTokensSource.Contains("semanticTokensFromSnapshot") -or -not $LspSemanticTokensSource.Contains("semanticTokenRange") -or -not $LspSemanticTokensSource.Contains("semanticTokenDebugSample") -or -not $LspSemanticTokensSource.Contains("semanticTokenSelectors") -or -not $LspSemanticTokensSource.Contains("semanticTokenFallbackScopes") -or -not $LspSemanticTokensSource.Contains("semanticTokenUnmappedSelectors")) {
         throw "VS Code extension must share LSP semantic token conversion through lspSemanticTokens.js"
     }
     if ($ExtensionSource.Contains("class EngSemanticTokensProvider") -or $ExtensionSource.Contains("function semanticTokensFromSnapshot") -or $ExtensionSource.Contains("function semanticModifierBits") -or $ExtensionSource.Contains("function semanticTokenDebugSample")) {

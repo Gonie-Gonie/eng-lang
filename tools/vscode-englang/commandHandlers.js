@@ -348,13 +348,22 @@ function createCommandHandlers(options = {}) {
     const tokenSamplesByModifier = {};
     const tokenSamplesBySelector = {};
     const missingScopeSelectors = {};
+    const unmappedSelectorCounts = {};
     let tokensWithoutFallbackScope = 0;
+    let tokensWithUnmappedSelectors = 0;
     for (const token of semanticTokens.tokens ?? []) {
       tokenCounts[token.type] = (tokenCounts[token.type] ?? 0) + 1;
       const sample = semanticTokenDebugSample(document, token, semanticTokenScopeMap);
       for (const selector of sample.semantic_selectors ?? []) {
         selectorCounts[selector] = (selectorCounts[selector] ?? 0) + 1;
         addSemanticTokenDebugSample(tokenSamplesBySelector, selector || "-", sample);
+      }
+      const unmappedSelectors = sample.unmapped_semantic_selectors ?? [];
+      if (unmappedSelectors.length > 0) {
+        tokensWithUnmappedSelectors += 1;
+        for (const selector of unmappedSelectors) {
+          unmappedSelectorCounts[selector] = (unmappedSelectorCounts[selector] ?? 0) + 1;
+        }
       }
       if ((sample.fallback_scopes ?? []).length === 0) {
         tokensWithoutFallbackScope += 1;
@@ -377,13 +386,16 @@ function createCommandHandlers(options = {}) {
       summary: {
         status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope),
         fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
+        direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors),
         token_count: tokenCount,
         counts_by_type: tokenCounts,
         counts_by_modifier: modifierCounts,
         counts_by_selector: selectorCounts,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
         tokens_without_fallback_scope: tokensWithoutFallbackScope,
-        missing_scope_selectors: missingScopeSelectors
+        tokens_with_unmapped_selectors: tokensWithUnmappedSelectors,
+        missing_scope_selectors: missingScopeSelectors,
+        unmapped_selector_counts: unmappedSelectorCounts
       },
       legend: semanticTokens.legend ?? {},
       samples: {
@@ -516,6 +528,13 @@ function createCommandHandlers(options = {}) {
     return tokensWithoutFallbackScope > 0 ? "missing_fallback_scopes" : "mapped";
   }
 
+  function highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors) {
+    if (tokenCount === 0) {
+      return "no_tokens";
+    }
+    return tokensWithUnmappedSelectors > 0 ? "missing_direct_selector_scopes" : "mapped";
+  }
+
   function cursorHighlightStatus(matchingTokens, nearestTokens) {
     if (matchingTokens.length > 0) {
       return `Caret is inside ${matchingTokens.length} role-aware highlight token${matchingTokens.length === 1 ? "" : "s"}.`;
@@ -544,6 +563,7 @@ function createCommandHandlers(options = {}) {
     const start = Number(sample.start);
     const semanticSelectors = sample.semantic_selectors ?? [];
     const fallbackScopes = sample.fallback_scopes ?? [];
+    const unmappedSelectors = sample.unmapped_semantic_selectors ?? [];
     return {
       line: sample.line,
       column: Number.isFinite(start) ? start + 1 : null,
@@ -554,8 +574,10 @@ function createCommandHandlers(options = {}) {
       modifiers: sample.modifiers,
       primary_selector: semanticSelectors[0] ?? sample.type,
       fallback_status: fallbackScopes.length > 0 ? "mapped" : "missing_fallback_scope",
+      direct_selector_status: unmappedSelectors.length > 0 ? "missing_direct_scope" : "mapped",
       fallback_scope_count: fallbackScopes.length,
       semantic_selectors: semanticSelectors,
+      unmapped_semantic_selectors: unmappedSelectors,
       fallback_scopes: fallbackScopes
     };
   }

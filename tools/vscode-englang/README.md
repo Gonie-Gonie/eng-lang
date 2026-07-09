@@ -213,8 +213,9 @@ rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with a plain
 status summary, legend, selector/type/detail counts, representative source-text
 samples, normalized highlight rows with primary selector, mapped/missing
-fallback status, theme fallback scopes, and raw highlight payload for debugging
-theme or scope mismatches. If no highlight data is available, the warning can
+fallback status, direct selector coverage, theme fallback scopes, and raw
+highlight payload for debugging theme or scope mismatches. If no highlight data
+is available, the warning can
 open
 `EngLang: Show Tooling Status` so the selected live editor tool path is visible.
 `EngLang: Inspect Highlight Token at Cursor` opens a cursor status summary, the

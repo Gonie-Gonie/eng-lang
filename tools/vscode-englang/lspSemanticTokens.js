@@ -69,7 +69,8 @@ function semanticTokenDebugSample(document, token, semanticScopeMap = {}) {
     type: token?.type || "-",
     modifiers: token?.modifiers ?? [],
     semantic_selectors,
-    fallback_scopes: semanticTokenFallbackScopes(token, semanticScopeMap, semantic_selectors)
+    fallback_scopes: semanticTokenFallbackScopes(token, semanticScopeMap, semantic_selectors),
+    unmapped_semantic_selectors: semanticTokenUnmappedSelectors(token, semanticScopeMap, semantic_selectors)
   };
 }
 
@@ -106,6 +107,22 @@ function semanticTokenFallbackScopes(token, semanticScopeMap = {}, selectors = u
   return scopes;
 }
 
+function semanticTokenUnmappedSelectors(token, semanticScopeMap = {}, selectors = undefined) {
+  const unmapped = [];
+  for (const selector of selectors ?? semanticTokenSelectors(token)) {
+    const mappedScopes = semanticScopeMap[selector];
+    const values = Array.isArray(mappedScopes)
+      ? mappedScopes
+      : typeof mappedScopes === "string"
+        ? [mappedScopes]
+        : [];
+    if (!values.some((scope) => !!scope)) {
+      unmapped.push(selector);
+    }
+  }
+  return unmapped;
+}
+
 function addSemanticTokenDebugSample(samplesByKey, key, sample) {
   if (!key || !sample || !sample.text) {
     return;
@@ -124,5 +141,6 @@ module.exports = {
   semanticTokenFallbackScopes,
   semanticTokenRange,
   semanticTokenSelectors,
-  semanticTokensFromSnapshot
+  semanticTokensFromSnapshot,
+  semanticTokenUnmappedSelectors
 };
