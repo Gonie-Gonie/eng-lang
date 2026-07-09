@@ -578,15 +578,20 @@ pub fn run_source(
     );
     let native_db_write_output =
         execute_native_db_writes(&check_report, &pre_db_runtime_data, &result_dir)?;
-    let runtime_data = runtime_data::materialize_runtime_data_with_result_dir(
+    let mut runtime_data = runtime_data::materialize_runtime_data_with_result_dir(
+        &check_report,
+        source,
+        Some(&result_dir),
+    );
+    let template_render_output =
+        render_template_outputs(&check_report, &runtime_data, &result_dir)?;
+    runtime_data = runtime_data::materialize_runtime_data_with_result_dir(
         &check_report,
         source,
         Some(&result_dir),
     );
     apply_runtime_lengths(&mut execution, &runtime_data);
     let stdout = render_stdout(&check_report, &runtime_data);
-    let template_render_output =
-        render_template_outputs(&check_report, &runtime_data, &result_dir)?;
     let process_results = execute_process_runs(&check_report)?;
     let mut db_manifest_records = db_manifest_records(&process_results);
     db_manifest_records.extend(native_db_write_output.records.clone());
@@ -9356,6 +9361,9 @@ fn evaluate_table_metadata_field_expression(
         "planned_count" if table.schema_name == "CaseOutput" => {
             Some(count_value(table_status_count(table, "planned")))
         }
+        "rendered_count" if table.schema_name == "CaseOutput" => {
+            Some(count_value(table_status_count(table, "rendered")))
+        }
         "blocked_count"
             if matches!(
                 table.schema_name.as_str(),
@@ -9401,6 +9409,7 @@ fn evaluate_table_metadata_field_expression(
         "status" if table.schema_name == "CaseOutput" => {
             Some(RuntimeFormatValue::Text(case_output_table_status(
                 table_status_count(table, "blocked"),
+                table_status_count(table, "rendered"),
                 table_status_count(table, "planned"),
             )))
         }
@@ -9463,13 +9472,21 @@ fn case_table_status(failed_count: usize, pending_count: usize) -> String {
     }
 }
 
-fn case_output_table_status(blocked_count: usize, planned_count: usize) -> String {
+fn case_output_table_status(
+    blocked_count: usize,
+    rendered_count: usize,
+    planned_count: usize,
+) -> String {
     if blocked_count > 0 {
         "blocked".to_owned()
+    } else if rendered_count > 0 && planned_count > 0 {
+        "partial".to_owned()
+    } else if rendered_count > 0 {
+        "rendered".to_owned()
     } else if planned_count > 0 {
         "planned".to_owned()
     } else {
-        "complete".to_owned()
+        "empty".to_owned()
     }
 }
 
@@ -17636,19 +17653,19 @@ mod tests {
                 "    overwrite = true\n",
                 "}\n",
                 "case_results = collect results case_inputs\n\n",
-                "case_input_planned_count = case_inputs.planned_count\n",
+                "case_input_rendered_count = case_inputs.rendered_count\n",
                 "case_input_manifest_count = case_inputs.manifest_count\n",
                 "case_result_collected_count = case_results.collected_count\n",
                 "case_result_missing_count = case_results.missing_count\n",
                 "case_result_status = case_results.status\n",
                 "print \"case inputs={case_inputs.rows}\"\n",
-                "print \"cases={case_count} pending={case_pending_count} status={case_status} planned_inputs={case_input_planned_count} manifests={case_input_manifest_count}\"\n",
+                "print \"cases={case_count} pending={case_pending_count} status={case_status} rendered_inputs={case_input_rendered_count} manifests={case_input_manifest_count}\"\n",
                 "print \"case results={case_results.rows} collected={case_result_collected_count} missing={case_result_missing_count} status={case_result_status}\"\n",
                 "report {\n",
                 "    show case_inputs.rows\n",
                 "    show case_results.rows\n",
                 "    show case_pending_count\n",
-                "    show case_input_planned_count\n",
+                "    show case_input_rendered_count\n",
                 "    show case_result_collected_count\n",
                 "}\n",
             ),
@@ -17684,7 +17701,7 @@ mod tests {
         assert!(output.stdout.contains("case inputs=2"));
         assert!(output
             .stdout
-            .contains("cases=2 pending=2 status=pending planned_inputs=2 manifests=2"));
+            .contains("cases=2 pending=2 status=pending rendered_inputs=2 manifests=2"));
         assert!(output
             .stdout
             .contains("case results=2 collected=2 missing=0 status=complete"));

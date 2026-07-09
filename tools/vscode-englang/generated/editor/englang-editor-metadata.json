@@ -4976,6 +4976,10 @@
                                                                 "label":  "planned_count"
                                                             },
                                                             {
+                                                                "detail":  "rendered case output count",
+                                                                "label":  "rendered_count"
+                                                            },
+                                                            {
                                                                 "detail":  "blocked case output count",
                                                                 "label":  "blocked_count"
                                                             },

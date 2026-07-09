@@ -41,7 +41,7 @@ with {
     missing = error
     overwrite = true
 }
-case_input_planned_count = case_inputs.planned_count
+case_input_rendered_count = case_inputs.rendered_count
 case_input_blocked_count = case_inputs.blocked_count
 case_input_manifest_count = case_inputs.manifest_count
 case_result_collection = collect results case_inputs
@@ -115,7 +115,7 @@ print "Design sample method = {prediction_sample_method} seed={prediction_sample
 print "Design samples = {designs.rows}"
 print "Training result rows = {training_results.rows}"
 print "Case table rows = {cases.rows} pending={case_pending_count} failed={case_failed_count} status={case_status}"
-print "Case inputs = {case_inputs.rows} planned={case_input_planned_count} blocked={case_input_blocked_count}"
+print "Case inputs = {case_inputs.rows} rendered={case_input_rendered_count} blocked={case_input_blocked_count}"
 print "Case result collection = {case_result_collection.rows} collected={case_result_collected_count} missing={case_result_missing_count} blocked={case_result_blocked_count} status={case_result_collection_status}"
 print "Predictions = {predictions.rows}"
 print "Persisted predictions readback = {persisted_predictions.rows}"
@@ -144,7 +144,7 @@ report {
     show case_pending_count
     show case_failed_count
     show case_status
-    show case_input_planned_count
+    show case_input_rendered_count
     show case_input_blocked_count
     show case_input_manifest_count
     show case_result_collected_count

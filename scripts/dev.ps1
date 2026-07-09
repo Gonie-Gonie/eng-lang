@@ -809,6 +809,7 @@ function Invoke-WorkflowsTest {
                 '"case_manifests"',
                 '"binding": "case_inputs"',
                 '"schema_name": "CaseOutput"',
+                '"status": "rendered"',
                 '"binding": "case_result_collection"',
                 '"schema_name": "CaseResultCollection"',
                 '"source": "collect results case_inputs"',
@@ -4637,7 +4638,7 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata case table field $RequiredCaseTableField missing detail"
         }
     }
-    foreach ($RequiredCaseOutputTableField in @("planned_count", "blocked_count", "manifest_count")) {
+    foreach ($RequiredCaseOutputTableField in @("planned_count", "rendered_count", "blocked_count", "manifest_count")) {
         $CaseOutputTableField = @($EditorMetadata.syntax_catalog.case_output_table_fields | Where-Object { $_.label -eq $RequiredCaseOutputTableField }) | Select-Object -First 1
         if ($null -eq $CaseOutputTableField) {
             throw "generated VS Code editor metadata missing case output table field $RequiredCaseOutputTableField"

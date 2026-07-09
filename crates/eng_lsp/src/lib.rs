@@ -856,6 +856,7 @@ const CASE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
 const CASE_OUTPUT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("case_count", "case output row count"),
     ("planned_count", "planned case output count"),
+    ("rendered_count", "rendered case output count"),
     ("blocked_count", "blocked case output count"),
     ("output_count", "rendered output path count"),
     ("manifest_count", "render manifest path count"),
@@ -8276,7 +8277,9 @@ mod tests {
         assert!(
             syntax_catalog["case_output_table_fields"]
                 .as_array()
-                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "planned_count")),
+                .is_some_and(|fields| fields
+                    .iter()
+                    .any(|field| field["label"] == "rendered_count")),
             "syntax catalog should expose case output table field labels"
         );
         assert!(
@@ -10910,7 +10913,7 @@ weather = promote json records payload.records as WeatherApiRecord
 
     #[test]
     fn snapshot_exposes_case_table_member_fields() {
-        let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\ncase_results = collect results case_inputs\n\npending = cases.pending_count\nplanned = case_inputs.planned_count\ncollected = case_results.collected_count\n";
+        let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\ncase_results = collect results case_inputs\n\npending = cases.pending_count\nrendered = case_inputs.rendered_count\ncollected = case_results.collected_count\n";
         let snapshot = snapshot_for_source(Path::new("case_members.eng"), source);
 
         assert!(snapshot
@@ -10920,7 +10923,7 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(snapshot
             .completions
             .iter()
-            .any(|completion| completion.label == "case_inputs.planned_count"));
+            .any(|completion| completion.label == "case_inputs.rendered_count"));
         assert!(snapshot
             .completions
             .iter()
@@ -10940,17 +10943,17 @@ weather = promote json records payload.records as WeatherApiRecord
             .any(|completion| completion.label == "pending_count"));
         let output_line = source
             .lines()
-            .position(|line| line.contains("planned ="))
-            .expect("planned line");
+            .position(|line| line.contains("rendered ="))
+            .expect("rendered line");
         let output_completions = completion_items_for_source_position(
             Path::new("case_members.eng"),
             source,
             output_line,
-            "planned = case_inputs.".len(),
+            "rendered = case_inputs.".len(),
         );
         assert!(output_completions
             .iter()
-            .any(|completion| completion.label == "planned_count"));
+            .any(|completion| completion.label == "rendered_count"));
         let collection_line = source
             .lines()
             .position(|line| line.contains("collected ="))

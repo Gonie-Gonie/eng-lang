@@ -537,7 +537,10 @@ fn command_run(args: Vec<String>) -> ExitCode {
                 print_run_artifact_bytes("plot svg", output.plot_svg.len());
                 print_run_artifact_bytes("plot data", output.plot_spec_json.len());
                 print_run_artifact_bytes("plot output list", output.plot_manifest_json.len());
-                print_run_artifact_bytes("generated output list", output.output_manifest_json.len());
+                print_run_artifact_bytes(
+                    "generated output list",
+                    output.output_manifest_json.len(),
+                );
                 print_run_artifact_bytes("report html", output.report_html.len());
                 println!("use --save-artifacts to write build\\result files");
             }

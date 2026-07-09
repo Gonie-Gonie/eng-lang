@@ -3077,7 +3077,8 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
     data.tables.extend(derived_tables);
     let explicit_case_tables = materialize_explicit_case_tables(report, &data.tables);
     data.tables.extend(explicit_case_tables);
-    let case_apply_output_tables = materialize_case_apply_output_tables(report, &data.tables);
+    let case_apply_output_tables =
+        materialize_case_apply_output_tables(report, &data.tables, result_dir);
     data.tables.extend(case_apply_output_tables);
     let case_result_collection_tables =
         materialize_case_result_collection_tables(report, &data.tables);
@@ -7426,6 +7427,7 @@ fn materialize_cases_source_table(expression: &str) -> Option<&str> {
 fn materialize_case_apply_output_tables(
     report: &CheckReport,
     tables: &[RuntimeTable],
+    result_dir: Option<&Path>,
 ) -> Vec<RuntimeTable> {
     report
         .inferred_declarations
@@ -7438,6 +7440,7 @@ fn materialize_case_apply_output_tables(
                 report,
                 declaration,
                 cases_table,
+                result_dir,
             ))
         })
         .collect()
@@ -7447,6 +7450,7 @@ fn materialize_case_apply_output_table(
     report: &CheckReport,
     declaration: &eng_compiler::InferredDeclaration,
     cases_table: &RuntimeTable,
+    result_dir: Option<&Path>,
 ) -> RuntimeTable {
     let options = report
         .semantic_program
@@ -7482,18 +7486,22 @@ fn materialize_case_apply_output_table(
             .unwrap_or_else(|| default_case_dir(&case_id));
         let output_path =
             render_case_output_pattern(&output_pattern, &case_id, &case_dir, row_index);
+        let manifest_path = format!("{output_path}.render_manifest.json");
+        let output_status = if statuses
+            .get(row_index)
+            .is_some_and(|status| status.trim() == "failed")
+        {
+            "blocked"
+        } else if case_apply_output_is_rendered(result_dir, &output_path, &manifest_path) {
+            "rendered"
+        } else {
+            "planned"
+        };
         output_case_ids.push(case_id);
         output_case_dirs.push(case_dir);
-        manifest_paths.push(format!("{output_path}.render_manifest.json"));
+        manifest_paths.push(manifest_path);
         output_paths.push(output_path);
-        output_statuses.push(
-            statuses
-                .get(row_index)
-                .filter(|status| status.trim() == "failed")
-                .map(|_| "blocked")
-                .unwrap_or("planned")
-                .to_owned(),
-        );
+        output_statuses.push(output_status.to_owned());
     }
     let hash_payload = format!(
         "{}|{}|{}|{}|{}",
@@ -7617,6 +7625,39 @@ fn case_result_collection_row_status(
     } else {
         "collected".to_owned()
     }
+}
+
+fn case_apply_output_is_rendered(
+    result_dir: Option<&Path>,
+    output_path: &str,
+    manifest_path: &str,
+) -> bool {
+    let Some(result_dir) = result_dir else {
+        return false;
+    };
+    result_relative_file_exists(result_dir, output_path)
+        && result_relative_file_exists(result_dir, manifest_path)
+}
+
+fn result_relative_file_exists(result_dir: &Path, relative_path: &str) -> bool {
+    let trimmed = relative_path.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let path = Path::new(trimmed);
+    if path.is_absolute()
+        || path.components().any(|component| {
+            matches!(
+                component,
+                std::path::Component::ParentDir
+                    | std::path::Component::RootDir
+                    | std::path::Component::Prefix(_)
+            )
+        })
+    {
+        return false;
+    }
+    result_dir.join(path).is_file()
 }
 
 fn collect_results_source_binding(expression: &str) -> Option<&str> {

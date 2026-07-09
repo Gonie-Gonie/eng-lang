@@ -195,7 +195,7 @@ process_results.json with process_count = 0
 deterministic LHS training and prediction sample tables
 sample table artifacts with case IDs, parameter ranges, duplicate checks, and row-hash records
 case manifest records for generated sample/case rows
-CaseOutput rows from `apply case_input_template over cases`
+rendered CaseOutput rows from `apply case_input_template over cases`
 native case_input artifacts plus template_render_manifest records
 preferred native `train regression` plus legacy-compatible `regression_table` model card/spec/diagnostic records with feature, target, metrics, training-hash, and model-hash metadata
 native prediction table and typed_payload.prediction_manifests[] records with output quantity/unit, case IDs, row count, and confidence column
@@ -282,7 +282,7 @@ optional process-enriched case materialization fields only when a workflow uses
 an `eng.process` adapter with matching expected outputs. Current native
 `materialize cases`, `apply ... over cases`, and `collect results <CaseOutput>`
 make the supported table/case/template path explicit by materializing CaseTable,
-CaseOutput, and CaseResultCollection rows; broader run-case scheduler policy
+CaseOutput rows with rendered/planned status, and CaseResultCollection rows; broader run-case scheduler policy
 should extend the same record shape:
 
 ```text
