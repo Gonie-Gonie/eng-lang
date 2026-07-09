@@ -1,20 +1,23 @@
-# Compiler frontend
+# Compiler Frontend
 
-The compiler crate no longer line-scans source directly; it passes source
-through this frontend skeleton.
+The compiler frontend turns `.eng` source into compiler-owned program data used
+by the CLI, runtime, report generator, LSP, VS Code extension, and native IDE.
+It is the shared path for diagnostics, review data, and editor metadata.
 
 ```text
 source text
   -> SourceLine / SourceSpan
   -> lexer tokens
-  -> parser AST items
-  -> semantic skeleton
+  -> parser items
+  -> semantic analysis
   -> CheckReport
+  -> runtime, review, report, and editor payloads
 ```
 
-## Source span
+## Source Spans
 
-`SourceSpan`은 모든 token과 AST item의 기준 위치입니다.
+`SourceSpan` is the source location contract for tokens, parsed items,
+diagnostics, hovers, semantic tokens, document symbols, and quick fixes.
 
 ```text
 start   source byte offset
@@ -23,105 +26,69 @@ line    1-based line number
 column  1-based column number
 ```
 
-v0.1에서는 diagnostics가 line 중심으로 출력되지만, LSP와 richer diagnostics를 위해 span을 지금부터 유지합니다.
+The CLI, LSP, VS Code extension, and native IDE all rely on these spans so that
+Problems ranges, underlines, hover locations, and highlight inspection rows point
+at the same source text.
 
-## Lexer
+## Lexer And Parser
 
-`lexer.rs`는 다음 token family를 생성합니다.
+`lexer.rs` classifies comments, identifiers, keywords, numbers, string
+literals, units, and symbols. `parser.rs` groups those tokens into declarations,
+blocks, command-style workflow statements, expressions, object literals, and
+legacy syntax markers that semantic analysis can diagnose precisely.
 
-```text
-Keyword
-Identifier
-Number
-StringLiteral
-Symbol
-Unknown
-```
+The parser records enough context to distinguish top-level statements, `args`,
+`schema`, `where`, `with`, validation, report, class/object, workflow, and
+solver-oriented blocks before semantic analysis attaches type, unit, artifact,
+and editor metadata.
 
-v0.1에서 예약된 주요 keyword:
+## Semantic Analysis
 
-```text
-schema
-script
-report
-promote
-csv
-as
-where
-eq
-system
-parameter
-state
-equation
-```
-
-`:=`는 `ColonEqual` token으로 인식한 뒤 semantic diagnostic `E-SYNTAX-DECL-001`로 막습니다.
-
-## Parser
-
-`parser.rs`는 v0.1에서 다음 AST item을 만듭니다.
-
-```text
-SchemaDecl
-ScriptDecl
-FastBinding
-ExplicitDecl
-ReservedKeywordUse
-```
-
-또한 line별 parse context를 기록합니다.
-
-```text
-TopLevel
-Schema
-Script
-Other
-```
-
-이 context는 schema 내부 fast assignment를 public boundary error로 바꾸는 데 쓰입니다.
-
-## Semantic skeleton
-
-`semantic.rs`는 아직 full type checker가 아니지만 v8 정책을 실제 diagnostic으로 고정합니다.
-
-```text
-E-SYNTAX-DECL-001
-E-PUBLIC-ANNOTATION-001
-E-DIM-ADD-001
-E-DIM-ADD-002
-E-DIM-ADD-003
-E-RESERVED-KEYWORD-001
-W-QTY-AMBIG-001
-W-ENTRY-MAIN-001
-```
-
-Semantic output은 `TypedBinding` skeleton을 만들고, `review.json`, `.engbc`, `report.html`에 summary로 반영됩니다.
-
-## v0.2에서 추가된 일
-
-```text
-- expected type internal API skeleton
-- quantity completion data table skeleton
-- ambiguous quantity warning refinement
-- dimensionless + physical operation checker expansion
-- inferred declaration hover data structure
-```
-
-`CheckReport`에는 이제 다음 semantic review data가 들어갑니다.
+`semantic.rs` builds the `CheckReport`. The report carries diagnostics plus a
+`semantic_program` that records the facts reused by runtime and editor tooling:
 
 ```text
 semantic_program.typed_bindings
 semantic_program.expected_types
+semantic_program.type_infos
+semantic_program.unit_derivations
 semantic_program.hover_hints
-quantity_completion_count
+semantic_program.schemas
+semantic_program.table_transforms
+semantic_program.net_requests / net_downloads / cache_records
+semantic_program.case_generations / render templates / model records / db records
+semantic_program.reports / plots / writes / side-effect records
 ```
 
-## v0.3으로 넘기는 일
+Supported deprecated or invalid syntax, such as `:=`, `struct Args`, and
+`script` execution roots, is reported through source-ranged diagnostics instead
+of being silently accepted. Quantity and unit checks also produce source-ranged
+diagnostics and review metadata.
+
+## Editor Payload
+
+`eng_lsp` maps the same `CheckReport` into editor-facing data:
 
 ```text
-- expression parser
-- symbol table
-- schema symbol table
-- typed CSV promote validation
-- richer span diagnostics
+diagnostics
+hover items
+completion items
+semantic tokens
+document/workspace symbols
+folding ranges
+formatting and code actions
+generated editor metadata
 ```
+
+The VS Code extension and native IDE consume this shared payload. The generated
+TextMate grammar, completion catalog, semantic legend, and syntax catalog are
+rebuilt from compiler/LSP metadata so first-paint highlighting and live semantic
+highlighting stay aligned.
+
+## Boundaries
+
+The frontend is not a claim that every planned language surface is implemented.
+Unsupported syntax should either remain out of public examples or produce a
+clear diagnostic with a source range. Public docs should describe the executable
+compiler/runtime behavior that exists today and keep broader plans in current or
+internal planning documents.

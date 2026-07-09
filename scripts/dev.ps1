@@ -1311,6 +1311,35 @@ function Test-PublicWorkflowDocs {
     Write-Host "Public workflow docs wording check passed."
 }
 
+function Test-ArchitectureDocsWording {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths
+    )
+
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "missing architecture doc at $path"
+        }
+        $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+        foreach ($stalePhrase in @(
+            "frontend skeleton",
+            "semantic skeleton",
+            "TypedBinding skeleton",
+            "expected type internal API skeleton",
+            "quantity completion data table skeleton",
+            "quantity completion skeleton",
+            "future IDE completion source"
+        )) {
+            if ($text.Contains($stalePhrase)) {
+                throw "architecture doc still contains stale implementation wording '$stalePhrase' at $path"
+            }
+        }
+    }
+
+    Write-Host "Architecture docs wording check passed."
+}
+
 function Test-UserDocsExecutionWording {
     param(
         [Parameter(Mandatory = $true)]
@@ -1462,6 +1491,10 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "docs\workflows\index.md"),
         (Join-Path $RepoRoot "docs\workflows\native_surrogate_case_workflow.md"),
         (Join-Path $RepoRoot "examples\workflows\02_native_surrogate_case_workflow\expected\review_summary.md")
+    )
+    Test-ArchitectureDocsWording -Paths @(
+        (Join-Path $RepoRoot "docs\architecture\02_compiler_frontend.md"),
+        (Join-Path $RepoRoot "docs\architecture\03_expected_types_and_quantities.md")
     )
     Test-UserDocsExecutionWording `
         -UserDocsRoot (Join-Path $RepoRoot "docs\user")
