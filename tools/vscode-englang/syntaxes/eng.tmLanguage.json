@@ -2670,7 +2670,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.validation.englang",
-                                                             "match":  "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic)\\b"
+                                                             "match":  "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic|check|coverage)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.side-effect.englang",
@@ -2686,7 +2686,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else)\\b"
+                                                             "match":  "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else|sample|filter|select|derive|sort|materialize|cases|collect|results|apply|train|regression|predict|fill|align|resample)\\b"
                                                          }
                                                      ]
                                     },
@@ -2930,7 +2930,7 @@
                                          "patterns":  [
                                                           {
                                                               "name":  "constant.language.englang",
-                                                              "match":  "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|replace|commit|rollback|keep|empty|interpolate|monotonic|linear|asc|desc|pending|running|passed|failed|succeeded|skipped|blocked|completed|cached|stale|hit|miss|created|updated|metadata_ready|warnings_present|diagnostics_present|fixed_step|rk4|adaptive_heun|fixed_point|newton|implicit_euler_dae|dynamic_component_explicit_euler|dynamic_component_semi_implicit_euler|dynamic_component_adaptive_heun|trapezoidal)\\b"
+                                                              "match":  "\\b(true|false|none|null|info|warn|debug|error|safe|normal|repro|append|insert|upsert|replace|commit|rollback|keep|empty|interpolate|monotonic|linear|asc|desc|lhs|latin_hypercube|latin-hypercube|grid|random|uniform|pending|running|passed|failed|succeeded|skipped|blocked|completed|cached|stale|hit|miss|created|updated|metadata_ready|warnings_present|diagnostics_present|fixed_step|rk4|adaptive_heun|fixed_point|newton|implicit_euler_dae|dynamic_component_explicit_euler|dynamic_component_semi_implicit_euler|dynamic_component_adaptive_heun|trapezoidal)\\b"
                                                           },
                                                           {
                                                               "name":  "constant.language.format.englang",

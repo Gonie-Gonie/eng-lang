@@ -3691,5 +3691,149 @@
     "scope": "keyword.control.workflow.englang",
     "text": "policy",
     "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "sample",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "filter",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "select",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "derive",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "sort",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "materialize",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "cases",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "collect",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "results",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "apply",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "train",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "regression",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "predict",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "fill",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "align",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.workflow.englang",
+    "text": "resample",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "check",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "coverage",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "lhs",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "latin_hypercube",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "latin-hypercube",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "grid",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "random",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "uniform",
+    "fullMatch": true
   }
 ]
