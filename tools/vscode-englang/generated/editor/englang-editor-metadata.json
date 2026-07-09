@@ -486,6 +486,7 @@
                              },
                              {
                                  "detail":  "Train a regression model from table columns",
+                                 "insert_snippet":  "train regression ${1:training_results}\nwith {\n    target = ${2:annual_electricity}\n    features = [${3:cooling_cop}]\n    test = ${4:0.25}\n    seed = ${5:7}\n}",
                                  "kind":  "function",
                                  "label":  "train regression",
                                  "lsp_kind":  3
@@ -2209,6 +2210,38 @@
                                  "lsp_kind":  9
                              },
                              {
+                                 "detail":  "eng.case materialize native case rows from a table",
+                                 "insert":  "materialize cases designs",
+                                 "insert_snippet":  "materialize cases ${1:designs}",
+                                 "kind":  "stdlib",
+                                 "label":  "materialize cases",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.case apply a template or workflow step over case rows",
+                                 "insert":  "apply case_input_template over cases",
+                                 "insert_snippet":  "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "apply cases",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.case collect per-case outputs into a table",
+                                 "insert":  "collect results case_results",
+                                 "insert_snippet":  "collect results ${1:case_results}",
+                                 "kind":  "stdlib",
+                                 "label":  "collect results",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.model create predictions from a model and input table",
+                                 "insert":  "predict model using designs",
+                                 "insert_snippet":  "predict ${1:model} using ${2:designs}",
+                                 "kind":  "stdlib",
+                                 "label":  "predict model using",
+                                 "lsp_kind":  9
+                             },
+                             {
                                  "detail":  "eng.sampling deterministic grid sample table",
                                  "insert_snippet":  "sample grid\nwith {\n    count = ${1:9}\n    ${2:parameter} = uniform(${3:0.0}, ${4:1.0})\n}",
                                  "kind":  "stdlib",
@@ -2503,7 +2536,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  408,
+    "completion_items_count":  412,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -2991,6 +3024,7 @@
                             },
                             {
                                 "detail":  "Train a regression model from table columns",
+                                "insert_snippet":  "train regression ${1:training_results}\nwith {\n    target = ${2:annual_electricity}\n    features = [${3:cooling_cop}]\n    test = ${4:0.25}\n    seed = ${5:7}\n}",
                                 "kind":  "function",
                                 "label":  "train regression",
                                 "lsp_kind":  3
@@ -4714,6 +4748,38 @@
                                 "lsp_kind":  9
                             },
                             {
+                                "detail":  "eng.case materialize native case rows from a table",
+                                "insert":  "materialize cases designs",
+                                "insert_snippet":  "materialize cases ${1:designs}",
+                                "kind":  "stdlib",
+                                "label":  "materialize cases",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.case apply a template or workflow step over case rows",
+                                "insert":  "apply case_input_template over cases",
+                                "insert_snippet":  "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}",
+                                "kind":  "stdlib",
+                                "label":  "apply cases",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.case collect per-case outputs into a table",
+                                "insert":  "collect results case_results",
+                                "insert_snippet":  "collect results ${1:case_results}",
+                                "kind":  "stdlib",
+                                "label":  "collect results",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.model create predictions from a model and input table",
+                                "insert":  "predict model using designs",
+                                "insert_snippet":  "predict ${1:model} using ${2:designs}",
+                                "kind":  "stdlib",
+                                "label":  "predict model using",
+                                "lsp_kind":  9
+                            },
+                            {
                                 "detail":  "eng.sampling deterministic grid sample table",
                                 "insert_snippet":  "sample grid\nwith {\n    count = ${1:9}\n    ${2:parameter} = uniform(${3:0.0}, ${4:1.0})\n}",
                                 "kind":  "stdlib",
@@ -5008,7 +5074,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  408,
+    "completion_seed_count":  412,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [

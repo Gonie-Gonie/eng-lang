@@ -6095,6 +6095,22 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ),
         ("promote toml config", "eng.config TOML file promotion"),
         (
+            "materialize cases",
+            "eng.case materialize native case rows from a table",
+        ),
+        (
+            "apply cases",
+            "eng.case apply a template or workflow step over case rows",
+        ),
+        (
+            "collect results",
+            "eng.case collect per-case outputs into a table",
+        ),
+        (
+            "predict model using",
+            "eng.model create predictions from a model and input table",
+        ),
+        (
             "sample grid",
             "eng.sampling deterministic grid sample table",
         ),
@@ -7277,6 +7293,10 @@ fn completion_insert_for_label(label: &str) -> Option<&'static str> {
         "run command" => Some("run command \"tool\""),
         "promote json config" => Some("promote json file(\"workflow.json\") as WorkflowConfig"),
         "promote toml config" => Some("promote toml file(\"workflow.toml\") as WorkflowConfig"),
+        "materialize cases" => Some("materialize cases designs"),
+        "apply cases" => Some("apply case_input_template over cases"),
+        "collect results" => Some("collect results case_results"),
+        "predict model using" => Some("predict model using designs"),
         _ => None,
     }
 }
@@ -7316,6 +7336,17 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
         "promote toml config" => {
             Some("promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}".to_owned())
         }
+        "materialize cases" => Some("materialize cases ${1:designs}".to_owned()),
+        "apply cases" => Some(
+            "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}"
+                .to_owned(),
+        ),
+        "collect results" => Some("collect results ${1:case_results}".to_owned()),
+        "train regression" => Some(
+            "train regression ${1:training_results}\nwith {\n    target = ${2:annual_electricity}\n    features = [${3:cooling_cop}]\n    test = ${4:0.25}\n    seed = ${5:7}\n}"
+                .to_owned(),
+        ),
+        "predict model using" => Some("predict ${1:model} using ${2:designs}".to_owned()),
         "sample grid" => Some(
             "sample grid\nwith {\n    count = ${1:9}\n    ${2:parameter} = uniform(${3:0.0}, ${4:1.0})\n}"
                 .to_owned(),
@@ -8051,8 +8082,12 @@ mod tests {
             "promote json records",
             "mkdir dir",
             "materialize",
+            "materialize cases",
             "apply",
+            "apply cases",
             "collect",
+            "collect results",
+            "predict model using",
             "case_id",
             "output_root",
             "resume",
@@ -8360,7 +8395,11 @@ mod tests {
             ("promote json records", "stdlib"),
             ("sample uniform", "stdlib"),
             ("sample latin-hypercube", "stdlib"),
+            ("materialize cases", "stdlib"),
+            ("apply cases", "stdlib"),
+            ("collect results", "stdlib"),
             ("train regression", "function"),
+            ("predict model using", "stdlib"),
             ("read json", "stdlib"),
             ("eng.table", "stdlib"),
             ("HeatRate", "class"),
@@ -8386,6 +8425,22 @@ mod tests {
         assert_eq!(
             sample_uniform_completion["insert_snippet"],
             "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+        );
+        let train_regression_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "train regression")
+            .expect("editor metadata should include train regression completion");
+        assert_eq!(
+            train_regression_completion["insert_snippet"],
+            "train regression ${1:training_results}\nwith {\n    target = ${2:annual_electricity}\n    features = [${3:cooling_cop}]\n    test = ${4:0.25}\n    seed = ${5:7}\n}"
+        );
+        let apply_cases_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "apply cases")
+            .expect("editor metadata should include apply cases completion");
+        assert_eq!(
+            apply_cases_completion["insert_snippet"],
+            "apply ${1:case_input_template} over ${2:cases}\nwith {\n    template = file(\"${3:model/native_case_template.txt}\")\n    output = \"{case_dir}/${4:input.txt}\"\n    missing = error\n    overwrite = true\n}"
         );
         let read_json_completion = completions
             .iter()
