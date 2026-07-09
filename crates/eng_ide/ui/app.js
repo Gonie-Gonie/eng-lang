@@ -1580,6 +1580,7 @@ function renderSemanticTokenRows(tokens, filtered = false) {
         <td><span class="token-chip token-type">${escapeHtml(token.type || "-")}</span></td>
         <td>${modifiers.length ? modifiers.map((modifier) => `<span class="token-chip token-modifier">${escapeHtml(modifier)}</span>`).join(" ") : "-"}</td>
         <td>${semanticTokenSelectorCells(token)}</td>
+        <td>${sourceTokenActions(token)}</td>
       </tr>
     `;
   }).join("");
@@ -1587,11 +1588,19 @@ function renderSemanticTokenRows(tokens, filtered = false) {
   const empty = filtered ? "No highlights match the current filter." : "No highlights for the current check.";
   return `
     <table class="var-table semantic-token-table">
-      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th><th>Selectors</th></tr></thead>
-      <tbody>${rows || `<tr><td colspan="5" class="muted">${escapeHtml(empty)}</td></tr>`}</tbody>
+      <thead><tr><th>Range</th><th>Text</th><th>Category</th><th>Details</th><th>Selectors</th><th>Actions</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">${escapeHtml(empty)}</td></tr>`}</tbody>
     </table>
     ${hidden}
   `;
+}
+
+function sourceTokenActions(token) {
+  const actions = [
+    sourceTokenCopyButton(token, "text", "Copy Text"),
+    sourceTokenCopyButton(token, "range", "Copy Range")
+  ].filter(Boolean);
+  return actions.length ? actions.join(" ") : "-";
 }
 
 function renderQualityPanel() {

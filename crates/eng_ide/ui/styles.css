@@ -1037,6 +1037,11 @@ button:hover {
   width: 82px;
 }
 
+.semantic-token-table th:last-child,
+.semantic-token-table td:last-child {
+  width: 126px;
+}
+
 .caret-highlight-table th {
   width: 74px;
 }
