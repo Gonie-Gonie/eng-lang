@@ -1354,6 +1354,7 @@ function Invoke-DocsCheck {
         -ExamplesReadmePath (Join-Path $RepoRoot "examples\README.md")
     Test-PublicWorkflowDocs -Paths @(
         (Join-Path $RepoRoot "docs\current\feature_maturity_matrix.md"),
+        (Join-Path $RepoRoot "docs\current\tracks.md"),
         (Join-Path $RepoRoot "docs\current\workflow_modules.md"),
         (Join-Path $RepoRoot "docs\workflows\index.md")
     )

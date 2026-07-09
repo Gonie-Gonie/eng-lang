@@ -133,7 +133,8 @@ and next cleanup action.
 - Purpose: compose typed data, files, external tools, case manifests, model
   cards, database writes, and reports without making domain adapters core
   language identity.
-- Public scope: supported side-effect primitives and workflow skeletons only.
+- Public scope: supported side-effect primitives plus executable native workflow
+  examples; domain adapters remain layered above the generic modules.
 - Main internal: weather API to standard file and native surrogate
   native examples define contracts for generic modules, including
   promoted table diagnostics, deterministic promoted-table row selection,
