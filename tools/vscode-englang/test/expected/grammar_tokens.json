@@ -83,6 +83,12 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "punctuation.separator.colon.englang",
+    "text": ":",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.block.header.englang",
     "text": "report {",
     "fullMatch": true

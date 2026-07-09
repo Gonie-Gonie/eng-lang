@@ -379,10 +379,13 @@
                                                                  "patterns":  [
                                                                                   {
                                                                                       "name":  "meta.declaration.argument.englang",
-                                                                                      "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
+                                                                                      "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s*:)",
                                                                                       "captures":  {
                                                                                                        "2":  {
                                                                                                                  "name":  "variable.parameter.argument.englang"
+                                                                                                             },
+                                                                                                       "3":  {
+                                                                                                                 "name":  "punctuation.separator.colon.englang"
                                                                                                              }
                                                                                                    }
                                                                                   },
@@ -444,10 +447,13 @@
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.field.englang",
-                                                                 "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(?=\\s*:)",
+                                                                 "match":  "^(\\s*)([A-Za-z_][A-Za-z0-9_]*)(\\s*:)",
                                                                  "captures":  {
                                                                                   "2":  {
                                                                                             "name":  "variable.other.property.englang"
+                                                                                        },
+                                                                                  "3":  {
+                                                                                            "name":  "punctuation.separator.colon.englang"
                                                                                         }
                                                                               }
                                                              },

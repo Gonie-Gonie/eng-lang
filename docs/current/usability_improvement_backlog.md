@@ -70,6 +70,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 513: Added VS Code Problems diagnostic-code links to the relevant EngLang reference docs.
 - Batch 514: Broadened native workflow public-doc wording guards to every docs/workflows page.
 - Batch 515: Added TextMate first-paint highlighting for `args { ... }` argument declarations.
+- Batch 516: Scoped TextMate declaration colons for args and field declarations.
 
 ## Documentation Policy
 
