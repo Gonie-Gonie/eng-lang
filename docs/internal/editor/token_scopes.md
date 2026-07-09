@@ -55,6 +55,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `storage.type.*.englang` | Captured block opener keywords and declaration-level markers. |
 | `storage.type.function.englang` | `fn` and `method` keyword fallback coloring while declarations are incomplete. |
 | `storage.type.test.englang` | `test` keyword fallback coloring while test declarations are incomplete. |
+| `storage.type.block.englang` | `args`, `where`, `with`, and `on` block-opener fallback coloring while block headers are incomplete. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
 | `storage.modifier.englang` | State, input, port, and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
@@ -257,7 +258,7 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 | `comment.documentation` | Documentation comments (`///`) when semantic highlighting is available. |
 | `function`, `function.declaration`, `function.definition`, `method`, `method.declaration` | User-defined function and method calls plus declaration names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
-| `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, and local keyword-like roles. |
+| `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, local keyword-like roles, and block-opener semantic fallbacks. |
 | `modifier`, `modifier.static` | Modifier-like role tokens and static modifier fallbacks. |
 | `namespace`, `namespace.declaration` | Imported or declared module namespaces. |
 | `number` | Numeric literals. |
@@ -331,6 +332,7 @@ meta.type.array-suffix.englang
 storage.type.declaration.englang
 storage.type.function.englang
 storage.type.test.englang
+storage.type.block.englang
 storage.modifier.englang
 string.quoted.double.englang
 support.function.builtin.englang

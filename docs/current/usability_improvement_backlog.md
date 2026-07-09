@@ -52,6 +52,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 554: Added TextMate grammar build and smoke guards so generated constants and operator words cannot silently drift from LSP editor metadata.
 - Batch 555: Moved VS Code TextMate keyword-group fallback lists into generated LSP editor metadata so first-paint keyword scopes share the compiler-owned catalog.
 - Batch 556: Added compiler-owned block-opener keyword groups so partial `args`, `where`, `with`, and `on` edits keep block-keyword coloring before full parse context is available.
+- Batch 557: Mapped semantic keyword declaration/local fallbacks to block-opener TextMate scopes so `args` and `where` retain block coloring after semantic overlay.
 
 ## Documentation Policy
 

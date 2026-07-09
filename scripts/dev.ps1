@@ -3301,6 +3301,17 @@ function Assert-VscodeExtensionContract {
         }
     }
     $RequiredSemanticKeywordFallbacks = @{
+        "keyword.declaration" = @(
+            "storage.type.declaration.englang",
+            "storage.type.function.englang",
+            "storage.type.test.englang",
+            "storage.type.block.englang",
+            "storage.modifier.englang"
+        )
+        "keyword.local" = @(
+            "storage.type.block.englang",
+            "keyword.control.workflow.englang"
+        )
         "keyword.workflowStep" = @(
             "keyword.control.workflow.englang",
             "keyword.operator.word.englang",
