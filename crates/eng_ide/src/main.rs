@@ -909,11 +909,6 @@ fn base_completion_items() -> Vec<CompletionView> {
             "CSV promotion command",
         ),
         (
-            "export summary csv",
-            "export summary to csv \"summary.csv\" {\n    E as kWh with \".2\"\n}",
-            "unit-aware CSV export block",
-        ),
-        (
             "plot line",
             "plot Q over Time with {\n    type = line\n    title = \"Heat rate\"\n}",
             "PlotSpec line plot block",
@@ -4060,6 +4055,24 @@ with {
             .find(|completion| completion.label == "class object")
             .expect("native IDE snippet");
         assert!(snippet.insert.contains("validate"));
+        assert!(
+            completions
+                .iter()
+                .all(|completion| completion.label != "export summary csv"),
+            "native IDE completions should not expose the stale export summary csv alias"
+        );
+        let export_summary = completions
+            .iter()
+            .find(|completion| completion.label == "export summary to csv")
+            .expect("export summary to csv completion");
+        assert_eq!(
+            export_summary.insert,
+            "export summary to csv join(args.output, \"summary.csv\")"
+        );
+        assert!(export_summary
+            .insert_snippet
+            .as_deref()
+            .is_some_and(|snippet| snippet.contains("export summary to csv join")));
         let read_text = completions
             .iter()
             .find(|completion| completion.label == "read text")
