@@ -10,7 +10,7 @@ station map -> station selection -> args-driven pinned HTTP response/cache -> na
 
 The saved smoke run uses `offline_response` to pin response bytes for
 reproducibility. The workflow still goes through the native `http get` response
-object and cache path; it does not call a Python fetcher or read a prebuilt
+object and cache path; it does not call an external fetcher or read a prebuilt
 weather table.
 
 Run:

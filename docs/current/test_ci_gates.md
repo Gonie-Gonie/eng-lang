@@ -9,8 +9,8 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 
 - Public user docs, reference docs, workflow docs, development docs, and internal
   track docs must stay separated.
-- OODocs or other Python documentation tooling is an optional publishing layer;
-  core runtime and CI evidence must not depend on it.
+- OODocs and other documentation publishing helpers are optional publishing layers;
+  core runtime and CI evidence must not depend on them.
 
 ## Active Gates
 
@@ -132,10 +132,10 @@ Current coverage:
   zero external process executions.
 - `eng test examples` asserts that all three workflows produce review,
   output-manifest, process, report, and typed result artifacts.
-- `eng test examples` and `dev.bat workflows-test` reject `run command`, Python calls/library markers,
-  and legacy row-selection helpers across every `.eng` source under the three
-  native workflow directories; `workflows-test` also rejects malformed process-results artifacts,
-  non-normal workflow smoke profiles, and nonzero process counts.
+- `eng test examples` and `dev.bat workflows-test` reject external-process adapters,
+  external scripting/library markers, and legacy row-selection helpers across every `.eng` source
+  under the three native workflow directories; `workflows-test` also rejects stale public-doc wording,
+  malformed process-results artifacts, non-normal workflow smoke profiles, and nonzero process counts.
 - The same gate checks workflow 02 structured sampler, model-card, prediction, DB,
   and case-manifest evidence so it cannot pass by reading file-backed surrogate data.
 - These examples are intentionally covered by workflow smoke rather than public

@@ -25,7 +25,7 @@ The examples repeat a small set of contracts:
 - static/runtime workflow plan and run-lock artifacts
 - report/review artifact
 - deterministic pinned-input/native execution for smoke runs
-- zero `run command` or Python process execution
+- zero external process execution
 
 These contracts define the generic workflow module surface for `eng.net`,
 `eng.cache`, `eng.sampling`, `eng.case`, `eng.template`, `eng.db`,
@@ -33,7 +33,7 @@ These contracts define the generic workflow module surface for `eng.net`,
 weather APIs, standard-file exporters, simulator adapters, and surrogate
 trainers stay layered above those generic modules. The current workflow
 examples keep those boundaries native and explicit instead of hiding them in
-Python or shell process steps.
+external process steps.
 
 ## Run All Workflow Examples
 

@@ -18,8 +18,8 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 ## Expected Artifacts
 
 Each run should produce review evidence and workflow-specific generated
-artifacts. The workflow programs under `examples/workflows/` do not call Python
-or external processes; `process_results.json` should report
+artifacts. The workflow programs under `examples/workflows/` stay inside native
+EngLang workflow modules; `process_results.json` should report
 `process_count = 0`.
 
 ## Explanation
@@ -31,7 +31,7 @@ Composite workflows repeat the same generic contracts:
 - generated artifacts with path and hash evidence
 - review/report output
 - deterministic offline inputs and native execution for smoke tests
-- no hidden Python or `run command` adapter step
+- no hidden external adapter step
 
 Current native modules such as `eng.net`, `eng.cache`, `eng.sampling`,
 `eng.case`, `eng.template`, `eng.db`, and `eng.model` grow from these repeated

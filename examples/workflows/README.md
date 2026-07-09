@@ -19,7 +19,7 @@ Current examples:
   CSV/text artifacts -> uncertainty metadata -> confidence-band report artifact.
 ```
 
-All three workflows run without Python or external processes. Saved runs still
+All three workflows stay inside EngLang native workflow modules. Saved runs still
 write `process_results.json`, but its `process_count` is expected to be zero
 for these native workflows.
 

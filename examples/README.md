@@ -43,7 +43,7 @@ official/14_run_log
   Structured runtime messages and generated run_log.json artifacts.
 
 official/15_process_result
-  External process surface with run command, ProcessResult, and
+  External process surface with explicit process execution, ProcessResult, and
   process_results.json artifacts.
 
 official/16_test_assert_golden

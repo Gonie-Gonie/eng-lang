@@ -406,6 +406,32 @@ function Invoke-WorkflowsTest {
         "\bjupyter\b",
         "\bnotebook\b"
     )
+    $ForbiddenNativeWorkflowDocMarkers = @(
+        "\bpython(?:\d+(?:\.\d+)*)?(?:\.exe)?\b",
+        "\bpy(?:\.exe)?\b",
+        "\.py\b",
+        "\bpip(?:3)?\b",
+        "\bconda\b",
+        "\bvirtualenv\b",
+        "\bvenv\b",
+        "\bipython\b",
+        "\bpytest\b",
+        "\bsubprocess\b",
+        "\bpandas\b",
+        "\bnumpy\b",
+        "\bscipy\b",
+        "\bsklearn\b",
+        "\bstatsmodels\b",
+        "\bpolars\b",
+        "\bmatplotlib\b",
+        "\bpyarrow\b",
+        "\bxarray\b",
+        "\btensorflow\b",
+        "\bpytorch\b",
+        "\btorch\b",
+        "\bjupyter\b",
+        "\bnotebook\b"
+    )
     $NativeWorkflowSourceAuditPaths = @($RequiredWorkflowSourcePaths | ForEach-Object {
         Split-Path -Parent $_
     } | Sort-Object -Unique | ForEach-Object {
@@ -442,6 +468,14 @@ function Invoke-WorkflowsTest {
     )
     foreach ($WorkflowPublicDocPath in $WorkflowPublicDocPaths) {
         $WorkflowPublicDoc = Get-Content -LiteralPath $WorkflowPublicDocPath.FullName -Raw
+        if ($WorkflowPublicDoc -match "(?im)\brun\s+command\b") {
+            throw "Native workflow public docs must not describe workflow 01/02/03 as run-command backed: $($WorkflowPublicDocPath.FullName)"
+        }
+        foreach ($PythonMarker in $ForbiddenNativeWorkflowDocMarkers) {
+            if ($WorkflowPublicDoc -match "(?i)$PythonMarker") {
+                throw "Native workflow public docs must not contain Python/notebook marker $PythonMarker`: $($WorkflowPublicDocPath.FullName)"
+            }
+        }
         foreach ($ForbiddenWorkflowDocWording in @(
             "files produced by an external process",
             "external-simulator adapter pattern",
