@@ -565,6 +565,127 @@ fn stdio_server_round_trips_core_lsp_requests() {
 }
 
 #[test]
+fn stdio_document_cache_tracks_versions_for_diagnostics() {
+    let server = env!("CARGO_BIN_EXE_eng-lsp");
+    let source_path = repo_root().join("build/editor-tests/versioned_diagnostics.eng");
+    let uri = file_uri(&source_path);
+    let bad_source = "Q := 2 kW\n";
+    let fixed_source = "Q = 2 kW\n";
+
+    let mut child = Command::new(server)
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("eng-lsp should start");
+    let mut stdin = child.stdin.take().expect("stdin should be piped");
+    let mut stdout = child.stdout.take().expect("stdout should be piped");
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {}
+        }),
+    );
+    let initialize = read_message(&mut stdout);
+    assert_eq!(initialize["id"], 1);
+    assert_eq!(
+        initialize["result"]["capabilities"]["textDocumentSync"]["openClose"],
+        true
+    );
+    assert_eq!(
+        initialize["result"]["capabilities"]["textDocumentSync"]["change"],
+        1
+    );
+    assert_eq!(
+        initialize["result"]["capabilities"]["textDocumentSync"]["save"]["includeText"],
+        true
+    );
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didOpen",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "languageId": "englang",
+                    "version": 1,
+                    "text": bad_source
+                }
+            }
+        }),
+    );
+    let opened = read_message(&mut stdout);
+    assert_eq!(opened["method"], "textDocument/publishDiagnostics");
+    assert_eq!(opened["params"]["uri"], uri);
+    assert_eq!(opened["params"]["version"], 1);
+    assert!(diagnostics_contain_code(&opened, "E-SYNTAX-DECL-001"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didChange",
+            "params": {
+                "textDocument": {
+                    "uri": uri,
+                    "version": 2
+                },
+                "contentChanges": [
+                    { "text": fixed_source }
+                ]
+            }
+        }),
+    );
+    let changed = read_message(&mut stdout);
+    assert_eq!(changed["method"], "textDocument/publishDiagnostics");
+    assert_eq!(changed["params"]["version"], 2);
+    assert!(!diagnostics_contain_code(&changed, "E-SYNTAX-DECL-001"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "textDocument/didSave",
+            "params": {
+                "textDocument": { "uri": uri }
+            }
+        }),
+    );
+    let saved = read_message(&mut stdout);
+    assert_eq!(saved["method"], "textDocument/publishDiagnostics");
+    assert_eq!(saved["params"]["version"], 2);
+    assert!(!diagnostics_contain_code(&saved, "E-SYNTAX-DECL-001"));
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "shutdown"
+        }),
+    );
+    let shutdown = read_message(&mut stdout);
+    assert_eq!(shutdown["id"], 2);
+    assert!(shutdown["result"].is_null());
+
+    write_message(
+        &mut stdin,
+        json!({
+            "jsonrpc": "2.0",
+            "method": "exit"
+        }),
+    );
+    drop(stdin);
+    let status = child.wait().expect("eng-lsp should exit");
+    assert!(status.success());
+}
+#[test]
 fn stdio_code_actions_offer_syntax_migrations() {
     let server = env!("CARGO_BIN_EXE_eng-lsp");
     let source_path = repo_root().join("build/editor-tests/code_action_migrations.eng");
@@ -2740,6 +2861,15 @@ fn file_uri(path: &Path) -> String {
     format!("file://{}", path.replace(' ', "%20"))
 }
 
+fn diagnostics_contain_code(message: &Value, code: &str) -> bool {
+    message["params"]["diagnostics"]
+        .as_array()
+        .is_some_and(|diagnostics| {
+            diagnostics
+                .iter()
+                .any(|diagnostic| diagnostic["code"] == code)
+        })
+}
 fn document_symbols_contain(symbols: &[Value], name: &str) -> bool {
     symbols.iter().any(|symbol| {
         symbol["name"] == name

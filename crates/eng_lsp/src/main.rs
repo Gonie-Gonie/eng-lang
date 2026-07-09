@@ -235,8 +235,8 @@ fn command_code_actions_stdin(path: Option<&String>) -> std::process::ExitCode {
             "context": { "diagnostics": diagnostics }
         }
     });
-    let mut documents = HashMap::new();
-    documents.insert(uri.clone(), source);
+    let mut documents = Documents::new();
+    documents.insert(uri.clone(), DocumentState::new(source, None));
     println!(
         "{}",
         json!({
@@ -323,8 +323,8 @@ fn command_definition_stdin(
             "position": { "line": line, "character": character }
         }
     });
-    let mut documents = HashMap::new();
-    documents.insert(uri, source);
+    let mut documents = Documents::new();
+    documents.insert(uri, DocumentState::new(source, None));
     println!(
         "{}",
         definition_for_request(&request, &documents).unwrap_or(Value::Null)
@@ -362,7 +362,7 @@ fn command_workspace_symbols(
             "query": query.map(String::as_str).unwrap_or("")
         }
     });
-    let symbols = workspace_symbols_for_request(&request, &HashMap::new(), &[root]);
+    let symbols = workspace_symbols_for_request(&request, &Documents::new(), &[root]);
     println!(
         "{}",
         json!({
@@ -373,10 +373,23 @@ fn command_workspace_symbols(
     std::process::ExitCode::SUCCESS
 }
 
+#[derive(Clone, Debug)]
+struct DocumentState {
+    text: String,
+    version: Option<i64>,
+}
+
+impl DocumentState {
+    fn new(text: String, version: Option<i64>) -> Self {
+        Self { text, version }
+    }
+}
+
+type Documents = HashMap<String, DocumentState>;
 fn run_lsp() -> io::Result<()> {
     let mut input = io::stdin().lock();
     let mut output = io::stdout().lock();
-    let mut documents = HashMap::<String, String>::new();
+    let mut documents = Documents::new();
     let mut workspace_roots = Vec::<PathBuf>::new();
 
     while let Some(message) = read_lsp_message(&mut input)? {
@@ -408,7 +421,11 @@ fn run_lsp() -> io::Result<()> {
                         "id": id,
                         "result": {
                             "capabilities": {
-                                "textDocumentSync": 1,
+                                "textDocumentSync": {
+                                    "openClose": true,
+                                    "change": 1,
+                                    "save": { "includeText": true }
+                                },
                                 "hoverProvider": true,
                                 "definitionProvider": true,
                                 "documentSymbolProvider": true,
@@ -449,9 +466,9 @@ fn run_lsp() -> io::Result<()> {
             "exit" => break,
             "initialized" => {}
             "textDocument/didOpen" | "textDocument/didChange" | "textDocument/didSave" => {
-                if let Some((uri, text)) = document_text_from_notification(&request, &documents) {
-                    documents.insert(uri.clone(), text.clone());
-                    publish_diagnostics(&mut output, &uri, &text)?;
+                if let Some((uri, state)) = document_state_from_notification(&request, &documents) {
+                    documents.insert(uri.clone(), state.clone());
+                    publish_diagnostics(&mut output, &uri, &state)?;
                 }
             }
             "textDocument/completion" => {
@@ -562,38 +579,42 @@ fn run_lsp() -> io::Result<()> {
     Ok(())
 }
 
-fn publish_diagnostics<W: Write>(output: &mut W, uri: &str, text: &str) -> io::Result<()> {
+fn publish_diagnostics<W: Write>(
+    output: &mut W,
+    uri: &str,
+    state: &DocumentState,
+) -> io::Result<()> {
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
-    let snapshot = snapshot_for_source(&path, text);
+    let snapshot = snapshot_for_source(&path, &state.text);
     let diagnostics = snapshot
         .diagnostics
         .iter()
         .map(diagnostic_json)
         .collect::<Vec<_>>();
+    let mut params = serde_json::Map::new();
+    params.insert("uri".to_owned(), json!(uri));
+    params.insert("diagnostics".to_owned(), json!(diagnostics));
+    if let Some(version) = state.version {
+        params.insert("version".to_owned(), json!(version));
+    }
     write_response(
         output,
         json!({
             "jsonrpc": "2.0",
             "method": "textDocument/publishDiagnostics",
-            "params": {
-                "uri": uri,
-                "diagnostics": diagnostics
-            }
+            "params": Value::Object(params)
         }),
     )
 }
 
 fn semantic_tokens_for_request(
     request: &Value,
-    documents: &HashMap<String, String>,
+    documents: &Documents,
 ) -> Option<eng_lsp::LspSemanticTokens> {
     Some(snapshot_for_request(request, documents)?.semantic_tokens)
 }
 
-fn formatting_edits_for_request(
-    request: &Value,
-    documents: &HashMap<String, String>,
-) -> Vec<Value> {
+fn formatting_edits_for_request(request: &Value, documents: &Documents) -> Vec<Value> {
     let Some(uri) = request_uri(request) else {
         return Vec::new();
     };
@@ -610,10 +631,7 @@ fn formatting_edits_for_request(
     })]
 }
 
-fn range_formatting_edits_for_request(
-    request: &Value,
-    documents: &HashMap<String, String>,
-) -> Vec<Value> {
+fn range_formatting_edits_for_request(request: &Value, documents: &Documents) -> Vec<Value> {
     let Some(uri) = request_uri(request) else {
         return Vec::new();
     };
@@ -650,7 +668,7 @@ fn range_formatting_edits_for_request(
     })]
 }
 
-fn code_actions_for_request(request: &Value, documents: &HashMap<String, String>) -> Vec<Value> {
+fn code_actions_for_request(request: &Value, documents: &Documents) -> Vec<Value> {
     let Some(uri) = request_uri(request) else {
         return Vec::new();
     };
@@ -4028,11 +4046,11 @@ fn workspace_edit_for_edits(uri: &str, edits: Value) -> Value {
     json!({ "changes": changes })
 }
 
-fn document_text_for_uri(uri: &str, documents: &HashMap<String, String>) -> Option<String> {
+fn document_text_for_uri(uri: &str, documents: &Documents) -> Option<String> {
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     documents
         .get(uri)
-        .cloned()
+        .map(|state| state.text.clone())
         .or_else(|| std::fs::read_to_string(&path).ok())
 }
 
@@ -4051,7 +4069,7 @@ fn full_document_range(text: &str) -> Value {
 
 fn semantic_tokens_range_for_request(
     request: &Value,
-    documents: &HashMap<String, String>,
+    documents: &Documents,
 ) -> Option<eng_lsp::LspSemanticTokens> {
     let mut tokens = semantic_tokens_for_request(request, documents)?;
     let ((start_line, start_character), (end_line, end_character)) = request_range(request)?;
@@ -4081,16 +4099,10 @@ fn semantic_token_intersects_range(
     true
 }
 
-fn snapshot_for_request(
-    request: &Value,
-    documents: &HashMap<String, String>,
-) -> Option<eng_lsp::LspSnapshot> {
+fn snapshot_for_request(request: &Value, documents: &Documents) -> Option<eng_lsp::LspSnapshot> {
     let uri = request_uri(request)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
-    let text = documents
-        .get(uri)
-        .cloned()
-        .or_else(|| std::fs::read_to_string(&path).ok())?;
+    let text = document_text_for_uri(uri, documents)?;
     Some(snapshot_for_source(&path, &text))
 }
 
@@ -4125,7 +4137,7 @@ fn workspace_roots_from_initialize(request: &Value) -> Vec<PathBuf> {
 
 fn workspace_symbols_for_request(
     request: &Value,
-    documents: &HashMap<String, String>,
+    documents: &Documents,
     workspace_roots: &[PathBuf],
 ) -> Vec<Value> {
     let query = request
@@ -4136,12 +4148,19 @@ fn workspace_symbols_for_request(
     let mut results = Vec::new();
     let mut seen = HashSet::<(String, usize, String)>::new();
 
-    for (uri, source) in documents {
+    for (uri, state) in documents {
         if results.len() >= MAX_WORKSPACE_SYMBOL_RESULTS {
             break;
         }
         let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
-        push_workspace_symbols_from_source(uri, &path, source, &query, &mut results, &mut seen);
+        push_workspace_symbols_from_source(
+            uri,
+            &path,
+            &state.text,
+            &query,
+            &mut results,
+            &mut seen,
+        );
     }
 
     let mut files = Vec::new();
@@ -4272,10 +4291,7 @@ fn skip_workspace_symbol_dir(path: &Path) -> bool {
     )
 }
 
-fn completions_for_request(
-    request: &Value,
-    documents: &HashMap<String, String>,
-) -> Vec<eng_lsp::LspCompletion> {
+fn completions_for_request(request: &Value, documents: &Documents) -> Vec<eng_lsp::LspCompletion> {
     let Some(uri) = request_uri(request) else {
         return Vec::new();
     };
@@ -4288,16 +4304,13 @@ fn completions_for_request(
         .pointer("/params/position/character")
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
-    if let Some(text) = documents.get(uri) {
-        return completion_items_for_source_position(&path, text, line, character);
+    if let Some(text) = document_text_for_uri(uri, documents) {
+        return completion_items_for_source_position(&path, &text, line, character);
     }
     completion_items_for_path_position(&path, line, character).unwrap_or_default()
 }
 
-fn hover_for_request(
-    request: &Value,
-    documents: &HashMap<String, String>,
-) -> Option<eng_lsp::LspHover> {
+fn hover_for_request(request: &Value, documents: &Documents) -> Option<eng_lsp::LspHover> {
     let uri = request_uri(request)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     let line_zero_based = request
@@ -4308,10 +4321,7 @@ fn hover_for_request(
         .pointer("/params/position/character")
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
-    let text = documents
-        .get(uri)
-        .cloned()
-        .or_else(|| std::fs::read_to_string(&path).ok());
+    let text = document_text_for_uri(uri, documents);
     let snapshot = text
         .as_deref()
         .map(|text| snapshot_for_source(&path, text))
@@ -4328,7 +4338,7 @@ fn hover_for_request(
     snapshot.hovers.into_iter().find(|hover| hover.line == line)
 }
 
-fn definition_for_request(request: &Value, documents: &HashMap<String, String>) -> Option<Value> {
+fn definition_for_request(request: &Value, documents: &Documents) -> Option<Value> {
     let uri = request_uri(request)?;
     let path = path_from_uri(uri).unwrap_or_else(|| PathBuf::from("buffer.eng"));
     let line_zero_based = request
@@ -4339,10 +4349,7 @@ fn definition_for_request(request: &Value, documents: &HashMap<String, String>) 
         .pointer("/params/position/character")
         .and_then(Value::as_u64)
         .unwrap_or(0) as usize;
-    let text = documents
-        .get(uri)
-        .cloned()
-        .or_else(|| std::fs::read_to_string(&path).ok())?;
+    let text = document_text_for_uri(uri, documents)?;
     let snapshot = snapshot_for_source(&path, &text);
     let symbol = symbol_at_position(&text, line_zero_based, character)?;
     if let Some(target) = stdlib_module_definition_target(&symbol) {
@@ -4679,28 +4686,44 @@ fn utf16_len(value: &str) -> usize {
     value.encode_utf16().count()
 }
 
-fn document_text_from_notification(
+fn document_state_from_notification(
     request: &Value,
-    documents: &HashMap<String, String>,
-) -> Option<(String, String)> {
+    documents: &Documents,
+) -> Option<(String, DocumentState)> {
     let uri = request_uri(request)?.to_owned();
+    let version = document_version_from_request(request)
+        .or_else(|| documents.get(&uri).and_then(|state| state.version));
     if let Some(text) = request
         .pointer("/params/textDocument/text")
         .and_then(Value::as_str)
     {
-        return Some((uri, text.to_owned()));
+        return Some((uri, DocumentState::new(text.to_owned(), version)));
     }
     if let Some(text) = request
-        .pointer("/params/contentChanges/0/text")
-        .and_then(Value::as_str)
+        .pointer("/params/contentChanges")
+        .and_then(Value::as_array)
+        .and_then(|changes| {
+            changes
+                .iter()
+                .rev()
+                .find_map(|change| change.get("text").and_then(Value::as_str))
+        })
     {
-        return Some((uri, text.to_owned()));
+        return Some((uri, DocumentState::new(text.to_owned(), version)));
     }
-    if let Some(text) = documents.get(&uri) {
-        return Some((uri, text.clone()));
+    if let Some(state) = documents.get(&uri) {
+        return Some((uri, DocumentState::new(state.text.clone(), version)));
     }
     let path = path_from_uri(&uri)?;
-    std::fs::read_to_string(path).ok().map(|text| (uri, text))
+    std::fs::read_to_string(path)
+        .ok()
+        .map(|text| (uri, DocumentState::new(text, version)))
+}
+
+fn document_version_from_request(request: &Value) -> Option<i64> {
+    request
+        .pointer("/params/textDocument/version")
+        .and_then(Value::as_i64)
 }
 
 fn request_uri(request: &Value) -> Option<&str> {

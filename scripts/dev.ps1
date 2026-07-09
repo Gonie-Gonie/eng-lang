@@ -5033,6 +5033,24 @@ function Invoke-LspCheck {
         Write-Host "Cargo not found. Run .\dev.bat setup."
         exit 1
     }
+    $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
+    $LspCliSource = Get-Content -LiteralPath $LspCliSourcePath -Raw
+    foreach ($RequiredPersistentLspToken in @(
+        "struct DocumentState",
+        "type Documents = HashMap<String, DocumentState>",
+        "document_state_from_notification",
+        "document_version_from_request",
+        '"textDocumentSync": {',
+        '"openClose": true',
+        '"save": { "includeText": true }',
+        '"method": "textDocument/publishDiagnostics"',
+        'params.insert("version".to_owned(), json!(version))'
+    )) {
+        if (-not $LspCliSource.Contains($RequiredPersistentLspToken)) {
+            throw "eng-lsp CLI missing persistent document/version diagnostics token $RequiredPersistentLspToken"
+        }
+    }
+
     Invoke-Native $cargo "test" "-p" "eng_lsp" "--" "--nocapture"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--smoke"
     Invoke-Native $cargo "run" "-p" "eng_lsp" "--" "--snapshot-check" "examples\official\01_csv_plot\main.eng"
