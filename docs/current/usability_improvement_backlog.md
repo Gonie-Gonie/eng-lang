@@ -54,6 +54,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 556: Added compiler-owned block-opener keyword groups so partial `args`, `where`, `with`, and `on` edits keep block-keyword coloring before full parse context is available.
 - Batch 557: Mapped semantic keyword declaration/local fallbacks to block-opener TextMate scopes so `args` and `where` retain block coloring after semantic overlay.
 - Batch 558: Made VS Code last-run artifact pickers and review-panel artifact links share availability state so existing outputs sort first and missing optional artifacts are labeled clearly.
+- Batch 559: Added plain status summaries to VS Code highlight inspection JSON so token absence and missing fallback-scope coverage are visible without reading raw rows first.
 
 ## Documentation Policy
 

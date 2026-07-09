@@ -376,6 +376,8 @@ function createCommandHandlers(options = {}) {
       source: document.uri.fsPath,
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       summary: {
+        status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope),
+        fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
         token_count: tokenCount,
         counts_by_type: tokenCounts,
         counts_by_modifier: modifierCounts,
@@ -476,6 +478,7 @@ function createCommandHandlers(options = {}) {
         zero_based_character: cursor.character
       },
       summary: {
+        status: cursorHighlightStatus(matchingTokens, nearestTokens),
         matching_token_count: matchingTokens.length,
         nearest_token_count: nearestTokens.length,
         line_token_count: lineTokens.length,
@@ -495,6 +498,33 @@ function createCommandHandlers(options = {}) {
       content: JSON.stringify(payload, null, 2)
     });
     await vscode.window.showTextDocument(debugDocument, { preview: false });
+  }
+
+  function highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope) {
+    if (tokenCount === 0) {
+      return "No role-aware highlight tokens were returned for this file.";
+    }
+    if (tokensWithoutFallbackScope > 0) {
+      return `${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"} returned; ${tokensWithoutFallbackScope} token${tokensWithoutFallbackScope === 1 ? "" : "s"} need theme fallback scope coverage.`;
+    }
+    return `${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"} returned with theme fallback scope coverage.`;
+  }
+
+  function highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope) {
+    if (tokenCount === 0) {
+      return "no_tokens";
+    }
+    return tokensWithoutFallbackScope > 0 ? "missing_fallback_scopes" : "mapped";
+  }
+
+  function cursorHighlightStatus(matchingTokens, nearestTokens) {
+    if (matchingTokens.length > 0) {
+      return `Caret is inside ${matchingTokens.length} role-aware highlight token${matchingTokens.length === 1 ? "" : "s"}.`;
+    }
+    if (nearestTokens.length > 0) {
+      return "No highlight token covers the caret; nearest tokens on this line are listed.";
+    }
+    return "No role-aware highlight tokens were returned for the current line.";
   }
 
   function semanticTokenCursorDistance(row, character) {
