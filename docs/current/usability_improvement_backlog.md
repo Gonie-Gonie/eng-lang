@@ -38,6 +38,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 540: Added stale-document guards to VS Code completion, hover, symbols, definition, folding, semantic-token, formatting, and code-action providers before using live or cached editor results.
 - Batch 541: Extended native workflow gates so public workflow docs and expected summaries reject Python/notebook markers and run-command wording for workflows 01/02/03.
 - Batch 542: Expanded VS Code TextMate fallback highlighting for native workflow command verbs, validation verbs, and sampling method literals outside full phrase matches.
+- Batch 543: Ran VS Code extension install through an ignored temporary working directory so CLI debug logs do not dirty the checkout, and documented the reinstall behavior.
 
 ## Documentation Policy
 

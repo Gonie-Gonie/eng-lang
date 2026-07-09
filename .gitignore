@@ -11,3 +11,4 @@
 # Generated documentation bundle outputs
 /artifacts/docs/*
 !/artifacts/docs/README.md
+/debug.log

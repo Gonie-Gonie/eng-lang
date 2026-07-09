@@ -45,6 +45,27 @@ function Invoke-Native {
     }
 }
 
+function Invoke-NativeInDirectory {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string] $WorkingDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [string] $FilePath,
+
+        [Parameter(ValueFromRemainingArguments = $true)]
+        [string[]] $Arguments
+    )
+
+    New-Item -ItemType Directory -Force -Path $WorkingDirectory | Out-Null
+    Push-Location -LiteralPath $WorkingDirectory
+    try {
+        Invoke-Native $FilePath @Arguments
+    } finally {
+        Pop-Location
+    }
+}
+
 function Set-DevEnvironment {
     New-Item -ItemType Directory -Force -Path $CargoHome, $RustupHome, $CacheHome | Out-Null
     $env:CARGO_HOME = $CargoHome
@@ -2948,6 +2969,8 @@ function Assert-VscodeExtensionContract {
         "Assert-VscodeInstallPreflight",
         "Get-InstalledVscodeEnglangExtensionPaths",
         "Get-RunningVscodeProcessSummaries",
+        "Invoke-NativeInDirectory",
+        "vscode-install",
         "Close all VS Code windows before reinstalling EngLang",
         "vscode-package"
     )) {
@@ -5572,10 +5595,11 @@ function Invoke-VscodeInstall {
     if ($null -eq $Code) {
         throw "VS Code CLI not found. Install the VSIX manually from $VsixPath, or add the VS Code 'code' command to PATH."
     }
+    $InstallWorkingDirectory = Join-Path $CacheHome "vscode-install"
     try {
-        Invoke-Native $Code "--install-extension" $VsixPath "--force"
+        Invoke-NativeInDirectory -WorkingDirectory $InstallWorkingDirectory -FilePath $Code "--install-extension" $VsixPath "--force"
     } catch {
-        throw "VS Code extension install failed. Close all VS Code windows and rerun .\dev.bat vscode-install, or install the generated VSIX manually from $VsixPath. $($_.Exception.Message)"
+        throw "VS Code extension install failed. Close all VS Code windows and rerun .\dev.bat vscode-install, or install the generated VSIX manually from $VsixPath. VS Code CLI logs, if any, are under $InstallWorkingDirectory. $($_.Exception.Message)"
     }
     Write-Host "Installed EngLang VS Code extension from $VsixPath"
     Write-Host "Reload VS Code windows that already had EngLang files open."

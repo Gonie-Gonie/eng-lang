@@ -102,9 +102,10 @@ This builds a release `eng.exe` and `eng-lsp.exe`, packages
 `dist\local-vscode\tools\englang-vscode-<version>.vsix`, and installs it with
 the VS Code `code` CLI. Close all VS Code windows before reinstalling EngLang;
 VS Code can lock the existing extension folder while it is running, so
-`vscode-install` checks for that before starting the release build. Reload VS
-Code after installation. The VSIX remains available at the generated
-`dist\local-vscode\tools` path.
+`vscode-install` checks for that before starting the release build. The wrapper
+runs the CLI from an ignored temporary directory so VS Code log files do not dirty
+the checkout. Reload VS Code after installation. The VSIX remains available at
+the generated `dist\local-vscode\tools` path.
 
 To build the VSIX without installing it:
 
