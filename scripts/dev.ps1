@@ -4127,6 +4127,11 @@ function Assert-VscodeExtensionContract {
     if (-not $CompletionProviderSource.Contains('require("./lspKinds")')) {
         throw "VS Code completion provider must reuse shared LSP kind conversion"
     }
+    foreach ($RequiredCompletionInsertToken in @("completionInsertSnippetForLabel", "new vscode.SnippetString", '\${1:T}', 'LinearOperator[${1:From} -> ${2:To}]')) {
+        if (-not $CompletionProviderSource.Contains($RequiredCompletionInsertToken)) {
+            throw "VS Code completion provider missing insert-text token $RequiredCompletionInsertToken"
+        }
+    }
     if (-not $FoldingRangeProviderSource.Contains('require("./lspKinds")')) {
         throw "VS Code folding provider must reuse shared LSP kind conversion"
     }

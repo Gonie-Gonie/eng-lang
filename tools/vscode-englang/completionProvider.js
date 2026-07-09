@@ -424,12 +424,30 @@ function isCaseTableLikeReceiver(receiver) {
   );
 }
 
+function completionInsertSnippetForLabel(label) {
+  if (typeof label !== "string") {
+    return undefined;
+  }
+  const genericType = /^([A-Za-z_][A-Za-z0-9_]*)\[T\]$/.exec(label);
+  if (genericType) {
+    return `${genericType[1]}[\${1:T}]`;
+  }
+  if (label === "LinearOperator[From -> To]") {
+    return "LinearOperator[${1:From} -> ${2:To}]";
+  }
+  return undefined;
+}
+
 function completionItemFromLsp(completion) {
   const item = new vscode.CompletionItem(
     completion.label,
     completionKindFromLsp(completion.lsp_kind ?? completion.kind)
   );
   item.detail = completion.detail;
+  const insertSnippet = completionInsertSnippetForLabel(completion.label);
+  if (insertSnippet) {
+    item.insertText = new vscode.SnippetString(insertSnippet);
+  }
   if (completion.documentation) {
     item.documentation = completion.documentation;
   }
@@ -447,6 +465,7 @@ function addCompletion(items, seen, item) {
 
 module.exports = {
   EngCompletionProvider,
+  completionInsertSnippetForLabel,
   completionItemsFromPayload,
   argsFieldCompletionsFromDocument,
   schemaBindingFieldCompletionsFromDocument,

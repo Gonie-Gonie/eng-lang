@@ -76,6 +76,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 519: Added TextMate first-paint highlighting for schema collection types.
 - Batch 520: Added schema collection types to the LSP/editor public type catalog.
 - Batch 521: Added VS Code semantic fallback coverage for array suffix type scopes.
+- Batch 522: Added editable VS Code insert snippets for generic type completions.
 
 ## Documentation Policy
 
