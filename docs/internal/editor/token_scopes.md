@@ -14,6 +14,7 @@ the files that keep VS Code and the native IDE aligned.
 | Semantic token legend | `eng-lsp --editor-metadata` |
 | Generated editor metadata | `tools/vscode-englang/generated/editor/englang-editor-metadata.json` |
 | Generated syntax catalog | `tools/vscode-englang/generated/editor/englang-syntax.json` |
+| Workflow status literal catalog | `syntax_catalog.workflow_status_literals` from `eng-lsp --editor-metadata` |
 | Native IDE lexical fallback catalog | `eng-lsp --editor-metadata` via `ide_bootstrap.syntaxCatalog` |
 | VS Code semantic fallback scopes | `tools/vscode-englang/package.json` |
 | Optional VS Code color themes | `tools/vscode-englang/themes/englang-dark-color-theme.json` and `tools/vscode-englang/themes/englang-light-color-theme.json` |
@@ -23,7 +24,7 @@ the files that keep VS Code and the native IDE aligned.
 Edit the source grammar, not the generated grammar. The source grammar may use
 `{{...}}` placeholders for compiler-owned keyword, workflow helper, option,
 type, and unit lists; `build-grammar.ps1` expands them from generated editor
-metadata. After grammar changes run:
+metadata, including `syntax_catalog.workflow_status_literals` for `status ==`, `status !=`, and `status =` values. After grammar changes run:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata
@@ -170,7 +171,7 @@ Current workflow phrase scopes:
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |
 | `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |
-| `meta.workflow.status-condition.englang` | `status == passed` and related `on { ... }` status checks. |
+| `meta.workflow.status-condition.englang` | `status == passed` and related `on { ... }` status checks; the literal list is generated from `syntax_catalog.workflow_status_literals`. |
 | `meta.workflow.summary-field.englang` | `<value> as <unit> with "<format>"` summary CSV fields. |
 | `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
 | `meta.workflow.validation.englang` | `validate ...`, `assert ...`, and `golden ... matches ...` validation lines. |
@@ -304,7 +305,10 @@ Base semantic selectors observed in LSP snapshots must keep fallback scopes even
 
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
-source-visible stdlib module imports plus bundled stdlib namespace tokens.
+source-visible stdlib module imports plus bundled stdlib namespace tokens. The
+native IDE lexical fallback also consumes `syntax_catalog.workflow_status_literals`
+so `status =`, `status ==`, and `status !=` literals keep workflow-step
+coloring before semantic tokens arrive.
 
 The extension also contributes optional `EngLang Dark` and `EngLang Light`
 color themes. Those themes define both TextMate fallback colors and direct

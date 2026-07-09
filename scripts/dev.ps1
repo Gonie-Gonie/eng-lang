@@ -3316,6 +3316,18 @@ function Assert-VscodeExtensionContract {
             throw "editor token scope contract missing semantic modifier $SemanticModifier"
         }
     }
+    foreach ($RequiredTokenScopeDocToken in @(
+        "syntax_catalog.workflow_status_literals",
+        "native IDE lexical fallback also consumes",
+        "status ==",
+        "status !=",
+        "status ="
+    )) {
+        if (-not $TokenScopesDoc.Contains($RequiredTokenScopeDocToken)) {
+            throw "editor token scope contract missing workflow status literal token $RequiredTokenScopeDocToken"
+        }
+    }
+
     $SemanticScopeRule = @($Package.contributes.semanticTokenScopes | Where-Object { $_.language -eq "englang" }) | Select-Object -First 1
     if ($null -eq $SemanticScopeRule) {
         throw "VS Code extension missing englang semantic token scope mappings"
