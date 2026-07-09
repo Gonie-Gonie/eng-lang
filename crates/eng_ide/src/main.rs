@@ -898,7 +898,7 @@ fn empty_hovers_view() -> Value {
 }
 
 fn base_completion_items() -> Vec<CompletionView> {
-    let mut items = eng_lsp::editor_completion_seed()
+    let mut items = eng_lsp::editor_completion_items()
         .into_iter()
         .map(CompletionView::from_lsp)
         .collect::<Vec<_>>();
@@ -4022,10 +4022,10 @@ with {
     }
 
     #[test]
-    fn native_ide_completion_seed_uses_lsp_editor_seed() {
-        let lsp_seed = eng_lsp::editor_completion_seed();
+    fn native_ide_completions_use_lsp_editor_items() {
+        let lsp_items = eng_lsp::editor_completion_items();
         let completions = base_completion_items();
-        assert!(completions.len() >= lsp_seed.len());
+        assert!(completions.len() >= lsp_items.len());
 
         let labels = completions
             .iter()
@@ -4042,7 +4042,7 @@ with {
         ] {
             assert!(
                 labels.contains(required),
-                "native IDE completion seed should include LSP label {required}"
+                "native IDE completions should include LSP label {required}"
             );
         }
         for completion in &lsp_seed {
@@ -4051,7 +4051,7 @@ with {
                     && item.detail == completion.detail
                     && item.kind == completion.kind
                     && item.insert_snippet.as_deref() == completion.insert_snippet.as_deref()),
-                "native IDE completion seed should mirror LSP completion {}",
+                "native IDE completion items should mirror LSP completion {}",
                 completion.label
             );
         }

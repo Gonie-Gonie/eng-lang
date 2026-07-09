@@ -2637,12 +2637,17 @@ fn editor_metadata_cli_exports_editor_contract() {
         .expect("units should be an array")
         .iter()
         .any(|unit| unit["label"] == "kW"));
-    let completions = metadata["completion_seed"]
+    let completions = metadata["completion_items"]
         .as_array()
-        .expect("completion seed should be an array");
+        .expect("completion items should be an array");
     assert_eq!(
-        metadata["completion_seed_count"].as_u64(),
+        metadata["completion_items_count"].as_u64(),
         Some(completions.len() as u64)
+    );
+    assert_eq!(metadata["completion_seed"], metadata["completion_items"]);
+    assert_eq!(
+        metadata["completion_seed_count"],
+        metadata["completion_items_count"]
     );
     for label in ["records", "promote json records", "read json", "eng.table"] {
         assert!(

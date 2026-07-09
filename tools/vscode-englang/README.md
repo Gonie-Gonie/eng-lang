@@ -263,8 +263,9 @@ generated from `eng-lsp --editor-metadata`. Split generated files are also
 written for review: `englang-semantic-legend.json`,
 `englang-completions.json`, and `englang-syntax.json`. The same metadata file
 provides the static completion fallback used when live completion is
-unavailable. Regenerate it after LSP completion, keyword, option, type, unit,
-or highlight legend changes:
+unavailable. New tooling should read the `completion_items` catalog;
+`completion_seed` remains a legacy alias for older consumers. Regenerate it
+after LSP completion, keyword, option, type, unit, or highlight legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata

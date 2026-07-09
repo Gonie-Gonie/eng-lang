@@ -2799,6 +2799,9 @@ function Assert-VscodeExtensionContract {
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
     $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias")) {
+        throw "VS Code README must document completion_items as the preferred editor metadata completion catalog"
+    }
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
     }
@@ -3658,15 +3661,15 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion seed metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
     }
     $CompletionSource = $ExtensionSource + "`n" + $CompletionProviderSource + "`n" + $LspRequestsSource
     if (-not $ExtensionSource.Contains("COMPLETION_SEED") -or -not $CompletionProviderSource.Contains("completion.lsp_kind")) {
-        throw "VS Code extension must use generated completion seed metadata as the completion fallback"
+        throw "VS Code extension must use generated completion item metadata as the completion fallback"
     }
     foreach ($RequiredCompletionToken in @(
         'require("./completionProvider")',
@@ -4154,7 +4157,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code code action provider must load local quick fix helpers from localCodeActions.js"
     }
     if (-not $ExtensionSource.Contains('completionSeed: COMPLETION_SEED') -or -not $CodeActionProviderSource.Contains('this.completionSeed = Array.isArray(options.completionSeed)') -or -not $CodeActionProviderSource.Contains('completionSeed: this.completionSeed')) {
-        throw "VS Code code action provider must pass generated completion seed to local quick fixes"
+        throw "VS Code code action provider must pass generated completion catalog to local quick fixes"
     }
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
@@ -4394,32 +4397,40 @@ function Assert-VscodeExtensionContract {
     if ($GeneratedCompletions.format -ne "eng-lsp-editor-metadata-v1") {
         throw "generated VS Code completions returned unexpected format $($GeneratedCompletions.format)"
     }
-    $MetadataCompletionLabels = @($EditorMetadata.completion_seed | ForEach-Object { $_.label })
-    $GeneratedCompletionLabels = @($GeneratedCompletions.completion_seed | ForEach-Object { $_.label })
-    Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $GeneratedCompletionLabels -Description "VS Code generated completion seed labels"
+    $MetadataCompletionLabels = @($EditorMetadata.completion_items | ForEach-Object { $_.label })
+    $GeneratedCompletionLabels = @($GeneratedCompletions.completion_items | ForEach-Object { $_.label })
+    Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $GeneratedCompletionLabels -Description "VS Code generated completion item labels"
+    $MetadataLegacyCompletionLabels = @($EditorMetadata.completion_seed | ForEach-Object { $_.label })
+    $GeneratedLegacyCompletionLabels = @($GeneratedCompletions.completion_seed | ForEach-Object { $_.label })
+    Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $MetadataLegacyCompletionLabels -Description "VS Code completion_items/completion_seed legacy alias labels"
+    Assert-SameStringSequence -Left $GeneratedCompletionLabels -Right $GeneratedLegacyCompletionLabels -Description "VS Code generated completion_items/completion_seed legacy alias labels"
+    if ($EditorMetadata.completion_items_count -ne $EditorMetadata.completion_seed_count -or $GeneratedCompletions.completion_items_count -ne $GeneratedCompletions.completion_seed_count) {
+        throw "generated VS Code completion_items and completion_seed counts must match while the legacy alias is retained"
+    }
     if ($MetadataCompletionLabels.Count -lt 100) {
-        throw "generated VS Code completion seed is unexpectedly small: $($MetadataCompletionLabels.Count)"
+        throw "generated VS Code completion item catalog is unexpectedly small: $($MetadataCompletionLabels.Count)"
     }
     if ($MetadataCompletionLabels -contains "fixture") {
-        throw "generated VS Code completion seed must not suggest legacy fixture option; use offline_response"
+        throw "generated VS Code completion items must not suggest legacy fixture option; use offline_response"
     }
     foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
-        $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
+        $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
-            throw "generated VS Code editor metadata missing completion seed $RequiredCompletion"
+            throw "generated VS Code editor metadata missing completion item $RequiredCompletion"
         }
         if ($null -eq $Completion.lsp_kind) {
-            throw "generated VS Code editor metadata completion seed $RequiredCompletion missing lsp_kind"
+            throw "generated VS Code editor metadata completion item $RequiredCompletion missing lsp_kind"
         }
     }
-    $ReadJsonCompletion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
+    $ReadJsonCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
     if ($ReadJsonCompletion.insert -ne "read json args.config" -or $ReadJsonCompletion.insert_snippet -ne 'read json ${1:args.config}') {
         throw "generated VS Code editor metadata read json completion must include insert and insert_snippet"
     }
-    $LinearOperatorCompletion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq "LinearOperator[From -> To]" }) | Select-Object -First 1
+    $LinearOperatorCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "LinearOperator[From -> To]" }) | Select-Object -First 1
     if ($LinearOperatorCompletion.insert_snippet -ne 'LinearOperator[${1:From} -> ${2:To}]') {
         throw "generated VS Code editor metadata LinearOperator completion must include insert_snippet"
-    }    foreach ($RequiredHyphenatedWorkflowBuiltin in @("latin-hypercube")) {
+    }
+    foreach ($RequiredHyphenatedWorkflowBuiltin in @("latin-hypercube")) {
         $HyphenatedWorkflowBuiltin = @($EditorMetadata.syntax_catalog.hyphenated_workflow_builtins | Where-Object { $_ -eq $RequiredHyphenatedWorkflowBuiltin }) | Select-Object -First 1
         if ($null -eq $HyphenatedWorkflowBuiltin) {
             throw "generated VS Code editor metadata missing hyphenated workflow builtin $RequiredHyphenatedWorkflowBuiltin"
@@ -4907,14 +4918,14 @@ function Invoke-IdeCheck {
         }
     }
     $IdeMainSource = Get-Content -LiteralPath $TauriMainPath -Raw
-    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_seed", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completion_seed_uses_lsp_editor_seed", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>")) {
+    foreach ($RequiredIdeBackendToken in @("eng_lsp", "semantic_tokens", "hovers", "editor_payload_view", "snapshot_from_report_with_source", "hover_json", "format_source", "ide_format", "FormatView", "native_ide_format_uses_compiler_formatter", "editor_completion_items", "hyphenated_workflow_builtins", "latin-hypercube", "CompletionView::from_lsp", ".insert", "unwrap_or_else(|| completion.label.clone())", "native_ide_completions_use_lsp_editor_items", "check_view_surfaces_lsp_semantic_tokens", "one-line EngLang statement such as", "cd <dir>")) {
         if (-not $IdeMainSource.Contains($RequiredIdeBackendToken)) {
             throw "Native IDE backend missing contract token $RequiredIdeBackendToken"
         }
     }
     foreach ($ForbiddenNativeIdeCompletionToken in @("BASE_COMPLETION_KEYWORDS", "PUBLIC_TYPE_COMPLETIONS", "WORKFLOW_BUILTIN_COMPLETIONS", "WORKFLOW_OPTION_COMPLETIONS")) {
         if ($IdeMainSource.Contains($ForbiddenNativeIdeCompletionToken)) {
-            throw "Native IDE backend must use eng_lsp editor completion seed instead of $ForbiddenNativeIdeCompletionToken"
+            throw "Native IDE backend must use eng_lsp editor completion items instead of $ForbiddenNativeIdeCompletionToken"
         }
     }
     foreach ($ForbiddenNativeIdeFixtureToken in @("python run.py", '"target": "python"')) {
@@ -5034,9 +5045,9 @@ function Invoke-LspCheck {
         throw "eng-lsp --editor-metadata returned unexpected format $($EditorMetadata.format)"
     }
     foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
-        $Completion = @($EditorMetadata.completion_seed | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
+        $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
-            throw "eng-lsp --editor-metadata missing completion seed $RequiredCompletion"
+            throw "eng-lsp --editor-metadata missing completion item $RequiredCompletion"
         }
     }
     foreach ($RequiredModifier in @("workflowStep", "unit", "quantity", "solver")) {

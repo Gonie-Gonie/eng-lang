@@ -44,6 +44,8 @@ $SemanticLegend = [ordered]@{
 }
 $Completions = [ordered]@{
     format = $Metadata.format
+    completion_items_count = $Metadata.completion_items_count
+    completion_items = $Metadata.completion_items
     completion_seed_count = $Metadata.completion_seed_count
     completion_seed = $Metadata.completion_seed
 }

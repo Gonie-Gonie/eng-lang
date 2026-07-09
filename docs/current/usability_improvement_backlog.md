@@ -88,6 +88,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 531: Reworded current workflow track scope away from skeleton language and added it to docs wording guards.
 - Batch 532: Added portable package and VSIX smoke coverage for VS Code grammar, snippets, generated editor metadata, and EngLang color themes.
 - Batch 533: Clarified Native IDE Problems and Terminal placeholder/help wording for supported commands and one-line EngLang statements.
+- Batch 534: Added `completion_items` editor metadata as the preferred completion catalog API while retaining `completion_seed` as a compatibility alias.
 
 ## Documentation Policy
 

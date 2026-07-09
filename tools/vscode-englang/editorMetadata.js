@@ -12,12 +12,12 @@ function loadEditorMetadata(extensionRoot) {
   const legend = metadata.semantic_token_legend ?? {};
   const semanticTokenTypes = legend.token_types;
   const semanticTokenModifiers = legend.token_modifiers;
-  const completionSeed = metadata.completion_seed;
+  const completionItems = metadata.completion_items ?? metadata.completion_seed;
   const syntaxCatalog = metadata.syntax_catalog ?? {};
   if (
     !Array.isArray(semanticTokenTypes) ||
     !Array.isArray(semanticTokenModifiers) ||
-    !Array.isArray(completionSeed) ||
+    !Array.isArray(completionItems) ||
     !Array.isArray(syntaxCatalog.keywords) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
@@ -36,7 +36,8 @@ function loadEditorMetadata(extensionRoot) {
   return {
     semanticTokenTypes,
     semanticTokenModifiers,
-    completionSeed,
+    completionItems,
+    completionSeed: completionItems,
     syntaxCatalog
   };
 }

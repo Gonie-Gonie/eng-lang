@@ -1544,13 +1544,19 @@ pub fn snapshot_json(snapshot: &LspSnapshot) -> Value {
 }
 
 pub fn editor_metadata_json() -> Value {
-    let completions = editor_completion_seed();
+    let completions = editor_completion_items();
+    let completion_values = completions
+        .iter()
+        .map(editor_completion_json)
+        .collect::<Vec<_>>();
     json!({
         "format": LSP_EDITOR_METADATA_FORMAT,
         "semantic_token_legend": semantic_legend_json(&semantic_legend()),
         "syntax_catalog": editor_syntax_catalog_json(),
+        "completion_items_count": completions.len(),
+        "completion_items": completion_values.clone(),
         "completion_seed_count": completions.len(),
-        "completion_seed": completions.iter().map(editor_completion_json).collect::<Vec<_>>(),
+        "completion_seed": completion_values,
     })
 }
 
@@ -1630,13 +1636,17 @@ pub fn editor_syntax_catalog_json() -> Value {
     })
 }
 
-pub fn editor_completion_seed() -> Vec<LspCompletion> {
+pub fn editor_completion_items() -> Vec<LspCompletion> {
     let report = check_source(
         Path::new("editor-metadata.eng"),
         "",
         &CheckOptions::default(),
     );
     completion_items(&report)
+}
+
+pub fn editor_completion_seed() -> Vec<LspCompletion> {
+    editor_completion_items()
 }
 
 pub fn semantic_legend_json(legend: &LspSemanticLegend) -> Value {
@@ -8008,7 +8018,7 @@ mod tests {
     }
 
     #[test]
-    fn editor_metadata_exports_completion_seed_and_semantic_legend() {
+    fn editor_metadata_exports_completion_items_and_semantic_legend() {
         let metadata = editor_metadata_json();
         assert_eq!(metadata["format"], LSP_EDITOR_METADATA_FORMAT);
         assert_eq!(
@@ -8091,12 +8101,17 @@ mod tests {
             "syntax catalog should expose compiler unit labels"
         );
 
-        let completions = metadata["completion_seed"]
+        let completions = metadata["completion_items"]
             .as_array()
-            .expect("editor completion seed should be an array");
+            .expect("editor completion items should be an array");
         assert_eq!(
-            metadata["completion_seed_count"].as_u64(),
+            metadata["completion_items_count"].as_u64(),
             Some(completions.len() as u64)
+        );
+        assert_eq!(metadata["completion_seed"], metadata["completion_items"]);
+        assert_eq!(
+            metadata["completion_seed_count"],
+            metadata["completion_items_count"]
         );
         for (label, kind) in [
             ("records", "keyword"),
@@ -8148,14 +8163,14 @@ mod tests {
             !completions
                 .iter()
                 .any(|completion| completion["label"] == "fixture"),
-            "editor metadata should not suggest legacy fixture option; use offline_response"
+            "editor completion items should not suggest legacy fixture option; use offline_response"
         );
         for legacy_model_completion in ["regression_table", "train_regression"] {
             assert!(
                 !completions
                     .iter()
                     .any(|completion| completion["label"] == legacy_model_completion),
-                "editor metadata should not suggest legacy model completion {legacy_model_completion}; use train regression"
+                "editor completion items should not suggest legacy model completion {legacy_model_completion}; use train regression"
             );
         }
         let net_completion = completions

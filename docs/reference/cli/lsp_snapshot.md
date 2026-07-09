@@ -77,8 +77,10 @@ It contains:
 - `semantic_token_legend`: token types and modifiers shared with VS Code.
 - `syntax_catalog`: keyword, workflow builtin, with-option, public type,
   quantity, and unit labels used by grammar and highlight checks.
-- `completion_seed`: fallback completions used when live completion is
+- `completion_items`: fallback completions used when live completion is
   unavailable.
+- `completion_seed`: legacy alias for `completion_items`; new tooling should
+  read `completion_items`.
 
 ## Diagnostics
 
