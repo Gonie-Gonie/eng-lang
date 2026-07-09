@@ -8222,6 +8222,47 @@ mod tests {
     }
 
     #[test]
+    fn vscode_type_semantic_scope_mappings_cover_collection_fallbacks() {
+        let root = repo_root_for_tests();
+        let package = read_json_file(
+            &root
+                .join("tools")
+                .join("vscode-englang")
+                .join("package.json"),
+        );
+        let required: &[(&str, &[&str])] = &[
+            (
+                "type",
+                &[
+                    "support.type.englang",
+                    "meta.type.generic.englang",
+                    "meta.type.array-suffix.englang",
+                    "variable.parameter.type.englang",
+                ],
+            ),
+            (
+                "type.quantity",
+                &[
+                    "support.type.englang",
+                    "meta.type.generic.englang",
+                    "meta.type.array-suffix.englang",
+                    "variable.parameter.type.englang",
+                ],
+            ),
+        ];
+
+        for (selector, fallback_scopes) in required {
+            let scopes = package_semantic_scope_values(&package, selector);
+            for fallback_scope in *fallback_scopes {
+                assert!(
+                    scopes.contains(fallback_scope),
+                    "semantic token scope mapping {selector} should include fallback {fallback_scope}"
+                );
+            }
+        }
+    }
+
+    #[test]
     fn vscode_keyword_semantic_scope_mappings_cover_clause_fallbacks() {
         let root = repo_root_for_tests();
         let package = read_json_file(

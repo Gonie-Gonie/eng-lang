@@ -75,6 +75,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 518: Backed generic function-call named argument highlighting with compiler workflow options plus function-style aliases.
 - Batch 519: Added TextMate first-paint highlighting for schema collection types.
 - Batch 520: Added schema collection types to the LSP/editor public type catalog.
+- Batch 521: Added VS Code semantic fallback coverage for array suffix type scopes.
 
 ## Documentation Policy
 

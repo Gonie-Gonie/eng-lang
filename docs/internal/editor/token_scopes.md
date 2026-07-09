@@ -248,7 +248,7 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 
 | Semantic selector | Fallback scope intent |
 | --- | --- |
-| `type` | Type names, generic type expressions, and bracketed type arguments. |
+| `type` | Type names, generic type expressions, array suffix type expressions, and bracketed type arguments. |
 | `class`, `interface`, `class.declaration`, `interface.declaration` | Declared schema, system, component, domain, and interface-like names. |
 | `class.defaultLibrary`, `interface.defaultLibrary` | Bundled type/domain names surfaced by the compiler. |
 | `comment` | Ordinary (`#`, `//`) and documentation (`///`) line comments. |

@@ -140,6 +140,7 @@
           "type": [
             "support.type.englang",
             "meta.type.generic.englang",
+            "meta.type.array-suffix.englang",
             "variable.parameter.type.englang"
           ],
           "class.declaration": [
@@ -269,6 +270,7 @@
           "type.quantity": [
             "support.type.englang",
             "meta.type.generic.englang",
+            "meta.type.array-suffix.englang",
             "variable.parameter.type.englang"
           ],
           "property.unit": [
