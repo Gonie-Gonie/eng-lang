@@ -594,6 +594,13 @@ $GrammarOnlyWorkflowBuiltinAliases = @(
 $GrammarOnlyWorkflowOptionAliases = @(
     "fixture"
 )
+$GrammarOnlyFunctionArgumentAliases = @(
+    "axis",
+    "over",
+    "mean",
+    "std",
+    "error"
+)
 $GrammarWorkflowOptions = Read-GrammarWorkflowOptionLabels
 $PublicTypeLabels = @($SyntaxCatalog.public_types | ForEach-Object { [string]$_.label })
 $PublicGenericTypes = @($PublicTypeLabels | Where-Object {
@@ -807,6 +814,7 @@ Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $C
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
+Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases) -Description "LSP workflow named argument" -Suffix "="
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedWorkflowScopesCoverGrammar

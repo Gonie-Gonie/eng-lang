@@ -72,6 +72,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 515: Added TextMate first-paint highlighting for `args { ... }` argument declarations.
 - Batch 516: Scoped TextMate declaration colons for args and field declarations.
 - Batch 517: Added TextMate first-paint highlighting for typed const declarations.
+- Batch 518: Backed generic function-call named argument highlighting with compiler workflow options plus function-style aliases.
 
 ## Documentation Policy
 

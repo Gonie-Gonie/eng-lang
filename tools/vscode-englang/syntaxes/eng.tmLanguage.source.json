@@ -86,7 +86,7 @@
                   },
                   {
                     "name": "variable.parameter.function.englang",
-                    "match": "\\b(axis|over|target|y|features|x|test|test_fraction|seed|mean|std|sigma|uncertainty|error|relative_error|samples|n|method|scale|gain|offset|bias|lower|upper)\\b(?=\\s*=)"
+                    "match": "\\b({{WORKFLOW_NAMED_ARGS}})\\b(?=\\s*=)"
                   },
                   {
                     "name": "variable.parameter.property.englang",
@@ -1650,7 +1650,7 @@
             "patterns": [
               {
                 "name": "variable.parameter.function.englang",
-                "match": "\\b(axis|over|target|y|features|x|test|test_fraction|seed|mean|std|sigma|uncertainty|error|relative_error|samples|n|method|scale|gain|offset|bias|lower|upper)\\b(?=\\s*=)"
+                "match": "\\b({{WORKFLOW_NAMED_ARGS}})\\b(?=\\s*=)"
               },
               { "include": "#functionCalls" },
               { "include": "#strings" },

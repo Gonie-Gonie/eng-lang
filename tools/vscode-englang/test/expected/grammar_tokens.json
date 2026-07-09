@@ -3428,6 +3428,38 @@
     "text": "axis="
   },
   {
+    "fixture": "01_core_workflow.eng",
+    "scope": "meta.function-call.englang",
+    "text": "custom_train(sensor.T_supply, algorithm=\"linear\", hidden=[8], epochs=20, split=args.split_ref)",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "entity.name.function.call.englang",
+    "text": "custom_train",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "algorithm="
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "hidden="
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "epochs="
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "variable.parameter.function.englang",
+    "text": "split="
+  },
+  {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.sample-method.englang",
     "text": "sample grid",

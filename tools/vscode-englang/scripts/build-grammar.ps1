@@ -63,6 +63,13 @@ $GrammarOnlyWorkflowBuiltinAliases = @(
 $GrammarOnlyWorkflowOptionAliases = @(
     "fixture"
 )
+$GrammarOnlyFunctionArgumentAliases = @(
+    "axis",
+    "over",
+    "mean",
+    "std",
+    "error"
+)
 # Preserve TextMate-only aliases until the compiler-owned catalog exposes these
 # artifact, byte-size, and compatibility quantity labels directly.
 $GrammarOnlyTypeAliases = @(
@@ -127,6 +134,7 @@ $TemplateValues = @{
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)
     "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
+    "{{WORKFLOW_NAMED_ARGS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases)
 }
 
 $SourceRaw = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8

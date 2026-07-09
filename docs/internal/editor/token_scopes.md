@@ -84,7 +84,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.declaration.args-block.englang` | Full `args { ... }` execution-argument blocks. |
 | `meta.declaration.argument.englang` | Argument field declaration fragments inside `args { ... }`. |
 | `variable.parameter.argument.englang` | Captured execution argument names inside `args { ... }`. |
-| `variable.parameter.function.englang` | Function and method parameter declarations plus named call arguments such as `std=` or `target=`. |
+| `variable.parameter.function.englang` | Function and method parameter declarations plus compiler-catalog and function-style named call arguments such as `std=`, `algorithm=`, or `split=`. |
 | `variable.language.self.englang` | `self` references inside class methods. |
 | `variable.other.local.englang` | Runtime binding references inside workflow phrases. |
 | `meta.declaration.parameter.englang` | Function and method parameter declaration fragments. |
