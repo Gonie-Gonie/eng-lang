@@ -21,6 +21,20 @@ Q_coil_dist = normal(mean=5 kW, std=0.8 kW, samples=31)
 Q_dist_alias = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)
 Q_range_alias = distribution(kind=uniform, lower=1 kW, upper=8 kW, samples=11)
 Q_total_unc = propagate(Q_coil_dist, method=linear, scale=1.08, offset=0.4 kW)
+Q_total_mc = propagate(Q_coil_dist, method=linear)
+with {
+    uncertainty = monte_carlo
+    samples = 64
+    seed = 7
+}
+Q_total_interval = propagate(Q_coil_dist, method=linear)
+with {
+    uncertainty = interval
+}
+Q_total_ensemble = propagate(Q_coil_dist, method=linear)
+with {
+    uncertainty = ensemble
+}
 Q_probability = probability(Q_total_unc < 10 kW)
 I_window = 850 W/m^2
 occupant_density = 0.12 people/m2

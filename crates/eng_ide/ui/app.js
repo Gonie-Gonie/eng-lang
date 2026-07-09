@@ -22,7 +22,8 @@ const FALLBACK_LEXICAL_OPERATOR_WORDS = [
 const FALLBACK_LEXICAL_CONSTANTS = [
   "true", "false", "none", "null", "info", "warn", "debug", "error",
   "safe", "normal", "repro", "append", "insert", "upsert", "replace",
-  "commit", "rollback", "keep", "empty", "interpolate", "monotonic", "linear", "asc", "desc",
+  "commit", "rollback", "keep", "empty", "interpolate", "monotonic", "linear",
+  "interval", "ensemble", "monte_carlo", "source_linear_terms", "finite_difference", "asc", "desc",
   "pending", "running", "passed", "failed", "succeeded", "skipped", "blocked",
   "completed", "cached", "stale", "hit", "miss", "created", "updated",
   "metadata_ready", "warnings_present", "diagnostics_present", "fixed_step",

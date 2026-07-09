@@ -45,6 +45,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 547: Made VS Code diagnostics output show the selected diagnostics source/tool path and point editor-JSON failures to Tooling Status.
 - Batch 548: Added a Tooling Status action and output-panel hint when VS Code highlight inspection cannot obtain semantic highlight data.
 - Batch 549: Scoped VS Code quick-fix computation to Quick Fix requests so refactor/source-action menus stay clean.
+- Batch 550: Added VS Code and native IDE fallback coloring for solver Jacobian and uncertainty policy literals.
 
 ## Documentation Policy
 

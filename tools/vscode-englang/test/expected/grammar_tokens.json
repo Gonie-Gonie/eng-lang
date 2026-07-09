@@ -3841,5 +3841,29 @@
     "scope": "constant.language.englang",
     "text": "uniform",
     "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "monte_carlo",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "interval",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "ensemble",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "source_linear_terms",
+    "fullMatch": true
   }
 ]

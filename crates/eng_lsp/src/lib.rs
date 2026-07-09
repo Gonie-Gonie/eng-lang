@@ -416,6 +416,11 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "interpolate",
     "monotonic",
     "linear",
+    "interval",
+    "ensemble",
+    "monte_carlo",
+    "source_linear_terms",
+    "finite_difference",
     "asc",
     "desc",
     "pending",
@@ -2692,6 +2697,9 @@ fn with_option_value_semantic_class(
         {
             Some(("keyword", &["validation"]))
         }
+        "uncertainty" if matches!(value, "linear" | "interval" | "monte_carlo" | "ensemble") => {
+            Some(("keyword", &["uncertain"]))
+        }
         "solver" | "method" | "algebraic_initialization" | "jacobian" | "mass_matrix"
             if matches!(
                 value,
@@ -2705,6 +2713,8 @@ fn with_option_value_semantic_class(
                     | "dynamic_component_semi_implicit_euler"
                     | "dynamic_component_adaptive_heun"
                     | "trapezoidal"
+                    | "source_linear_terms"
+                    | "finite_difference"
                     | "none"
             ) =>
         {
@@ -4750,7 +4760,10 @@ fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
         | "dynamic_component_explicit_euler"
         | "dynamic_component_semi_implicit_euler"
         | "dynamic_component_adaptive_heun"
-        | "trapezoidal" => &["solver"],
+        | "trapezoidal"
+        | "source_linear_terms"
+        | "finite_difference" => &["solver"],
+        "interval" | "ensemble" | "monte_carlo" => &["uncertain"],
         _ => &[],
     }
 }
@@ -9086,6 +9099,14 @@ Q_dist = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)
 with {
     sensor_std = 0.2 kW
 }
+Q_mc = propagate(Q_dist, method=linear)
+with {
+    uncertainty = monte_carlo
+    uncertainty = interval
+    uncertainty = ensemble
+    samples = 64
+    seed = 7
+}
 
 sim = simulate RoomThermal
 with {
@@ -9093,6 +9114,11 @@ with {
     duration = 1 h
     solver = adaptive_heun
     tolerance = 0.001
+}
+solve_result = solve component_graph
+with {
+    jacobian = source_linear_terms
+    algebraic_initialization = none
 }
 
 report {
@@ -9231,6 +9257,24 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "sensor_std", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "confidence_band", "uncertain");
         assert_semantic_token_modifier(&snapshot, source, "Q_dist", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "uncertainty", "uncertain");
+        assert_semantic_token_modifier(&snapshot, source, "monte_carlo", "uncertain");
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    uncertainty = interval",
+            "interval",
+            "keyword",
+            "uncertain",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "    uncertainty = ensemble",
+            "ensemble",
+            "keyword",
+            "uncertain",
+        );
         assert_eq!(
             semantic_token_modifier_count(
                 &snapshot,
@@ -9254,6 +9298,8 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
         assert_semantic_token_modifier(&snapshot, source, "adaptive_heun", "solver");
         assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "jacobian", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "source_linear_terms", "solver");
         assert_semantic_token_modifier(&snapshot, source, "query", "external");
         assert_semantic_token_modifier(&snapshot, source, "station", "external");
         assert_semantic_token_modifier(&snapshot, source, "offline_response", "external");
@@ -9405,6 +9451,8 @@ case_metadata = metadata_ready
 case_warning = warnings_present
 case_diagnostics = diagnostics_present
 solver_mode = rk4
+uncertainty_policy = monte_carlo
+jacobian_policy = source_linear_terms
 
 script LegacyScript
 struct LegacyArgs
@@ -9828,6 +9876,8 @@ struct LegacyArgs
             "warnings_present",
             "diagnostics_present",
             "rk4",
+            "monte_carlo",
+            "source_linear_terms",
         ] {
             assert_semantic_token_type(&snapshot, source, label, "keyword");
         }
@@ -9844,6 +9894,8 @@ struct LegacyArgs
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
         }
         assert_semantic_token_modifier(&snapshot, source, "rk4", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "source_linear_terms", "solver");
+        assert_semantic_token_modifier(&snapshot, source, "monte_carlo", "uncertain");
         for label in ["script", "struct"] {
             assert_semantic_token_modifier(&snapshot, source, label, "deprecated");
         }

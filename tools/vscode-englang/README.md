@@ -197,9 +197,10 @@ Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. The extension declares EngLang-specific
 role categories and theme fallback hints for units, quantities, axes, time
 series, validation/report roles, side effects, external boundaries, inputs,
-state, built-in workflow helper functions, module namespaces, model artifacts,
-DB/cache records, workflow steps, and review risks, so themes without
-EngLang-specific rules still receive stable color hints. For stronger role
+state, built-in workflow helper functions, solver and uncertainty policy
+literals, module namespaces, model artifacts, DB/cache records, workflow steps,
+and review risks, so themes without EngLang-specific rules still receive stable
+color hints. For stronger role
 separation, choose `EngLang Dark` or `EngLang Light` from VS Code's Color Theme
 picker. Set
 `englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
