@@ -534,7 +534,7 @@ function createCommandHandlers(options = {}) {
       return Number.MAX_SAFE_INTEGER;
     }
     const end = start + length;
-    if (character >= start && character <= end) {
+    if (character >= start && character < end) {
       return 0;
     }
     return character < start ? start - character : character - end;

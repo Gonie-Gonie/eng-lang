@@ -5082,7 +5082,7 @@ function semanticTokenCaretDistance(token, columnByte) {
     return Number.MAX_SAFE_INTEGER;
   }
   const end = start + length;
-  if (columnByte >= start && columnByte <= end) {
+  if (columnByte >= start && columnByte < end) {
     return 0;
   }
   return columnByte < start ? start - columnByte : columnByte - end;
