@@ -4279,6 +4279,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                     &unit_ranges,
                     &units,
                 );
+                self.scan_workflow_status_condition_tokens(line_index, start, end);
                 self.scan_legacy_declaration_names(line_index, start, end);
                 self.scan_hyphenated_workflow_builtin_tokens(line_index, start, end);
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
@@ -4521,6 +4522,59 @@ impl<'a> SemanticTokenBuilder<'a> {
             }
             index += 1;
         }
+    }
+
+    fn scan_workflow_status_condition_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+    ) {
+        let line = self.lines[line_index];
+        let bytes = line.as_bytes();
+        let mut cursor = skip_ascii_whitespace(bytes, start, end);
+        let status_end = cursor.saturating_add("status".len());
+        if status_end > end
+            || line.get(cursor..status_end) != Some("status")
+            || !is_identifier_boundary(line, cursor, status_end)
+        {
+            return;
+        }
+        cursor = skip_ascii_whitespace(bytes, status_end, end);
+        let operator_end = cursor.saturating_add(2);
+        let Some(operator) = line.get(cursor..operator_end) else {
+            return;
+        };
+        if !matches!(operator, "==" | "!=") {
+            return;
+        }
+        cursor = skip_ascii_whitespace(bytes, operator_end, end);
+        if cursor >= end || cursor >= bytes.len() || !is_ident_start(bytes[cursor]) {
+            return;
+        }
+        let value_start = cursor;
+        cursor += 1;
+        while cursor < end && cursor < bytes.len() && is_ident_byte(bytes[cursor]) {
+            cursor += 1;
+        }
+        let value = &line[value_start..cursor];
+        if !is_workflow_status_literal(value) {
+            return;
+        }
+        self.push_byte_range(
+            line_index,
+            status_end - "status".len(),
+            "status".len(),
+            "property",
+            &["workflowStep"],
+        );
+        self.push_byte_range(
+            line_index,
+            value_start,
+            cursor - value_start,
+            "keyword",
+            &["workflowStep"],
+        );
     }
 
     fn scan_legacy_declaration_names(&mut self, line_index: usize, start: usize, end: usize) {
@@ -9793,6 +9847,11 @@ with {
     status = empty
 }
 
+on {
+    status == partial
+    status != empty
+}
+
 upload = http get url("https://example.org/weather")
 with {
     query = {
@@ -9926,6 +9985,27 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
             );
         }
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
+        for (line, status) in [
+            ("    status == partial", "partial"),
+            ("    status != empty", "empty"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                "status",
+                "property",
+                "workflowStep",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                status,
+                "keyword",
+                "workflowStep",
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "on_many", "validation");
         assert_semantic_token_modifier(&snapshot, source, "constraints", "validation");
         assert_semantic_token_modifier(&snapshot, source, "missing", "validation");
