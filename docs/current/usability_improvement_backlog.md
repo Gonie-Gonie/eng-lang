@@ -89,6 +89,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 588: Added TextMate grammar expected-token guards for `status == partial` and `status != empty` so first-paint workflow status condition coloring cannot drift from the fixture coverage.
 - Batch 589: Moved workflow status-condition literal generation to LSP editor metadata via `syntax_catalog.workflow_status_literals`, removing the hardcoded TextMate status list and adding build/test guards against drift.
 - Batch 590: Made the native IDE lexical fallback consume `syntax_catalog.workflow_status_literals` and color `status =`, `status ==`, and `status !=` literals as workflow-step tokens before semantic results arrive.
+- Batch 591: Updated workflow 02 to expose native sampler `row_preview` bindings in console output, reports, and `sampling_summary.txt`, with runtime contract coverage so the workflow shows generated sample rows rather than only seed/count metadata.
 
 ## Documentation Policy
 

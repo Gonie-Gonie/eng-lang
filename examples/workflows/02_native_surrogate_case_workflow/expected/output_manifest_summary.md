@@ -26,8 +26,8 @@ database plus DB write manifest should be classified as `db_write`. Native
 model, model-card, metric, and prediction records are represented in the output
 manifest's `model_artifacts` section as `model://...` artifacts rather than as
 external-process or opaque-tool outputs. The sampling summary should record the
-native sampler method, seed, sample count, and parameter count used by the
-workflow. `process_results.json` should show
+native sampler method, seed, sample count, parameter count, and row previews used
+by the workflow. `process_results.json` should show
 `process_count = 0`.
 
 The manifest should also include normal EngLang runtime artifacts when the

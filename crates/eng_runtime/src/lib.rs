@@ -17377,6 +17377,16 @@ mod tests {
             training_sample.get("sample_count").and_then(Value::as_u64),
             Some(8)
         );
+        let training_preview = training_sample
+            .get("row_preview")
+            .and_then(Value::as_array)
+            .expect("training sample row preview");
+        assert!(!training_preview.is_empty());
+        assert_eq!(
+            training_preview[0].get("case_id").and_then(Value::as_str),
+            Some("case_001")
+        );
+
         let prediction_sample = json_array_item_by_binding(
             &surrogate_result_json,
             "/typed_payload/sample_tables",
@@ -17397,6 +17407,16 @@ mod tests {
                 .and_then(Value::as_u64),
             Some(3)
         );
+        let prediction_preview = prediction_sample
+            .get("row_preview")
+            .and_then(Value::as_array)
+            .expect("prediction sample row preview");
+        assert!(!prediction_preview.is_empty());
+        assert_eq!(
+            prediction_preview[0].get("case_id").and_then(Value::as_str),
+            Some("case_001")
+        );
+
         assert!(surrogate_output
             .output_manifest_json
             .contains("outputs/case_001/input.txt"));
@@ -17406,6 +17426,19 @@ mod tests {
         assert!(surrogate_output
             .output_manifest_json
             .contains("outputs/workflow_summary.csv"));
+        let sampling_summary_path = surrogate_output
+            .write_output_paths
+            .iter()
+            .find(|path| {
+                path.file_name().and_then(|name| name.to_str()) == Some("sampling_summary.txt")
+            })
+            .expect("sampling summary output");
+        let sampling_summary =
+            fs::read_to_string(sampling_summary_path).expect("sampling summary text");
+        assert!(sampling_summary.contains("preview=case_001:"));
+        assert!(sampling_summary.contains("prediction_preview=case_001:"));
+        assert!(sampling_summary.contains("people_density="));
+
         let surrogate_summary_csv =
             fs::read_to_string(&surrogate_output.csv_export_paths[0]).expect("surrogate summary");
         assert!(!surrogate_summary_csv.contains("12800.0,14.2,0.0"));

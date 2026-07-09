@@ -28,7 +28,7 @@ Expected saved-run properties:
 ```text
 process_results.json has process_count = 0
 typed_payload.sample_tables includes training_designs and designs with row previews
-report entries include native sample method, seed, count, and parameter-count bindings
+report entries include native sample method, seed, count, parameter-count, and row-preview bindings
 object_store.tables includes the explicit CaseTable binding `cases`
 object_store.tables includes the CaseOutput binding `case_inputs`
 object_store.tables includes the CaseResultCollection binding `case_result_collection`
@@ -48,9 +48,9 @@ metrics are then calculated with native `derive` table transforms before the
 case table, case-input apply step, model, CSV export, and SQLite write steps
 consume them. The workflow reads sampler metadata through
 `training_designs.method`, `training_designs.seed`,
-`training_designs.sample_count`, and
-`typed_payload.sample_tables[].row_preview`, so the native sampling contract is
-visible in normal bindings, output files, and the result JSON. It also reads `cases.pending_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`,
+`training_designs.sample_count`, and `training_designs.row_preview`, so the
+native sampling contract is visible in normal bindings, output files, reports,
+and the result JSON. It also reads `cases.pending_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`,
 `case_result_collection.collected_count`, and `case_result_collection.status`, so case materialization, case-input
 rendering, and native result collection are visible without digging through JSON
 artifacts. Domain adapters can replace the

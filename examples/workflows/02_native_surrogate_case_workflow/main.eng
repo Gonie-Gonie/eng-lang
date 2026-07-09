@@ -24,6 +24,7 @@ training_sample_method = training_designs.method
 training_sample_seed = training_designs.seed
 training_sample_count = training_designs.sample_count
 training_sample_parameters = training_designs.parameter_count
+training_sample_preview = training_designs.row_preview
 
 electricity_results = derive training_designs column annual_electricity = 10200 kWh + envelope_load_index * 2600 kWh + occupancy_schedule_index * 1600 kWh - cooling_cop * 750 kWh
 cooling_results = derive electricity_results column annual_cooling = 3200 kWh + envelope_load_index * 1700 kWh + occupancy_schedule_index * 450 kWh - cooling_cop * 280 kWh
@@ -66,6 +67,7 @@ prediction_sample_method = designs.method
 prediction_sample_seed = designs.seed
 prediction_sample_count = designs.sample_count
 prediction_sample_parameters = designs.parameter_count
+prediction_sample_preview = designs.row_preview
 
 surrogate_model = train regression training_results
 with {
@@ -106,13 +108,15 @@ with {
 db_tables_written = "simulation_results,predictions"
 persisted_predictions = read sqlite db.table("predictions") as PersistedPredictionResult
 
-write text join(args.output, "sampling_summary.txt"), "training={training_sample_method} seed={training_sample_seed} count={training_sample_count} parameters={training_sample_parameters} prediction={prediction_sample_method} prediction_seed={prediction_sample_seed} prediction_count={prediction_sample_count} prediction_parameters={prediction_sample_parameters}"
+write text join(args.output, "sampling_summary.txt"), "training={training_sample_method} seed={training_sample_seed} count={training_sample_count} parameters={training_sample_parameters} preview={training_sample_preview} prediction={prediction_sample_method} prediction_seed={prediction_sample_seed} prediction_count={prediction_sample_count} prediction_parameters={prediction_sample_parameters} prediction_preview={prediction_sample_preview}"
 with {
     overwrite = true
 }
 
 print "Training sample method = {training_sample_method} seed={training_sample_seed} count={training_sample_count}"
+print "Training sample preview = {training_sample_preview}"
 print "Design sample method = {prediction_sample_method} seed={prediction_sample_seed} count={prediction_sample_count}"
+print "Design sample preview = {prediction_sample_preview}"
 print "Design samples = {designs.rows}"
 print "Training result rows = {training_results.rows}"
 print "Case table rows = {cases.rows} pending={case_pending_count} failed={case_failed_count} status={case_status}"
@@ -137,10 +141,12 @@ report {
     show training_sample_seed
     show training_sample_count
     show training_sample_parameters
+    show training_sample_preview
     show prediction_sample_method
     show prediction_sample_seed
     show prediction_sample_count
     show prediction_sample_parameters
+    show prediction_sample_preview
     show case_count
     show case_pending_count
     show case_failed_count
