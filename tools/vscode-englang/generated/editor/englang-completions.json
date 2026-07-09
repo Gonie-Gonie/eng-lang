@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_items_count":  401,
+    "completion_items_count":  408,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -1275,6 +1275,12 @@
                              {
                                  "detail":  "EngLang keyword",
                                  "kind":  "keyword",
+                                 "label":  "train",
+                                 "lsp_kind":  14
+                             },
+                             {
+                                 "detail":  "EngLang keyword",
+                                 "kind":  "keyword",
                                  "label":  "true",
                                  "lsp_kind":  14
                              },
@@ -2205,6 +2211,48 @@
                                  "lsp_kind":  9
                              },
                              {
+                                 "detail":  "eng.sampling deterministic grid sample table",
+                                 "insert_snippet":  "sample grid\nwith {\n    count = ${1:9}\n    ${2:parameter} = uniform(${3:0.0}, ${4:1.0})\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "sample grid",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.sampling seeded random sample table",
+                                 "insert_snippet":  "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "sample random",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.sampling seeded uniform/random sample table alias",
+                                 "insert_snippet":  "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "sample uniform",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.sampling Latin hypercube sample table",
+                                 "insert_snippet":  "sample lhs\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "sample lhs",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.sampling Latin hypercube sample table alias",
+                                 "insert_snippet":  "sample latin_hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "sample latin_hypercube",
+                                 "lsp_kind":  9
+                             },
+                             {
+                                 "detail":  "eng.sampling Latin hypercube sample table alias",
+                                 "insert_snippet":  "sample latin-hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                 "kind":  "stdlib",
+                                 "label":  "sample latin-hypercube",
+                                 "lsp_kind":  9
+                             },
+                             {
                                  "detail":  "canonical unit K",
                                  "kind":  "class",
                                  "label":  "AbsoluteTemperature",
@@ -2457,7 +2505,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_seed_count":  401,
+    "completion_seed_count":  408,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -3732,6 +3780,12 @@
                             {
                                 "detail":  "EngLang keyword",
                                 "kind":  "keyword",
+                                "label":  "train",
+                                "lsp_kind":  14
+                            },
+                            {
+                                "detail":  "EngLang keyword",
+                                "kind":  "keyword",
                                 "label":  "true",
                                 "lsp_kind":  14
                             },
@@ -4659,6 +4713,48 @@
                                 "insert_snippet":  "promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}",
                                 "kind":  "stdlib",
                                 "label":  "promote toml config",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.sampling deterministic grid sample table",
+                                "insert_snippet":  "sample grid\nwith {\n    count = ${1:9}\n    ${2:parameter} = uniform(${3:0.0}, ${4:1.0})\n}",
+                                "kind":  "stdlib",
+                                "label":  "sample grid",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.sampling seeded random sample table",
+                                "insert_snippet":  "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                "kind":  "stdlib",
+                                "label":  "sample random",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.sampling seeded uniform/random sample table alias",
+                                "insert_snippet":  "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                "kind":  "stdlib",
+                                "label":  "sample uniform",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.sampling Latin hypercube sample table",
+                                "insert_snippet":  "sample lhs\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                "kind":  "stdlib",
+                                "label":  "sample lhs",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.sampling Latin hypercube sample table alias",
+                                "insert_snippet":  "sample latin_hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                "kind":  "stdlib",
+                                "label":  "sample latin_hypercube",
+                                "lsp_kind":  9
+                            },
+                            {
+                                "detail":  "eng.sampling Latin hypercube sample table alias",
+                                "insert_snippet":  "sample latin-hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
+                                "kind":  "stdlib",
+                                "label":  "sample latin-hypercube",
                                 "lsp_kind":  9
                             },
                             {

@@ -4620,7 +4620,7 @@ function Assert-VscodeExtensionContract {
     if ($MetadataCompletionLabels -contains "fixture") {
         throw "generated VS Code completion items must not suggest legacy fixture option; use offline_response"
     }
-    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
+    foreach ($RequiredCompletion in @("records", "promote json records", "sample uniform", "sample latin-hypercube", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
             throw "generated VS Code editor metadata missing completion item $RequiredCompletion"
@@ -4628,6 +4628,10 @@ function Assert-VscodeExtensionContract {
         if ($null -eq $Completion.lsp_kind) {
             throw "generated VS Code editor metadata completion item $RequiredCompletion missing lsp_kind"
         }
+    }
+    $SampleUniformCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "sample uniform" }) | Select-Object -First 1
+    if (-not [string]$SampleUniformCompletion.insert_snippet -or -not ([string]$SampleUniformCompletion.insert_snippet).Contains("sample uniform`nwith {")) {
+        throw "generated VS Code editor metadata sample uniform completion must include a with-block insert_snippet"
     }
     $ReadJsonCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
     if ($ReadJsonCompletion.insert -ne "read json args.config" -or $ReadJsonCompletion.insert_snippet -ne 'read json ${1:args.config}') {
@@ -5309,7 +5313,7 @@ function Invoke-LspCheck {
     if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
         throw "eng-lsp --editor-metadata returned unexpected format $($EditorMetadata.format)"
     }
-    foreach ($RequiredCompletion in @("records", "promote json records", "read json", "eng.table", "split")) {
+    foreach ($RequiredCompletion in @("records", "promote json records", "sample uniform", "sample latin-hypercube", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1
         if ($null -eq $Completion) {
             throw "eng-lsp --editor-metadata missing completion item $RequiredCompletion"

@@ -158,6 +158,7 @@ pub const SEMANTIC_TOKEN_MODIFIERS: &[&str] = &[
 
 const COMPLETION_KEYWORDS: &[&str] = &[
     "across",
+    "align",
     "and",
     "ann",
     "append",
@@ -263,8 +264,10 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "render",
     "replace",
     "request",
+    "require_one",
     "report",
     "residuals",
+    "resample",
     "return",
     "results",
     "rollback",
@@ -290,6 +293,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "through",
     "to",
     "toml",
+    "train",
     "train_test_split",
     "true",
     "uniform",
@@ -6090,6 +6094,24 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "eng.table JSON records table promotion",
         ),
         ("promote toml config", "eng.config TOML file promotion"),
+        (
+            "sample grid",
+            "eng.sampling deterministic grid sample table",
+        ),
+        ("sample random", "eng.sampling seeded random sample table"),
+        (
+            "sample uniform",
+            "eng.sampling seeded uniform/random sample table alias",
+        ),
+        ("sample lhs", "eng.sampling Latin hypercube sample table"),
+        (
+            "sample latin_hypercube",
+            "eng.sampling Latin hypercube sample table alias",
+        ),
+        (
+            "sample latin-hypercube",
+            "eng.sampling Latin hypercube sample table alias",
+        ),
     ] {
         push_completion(&mut items, &mut seen, label, "stdlib", detail);
     }
@@ -7294,6 +7316,30 @@ fn completion_insert_snippet_for_label(label: &str) -> Option<String> {
         "promote toml config" => {
             Some("promote toml file(\"${1:workflow.toml}\") as ${2:WorkflowConfig}".to_owned())
         }
+        "sample grid" => Some(
+            "sample grid\nwith {\n    count = ${1:9}\n    ${2:parameter} = uniform(${3:0.0}, ${4:1.0})\n}"
+                .to_owned(),
+        ),
+        "sample random" => Some(
+            "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+                .to_owned(),
+        ),
+        "sample uniform" => Some(
+            "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+                .to_owned(),
+        ),
+        "sample lhs" => Some(
+            "sample lhs\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+                .to_owned(),
+        ),
+        "sample latin_hypercube" => Some(
+            "sample latin_hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+                .to_owned(),
+        ),
+        "sample latin-hypercube" => Some(
+            "sample latin-hypercube\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+                .to_owned(),
+        ),
         _ => None,
     }
 }
@@ -8312,6 +8358,8 @@ mod tests {
         for (label, kind) in [
             ("records", "keyword"),
             ("promote json records", "stdlib"),
+            ("sample uniform", "stdlib"),
+            ("sample latin-hypercube", "stdlib"),
             ("train regression", "function"),
             ("read json", "stdlib"),
             ("eng.table", "stdlib"),
@@ -8330,6 +8378,15 @@ mod tests {
                 "editor metadata should include completion {label} as {kind}"
             );
         }
+        let sample_uniform_completion = completions
+            .iter()
+            .find(|completion| completion["label"] == "sample uniform")
+            .expect("editor metadata should include sample uniform completion");
+        assert_eq!(sample_uniform_completion["lsp_kind"], 9);
+        assert_eq!(
+            sample_uniform_completion["insert_snippet"],
+            "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}"
+        );
         let read_json_completion = completions
             .iter()
             .find(|completion| completion["label"] == "read json")
