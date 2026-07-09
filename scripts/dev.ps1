@@ -430,10 +430,9 @@ function Invoke-WorkflowsTest {
     }
     $WorkflowPublicDocPaths = @(
         @(Get-ChildItem -LiteralPath $WorkflowRoot -Recurse -File -Include "*.md", "*.txt" | Sort-Object FullName)
+        @(Get-ChildItem -LiteralPath (Join-Path $RepoRoot "docs\workflows") -File -Filter "*.md" | Sort-Object FullName)
         @(
             "examples\README.md",
-            "docs\workflows\index.md",
-            "docs\workflows\native_surrogate_case_workflow.md",
             "docs\user\tutorial\12_composite_workflow.md",
             "docs\current\workflow_modules.md",
             "docs\current\test_ci_gates.md"
