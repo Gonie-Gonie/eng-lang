@@ -343,8 +343,8 @@ eng.config   promote toml/json as schema
 eng.log      print/log <level> and unit-aware formatting helpers
 eng.process  run command, ProcessResult
 eng.test     test/assert/golden support
-eng.net      pinned offline/cache HTTP/download boundary records, live HTTP(S), response object fields, and SHA-256 checks now; broader auth/body policy later
-eng.cache    explicit cache-key records and hit/miss manifests now; replay/invalidation later
+eng.net      pinned offline/cache HTTP/download boundary records, live HTTP(S), POST/PUT/PATCH string bodies, response object fields, secret redaction, and SHA-256/body-hash checks now; broader live secret injection/auth schemes later
+eng.cache    explicit cache-key records, hit/miss manifests, stale diagnostics, and eng cache invalidate manifest-path invalidation now; broader process/model replay policy later
 ```
 
 ## Implementation Phases

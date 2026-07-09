@@ -48,8 +48,8 @@ APIs unless a status document says so.
 | `eng.plot` | Native workflow support | PlotSpec, plot manifest, and SVG artifacts from report directives; broader helper vocabulary remains planned. |
 | `eng.report` | Native workflow support | Report block projection to report, review, and output artifacts; broader helper vocabulary remains planned. |
 | `eng.config` | Supported narrow scope | Typed JSON/TOML file promotion with schema validation, optional field policy, source hashes, and config summaries. |
-| `eng.net` | Supported narrow scope | Live `http://` GET/download execution plus pinned offline/cache HTTP(S) boundary records with redacted query secrets, SHA-256 checks, and artifact summaries; live HTTPS currently requires a pinned response file or cache replay in this build. |
-| `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response cache materialization/replay, cache records, and hit/miss lookup artifacts; broader reuse/invalidation remains planned. |
+| `eng.net` | Supported narrow scope | Live HTTP(S) GET/download execution plus POST/PUT/PATCH string request bodies and pinned offline/cache HTTP(S) boundary records with redacted secret query/header values, SHA-256 checks, body hashes, and artifact summaries. |
+| `eng.cache` | Supported narrow scope | Explicit cache keys, pinned network response cache materialization/replay, cache records, hit/miss lookup artifacts, stale diagnostics, and manifest-path cache invalidation; broader process/model replay policy remains planned. |
 | `eng.quality` | Supported narrow scope | Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection. |
 | `eng.template` | Supported narrow scope | Native text template rendering for generated inputs and adapter boundaries. |
 | `eng.db` | Supported SQLite write scope | Native SQLite append/upsert/replace writes for typed tables with schema metadata, DB manifests, hash before/after records, transaction status, and safe-profile rejection. |

@@ -1892,7 +1892,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned.",
+                                 "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, review/run-log cache summaries, and manifest-path cache invalidation; broader process/model replay policy remains planned.",
                                  "kind":  "stdlib",
                                  "label":  "eng.cache",
                                  "lsp_kind":  9
@@ -4522,7 +4522,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, and review/run-log cache summaries; broader process/model reuse and invalidation remain planned.",
+                                "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, review/run-log cache summaries, and manifest-path cache invalidation; broader process/model replay policy remains planned.",
                                 "kind":  "stdlib",
                                 "label":  "eng.cache",
                                 "lsp_kind":  9
