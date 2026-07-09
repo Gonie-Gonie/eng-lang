@@ -186,7 +186,9 @@ unsupported distribution kind, unsupported propagation method, invalid sample
 count, missing constructor arguments, unknown sources, missing source arguments,
 and deterministic sources that should be `measured(...)`. Propagation `with`
 blocks can repair invalid uncertainty policy, sample-count, and seed option
-values, and can insert a reproducible seed for Monte Carlo propagation.
+values, and can insert a reproducible seed for Monte Carlo propagation. The
+provider only answers Quick Fix requests, so refactor and source-action menus
+stay scoped to their own providers.
 
 Hover is computed from the current unsaved buffer, so quantity, unit, kind, and
 status details stay aligned with live diagnostics and role-aware highlighting.

@@ -10,6 +10,10 @@ class EngCodeActionProvider {
   }
 
   async provideCodeActions(document, _range, context, cancellationToken) {
+    if (!shouldProvideQuickFixes(context)) {
+      return [];
+    }
+
     const localActions = () => localCodeActions(document, context, {
       completionItems: this.completionItems
     });
@@ -38,6 +42,37 @@ class EngCodeActionProvider {
     const lspActions = lspCodeActionsFromPayload(document, payload, context.diagnostics);
     return mergeCodeActions(lspActions, localActions());
   }
+}
+
+function shouldProvideQuickFixes(context) {
+  return codeActionKindIntersects(context?.only, vscode.CodeActionKind.QuickFix);
+}
+
+function codeActionKindIntersects(requestedKind, providedKind) {
+  if (!requestedKind) {
+    return true;
+  }
+  if (typeof requestedKind.intersects === "function") {
+    return requestedKind.intersects(providedKind);
+  }
+  if (typeof requestedKind.contains === "function" && requestedKind.contains(providedKind)) {
+    return true;
+  }
+  if (typeof providedKind.contains === "function" && providedKind.contains(requestedKind)) {
+    return true;
+  }
+
+  const requestedValue = codeActionKindValue(requestedKind);
+  const providedValue = codeActionKindValue(providedKind);
+  return (
+    requestedValue === providedValue ||
+    requestedValue.startsWith(`${providedValue}.`) ||
+    providedValue.startsWith(`${requestedValue}.`)
+  );
+}
+
+function codeActionKindValue(kind) {
+  return kind?.value ?? String(kind ?? "");
 }
 
 function mergeCodeActions(primaryActions, fallbackActions) {
