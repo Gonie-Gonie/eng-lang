@@ -17,7 +17,10 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Cache replay and invalidation: network offline-response cache materialization/replay is implemented with hash checks; broader process/model replay and explicit invalidation still need an artifact-safety design.
 - Live network execution: live HTTP(S) GET/download is implemented with timeout, retry, body limit, SHA-256 verification, and cache replay; request body/auth policy still needs a broader public contract.
 - Model training surface: native `train regression <table>` feeds model-card, metrics, and prediction-table paths; broader algorithm coverage and clearer multi-model naming remain open.
-- Case orchestration: current case manifests are materialized through workflow records; a native `apply/run cases` surface still needs scheduler, resume, cache, and failure policy.
+- Case orchestration: current materialize cases, pply ... over cases, and
+  collect results paths materialize CaseTable/CaseOutput/CaseResultCollection
+  records; the remaining work is a general run-case scheduler/resume/cache/failure
+  policy.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
 - VS Code linter/highlighting: continue expanding compiler-backed semantic token coverage as more source spans become first-class metadata.
@@ -69,6 +72,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 571: Made the native IDE lexical fallback preserve compiler-owned keyword groups and reuse role colors before semantic-highlight data is available.
 - Batch 572: Removed VS Code static snippets whose prefixes duplicate generated completion labels and added package guards so compiler-owned snippet insert text remains the single source for those suggestions.
 - Batch 573: Made Native IDE Highlight panel category, detail, and selector chips clickable filters so users can inspect role-aware colors by token type or semantic modifier directly.
+- Batch 574: Clarified current workflow docs so implemented CaseTable/CaseOutput materialization is not confused with the still-planned general run-case scheduler/resume/cache policy.
 
 ## Documentation Policy
 

@@ -163,7 +163,8 @@ files, `typed_payload.db_manifests[]` records generated and native SQLite DB
 write manifests, and current network/cache records capture pinned offline
 boundaries, live HTTP(S) response materialization, and cache hit/miss lookup
 records, including materialized/replayed pinned network response cache entries.
-Future broader cache invalidation/reuse, native case runner, broad DB engines,
+Future broader cache invalidation/reuse, general run-case scheduling beyond
+the current materialize/apply/collect case-table path, broad DB engines,
 and model modules should follow the same artifact pattern.
 
 ## Native Artifact Evidence
