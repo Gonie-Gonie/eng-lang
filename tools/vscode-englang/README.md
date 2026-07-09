@@ -257,8 +257,8 @@ The generated TextMate grammar lives at `syntaxes/eng.tmLanguage.json`. Edit
 ```
 
 The source grammar may use `{{...}}` placeholders for compiler-owned keyword,
-type, unit, and option lists. `vscode-build-grammar` expands those placeholders
-from `generated/editor/englang-editor-metadata.json`.
+constant, type, unit, and option lists. `vscode-build-grammar` expands those
+placeholders from `generated/editor/englang-editor-metadata.json`.
 
 The grammar smoke writes token-check output under
 `build\editor-tests\textmate_tokens\grammar_smoke.json`.
@@ -273,7 +273,8 @@ written for review: `englang-semantic-legend.json`,
 provides the static completion fallback used when live completion is
 unavailable. New tooling should read the `completion_items` catalog;
 `completion_seed` remains a legacy alias for older consumers. Regenerate it
-after LSP completion, keyword, option, type, unit, or highlight legend changes:
+after LSP completion, keyword, constant, operator-word, option, type, unit, or
+highlight legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata

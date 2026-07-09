@@ -123,6 +123,8 @@ function emptyInspectors() {
 function emptySyntaxCatalog() {
   return {
     keywords: [],
+    constants: [],
+    operatorWords: [],
     workflowBuiltins: [],
     hyphenatedWorkflowBuiltins: [],
     workflowOptions: [],
@@ -141,6 +143,8 @@ function normalizeSyntaxCatalog(catalog) {
   const source = catalog && typeof catalog === "object" ? catalog : {};
   return {
     keywords: stringArray(source.keywords),
+    constants: stringArray(source.constants),
+    operatorWords: stringArray(source.operatorWords ?? source.operator_words),
     workflowBuiltins: stringArray(source.workflowBuiltins ?? source.workflow_builtins),
     hyphenatedWorkflowBuiltins: stringArray(
       source.hyphenatedWorkflowBuiltins ?? source.hyphenated_workflow_builtins
@@ -170,8 +174,8 @@ function buildLexicalCatalog(catalog) {
   const unitLabels = uniqueStrings([...FALLBACK_LEXICAL_UNITS, ...normalized.units]);
   return {
     keywords: keywordSet,
-    operatorWords: new Set(FALLBACK_LEXICAL_OPERATOR_WORDS),
-    constants: new Set(FALLBACK_LEXICAL_CONSTANTS),
+    operatorWords: new Set([...FALLBACK_LEXICAL_OPERATOR_WORDS, ...normalized.operatorWords]),
+    constants: new Set([...FALLBACK_LEXICAL_CONSTANTS, ...normalized.constants]),
     workflowOptions: new Set(normalized.workflowOptions),
     publicTypes: new Set(normalized.publicTypes),
     quantities: new Set(normalized.quantities),

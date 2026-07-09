@@ -452,6 +452,20 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "trapezoidal",
 ];
 
+const EDITOR_CONSTANT_EXTRA_KEYWORDS: &[&str] = &[
+    "lhs",
+    "latin_hypercube",
+    "latin-hypercube",
+    "grid",
+    "random",
+    "uniform",
+];
+
+const EDITOR_OPERATOR_WORD_KEYWORDS: &[&str] = &[
+    "eq", "is", "and", "or", "not", "between", "over", "by", "using", "in", "into", "of", "vs",
+    "to", "within", "matches",
+];
+
 const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("Array[T]", "Schema array value"),
     ("Bool", "Boolean value"),
@@ -1566,8 +1580,11 @@ pub fn editor_metadata_json() -> Value {
 }
 
 pub fn editor_syntax_catalog_json() -> Value {
+    let constants = editor_constant_keywords();
     json!({
         "keywords": COMPLETION_KEYWORDS,
+        "constants": constants,
+        "operator_words": EDITOR_OPERATOR_WORD_KEYWORDS,
         "workflow_builtins": WORKFLOW_BUILTIN_KEYWORDS,
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "workflow_options": WORKFLOW_OPTION_COMPLETIONS
@@ -1639,6 +1656,12 @@ pub fn editor_syntax_catalog_json() -> Value {
             }))
             .collect::<Vec<_>>(),
     })
+}
+
+fn editor_constant_keywords() -> Vec<&'static str> {
+    let mut constants = LANGUAGE_CONSTANT_KEYWORDS.to_vec();
+    constants.extend(EDITOR_CONSTANT_EXTRA_KEYWORDS.iter().copied());
+    constants
 }
 
 pub fn editor_completion_items() -> Vec<LspCompletion> {
@@ -8051,6 +8074,31 @@ mod tests {
             assert!(
                 syntax_keywords.iter().any(|keyword| keyword == label),
                 "syntax catalog should expose plot report keyword {label}"
+            );
+        }
+        let syntax_constants = syntax_catalog["constants"]
+            .as_array()
+            .expect("syntax catalog constants should be an array");
+        for label in [
+            "monte_carlo",
+            "source_linear_terms",
+            "lhs",
+            "latin_hypercube",
+        ] {
+            assert!(
+                syntax_constants.iter().any(|constant| constant == label),
+                "syntax catalog should expose language constant {label}"
+            );
+        }
+        let syntax_operator_words = syntax_catalog["operator_words"]
+            .as_array()
+            .expect("syntax catalog operator words should be an array");
+        for label in ["between", "within", "matches"] {
+            assert!(
+                syntax_operator_words
+                    .iter()
+                    .any(|operator_word| operator_word == label),
+                "syntax catalog should expose operator word {label}"
             );
         }
         assert!(

@@ -19,6 +19,8 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(semanticTokenModifiers) ||
     !Array.isArray(completionItems) ||
     !Array.isArray(syntaxCatalog.keywords) ||
+    !Array.isArray(syntaxCatalog.constants) ||
+    !Array.isArray(syntaxCatalog.operator_words) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
     !Array.isArray(syntaxCatalog.workflow_options) ||

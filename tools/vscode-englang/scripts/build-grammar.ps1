@@ -52,6 +52,7 @@ if ($null -eq $SyntaxCatalog) {
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
+$LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
 # Keep legacy workflow helper spellings colored for existing files without
 # suggesting them through the generated completion catalog.
 $GrammarOnlyWorkflowBuiltinAliases = @(
@@ -130,6 +131,7 @@ $AsciiUnits = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Whe
 }) + $GrammarOnlyUnitAliases
 $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
+    "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)

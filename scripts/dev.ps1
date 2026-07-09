@@ -3771,7 +3771,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
         throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
@@ -4555,6 +4555,18 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata missing hyphenated workflow builtin $RequiredHyphenatedWorkflowBuiltin"
         }
     }
+    foreach ($RequiredSyntaxConstant in @("monte_carlo", "source_linear_terms", "lhs", "latin_hypercube")) {
+        $SyntaxConstant = @($EditorMetadata.syntax_catalog.constants | Where-Object { $_ -eq $RequiredSyntaxConstant }) | Select-Object -First 1
+        if ($null -eq $SyntaxConstant) {
+            throw "generated VS Code editor metadata missing syntax constant $RequiredSyntaxConstant"
+        }
+    }
+    foreach ($RequiredOperatorWord in @("between", "within", "matches")) {
+        $OperatorWord = @($EditorMetadata.syntax_catalog.operator_words | Where-Object { $_ -eq $RequiredOperatorWord }) | Select-Object -First 1
+        if ($null -eq $OperatorWord) {
+            throw "generated VS Code editor metadata missing operator word $RequiredOperatorWord"
+        }
+    }
     foreach ($RequiredHttpResponseField in @("body", "status_code", "query_string", "url_with_query")) {
         $HttpResponseField = @($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq $RequiredHttpResponseField }) | Select-Object -First 1
         if ($null -eq $HttpResponseField) {
@@ -4735,6 +4747,10 @@ function Invoke-IdeCheck {
         "syntaxCatalog",
         "normalizeSyntaxCatalog",
         "buildLexicalCatalog",
+        "operatorWords",
+        "operator_words",
+        "normalized.constants",
+        "normalized.operatorWords",
         "hyphenatedWorkflowBuiltins",
         "hyphenated_workflow_builtins",
         "FALLBACK_LEXICAL_KEYWORDS",

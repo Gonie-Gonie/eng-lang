@@ -4093,6 +4093,12 @@ with {
         assert!(catalog["keywords"].as_array().is_some_and(|items| items
             .iter()
             .any(|item| item.as_str() == Some("distribution"))));
+        assert!(catalog["constants"].as_array().is_some_and(|items| items
+            .iter()
+            .any(|item| item.as_str() == Some("source_linear_terms"))));
+        assert!(catalog["operator_words"]
+            .as_array()
+            .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("within"))));
         assert!(catalog["workflow_builtins"]
             .as_array()
             .is_some_and(|items| items.iter().any(|item| item.as_str() == Some("train"))));

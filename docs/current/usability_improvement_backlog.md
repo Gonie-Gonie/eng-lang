@@ -47,6 +47,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 549: Scoped VS Code quick-fix computation to Quick Fix requests so refactor/source-action menus stay clean.
 - Batch 550: Added VS Code and native IDE fallback coloring for solver Jacobian and uncertainty policy literals.
 - Batch 551: Reworded advanced solver example docs so implemented narrow solve fixtures do not read as seed-only paths.
+- Batch 552: Promoted editor constants and operator words into generated LSP metadata so VS Code grammar and native IDE lexical coloring can stay aligned.
 
 ## Documentation Policy
 
