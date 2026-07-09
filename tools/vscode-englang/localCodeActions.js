@@ -541,11 +541,11 @@ function missingUnitHint(message, lineText) {
 }
 
 function firstUnitOnLine(lineText) {
-  const unitLiteral = /\b\d+(?:\.\d+)?\s+([A-Za-z%][A-Za-z0-9/%]*)\b/.exec(lineText);
+  const unitLiteral = /\b\d+(?:\.\d+)?\s+([A-Za-z%][A-Za-z0-9/%_^()*]*)\b/.exec(lineText);
   if (isUnitHint(unitLiteral?.[1])) {
     return unitLiteral[1];
   }
-  const bracketUnit = /\[([A-Za-z%][A-Za-z0-9/%]*)\]/.exec(lineText);
+  const bracketUnit = /\[([A-Za-z%][A-Za-z0-9/%_^()*]*)\]/.exec(lineText);
   if (isUnitHint(bracketUnit?.[1])) {
     return bracketUnit[1];
   }
@@ -553,7 +553,7 @@ function firstUnitOnLine(lineText) {
 }
 
 function isUnitHint(value) {
-  return typeof value === "string" && /^[A-Za-z%][A-Za-z0-9/%]*$/.test(value);
+  return typeof value === "string" && /^[A-Za-z%][A-Za-z0-9/%_^()*]*$/.test(value);
 }
 
 function bareNumericRanges(lineText) {
@@ -1750,7 +1750,7 @@ function uncertaintySourceActions(document, diagnostic) {
     const source = uncertaintySourceNameFromDiagnostic(message);
     if (source) {
       const indent = lineIndent(line.text);
-      const placeholder = `${indent}${source} = normal(mean=5 kW, std=0.8 kW, samples=31)`;
+      const placeholder = `${indent}${uncertaintySourceDefinition(source, line.text)}`;
       const action = new vscode.CodeAction(
         `Define uncertainty source ${source}`,
         vscode.CodeActionKind.QuickFix
@@ -1772,7 +1772,7 @@ function uncertaintySourceActions(document, diagnostic) {
     if (openParen !== undefined) {
       const source = "Q_source_unc";
       const indent = lineIndent(line.text);
-      const placeholder = `${indent}${source} = normal(mean=5 kW, std=0.8 kW, samples=31)`;
+      const placeholder = `${indent}${uncertaintySourceDefinition(source, line.text)}`;
       const action = new vscode.CodeAction(
         "Add uncertainty source Q_source_unc",
         vscode.CodeActionKind.QuickFix
@@ -2070,6 +2070,21 @@ function expressionBoundary(text, start, end) {
 
 function isExpressionEdgeCharacter(value) {
   return isIdentifierCharacter(value) || value === ".";
+}
+
+function uncertaintySourceDefinition(source, lineText) {
+  const { mean, std } = uncertaintyNormalLiterals(firstUnitOnLine(lineText) || "kW");
+  return `${source} = normal(mean=${mean}, std=${std}, samples=31)`;
+}
+
+function uncertaintyNormalLiterals(unit) {
+  if (unit === "degC") {
+    return { mean: "20 degC", std: "0.8 K" };
+  }
+  if (unit === "%") {
+    return { mean: "50 %", std: "5 %" };
+  }
+  return { mean: `5 ${unit}`, std: `0.8 ${unit}` };
 }
 
 function uncertaintySourceNameFromDiagnostic(message) {

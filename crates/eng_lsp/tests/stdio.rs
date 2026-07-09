@@ -817,6 +817,7 @@ Q_bad_propagation = propagate(Q_prop_source, method=monte_carlo, scale=1.0)
 Q_plain_source = 5 kW
 Q_bad_source = propagate(Q_plain_source, method=linear)
 Q_unknown_source = propagate(Q_missing_unc, method=linear)
+T_unknown_source = propagate(T_missing_unc, method=linear, scale=1 degC)
 Q_missing_source = propagate(method=linear)
 
 Q_bad_uncertainty_policy = Q_prop_source + 1 kW
@@ -1346,6 +1347,12 @@ report {
     assert_action_edit_contains(
         actions,
         &uri,
+        "Define uncertainty source T_missing_unc",
+        "T_missing_unc = normal(mean=20 degC, std=0.8 K, samples=31)",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
         "Add uncertainty source Q_source_unc",
         "Q_source_unc = normal(mean=5 kW, std=0.8 kW, samples=31)",
     );
@@ -1602,6 +1609,7 @@ Q_bad_propagation = propagate(Q_prop_source, method=monte_carlo, scale=1.0)
 Q_plain_source = 5 kW
 Q_bad_source = propagate(Q_plain_source, method=linear)
 Q_unknown_source = propagate(Q_missing_unc, method=linear)
+T_unknown_source = propagate(T_missing_unc, method=linear, scale=1 degC)
 Q_missing_source = propagate(method=linear)
 
 Q_bad_uncertainty_policy = Q_prop_source + 1 kW
@@ -1794,6 +1802,12 @@ report {
         &uri,
         "Convert Q_plain_source to measured uncertainty source",
         "measured(5 kW, std=0.8 kW)",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Define uncertainty source T_missing_unc",
+        "T_missing_unc = normal(mean=20 degC, std=0.8 K, samples=31)",
     );
     assert_action_edit_contains(
         actions,

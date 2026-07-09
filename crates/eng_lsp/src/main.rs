@@ -2956,8 +2956,7 @@ fn lsp_uncertainty_source_code_actions(uri: &str, text: &str, diagnostic: &Value
     if message.contains("Unknown uncertainty source") {
         if let Some(source) = uncertainty_source_name_from_diagnostic(message) {
             let indent = line_indent(line);
-            let placeholder =
-                format!("{indent}{source} = normal(mean=5 kW, std=0.8 kW, samples=31)");
+            let placeholder = format!("{indent}{}", uncertainty_source_definition(source, line));
             actions.push(json!({
                 "title": format!("Define uncertainty source {source}"),
                 "kind": "quickfix",
@@ -2976,8 +2975,7 @@ fn lsp_uncertainty_source_code_actions(uri: &str, text: &str, diagnostic: &Value
         if let Some(open_paren_byte) = uncertainty_source_call_open_paren(line) {
             let indent = line_indent(line);
             let source = "Q_source_unc";
-            let placeholder =
-                format!("{indent}{source} = normal(mean=5 kW, std=0.8 kW, samples=31)");
+            let placeholder = format!("{indent}{}", uncertainty_source_definition(source, line));
             actions.push(json!({
                 "title": "Add uncertainty source Q_source_unc",
                 "kind": "quickfix",
@@ -3038,6 +3036,22 @@ fn lsp_uncertainty_source_code_actions(uri: &str, text: &str, diagnostic: &Value
     }
 
     actions
+}
+
+fn uncertainty_source_definition(source: &str, line: &str) -> String {
+    let unit = first_unit_on_line(line).unwrap_or_else(|| "kW".to_owned());
+    let (mean, std) = uncertainty_normal_literals(&unit);
+    format!("{source} = normal(mean={mean}, std={std}, samples=31)")
+}
+
+fn uncertainty_normal_literals(unit: &str) -> (String, String) {
+    if unit == "degC" {
+        return ("20 degC".to_owned(), "0.8 K".to_owned());
+    }
+    if unit == "%" {
+        return ("50 %".to_owned(), "5 %".to_owned());
+    }
+    (format!("5 {unit}"), format!("0.8 {unit}"))
 }
 
 fn uncertainty_source_name_from_diagnostic(message: &str) -> Option<&str> {
