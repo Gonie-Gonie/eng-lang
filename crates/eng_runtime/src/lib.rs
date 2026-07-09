@@ -9416,6 +9416,7 @@ fn evaluate_table_metadata_field_expression(
         "status" if table.schema_name == "CaseResultCollection" => {
             Some(RuntimeFormatValue::Text(case_result_collection_status(
                 table_status_count(table, "blocked"),
+                table_status_count(table, "collected"),
                 table_status_count(table, "missing"),
             )))
         }
@@ -9490,13 +9491,21 @@ fn case_output_table_status(
     }
 }
 
-fn case_result_collection_status(blocked_count: usize, missing_count: usize) -> String {
+fn case_result_collection_status(
+    blocked_count: usize,
+    collected_count: usize,
+    missing_count: usize,
+) -> String {
     if blocked_count > 0 {
         "blocked".to_owned()
+    } else if collected_count > 0 && missing_count > 0 {
+        "partial".to_owned()
     } else if missing_count > 0 {
         "missing".to_owned()
+    } else if collected_count > 0 {
+        "collected".to_owned()
     } else {
-        "complete".to_owned()
+        "empty".to_owned()
     }
 }
 
@@ -17704,7 +17713,7 @@ mod tests {
             .contains("cases=2 pending=2 status=pending rendered_inputs=2 manifests=2"));
         assert!(output
             .stdout
-            .contains("case results=2 collected=2 missing=0 status=complete"));
+            .contains("case results=2 collected=2 missing=0 status=collected"));
         assert!(output.result_json.contains("\"binding\": \"case_inputs\""));
         assert!(output
             .result_json

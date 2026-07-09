@@ -60,6 +60,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 562: Added per-token copy actions to the Native IDE Highlight table so individual highlight text and source ranges can be copied without using the full visible-highlight export.
 - Batch 563: Made the bundled VS Code EngLang Dark/Light themes directly color every semantic selector contributed by the extension and guarded that coverage against drift.
 - Batch 564: Made native case-template apply outputs report rendered CaseOutput status/counts after files and render manifests are actually written, replacing workflow 02's planned-count surface with rendered-count evidence.
+- Batch 565: Made CaseResultCollection aggregate status report collected/partial/missing/blocked/empty so workflow 02 no longer shows collected rows as status=complete.
 
 ## Documentation Policy
 
