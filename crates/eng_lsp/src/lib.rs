@@ -2643,6 +2643,7 @@ fn with_option_semantic_modifiers(
         {
             &["validation", "workflowStep"]
         }
+        "status" if is_workflow_status_option_block(program, block) => &["workflowStep"],
         "on_none" | "on_many" | "expected_step" | "max_gap" | "status" => &["validation"],
         "sensor_std" | "confidence_band" => &["uncertain"],
         "bias" | "gain" | "kind" | "lower" | "mu" | "n" | "offset" | "relative_error"
@@ -2826,23 +2827,13 @@ fn with_option_value_semantic_class(
             ))
         }
         "resume" if matches!(value, "true" | "false") => Some(("keyword", &["workflowStep"])),
-        "on_none" | "on_many" | "missing" | "status"
-            if matches!(
-                value,
-                "error"
-                    | "keep"
-                    | "empty"
-                    | "interpolate"
-                    | "pending"
-                    | "running"
-                    | "passed"
-                    | "failed"
-                    | "succeeded"
-                    | "skipped"
-                    | "blocked"
-                    | "completed"
-            ) =>
+        "status"
+            if is_workflow_status_option_block(program, block)
+                && is_workflow_status_literal(value) =>
         {
+            Some(("keyword", &["workflowStep"]))
+        }
+        "on_none" | "on_many" | "missing" | "status" if is_status_or_policy_literal(value) => {
             Some(("keyword", &["validation"]))
         }
         "uncertainty" if matches!(value, "linear" | "interval" | "monte_carlo" | "ensemble") => {
@@ -3039,6 +3030,31 @@ fn is_workflow_step_with_block(program: &SemanticProgram, owner_line: Option<usi
                     | "resample"
             )
     })
+}
+
+fn is_workflow_status_option_block(program: &SemanticProgram, block: &WithBlockInfo) -> bool {
+    if is_workflow_step_with_block(program, block.owner_line) {
+        return true;
+    }
+    block
+        .options
+        .iter()
+        .any(|option| is_workflow_step_option_key(&option.key))
+}
+
+fn is_workflow_step_option_key(key: &str) -> bool {
+    matches!(
+        key,
+        "step"
+            | "case_id"
+            | "output_root"
+            | "resume"
+            | "template"
+            | "values"
+            | "artifact_kind"
+            | "year"
+            | "return_column"
+    )
 }
 
 fn add_function_scoped_symbol_semantic_tokens(
@@ -5036,8 +5052,31 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     }
 }
 
+fn is_workflow_status_literal(value: &str) -> bool {
+    matches!(
+        value,
+        "pending"
+            | "planned"
+            | "running"
+            | "passed"
+            | "failed"
+            | "succeeded"
+            | "skipped"
+            | "blocked"
+            | "completed"
+            | "rendered"
+            | "collected"
+            | "missing"
+    )
+}
+
+fn is_status_or_policy_literal(value: &str) -> bool {
+    is_workflow_status_literal(value) || matches!(value, "error" | "keep" | "empty" | "interpolate")
+}
+
 fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
+        _ if is_workflow_status_literal(keyword) => &["workflowStep"],
         "cached" | "stale" | "hit" | "miss" => &["cache"],
         "asc" | "desc" => &["workflowStep"],
         "created" | "updated" | "metadata_ready" | "warnings_present" | "diagnostics_present" => {
@@ -9739,6 +9778,10 @@ with {
     output_root = dir("outputs/cases")
     case_id = time
     resume = true
+    status = planned
+    status = rendered
+    status = collected
+    status = missing
 }
 
 upload = http get url("https://example.org/weather")
@@ -9847,6 +9890,25 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         );
         assert_semantic_token_modifier(&snapshot, source, "case_id", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "resume", "workflowStep");
+        for status in ["planned", "rendered", "collected", "missing"] {
+            let line = format!("    status = {status}");
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                &line,
+                "status",
+                "property",
+                "workflowStep",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                &line,
+                status,
+                "keyword",
+                "workflowStep",
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
         assert_semantic_token_modifier(&snapshot, source, "on_many", "validation");
         assert_semantic_token_modifier(&snapshot, source, "constraints", "validation");
