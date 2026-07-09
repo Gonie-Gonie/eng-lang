@@ -3600,6 +3600,36 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("clearSnapshotCache: lspRequests.clearSnapshotCache") -or -not $DiagnosticsProviderSource.Contains("this.clearSnapshotCache(document)") -or -not $LspRequestsSource.Contains("function clearSnapshotCache(document)")) {
         throw "VS Code extension must clear shared LSP snapshot cache on document changes and close"
     }
+    $SnapshotDocumentSourceIndex = $LspRequestsSource.IndexOf("function snapshotDocumentSource")
+    if ($SnapshotDocumentSourceIndex -lt 0) {
+        throw "VS Code extension missing shared snapshot document source helper"
+    }
+    $SnapshotDocumentSource = $LspRequestsSource.Substring($SnapshotDocumentSourceIndex, $LspRequestsSource.IndexOf("function snapshotCacheKey") - $SnapshotDocumentSourceIndex)
+    foreach ($RequiredSnapshotFreshnessToken in @(
+        "const documentVersion = document.version;",
+        "const documentText = document.getText();",
+        "document.version !== documentVersion",
+        "child.stdin.end(documentText)"
+    )) {
+        if (-not $SnapshotDocumentSource.Contains($RequiredSnapshotFreshnessToken)) {
+            throw "VS Code snapshot live editor requests must guard stale document versions with $RequiredSnapshotFreshnessToken"
+        }
+    }
+    $StdinJsonRequestIndex = $LspRequestsSource.IndexOf("function stdinJsonRequest")
+    if ($StdinJsonRequestIndex -lt 0) {
+        throw "VS Code extension missing shared stdin JSON request helper"
+    }
+    $StdinJsonRequestSource = $LspRequestsSource.Substring($StdinJsonRequestIndex)
+    foreach ($RequiredStdinRequestFreshnessToken in @(
+        "const documentVersion = document.version;",
+        "const documentText = document.getText();",
+        "document.version !== documentVersion",
+        "child.stdin.end(documentText)"
+    )) {
+        if (-not $StdinJsonRequestSource.Contains($RequiredStdinRequestFreshnessToken)) {
+            throw "VS Code stdin live editor requests must guard stale document versions with $RequiredStdinRequestFreshnessToken"
+        }
+    }
     foreach ($RequiredLiveEditorOutputToken in @(
         "Live editor check failed:",
         "Unable to parse EngLang live editor data:",

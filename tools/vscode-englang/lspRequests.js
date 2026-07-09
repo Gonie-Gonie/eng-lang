@@ -35,6 +35,7 @@ function createLspRequests(options = {}) {
       const runtime = findLspRuntime(context, document);
       const cwd = workspaceRoot(document);
       const documentVersion = document.version;
+      const documentText = document.getText();
       let settled = false;
       const finish = (value) => {
         if (settled) {
@@ -84,7 +85,7 @@ function createLspRequests(options = {}) {
       });
 
       if (child.stdin) {
-        child.stdin.end(document.getText());
+        child.stdin.end(documentText);
       }
     });
     snapshotPromiseCache.set(key, promise);
@@ -231,12 +232,18 @@ function createLspRequests(options = {}) {
 
       const runtime = findLspRuntime(context, document);
       const cwd = workspaceRoot(document);
+      const documentVersion = document.version;
+      const documentText = document.getText();
       let settled = false;
       const finish = (value) => {
         if (settled) {
           return;
         }
         settled = true;
+        if (document.version !== documentVersion) {
+          resolve(undefined);
+          return;
+        }
         resolve(value);
       };
 
@@ -269,7 +276,7 @@ function createLspRequests(options = {}) {
       });
 
       if (child.stdin) {
-        child.stdin.end(document.getText());
+        child.stdin.end(documentText);
       }
     });
   }

@@ -34,6 +34,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 536: Renamed VS Code extension completion provider wiring from completionSeed to completionItems while keeping generated `completion_seed` as a metadata-only legacy alias.
 - Batch 537: Added explicit VS Code EngLang Dark/Light base semantic token colors so semantic highlighting does not fall back to host theme defaults for core token types.
 - Batch 538: Archived compact summaries for batches 475-528 from the current usability backlog so the active file stays task-oriented.
+- Batch 539: Guarded VS Code live stdin requests against stale document versions and fixed each request to the source text captured at launch.
 
 ## Documentation Policy
 
