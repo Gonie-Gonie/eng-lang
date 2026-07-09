@@ -466,6 +466,102 @@ const EDITOR_OPERATOR_WORD_KEYWORDS: &[&str] = &[
     "to", "within", "matches",
 ];
 
+const EDITOR_IMPORT_KEYWORDS: &[&str] = &["use", "import", "from", "as"];
+const EDITOR_DEPRECATED_KEYWORDS: &[&str] = &["script", "struct"];
+const EDITOR_DECLARATION_KEYWORDS: &[&str] = &["schema", "class", "system", "domain", "component"];
+const EDITOR_FUNCTION_KEYWORDS: &[&str] = &["fn", "method"];
+const EDITOR_TEST_KEYWORDS: &[&str] = &["test"];
+const EDITOR_MODIFIER_KEYWORDS: &[&str] = &[
+    "const",
+    "state",
+    "input",
+    "parameter",
+    "output",
+    "port",
+    "across",
+    "through",
+    "operator",
+    "index",
+];
+const EDITOR_REPORT_KEYWORDS: &[&str] = &[
+    "report",
+    "show",
+    "plot",
+    "line",
+    "bar",
+    "histogram",
+    "summarize",
+    "summary",
+    "distribution",
+];
+const EDITOR_VALIDATION_KEYWORDS: &[&str] = &[
+    "validate",
+    "assert",
+    "golden",
+    "matches",
+    "within",
+    "constraints",
+    "missing",
+    "interpolate",
+    "monotonic",
+    "fill",
+    "align",
+    "resample",
+    "check",
+    "coverage",
+];
+const EDITOR_SIDE_EFFECT_KEYWORDS: &[&str] = &[
+    "write", "export", "copy", "move", "delete", "mkdir", "render", "template", "print", "log",
+];
+const EDITOR_EXTERNAL_BOUNDARY_KEYWORDS: &[&str] = &[
+    "run", "command", "open", "sqlite", "http", "get", "post", "put", "patch", "head", "request",
+    "fetch", "download",
+];
+const EDITOR_SOLVER_KEYWORDS: &[&str] = &[
+    "simulate",
+    "solve",
+    "connect",
+    "conservation",
+    "equation",
+    "operator",
+    "states",
+    "inputs",
+    "outputs",
+];
+const EDITOR_WORKFLOW_KEYWORDS: &[&str] = &[
+    "promote",
+    "read",
+    "text",
+    "json",
+    "toml",
+    "csv",
+    "records",
+    "column",
+    "columns",
+    "to",
+    "policy",
+    "package",
+    "version",
+    "model",
+    "return",
+    "if",
+    "else",
+    "sample",
+    "filter",
+    "select",
+    "derive",
+    "sort",
+    "require_one",
+    "materialize",
+    "cases",
+    "collect",
+    "results",
+    "apply",
+    "train",
+    "regression",
+    "predict",
+];
+
 const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("Array[T]", "Schema array value"),
     ("Bool", "Boolean value"),
@@ -1585,6 +1681,20 @@ pub fn editor_syntax_catalog_json() -> Value {
         "keywords": COMPLETION_KEYWORDS,
         "constants": constants,
         "operator_words": EDITOR_OPERATOR_WORD_KEYWORDS,
+        "keyword_groups": {
+            "import": EDITOR_IMPORT_KEYWORDS,
+            "deprecated": EDITOR_DEPRECATED_KEYWORDS,
+            "declaration": EDITOR_DECLARATION_KEYWORDS,
+            "function": EDITOR_FUNCTION_KEYWORDS,
+            "test": EDITOR_TEST_KEYWORDS,
+            "modifier": EDITOR_MODIFIER_KEYWORDS,
+            "report": EDITOR_REPORT_KEYWORDS,
+            "validation": EDITOR_VALIDATION_KEYWORDS,
+            "side_effect": EDITOR_SIDE_EFFECT_KEYWORDS,
+            "external_boundary": EDITOR_EXTERNAL_BOUNDARY_KEYWORDS,
+            "solver": EDITOR_SOLVER_KEYWORDS,
+            "workflow": EDITOR_WORKFLOW_KEYWORDS,
+        },
         "workflow_builtins": WORKFLOW_BUILTIN_KEYWORDS,
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
         "workflow_options": WORKFLOW_OPTION_COMPLETIONS
@@ -8099,6 +8209,25 @@ mod tests {
                     .iter()
                     .any(|operator_word| operator_word == label),
                 "syntax catalog should expose operator word {label}"
+            );
+        }
+        let keyword_groups = &syntax_catalog["keyword_groups"];
+        for (group, label) in [
+            ("import", "use"),
+            ("declaration", "schema"),
+            ("modifier", "state"),
+            ("report", "summarize"),
+            ("validation", "coverage"),
+            ("side_effect", "write"),
+            ("external_boundary", "http"),
+            ("solver", "solve"),
+            ("workflow", "require_one"),
+        ] {
+            assert!(
+                keyword_groups[group]
+                    .as_array()
+                    .is_some_and(|labels| labels.iter().any(|item| item == label)),
+                "syntax catalog should expose keyword group {group} label {label}"
             );
         }
         assert!(

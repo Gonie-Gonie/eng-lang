@@ -50,6 +50,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 552: Promoted editor constants and operator words into generated LSP metadata so VS Code grammar and native IDE lexical coloring can stay aligned.
 - Batch 553: Switched VS Code TextMate operator-word fallback generation to the LSP syntax catalog with compatibility aliases for legacy clause words.
 - Batch 554: Added TextMate grammar build and smoke guards so generated constants and operator words cannot silently drift from LSP editor metadata.
+- Batch 555: Moved VS Code TextMate keyword-group fallback lists into generated LSP editor metadata so first-paint keyword scopes share the compiler-owned catalog.
 
 ## Documentation Policy
 

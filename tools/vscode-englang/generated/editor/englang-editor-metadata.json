@@ -5213,6 +5213,142 @@
                            "hyphenated_workflow_builtins":  [
                                                                 "latin-hypercube"
                                                             ],
+                           "keyword_groups":  {
+                                                  "declaration":  [
+                                                                      "schema",
+                                                                      "class",
+                                                                      "system",
+                                                                      "domain",
+                                                                      "component"
+                                                                  ],
+                                                  "deprecated":  [
+                                                                     "script",
+                                                                     "struct"
+                                                                 ],
+                                                  "external_boundary":  [
+                                                                            "run",
+                                                                            "command",
+                                                                            "open",
+                                                                            "sqlite",
+                                                                            "http",
+                                                                            "get",
+                                                                            "post",
+                                                                            "put",
+                                                                            "patch",
+                                                                            "head",
+                                                                            "request",
+                                                                            "fetch",
+                                                                            "download"
+                                                                        ],
+                                                  "function":  [
+                                                                   "fn",
+                                                                   "method"
+                                                               ],
+                                                  "import":  [
+                                                                 "use",
+                                                                 "import",
+                                                                 "from",
+                                                                 "as"
+                                                             ],
+                                                  "modifier":  [
+                                                                   "const",
+                                                                   "state",
+                                                                   "input",
+                                                                   "parameter",
+                                                                   "output",
+                                                                   "port",
+                                                                   "across",
+                                                                   "through",
+                                                                   "operator",
+                                                                   "index"
+                                                               ],
+                                                  "report":  [
+                                                                 "report",
+                                                                 "show",
+                                                                 "plot",
+                                                                 "line",
+                                                                 "bar",
+                                                                 "histogram",
+                                                                 "summarize",
+                                                                 "summary",
+                                                                 "distribution"
+                                                             ],
+                                                  "side_effect":  [
+                                                                      "write",
+                                                                      "export",
+                                                                      "copy",
+                                                                      "move",
+                                                                      "delete",
+                                                                      "mkdir",
+                                                                      "render",
+                                                                      "template",
+                                                                      "print",
+                                                                      "log"
+                                                                  ],
+                                                  "solver":  [
+                                                                 "simulate",
+                                                                 "solve",
+                                                                 "connect",
+                                                                 "conservation",
+                                                                 "equation",
+                                                                 "operator",
+                                                                 "states",
+                                                                 "inputs",
+                                                                 "outputs"
+                                                             ],
+                                                  "test":  [
+                                                               "test"
+                                                           ],
+                                                  "validation":  [
+                                                                     "validate",
+                                                                     "assert",
+                                                                     "golden",
+                                                                     "matches",
+                                                                     "within",
+                                                                     "constraints",
+                                                                     "missing",
+                                                                     "interpolate",
+                                                                     "monotonic",
+                                                                     "fill",
+                                                                     "align",
+                                                                     "resample",
+                                                                     "check",
+                                                                     "coverage"
+                                                                 ],
+                                                  "workflow":  [
+                                                                   "promote",
+                                                                   "read",
+                                                                   "text",
+                                                                   "json",
+                                                                   "toml",
+                                                                   "csv",
+                                                                   "records",
+                                                                   "column",
+                                                                   "columns",
+                                                                   "to",
+                                                                   "policy",
+                                                                   "package",
+                                                                   "version",
+                                                                   "model",
+                                                                   "return",
+                                                                   "if",
+                                                                   "else",
+                                                                   "sample",
+                                                                   "filter",
+                                                                   "select",
+                                                                   "derive",
+                                                                   "sort",
+                                                                   "require_one",
+                                                                   "materialize",
+                                                                   "cases",
+                                                                   "collect",
+                                                                   "results",
+                                                                   "apply",
+                                                                   "train",
+                                                                   "regression",
+                                                                   "predict"
+                                                               ]
+                                              },
                            "keywords":  [
                                             "across",
                                             "and",

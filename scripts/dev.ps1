@@ -2985,6 +2985,7 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension language configuration must continue /// doc comments on Enter"
     }
     $GrammarSource = Get-Content -LiteralPath $GrammarPath -Raw
+    $GrammarTemplateSource = Get-Content -LiteralPath $GrammarSourcePath -Raw
     $BuildGrammarSource = Get-Content -LiteralPath $BuildGrammarPath -Raw
     foreach ($RequiredGrammarToken in @(
         "read", "json", "toml", "render", "template", "open", "sqlite",
@@ -3003,11 +3004,21 @@ function Assert-VscodeExtensionContract {
         "constant.numeric.format.englang", "constant.other.unit.format.englang", "entity.name.function.call.englang",
         "variable.other.state.englang", "variable.other.input.englang", "variable.other.output.englang",
         "variable.other.parameter.englang", "entity.name.function.solver.englang", "meta.declaration.equation.englang",
-        "\\b(schema|class|system|domain|component)\\b", "\\b(fn|method)\\b",
-        "\\b(const|state|input|parameter|output|port|across|through|operator|index)\\b"
+        "keyword.control.import.englang", "keyword.control.validation.englang", "keyword.control.workflow.englang",
+        "keyword.control.side-effect.englang", "keyword.control.external-boundary.englang"
     )) {
         if (-not $GrammarSource.Contains($RequiredGrammarToken)) {
             throw "VS Code grammar missing token $RequiredGrammarToken"
+        }
+    }
+    foreach ($RequiredGrammarPlaceholder in @(
+        "{{KEYWORD_GROUP_IMPORT}}", "{{KEYWORD_GROUP_DEPRECATED}}", "{{KEYWORD_GROUP_DECLARATION}}",
+        "{{KEYWORD_GROUP_FUNCTION}}", "{{KEYWORD_GROUP_TEST}}", "{{KEYWORD_GROUP_MODIFIER}}",
+        "{{KEYWORD_GROUP_REPORT}}", "{{KEYWORD_GROUP_VALIDATION}}", "{{KEYWORD_GROUP_SIDE_EFFECT}}",
+        "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}", "{{KEYWORD_GROUP_SOLVER}}", "{{KEYWORD_GROUP_WORKFLOW}}"
+    )) {
+        if (-not $GrammarTemplateSource.Contains($RequiredGrammarPlaceholder)) {
+            throw "VS Code source grammar missing generated placeholder $RequiredGrammarPlaceholder"
         }
     }
     $WorkflowPhraseScopes = [regex]::Matches(
@@ -3024,6 +3035,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $BuildGrammarSource.Contains("operator_words") -or -not $BuildGrammarSource.Contains("GrammarOnlyOperatorWordAliases") -or -not $BuildGrammarSource.Contains("{{OPERATOR_WORDS}}")) {
         throw "VS Code grammar build must generate operator words from editor metadata while preserving compatibility aliases"
+    }
+    if (-not $BuildGrammarSource.Contains("keyword_groups") -or -not $BuildGrammarSource.Contains("{{KEYWORD_GROUP_WORKFLOW}}")) {
+        throw "VS Code grammar build must generate keyword groups from editor metadata"
     }
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
@@ -3774,7 +3788,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
         throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
@@ -4568,6 +4582,13 @@ function Assert-VscodeExtensionContract {
         $OperatorWord = @($EditorMetadata.syntax_catalog.operator_words | Where-Object { $_ -eq $RequiredOperatorWord }) | Select-Object -First 1
         if ($null -eq $OperatorWord) {
             throw "generated VS Code editor metadata missing operator word $RequiredOperatorWord"
+        }
+    }
+    $RequiredKeywordGroups = @("import", "deprecated", "declaration", "function", "test", "modifier", "report", "validation", "side_effect", "external_boundary", "solver", "workflow")
+    foreach ($RequiredKeywordGroup in $RequiredKeywordGroups) {
+        $KeywordGroupProperty = $EditorMetadata.syntax_catalog.keyword_groups.PSObject.Properties[$RequiredKeywordGroup]
+        if ($null -eq $KeywordGroupProperty -or @($KeywordGroupProperty.Value).Count -eq 0) {
+            throw "generated VS Code editor metadata missing keyword group $RequiredKeywordGroup"
         }
     }
     foreach ($RequiredHttpResponseField in @("body", "status_code", "query_string", "url_with_query")) {

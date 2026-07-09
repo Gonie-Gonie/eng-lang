@@ -257,7 +257,7 @@ The generated TextMate grammar lives at `syntaxes/eng.tmLanguage.json`. Edit
 ```
 
 The source grammar may use `{{...}}` placeholders for compiler-owned keyword,
-constant, operator-word, type, unit, and option lists. `vscode-build-grammar`
+constant, operator-word, keyword-group, type, unit, and option lists. `vscode-build-grammar`
 expands those placeholders from `generated/editor/englang-editor-metadata.json`.
 
 The grammar smoke writes token-check output under

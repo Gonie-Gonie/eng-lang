@@ -589,6 +589,21 @@ $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | Fo
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 $LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
 $OperatorWords = @($SyntaxCatalog.operator_words | ForEach-Object { [string]$_ })
+$KeywordGroups = $SyntaxCatalog.keyword_groups
+$KeywordGroupScopeChecks = @(
+    @{ Name = "import"; Scope = "keyword.control.import.englang"; Labels = @($KeywordGroups.import | ForEach-Object { [string]$_ }) },
+    @{ Name = "deprecated"; Scope = "keyword.control.deprecated.englang"; Labels = @($KeywordGroups.deprecated | ForEach-Object { [string]$_ }) },
+    @{ Name = "declaration"; Scope = "storage.type.declaration.englang"; Labels = @($KeywordGroups.declaration | ForEach-Object { [string]$_ }) },
+    @{ Name = "function"; Scope = "storage.type.function.englang"; Labels = @($KeywordGroups.function | ForEach-Object { [string]$_ }) },
+    @{ Name = "test"; Scope = "storage.type.test.englang"; Labels = @($KeywordGroups.test | ForEach-Object { [string]$_ }) },
+    @{ Name = "modifier"; Scope = "storage.modifier.englang"; Labels = @($KeywordGroups.modifier | ForEach-Object { [string]$_ }) },
+    @{ Name = "report"; Scope = "keyword.control.report.englang"; Labels = @($KeywordGroups.report | ForEach-Object { [string]$_ }) },
+    @{ Name = "validation"; Scope = "keyword.control.validation.englang"; Labels = @($KeywordGroups.validation | ForEach-Object { [string]$_ }) },
+    @{ Name = "side_effect"; Scope = "keyword.control.side-effect.englang"; Labels = @($KeywordGroups.side_effect | ForEach-Object { [string]$_ }) },
+    @{ Name = "external_boundary"; Scope = "keyword.control.external-boundary.englang"; Labels = @($KeywordGroups.external_boundary | ForEach-Object { [string]$_ }) },
+    @{ Name = "solver"; Scope = "keyword.control.solver.englang"; Labels = @($KeywordGroups.solver | ForEach-Object { [string]$_ }) },
+    @{ Name = "workflow"; Scope = "keyword.control.workflow.englang"; Labels = @($KeywordGroups.workflow | ForEach-Object { [string]$_ }) }
+)
 $GrammarOnlyWorkflowBuiltinAliases = @(
     "regression_table",
     "train_regression"
@@ -624,6 +639,9 @@ Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $Work
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowOptionAliases -Description "grammar-only workflow option alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LanguageConstants -Description "LSP language constant"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $OperatorWords -Description "LSP operator word"
+foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
+    Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $KeywordGroupCheck.Labels -Description "LSP keyword group $($KeywordGroupCheck.Name)"
+}
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
@@ -631,6 +649,9 @@ Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $GrammarSource.grammar
 Assert-WorkflowOptionsAreScopedToWithBlocks
 Assert-ScopeMatchesLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "LSP language constant"
 Assert-ScopeMatchesLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "LSP operator word"
+foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
+    Assert-ScopeMatchesLabels -Scope $KeywordGroupCheck.Scope -Labels $KeywordGroupCheck.Labels -Description "LSP keyword group $($KeywordGroupCheck.Name)"
+}
 $AllowedGrammarWorkflowOptions = @($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
 $GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $AllowedGrammarWorkflowOptions -notcontains $_ } | Sort-Object -Unique)
 if ($GrammarOptionsMissingFromLsp.Count -gt 0) {

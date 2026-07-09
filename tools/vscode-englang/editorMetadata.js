@@ -14,6 +14,21 @@ function loadEditorMetadata(extensionRoot) {
   const semanticTokenModifiers = legend.token_modifiers;
   const completionItems = metadata.completion_items ?? metadata.completion_seed;
   const syntaxCatalog = metadata.syntax_catalog ?? {};
+  const keywordGroups = syntaxCatalog.keyword_groups ?? {};
+  const requiredKeywordGroups = [
+    "import",
+    "deprecated",
+    "declaration",
+    "function",
+    "test",
+    "modifier",
+    "report",
+    "validation",
+    "side_effect",
+    "external_boundary",
+    "solver",
+    "workflow"
+  ];
   if (
     !Array.isArray(semanticTokenTypes) ||
     !Array.isArray(semanticTokenModifiers) ||
@@ -21,6 +36,8 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.keywords) ||
     !Array.isArray(syntaxCatalog.constants) ||
     !Array.isArray(syntaxCatalog.operator_words) ||
+    typeof keywordGroups !== "object" ||
+    requiredKeywordGroups.some((group) => !Array.isArray(keywordGroups[group])) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
     !Array.isArray(syntaxCatalog.workflow_options) ||

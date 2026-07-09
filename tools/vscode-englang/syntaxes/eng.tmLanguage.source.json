@@ -1566,51 +1566,51 @@
         "patterns": [
           {
             "name": "keyword.control.import.englang",
-            "match": "\\b(use|import|from|as)\\b"
+            "match": "\\b({{KEYWORD_GROUP_IMPORT}})\\b"
           },
           {
             "name": "keyword.control.deprecated.englang",
-            "match": "\\b(script|struct)\\b"
+            "match": "\\b({{KEYWORD_GROUP_DEPRECATED}})\\b"
           },
           {
             "name": "storage.type.declaration.englang",
-            "match": "\\b(schema|class|system|domain|component)\\b"
+            "match": "\\b({{KEYWORD_GROUP_DECLARATION}})\\b"
           },
           {
             "name": "storage.type.function.englang",
-            "match": "\\b(fn|method)\\b"
+            "match": "\\b({{KEYWORD_GROUP_FUNCTION}})\\b"
           },
           {
             "name": "storage.type.test.englang",
-            "match": "\\b(test)\\b"
+            "match": "\\b({{KEYWORD_GROUP_TEST}})\\b"
           },
           {
             "name": "storage.modifier.englang",
-            "match": "\\b(const|state|input|parameter|output|port|across|through|operator|index)\\b"
+            "match": "\\b({{KEYWORD_GROUP_MODIFIER}})\\b"
           },
           {
             "name": "keyword.control.report.englang",
-            "match": "\\b(report|show|plot|line|bar|histogram|summarize|summary|distribution)\\b"
+            "match": "\\b({{KEYWORD_GROUP_REPORT}})\\b"
           },
           {
             "name": "keyword.control.validation.englang",
-            "match": "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic|fill|align|resample|check|coverage)\\b"
+            "match": "\\b({{KEYWORD_GROUP_VALIDATION}})\\b"
           },
           {
             "name": "keyword.control.side-effect.englang",
-            "match": "\\b(write|export|copy|move|delete|mkdir|render|template|print|log)\\b"
+            "match": "\\b({{KEYWORD_GROUP_SIDE_EFFECT}})\\b"
           },
           {
             "name": "keyword.control.external-boundary.englang",
-            "match": "\\b(run|command|open|sqlite|http|get|post|put|patch|head|request|fetch|download)\\b"
+            "match": "\\b({{KEYWORD_GROUP_EXTERNAL_BOUNDARY}})\\b"
           },
           {
             "name": "keyword.control.solver.englang",
-            "match": "\\b(simulate|solve|connect|conservation|equation|operator|states|inputs|outputs)\\b"
+            "match": "\\b({{KEYWORD_GROUP_SOLVER}})\\b"
           },
           {
             "name": "keyword.control.workflow.englang",
-            "match": "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else|sample|filter|select|derive|sort|require_one|materialize|cases|collect|results|apply|train|regression|predict)\\b"
+            "match": "\\b({{KEYWORD_GROUP_WORKFLOW}})\\b"
           }
         ]
       },

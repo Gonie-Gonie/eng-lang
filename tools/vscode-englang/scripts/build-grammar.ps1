@@ -81,6 +81,28 @@ $SyntaxCatalog = $EditorMetadata.syntax_catalog
 if ($null -eq $SyntaxCatalog) {
     throw "generated editor metadata is missing syntax_catalog. Run .\dev.bat vscode-build-editor-metadata"
 }
+$KeywordGroups = $SyntaxCatalog.keyword_groups
+if ($null -eq $KeywordGroups) {
+    throw "generated editor metadata syntax_catalog is missing keyword_groups. Run .\dev.bat vscode-build-editor-metadata"
+}
+$KeywordGroupNames = @(
+    "import",
+    "deprecated",
+    "declaration",
+    "function",
+    "test",
+    "modifier",
+    "report",
+    "validation",
+    "side_effect",
+    "external_boundary",
+    "solver",
+    "workflow"
+)
+$KeywordGroupItems = @{}
+foreach ($KeywordGroupName in $KeywordGroupNames) {
+    $KeywordGroupItems[$KeywordGroupName] = Assert-SyntaxCatalogArray -Catalog $KeywordGroups -Name $KeywordGroupName
+}
 $KeywordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "keywords"
 $WorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_builtins"
 $HyphenatedWorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "hyphenated_workflow_builtins"
@@ -189,6 +211,18 @@ $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
     "{{OPERATOR_WORDS}}" = ConvertTo-RegexAlternation ($OperatorWords + $GrammarOnlyOperatorWordAliases)
+    "{{KEYWORD_GROUP_IMPORT}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["import"])
+    "{{KEYWORD_GROUP_DEPRECATED}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["deprecated"])
+    "{{KEYWORD_GROUP_DECLARATION}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["declaration"])
+    "{{KEYWORD_GROUP_FUNCTION}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["function"])
+    "{{KEYWORD_GROUP_TEST}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["test"])
+    "{{KEYWORD_GROUP_MODIFIER}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["modifier"])
+    "{{KEYWORD_GROUP_REPORT}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["report"])
+    "{{KEYWORD_GROUP_VALIDATION}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["validation"])
+    "{{KEYWORD_GROUP_SIDE_EFFECT}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["side_effect"])
+    "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["external_boundary"])
+    "{{KEYWORD_GROUP_SOLVER}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["solver"])
+    "{{KEYWORD_GROUP_WORKFLOW}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["workflow"])
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)

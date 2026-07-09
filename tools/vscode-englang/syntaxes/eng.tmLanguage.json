@@ -2642,7 +2642,7 @@
                                         "patterns":  [
                                                          {
                                                              "name":  "keyword.control.import.englang",
-                                                             "match":  "\\b(use|import|from|as)\\b"
+                                                             "match":  "\\b(import|from|use|as)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.deprecated.englang",
@@ -2650,11 +2650,11 @@
                                                          },
                                                          {
                                                              "name":  "storage.type.declaration.englang",
-                                                             "match":  "\\b(schema|class|system|domain|component)\\b"
+                                                             "match":  "\\b(component|domain|schema|system|class)\\b"
                                                          },
                                                          {
                                                              "name":  "storage.type.function.englang",
-                                                             "match":  "\\b(fn|method)\\b"
+                                                             "match":  "\\b(method|fn)\\b"
                                                          },
                                                          {
                                                              "name":  "storage.type.test.englang",
@@ -2662,31 +2662,31 @@
                                                          },
                                                          {
                                                              "name":  "storage.modifier.englang",
-                                                             "match":  "\\b(const|state|input|parameter|output|port|across|through|operator|index)\\b"
+                                                             "match":  "\\b(parameter|operator|through|across|output|const|index|input|state|port)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.report.englang",
-                                                             "match":  "\\b(report|show|plot|line|bar|histogram|summarize|summary|distribution)\\b"
+                                                             "match":  "\\b(distribution|histogram|summarize|summary|report|line|plot|show|bar)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.validation.englang",
-                                                             "match":  "\\b(validate|assert|golden|matches|within|constraints|missing|interpolate|monotonic|fill|align|resample|check|coverage)\\b"
+                                                             "match":  "\\b(constraints|interpolate|monotonic|coverage|resample|validate|matches|missing|assert|golden|within|align|check|fill)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.side-effect.englang",
-                                                             "match":  "\\b(write|export|copy|move|delete|mkdir|render|template|print|log)\\b"
+                                                             "match":  "\\b(template|delete|export|render|mkdir|print|write|copy|move|log)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.external-boundary.englang",
-                                                             "match":  "\\b(run|command|open|sqlite|http|get|post|put|patch|head|request|fetch|download)\\b"
+                                                             "match":  "\\b(download|command|request|sqlite|fetch|patch|head|http|open|post|get|put|run)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.solver.englang",
-                                                             "match":  "\\b(simulate|solve|connect|conservation|equation|operator|states|inputs|outputs)\\b"
+                                                             "match":  "\\b(conservation|equation|operator|simulate|connect|outputs|inputs|states|solve)\\b"
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(promote|read|text|json|toml|csv|records|column|columns|to|policy|package|version|model|return|if|else|sample|filter|select|derive|sort|require_one|materialize|cases|collect|results|apply|train|regression|predict)\\b"
+                                                             "match":  "\\b(materialize|require_one|regression|collect|columns|package|predict|promote|records|results|version|column|derive|filter|policy|return|sample|select|apply|cases|model|train|else|json|read|sort|text|toml|csv|if|to)\\b"
                                                          }
                                                      ]
                                     },
