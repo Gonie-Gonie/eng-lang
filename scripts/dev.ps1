@@ -5982,12 +5982,53 @@ function Invoke-PackageSmoke {
         if (-not (Test-Path (Join-Path $SmokeRoot "tools\vscode-englang\reviewPanelRenderer.js"))) {
             throw "portable package did not include VS Code review panel renderer"
         }
+        $RequiredVscodePackageFiles = @(
+            @{ Path = "tools\vscode-englang\language-configuration.json"; Description = "VS Code language configuration" },
+            @{ Path = "tools\vscode-englang\syntaxes\eng.tmLanguage.json"; Description = "VS Code generated TextMate grammar" },
+            @{ Path = "tools\vscode-englang\snippets\eng.json"; Description = "VS Code snippets" },
+            @{ Path = "tools\vscode-englang\generated\editor\englang-editor-metadata.json"; Description = "VS Code generated editor metadata" },
+            @{ Path = "tools\vscode-englang\generated\editor\englang-semantic-legend.json"; Description = "VS Code generated semantic legend" },
+            @{ Path = "tools\vscode-englang\generated\editor\englang-completions.json"; Description = "VS Code generated completion metadata" },
+            @{ Path = "tools\vscode-englang\generated\editor\englang-syntax.json"; Description = "VS Code generated syntax catalog" },
+            @{ Path = "tools\vscode-englang\themes\englang-dark-color-theme.json"; Description = "VS Code EngLang Dark theme" },
+            @{ Path = "tools\vscode-englang\themes\englang-light-color-theme.json"; Description = "VS Code EngLang Light theme" }
+        )
+        foreach ($RequiredVscodePackageFile in $RequiredVscodePackageFiles) {
+            if (-not (Test-Path (Join-Path $SmokeRoot $RequiredVscodePackageFile.Path))) {
+                throw "portable package did not include $($RequiredVscodePackageFile.Description)"
+            }
+        }
         if (-not (Test-Path $Lsp)) {
             throw "portable package did not include eng-lsp.exe"
         }
         $ExpectedVsix = Join-Path $SmokeRoot ("tools\" + (Get-VsixFileName))
         if (-not (Test-Path $ExpectedVsix)) {
             throw "portable package did not include VS Code VSIX"
+        }
+        Add-Type -AssemblyName System.IO.Compression.FileSystem -ErrorAction SilentlyContinue
+        $VsixArchive = [System.IO.Compression.ZipFile]::OpenRead($ExpectedVsix)
+        try {
+            $VsixEntryNames = @($VsixArchive.Entries | ForEach-Object { $_.FullName.Replace("/", "\") })
+        } finally {
+            $VsixArchive.Dispose()
+        }
+        foreach ($RequiredVsixEntry in @(
+            "extension\package.json",
+            "extension\language-configuration.json",
+            "extension\syntaxes\eng.tmLanguage.json",
+            "extension\snippets\eng.json",
+            "extension\generated\editor\englang-editor-metadata.json",
+            "extension\generated\editor\englang-semantic-legend.json",
+            "extension\generated\editor\englang-completions.json",
+            "extension\generated\editor\englang-syntax.json",
+            "extension\themes\englang-dark-color-theme.json",
+            "extension\themes\englang-light-color-theme.json",
+            "extension\bin\eng.exe",
+            "extension\bin\eng-lsp.exe"
+        )) {
+            if ($VsixEntryNames -notcontains $RequiredVsixEntry) {
+                throw "VS Code VSIX did not include $RequiredVsixEntry"
+            }
         }
         $ExpectedUserGuide = Join-Path $SmokeRoot ("docs\" + (Get-PackageUserGuideFileName))
         if (-not (Test-Path $ExpectedUserGuide)) {

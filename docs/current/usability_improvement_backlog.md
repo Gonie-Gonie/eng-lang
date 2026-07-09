@@ -86,6 +86,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 529: Added optional VS Code EngLang Dark/Light themes with explicit role-aware semantic colors.
 - Batch 530: Reworded VS Code quick-fix docs away from skeleton language and added a wording guard.
 - Batch 531: Reworded current workflow track scope away from skeleton language and added it to docs wording guards.
+- Batch 532: Added portable package and VSIX smoke coverage for VS Code grammar, snippets, generated editor metadata, and EngLang color themes.
 
 ## Documentation Policy
 
