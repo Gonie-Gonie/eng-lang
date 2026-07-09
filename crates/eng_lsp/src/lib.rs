@@ -397,6 +397,22 @@ const PLOT_COMMAND_STYLE_FUNCTIONS: &[&str] = &[
     "residuals",
 ];
 
+const WORKFLOW_STATUS_LITERAL_KEYWORDS: &[&str] = &[
+    "pending",
+    "planned",
+    "partial",
+    "running",
+    "passed",
+    "failed",
+    "succeeded",
+    "skipped",
+    "blocked",
+    "completed",
+    "rendered",
+    "collected",
+    "missing",
+    "empty",
+];
 const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "true",
     "false",
@@ -1695,6 +1711,7 @@ pub fn editor_syntax_catalog_json() -> Value {
     json!({
         "keywords": COMPLETION_KEYWORDS,
         "constants": constants,
+        "workflow_status_literals": WORKFLOW_STATUS_LITERAL_KEYWORDS,
         "operator_words": EDITOR_OPERATOR_WORD_KEYWORDS,
         "keyword_groups": {
             "import": EDITOR_IMPORT_KEYWORDS,
@@ -5108,23 +5125,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
 }
 
 fn is_workflow_status_literal(value: &str) -> bool {
-    matches!(
-        value,
-        "pending"
-            | "planned"
-            | "partial"
-            | "running"
-            | "passed"
-            | "failed"
-            | "succeeded"
-            | "skipped"
-            | "blocked"
-            | "completed"
-            | "rendered"
-            | "collected"
-            | "missing"
-            | "empty"
-    )
+    WORKFLOW_STATUS_LITERAL_KEYWORDS.contains(&value)
 }
 
 fn is_status_or_policy_literal(value: &str) -> bool {
@@ -8610,6 +8611,17 @@ mod tests {
             assert!(
                 syntax_keywords.iter().any(|keyword| keyword == label),
                 "syntax catalog should expose plot report keyword {label}"
+            );
+        }
+        let workflow_status_literals = syntax_catalog["workflow_status_literals"]
+            .as_array()
+            .expect("syntax catalog workflow status literals should be an array");
+        for label in ["partial", "missing", "empty"] {
+            assert!(
+                workflow_status_literals
+                    .iter()
+                    .any(|status_literal| status_literal == label),
+                "syntax catalog should expose workflow status literal {label}"
             );
         }
         let syntax_constants = syntax_catalog["constants"]

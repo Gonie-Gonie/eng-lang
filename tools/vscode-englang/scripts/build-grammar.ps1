@@ -109,6 +109,7 @@ $WorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name 
 $HyphenatedWorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "hyphenated_workflow_builtins"
 $WorkflowOptionItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_options"
 $LanguageConstantItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "constants"
+$WorkflowStatusLiteralItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_status_literals"
 $OperatorWordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "operator_words"
 $PublicTypeItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "public_types"
 $QuantityItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "quantities"
@@ -121,6 +122,7 @@ $WorkflowBuiltins = @($WorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($HyphenatedWorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($WorkflowOptionItems | ForEach-Object { [string]$_.label })
 $LanguageConstants = @($LanguageConstantItems | ForEach-Object { [string]$_ })
+$WorkflowStatusLiterals = @($WorkflowStatusLiteralItems | ForEach-Object { [string]$_ })
 $OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
 # Keep legacy workflow helper spellings colored for existing files without
 # suggesting them through the generated completion catalog.
@@ -211,6 +213,7 @@ $AsciiUnits = @($UnitItems | ForEach-Object { [string]$_.label } | Where-Object 
 $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
+    "{{WORKFLOW_STATUS_LITERALS}}" = ConvertTo-RegexAlternation $WorkflowStatusLiterals
     "{{OPERATOR_WORDS}}" = ConvertTo-RegexAlternation ($OperatorWords + $GrammarOnlyOperatorWordAliases)
     "{{KEYWORD_GROUP_IMPORT}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["import"])
     "{{KEYWORD_GROUP_DEPRECATED}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["deprecated"])

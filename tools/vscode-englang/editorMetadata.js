@@ -36,6 +36,7 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(completionItems) ||
     !Array.isArray(syntaxCatalog.keywords) ||
     !Array.isArray(syntaxCatalog.constants) ||
+    !Array.isArray(syntaxCatalog.workflow_status_literals) ||
     !Array.isArray(syntaxCatalog.operator_words) ||
     typeof keywordGroups !== "object" ||
     requiredKeywordGroups.some((group) => !Array.isArray(keywordGroups[group])) ||

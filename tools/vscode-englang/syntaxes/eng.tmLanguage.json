@@ -654,7 +654,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.status-condition.englang",
-                                                                    "match":  "^\\s*(status)\\s*(==|!=)\\s*(pending|planned|partial|running|passed|failed|succeeded|skipped|blocked|completed|rendered|collected|missing|empty)\\b",
+                                                                    "match":  "^\\s*(status)\\s*(==|!=)\\s*(collected|completed|succeeded|rendered|blocked|missing|partial|pending|planned|running|skipped|failed|passed|empty)\\b",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "variable.parameter.property.englang"

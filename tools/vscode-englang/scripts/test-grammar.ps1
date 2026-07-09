@@ -664,6 +664,10 @@ $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [strin
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 $LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
+$WorkflowStatusLiterals = @($SyntaxCatalog.workflow_status_literals | ForEach-Object { [string]$_ })
+if ($WorkflowStatusLiterals.Count -eq 0) {
+    throw "generated editor metadata syntax_catalog.workflow_status_literals is empty"
+}
 $OperatorWords = @($SyntaxCatalog.operator_words | ForEach-Object { [string]$_ })
 $KeywordGroups = $SyntaxCatalog.keyword_groups
 $KeywordGroupScopeChecks = @(
@@ -715,6 +719,7 @@ Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $Gram
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowOptions -Description "LSP workflow option"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowOptionAliases -Description "grammar-only workflow option alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LanguageConstants -Description "LSP language constant"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowStatusLiterals -Description "LSP workflow status literal"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $OperatorWords -Description "LSP operator word"
 foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
     Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $KeywordGroupCheck.Labels -Description "LSP keyword group $($KeywordGroupCheck.Name)"

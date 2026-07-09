@@ -1529,6 +1529,22 @@
                                                         "detail":  "calendar year option",
                                                         "label":  "year"
                                                     }
-                                                ]
+                                                ],
+                           "workflow_status_literals":  [
+                                                            "pending",
+                                                            "planned",
+                                                            "partial",
+                                                            "running",
+                                                            "passed",
+                                                            "failed",
+                                                            "succeeded",
+                                                            "skipped",
+                                                            "blocked",
+                                                            "completed",
+                                                            "rendered",
+                                                            "collected",
+                                                            "missing",
+                                                            "empty"
+                                                        ]
                        }
 }

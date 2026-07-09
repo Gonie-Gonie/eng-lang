@@ -3092,7 +3092,8 @@ function Assert-VscodeExtensionContract {
         "{{KEYWORD_GROUP_FUNCTION}}", "{{KEYWORD_GROUP_TEST}}", "{{KEYWORD_GROUP_BLOCK}}",
         "{{KEYWORD_GROUP_MODIFIER}}", "{{KEYWORD_GROUP_REPORT}}", "{{KEYWORD_GROUP_VALIDATION}}",
         "{{KEYWORD_GROUP_SIDE_EFFECT}}",
-        "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}", "{{KEYWORD_GROUP_SOLVER}}", "{{KEYWORD_GROUP_WORKFLOW}}"
+        "{{KEYWORD_GROUP_EXTERNAL_BOUNDARY}}", "{{KEYWORD_GROUP_SOLVER}}", "{{KEYWORD_GROUP_WORKFLOW}}",
+        "{{WORKFLOW_STATUS_LITERALS}}"
     )) {
         if (-not $GrammarTemplateSource.Contains($RequiredGrammarPlaceholder)) {
             throw "VS Code source grammar missing generated placeholder $RequiredGrammarPlaceholder"
@@ -3115,6 +3116,9 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $BuildGrammarSource.Contains("keyword_groups") -or -not $BuildGrammarSource.Contains("{{KEYWORD_GROUP_WORKFLOW}}")) {
         throw "VS Code grammar build must generate keyword groups from editor metadata"
+    }
+    if (-not $BuildGrammarSource.Contains("workflow_status_literals") -or -not $BuildGrammarSource.Contains("{{WORKFLOW_STATUS_LITERALS}}")) {
+        throw "VS Code grammar build must generate workflow status literals from editor metadata"
     }
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
@@ -3888,8 +3892,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
