@@ -13305,6 +13305,37 @@ fn sample_tables_json(runtime_data: &RuntimeData) -> String {
         json.push_str("        \"row_hash_preview\": [");
         push_json_string_array(&mut json, &sample_table.row_hash_preview);
         json.push_str("],\n");
+        json.push_str("        \"row_preview\": [\n");
+        for (row_index, row) in sample_table.row_preview.iter().enumerate() {
+            if row_index > 0 {
+                json.push_str(",\n");
+            }
+            json.push_str("          {\n");
+            json.push_str(&format!(
+                "            \"row_number\": {},\n",
+                row.row_number
+            ));
+            json.push_str(&format!(
+                "            \"case_id\": {},\n",
+                optional_json_string_literal(row.case_id.as_deref())
+            ));
+            json.push_str("            \"values\": [");
+            for (value_index, value) in row.values.iter().enumerate() {
+                if value_index > 0 {
+                    json.push_str(", ");
+                }
+                json.push_str(&format!(
+                    "{{\"column\": \"{}\", \"value\": {}, \"numeric_value\": {}, \"unit\": {}}}",
+                    json_escape(&value.column),
+                    optional_json_string_literal(value.value.as_deref()),
+                    optional_json_number(value.numeric_value),
+                    optional_json_string_literal(value.unit.as_deref())
+                ));
+            }
+            json.push_str("]\n");
+            json.push_str("          }");
+        }
+        json.push_str("\n        ],\n");
         json.push_str(&format!(
             "        \"generation\": \"{}\",\n",
             json_escape(&sample_table.generation)
@@ -19699,6 +19730,38 @@ mod tests {
             .contains("\"quantity_kind\": \"Irradiance\""));
         assert!(output.result_json.contains("\"display_unit\": \"W/m2\""));
         assert!(output.result_json.contains("\"row_hash_count\": 4"));
+        assert!(output.result_json.contains("\"row_preview\""));
+        assert!(output.result_json.contains("\"row_number\": 1"));
+        assert!(output.result_json.contains("\"case_id\": \"case_001\""));
+        assert!(output.result_json.contains("\"column\": \"cooling_cop\""));
+        let result_json = serde_json::from_str::<Value>(&output.result_json).expect("result json");
+        let sample_tables = result_json
+            .pointer("/typed_payload/sample_tables")
+            .and_then(Value::as_array)
+            .expect("sample tables");
+        let lhs_table = sample_tables
+            .iter()
+            .find(|table| table.get("binding").and_then(Value::as_str) == Some("lhs_samples"))
+            .expect("lhs sample table");
+        let first_preview = lhs_table
+            .get("row_preview")
+            .and_then(Value::as_array)
+            .and_then(|rows| rows.first())
+            .expect("lhs row preview");
+        let cooling_value = first_preview
+            .get("values")
+            .and_then(Value::as_array)
+            .and_then(|values| {
+                values.iter().find(|value| {
+                    value.get("column").and_then(Value::as_str) == Some("cooling_cop")
+                })
+            })
+            .expect("cooling_cop row preview value");
+        assert!(cooling_value
+            .get("numeric_value")
+            .and_then(Value::as_f64)
+            .is_some());
+        assert_eq!(cooling_value.get("unit").and_then(Value::as_str), Some("1"));
         assert!(output
             .result_json
             .contains("\"status\": \"generated_sample_table\""));

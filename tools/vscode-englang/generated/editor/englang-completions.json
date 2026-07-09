@@ -2044,7 +2044,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews.",
+                                 "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
                                  "kind":  "stdlib",
                                  "label":  "eng.sampling",
                                  "lsp_kind":  9
@@ -4674,7 +4674,7 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews.",
+                                "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
                                 "kind":  "stdlib",
                                 "label":  "eng.sampling",
                                 "lsp_kind":  9

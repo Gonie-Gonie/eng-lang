@@ -3,7 +3,7 @@
 The saved run should show:
 
 ```text
-native `sample lhs` tables for training_designs and designs with case IDs, parameter ranges, units, and row-hash previews
+native `sample lhs` tables for training_designs and designs with case IDs, parameter ranges, units, row-hash previews, and row-value previews
 workflow bindings and generated sampling_summary.txt expose native sampler method, seed, sample count, and parameter count
 native `derive` transforms materializing annual_electricity, annual_cooling, peak_cooling, and unmet_hours from sampled design inputs
 explicit native `materialize cases training_results` CaseTable rows with case directories and sample row hashes

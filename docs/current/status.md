@@ -61,8 +61,8 @@ workflow, and covered by the breaking-change policy.
   row/field failure details, report-facing `report_spec.quality_report`, HTML
   Quality Report tables, and IDE Quality inspector payloads,
   `typed_payload.time_alignments[]` alignment/resampling hook records,
-  `typed_payload.sample_tables[]` summaries for generated and promoted
-  sample/case tables, `typed_payload.case_tables[]` case summary rows with
+  `typed_payload.sample_tables[]` summaries and row previews for generated
+  and promoted sample/case tables, `typed_payload.case_tables[]` case summary rows with
   pending/succeeded/failed/skipped counts, collection status, scheduler hooks,
   and cache hit/miss counts,
   `typed_payload.case_manifests[]` case row manifests with sample row hashes and

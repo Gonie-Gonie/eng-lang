@@ -22,8 +22,8 @@ keys, matched pair counts, row counts, Date/DateTime predicate comparison, and
 `row_diagnostics[]`. Promoted
 `sample grid`, `sample random`, `sample lhs`, and DesignSample-style CSV tables
 now emit `typed_payload.sample_tables[]` with case ID, parameter range,
-duplicate-case checks, deterministic generation settings, and row-hash review
-metadata, plus
+duplicate-case checks, deterministic generation settings, row-hash review
+metadata, and row-value previews, plus
 `typed_payload.case_tables[]` summaries and `typed_payload.case_manifests[]`
 case row manifests with pending/succeeded/failed/skipped status, sample row
 hashes, collection manifest counts, case cache hit/miss counts, scheduler hook
@@ -194,7 +194,7 @@ process_results.json with process_count = 0
 
 ```text
 deterministic LHS training and prediction sample tables
-sample table artifacts with case IDs, parameter ranges, duplicate checks, and row-hash records
+sample table artifacts with case IDs, parameter ranges, duplicate checks, row-hash records, and row-value previews
 case manifest records for generated sample/case rows
 rendered CaseOutput rows from `apply case_input_template over cases`
 native case_input artifacts plus template_render_manifest records

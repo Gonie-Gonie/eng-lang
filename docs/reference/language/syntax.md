@@ -453,9 +453,10 @@ with {
 ```
 
 Supported methods are `grid`, `random`, and `lhs`. Generated tables include a
-`case_id` column, parameter columns, row hashes, generation metadata, and seed
-metadata in `typed_payload.sample_tables[]`. `random` and `lhs` use deterministic
-seeded generation; repro profile rejects them without `seed`.
+`case_id` column, parameter columns, row hashes, row-value previews,
+generation metadata, and seed metadata in `typed_payload.sample_tables[]`.
+`random` and `lhs` use deterministic seeded generation; repro profile rejects
+them without `seed`.
 
 Sample-like tables with a `case_id` column also materialize case artifacts.
 Runtime output includes `typed_payload.case_tables[]` summary rows,

@@ -31,7 +31,7 @@ is still future work.
 | `eng.test` | Local assertions, golden checks, and test-result artifacts. |
 | `eng.artifact` | Generated artifact kinds, `write standard_text` table artifacts, hashes, manifests, and validation records. |
 | `eng.table` | Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics. |
-| `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, and row-hash previews. |
+| `eng.sampling` | Deterministic grid/random/LHS sample generation, promoted sample-table metadata, parameter ranges, duplicate case IDs, seeds, row hashes, and row-value previews. |
 | `eng.case` | CaseTable summaries, per-case manifests, collection status, scheduler hooks, cache hit/miss metadata, diagnostics, and process-output enrichment. |
 | `eng.timeseries` | Coverage metadata, statistics, and integration above core TimeSeries semantics. |
 | `eng.review` | Review IR, risk/fallback, and semantic diff vocabulary. |

@@ -298,6 +298,7 @@
         "duplicate_case_ids",
         "row_hash_count",
         "row_hash_preview",
+        "row_preview",
         "generation",
         "seed",
         "status"
@@ -322,9 +323,35 @@
           "type": "array",
           "items": { "type": "string" }
         },
+        "row_preview": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sampleRowPreview" }
+        },
         "generation": { "type": "string" },
         "seed": { "type": ["string", "null"] },
         "status": { "type": "string" }
+      }
+    },
+    "sampleRowPreview": {
+      "type": "object",
+      "required": ["row_number", "case_id", "values"],
+      "properties": {
+        "row_number": { "type": "integer", "minimum": 1 },
+        "case_id": { "type": ["string", "null"] },
+        "values": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/sampleRowPreviewValue" }
+        }
+      }
+    },
+    "sampleRowPreviewValue": {
+      "type": "object",
+      "required": ["column", "value", "numeric_value", "unit"],
+      "properties": {
+        "column": { "type": "string" },
+        "value": { "type": ["string", "null"] },
+        "numeric_value": { "type": ["number", "null"] },
+        "unit": { "type": ["string", "null"] }
       }
     },
     "sampleParameterColumn": {

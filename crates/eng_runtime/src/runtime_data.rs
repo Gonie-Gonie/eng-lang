@@ -1245,6 +1245,7 @@ pub struct RuntimeSampleTable {
     pub duplicate_case_ids: Vec<String>,
     pub row_hash_count: usize,
     pub row_hash_preview: Vec<String>,
+    pub row_preview: Vec<RuntimeSampleRowPreview>,
     pub generation: String,
     pub method: String,
     pub seed: Option<String>,
@@ -1259,6 +1260,21 @@ pub struct RuntimeSampleParameterColumn {
     pub min: Option<f64>,
     pub max: Option<f64>,
     pub missing_count: usize,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSampleRowPreview {
+    pub row_number: usize,
+    pub case_id: Option<String>,
+    pub values: Vec<RuntimeSampleRowPreviewValue>,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct RuntimeSampleRowPreviewValue {
+    pub column: String,
+    pub value: Option<String>,
+    pub numeric_value: Option<f64>,
+    pub unit: Option<String>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -7824,6 +7840,7 @@ fn materialize_sample_table(
         duplicate_case_ids,
         row_hash_count: table.row_count,
         row_hash_preview: sample_row_hash_preview(table),
+        row_preview: sample_row_preview(table, case_id_column),
         generation,
         method,
         seed,
@@ -7891,6 +7908,48 @@ fn numeric_min_max(values: &[Option<f64>]) -> (Option<f64>, Option<f64>) {
 fn sample_row_hash_preview(table: &RuntimeTable) -> Vec<String> {
     (0..table.row_count.min(8))
         .map(|row_index| sample_row_hash(table, row_index))
+        .collect()
+}
+
+fn sample_row_preview(
+    table: &RuntimeTable,
+    case_id_column: Option<&RuntimeColumn>,
+) -> Vec<RuntimeSampleRowPreview> {
+    let parameter_columns = table
+        .columns
+        .iter()
+        .filter(|column| !column.name.eq_ignore_ascii_case("case_id"))
+        .filter(|column| matches!(column.values, RuntimeValues::Number(_)))
+        .collect::<Vec<_>>();
+    (0..table.row_count.min(3))
+        .map(|row_index| RuntimeSampleRowPreview {
+            row_number: row_index + 1,
+            case_id: case_id_column.and_then(|column| {
+                let value = table_cell_text(column, row_index);
+                (!value.trim().is_empty()).then_some(value)
+            }),
+            values: parameter_columns
+                .iter()
+                .map(|column| {
+                    let value = table_cell_text(column, row_index);
+                    let numeric_value = match &column.values {
+                        RuntimeValues::Number(values) => {
+                            values.get(row_index).and_then(|value| *value)
+                        }
+                        RuntimeValues::Text(_) => None,
+                    };
+                    RuntimeSampleRowPreviewValue {
+                        column: column.name.clone(),
+                        value: (!value.trim().is_empty()).then_some(value),
+                        numeric_value,
+                        unit: column
+                            .unit
+                            .clone()
+                            .or_else(|| column.canonical_unit.clone()),
+                    }
+                })
+                .collect(),
+        })
         .collect()
 }
 
@@ -25725,6 +25784,28 @@ with {
         assert_eq!(sample_tables[0].duplicate_case_ids, vec!["case_002"]);
         assert_eq!(sample_tables[0].row_hash_count, 3);
         assert_eq!(sample_tables[0].row_hash_preview.len(), 3);
+        assert_eq!(sample_tables[0].row_preview.len(), 3);
+        assert_eq!(sample_tables[0].row_preview[0].row_number, 1);
+        assert_eq!(
+            sample_tables[0].row_preview[0].case_id.as_deref(),
+            Some("case_001")
+        );
+        assert_eq!(
+            sample_tables[0].row_preview[0].values[0].column,
+            "cooling_cop"
+        );
+        assert_eq!(
+            sample_tables[0].row_preview[0].values[0].value.as_deref(),
+            Some("3.2")
+        );
+        assert_eq!(
+            sample_tables[0].row_preview[0].values[0].numeric_value,
+            Some(3.2)
+        );
+        assert_eq!(
+            sample_tables[0].row_preview[0].values[0].unit.as_deref(),
+            Some("1")
+        );
         assert_eq!(sample_tables[0].generation, "promoted_csv");
         assert_eq!(sample_tables[0].method, "promoted_csv");
         assert_eq!(sample_tables[0].status, "duplicate_case_ids");

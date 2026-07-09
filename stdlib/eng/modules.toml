@@ -79,7 +79,7 @@ tests = ["cargo test -p eng_runtime run_file_records_timeseries_coverage_in_revi
 [module."eng.sampling"]
 status = "native_preview"
 backing = "compiler_runtime_builtin"
-purpose = "Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, and row-hash previews."
+purpose = "Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews."
 artifacts = ["typed_payload.sample_tables", "case_manifest"]
 diagnostics = ["E-SAMPLING-COUNT-INVALID", "E-SAMPLING-RANGE-UNIT", "E-SAMPLING-SEED-INVALID", "E-SAMPLING-SEED-MISSING", "E-CASE-ID-DUPLICATE"]
 examples = ["examples/workflows/02_native_surrogate_case_workflow"]

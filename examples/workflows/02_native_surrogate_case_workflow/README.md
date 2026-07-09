@@ -27,7 +27,7 @@ Expected saved-run properties:
 
 ```text
 process_results.json has process_count = 0
-typed_payload.sample_tables includes training_designs and designs
+typed_payload.sample_tables includes training_designs and designs with row previews
 report entries include native sample method, seed, count, and parameter-count bindings
 object_store.tables includes the explicit CaseTable binding `cases`
 object_store.tables includes the CaseOutput binding `case_inputs`
@@ -47,9 +47,10 @@ The training-design table is produced by EngLang's native sampler. The result
 metrics are then calculated with native `derive` table transforms before the
 case table, case-input apply step, model, CSV export, and SQLite write steps
 consume them. The workflow reads sampler metadata through
-`training_designs.method`, `training_designs.seed`, and
-`training_designs.sample_count`, so the native sampling contract is visible in
-normal bindings and output files. It also reads `cases.pending_count`, `case_inputs.rendered_count`, and
+`training_designs.method`, `training_designs.seed`,
+`training_designs.sample_count`, and
+`typed_payload.sample_tables[].row_preview`, so the native sampling contract is
+visible in normal bindings, output files, and the result JSON. It also reads `cases.pending_count`, `case_inputs.rendered_count`, and
 `case_result_collection.collected_count`, and `case_result_collection.status`, so case materialization, case-input
 rendering, and native result collection are visible without digging through JSON
 artifacts. Domain adapters can replace the

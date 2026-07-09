@@ -23,7 +23,7 @@ eng.exe run examples/workflows/02_native_surrogate_case_workflow/main.eng --save
 
 What it proves:
 
-- deterministic native `sample lhs` tables for training and prediction inputs
+- deterministic native `sample lhs` tables for training and prediction inputs with result JSON row previews
 - sampler metadata bindings such as `training_designs.method`,
   `training_designs.seed`, and `training_designs.sample_count`
 - native result-column derivation before case/model/DB steps consume the table
@@ -42,7 +42,7 @@ What it proves:
 
 Expected review surfaces:
 
-- `typed_payload.sample_tables[]`
+- `typed_payload.sample_tables[]` with `row_preview` case IDs, parameter display values, numeric values, and units
 - `typed_payload.case_manifests[]`
 - object-store `CaseOutput` table `case_inputs`
 - object-store `CaseResultCollection` table `case_result_collection`
