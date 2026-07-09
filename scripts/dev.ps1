@@ -3000,31 +3000,20 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension language configuration must treat dotted EngLang symbols as words"
     }
     $Snippets = Get-Content -LiteralPath $SnippetsPath -Raw | ConvertFrom-Json
-    foreach ($RequiredSnippet in @(
-        @{ Name = "Native HTTP GET"; Tokens = @("http get", "offline_response", "expected_sha256", "cache_key") },
-        @{ Name = "Native HTTP POST body"; Tokens = @("http post", "body =", "expected_sha256", "cache_key") },
-        @{ Name = "Sample LHS table"; Tokens = @("sample lhs", "count =", "seed =", "uniform(") },
-        @{ Name = "Sample grid table"; Tokens = @("sample grid", "count =", "uniform(") },
-        @{ Name = "Sample random table"; Tokens = @("sample random", "count =", "seed =", "uniform(") },
-        @{ Name = "Sample uniform table"; Tokens = @("sample uniform", "count =", "seed =", "uniform(") },
-        @{ Name = "Apply case template"; Tokens = @("apply", "over", "template = file", "{case_dir}") },
+    foreach ($RequiredStaticSnippet in @(
         @{ Name = "Regression prediction table"; Tokens = @("train regression", "model_card", "evaluate", "predict") },
-        @{ Name = "SQLite table write"; Tokens = @('open sqlite ${2:args.database_target}', ".table", "transaction = commit") },
-        @{ Name = "Standard text artifact"; Tokens = @("write standard_text", "output = join", "overwrite = true") },
-        @{ Name = "Plot line"; Tokens = @("plot", "unit y =", "title =") }
+        @{ Name = "System model"; Tokens = @("system", "state", "equation energy_balance") },
+        @{ Name = "Domain ports"; Tokens = @("domain", "package", "version", "connect") }
     )) {
-        $SnippetProperty = $Snippets.PSObject.Properties[$RequiredSnippet.Name]
+        $SnippetProperty = $Snippets.PSObject.Properties[$RequiredStaticSnippet.Name]
         if ($null -eq $SnippetProperty) {
-            throw "VS Code snippets missing native snippet $($RequiredSnippet.Name)"
+            throw "VS Code static snippets missing native snippet $($RequiredStaticSnippet.Name)"
         }
         $SnippetBody = (@($SnippetProperty.Value.body) -join "`n")
-        foreach ($RequiredSnippetToken in $RequiredSnippet.Tokens) {
+        foreach ($RequiredSnippetToken in $RequiredStaticSnippet.Tokens) {
             if (-not $SnippetBody.Contains($RequiredSnippetToken)) {
-                throw "VS Code snippet $($RequiredSnippet.Name) missing token $RequiredSnippetToken"
+                throw "VS Code static snippet $($RequiredStaticSnippet.Name) missing token $RequiredSnippetToken"
             }
-        }
-        if ($RequiredSnippet.Name -eq "SQLite table write" -and $SnippetBody.Contains('open sqlite file(${2:args.database_target})')) {
-            throw "VS Code SQLite snippet must pass FilePath args directly instead of wrapping args.database_target in file(...)"
         }
     }
     foreach ($RequiredVscodeInstallPattern in @(
@@ -4671,6 +4660,51 @@ function Assert-VscodeExtensionContract {
     }
     if ($MetadataCompletionLabels -contains "fixture") {
         throw "generated VS Code completion items must not suggest legacy fixture option; use offline_response"
+    }
+    foreach ($StaticSnippetProperty in $Snippets.PSObject.Properties) {
+        $StaticSnippetPrefix = [string]$StaticSnippetProperty.Value.prefix
+        if ($MetadataCompletionLabels -contains $StaticSnippetPrefix) {
+            throw "VS Code static snippet $($StaticSnippetProperty.Name) duplicates generated completion label $StaticSnippetPrefix"
+        }
+    }
+    foreach ($RequiredGeneratedSnippet in @(
+        @{ Label = "top workflow"; Tokens = @("args {", "report {"); RequiresSnippetKind = $true },
+        @{ Label = "args block"; Tokens = @("args {", "CsvFile"); RequiresSnippetKind = $true },
+        @{ Label = "log info"; Tokens = @("log info"); RequiresSnippetKind = $true },
+        @{ Label = "http get"; Tokens = @("http get", "offline_response", "expected_sha256", "cache_key"); RequiresSnippetKind = $false },
+        @{ Label = "http post"; Tokens = @("http post", "body =", "expected_sha256", "cache_key"); RequiresSnippetKind = $false },
+        @{ Label = "sample lhs"; Tokens = @("sample lhs", "seed =", "uniform("); RequiresSnippetKind = $false },
+        @{ Label = "sample grid"; Tokens = @("sample grid", "count =", "uniform("); RequiresSnippetKind = $false },
+        @{ Label = "sample random"; Tokens = @("sample random", "seed =", "uniform("); RequiresSnippetKind = $false },
+        @{ Label = "sample uniform"; Tokens = @("sample uniform", "seed =", "uniform("); RequiresSnippetKind = $false },
+        @{ Label = "materialize cases"; Tokens = @("materialize cases"); RequiresSnippetKind = $false },
+        @{ Label = "apply cases"; Tokens = @("apply", "over", "template = file", "overwrite = true"); RequiresSnippetKind = $false },
+        @{ Label = "write sqlite"; Tokens = @('open sqlite ${2:args.database_target}', ".table", "transaction = commit"); RequiresSnippetKind = $false },
+        @{ Label = "write standard_text"; Tokens = @("write standard_text", "output = join", "overwrite = true"); RequiresSnippetKind = $false },
+        @{ Label = "run command"; Tokens = @("run command"); RequiresSnippetKind = $false },
+        @{ Label = "test block"; Tokens = @("test", "within", "golden"); RequiresSnippetKind = $true },
+        @{ Label = "schema csv"; Tokens = @('schema ${1:Sensor}', "HeatRate"); RequiresSnippetKind = $true },
+        @{ Label = "plot line"; Tokens = @("plot", "unit y =", "title ="); RequiresSnippetKind = $true }
+    )) {
+        $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredGeneratedSnippet.Label }) | Select-Object -First 1
+        if ($null -eq $Completion) {
+            throw "generated VS Code editor metadata missing snippet completion $($RequiredGeneratedSnippet.Label)"
+        }
+        if ($RequiredGeneratedSnippet.RequiresSnippetKind -and $Completion.lsp_kind -ne 15) {
+            throw "generated VS Code editor metadata snippet completion $($RequiredGeneratedSnippet.Label) must use LSP snippet kind"
+        }
+        $GeneratedSnippetBody = [string]$Completion.insert_snippet
+        if (-not $GeneratedSnippetBody) {
+            throw "generated VS Code editor metadata completion $($RequiredGeneratedSnippet.Label) missing insert_snippet"
+        }
+        foreach ($RequiredGeneratedSnippetToken in $RequiredGeneratedSnippet.Tokens) {
+            if (-not $GeneratedSnippetBody.Contains($RequiredGeneratedSnippetToken)) {
+                throw "generated VS Code editor metadata snippet $($RequiredGeneratedSnippet.Label) missing token $RequiredGeneratedSnippetToken"
+            }
+        }
+        if ($RequiredGeneratedSnippet.Label -eq "write sqlite" -and $GeneratedSnippetBody.Contains('open sqlite file(${2:args.database_target})')) {
+            throw "generated VS Code SQLite snippet must pass FilePath args directly instead of wrapping args.database_target in file(...)"
+        }
     }
     foreach ($RequiredCompletion in @("records", "promote json records", "sample uniform", "sample latin-hypercube", "read json", "eng.table", "split")) {
         $Completion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $RequiredCompletion }) | Select-Object -First 1

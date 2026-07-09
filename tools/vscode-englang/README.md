@@ -29,7 +29,7 @@ embedding compiler logic in JavaScript.
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols
 - workspace symbol search across `.eng` files in the open workspace
-- snippets from `snippets/eng.json`
+- compiler-owned snippets from generated editor metadata, plus non-overlapping static snippets from `snippets/eng.json`
 - quick fixes for `:=`, boolean `==`, stale `struct Args`, removable `script` wrapper
   migration diagnostics, ambiguous unit-to-quantity annotations, safe
   missing-unit suffix fixes for unit arithmetic diagnostics, unterminated/empty string
@@ -236,7 +236,9 @@ visible, but insert editable snippets such as `Array[T]` and
 `LinearOperator[From -> To]` so type arguments can be replaced immediately.
 The generated completion metadata also carries plain insert text and VS Code
 snippet insert text for common helper and workflow completions such as
-`file(...)` and `read text`.
+`file(...)`, `read text`, `http get`, and `sample uniform`. Static snippets remain
+only for larger examples whose prefixes do not duplicate generated completion
+labels.
 
 Format Document and Format Selection use the current unsaved buffer, so VS Code
 and the command-line formatter share the compiler-owned formatting rules.
