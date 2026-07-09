@@ -78,6 +78,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 577: Clarified cache invalidation wording across stdlib docs, side-effect policy, generated editor metadata, and current backlog so implemented manifest-path deletion is not described as planned.
 - Batch 578: Added LSP semantic tokens for string interpolation variables, member fields, format precision, and format units so VS Code role-aware highlighting does not flatten workflow output strings.
 - Batch 579: Added `row_preview` with case IDs, display values, numeric values, and units to `typed_payload.sample_tables[]` so native sampling exposes generated rows directly instead of only metadata and hashes.
+- Batch 580: Exposed `samples.row_preview` as a runtime sample-table metadata binding and added matching compiler typing, LSP member completion, semantic-token coverage, and docs.
 
 ## Documentation Policy
 

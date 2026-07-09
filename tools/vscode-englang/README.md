@@ -197,7 +197,9 @@ Hover is computed from the current unsaved buffer, so quantity, unit, kind, and
 status details stay aligned with live diagnostics and role-aware highlighting.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
-not have to wait for a file save. The extension declares EngLang-specific
+not have to wait for a file save. Sample-table member completions include
+runtime metadata such as `sample_count`, `row_hash_count`, and `row_preview`.
+The extension declares EngLang-specific
 role categories and theme fallback hints for units, quantities, axes, time
 series, validation/report roles, side effects, external boundaries, inputs,
 state, built-in workflow helper functions, solver and uncertainty policy

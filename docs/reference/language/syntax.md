@@ -455,6 +455,8 @@ with {
 Supported methods are `grid`, `random`, and `lhs`. Generated tables include a
 `case_id` column, parameter columns, row hashes, row-value previews,
 generation metadata, and seed metadata in `typed_payload.sample_tables[]`.
+The compact preview text is also available as `samples.row_preview` for logs and
+summary files; the structured rows stay in `typed_payload.sample_tables[].row_preview`.
 `random` and `lhs` use deterministic seeded generation; repro profile rejects
 them without `seed`.
 

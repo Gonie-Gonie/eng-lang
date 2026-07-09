@@ -839,6 +839,7 @@ const SAMPLE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("status", "sample table validation status"),
     ("parameter_count", "sample parameter column count"),
     ("row_hash_count", "sample row hash count"),
+    ("row_preview", "sample row preview summary"),
     ("source_hash", "sample table source hash"),
     ("case_id_column", "case identifier column"),
 ];
@@ -8584,6 +8585,12 @@ mod tests {
             "syntax catalog should expose sample table field labels"
         );
         assert!(
+            syntax_catalog["sample_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "row_preview")),
+            "syntax catalog should expose sample row preview field"
+        );
+        assert!(
             syntax_catalog["case_table_fields"]
                 .as_array()
                 .is_some_and(|fields| fields.iter().any(|field| field["label"] == "pending_count")),
@@ -11298,7 +11305,7 @@ weather = promote json records payload.records as WeatherApiRecord
 
     #[test]
     fn snapshot_exposes_sample_table_member_fields() {
-        let source = "samples = sample lhs\nwith {\n    count = 4\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\nsample_count = samples.sample_count\n";
+        let source = "samples = sample lhs\nwith {\n    count = 4\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\nsample_count = samples.sample_count\nrow_preview = samples.row_preview\n";
         let snapshot = snapshot_for_source(Path::new("sample_members.eng"), source);
 
         assert!(snapshot
@@ -11326,10 +11333,21 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "seed"));
+        let row_preview_completion = member_completions
+            .iter()
+            .find(|completion| completion.label == "row_preview")
+            .expect("sample table member completion should include row_preview");
+        assert_eq!(row_preview_completion.detail, "sample row preview summary");
         assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
             token.token_type == "property"
                 && source.lines().nth(token.line).is_some_and(|line| {
                     &line[token.start..token.start + token.length] == "sample_count"
+                })
+        }));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "property"
+                && source.lines().nth(token.line).is_some_and(|line| {
+                    &line[token.start..token.start + token.length] == "row_preview"
                 })
         }));
     }

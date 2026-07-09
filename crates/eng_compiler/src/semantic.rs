@@ -5878,9 +5878,8 @@ fn sample_table_field_semantic_type(
     }
     match field.trim() {
         "sample_count" | "parameter_count" | "row_hash_count" => semantic_type("Count", "count"),
-        "method" | "generation" | "seed" | "status" | "source_hash" | "case_id_column" => {
-            semantic_type("String", "")
-        }
+        "method" | "generation" | "seed" | "status" | "source_hash" | "case_id_column"
+        | "row_preview" => semantic_type("String", ""),
         _ => None,
     }
 }

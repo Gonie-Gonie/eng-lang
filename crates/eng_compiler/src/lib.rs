@@ -13164,6 +13164,7 @@ system Envelope {
                 "sample_seed = samples.seed\n",
                 "parameter_count = samples.parameter_count\n",
                 "row_hash_count = samples.row_hash_count\n",
+                "row_preview = samples.row_preview\n",
             ),
             &CheckOptions::default(),
         );
@@ -13182,6 +13183,7 @@ system Envelope {
         assert_eq!(binding_type("sample_seed"), Some("String"));
         assert_eq!(binding_type("parameter_count"), Some("Count"));
         assert_eq!(binding_type("row_hash_count"), Some("Count"));
+        assert_eq!(binding_type("row_preview"), Some("String"));
     }
 
     #[test]

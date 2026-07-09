@@ -30,7 +30,7 @@ use artifact::{
 use runtime_data::{
     materialize_runtime_data, RuntimeCaseDiagnostic, RuntimeCaseManifest, RuntimeCaseMetric,
     RuntimeCaseProcessStatus, RuntimeCaseTable, RuntimeComponentResidualEvaluation, RuntimeData,
-    RuntimeMlArtifact, RuntimeNumericUncertaintyPayload, RuntimeNumericValue,
+    RuntimeMlArtifact, RuntimeNumericUncertaintyPayload, RuntimeNumericValue, RuntimeSampleTable,
     RuntimeStatisticValue, RuntimeTable, RuntimeTimeSeries, RuntimeValues,
 };
 pub use vm::{execute_bytecode, VmExecution, VmObject, VmObjectKind};
@@ -9300,6 +9300,9 @@ fn evaluate_sample_table_field_expression(
             quantity_kind: "Count".to_owned(),
             unit: String::new(),
         }),
+        "row_preview" => Some(RuntimeFormatValue::Text(sample_row_preview_summary(
+            sample_table,
+        ))),
         "method" => Some(RuntimeFormatValue::Text(sample_table.method.clone())),
         "generation" => Some(RuntimeFormatValue::Text(sample_table.generation.clone())),
         "seed" => Some(RuntimeFormatValue::Text(
@@ -9317,6 +9320,41 @@ fn evaluate_sample_table_field_expression(
         )),
         _ => None,
     }
+}
+
+fn sample_row_preview_summary(sample_table: &RuntimeSampleTable) -> String {
+    if sample_table.row_preview.is_empty() {
+        return "no rows".to_owned();
+    }
+    sample_table
+        .row_preview
+        .iter()
+        .map(|row| {
+            let case_id = row.case_id.as_deref().unwrap_or("-");
+            let values = if row.values.is_empty() {
+                "no parameter values".to_owned()
+            } else {
+                row.values
+                    .iter()
+                    .map(|value| {
+                        let display_value = value.value.clone().unwrap_or_else(|| {
+                            value
+                                .numeric_value
+                                .map(|numeric| numeric.to_string())
+                                .unwrap_or_else(|| "missing".to_owned())
+                        });
+                        match value.unit.as_deref().filter(|unit| !unit.is_empty()) {
+                            Some(unit) => format!("{}={} {}", value.column, display_value, unit),
+                            None => format!("{}={}", value.column, display_value),
+                        }
+                    })
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            };
+            format!("{case_id}: {values}")
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
 }
 
 fn evaluate_table_metadata_field_expression(
@@ -19694,8 +19732,9 @@ mod tests {
                 "sample_method = lhs_samples.method\n",
                 "sample_seed = lhs_samples.seed\n",
                 "sample_parameters = lhs_samples.parameter_count\n",
+                "sample_preview = lhs_samples.row_preview\n",
                 "print \"samples={grid_samples.rows}\"\n",
-                "print \"lhs={sample_method} seed={sample_seed} params={sample_parameters} hashes={lhs_samples.row_hash_count}\"\n",
+                "print \"lhs={sample_method} seed={sample_seed} params={sample_parameters} hashes={lhs_samples.row_hash_count} preview={sample_preview}\"\n",
             ),
             &build_root,
             &RunOptions::default(),
@@ -19730,6 +19769,8 @@ mod tests {
             .contains("\"quantity_kind\": \"Irradiance\""));
         assert!(output.result_json.contains("\"display_unit\": \"W/m2\""));
         assert!(output.result_json.contains("\"row_hash_count\": 4"));
+        assert!(output.stdout.contains("preview=case_001:"));
+        assert!(output.stdout.contains("cooling_cop="));
         assert!(output.result_json.contains("\"row_preview\""));
         assert!(output.result_json.contains("\"row_number\": 1"));
         assert!(output.result_json.contains("\"case_id\": \"case_001\""));

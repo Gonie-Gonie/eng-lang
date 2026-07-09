@@ -891,6 +891,10 @@
                                                            "label":  "row_hash_count"
                                                        },
                                                        {
+                                                           "detail":  "sample row preview summary",
+                                                           "label":  "row_preview"
+                                                       },
+                                                       {
                                                            "detail":  "sample table source hash",
                                                            "label":  "source_hash"
                                                        },
