@@ -32,7 +32,7 @@ report entries include native sample method, seed, count, and parameter-count bi
 object_store.tables includes the explicit CaseTable binding `cases`
 object_store.tables includes the CaseOutput binding `case_inputs`
 object_store.tables includes the CaseResultCollection binding `case_result_collection`
-report entries include `cases.pending_count`, `cases.failed_count`, `case_inputs.rendered_count`, `case_result_collection.collected_count`, and `case_result_collection.status`
+report entries include `cases.pending_count`, `cases.failed_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`, `case_result_collection.collected_count`, and `case_result_collection.status`
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
@@ -50,7 +50,7 @@ consume them. The workflow reads sampler metadata through
 `training_designs.method`, `training_designs.seed`,
 `training_designs.sample_count`, and
 `typed_payload.sample_tables[].row_preview`, so the native sampling contract is
-visible in normal bindings, output files, and the result JSON. It also reads `cases.pending_count`, `case_inputs.rendered_count`, and
+visible in normal bindings, output files, and the result JSON. It also reads `cases.pending_count`, `case_inputs.expected_count`, `case_inputs.rendered_count`,
 `case_result_collection.collected_count`, and `case_result_collection.status`, so case materialization, case-input
 rendering, and native result collection are visible without digging through JSON
 artifacts. Domain adapters can replace the

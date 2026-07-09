@@ -9396,6 +9396,7 @@ fn evaluate_table_metadata_field_expression(
         "skipped_count" if table.schema_name == "CaseTable" => {
             Some(count_value(table_status_count(table, "skipped")))
         }
+        "expected_count" if table.schema_name == "CaseOutput" => Some(count_value(table.row_count)),
         "planned_count" if table.schema_name == "CaseOutput" => {
             Some(count_value(table_status_count(table, "planned")))
         }
@@ -17731,18 +17732,20 @@ mod tests {
                 "    overwrite = true\n",
                 "}\n",
                 "case_results = collect results case_inputs\n\n",
+                "case_input_expected_count = case_inputs.expected_count\n",
                 "case_input_rendered_count = case_inputs.rendered_count\n",
                 "case_input_manifest_count = case_inputs.manifest_count\n",
                 "case_result_collected_count = case_results.collected_count\n",
                 "case_result_missing_count = case_results.missing_count\n",
                 "case_result_status = case_results.status\n",
                 "print \"case inputs={case_inputs.rows}\"\n",
-                "print \"cases={case_count} pending={case_pending_count} status={case_status} rendered_inputs={case_input_rendered_count} manifests={case_input_manifest_count}\"\n",
+                "print \"cases={case_count} pending={case_pending_count} status={case_status} expected_inputs={case_input_expected_count} rendered_inputs={case_input_rendered_count} manifests={case_input_manifest_count}\"\n",
                 "print \"case results={case_results.rows} collected={case_result_collected_count} missing={case_result_missing_count} status={case_result_status}\"\n",
                 "report {\n",
                 "    show case_inputs.rows\n",
                 "    show case_results.rows\n",
                 "    show case_pending_count\n",
+                "    show case_input_expected_count\n",
                 "    show case_input_rendered_count\n",
                 "    show case_result_collected_count\n",
                 "}\n",
@@ -17777,12 +17780,15 @@ mod tests {
         assert!(case_001.contains("E="));
         assert!(case_001.contains("PEAK="));
         assert!(output.stdout.contains("case inputs=2"));
-        assert!(output
-            .stdout
-            .contains("cases=2 pending=2 status=pending rendered_inputs=2 manifests=2"));
+        assert!(output.stdout.contains(
+            "cases=2 pending=2 status=pending expected_inputs=2 rendered_inputs=2 manifests=2"
+        ));
         assert!(output
             .stdout
             .contains("case results=2 collected=2 missing=0 status=collected"));
+        assert!(output
+            .result_json
+            .contains("\"binding\": \"case_input_expected_count\""));
         assert!(output.result_json.contains("\"binding\": \"case_inputs\""));
         assert!(output
             .result_json

@@ -1300,7 +1300,8 @@ function Test-PublicWorkflowDocs {
             "External process seed",
             "implementation seed",
             "case_inputs.planned_count",
-            "case-input planned/blocked counts"
+            "case-input planned/blocked counts",
+            "remaining planned counts"
         )) {
             if ($text.Contains($stalePhrase)) {
                 throw "public workflow doc still contains stale phrase '$stalePhrase' at $path"
@@ -4785,7 +4786,7 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata case table field $RequiredCaseTableField missing detail"
         }
     }
-    foreach ($RequiredCaseOutputTableField in @("planned_count", "rendered_count", "blocked_count", "manifest_count")) {
+    foreach ($RequiredCaseOutputTableField in @("expected_count", "rendered_count", "blocked_count", "manifest_count")) {
         $CaseOutputTableField = @($EditorMetadata.syntax_catalog.case_output_table_fields | Where-Object { $_.label -eq $RequiredCaseOutputTableField }) | Select-Object -First 1
         if ($null -eq $CaseOutputTableField) {
             throw "generated VS Code editor metadata missing case output table field $RequiredCaseOutputTableField"

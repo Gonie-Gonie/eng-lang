@@ -860,7 +860,11 @@ const CASE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
 
 const CASE_OUTPUT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("case_count", "case output row count"),
-    ("planned_count", "planned case output count"),
+    ("expected_count", "expected case output row count"),
+    (
+        "planned_count",
+        "compatibility count for case outputs still waiting to render",
+    ),
     ("rendered_count", "rendered case output count"),
     ("blocked_count", "blocked case output count"),
     ("output_count", "rendered output path count"),
@@ -8601,6 +8605,14 @@ mod tests {
                 .as_array()
                 .is_some_and(|fields| fields
                     .iter()
+                    .any(|field| field["label"] == "expected_count")),
+            "syntax catalog should expose expected case output table field labels"
+        );
+        assert!(
+            syntax_catalog["case_output_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields
+                    .iter()
                     .any(|field| field["label"] == "rendered_count")),
             "syntax catalog should expose case output table field labels"
         );
@@ -11354,13 +11366,17 @@ weather = promote json records payload.records as WeatherApiRecord
 
     #[test]
     fn snapshot_exposes_case_table_member_fields() {
-        let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\ncase_results = collect results case_inputs\n\npending = cases.pending_count\nrendered = case_inputs.rendered_count\ncollected = case_results.collected_count\n";
+        let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\ncase_results = collect results case_inputs\n\npending = cases.pending_count\nexpected = case_inputs.expected_count\nrendered = case_inputs.rendered_count\ncollected = case_results.collected_count\n";
         let snapshot = snapshot_for_source(Path::new("case_members.eng"), source);
 
         assert!(snapshot
             .completions
             .iter()
             .any(|completion| completion.label == "cases.pending_count"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_inputs.expected_count"));
         assert!(snapshot
             .completions
             .iter()
@@ -11382,6 +11398,19 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(case_completions
             .iter()
             .any(|completion| completion.label == "pending_count"));
+        let expected_line = source
+            .lines()
+            .position(|line| line.contains("expected ="))
+            .expect("expected line");
+        let expected_completions = completion_items_for_source_position(
+            Path::new("case_members.eng"),
+            source,
+            expected_line,
+            "expected = case_inputs.".len(),
+        );
+        assert!(expected_completions
+            .iter()
+            .any(|completion| completion.label == "expected_count"));
         let output_line = source
             .lines()
             .position(|line| line.contains("rendered ="))

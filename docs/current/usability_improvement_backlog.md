@@ -81,6 +81,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 580: Exposed `samples.row_preview` as a runtime sample-table metadata binding and added matching compiler typing, LSP member completion, semantic-token coverage, and docs.
 - Batch 581: Split VS Code TextMate dotted paths into path and member scopes, added first-paint coverage for `samples.row_preview`, and colored member segments in the bundled themes.
 - Batch 582: Moved member-path TextMate fallback ahead of broad dotted-path regexes in interpolation, validation, function-call, and `with` expression contexts, with a grammar guard for ordering drift.
+- Batch 583: Added `case_inputs.expected_count` as the preferred CaseOutput count binding, kept `planned_count` as a compatibility field, and guarded public workflow docs against stale planned-count wording.
 
 ## Documentation Policy
 
