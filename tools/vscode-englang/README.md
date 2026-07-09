@@ -38,13 +38,13 @@ embedding compiler logic in JavaScript.
   import removal, schema column annotation migrations, required file-mutation
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
   legacy network `fixture` aliases, legacy response `.hash` aliases,
-  raw `read json` field access promotion skeletons,
+  raw `read json` field-access promotion edits,
   HeatRate TimeSeries sum-to-integrate repairs,
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, simulation/solver option repairs, model option fallback
   repairs for invalid test splits, seeds, hidden layers, and epochs,
-  unsupported regression algorithm repairs, legacy `select_first_row` migration skeletons,
+  unsupported regression algorithm repairs, legacy `select_first_row` migration edits,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
   definition/conversion repairs, and golden expected path wrappers. Live
