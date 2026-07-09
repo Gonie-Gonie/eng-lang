@@ -3150,12 +3150,12 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension missing englang semantic token scope mappings"
     }
     foreach ($RequiredTokenScope in @(
-        "type", "class.declaration", "class.defaultLibrary", "comment", "comment.documentation",
-        "function", "interface", "method", "method.declaration", "namespace", "variable.local", "function.declaration",
+        "type", "type.static", "class.declaration", "class.defaultLibrary", "class.static", "comment", "comment.documentation",
+        "function", "function.static", "interface", "interface.static", "method", "method.declaration", "method.static", "namespace", "namespace.static", "variable.local", "function.declaration",
         "function.definition", "function.report", "interface.declaration", "interface.defaultLibrary",
-        "keyword", "keyword.declaration", "keyword.local", "namespace.declaration", "number",
-        "parameter", "parameter.readonly", "property", "property.declaration", "variable",
-        "variable.declaration", "variable.defaultLibrary", "variable.readonly",
+        "keyword", "keyword.declaration", "keyword.local", "keyword.static", "modifier", "modifier.static", "namespace.declaration", "number",
+        "parameter", "parameter.readonly", "parameter.static", "property", "property.declaration", "property.static", "variable",
+        "variable.declaration", "variable.defaultLibrary", "variable.readonly", "variable.static",
         "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
         "method.sideEffect", "property.sideEffect", "variable.validation", "variable.report",
         "keyword.sideEffect", "keyword.external", "keyword.validation",

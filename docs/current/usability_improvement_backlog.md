@@ -80,6 +80,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 523: Extended Rust workflow native-only guards to every workflow `.eng` source.
 - Batch 524: Added VS Code insert snippets for common helper and workflow completions.
 - Batch 525: Moved completion insert text/snippets into LSP editor metadata.
+- Batch 526: Covered the full LSP semantic legend with VS Code fallback scopes.
 
 ## Documentation Policy
 

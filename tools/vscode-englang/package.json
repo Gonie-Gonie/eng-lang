@@ -150,6 +150,10 @@
             "entity.name.type.englang",
             "support.type.englang"
           ],
+          "class.static": [
+            "entity.name.type.englang",
+            "storage.modifier.englang"
+          ],
           "comment": [
             "comment.line.number-sign.englang",
             "comment.line.documentation.englang",
@@ -172,6 +176,10 @@
             "keyword.control.report.englang",
             "support.function.builtin.englang"
           ],
+          "function.static": [
+            "entity.name.function.englang",
+            "storage.modifier.englang"
+          ],
           "interface": [
             "entity.name.type.englang",
             "support.type.englang"
@@ -182,6 +190,10 @@
           "interface.defaultLibrary": [
             "entity.name.type.englang",
             "support.type.englang"
+          ],
+          "interface.static": [
+            "entity.name.type.englang",
+            "storage.modifier.englang"
           ],
           "keyword": [
             "keyword.control.workflow.englang"
@@ -204,6 +216,16 @@
           "keyword.local": [
             "keyword.control.workflow.englang"
           ],
+          "keyword.static": [
+            "keyword.control.workflow.englang",
+            "storage.modifier.englang"
+          ],
+          "modifier": [
+            "storage.modifier.englang"
+          ],
+          "modifier.static": [
+            "storage.modifier.englang"
+          ],
           "method": [
             "entity.name.function.call.englang",
             "entity.name.function.englang"
@@ -211,11 +233,19 @@
           "method.declaration": [
             "entity.name.function.englang"
           ],
+          "method.static": [
+            "entity.name.function.englang",
+            "storage.modifier.englang"
+          ],
           "namespace": [
             "support.namespace.module.englang"
           ],
           "namespace.declaration": [
             "support.namespace.module.englang"
+          ],
+          "namespace.static": [
+            "support.namespace.module.englang",
+            "storage.modifier.englang"
           ],
           "number": [
             "constant.numeric.englang"
@@ -235,11 +265,20 @@
             "variable.other.property.englang",
             "variable.other.parameter.englang"
           ],
+          "parameter.static": [
+            "variable.parameter.function.englang",
+            "variable.parameter.property.englang",
+            "storage.modifier.englang"
+          ],
           "property": [
             "variable.other.property.englang"
           ],
           "property.declaration": [
             "variable.other.property.englang"
+          ],
+          "property.static": [
+            "variable.other.property.englang",
+            "storage.modifier.englang"
           ],
           "string": [
             "string.quoted.double.englang"
@@ -263,6 +302,10 @@
             "variable.other.constant.englang",
             "variable.other.definition.englang"
           ],
+          "variable.static": [
+            "variable.other.definition.englang",
+            "storage.modifier.englang"
+          ],
           "type.unit": [
             "constant.other.unit.englang",
             "support.type.englang"
@@ -272,6 +315,10 @@
             "meta.type.generic.englang",
             "meta.type.array-suffix.englang",
             "variable.parameter.type.englang"
+          ],
+          "type.static": [
+            "support.type.englang",
+            "storage.modifier.englang"
           ],
           "property.unit": [
             "constant.other.unit.englang",

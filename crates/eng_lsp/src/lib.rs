@@ -8249,6 +8249,63 @@ mod tests {
     }
 
     #[test]
+    fn vscode_semantic_scope_mappings_cover_lsp_legend_selectors() {
+        let root = repo_root_for_tests();
+        let package = read_json_file(
+            &root
+                .join("tools")
+                .join("vscode-englang")
+                .join("package.json"),
+        );
+        let scope_keys = package_semantic_scope_keys(&package);
+
+        let missing_token_types = SEMANTIC_TOKEN_TYPES
+            .iter()
+            .filter(|token_type| !scope_keys.contains(**token_type))
+            .copied()
+            .collect::<Vec<_>>();
+        assert!(
+            missing_token_types.is_empty(),
+            "VS Code semanticTokenScopes missing base mappings for LSP token types: {}",
+            missing_token_types.join(", ")
+        );
+
+        let missing_modifiers = SEMANTIC_TOKEN_MODIFIERS
+            .iter()
+            .filter(|modifier| {
+                let suffix = format!(".{modifier}");
+                !scope_keys
+                    .iter()
+                    .any(|selector| selector.ends_with(&suffix))
+            })
+            .copied()
+            .collect::<Vec<_>>();
+        assert!(
+            missing_modifiers.is_empty(),
+            "VS Code semanticTokenScopes missing fallback mappings for LSP modifiers: {}",
+            missing_modifiers.join(", ")
+        );
+
+        let mut unknown_selectors = Vec::new();
+        for selector in &scope_keys {
+            if let Some((token_type, modifier)) = selector.split_once('.') {
+                if !SEMANTIC_TOKEN_TYPES.contains(&token_type)
+                    || !SEMANTIC_TOKEN_MODIFIERS.contains(&modifier)
+                {
+                    unknown_selectors.push(*selector);
+                }
+            } else if !SEMANTIC_TOKEN_TYPES.contains(selector) {
+                unknown_selectors.push(*selector);
+            }
+        }
+        assert!(
+            unknown_selectors.is_empty(),
+            "VS Code semanticTokenScopes contains selectors outside the LSP legend: {}",
+            unknown_selectors.join(", ")
+        );
+    }
+
+    #[test]
     fn vscode_scope_mapping_covers_fixture_semantic_token_pairs() {
         let root = repo_root_for_tests();
         let package = read_json_file(

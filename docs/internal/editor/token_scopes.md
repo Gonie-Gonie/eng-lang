@@ -192,6 +192,7 @@ Modifier meanings:
 
 | Modifier | Meaning |
 | --- | --- |
+| `static` | Static-like or class-level roles when the compiler emits the standard VS Code modifier. |
 | `unit` | Unit symbols or unit-typed values. |
 | `quantity` | Quantity types and quantity-bearing values. |
 | `axis` | Time axes and aligned axis metadata. |
@@ -256,11 +257,12 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 | `function`, `function.declaration`, `function.definition`, `method`, `method.declaration` | User-defined function and method calls plus declaration names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
 | `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, and local keyword-like roles. |
+| `modifier`, `modifier.static` | Modifier-like role tokens and static modifier fallbacks. |
 | `namespace`, `namespace.declaration` | Imported or declared module namespaces. |
 | `number` | Numeric literals. |
 | `parameter`, `parameter.readonly` | Function parameters, args-like parameters, and read-only parameter roles. |
 | `property`, `property.declaration` | Property paths and declared schema/class/system fields. |
-| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly` | Plain variables, local references, declared bindings, bundled value symbols, and read-only constants. |
+| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly`, `variable.static` | Plain variables, local references, declared bindings, bundled value symbols, read-only constants, and static-like values. |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
@@ -285,7 +287,7 @@ in sync with the generated legend. `lsp-check` scans example and grammar-fixture
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |
 
-Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. Keyword semantic selectors that represent command-style builtins, clause words, or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.defaultLibrary` covers compiler-owned command words such as `sample`, `filter`, and `train`, while `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
+Base semantic selectors observed in LSP snapshots must keep fallback scopes even when a more specific modifier selector also exists. The package fallback map must also cover every token type and at least one selector for every modifier in the generated LSP legend, including standard modifiers such as `static` before they become common in emitted tokens. Keyword semantic selectors that represent command-style builtins, clause words, or option values must keep conventional keyword, operator, and constant fallbacks. In particular, `keyword.defaultLibrary` covers compiler-owned command words such as `sample`, `filter`, and `train`, while `keyword.workflowStep` covers workflow words such as `read`, clause words such as `by`/`with`/`to`, validation-adjacent words such as `missing`, constants such as `asc`/`desc` and `true`/`false`, and builtin sampling methods such as `lhs`.
 
 VS Code also applies a token-range dotted underline decoration for semantic
 tokens carrying `planned` or `internal`. Current namespace coverage includes
