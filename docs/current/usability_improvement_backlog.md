@@ -64,6 +64,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 566: Extended native workflow smoke gates to reject process/run-command/Python metadata in saved static and runtime run graphs, not just source text and process_results.json.
 - Batch 567: Made VS Code and native IDE fallback member completions recognize function-style `apply(..., over=...)` CaseOutput bindings and property-source `collect results` bindings.
 - Batch 568: Aligned VS Code fallback member completions with the native IDE for CaseResultCollection-like receivers such as `case_results.` and `case_result_collection.`.
+- Batch 569: Updated VS Code and native IDE CaseOutput fallback receiver heuristics to recognize rendered/blocked wording alongside planned/input/output/manifest names.
 
 ## Documentation Policy
 

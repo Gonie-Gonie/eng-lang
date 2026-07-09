@@ -423,6 +423,8 @@ function isCaseOutputTableLikeReceiver(receiver) {
       normalized.includes("input") ||
       normalized.includes("output") ||
       normalized.includes("planned") ||
+      normalized.includes("rendered") ||
+      normalized.includes("blocked") ||
       normalized.includes("manifest")
     )
   );
