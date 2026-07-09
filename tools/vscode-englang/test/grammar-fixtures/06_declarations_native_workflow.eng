@@ -6,6 +6,7 @@ draft_operator_keywords = [if, else, in, into, is, null, not, or, policy, vs]
 draft_workflow_keywords = [sample, filter, select, derive, sort, require_one, materialize, cases, collect, results, apply, train, regression, predict]
 draft_timeseries_quality_keywords = [fill, align, resample, check, coverage]
 draft_sampling_literals = [lhs, latin_hypercube, latin-hypercube, grid, random, uniform]
+draft_case_status_literals = [planned, rendered, collected]
 
 const cp_water: SpecificHeat [J/kg/K] = 4.18 kJ/K
 

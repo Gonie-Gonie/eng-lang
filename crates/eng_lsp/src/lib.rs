@@ -428,6 +428,7 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "asc",
     "desc",
     "pending",
+    "planned",
     "running",
     "passed",
     "failed",
@@ -435,6 +436,8 @@ const LANGUAGE_CONSTANT_KEYWORDS: &[&str] = &[
     "skipped",
     "blocked",
     "completed",
+    "rendered",
+    "collected",
     "cached",
     "stale",
     "hit",
@@ -8517,6 +8520,9 @@ mod tests {
             "source_linear_terms",
             "lhs",
             "latin_hypercube",
+            "planned",
+            "rendered",
+            "collected",
         ] {
             assert!(
                 syntax_constants.iter().any(|constant| constant == label),

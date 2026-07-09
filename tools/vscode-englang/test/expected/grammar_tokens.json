@@ -2492,6 +2492,18 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status != rendered",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "rendered",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.summarize-series.englang",
     "text": "summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]",
     "fullMatch": true
@@ -3864,6 +3876,24 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "constant.language.englang",
     "text": "uniform",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "planned",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "rendered",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "collected",
     "fullMatch": true
   },
   {
