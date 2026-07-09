@@ -3309,6 +3309,8 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension theme $($RequiredTheme.Label) must define TextMate and semantic token colors"
         }
         foreach ($RequiredThemeSelector in @(
+            "namespace", "type", "class", "interface", "parameter", "variable", "property", "function", "method", "keyword", "modifier", "string", "number", "operator", "comment",
+            "variable.readonly", "property.readonly", "parameter.readonly", "function.defaultLibrary", "variable.defaultLibrary", "namespace.defaultLibrary", "namespace.imported", "variable.deprecated", "function.deprecated", "property.deprecated",
             "type.unit", "type.quantity", "keyword.workflowStep", "keyword.validation", "keyword.report",
             "keyword.sideEffect", "keyword.external", "function.model", "variable.db", "variable.cache",
             "variable.riskHigh", "keyword.riskHigh", "namespace.planned", "namespace.internal"

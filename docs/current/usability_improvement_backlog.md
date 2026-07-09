@@ -91,6 +91,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 534: Added `completion_items` editor metadata as the preferred completion catalog API while retaining `completion_seed` as a compatibility alias.
 - Batch 535: Added version-aware LSP document cache and versioned publishDiagnostics coverage for persistent editor sessions.
 - Batch 536: Renamed VS Code extension completion provider wiring from completionSeed to completionItems while keeping generated `completion_seed` as a metadata-only legacy alias.
+- Batch 537: Added explicit VS Code EngLang Dark/Light base semantic token colors so semantic highlighting does not fall back to host theme defaults for core token types.
 
 ## Documentation Policy
 
