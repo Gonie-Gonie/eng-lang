@@ -53,6 +53,7 @@ $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [strin
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
 $LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
+$OperatorWords = @($SyntaxCatalog.operator_words | ForEach-Object { [string]$_ })
 # Keep legacy workflow helper spellings colored for existing files without
 # suggesting them through the generated completion catalog.
 $GrammarOnlyWorkflowBuiltinAliases = @(
@@ -70,6 +71,16 @@ $GrammarOnlyFunctionArgumentAliases = @(
     "mean",
     "std",
     "error"
+)
+# Preserve broad TextMate operator coloring for legacy clause words while the
+# compiler-owned operator catalog stays focused on expression/operator words.
+$GrammarOnlyOperatorWordAliases = @(
+    "none",
+    "null",
+    "from",
+    "on",
+    "with",
+    "where"
 )
 # Preserve TextMate-only aliases until the compiler-owned catalog exposes these
 # artifact, byte-size, and compatibility quantity labels directly.
@@ -132,6 +143,7 @@ $AsciiUnits = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Whe
 $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
+    "{{OPERATOR_WORDS}}" = ConvertTo-RegexAlternation ($OperatorWords + $GrammarOnlyOperatorWordAliases)
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)

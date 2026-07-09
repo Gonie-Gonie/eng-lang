@@ -2694,7 +2694,7 @@
                                          "patterns":  [
                                                           {
                                                               "name":  "keyword.operator.word.englang",
-                                                              "match":  "\\b(eq|is|none|null|and|or|not|between|from|on|over|by|using|with|in|where|into|of|vs)\\b"
+                                                              "match":  "\\b(between|matches|within|using|where|from|into|none|null|over|with|and|not|by|eq|in|is|of|on|or|to|vs)\\b"
                                                           },
                                                           {
                                                               "name":  "keyword.operator.englang",

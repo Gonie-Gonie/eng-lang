@@ -3022,6 +3022,9 @@ function Assert-VscodeExtensionContract {
     if (-not $BuildGrammarSource.Contains("GrammarOnlyWorkflowOptionAliases") -or -not $BuildGrammarSource.Contains('"fixture"')) {
         throw "VS Code grammar build must keep fixture as a compatibility-only option highlight alias"
     }
+    if (-not $BuildGrammarSource.Contains("operator_words") -or -not $BuildGrammarSource.Contains("GrammarOnlyOperatorWordAliases") -or -not $BuildGrammarSource.Contains("{{OPERATOR_WORDS}}")) {
+        throw "VS Code grammar build must generate operator words from editor metadata while preserving compatibility aliases"
+    }
     & (Join-Path $ExtensionRoot "scripts\build-grammar.ps1") -ExtensionRoot $ExtensionRoot -Check
     & (Join-Path $ExtensionRoot "scripts\test-grammar.ps1") -ExtensionRoot $ExtensionRoot
     & (Join-Path $ExtensionRoot "scripts\build-editor-metadata.ps1") -ExtensionRoot $ExtensionRoot -Check
