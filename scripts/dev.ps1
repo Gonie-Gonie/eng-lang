@@ -4430,6 +4430,9 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('completionItems: COMPLETION_ITEMS') -or -not $CodeActionProviderSource.Contains('this.completionItems = Array.isArray(options.completionItems)') -or -not $CodeActionProviderSource.Contains('completionItems: this.completionItems')) {
         throw "VS Code code action provider must pass generated completion catalog to local quick fixes"
     }
+    if (-not $ExtensionSource.Contains('const UNIT_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.units)') -or -not $ExtensionSource.Contains('unitLabels: UNIT_LABELS') -or -not $CodeActionProviderSource.Contains('this.unitLabels = Array.isArray(options.unitLabels)') -or -not $CodeActionProviderSource.Contains('unitLabels: this.unitLabels') -or -not $LocalCodeActionsSource.Contains('missingUnitActions(document, diagnostic, options.unitLabels)') -or -not $LocalCodeActionsSource.Contains('unitLabelSet(unitLabels)')) {
+        throw "VS Code missing-unit quick fixes must use generated unit catalog labels"
+    }
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
     }

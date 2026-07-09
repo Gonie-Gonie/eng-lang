@@ -49,7 +49,7 @@ function localCodeActions(document, context, options = {}) {
       }
     }
     if (typeof code === "string" && code.startsWith("E-DIM-ADD-")) {
-      actions.push(...missingUnitActions(document, diagnostic));
+      actions.push(...missingUnitActions(document, diagnostic, options.unitLabels));
     }
     if (code === "E-PUBLIC-ANNOTATION-001") {
       const action = schemaAnnotationAction(document, diagnostic);
@@ -510,14 +510,14 @@ function ambiguousQuantityDetails(message) {
   };
 }
 
-function missingUnitActions(document, diagnostic) {
+function missingUnitActions(document, diagnostic, unitLabels) {
   const line = document.lineAt(diagnostic.range.start.line);
-  const unit = missingUnitHint(diagnostic.message, line.text);
+  const unit = missingUnitHint(diagnostic.message, line.text, unitLabelSet(unitLabels));
   if (!unit) {
     return [];
   }
 
-  return bareNumericRanges(line.text).map((range) => {
+  return bareNumericRanges(line.text, unitLabelSet(unitLabels)).map((range) => {
     const literal = line.text.slice(range.start, range.end);
     const action = new vscode.CodeAction(
       `Add unit ${unit} to ${literal}`,
@@ -530,42 +530,72 @@ function missingUnitActions(document, diagnostic) {
   });
 }
 
-function missingUnitHint(message, lineText) {
+function missingUnitHint(message, lineText, unitLabels) {
   const fromHelp =
     /(?:such as|write)\s+`([^`]+)`/.exec(message)?.[1] ??
     /unit such as\s+`([^`]+)`/.exec(message)?.[1];
-  if (isUnitHint(fromHelp)) {
+  if (isUnitHint(fromHelp, unitLabels)) {
     return fromHelp;
   }
-  return firstUnitOnLine(lineText);
+  return firstUnitOnLine(lineText, unitLabels);
 }
 
-function firstUnitOnLine(lineText) {
-  const unitLiteral = /\b\d+(?:\.\d+)?\s+([A-Za-z%][A-Za-z0-9/%_^()*]*)\b/.exec(lineText);
-  if (isUnitHint(unitLiteral?.[1])) {
+function firstUnitOnLine(lineText, unitLabels) {
+  const unitLiteral = /\b\d+(?:\.\d+)?\s+([^\s,;)\]}]+)/.exec(lineText);
+  if (isUnitHint(unitLiteral?.[1], unitLabels)) {
     return unitLiteral[1];
   }
-  const bracketUnit = /\[([A-Za-z%][A-Za-z0-9/%_^()*]*)\]/.exec(lineText);
-  if (isUnitHint(bracketUnit?.[1])) {
+  const bracketUnit = /\[([^\]\s]+)\]/.exec(lineText);
+  if (isUnitHint(bracketUnit?.[1], unitLabels)) {
     return bracketUnit[1];
   }
   return undefined;
 }
 
-function isUnitHint(value) {
-  return typeof value === "string" && /^[A-Za-z%][A-Za-z0-9/%_^()*]*$/.test(value);
+function isUnitHint(value, unitLabels) {
+  if (typeof value !== "string" || value.length === 0) {
+    return false;
+  }
+  const knownUnits = unitLabelSet(unitLabels);
+  if (knownUnits.size > 0) {
+    return knownUnits.has(value);
+  }
+  return /^[A-Za-z%][A-Za-z0-9/%_^()*]*$/.test(value);
 }
 
-function bareNumericRanges(lineText) {
+function unitLabelSet(unitLabels) {
+  if (unitLabels instanceof Set) {
+    return unitLabels;
+  }
+  return new Set(
+    (Array.isArray(unitLabels) ? unitLabels : []).filter(
+      (label) => typeof label === "string" && label.length > 0
+    )
+  );
+}
+
+function bareNumericRanges(lineText, unitLabels) {
   const ranges = [];
   const pattern = /(^|[=+\-*/(,]\s*)(\d+(?:\.\d+)?)(?!\s*[A-Za-z_%])/g;
   let match;
   while ((match = pattern.exec(lineText)) !== null) {
     const literalStart = match.index + match[1].length;
     const literalEnd = literalStart + match[2].length;
+    if (hasKnownUnitAfter(lineText, literalEnd, unitLabels)) {
+      continue;
+    }
     ranges.push({ start: literalStart, end: literalEnd });
   }
   return ranges;
+}
+
+function hasKnownUnitAfter(lineText, index, unitLabels) {
+  const knownUnits = unitLabelSet(unitLabels);
+  if (knownUnits.size === 0) {
+    return false;
+  }
+  const match = /^[ \t]+([^\s,;)\]}]+)/.exec(lineText.slice(index));
+  return Boolean(match && knownUnits.has(match[1]));
 }
 
 function schemaAnnotationAction(document, diagnostic) {

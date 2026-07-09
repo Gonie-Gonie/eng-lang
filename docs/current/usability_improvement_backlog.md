@@ -92,6 +92,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 591: Updated workflow 02 to expose native sampler `row_preview` bindings in console output, reports, and `sampling_summary.txt`, with runtime contract coverage so the workflow shows generated sample rows rather than only seed/count metadata.
 - Batch 592: Documented `syntax_catalog.workflow_status_literals` in the editor token-scope contract and added a VS Code extension contract guard so workflow status literal coloring stays generated across TextMate and native IDE fallback paths.
 - Batch 593: Removed the native IDE hardcoded workflow-status literal fallback list so `status =`, `status ==`, and `status !=` coloring uses only the LSP-generated `syntax_catalog.workflow_status_literals` catalog.
+- Batch 594: Routed generated `syntax_catalog.units` labels into VS Code local quick fixes so missing-unit repairs only suggest compiler-owned units when editor metadata is available.
 
 ## Documentation Policy
 
