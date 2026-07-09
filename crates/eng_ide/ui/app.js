@@ -37,6 +37,25 @@ const FALLBACK_LEXICAL_UNITS = [
   "Wh", "Pa", "kg", "cm", "mm", "m2", "m3", "min", "K", "m", "s", "h",
   "W", "J", "B", "%"
 ];
+const LEXICAL_KEYWORD_GROUP_ORDER = [
+  "deprecated", "import", "declaration", "function", "test", "block", "modifier",
+  "side_effect", "external_boundary", "validation", "report", "solver", "workflow"
+];
+const LEXICAL_KEYWORD_GROUP_CLASSES = {
+  deprecated: "hl-keyword hl-mod-deprecated",
+  import: "hl-keyword hl-mod-imported",
+  declaration: "hl-keyword hl-mod-declaration",
+  function: "hl-keyword hl-function",
+  test: "hl-keyword hl-mod-declaration",
+  block: "hl-keyword hl-mod-local",
+  modifier: "hl-keyword hl-modifier",
+  side_effect: "hl-keyword hl-mod-sideEffect",
+  external_boundary: "hl-keyword hl-mod-external",
+  validation: "hl-keyword hl-mod-validation",
+  report: "hl-keyword hl-mod-report",
+  solver: "hl-keyword hl-mod-solver",
+  workflow: "hl-keyword hl-mod-workflowStep"
+};
 
 const state = {
   root: "",
@@ -123,6 +142,7 @@ function emptyInspectors() {
 function emptySyntaxCatalog() {
   return {
     keywords: [],
+    keywordGroups: {},
     constants: [],
     operatorWords: [],
     workflowBuiltins: [],
@@ -143,6 +163,7 @@ function normalizeSyntaxCatalog(catalog) {
   const source = catalog && typeof catalog === "object" ? catalog : {};
   return {
     keywords: stringArray(source.keywords),
+    keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups),
     constants: stringArray(source.constants),
     operatorWords: stringArray(source.operatorWords ?? source.operator_words),
     workflowBuiltins: stringArray(source.workflowBuiltins ?? source.workflow_builtins),
@@ -165,15 +186,20 @@ function normalizeSyntaxCatalog(catalog) {
 
 function buildLexicalCatalog(catalog) {
   const normalized = normalizeSyntaxCatalog(catalog);
+  const workflowBuiltinSet = new Set([
+    ...normalized.workflowBuiltins,
+    ...normalized.hyphenatedWorkflowBuiltins
+  ]);
   const keywordSet = new Set([
     ...FALLBACK_LEXICAL_KEYWORDS,
     ...normalized.keywords,
-    ...normalized.workflowBuiltins,
-    ...normalized.hyphenatedWorkflowBuiltins
+    ...workflowBuiltinSet
   ]);
   const unitLabels = uniqueStrings([...FALLBACK_LEXICAL_UNITS, ...normalized.units]);
   return {
     keywords: keywordSet,
+    keywordGroups: keywordGroupSets(normalized.keywordGroups),
+    workflowBuiltins: workflowBuiltinSet,
     operatorWords: new Set([...FALLBACK_LEXICAL_OPERATOR_WORDS, ...normalized.operatorWords]),
     constants: new Set([...FALLBACK_LEXICAL_CONSTANTS, ...normalized.constants]),
     workflowOptions: new Set(normalized.workflowOptions),
@@ -182,6 +208,24 @@ function buildLexicalCatalog(catalog) {
     units: new Set(unitLabels),
     unitPattern: lexicalUnitPattern(unitLabels)
   };
+}
+
+function catalogKeywordGroups(value) {
+  const groups = {};
+  const source = value && typeof value === "object" ? value : {};
+  for (const [group, items] of Object.entries(source)) {
+    const words = stringArray(items);
+    if (words.length) groups[group] = words;
+  }
+  return groups;
+}
+
+function keywordGroupSets(groups) {
+  const result = {};
+  for (const [group, words] of Object.entries(groups || {})) {
+    result[group] = new Set(stringArray(words));
+  }
+  return result;
 }
 
 function stringArray(value) {
@@ -5352,11 +5396,24 @@ function lexicalClassForWord(word, line, index) {
   const lexical = state.lexicalCatalog || buildLexicalCatalog(emptySyntaxCatalog());
   if (lexical.constants.has(word)) return "hl-constant";
   if (lexical.operatorWords.has(word)) return "hl-operator";
+  const keywordClass = lexicalKeywordGroupClass(word, lexical);
+  if (keywordClass) return keywordClass;
+  if (lexical.workflowBuiltins?.has(word)) return "hl-keyword hl-mod-workflowStep";
   if (lexical.keywords.has(word)) return "hl-keyword";
   if (lexical.workflowOptions.has(word)) return "hl-property";
   if (lexical.publicTypes.has(word)) return "hl-type";
   if (lexical.quantities.has(word)) return "hl-mod-quantity";
   return lexicalCompletionClass(word);
+}
+
+function lexicalKeywordGroupClass(word, lexical) {
+  const groups = lexical?.keywordGroups || {};
+  for (const group of LEXICAL_KEYWORD_GROUP_ORDER) {
+    if (groups[group]?.has(word)) {
+      return LEXICAL_KEYWORD_GROUP_CLASSES[group] || "hl-keyword";
+    }
+  }
+  return "";
 }
 
 function lexicalCompletionClass(word) {
