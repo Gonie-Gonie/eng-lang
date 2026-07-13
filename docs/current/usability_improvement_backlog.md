@@ -71,6 +71,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 742: Added normalized review-document `source_span` metadata for remaining Calculation rows: uncertainty, modeling, and system equations.
 - Batch 743: Tightened LSP semantic highlighting for process and network with-block options so process policy keys carry side-effect/external modifiers and network cache keys carry cache/external modifiers.
 - Batch 744: Clarified workflow 01 docs so `args.pinned_response_file` is the public pinned-response API while `offline_response` remains the language-level HTTP replay option, with a guard against regressing to fixture-style wording.
+- Batch 745: Made LSP semantic highlighting propagate network/process owner context onto `cache = true` option values, not only the cache option keys.
 
 ## Documentation Policy
 

@@ -3003,7 +3003,10 @@ fn with_option_value_semantic_class(
         "mode" if matches!(value, "append" | "insert" | "upsert" | "replace") => {
             Some(("keyword", &["sideEffect"]))
         }
-        "cache" if matches!(value, "true" | "false") => Some(("keyword", &["cache"])),
+        "cache" if matches!(value, "true" | "false") => Some((
+            "keyword",
+            with_option_semantic_modifiers(program, block, key),
+        )),
         "overwrite" | "confirm" | "recursive" | "allow_failure"
             if matches!(value, "true" | "false") =>
         {
@@ -10317,6 +10320,8 @@ with {
     retry = 1
     timeout = 10 s
     allow_failure = false
+    cache = true
+    cache_key = ["process", "demo"]
 }
 
 db = open sqlite file("outputs/results.sqlite")
@@ -10725,6 +10730,70 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
                 "external",
             );
         }
+        for label in ["cache", "cache_key"] {
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "cache",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "sideEffect",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "external",
+            );
+        }
+        for (owner_line, expected_modifier) in [
+            (
+                r#"upload = http get url("https://example.org/weather")"#,
+                "external",
+            ),
+            (r#"process_result = run command "cmd""#, "sideEffect"),
+        ] {
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                owner_line,
+                "    cache = true",
+                "true",
+                "keyword",
+                "cache",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                owner_line,
+                "    cache = true",
+                "true",
+                "keyword",
+                expected_modifier,
+            );
+        }
+        assert_semantic_token_after_line_with_modifier(
+            &snapshot,
+            source,
+            r#"process_result = run command "cmd""#,
+            "    cache = true",
+            "true",
+            "keyword",
+            "external",
+        );
         assert_semantic_token_modifier(&snapshot, source, "overwrite", "sideEffect");
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
