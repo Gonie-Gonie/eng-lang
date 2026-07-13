@@ -690,9 +690,13 @@ button:hover {
   color: #0f766e;
 }
 
-.hl-mod-axis,
-.hl-mod-timeseries {
+.hl-mod-axis {
   color: #2563eb;
+  font-weight: 620;
+}
+
+.hl-mod-timeseries {
+  color: #15803d;
 }
 
 .hl-mod-uncertain {
@@ -703,7 +707,11 @@ button:hover {
   text-underline-offset: 2px;
 }
 
-.hl-mod-validation,
+.hl-mod-validation {
+  color: #9a3412;
+  font-weight: 620;
+}
+
 .hl-mod-report {
   color: #7c3aed;
 }
@@ -713,9 +721,15 @@ button:hover {
   font-weight: 620;
 }
 
-.hl-mod-sideEffect,
-.hl-mod-external {
+.hl-mod-sideEffect {
   color: #b42318;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+.hl-mod-external {
+  color: #c2410c;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;

@@ -6023,9 +6023,18 @@ function Invoke-IdeCheck {
         throw "Native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a hardcoded JS list"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", ".semantic-token-table th:last-child", "token-chip", "token-filter-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", ".semantic-token-table th:last-child", "token-chip", "token-filter-chip", "token-range-button", "cursor-insight", "variable-source-line")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
+        }
+    }
+    foreach ($ForbiddenGroupedIdeHighlightStyle in @(
+        ".hl-mod-axis,`n.hl-mod-timeseries",
+        ".hl-mod-validation,`n.hl-mod-report",
+        ".hl-mod-sideEffect,`n.hl-mod-external"
+    )) {
+        if ($IdeUiStyles.Contains($ForbiddenGroupedIdeHighlightStyle)) {
+            throw "Native IDE semantic highlight styles must keep role colors distinct: $ForbiddenGroupedIdeHighlightStyle"
         }
     }
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
