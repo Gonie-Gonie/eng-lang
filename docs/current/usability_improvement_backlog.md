@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 756: Tightened `dev.bat workflows-test` so workflow 02 native LHS sample tables must expose generated row hash previews and row value previews with per-parameter numeric payloads.
 - Batch 755: Added VS Code TextMate first-paint unit highlighting inside function parameter and return type annotations such as `Conductance [W/K]` and `HeatRate [W]`.
 - Batch 754: Extended VS Code TextMate unit highlighting from ASCII-only labels to all compiler-owned unit labels, including degree-C aliases, with fixture/golden coverage.
 - Batch 753: Restored the Celsius `degree-C` alias text in compiler tests and public syntax docs, and added a docs-check guard against recurring Celsius mojibake.

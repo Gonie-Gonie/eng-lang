@@ -793,6 +793,31 @@ function Invoke-WorkflowsTest {
                 if ($MatchingSampleTables.Count -ne 1) {
                     throw "Workflow 02 native sample table missing generated LHS contract for $($RequiredSampleTable.Binding)"
                 }
+                $SampleTable = $MatchingSampleTables[0]
+                $RowHashPreview = @($SampleTable.row_hash_preview)
+                if ($RowHashPreview.Count -eq 0 -or [string]$RowHashPreview[0] -notmatch "^[0-9a-f]{16,64}$") {
+                    throw "Workflow 02 native sample table $($RequiredSampleTable.Binding) must expose generated row hash previews"
+                }
+                $RowPreview = @($SampleTable.row_preview)
+                if ($RowPreview.Count -eq 0) {
+                    throw "Workflow 02 native sample table $($RequiredSampleTable.Binding) must expose generated row value previews"
+                }
+                $FirstPreviewRow = $RowPreview[0]
+                if ([string]$FirstPreviewRow.case_id -ne "case_001" -or [int]$FirstPreviewRow.row_number -ne 1) {
+                    throw "Workflow 02 native sample table $($RequiredSampleTable.Binding) row preview must start with case_001 row 1"
+                }
+                $PreviewValues = @($FirstPreviewRow.values)
+                if ($PreviewValues.Count -ne 6) {
+                    throw "Workflow 02 native sample table $($RequiredSampleTable.Binding) row preview must include one numeric value per sampled parameter"
+                }
+                $PreviewValuesWithPayload = @($PreviewValues | Where-Object {
+                    -not [string]::IsNullOrWhiteSpace([string]$_.column) -and
+                    $null -ne $_.numeric_value -and
+                    -not [string]::IsNullOrWhiteSpace([string]$_.unit)
+                })
+                if ($PreviewValuesWithPayload.Count -ne 6) {
+                    throw "Workflow 02 native sample table $($RequiredSampleTable.Binding) row preview values must include column, numeric_value, and unit payloads"
+                }
             }
             $ModelCards = @($TypedPayload.model_cards)
             $MatchingModelCards = @($ModelCards | Where-Object {
