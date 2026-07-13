@@ -1907,6 +1907,12 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.promote-json-records-target.englang",
+    "text": "as WeatherApiRecord",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "keyword.control.workflow.englang",
     "text": "records",
     "fullMatch": true

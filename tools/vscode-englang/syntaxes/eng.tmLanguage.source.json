@@ -1380,6 +1380,7 @@
               { "include": "#builtins" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -1416,6 +1417,7 @@
               { "include": "#builtins" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -1452,6 +1454,7 @@
               { "include": "#builtins" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -1468,17 +1471,41 @@
           },
           {
             "name": "meta.workflow.promote-json-records.englang",
-            "match": "\\b(promote)\\s+(json)\\s+(records)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
-            "captures": {
+            "begin": "\\b(promote)\\s+(json)\\s+(records)\\b",
+            "beginCaptures": {
               "1": { "name": "keyword.control.workflow.englang" },
               "2": { "name": "keyword.control.workflow.englang" },
-              "3": { "name": "keyword.control.workflow.englang" },
-              "4": { "name": "variable.parameter.property.englang" },
-              "5": { "name": "variable.other.property.englang" },
-              "6": { "name": "variable.other.local.englang" },
-              "7": { "name": "keyword.operator.word.englang" },
-              "8": { "name": "entity.name.type.englang" }
-            }
+              "3": { "name": "keyword.control.workflow.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "meta.promote-json-records-target.englang",
+                "match": "\\b(as)\\s+([A-Za-z_][A-Za-z0-9_]*)\\b",
+                "captures": {
+                  "1": { "name": "keyword.operator.word.englang" },
+                  "2": { "name": "entity.name.type.englang" }
+                }
+              },
+              { "include": "#strings" },
+              { "include": "#modules" },
+              { "include": "#builtins" },
+              { "include": "#operators" },
+              { "include": "#punctuation" },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.download-to.englang",

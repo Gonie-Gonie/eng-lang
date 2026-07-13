@@ -117,6 +117,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 658: Made `vscode-install` run the VS Code CLI with an ignored temporary user-data directory while explicitly targeting the normal user extension directory, reducing local install failures from VS Code AppData log permissions and keeping reinstall guidance accurate.
 - Batch 659: Aligned raw `read json`/`read toml`/`read text` highlighting so TextMate first paint and LSP semantic tokens mark the phrase keywords as external boundaries while preserving workflow-step role metadata.
 - Batch 660: Added LSP external-boundary semantic tokens for `promote csv/json/toml` source operands, including file helpers and dotted raw-source bindings, so typed promotions show where external workflow data enters the schema layer.
+- Batch 661: Reworked TextMate `promote json records` highlighting to use phrase patterns with member-aware source-path fallbacks, and guarded all `promote csv/json/toml` phrase scopes so dotted sources stay colorful before LSP semantic tokens arrive.
 
 ## Documentation Policy
 

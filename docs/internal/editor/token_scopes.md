@@ -123,9 +123,10 @@ keywords. Examples include `sample lhs`, `predict model using`, `read json`,
 `open sqlite`, and `write ... to db.table(...)`.
 
 For `promote csv/json/toml` and `promote json records`, TextMate first-paint
-scopes keep the phrase workflow-colored while LSP semantic tokens add
-`workflowStep` plus `external` to source operands such as `file(...)`,
-`args.input`, `payload`, and `payload.records`.
+scopes keep the phrase workflow-colored and include member-aware source-path
+fallbacks, while LSP semantic tokens add `workflowStep` plus `external` to
+source operands such as `file(...)`, `args.input`, `payload`, and
+`payload.records`.
 
 Current workflow phrase scopes:
 
