@@ -6776,7 +6776,10 @@ fn table_row_schema_name<'a>(report: &'a CheckReport, receiver: &str) -> Option<
         .semantic_program
         .table_transforms
         .iter()
-        .find(|transform| transform.binding == receiver && transform.operation == "require_one")?;
+        .find(|transform| {
+            receiver_matches_binding_name(receiver, &transform.binding)
+                && transform.operation == "require_one"
+        })?;
     transform
         .schema_name
         .as_deref()
@@ -6869,7 +6872,8 @@ pub fn completion_items_at(
             .typed_bindings
             .iter()
             .any(|binding| {
-                binding.name == receiver && binding.semantic_type.quantity_kind == "HttpResponse"
+                receiver_matches_binding_name(&receiver, &binding.name)
+                    && binding.semantic_type.quantity_kind == "HttpResponse"
             })
         {
             let mut seen = BTreeMap::new();
@@ -6886,7 +6890,8 @@ pub fn completion_items_at(
             .typed_bindings
             .iter()
             .any(|binding| {
-                binding.name == receiver && binding.semantic_type.quantity_kind == "Table[Sample]"
+                receiver_matches_binding_name(&receiver, &binding.name)
+                    && binding.semantic_type.quantity_kind == "Table[Sample]"
             })
         {
             let mut seen = BTreeMap::new();
@@ -6903,7 +6908,8 @@ pub fn completion_items_at(
             .typed_bindings
             .iter()
             .any(|binding| {
-                binding.name == receiver && binding.semantic_type.quantity_kind == "DbConnection"
+                receiver_matches_binding_name(&receiver, &binding.name)
+                    && binding.semantic_type.quantity_kind == "DbConnection"
             })
         {
             let mut seen = BTreeMap::new();
@@ -6920,7 +6926,7 @@ pub fn completion_items_at(
             .typed_bindings
             .iter()
             .find_map(|binding| {
-                if binding.name != receiver {
+                if !receiver_matches_binding_name(&receiver, &binding.name) {
                     return None;
                 }
                 match binding.semantic_type.quantity_kind.as_str() {
@@ -6975,7 +6981,7 @@ pub fn completion_items_at(
             .semantic_program
             .csv_promotions
             .iter()
-            .find(|promotion| promotion.binding == receiver)
+            .find(|promotion| receiver_matches_binding_name(&receiver, &promotion.binding))
             .map(|promotion| promotion.schema_name.as_str())
         {
             if let Some(schema) = report
@@ -7010,7 +7016,7 @@ pub fn completion_items_at(
             .semantic_program
             .class_objects
             .iter()
-            .find(|object| object.name == receiver)
+            .find(|object| receiver_matches_binding_name(&receiver, &object.name))
         {
             let mut seen = BTreeMap::new();
             let mut items = Vec::new();
@@ -8115,7 +8121,7 @@ fn member_completion_context(
         .trim_end()
         .to_owned();
     let bytes = before_cursor.as_bytes();
-    let mut prefix_end = bytes.len();
+    let prefix_end = bytes.len();
     let mut prefix_start = prefix_end;
     while prefix_start > 0 && is_ident_byte(bytes[prefix_start - 1]) {
         prefix_start -= 1;
@@ -8125,17 +8131,30 @@ fn member_completion_context(
     }
     let receiver_end = prefix_start - 1;
     let mut receiver_start = receiver_end;
-    while receiver_start > 0 && is_ident_byte(bytes[receiver_start - 1]) {
+    while receiver_start > 0
+        && (is_ident_byte(bytes[receiver_start - 1]) || bytes[receiver_start - 1] == b'.')
+    {
         receiver_start -= 1;
     }
     if receiver_start == receiver_end {
         return None;
     }
-    prefix_end = prefix_end.max(prefix_start);
+    let receiver = &before_cursor[receiver_start..receiver_end];
+    if !is_simple_identifier_path(receiver) {
+        return None;
+    }
     Some((
-        before_cursor[receiver_start..receiver_end].to_owned(),
+        receiver.to_owned(),
         before_cursor[prefix_start..prefix_end].to_owned(),
     ))
+}
+
+fn receiver_matches_binding_name(receiver: &str, binding_name: &str) -> bool {
+    receiver == binding_name
+        || receiver
+            .rsplit('.')
+            .next()
+            .is_some_and(|segment| segment != receiver && segment == binding_name)
 }
 
 fn is_ident_byte(byte: u8) -> bool {
@@ -11754,7 +11773,7 @@ weather = promote json records payload.records as WeatherApiRecord
 
     #[test]
     fn snapshot_exposes_sample_table_member_fields() {
-        let source = "samples = sample lhs\nwith {\n    count = 4\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\nsample_count = samples.sample_count\nrow_preview = samples.row_preview\n";
+        let source = "samples = sample lhs\nwith {\n    count = 4\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\nsample_count = samples.sample_count\nrow_preview = samples.row_preview\nnested_row_preview = study.samples.row_preview\n";
         let snapshot = snapshot_for_source(Path::new("sample_members.eng"), source);
 
         assert!(snapshot
@@ -11787,6 +11806,19 @@ weather = promote json records payload.records as WeatherApiRecord
             .find(|completion| completion.label == "row_preview")
             .expect("sample table member completion should include row_preview");
         assert_eq!(row_preview_completion.detail, "sample row preview summary");
+        let nested_line = source
+            .lines()
+            .position(|line| line.contains("nested_row_preview"))
+            .expect("nested_row_preview line");
+        let nested_member_completions = completion_items_for_source_position(
+            Path::new("sample_members.eng"),
+            source,
+            nested_line,
+            "nested_row_preview = study.samples.".len(),
+        );
+        assert!(nested_member_completions
+            .iter()
+            .any(|completion| completion.label == "row_preview"));
         assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
             token.token_type == "property"
                 && source.lines().nth(token.line).is_some_and(|line| {

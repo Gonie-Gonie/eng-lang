@@ -110,6 +110,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 651: Applied the same `eng/file` and `eng/live` Problems source labels to fallback diagnostics emitted when editor JSON is unavailable.
 - Batch 652: Added VS Code package-contract guards so file/live Problems source labels and fallback diagnostic source labels cannot silently drift out of `diagnosticsProvider.js`.
 - Batch 653: Extended VS Code local member completions through dotted receivers, including generated field-map lookup by the terminal receiver segment, so nested sample/schema/workflow member APIs complete consistently with TextMate coloring.
+- Batch 654: Extended LSP/native IDE member completion parsing through dotted receivers and terminal binding fallback, with sample-table coverage for nested receiver paths.
 
 ## Documentation Policy
 
