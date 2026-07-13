@@ -12,7 +12,8 @@ function loadEditorMetadata(extensionRoot) {
   const legend = metadata.semantic_token_legend ?? {};
   const semanticTokenTypes = legend.token_types;
   const semanticTokenModifiers = legend.token_modifiers;
-  const completionItems = metadata.completion_items ?? metadata.completion_seed;
+  const completionItems = metadata.completion_items;
+  const legacyCompletionItems = metadata.completion_seed;
   const syntaxCatalog = metadata.syntax_catalog ?? {};
   const keywordGroups = syntaxCatalog.keyword_groups ?? {};
   const requiredKeywordGroups = [
@@ -34,6 +35,7 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(semanticTokenTypes) ||
     !Array.isArray(semanticTokenModifiers) ||
     !Array.isArray(completionItems) ||
+    !Array.isArray(legacyCompletionItems) ||
     !Array.isArray(syntaxCatalog.keywords) ||
     !Array.isArray(syntaxCatalog.constants) ||
     !Array.isArray(syntaxCatalog.workflow_status_literals) ||
@@ -53,6 +55,15 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.case_result_collection_table_fields)
   ) {
     throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
+  }
+  if (
+    metadata.completion_items_count !== completionItems.length ||
+    metadata.completion_seed_count !== legacyCompletionItems.length ||
+    JSON.stringify(legacyCompletionItems) !== JSON.stringify(completionItems)
+  ) {
+    throw new Error(
+      `Invalid EngLang editor metadata at ${metadataPath}: completion_seed must remain an exact legacy alias of completion_items`
+    );
   }
   return {
     semanticTokenTypes,

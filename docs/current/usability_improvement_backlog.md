@@ -65,6 +65,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 606: Moved the long solver implementation ledgers from `docs/current` into `docs/internal/solver` and updated current-track links so public current docs stay focused on status and reader-facing scope.
 - Batch 607: Moved the standalone post-1.0 implementation issue backlog from `docs/current` to `docs/internal` and linked it from the internal documentation index.
 - Batch 608: Added a VS Code grammar smoke guard that keeps generated `status = <workflow-status>` option highlighting ahead of generic with-block fallbacks and preserves its property/operator/literal captures.
+- Batch 609: Made the VS Code metadata loader consume `completion_items` as the required runtime completion catalog and validate `completion_seed` only as an exact legacy compatibility alias, with package/readme guards to reduce generated API naming confusion.
 
 ## Documentation Policy
 

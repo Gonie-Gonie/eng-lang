@@ -283,9 +283,11 @@ written for review: `englang-semantic-legend.json`,
 `englang-completions.json`, and `englang-syntax.json`. The same metadata file
 provides the static completion fallback used when live completion is
 unavailable. New tooling should read the `completion_items` catalog;
-`completion_seed` remains a legacy alias for older consumers. Regenerate it
-after LSP completion, keyword, constant, operator-word, option, type, unit, or
-highlight legend changes:
+`completion_seed` remains a legacy alias for older consumers. The VS Code
+extension requires `completion_items` at runtime and validates that
+`completion_seed` is only an exact compatibility alias. Regenerate it after LSP
+completion, keyword, constant, operator-word, option, type, unit, or highlight
+legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata
