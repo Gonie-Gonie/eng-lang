@@ -27,56 +27,6 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 
 ## Recent Completed Batches
 
-- Batch 651: Applied the same `eng/file` and `eng/live` Problems source labels to fallback diagnostics emitted when editor JSON is unavailable.
-- Batch 652: Added VS Code package-contract guards so file/live Problems source labels and fallback diagnostic source labels cannot silently drift out of `diagnosticsProvider.js`.
-- Batch 653: Extended VS Code local member completions through dotted receivers, including generated field-map lookup by the terminal receiver segment, so nested sample/schema/workflow member APIs complete consistently with TextMate coloring.
-- Batch 654: Extended LSP/native IDE member completion parsing through dotted receivers and terminal binding fallback, with sample-table coverage for nested receiver paths.
-- Batch 655: Tightened LSP semantic-token coverage so nested sample-table member paths prove the specific dotted-receiver line receives workflow-step property highlighting.
-- Batch 656: Added exact LSP hover metadata for compiler-catalog public workflow member accesses, including nested paths such as `study.samples.row_preview`, so hover does not fall back to unrelated same-label bindings.
-- Batch 657: Aligned VS Code fallback and LSP option-value quick fixes to strip full EngLang line comments before computing replacement ranges, preserving trailing `#` and `//` notes while still allowing comment markers inside strings.
-- Batch 658: Made `vscode-install` run the VS Code CLI with an ignored temporary user-data directory while explicitly targeting the normal user extension directory, reducing local install failures from VS Code AppData log permissions and keeping reinstall guidance accurate.
-- Batch 659: Aligned raw `read json`/`read toml`/`read text` highlighting so TextMate first paint and LSP semantic tokens mark the phrase keywords as external boundaries while preserving workflow-step role metadata.
-- Batch 660: Added LSP external-boundary semantic tokens for `promote csv/json/toml` source operands, including file helpers and dotted raw-source bindings, so typed promotions show where external workflow data enters the schema layer.
-- Batch 661: Reworked TextMate `promote json records` highlighting to use phrase patterns with member-aware source-path fallbacks, and guarded all `promote csv/json/toml` phrase scopes so dotted sources stay colorful before LSP semantic tokens arrive.
-- Batch 662: Improved `vscode-install` preflight guidance so an open VS Code window still reports the existing built VSIX path when available, making local linting/highlighting reinstall recovery less ambiguous.
-- Batch 663: Reworked TimeSeries quality TextMate phrase scopes for `check coverage`, `fill missing`, `align`, and `resample` to use member-aware source-path fallbacks so dotted series operands stay colorful before semantic tokens arrive.
-- Batch 664: Added member-aware TextMate fallbacks for command-style `integrate <series> over <axis>` and `mean/max/min <series> over <axis>` phrases while keeping call-style integrate/stat patterns separate.
-- Batch 665: Reworked TextMate `plot distribution(...)` and `plot <series> over <axis>` phrase scopes to use member-aware report operand fallbacks, with grammar guards so dotted report paths stay colorful before LSP semantic tokens arrive.
-- Batch 666: Extended the TextMate `plot` command fallback for multi-series and named plot functions with member-aware report operand fallbacks, guarded so dotted report paths do not collapse into broad property scopes.
-- Batch 667: Reworked TextMate `summarize <series> by ...` and `show <value>` report phrase scopes to use member-aware fallbacks, so dotted report operands split into receiver/member scopes before semantic tokens arrive.
-- Batch 668: Added member-aware TextMate fallbacks to I/O and external-boundary workflow phrases including `read`, `write`, `export`, `download`, `http`, `render template`, and file operations so dotted source/target operands stay split before semantic highlighting.
-- Batch 669: Reworked DB/table TextMate phrase scopes for `open sqlite`, `read sqlite <db>.table(...)`, `write <table> to <db>.table(...)`, and `select <table> columns ...` so nested receivers use member-aware first-paint highlighting.
-- Batch 670: Added member-aware TextMate fallbacks to model call phrase scopes including `train_test_split(...)`, `regression_table(...)`, `evaluate(...)`, and `model_card(...)`, keeping nested model/table operands split before semantic tokens arrive.
-- Batch 671: Added member-aware TextMate fallbacks to uncertainty distribution calls such as `measured(...)`, `interval(...)`, `propagate(...)`, and `probability(...)`, completing the broad workflow fallback gap scan.
-- Batch 672: Reworked table and case operation TextMate phrase scopes such as `filter`, `derive`, `sort`, `join`, `require_one`, `materialize cases`, and `collect results` so dotted operands use member-aware first-paint highlighting.
-- Batch 673: Reworked `predict`, `train regression`, and `apply` TextMate phrase scopes so dotted model/table/step/case operands use member-aware first-paint highlighting while local workflow-step coloring is preserved.
-- Batch 674: Reworked `integrate(...)`, statistical axis calls, and summary export field TextMate scopes so dotted series, axis, and summary operands use member-aware first-paint highlighting.
-- Batch 675: Added a TextMate grammar regression guard requiring workflow property fallback scopes to include `#members`, with only fixed `status` key/literal scopes allowed as exceptions.
-- Batch 676: Aligned VS Code local args/schema field completions with quick-fix parsing so `#` and `//` inside strings are not mistaken for comments.
-- Batch 677: Added executable model and prediction public member fields such as `model.rmse` and `predictions.output_column` across compiler typing, runtime interpolation, LSP hover/completion/semantic tokens, generated VS Code metadata, and local completion fallback.
-- Batch 678: Documented compiler-owned model and prediction public member catalogs in LSP/VS Code references and added a package guard so executable public member fields are not described as seed-only editor suggestions.
-- Batch 679: Made TextMate `print` and `log` workflow phrase scopes member-aware so public fields such as `model.rmse` and `predictions.output_column` stay colorful in runtime message statements before semantic tokens arrive.
-- Batch 680: Made TextMate `run command` phrase scopes member-aware so external-boundary command operands such as `args.simulator` split into parameter/member tokens before semantic highlighting arrives.
-- Batch 681: Added a TextMate grammar guard requiring begin/end workflow phrase scopes to include `#members`, preventing print/log/run-style operand highlighting gaps from returning.
-- Batch 682: Improved VS Code unavailable-diagnostics UX so Problems entries include a short `Tool failure:` reason when the selected checker exits without editor JSON, while detailed stderr/stdout stays in the EngLang output channel.
-- Batch 683: Added a VS Code command registration guard so every package-exposed command has an `extension.js` handler and the only registered-only command is the legacy `englang.switchProblemsSource` compatibility alias.
-- Batch 684: Added the Problems source label (`eng/file` or `eng/live`) to the VS Code tooling status payload so diagnostics mode and Problems-column source wording stay aligned.
-- Batch 685: Standardized VS Code tooling status wording on `live editor checks` instead of `live editor requests`, keeping live Problems, hover, completion, and highlight wording aligned.
-- Batch 686: Implemented `resample <series> by <duration>` as a native TimeSeries resampling hook, with runtime artifact coverage and VS Code TextMate first-paint highlighting aligned to the new step-only form.
-- Batch 687: Aligned LSP semantic highlighting for `resample <series> by <duration>` so the `by` clause keeps workflowStep/timeseries/validation role coloring after semantic overlay, while duration units are not treated as workflow identifiers.
-- Batch 688: Tightened LSP semantic highlighting for supported report `summarize <series> by [...]` statements so the source series keeps report/timeseries role coloring and statistics such as `duration_above(5 kW)` color only the statistic function, not the unit argument.
-- Batch 689: Stopped VS Code TextMate report phrase scopes from highlighting unsupported bound report commands such as `arg_summary = summarize ...`, added compiler diagnostic `E-REPORT-BINDING-001`, and guarded grammar tests against those seed-only RHS forms.
-- Batch 690: Replaced the report language reference placeholder example (`show summary`, `plot heat over Time`) with concrete supported `Q_coil` bindings and added a docs-check guard so abstract report examples do not return.
-- Batch 691: Reworded the VS Code editor-metadata README so compiler-owned public member catalogs promise executable API fields, not `seed-only suggestions`, and added a package guard against that wording returning.
-- Batch 692: Added `E-VALIDATE-BINDING-001` so `bad = validate ...` no longer falls through to unknown-function or ambiguous-quantity diagnostics when validation is used as a bound value.
-- Batch 693: Anchored VS Code TextMate validation phrase scopes so `bad_validate = validate ...` no longer receives first-paint validation highlighting before the compiler reports `E-VALIDATE-BINDING-001`.
-- Batch 694: Extended `E-VALIDATE-BINDING-001` to the full validation statement family so bound `assert` and `golden` forms no longer pass or degrade into unrelated warnings.
-- Batch 695: Added `E-SIDE-EFFECT-BINDING-001` for statement-only side effects used as bound values and anchored matching VS Code TextMate scopes to top-level side-effect statements.
-- Batch 696: Extended bound statement diagnostics and TextMate anchoring to `print`, `log`, and `report { ... }` so output/report blocks cannot masquerade as bound values.
-- Batch 697: Added `E-BLOCK-BINDING-001` for declaration/block headers used as bound values and anchored declaration plus validation-block TextMate scopes to statement starts.
-- Batch 698: Added `E-STATEMENT-BINDING-001` for `return`, `use`/`import`, and `connect` used as bound values, plus a TextMate guard for bound `return` statements.
-- Batch 699: Extended `E-BLOCK-BINDING-001` and TextMate anchoring to block-member declarations such as `state`, `input`, `equation`, `port`, and `conservation` when they are incorrectly used as bound values.
-- Batch 700: Anchored the dedicated TextMate `args { ... }` block scope to statement starts so bound `bad_args = args {` no longer receives args-block first-paint highlighting.
 - Batch 701: Extended bound header diagnostics to metadata/member keywords such as `index`, `package`, and `version`, and narrowed TextMate `index` highlighting to schema-field positions.
 - Batch 702: Added `E-OPTION-BINDING-001` for workflow option assignments such as `unit y = kW` used as bound values, and narrowed root TextMate unit-option highlighting to line-start option positions.
 - Batch 703: Tightened native workflow guards so workflow 01/02/03 and their artifacts reject additional Python toolchain markers such as `.pyw`, `poetry`, `pyenv`, `tox`, `nox`, `mypy`, and `ruff`.
@@ -102,6 +52,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 723: Preserved checked source lines in `CheckReport` and emitted first-token source-span columns for component graph IDE navigation.
 - Batch 724: Made the VS Code review panel source-line buttons column-aware, matching Native IDE `L:C` navigation for `source_span.column` metadata.
 - Batch 725: Added `source_span.column` metadata to normalized review-document fallback and risk rows so IDE review panels can jump to precise source columns.
+- Batch 726: Archived compact summaries for batches 651-700 from the current usability backlog so the active file stays focused on recent IDE/workflow work.
 
 ## Documentation Policy
 
