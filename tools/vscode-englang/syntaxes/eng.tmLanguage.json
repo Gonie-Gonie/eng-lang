@@ -557,6 +557,9 @@
                                                                                          "include":  "#numbers"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      }
                                                                                  ]
@@ -591,6 +594,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -900,6 +906,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -1254,6 +1263,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
@@ -2163,6 +2175,9 @@
                                                                                          "include":  "#numbers"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
                                                                                          "include":  "#punctuation"
                                                                                      }
                                                                                  ]
@@ -2593,6 +2608,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#numbers"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"

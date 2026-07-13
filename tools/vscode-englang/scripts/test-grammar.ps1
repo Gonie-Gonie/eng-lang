@@ -1026,6 +1026,12 @@ Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-BundledThemeLeafScopeCoverage
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.print-message.englang" -Include "#operators" -Description "print message"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.log-message.englang" -Include "#operators" -Description "log message"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.write-standard-text.englang" -Include "#operators" -Description "write standard text"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.run-command.englang" -Include "#operators" -Description "run command"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.summarize-series.englang" -Include "#operators" -Description "summarize series"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.http-request.englang" -Include "#operators" -Description "http request"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
