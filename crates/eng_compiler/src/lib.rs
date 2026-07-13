@@ -1838,6 +1838,14 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&diagnostic.code)
         ));
         json.push_str(&format!("      \"line\": {},\n", diagnostic.line));
+        write_source_span_json(
+            &mut json,
+            "      ",
+            diagnostic.line,
+            &report.source_lines,
+            true,
+        );
+        json.push('\n');
         json.push_str(&format!(
             "      \"message\": \"{}\"",
             json_escape(&diagnostic.message)
@@ -1867,6 +1875,14 @@ pub fn review_json(report: &CheckReport) -> String {
             json_escape(&diagnostic.code)
         ));
         json.push_str(&format!("      \"line\": {},\n", diagnostic.line));
+        write_source_span_json(
+            &mut json,
+            "      ",
+            diagnostic.line,
+            &report.source_lines,
+            true,
+        );
+        json.push('\n');
         json.push_str(&format!(
             "      \"message\": \"{}\"",
             json_escape(&diagnostic.message)
@@ -8334,6 +8350,33 @@ mod tests {
         assert_eq!(value("output"), Some("build/result"));
         assert_eq!(report.semantic_program.workflow.kind, "top_level");
         assert_eq!(report.semantic_program.consts[0].name, "default_input");
+    }
+
+    #[test]
+    fn review_json_diagnostics_include_source_spans() {
+        let source = "  bad = 1 m + 2\n  power = 1 kW + 2\n";
+        let report = check_source("diagnostic_spans.eng", source, &CheckOptions::default());
+        assert!(report.has_errors());
+
+        let review = review_json(&report);
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review json");
+        let diagnostics = value["diagnostics"].as_array().expect("diagnostics array");
+        let dim_add = diagnostics
+            .iter()
+            .find(|diagnostic| diagnostic["code"] == "E-DIM-ADD-001")
+            .expect("dimension diagnostic");
+        assert_eq!(dim_add["line"].as_u64(), Some(1));
+        assert_eq!(dim_add["source_span"]["line"].as_u64(), Some(1));
+        assert_eq!(dim_add["source_span"]["column"].as_u64(), Some(3));
+
+        let warnings = value["warning_list"].as_array().expect("warning array");
+        let warning = warnings
+            .iter()
+            .find(|diagnostic| diagnostic["code"] == "W-QTY-AMBIG-001")
+            .expect("ambiguous quantity warning");
+        assert_eq!(warning["line"].as_u64(), Some(2));
+        assert_eq!(warning["source_span"]["line"].as_u64(), Some(2));
+        assert_eq!(warning["source_span"]["column"].as_u64(), Some(3));
     }
 
     #[test]
