@@ -9317,6 +9317,7 @@ mod tests {
                 "keyword.cache",
                 &[
                     "keyword.control.workflow.englang",
+                    "keyword.operator.word.englang",
                     "constant.language.englang",
                 ],
             ),
@@ -9324,6 +9325,7 @@ mod tests {
                 "keyword.db",
                 &[
                     "keyword.control.external-boundary.englang",
+                    "keyword.operator.word.englang",
                     "constant.language.englang",
                 ],
             ),

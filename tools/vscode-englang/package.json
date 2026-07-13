@@ -571,6 +571,7 @@
           ],
           "keyword.db": [
             "keyword.control.external-boundary.englang",
+            "keyword.operator.word.englang",
             "constant.language.englang"
           ],
           "function.db": [
@@ -587,6 +588,7 @@
           ],
           "keyword.cache": [
             "keyword.control.workflow.englang",
+            "keyword.operator.word.englang",
             "constant.language.englang"
           ],
           "function.cache": [

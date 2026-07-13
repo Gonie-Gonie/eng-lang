@@ -79,6 +79,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 620: Added a compiler/LSP warning and rename action for `response.status` so users are guided toward `response.response_source` while `status_code` and `status_class` stay reserved for HTTP status semantics.
 - Batch 621: Removed `response.status` from generated HTTP response member completion catalogs and package guards while preserving it as a typed compatibility alias with warning/code-action guidance toward `response.response_source`.
 - Batch 622: Broadened VS Code `keyword.solver` semantic fallback scopes so solver command words, clause words such as `over`, and solver method literals such as `fixed_step` keep consistent keyword/operator/constant coloring across themes.
+- Batch 623: Broadened VS Code `keyword.db` and `keyword.cache` semantic fallback scopes so DB/cache command words, clause words, and status literals keep consistent keyword/operator/constant coloring across themes.
 
 ## Documentation Policy
 

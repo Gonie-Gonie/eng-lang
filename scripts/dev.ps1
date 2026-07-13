@@ -3470,6 +3470,7 @@ function Assert-VscodeExtensionContract {
         )
         "keyword.cache" = @(
             "keyword.control.workflow.englang",
+            "keyword.operator.word.englang",
             "constant.language.englang"
         )
         "keyword.uncertain" = @(
@@ -3478,6 +3479,7 @@ function Assert-VscodeExtensionContract {
         )
         "keyword.db" = @(
             "keyword.control.external-boundary.englang",
+            "keyword.operator.word.englang",
             "constant.language.englang"
         )
     }
