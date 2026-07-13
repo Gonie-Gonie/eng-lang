@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 760: Exposed `E-LOG-LEVEL-001` through the `eng.log` module registry, current workflow-module table, and CLI diagnostics reference instead of hiding it as `none_current`.
 - Batch 759: Added stdio, VS Code contract, and module-registry coverage for `W-NET-RESPONSE-STATUS-ALIAS` so `response.status` consistently quick-fixes to `response.response_source`.
 - Batch 758: Added LSP and VS Code local quick fixes for `E-SAMPLING-RANGE-UNIT` when one `uniform(lower, upper)` endpoint is missing the other endpoint's unit.
 - Batch 757: Added LSP and VS Code local quick fixes for `E-ML-SOURCE-001/002`, inserting native ML source-chain skeletons or split adapters when model workflows reference missing or wrong-type sources.

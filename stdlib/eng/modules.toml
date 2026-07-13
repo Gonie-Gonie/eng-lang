@@ -36,7 +36,7 @@ status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Structured runtime messages and run-log records."
 artifacts = ["run_log"]
-diagnostics = ["none_current"]
+diagnostics = ["E-LOG-LEVEL-001"]
 examples = ["examples/official/15_process_result"]
 tests = ["cargo test -p eng_runtime run_file"]
 
