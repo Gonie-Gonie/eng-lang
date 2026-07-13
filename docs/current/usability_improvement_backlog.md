@@ -68,6 +68,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 739: Added normalized review-document `source_span` metadata for Table Transform rows so review-table clicks open transform declarations precisely.
 - Batch 740: Added normalized review-document `source_span` metadata for TimeSeries calculation and Report Outputs rows covering summaries, integrations, and plot candidates.
 - Batch 741: Added normalized review-document `source_span` metadata for Validation rows covering top-level validate commands and class validations.
+- Batch 742: Added normalized review-document `source_span` metadata for remaining Calculation rows: uncertainty, modeling, and system equations.
 
 ## Documentation Policy
 

@@ -6683,7 +6683,15 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             &uncertainty.quantity_kind,
             uncertainty.line,
         );
-        json.push_str(&format!("        \"line\": {}\n", uncertainty.line));
+        json.push_str(&format!("        \"line\": {},\n", uncertainty.line));
+        write_source_span_json(
+            json,
+            "        ",
+            uncertainty.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for ml in &report.semantic_program.ml_infos {
@@ -6710,7 +6718,9 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             &ml.kind,
             ml.line,
         );
-        json.push_str(&format!("        \"line\": {}\n", ml.line));
+        json.push_str(&format!("        \"line\": {},\n", ml.line));
+        write_source_span_json(json, "        ", ml.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for system in &report.semantic_program.systems {
@@ -6741,7 +6751,9 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
                 &equation.left_dimension,
                 equation.line,
             );
-            json.push_str(&format!("        \"line\": {}\n", equation.line));
+            json.push_str(&format!("        \"line\": {},\n", equation.line));
+            write_source_span_json(json, "        ", equation.line, &report.source_lines, false);
+            json.push('\n');
             json.push_str("      }");
         }
     }
@@ -11489,6 +11501,23 @@ system Envelope {
         assert!(review.contains("\"offset\": \"0.4 kW\""));
         assert!(review.contains("\"Measured[AbsoluteTemperature]\""));
         assert!(review.contains("\"Distribution[HeatRate]\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let uncertainty_calculation = value["review_document"]["calculations"]
+            .as_array()
+            .and_then(|calculations| {
+                calculations.iter().find(|calculation| {
+                    calculation["kind"] == "uncertainty" && calculation["name"] == "Q_total_unc"
+                })
+            })
+            .expect("uncertainty calculation row");
+        assert_eq!(
+            uncertainty_calculation["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.uncertainty_infos[6].line as u64)
+        );
+        assert_eq!(
+            uncertainty_calculation["source_span"]["column"].as_u64(),
+            Some(1)
+        );
     }
 
     #[test]
@@ -11750,6 +11779,23 @@ system Envelope {
         assert!(review.contains("\"Model[MLP]\""));
         assert!(review.contains("\"LeakageLint\""));
         assert!(review.contains("\"PredictionResult\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let prediction_calculation = value["review_document"]["calculations"]
+            .as_array()
+            .and_then(|calculations| {
+                calculations.iter().find(|calculation| {
+                    calculation["kind"] == "modeling" && calculation["name"] == "predictions"
+                })
+            })
+            .expect("prediction modeling calculation row");
+        assert_eq!(
+            prediction_calculation["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.ml_infos[6].line as u64)
+        );
+        assert_eq!(
+            prediction_calculation["source_span"]["column"].as_u64(),
+            Some(1)
+        );
     }
 
     #[test]
@@ -11958,6 +12004,24 @@ system Envelope {
         assert_eq!(
             system.equation_ir[0].derivative_states,
             vec!["T".to_owned()]
+        );
+        let review = review_json(&report);
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let equation_calculation = value["review_document"]["calculations"]
+            .as_array()
+            .and_then(|calculations| {
+                calculations.iter().find(|calculation| {
+                    calculation["kind"] == "system_equation" && calculation["name"] == "RoomThermal"
+                })
+            })
+            .expect("system equation calculation row");
+        assert_eq!(
+            equation_calculation["source_span"]["line"].as_u64(),
+            Some(system.equations[0].line as u64)
+        );
+        assert_eq!(
+            equation_calculation["source_span"]["column"].as_u64(),
+            Some(9)
         );
     }
 
