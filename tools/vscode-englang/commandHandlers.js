@@ -809,23 +809,25 @@ function createCommandHandlers(options = {}) {
     return mode === "live" ? "eng/live" : "eng/file";
   }
   function diagnosticsModeChangeSummary(mode, lintOnChange) {
+    const sourceLabel = diagnosticsProblemsSource(mode);
     if (mode !== "live") {
-      return "VS Code Problems will use saved-file diagnostics on open, save, and manual check.";
+      return `VS Code Problems will use saved-file diagnostics on open, save, and manual check with source ${sourceLabel}.`;
     }
     if (!lintOnChange) {
-      return "Live diagnostics mode is selected, but typing updates remain off because englang.lintOnChange is false.";
+      return `Live diagnostics mode is selected with source ${sourceLabel}, but typing updates remain off because englang.lintOnChange is false.`;
     }
-    return "VS Code Problems will update from the current unsaved buffer while typing.";
+    return `VS Code Problems will update from the current unsaved buffer while typing with source ${sourceLabel}.`;
   }
 
   function diagnosticsStatusSummary(mode, lintOnChange) {
+    const sourceLabel = diagnosticsProblemsSource(mode);
     if (mode !== "live") {
-      return "VS Code Problems use saved-file diagnostics when a file opens, saves, or is checked manually.";
+      return `VS Code Problems use source ${sourceLabel} for saved-file diagnostics when a file opens, saves, or is checked manually.`;
     }
     if (!lintOnChange) {
-      return "Live diagnostics mode is selected, but typing updates are off because englang.lintOnChange is false.";
+      return `Live diagnostics mode is selected with source ${sourceLabel}, but typing updates are off because englang.lintOnChange is false.`;
     }
-    return "VS Code Problems update from the current unsaved editor buffer after a short typing pause.";
+    return `VS Code Problems use source ${sourceLabel} and update from the current unsaved editor buffer after a short typing pause.`;
   }
 
   function toolStatusSummary(status, purpose) {
