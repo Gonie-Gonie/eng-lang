@@ -132,6 +132,10 @@ TimeSeries quality phrases such as `check coverage`, `fill missing`, `align`,
 and `resample` also include member-aware source-path fallbacks so
 `measured.T_zone`, `simulated.T_zone`, and `args.measured_zone` split into
 receiver, dot, and member scopes before semantic highlighting arrives.
+Command-style `integrate <series> over <axis>` and
+`mean/max/min <series> over <axis>` phrases use the same member-aware fallback
+while call-style `integrate(...)` and `mean(...)` remain under their
+function-call phrase scopes.
 
 Current workflow phrase scopes:
 

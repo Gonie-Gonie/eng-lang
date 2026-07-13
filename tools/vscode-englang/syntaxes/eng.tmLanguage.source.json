@@ -1258,17 +1258,30 @@
           },
           {
             "name": "meta.workflow.integrate-series.englang",
-            "match": "\\b(integrate)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-            "captures": {
-              "1": { "name": "keyword.control.solver.englang" },
-              "2": { "name": "variable.parameter.property.englang" },
-              "3": { "name": "variable.other.property.englang" },
-              "4": { "name": "variable.other.local.englang" },
-              "5": { "name": "keyword.operator.word.englang" },
-              "6": { "name": "variable.parameter.property.englang" },
-              "7": { "name": "variable.other.property.englang" },
-              "8": { "name": "variable.other.local.englang" }
-            }
+            "begin": "\\b(integrate)\\b(?!\\s*\\()",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.solver.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\bover\\b"
+              },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.stat-axis-call.englang",
@@ -1290,17 +1303,30 @@
           },
           {
             "name": "meta.workflow.stat-series.englang",
-            "match": "\\b(mean|max|min)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(over)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-            "captures": {
-              "1": { "name": "keyword.control.report.englang" },
-              "2": { "name": "variable.parameter.property.englang" },
-              "3": { "name": "variable.other.property.englang" },
-              "4": { "name": "variable.other.local.englang" },
-              "5": { "name": "keyword.operator.word.englang" },
-              "6": { "name": "variable.parameter.property.englang" },
-              "7": { "name": "variable.other.property.englang" },
-              "8": { "name": "variable.other.local.englang" }
-            }
+            "begin": "\\b(mean|max|min)\\b(?!\\s*\\()",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.report.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\bover\\b"
+              },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.summarize-series.englang",

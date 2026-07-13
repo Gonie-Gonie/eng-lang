@@ -120,6 +120,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 661: Reworked TextMate `promote json records` highlighting to use phrase patterns with member-aware source-path fallbacks, and guarded all `promote csv/json/toml` phrase scopes so dotted sources stay colorful before LSP semantic tokens arrive.
 - Batch 662: Improved `vscode-install` preflight guidance so an open VS Code window still reports the existing built VSIX path when available, making local linting/highlighting reinstall recovery less ambiguous.
 - Batch 663: Reworked TimeSeries quality TextMate phrase scopes for `check coverage`, `fill missing`, `align`, and `resample` to use member-aware source-path fallbacks so dotted series operands stay colorful before semantic tokens arrive.
+- Batch 664: Added member-aware TextMate fallbacks for command-style `integrate <series> over <axis>` and `mean/max/min <series> over <axis>` phrases while keeping call-style integrate/stat patterns separate.
 
 ## Documentation Policy
 
