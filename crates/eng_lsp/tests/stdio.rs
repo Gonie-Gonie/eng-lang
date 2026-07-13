@@ -1028,6 +1028,8 @@ with {
 }
 
 model_results = derive model_designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh
+ml_eval_missing = evaluate(missing_model, split=model_split)
+ml_direct_model = regression(Q_series, algorithm=linear)
 model_bad = train regression model_results
 with {
     target = annual_electricity
@@ -1157,6 +1159,8 @@ report {
         "E-SOLVE-MAX-ITER-INVALID",
         "E-SOLVE-RELAXATION-INVALID",
         "E-SOLVE-INITIAL-INVALID",
+        "E-ML-SOURCE-001",
+        "E-ML-SOURCE-002",
         "E-ML-ARGS-002",
         "E-ML-ARGS-003",
         "E-WITH-OPTION-001",
@@ -1482,6 +1486,25 @@ report {
     assert_action_edit(actions, &uri, "Set solver initial value: initial = 1", "1");
     assert_action_edit(actions, &uri, "Set model test split: test = 0.25", "0.25");
     assert_action_edit(actions, &uri, "Set model seed: seed = 7", "7");
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Define ML model source missing_model",
+        "missing_model = regression(split, algorithm=linear)",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Define ML split source model_split",
+        "model_split = train_test_split(Q_ml_series, target=Q_ml_series, features=[feature_1], test=0.25, seed=7)",
+    );
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Create ML split from Q_series",
+        "split = train_test_split(Q_series, target=Q_series, features=[feature_1], test=0.25, seed=7)",
+    );
+    assert_action_edit(actions, &uri, "Create ML split from Q_series", "split");
     assert_no_action_title_or_edit_text(actions, "test_fraction");
     assert_no_action_title_or_edit_text(actions, "layers =");
     assert_action_edit(

@@ -295,6 +295,9 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-ML-SOURCE-001" || code === "E-ML-SOURCE-002") {
+      actions.push(...mlSourceActions(document, diagnostic, code));
+    }
     if (typeof code === "string" && code.startsWith("E-UNC-ARGS-")) {
       actions.push(...uncertaintyArgumentActions(document, diagnostic));
     }
@@ -1892,6 +1895,295 @@ function uncertaintyArgumentActions(document, diagnostic) {
   }
 
   return actions;
+}
+
+function mlSourceActions(document, diagnostic, code) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const message = String(diagnostic.message ?? "");
+  const expected = mlExpectedSourceKind(message);
+  if (!expected) {
+    return [];
+  }
+  const actions = [];
+  const source = mlSourceNameFromDiagnostic(message);
+
+  if (code === "E-ML-SOURCE-001" && source) {
+    const skeleton = mlSourceSkeleton(document, line.lineNumber, source, expected, lineIndent(line.text));
+    const action = new vscode.CodeAction(
+      `Define ML ${mlExpectedSourceLabel(expected)} ${source}`,
+      vscode.CodeActionKind.QuickFix
+    );
+    action.isPreferred = true;
+    action.diagnostics = [diagnostic];
+    action.edit = new vscode.WorkspaceEdit();
+    action.edit.insert(document.uri, new vscode.Position(line.lineNumber, 0), skeleton);
+    actions.push(action);
+  }
+
+  if (code === "E-ML-SOURCE-002" && source) {
+    const range = mlSourceTokenRange(line.text, source);
+    const adapter = range
+      ? mlSourceAdapterSkeleton(document, line.lineNumber, source, expected, lineIndent(line.text))
+      : undefined;
+    if (adapter) {
+      const action = new vscode.CodeAction(
+        mlSourceAdapterTitle(expected, source, adapter.binding),
+        vscode.CodeActionKind.QuickFix
+      );
+      action.isPreferred = true;
+      action.diagnostics = [diagnostic];
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.insert(document.uri, new vscode.Position(line.lineNumber, 0), adapter.skeleton);
+      action.edit.replace(
+        document.uri,
+        new vscode.Range(line.lineNumber, range.start, line.lineNumber, range.end),
+        adapter.binding
+      );
+      actions.push(action);
+    }
+  }
+
+  return actions;
+}
+
+function mlExpectedSourceKind(message) {
+  const prior = /requires a prior ([^`\n]+?) binding/.exec(String(message ?? ""));
+  if (prior) {
+    return mlExpectedSourceKindFromLabel(prior[1]);
+  }
+  const expected = / expects ([^`\n]+?) for its/.exec(String(message ?? ""));
+  if (expected) {
+    return mlExpectedSourceKindFromLabel(expected[1]);
+  }
+  const role = unknownMlRoleFromDiagnostic(message);
+  return role ? mlExpectedSourceKindFromRole(role) : undefined;
+}
+
+function mlExpectedSourceKindFromLabel(label) {
+  const text = String(label ?? "");
+  if (text.includes("TimeSeries")) {
+    return "TimeSeries";
+  }
+  if (text.includes("TrainTestSplit")) {
+    return "TrainTestSplit";
+  }
+  if (text.includes("Model[")) {
+    return "Model";
+  }
+  if (text.includes("Table[") || text.includes("materialized derive table")) {
+    return "Table";
+  }
+  return undefined;
+}
+
+function mlExpectedSourceKindFromRole(role) {
+  switch (role) {
+    case "source":
+    case "target":
+      return "TimeSeries";
+    case "split":
+      return "TrainTestSplit";
+    case "model":
+      return "Model";
+    case "table":
+    case "input":
+      return "Table";
+    default:
+      return undefined;
+  }
+}
+
+function mlExpectedSourceLabel(expected) {
+  switch (expected) {
+    case "TimeSeries":
+      return "TimeSeries source";
+    case "TrainTestSplit":
+      return "split source";
+    case "Model":
+      return "model source";
+    case "Table":
+      return "table source";
+    default:
+      return "source";
+  }
+}
+
+function unknownMlRoleFromDiagnostic(message) {
+  const match = /Unknown ML ([A-Za-z_]+) `[^`]+`/.exec(String(message ?? ""));
+  return match?.[1];
+}
+
+function mlSourceNameFromDiagnostic(message) {
+  if (String(message ?? "").includes("Unknown ML ")) {
+    const match = /Unknown ML [A-Za-z_]+ `([^`]+)`/.exec(String(message ?? ""));
+    const source = match?.[1]?.trim();
+    return isIdentifier(source) ? source : undefined;
+  }
+  const source = firstBacktickPayload(message);
+  return isIdentifier(source) ? source : undefined;
+}
+
+function mlSourceSkeleton(document, lineNumber, name, expected, indent) {
+  const newline = documentNewline(document);
+  switch (expected) {
+    case "TimeSeries":
+      return `${indent}${name}: TimeSeries[Time] of HeatRate [kW] = 0 kW${newline}`;
+    case "TrainTestSplit": {
+      const series = mlExistingOrDefaultBinding(document, lineNumber, "Q_ml_series");
+      const lines = [];
+      if (!bindingDefinedBefore(document, series, lineNumber)) {
+        lines.push(`${indent}${series}: TimeSeries[Time] of HeatRate [kW] = 0 kW`);
+      }
+      lines.push(`${indent}${name} = train_test_split(${series}, target=${series}, features=[feature_1], test=0.25, seed=7)`);
+      return `${lines.join(newline)}${newline}`;
+    }
+    case "Model": {
+      const split = mlExistingOrDefaultBinding(document, lineNumber, "split");
+      const lines = [];
+      if (!bindingDefinedBefore(document, split, lineNumber)) {
+        const series = mlExistingOrDefaultBinding(document, lineNumber, "Q_ml_series");
+        if (!bindingDefinedBefore(document, series, lineNumber)) {
+          lines.push(`${indent}${series}: TimeSeries[Time] of HeatRate [kW] = 0 kW`);
+        }
+        lines.push(`${indent}${split} = train_test_split(${series}, target=${series}, features=[feature_1], test=0.25, seed=7)`);
+      }
+      lines.push(`${indent}${name} = regression(${split}, algorithm=linear)`);
+      return `${lines.join(newline)}${newline}`;
+    }
+    case "Table":
+      return mlTableSkeleton(document, name, indent);
+    default:
+      return "";
+  }
+}
+
+function mlSourceAdapterSkeleton(document, lineNumber, source, expected, indent) {
+  const newline = documentNewline(document);
+  switch (expected) {
+    case "TimeSeries": {
+      const binding = mlUniqueBindingName(document, lineNumber, "Q_ml_series");
+      return {
+        binding,
+        skeleton: `${indent}${binding}: TimeSeries[Time] of HeatRate [kW] = 0 kW${newline}`
+      };
+    }
+    case "TrainTestSplit": {
+      const binding = mlUniqueBindingName(document, lineNumber, "split");
+      return {
+        binding,
+        skeleton: `${indent}${binding} = train_test_split(${source}, target=${source}, features=[feature_1], test=0.25, seed=7)${newline}`
+      };
+    }
+    case "Model": {
+      const binding = mlUniqueBindingName(document, lineNumber, "reg_model");
+      return {
+        binding,
+        skeleton: `${indent}${binding} = regression(${source}, algorithm=linear)${newline}`
+      };
+    }
+    case "Table": {
+      const binding = mlUniqueBindingName(document, lineNumber, "samples");
+      return { binding, skeleton: mlTableSkeleton(document, binding, indent) };
+    }
+    default:
+      return undefined;
+  }
+}
+
+function mlSourceAdapterTitle(expected, source, binding) {
+  switch (expected) {
+    case "TimeSeries":
+      return `Create ML TimeSeries ${binding}`;
+    case "TrainTestSplit":
+      return `Create ML split from ${source}`;
+    case "Model":
+      return `Create ML model from ${source}`;
+    case "Table":
+      return `Create ML table ${binding}`;
+    default:
+      return `Create ML source ${binding}`;
+  }
+}
+
+function mlTableSkeleton(document, name, indent) {
+  const newline = documentNewline(document);
+  return [
+    `${indent}${name} = sample lhs`,
+    `${indent}with {`,
+    `${indent}    count = 1`,
+    `${indent}    seed = 42`,
+    `${indent}    feature_1 = uniform(0, 1)`,
+    `${indent}}`
+  ].join(newline) + newline;
+}
+
+function mlExistingOrDefaultBinding(document, lineNumber, name) {
+  return bindingDefinedBefore(document, name, lineNumber)
+    ? name
+    : mlUniqueBindingName(document, lineNumber, name);
+}
+
+function mlUniqueBindingName(document, lineNumber, base) {
+  if (!bindingDefinedBefore(document, base, lineNumber) && !bindingDefinedAfter(document, base, lineNumber)) {
+    return base;
+  }
+  for (let suffix = 2; suffix < 100; suffix += 1) {
+    const candidate = `${base}_${suffix}`;
+    if (!bindingDefinedBefore(document, candidate, lineNumber) && !bindingDefinedAfter(document, candidate, lineNumber)) {
+      return candidate;
+    }
+  }
+  return `${base}_new`;
+}
+
+function bindingDefinedBefore(document, name, lineLimit) {
+  for (let lineNumber = 0; lineNumber < lineLimit; lineNumber += 1) {
+    if (bindingLineDefinesName(document.lineAt(lineNumber).text, name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function bindingDefinedAfter(document, name, lineNumber) {
+  for (let index = lineNumber + 1; index < document.lineCount; index += 1) {
+    if (bindingLineDefinesName(document.lineAt(index).text, name)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function bindingLineDefinesName(lineText, name) {
+  const code = stripLineComment(lineText);
+  const indent = lineIndent(code).length;
+  const rest = code.slice(indent);
+  if (!rest.startsWith(name)) {
+    return false;
+  }
+  const afterName = rest.slice(name.length);
+  if (isIdentifierCharacter(afterName[0])) {
+    return false;
+  }
+  const separator = afterName.trimStart()[0];
+  return separator === "=" || separator === ":";
+}
+
+function mlSourceTokenRange(lineText, source) {
+  const code = stripLineComment(lineText);
+  let searchStart = 0;
+  while (searchStart < code.length) {
+    const start = code.indexOf(source, searchStart);
+    if (start < 0) {
+      break;
+    }
+    const end = start + source.length;
+    if (identifierBoundary(code, start, end)) {
+      return { start, end };
+    }
+    searchStart = end;
+  }
+  return undefined;
 }
 
 function uncertaintySourceActions(document, diagnostic) {

@@ -843,6 +843,7 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-NAME-LOCAL-001" => {
             optional_code_action(lsp_promote_where_local_code_action(uri, text, diagnostic))
         }
+        "E-ML-SOURCE-001" | "E-ML-SOURCE-002" => lsp_ml_source_code_actions(uri, text, diagnostic),
         "E-UNC-SOURCE-001" | "E-UNC-SOURCE-002" => {
             lsp_uncertainty_source_code_actions(uri, text, diagnostic)
         }
@@ -3186,6 +3187,330 @@ fn expression_boundary(text: &str, start: usize, end: usize) -> bool {
 
 fn is_expression_edge_character(character: char) -> bool {
     is_identifier_character(character) || character == '.'
+}
+
+fn lsp_ml_source_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let message = diagnostic_message(diagnostic);
+    let Some(expected) = ml_expected_source_kind(message) else {
+        return Vec::new();
+    };
+    let mut actions = Vec::new();
+
+    if diagnostic_code(diagnostic) == Some("E-ML-SOURCE-001") {
+        if let Some(source) = ml_source_name_from_diagnostic(message) {
+            let indent = line_indent(line);
+            let skeleton = ml_source_skeleton(text, line_number, source, expected, indent);
+            actions.push(json!({
+                "title": format!("Define ML {} {source}", ml_expected_source_label(expected)),
+                "kind": "quickfix",
+                "isPreferred": true,
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    zero_width_range(line_number, 0),
+                    &skeleton
+                )
+            }));
+        }
+    }
+
+    if diagnostic_code(diagnostic) == Some("E-ML-SOURCE-002") {
+        if let Some(source) = ml_source_name_from_diagnostic(message) {
+            if let Some(range) = ml_source_token_range(line, source) {
+                if let Some((binding, skeleton)) = ml_source_adapter_skeleton(
+                    text,
+                    line_number,
+                    source,
+                    expected,
+                    line_indent(line),
+                ) {
+                    actions.push(json!({
+                        "title": ml_source_adapter_title(expected, source, &binding),
+                        "kind": "quickfix",
+                        "isPreferred": true,
+                        "diagnostics": [diagnostic.clone()],
+                        "edit": workspace_edit_for_edits(
+                            uri,
+                            json!([
+                                {
+                                    "range": zero_width_range(line_number, 0),
+                                    "newText": skeleton
+                                },
+                                {
+                                    "range": line_byte_range(line_number, line, range.0, range.1),
+                                    "newText": binding
+                                }
+                            ])
+                        )
+                    }));
+                }
+            }
+        }
+    }
+
+    actions
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum MlExpectedSourceKind {
+    TimeSeries,
+    TrainTestSplit,
+    Model,
+    Table,
+}
+
+fn ml_expected_source_kind(message: &str) -> Option<MlExpectedSourceKind> {
+    if let Some((_, rest)) = message.split_once("requires a prior ") {
+        if let Some((label, _)) = rest.split_once(" binding") {
+            return ml_expected_source_kind_from_label(label);
+        }
+    }
+    if let Some((_, rest)) = message.split_once(" expects ") {
+        if let Some((label, _)) = rest.split_once(" for its") {
+            return ml_expected_source_kind_from_label(label);
+        }
+    }
+    unknown_ml_role_from_diagnostic(message).and_then(ml_expected_source_kind_from_role)
+}
+
+fn ml_expected_source_kind_from_label(label: &str) -> Option<MlExpectedSourceKind> {
+    if label.contains("TimeSeries") {
+        Some(MlExpectedSourceKind::TimeSeries)
+    } else if label.contains("TrainTestSplit") {
+        Some(MlExpectedSourceKind::TrainTestSplit)
+    } else if label.contains("Model[") {
+        Some(MlExpectedSourceKind::Model)
+    } else if label.contains("Table[") || label.contains("materialized derive table") {
+        Some(MlExpectedSourceKind::Table)
+    } else {
+        None
+    }
+}
+
+fn ml_expected_source_kind_from_role(role: &str) -> Option<MlExpectedSourceKind> {
+    match role {
+        "source" | "target" => Some(MlExpectedSourceKind::TimeSeries),
+        "split" => Some(MlExpectedSourceKind::TrainTestSplit),
+        "model" => Some(MlExpectedSourceKind::Model),
+        "table" | "input" => Some(MlExpectedSourceKind::Table),
+        _ => None,
+    }
+}
+
+fn ml_expected_source_label(expected: MlExpectedSourceKind) -> &'static str {
+    match expected {
+        MlExpectedSourceKind::TimeSeries => "TimeSeries source",
+        MlExpectedSourceKind::TrainTestSplit => "split source",
+        MlExpectedSourceKind::Model => "model source",
+        MlExpectedSourceKind::Table => "table source",
+    }
+}
+
+fn unknown_ml_role_from_diagnostic(message: &str) -> Option<&str> {
+    let (_, rest) = message.split_once("Unknown ML ")?;
+    let (role, after_role) = rest.split_once(' ')?;
+    after_role.trim_start().starts_with('`').then_some(role)
+}
+
+fn ml_source_name_from_diagnostic(message: &str) -> Option<&str> {
+    if message.contains("Unknown ML ") {
+        let (_, rest) = message.split_once('`')?;
+        let (source, _) = rest.split_once('`')?;
+        let source = source.trim();
+        return is_identifier(source).then_some(source);
+    }
+    let source = first_backtick_payload(message)?.trim();
+    is_identifier(source).then_some(source)
+}
+
+fn ml_source_skeleton(
+    text: &str,
+    line_number: usize,
+    name: &str,
+    expected: MlExpectedSourceKind,
+    indent: &str,
+) -> String {
+    let newline = document_newline(text);
+    match expected {
+        MlExpectedSourceKind::TimeSeries => {
+            format!("{indent}{name}: TimeSeries[Time] of HeatRate [kW] = 0 kW{newline}")
+        }
+        MlExpectedSourceKind::TrainTestSplit => {
+            let series = ml_existing_or_default_binding(text, line_number, "Q_ml_series");
+            let mut lines = Vec::new();
+            if !binding_defined_before(text, &series, line_number) {
+                lines.push(format!(
+                    "{indent}{series}: TimeSeries[Time] of HeatRate [kW] = 0 kW"
+                ));
+            }
+            lines.push(format!(
+                "{indent}{name} = train_test_split({series}, target={series}, features=[feature_1], test=0.25, seed=7)"
+            ));
+            format!("{}{}", lines.join(newline), newline)
+        }
+        MlExpectedSourceKind::Model => {
+            let split = ml_existing_or_default_binding(text, line_number, "split");
+            let mut lines = Vec::new();
+            if !binding_defined_before(text, &split, line_number) {
+                let series = ml_existing_or_default_binding(text, line_number, "Q_ml_series");
+                if !binding_defined_before(text, &series, line_number) {
+                    lines.push(format!(
+                        "{indent}{series}: TimeSeries[Time] of HeatRate [kW] = 0 kW"
+                    ));
+                }
+                lines.push(format!(
+                    "{indent}{split} = train_test_split({series}, target={series}, features=[feature_1], test=0.25, seed=7)"
+                ));
+            }
+            lines.push(format!(
+                "{indent}{name} = regression({split}, algorithm=linear)"
+            ));
+            format!("{}{}", lines.join(newline), newline)
+        }
+        MlExpectedSourceKind::Table => ml_table_skeleton(text, name, indent),
+    }
+}
+
+fn ml_source_adapter_skeleton(
+    text: &str,
+    line_number: usize,
+    source: &str,
+    expected: MlExpectedSourceKind,
+    indent: &str,
+) -> Option<(String, String)> {
+    let newline = document_newline(text);
+    match expected {
+        MlExpectedSourceKind::TimeSeries => {
+            let binding = ml_unique_binding_name(text, line_number, "Q_ml_series");
+            Some((
+                binding.clone(),
+                format!("{indent}{binding}: TimeSeries[Time] of HeatRate [kW] = 0 kW{newline}"),
+            ))
+        }
+        MlExpectedSourceKind::TrainTestSplit => {
+            let binding = ml_unique_binding_name(text, line_number, "split");
+            Some((
+                binding.clone(),
+                format!(
+                    "{indent}{binding} = train_test_split({source}, target={source}, features=[feature_1], test=0.25, seed=7){newline}"
+                ),
+            ))
+        }
+        MlExpectedSourceKind::Model => {
+            let binding = ml_unique_binding_name(text, line_number, "reg_model");
+            Some((
+                binding.clone(),
+                format!("{indent}{binding} = regression({source}, algorithm=linear){newline}"),
+            ))
+        }
+        MlExpectedSourceKind::Table => {
+            let binding = ml_unique_binding_name(text, line_number, "samples");
+            Some((binding.clone(), ml_table_skeleton(text, &binding, indent)))
+        }
+    }
+}
+
+fn ml_source_adapter_title(expected: MlExpectedSourceKind, source: &str, binding: &str) -> String {
+    match expected {
+        MlExpectedSourceKind::TimeSeries => format!("Create ML TimeSeries {binding}"),
+        MlExpectedSourceKind::TrainTestSplit => format!("Create ML split from {source}"),
+        MlExpectedSourceKind::Model => format!("Create ML model from {source}"),
+        MlExpectedSourceKind::Table => format!("Create ML table {binding}"),
+    }
+}
+
+fn ml_table_skeleton(text: &str, name: &str, indent: &str) -> String {
+    let newline = document_newline(text);
+    [
+        format!("{indent}{name} = sample lhs"),
+        format!("{indent}with {{"),
+        format!("{indent}    count = 1"),
+        format!("{indent}    seed = 42"),
+        format!("{indent}    feature_1 = uniform(0, 1)"),
+        format!("{indent}}}"),
+    ]
+    .join(newline)
+        + newline
+}
+
+fn ml_existing_or_default_binding(text: &str, line_number: usize, name: &str) -> String {
+    if binding_defined_before(text, name, line_number) {
+        name.to_owned()
+    } else {
+        ml_unique_binding_name(text, line_number, name)
+    }
+}
+
+fn ml_unique_binding_name(text: &str, line_number: usize, base: &str) -> String {
+    if !binding_defined_before(text, base, line_number)
+        && !binding_defined_after(text, base, line_number)
+    {
+        return base.to_owned();
+    }
+    for suffix in 2..100 {
+        let candidate = format!("{base}_{suffix}");
+        if !binding_defined_before(text, &candidate, line_number)
+            && !binding_defined_after(text, &candidate, line_number)
+        {
+            return candidate;
+        }
+    }
+    format!("{base}_new")
+}
+
+fn binding_defined_before(text: &str, name: &str, line_limit: usize) -> bool {
+    text.lines()
+        .take(line_limit)
+        .any(|line| binding_line_defines_name(line, name))
+}
+
+fn binding_defined_after(text: &str, name: &str, line_number: usize) -> bool {
+    text.lines()
+        .skip(line_number + 1)
+        .any(|line| binding_line_defines_name(line, name))
+}
+
+fn binding_line_defines_name(line: &str, name: &str) -> bool {
+    let code = strip_line_comment(line);
+    let start = line_indent(code).len();
+    let rest = &code[start..];
+    let Some(after_name) = rest.strip_prefix(name) else {
+        return false;
+    };
+    if after_name
+        .chars()
+        .next()
+        .is_some_and(is_identifier_character)
+    {
+        return false;
+    }
+    let Some(separator) = after_name.trim_start().chars().next() else {
+        return false;
+    };
+    separator == '=' || separator == ':'
+}
+
+fn ml_source_token_range(line: &str, source: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let mut search_start = 0usize;
+    while search_start < code.len() {
+        let Some(relative_start) = code[search_start..].find(source) else {
+            break;
+        };
+        let start = search_start + relative_start;
+        let end = start + source.len();
+        if identifier_boundary(code, start, end) {
+            return Some((start, end));
+        }
+        search_start = end;
+    }
+    None
 }
 
 fn lsp_uncertainty_source_code_actions(uri: &str, text: &str, diagnostic: &Value) -> Vec<Value> {

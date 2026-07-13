@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 757: Added LSP and VS Code local quick fixes for `E-ML-SOURCE-001/002`, inserting native ML source-chain skeletons or split adapters when model workflows reference missing or wrong-type sources.
 - Batch 756: Tightened `dev.bat workflows-test` so workflow 02 native LHS sample tables must expose generated row hash previews and row value previews with per-parameter numeric payloads.
 - Batch 755: Added VS Code TextMate first-paint unit highlighting inside function parameter and return type annotations such as `Conductance [W/K]` and `HeatRate [W]`.
 - Batch 754: Extended VS Code TextMate unit highlighting from ASCII-only labels to all compiler-owned unit labels, including degree-C aliases, with fixture/golden coverage.

@@ -44,8 +44,8 @@ embedding compiler logic in JavaScript.
   block/header, import/use/connect/return, and workflow-option diagnostics,
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
-  sampling seeds, simulation/solver option repairs, model option fallback
-  repairs for invalid test splits, seeds, hidden layers, and epochs,
+  sampling seeds, simulation/solver option repairs, model source-chain
+  skeleton repairs, model option fallback repairs for invalid test splits, seeds, hidden layers, and epochs,
   unsupported regression algorithm repairs, legacy `select_first_row` migration edits,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
