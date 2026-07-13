@@ -139,6 +139,11 @@ DB/table phrases such as `open sqlite`, `read sqlite <db>.table(...)`,
 same member-aware fallback ordering so nested DB/table receivers and selected
 source tables split before broad property scopes.
 
+Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
+`evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` also include
+member-aware fallbacks so nested model, split, table, and feature operands stay
+split before broad property scopes.
+
 TimeSeries quality phrases such as `check coverage`, `fill missing`, `align`,
 and `resample` also include member-aware source-path fallbacks so
 `measured.T_zone`, `simulated.T_zone`, and `args.measured_zone` split into

@@ -1009,6 +1009,7 @@
               { "include": "#numbers" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -1025,13 +1026,10 @@
           },
           {
             "name": "meta.workflow.regression-table.englang",
-            "begin": "\\b(regression_table)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
+            "begin": "\\b(regression_table)\\s*(\\()",
             "beginCaptures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "punctuation.section.parens.begin.englang" },
-              "3": { "name": "variable.parameter.property.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "variable.other.local.englang" }
+              "2": { "name": "punctuation.section.parens.begin.englang" }
             },
             "end": "\\)",
             "endCaptures": {
@@ -1052,6 +1050,7 @@
               { "include": "#numbers" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
@@ -1091,6 +1090,7 @@
               { "include": "#numbers" },
               { "include": "#operators" },
               { "include": "#punctuation" },
+              { "include": "#members" },
               {
                 "name": "variable.parameter.property.englang",
                 "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
