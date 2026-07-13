@@ -108,7 +108,12 @@ function activate(context) {
     }
     if (mode === "live") {
       diagnosticController.checkActiveFile();
-    } else if (!document.isDirty) {
+    } else if (document.isDirty) {
+      diagnosticController.clearDocumentDiagnostics(
+        document,
+        "file mode uses saved-file checks; save the file to refresh Problems"
+      );
+    } else {
       diagnosticController.checkDocument(document);
     }
   }

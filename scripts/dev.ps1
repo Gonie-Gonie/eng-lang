@@ -5073,10 +5073,13 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
         throw "VS Code extension must keep LSP range conversion in lspRanges.js"
     }
-    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)", "async function refreshAfterDiagnosticsModeCommand", "diagnosticController.checkActiveFile()", "diagnosticController.checkDocument(document)")) {
+    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)", "async function refreshAfterDiagnosticsModeCommand", "diagnosticController.checkActiveFile()", "diagnosticController.checkDocument(document)", "diagnosticController.clearDocumentDiagnostics", "file mode uses saved-file checks")) {
         if (-not $ExtensionSource.Contains($RequiredDiagnosticsModeToken)) {
             throw "VS Code extension missing diagnostics mode compatibility token $RequiredDiagnosticsModeToken"
         }
+    }
+    if (-not $DiagnosticsProviderSource.Contains("clearDocumentDiagnostics(document") -or -not $DiagnosticsProviderSource.Contains("Problems cleared for")) {
+        throw "VS Code diagnostics provider must clear stale live Problems when switching dirty editors back to file mode"
     }
     if (-not $CommandHandlersSource.Contains("return picked.mode")) {
         throw "VS Code diagnostics mode command must return the selected mode so the active editor can refresh immediately"

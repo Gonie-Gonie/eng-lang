@@ -74,6 +74,17 @@ class EngDiagnosticsController {
     }
   }
 
+  clearDocumentDiagnostics(document, reason = "diagnostics mode changed") {
+    if (!document || !this.isEngDocument(document)) {
+      return;
+    }
+    this.clearPendingCheck(document);
+    this.diagnostics.delete(document.uri);
+    this.updateReviewRiskDecorations(document, undefined);
+    this.updateSemanticSymbolDecorations(document, undefined);
+    this.appendLine(`Problems cleared for ${document.uri.fsPath}: ${reason}`);
+  }
+
   async checkActiveFile() {
     const document = vscode.window.activeTextEditor?.document;
     if (!document || !this.isEngDocument(document)) {

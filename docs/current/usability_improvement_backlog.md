@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 785: Cleared stale `eng/live` Problems and semantic/risk decorations when switching an unsaved active editor back to file diagnostics mode, so VS Code linter state matches the selected mode.
 - Batch 784: Made `dev.bat workflows-test` print an explicit native workflow Python/process guard summary so users can see workflow 01/02/03 source and public docs were scanned before smoke execution.
 - Batch 783: Made `EngLang: Switch Diagnostics Mode...` refresh the active EngLang editor immediately after changing file/live Problems mode so live linting starts without waiting for another edit.
 - Batch 782: Added `dev.bat vscode-status` package freshness reporting so source or release-binary changes that require rebuilding the local VSIX are visible separately from install freshness.
