@@ -2866,9 +2866,6 @@ fn parse_write_decl(tokens: &[Token], line_text: &str, context: ParseContext) ->
             context,
         });
     }
-    if !matches!(format, "text" | "json") {
-        return None;
-    }
     let (path, expression) = split_once_top_level(rest.trim(), ',')?;
     let path = path.trim();
     let expression = expression.trim();

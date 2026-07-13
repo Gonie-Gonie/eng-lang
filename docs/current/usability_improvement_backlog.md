@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 752: Added LSP and VS Code local quick fixes for `E-WRITE-002`, replacing unsupported `write <format>` tokens with `text`, `json`, or `standard_text` without touching export-to-CSV syntax.
 - Batch 751: Added LSP and VS Code local quick fixes for `E-WRITE-STANDARD-TEXT-001`, changing scalar `write standard_text` statements to `write text` when the writer target is not a typed table.
 - Batch 750: Added LSP and VS Code local quick fixes for `E-WRITE-STANDARD-TEXT-OUTPUT`, inserting the native `output = join(args.output, "standard_weather_file.txt")` option when `write standard_text` lacks an output path.
 - Batch 749: Expanded `dev.bat vscode-status` with built-VSIX version, size, update time, and installed extension package version summaries.

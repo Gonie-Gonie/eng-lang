@@ -787,6 +787,7 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-UNIT-001" => optional_code_action(
             lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
         ),
+        "E-WRITE-002" => lsp_unsupported_write_format_code_actions(uri, text, diagnostic),
         "E-WRITE-STANDARD-TEXT-001" => optional_code_action(lsp_replacement_code_action(
             uri,
             text,
@@ -921,6 +922,69 @@ fn lsp_replacement_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, replacement)
     }))
+}
+
+fn lsp_unsupported_write_format_code_actions(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Vec<Value> {
+    let Some(line_number) = diagnostic_line(diagnostic) else {
+        return Vec::new();
+    };
+    let Some(line) = text.lines().nth(line_number) else {
+        return Vec::new();
+    };
+    let Some((start_byte, end_byte, current_format)) = write_format_token_range(line) else {
+        return Vec::new();
+    };
+    ["text", "json", "standard_text"]
+        .into_iter()
+        .filter(|replacement| *replacement != current_format)
+        .map(|replacement| {
+            json!({
+                "title": format!("Change write format to {replacement}"),
+                "kind": "quickfix",
+                "isPreferred": replacement == "text",
+                "diagnostics": [diagnostic.clone()],
+                "edit": single_change_workspace_edit(
+                    uri,
+                    line_byte_range(line_number, line, start_byte, end_byte),
+                    replacement
+                )
+            })
+        })
+        .collect()
+}
+
+fn write_format_token_range(line: &str) -> Option<(usize, usize, &str)> {
+    let code = strip_line_comment(line);
+    let start = code.len() - code.trim_start().len();
+    let rest = &code[start..];
+    if !rest.starts_with("write") {
+        return None;
+    }
+    let mut cursor = start + "write".len();
+    if cursor < code.len()
+        && (code.as_bytes()[cursor].is_ascii_alphanumeric() || code.as_bytes()[cursor] == b'_')
+    {
+        return None;
+    }
+    let whitespace_start = cursor;
+    while cursor < code.len() && code.as_bytes()[cursor].is_ascii_whitespace() {
+        cursor += 1;
+    }
+    if cursor == whitespace_start {
+        return None;
+    }
+    let format_start = cursor;
+    while cursor < code.len()
+        && !code.as_bytes()[cursor].is_ascii_whitespace()
+        && code.as_bytes()[cursor] != b','
+    {
+        cursor += 1;
+    }
+    (cursor > format_start).then_some((format_start, cursor, &code[format_start..cursor]))
 }
 
 fn lsp_diagnostic_range_replacement_code_action(

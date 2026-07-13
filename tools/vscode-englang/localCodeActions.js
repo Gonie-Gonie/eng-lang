@@ -181,6 +181,9 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-WRITE-002") {
+      actions.push(...unsupportedWriteFormatActions(document, diagnostic));
+    }
     if (code === "E-WRITE-STANDARD-TEXT-001") {
       const action = replacementAction(
         document,
@@ -2675,6 +2678,45 @@ function booleanWithOptionsAction(document, diagnostic, optionNames) {
     );
   }
   return action;
+}
+
+function unsupportedWriteFormatActions(document, diagnostic) {
+  const lineNumber = diagnostic.range.start.line;
+  if (lineNumber < 0 || lineNumber >= document.lineCount) {
+    return [];
+  }
+  const line = document.lineAt(lineNumber);
+  const formatRange = writeFormatTokenRange(line.text);
+  if (!formatRange) {
+    return [];
+  }
+  return ["text", "json", "standard_text"]
+    .filter((replacement) => replacement !== formatRange.format)
+    .map((replacement) => {
+      const action = new vscode.CodeAction(
+        `Change write format to ${replacement}`,
+        vscode.CodeActionKind.QuickFix
+      );
+      action.diagnostics = [diagnostic];
+      action.isPreferred = replacement === "text";
+      action.edit = new vscode.WorkspaceEdit();
+      action.edit.replace(
+        document.uri,
+        new vscode.Range(line.lineNumber, formatRange.start, line.lineNumber, formatRange.end),
+        replacement
+      );
+      return action;
+    });
+}
+
+function writeFormatTokenRange(text) {
+  const code = stripLineComment(text);
+  const match = /^(\s*)write(\s+)([^\s,]+)/.exec(code);
+  if (!match) {
+    return undefined;
+  }
+  const start = match[1].length + "write".length + match[2].length;
+  return { start, end: start + match[3].length, format: match[3] };
 }
 
 function standardTextOutputAction(document, diagnostic) {

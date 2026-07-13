@@ -10546,6 +10546,22 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_unsupported_write_format() {
+        let report = check_source(
+            "unsupported-write-format.eng",
+            r#"Q = 10 kW
+write csv "outputs/q.csv", Q
+"#,
+            &CheckOptions::default(),
+        );
+
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-WRITE-002"));
+    }
+
+    #[test]
     fn supports_standard_text_writer_for_native_tables() {
         let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    value = uniform(1, 2)\n}\n\nwrite standard_text samples\nwith {\n    output = \"outputs/samples.txt\"\n}\n";
         let report = check_source("standard-text.eng", source, &CheckOptions::default());
