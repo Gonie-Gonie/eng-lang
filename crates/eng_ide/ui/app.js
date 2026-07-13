@@ -5410,6 +5410,18 @@ function hoverKindLabel(kind) {
     .join(" ");
 }
 
+function hoverStatusLabel(status) {
+  const text = String(status ?? "").trim().toLowerCase();
+  if (!text) {
+    return "";
+  }
+  return text
+    .split(/[_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => hoverKindWordLabel(part))
+    .join(" ");
+}
+
 function hoverKindWordLabel(part) {
   if (part === "db") {
     return "DB";
@@ -5427,7 +5439,7 @@ function hoverTitle(hover) {
     hover.detail,
     hover.quantity_kind || hover.quantityKind,
     hover.display_unit || hover.displayUnit,
-    hover.status
+    hoverStatusLabel(hover.status)
   ].filter(Boolean).join(" / ");
 }
 

@@ -3831,7 +3831,9 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function inspectorTabsForSemanticToken(token, hover = null)",
         "const HOVER_KIND_LABELS = Object.freeze",
         "function hoverKindLabel(kind)",
+        "function hoverStatusLabel(status)",
         "hoverKindLabel(hover.kind)",
+        "hoverStatusLabel(hover.status)",
         r#"model_field: "Model field""#,
         r#"db_connection_field: "DB connection field""#,
         "function renderInspectorTabButtons(tabs)",
@@ -3900,6 +3902,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
     if app_js.contains("hover.name,\n    hover.kind") {
         return Err(
             "native IDE hover title should show user-facing kind labels instead of raw payload ids"
+                .to_owned(),
+        );
+    }
+    if app_js.contains("hover.display_unit || hover.displayUnit,\n    hover.status") {
+        return Err(
+            "native IDE hover title should show user-facing status labels instead of raw payload ids"
                 .to_owned(),
         );
     }

@@ -4412,6 +4412,7 @@ function Assert-VscodeExtensionContract {
         "hoverFromSnapshot",
         "hoverMarkdown",
         "hoverKindLabel",
+        "hoverStatusLabel",
         "HOVER_KIND_LABELS",
         'model_field: "Model field"',
         'db_connection_field: "DB connection field"',
@@ -4429,6 +4430,9 @@ function Assert-VscodeExtensionContract {
     }
     if ($HoverProviderSource.Contains('Kind: \`${hover.kind}\`') -or $HoverProviderSource.Contains('Kind: `${hover.kind}`')) {
         throw "VS Code hover must show user-facing kind labels instead of raw payload ids"
+    }
+    if ($HoverProviderSource.Contains('Status: \`${hover.status}\`')) {
+        throw "VS Code hover must show user-facing status labels instead of raw payload ids"
     }
     if ($ExtensionSource.Contains("class EngHoverProvider") -or $ExtensionSource.Contains("function findHoverForWord") -or $ExtensionSource.Contains("function hoverNameMatches") -or $ExtensionSource.Contains("function hoverRangeAtPosition") -or $ExtensionSource.Contains("function hoverCandidatesAtPosition")) {
         throw "VS Code extension must keep hover provider helpers in hoverProvider.js"

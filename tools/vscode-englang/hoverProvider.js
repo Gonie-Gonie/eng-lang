@@ -154,8 +154,9 @@ function hoverMarkdown(hover, word) {
   if (hover.dimension) {
     markdown.appendMarkdown(`Dimension: \`${hover.dimension}\`\n\n`);
   }
-  if (hover.status) {
-    markdown.appendMarkdown(`Status: \`${hover.status}\``);
+  const statusLabel = hoverStatusLabel(hover.status);
+  if (statusLabel) {
+    markdown.appendMarkdown(`Status: ${statusLabel}`);
   }
   return markdown;
 }
@@ -177,6 +178,18 @@ function hoverKindLabel(kind) {
     .join(" ");
 }
 
+function hoverStatusLabel(status) {
+  const text = String(status ?? "").trim().toLowerCase();
+  if (!text) {
+    return "";
+  }
+  return text
+    .split(/[_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => hoverKindWordLabel(part))
+    .join(" ");
+}
+
 function hoverKindWordLabel(part) {
   if (part === "db") {
     return "DB";
@@ -191,6 +204,7 @@ module.exports = {
   EngHoverProvider,
   findHoverForWord,
   hoverKindLabel,
+  hoverStatusLabel,
   hoverFromSnapshot,
   hoverMarkdown
 };

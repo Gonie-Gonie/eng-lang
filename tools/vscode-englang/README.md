@@ -212,8 +212,8 @@ values, and can insert a reproducible seed for Monte Carlo propagation. The
 provider only answers Quick Fix requests, so refactor and source-action menus
 stay scoped to their own providers.
 
-Hover is computed from the current unsaved buffer, so quantity, unit, role label,
-and status details stay aligned with live diagnostics and role-aware highlighting.
+Hover is computed from the current unsaved buffer, so quantity, unit, and
+role/status labels stay aligned with live diagnostics and role-aware highlighting.
 
 Role-aware highlighting also works on unsaved edits, so token colors do
 not have to wait for a file save. Sample-table member completions include

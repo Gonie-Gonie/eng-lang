@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 793: Reworded hover status display in VS Code and Native IDE from raw ids such as `domain_compatible` into user-facing labels while keeping snapshot payloads unchanged.
 - Batch 792: Aligned Native IDE hover titles and Highlight-panel Hover rows with VS Code by showing user-facing role labels instead of raw hover kind ids.
 - Batch 791: Reworded VS Code hover kind display from raw payload ids such as `model_field` and `db_connection_field` into user-facing role labels while keeping payload matching unchanged.
 - Batch 790: Linked native IDE caret highlight actions to related inspector tabs, so checked schema, TimeSeries, validation, side-effect, external, model, DB, unit, and variable tokens can jump from the editor meta bar into the matching review panel.
