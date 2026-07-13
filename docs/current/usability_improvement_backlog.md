@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 777: Clarified network replay wording so workflow args use pinned response files, language syntax uses `offline_response`, and legacy `fixture` is described only as a migration alias.
 - Batch 776: Archived current backlog batches 701-745 into the historical log so active docs stay focused on recent workflow/API/IDE cleanup.
 - Batch 775: Added direct VS Code `method.cache` selector coverage and tightened cache semantic fallback/theme guards so cache helpers, keys, option values, and records stay consistently colored.
 - Batch 774: Replaced Workflow 01's token-only native API/cache smoke with structured JSON assertions for HTTP query metadata, response hashes, cache records, output-manifest network entries, and run-log events.

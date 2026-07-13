@@ -36,8 +36,9 @@ embedding compiler logic in JavaScript.
   interpolation closures, unresolved interpolation literal conversions, interpolation display-unit removals, command target
   parenthesizing, unknown stdlib module replacements, planned/internal stdlib
   import removal, schema column annotation migrations, required file-mutation
-  `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
-  legacy network `fixture` aliases, legacy response `.hash`/`.status` aliases,
+  `with` options, invalid network URL/body-method/retry/timeout/body-size policies,
+  legacy network `fixture` option aliases that should be rewritten to
+  `offline_response`, legacy response `.hash`/`.status` aliases,
   raw `read json` field-access promotion edits,
   HeatRate TimeSeries sum-to-integrate repairs,
   statement-only binding prefix removals for report, validation, side-effect,

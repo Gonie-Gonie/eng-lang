@@ -57,6 +57,12 @@ interpreter marker, interactive script artifact marker, or command-process
 workflow step may appear in source/docs/run graph artifacts, and
 `process_results.json` must report zero processes.
 
+Network replay has two intentionally different public names: workflow examples
+use args such as `args.pinned_response_file` for user-supplied pinned payloads,
+while the language-level HTTP option is `offline_response`. The legacy `fixture`
+option exists only as a migration alias that diagnostics and quick fixes rewrite
+to `offline_response`.
+
 ## Module Map
 
 The canonical machine-readable registry is `stdlib/eng/modules.toml`. The table
