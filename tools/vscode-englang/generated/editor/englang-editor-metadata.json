@@ -2353,14 +2353,14 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "eng.sampling seeded random sample table",
+                                 "detail":  "eng.sampling deterministic random sample table",
                                  "insert_snippet":  "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
                                  "kind":  "stdlib",
                                  "label":  "sample random",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "eng.sampling seeded uniform/random sample table alias",
+                                 "detail":  "eng.sampling deterministic uniform/random sample table alias",
                                  "insert_snippet":  "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
                                  "kind":  "stdlib",
                                  "label":  "sample uniform",
@@ -4995,14 +4995,14 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "eng.sampling seeded random sample table",
+                                "detail":  "eng.sampling deterministic random sample table",
                                 "insert_snippet":  "sample random\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
                                 "kind":  "stdlib",
                                 "label":  "sample random",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "eng.sampling seeded uniform/random sample table alias",
+                                "detail":  "eng.sampling deterministic uniform/random sample table alias",
                                 "insert_snippet":  "sample uniform\nwith {\n    count = ${1:8}\n    seed = ${2:42}\n    ${3:parameter} = uniform(${4:0.0}, ${5:1.0})\n}",
                                 "kind":  "stdlib",
                                 "label":  "sample uniform",

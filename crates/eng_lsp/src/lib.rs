@@ -6383,10 +6383,13 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
             "sample grid",
             "eng.sampling deterministic grid sample table",
         ),
-        ("sample random", "eng.sampling seeded random sample table"),
+        (
+            "sample random",
+            "eng.sampling deterministic random sample table",
+        ),
         (
             "sample uniform",
-            "eng.sampling seeded uniform/random sample table alias",
+            "eng.sampling deterministic uniform/random sample table alias",
         ),
         ("sample lhs", "eng.sampling Latin hypercube sample table"),
         (

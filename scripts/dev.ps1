@@ -4706,6 +4706,14 @@ function Assert-VscodeExtensionContract {
     if ($MetadataCompletionLabels -contains "fixture") {
         throw "generated VS Code completion items must not suggest legacy fixture option; use offline_response"
     }
+    $StaleSamplingDetails = @($EditorMetadata.completion_items | Where-Object {
+        $Detail = [string]$_.detail
+        $Detail.Contains("seeded random sample table") -or $Detail.Contains("seeded uniform/random sample table")
+    })
+    if ($StaleSamplingDetails.Count -gt 0) {
+        $StaleSamplingLabels = ($StaleSamplingDetails | ForEach-Object { $_.label }) -join ", "
+        throw "generated VS Code completion details must describe deterministic sampling behavior, not seeded-only tables: $StaleSamplingLabels"
+    }
     foreach ($StaticSnippetProperty in $Snippets.PSObject.Properties) {
         $StaticSnippetPrefix = [string]$StaticSnippetProperty.Value.prefix
         if ($MetadataCompletionLabels -contains $StaticSnippetPrefix) {
