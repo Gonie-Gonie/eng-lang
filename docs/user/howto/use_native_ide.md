@@ -197,7 +197,8 @@ Run `EngLang: Switch Diagnostics Mode...` and choose `live`, or set
 `"englang.diagnosticsMode": "live"`, to update Problems while typing from the
 current unsaved buffer. The mode switch command refreshes the active EngLang
 editor immediately; switching back to `file` clears stale live Problems for an
-unsaved active buffer until the file is saved.
+unsaved active buffer until the file is saved. Direct settings changes to
+diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
 The extension shares the same compiler-backed diagnostics, hover, completion,
 and semantic highlighting data as the native IDE. It is useful when you prefer

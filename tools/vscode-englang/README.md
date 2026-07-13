@@ -149,7 +149,9 @@ mode runs stable file checks on open/save and manual check. Set
 buffer while typing, or run `EngLang: Switch Diagnostics Mode...` and choose
 `live`; the command refreshes the active EngLang editor immediately. Switching
 back to `file` clears stale live Problems for an unsaved active buffer and
-refreshes saved-file Problems after the file is saved. If an older workspace
+refreshes saved-file Problems after the file is saved. Direct `settings.json`
+changes to diagnostics mode or lint toggles also refresh or clear the active
+EngLang editor so Problems match the selected settings. If an older workspace
 already has `englang.problemsSource` or
 `englang.diagnosticsBackend`, the extension still accepts it as a compatibility
 alias. New workspaces should use `englang.diagnosticsMode`.

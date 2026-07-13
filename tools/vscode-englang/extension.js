@@ -101,14 +101,38 @@ function activate(context) {
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
   });
-  async function refreshAfterDiagnosticsModeCommand() {
-    const mode = await commandHandlers.switchDiagnosticsMode();
+  function refreshActiveDiagnosticsForSettings(reason = "diagnostics settings changed") {
     const document = vscode.window.activeTextEditor?.document;
-    if (!mode || !document || !isEngDocument(document)) {
+    if (!document || !isEngDocument(document)) {
       return;
     }
+    const config = engConfig(document);
+    const mode = diagnosticsMode(document);
+    const lintOnSave = config.get("lintOnSave", true);
+    const lintOnChange = config.get("lintOnChange", true);
     if (mode === "live") {
-      diagnosticController.checkActiveFile();
+      if (document.isDirty) {
+        if (lintOnChange) {
+          diagnosticController.checkActiveFile();
+        } else {
+          diagnosticController.clearDocumentDiagnostics(
+            document,
+            "live typing diagnostics are disabled; save the file or run EngLang: Check Current File to refresh Problems"
+          );
+        }
+      } else if (lintOnSave) {
+        diagnosticController.checkDocument(document);
+      } else {
+        diagnosticController.clearDocumentDiagnostics(
+          document,
+          "saved-file diagnostics are disabled for the active EngLang editor"
+        );
+      }
+    } else if (!lintOnSave) {
+      diagnosticController.clearDocumentDiagnostics(
+        document,
+        "saved-file diagnostics are disabled for file mode"
+      );
     } else if (document.isDirty) {
       diagnosticController.clearDocumentDiagnostics(
         document,
@@ -117,6 +141,15 @@ function activate(context) {
     } else {
       diagnosticController.checkDocument(document);
     }
+    output.appendLine(`Diagnostics settings refresh: ${reason}`);
+  }
+
+  async function refreshAfterDiagnosticsModeCommand() {
+    const mode = await commandHandlers.switchDiagnosticsMode();
+    if (!mode) {
+      return;
+    }
+    refreshActiveDiagnosticsForSettings("diagnostics mode command");
   }
   context.subscriptions.push(output, diagnostics, semanticTokensProvider);
   context.subscriptions.push(...decorationController.disposables);
@@ -126,6 +159,13 @@ function activate(context) {
     vscode.workspace.onDidChangeTextDocument((event) => diagnosticController.scheduleChangedCheck(event.document)),
     vscode.workspace.onDidSaveTextDocument((document) => diagnosticController.maybeCheck(document)),
     vscode.workspace.onDidChangeConfiguration((event) => {
+      if (
+        event.affectsConfiguration("englang.diagnosticsMode") ||
+        event.affectsConfiguration("englang.lintOnSave") ||
+        event.affectsConfiguration("englang.lintOnChange")
+      ) {
+        refreshActiveDiagnosticsForSettings("diagnostics configuration changed");
+      }
       if (event.affectsConfiguration("englang.reviewRiskDecorations.enabled")) {
         decorationController.refreshVisibleReviewRiskDecorations();
       }
