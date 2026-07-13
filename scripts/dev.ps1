@@ -3318,6 +3318,7 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredTokenScopeDocToken in @(
         "syntax_catalog.workflow_status_literals",
+        "syntax_catalog.constants",
         "syntax_catalog.operator_words",
         "syntax_catalog.units",
         "compiler-owned unit catalog",
@@ -4964,6 +4965,7 @@ function Invoke-IdeCheck {
         "operatorWords",
         "operator_words",
         "normalized.constants",
+        "constants: new Set(normalized.constants)",
         "normalized.operatorWords",
         "operatorWords: new Set(normalized.operatorWords)",
         "normalized.units",
@@ -4974,14 +4976,6 @@ function Invoke-IdeCheck {
         "histogram",
         "parity",
         "residuals",
-        "FALLBACK_LEXICAL_CONSTANTS",
-        "asc",
-        "desc",
-        "metadata_ready",
-        "warnings_present",
-        "diagnostics_present",
-        "implicit_euler_dae",
-        "trapezoidal",
         "lexicalUnitPattern",
         "hl-doc-comment",
         'rest.startsWith("///")',
@@ -5260,6 +5254,9 @@ function Invoke-IdeCheck {
             throw "Compiler assembly balance status must not expose legacy seed status $ForbiddenAssemblyBalanceStatusToken"
         }
     }
+    if ($IdeUiSource.Contains("FALLBACK_LEXICAL_CONSTANTS")) {
+        throw "Native IDE constant fallback must use syntax_catalog.constants instead of a hardcoded JS list"
+    }
     if ($IdeUiSource.Contains("FALLBACK_LEXICAL_OPERATOR_WORDS")) {
         throw "Native IDE operator fallback must use syntax_catalog.operator_words instead of a hardcoded JS list"
     }
@@ -5273,11 +5270,10 @@ function Invoke-IdeCheck {
         }
     }
     $LspSource = Get-Content -LiteralPath $LspSourcePath -Raw
-    $NativeIdeFallbackConstants = Read-JavaScriptStringArrayConst -Source $IdeUiSource -Name "FALLBACK_LEXICAL_CONSTANTS"
     $LspLanguageConstants = Read-RustStringSliceConst -Source $LspSource -Name "LANGUAGE_CONSTANT_KEYWORDS"
-    foreach ($LanguageConstant in $LspLanguageConstants) {
-        if ($NativeIdeFallbackConstants -notcontains $LanguageConstant) {
-            throw "Native IDE fallback constants missing LSP language constant $LanguageConstant"
+    foreach ($RequiredNativeIdeCatalogConstant in @("asc", "desc", "metadata_ready", "warnings_present", "diagnostics_present", "implicit_euler_dae", "trapezoidal")) {
+        if ($LspLanguageConstants -notcontains $RequiredNativeIdeCatalogConstant) {
+            throw "LSP language constants missing native IDE lexical catalog constant $RequiredNativeIdeCatalogConstant"
         }
     }
     $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"

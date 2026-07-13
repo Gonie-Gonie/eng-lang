@@ -16,18 +16,7 @@ const FALLBACK_LEXICAL_KEYWORDS = [
   "distribution", "parity", "residuals", "summarize", "summary", "return", "if", "else"
 ];
 
-const FALLBACK_LEXICAL_CONSTANTS = [
-  "true", "false", "none", "null", "info", "warn", "debug", "error",
-  "safe", "normal", "repro", "append", "insert", "upsert", "replace",
-  "commit", "rollback", "keep", "empty", "interpolate", "monotonic", "linear",
-  "interval", "ensemble", "monte_carlo", "source_linear_terms", "finite_difference", "asc", "desc",
-  "pending", "running", "passed", "failed", "succeeded", "skipped", "blocked",
-  "completed", "cached", "stale", "hit", "miss", "created", "updated",
-  "metadata_ready", "warnings_present", "diagnostics_present", "fixed_step",
-  "rk4", "adaptive_heun", "fixed_point", "newton", "implicit_euler_dae",
-  "dynamic_component_explicit_euler", "dynamic_component_semi_implicit_euler",
-  "dynamic_component_adaptive_heun", "trapezoidal"
-];
+
 
 const LEXICAL_KEYWORD_GROUP_ORDER = [
   "deprecated", "import", "declaration", "function", "test", "block", "modifier",
@@ -196,7 +185,7 @@ function buildLexicalCatalog(catalog) {
     workflowBuiltins: workflowBuiltinSet,
     workflowStatusLiterals: new Set(normalized.workflowStatusLiterals),
     operatorWords: new Set(normalized.operatorWords),
-    constants: new Set([...FALLBACK_LEXICAL_CONSTANTS, ...normalized.constants]),
+    constants: new Set(normalized.constants),
     workflowOptions: new Set(normalized.workflowOptions),
     publicTypes: new Set(normalized.publicTypes),
     quantities: new Set(normalized.quantities),
