@@ -6298,7 +6298,9 @@ fn push_review_units_quantities_json(json: &mut String, report: &CheckReport) {
                 "declared_or_inferred"
             }
         ));
-        json.push_str(&format!("        \"line\": {}\n", binding.line));
+        json.push_str(&format!("        \"line\": {},\n", binding.line));
+        write_source_span_json(json, "        ", binding.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -6365,7 +6367,9 @@ fn push_review_symbols_json(json: &mut String, report: &CheckReport) {
                     .unwrap_or("runtime")
             )
         ));
-        json.push_str(&format!("        \"line\": {}\n", binding.line));
+        json.push_str(&format!("        \"line\": {},\n", binding.line));
+        write_source_span_json(json, "        ", binding.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -12847,6 +12851,24 @@ system Envelope {
                 .pointer("/source_span/column")
                 .and_then(serde_json::Value::as_u64),
             Some(5)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/symbols/0/source_span/line")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/symbols/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/units_quantities/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
         );
         assert!(value
             .pointer("/review_document/risks")
