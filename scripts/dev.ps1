@@ -3352,7 +3352,7 @@ function Assert-VscodeExtensionContract {
         "type", "type.static", "class.declaration", "class.defaultLibrary", "class.static", "comment", "comment.documentation",
         "function", "function.static", "interface", "interface.static", "method", "method.declaration", "method.static", "namespace", "namespace.static", "variable.local", "function.declaration",
         "function.definition", "function.report", "interface.declaration", "interface.defaultLibrary",
-        "keyword", "keyword.declaration", "keyword.local", "keyword.static", "modifier", "modifier.static", "namespace.declaration", "number",
+        "keyword", "keyword.declaration", "keyword.state", "keyword.input", "keyword.output", "keyword.local", "keyword.static", "modifier", "modifier.static", "namespace.declaration", "number",
         "parameter", "parameter.readonly", "parameter.static", "property", "property.declaration", "property.static", "variable",
         "variable.declaration", "variable.defaultLibrary", "variable.readonly", "variable.static",
         "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
@@ -3423,6 +3423,18 @@ function Assert-VscodeExtensionContract {
             "storage.type.test.englang",
             "storage.type.block.englang",
             "storage.modifier.englang"
+        )
+        "keyword.state" = @(
+            "storage.modifier.englang",
+            "variable.other.state.englang"
+        )
+        "keyword.input" = @(
+            "storage.modifier.englang",
+            "variable.other.input.englang"
+        )
+        "keyword.output" = @(
+            "storage.modifier.englang",
+            "variable.other.output.englang"
         )
         "keyword.local" = @(
             "storage.type.block.englang",

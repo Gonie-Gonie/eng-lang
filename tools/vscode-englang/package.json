@@ -226,6 +226,18 @@
             "storage.modifier.englang",
             "keyword.control.workflow.englang"
           ],
+          "keyword.state": [
+            "storage.modifier.englang",
+            "variable.other.state.englang"
+          ],
+          "keyword.input": [
+            "storage.modifier.englang",
+            "variable.other.input.englang"
+          ],
+          "keyword.output": [
+            "storage.modifier.englang",
+            "variable.other.output.englang"
+          ],
           "keyword.local": [
             "storage.type.block.englang",
             "keyword.control.workflow.englang"

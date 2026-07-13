@@ -5162,6 +5162,10 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
         | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
         | "text" | "csv" | "json" | "toml" => &["workflowStep"],
+        "state" => &["declaration", "state"],
+        "input" => &["declaration", "input"],
+        "output" => &["declaration", "output"],
+        "const" | "parameter" | "port" | "across" | "through" | "index" => &["declaration"],
         "from" | "on" | "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "parity" | "residuals" | "print" | "log" => &["report"],
@@ -11082,6 +11086,28 @@ system StateSpaceFixture {
         for label in ["states", "inputs", "outputs", "operator"] {
             assert_semantic_token_modifier(&snapshot, source, label, "solver");
         }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot, source, "state x:", "state", "keyword", "state",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot, source, "input u:", "input", "keyword", "input",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "parameter gain:",
+            "parameter",
+            "keyword",
+            "declaration",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "output y:",
+            "output",
+            "keyword",
+            "output",
+        );
         assert_semantic_token_on_line_with_modifier(
             &snapshot, source, "state x:", "x", "variable", "state",
         );
