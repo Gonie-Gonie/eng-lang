@@ -80,7 +80,7 @@ Implemented behavior in the current package scope:
 - result.engres and report_spec.json include provenance.environment_dependencies.
 - read-only I/O dependencies record the resolved source path and source hash
   when the source file is present.
-- write text/json and write standard_text output statements are top-level workflow statements.
+- write text/json and write standard_text output statements are top-level workflow statements and cannot be assigned to a binding.
 - export/write outputs are written under `build/result`.
 - an identical existing output is accepted as an idempotent rerun.
 - replacing different existing contents requires `with { overwrite = true }`.

@@ -11959,6 +11959,21 @@ fn bound_validation_command_diagnostic(binding: &FastBinding) -> Option<Diagnost
     ))
 }
 
+fn bound_side_effect_statement_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let command = leading_statement_word(
+        &binding.expression,
+        &[
+            "download", "export", "write", "copy", "move", "delete", "mkdir",
+        ],
+    )?;
+    Some(Diagnostic::error(
+        "E-SIDE-EFFECT-BINDING-001",
+        binding.line,
+        &format!("Side-effect statement `{command}` cannot be used as a bound value."),
+        Some("Write side-effect outputs as top-level statements such as `write text ...`, `download ... to ...`, or `copy ... to ...`; bind only the explicit result values supported by the workflow syntax."),
+    ))
+}
+
 fn leading_statement_command(
     expression: &str,
     commands: &'static [&'static str],
@@ -11970,6 +11985,22 @@ fn leading_statement_command(
                 .next()
                 .is_some_and(|character| character.is_whitespace() || character == '(')
         }) {
+            return Some(command);
+        }
+    }
+    None
+}
+
+fn leading_statement_word(
+    expression: &str,
+    commands: &'static [&'static str],
+) -> Option<&'static str> {
+    let trimmed = expression.trim_start();
+    for command in commands {
+        if trimmed
+            .strip_prefix(command)
+            .is_some_and(|rest| rest.chars().next().is_some_and(char::is_whitespace))
+        {
             return Some(command);
         }
     }
@@ -12013,6 +12044,10 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         return;
     }
     if let Some(diagnostic) = bound_validation_command_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
+        return;
+    }
+    if let Some(diagnostic) = bound_side_effect_statement_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
         return;
     }

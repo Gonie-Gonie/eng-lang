@@ -752,7 +752,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.export-summary-csv.englang",
-                                                                    "begin":  "\\b(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
+                                                                    "begin":  "^\\s*(export)\\s+(summary)\\s+(to)\\s+(csv)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
@@ -839,7 +839,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.write-text.englang",
-                                                                    "begin":  "\\b(write)\\s+(text)\\b",
+                                                                    "begin":  "^\\s*(write)\\s+(text)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
@@ -884,7 +884,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.write-json.englang",
-                                                                    "begin":  "\\b(write)\\s+(json)\\b",
+                                                                    "begin":  "^\\s*(write)\\s+(json)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
@@ -929,7 +929,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.write-standard-text.englang",
-                                                                    "begin":  "\\b(write)\\s+(standard_text)\\b",
+                                                                    "begin":  "^\\s*(write)\\s+(standard_text)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
@@ -2792,7 +2792,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.download-to.englang",
-                                                                    "begin":  "\\b(download)\\b",
+                                                                    "begin":  "^\\s*(download)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.external-boundary.englang"

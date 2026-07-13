@@ -10757,6 +10757,46 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_bound_side_effect_statement_commands() {
+        for expression in [
+            "bad_download = download url(\"https://example.org/file.csv\") to file(\"outputs/file.csv\")",
+            "bad_export = export summary to csv file(\"outputs/summary.csv\")",
+            "bad_write_text = write text file(\"outputs/out.txt\"), \"ok\"",
+            "bad_write_json = write json file(\"outputs/out.json\"), Q",
+            "bad_write_standard_text = write standard_text file(\"outputs/out.txt\"), Q",
+            "bad_copy = copy file(\"a.txt\") to file(\"b.txt\")",
+            "bad_move = move file(\"b.txt\") to file(\"c.txt\")",
+            "bad_delete = delete file(\"c.txt\")",
+            "bad_mkdir = mkdir dir(\"out\")",
+        ] {
+            let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
+
+            assert!(report.has_errors(), "{expression} should be rejected");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "E-SIDE-EFFECT-BINDING-001"),
+                "{expression} should emit E-SIDE-EFFECT-BINDING-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"),
+                "{expression} should not fall through to E-FN-CALL-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "W-QTY-AMBIG-001"),
+                "{expression} should not fall through to W-QTY-AMBIG-001"
+            );
+        }
+    }
+    #[test]
     fn rejects_unknown_command_style_verb() {
         let report = check_source(
             "bad.eng",

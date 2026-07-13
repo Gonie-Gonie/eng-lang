@@ -1,4 +1,4 @@
-﻿# EngLang Language Grammar Guide
+# EngLang Language Grammar Guide
 
 This guide is the practical grammar reference for the current EngLang package scope.
 It is written for someone who wants to open an `.eng` file, understand the
@@ -1818,6 +1818,7 @@ generation.
 | `E-CMD-UNKNOWN-VERB` | Command-style verb is not supported | Use a supported built-in verb or parenthesized function call |
 | `E-REPORT-BINDING-001` | Report command used as a bound value | Move it inside `report { ... }` or bind a value expression first |
 | `E-VALIDATE-BINDING-001` | Validation command used as a bound value | Write validation commands as statements or bind a Bool expression first |
+| `E-SIDE-EFFECT-BINDING-001` | Statement-only side effect used as a bound value | Write `write`/`export`/`download`/file operations as top-level statements |
 | `E-VALIDATE-BOOL-001` | `validate` target is not a comparison | Write `validate value < threshold` |
 | `E-VALIDATE-EXPR-001` | `validate` expression cannot be resolved | Bind the value or fix the name |
 | `E-VALIDATE-UNIT-001` | `validate` compares incompatible units | Use a compatible threshold |

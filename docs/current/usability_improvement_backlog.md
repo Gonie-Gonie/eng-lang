@@ -1,4 +1,4 @@
-﻿# Usability Improvement Backlog
+# Usability Improvement Backlog
 
 This file is the short current backlog for API clarity, native workflow usability,
 editor/linter behavior, and documentation cleanup. The historical batch log was
@@ -151,6 +151,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 692: Added `E-VALIDATE-BINDING-001` so `bad = validate ...` no longer falls through to unknown-function or ambiguous-quantity diagnostics when validation is used as a bound value.
 - Batch 693: Anchored VS Code TextMate validation phrase scopes so `bad_validate = validate ...` no longer receives first-paint validation highlighting before the compiler reports `E-VALIDATE-BINDING-001`.
 - Batch 694: Extended `E-VALIDATE-BINDING-001` to the full validation statement family so bound `assert` and `golden` forms no longer pass or degrade into unrelated warnings.
+- Batch 695: Added `E-SIDE-EFFECT-BINDING-001` for statement-only side effects used as bound values and anchored matching VS Code TextMate scopes to top-level side-effect statements.
 
 ## Documentation Policy
 
