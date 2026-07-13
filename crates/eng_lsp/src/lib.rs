@@ -888,6 +888,10 @@ const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 const DB_CONNECTION_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    (
+        "summary",
+        "SQLite connection status, table count, row count, and table list",
+    ),
     ("tables_written", "written SQLite tables with row counts"),
     ("tables", "alias for written SQLite tables with row counts"),
     ("table_names", "written SQLite table names"),
@@ -11799,9 +11803,13 @@ weather = promote json records payload.records as WeatherApiRecord
 
     #[test]
     fn snapshot_exposes_db_connection_member_fields() {
-        let source = "db = open sqlite file(\"outputs/results.sqlite\")\ndb_tables = db.tables_written\ndb_count = db.table_count\n";
+        let source = "db = open sqlite file(\"outputs/results.sqlite\")\ndb_summary = db.summary\ndb_tables = db.tables_written\ndb_count = db.table_count\n";
         let snapshot = snapshot_for_source(Path::new("db_members.eng"), source);
 
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "db.summary"));
         assert!(snapshot
             .completions
             .iter()

@@ -209,6 +209,10 @@
                                          ],
                            "db_connection_fields":  [
                                                         {
+                                                            "detail":  "SQLite connection status, table count, row count, and table list",
+                                                            "label":  "summary"
+                                                        },
+                                                        {
                                                             "detail":  "written SQLite tables with row counts",
                                                             "label":  "tables_written"
                                                         },

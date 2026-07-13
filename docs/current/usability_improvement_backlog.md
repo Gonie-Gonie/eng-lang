@@ -102,6 +102,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 643: Suppressed empty display-unit labels in LSP and VS Code hover markdown so string/API fields no longer render as blank unit metadata.
 - Batch 644: Added native SQLite connection summary bindings such as `db.tables_written`, `db.table_count`, `db.row_count`, and `db.status`, then replaced workflow 02's hardcoded DB table summary with actual DB write/readback metadata.
 - Batch 645: Propagated semantic token modifiers from typed workflow receivers onto their public member fields, so DB/sample/case/HTTP fields color consistently instead of falling back to generic property coloring.
+- Batch 646: Added `db.summary` as the preferred native SQLite connection summary binding, keeping detailed table/count/row/status fields as drill-down APIs.
 
 ## Documentation Policy
 

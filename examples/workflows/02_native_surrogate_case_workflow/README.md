@@ -36,7 +36,7 @@ report entries include `cases.pending_count`, `cases.failed_count`, `case_inputs
 typed_payload.table_transforms includes native derive records for annual_electricity, annual_cooling, peak_cooling, and unmet_hours
 typed_payload.model_cards/model_specs/prediction_manifests are native records
 typed_payload.db_manifests records committed writes to simulation_results and predictions
-db.tables_written, db.table_count, db.row_count, and db.status expose the actual SQLite write summary back to EngLang bindings
+db.summary exposes the actual SQLite write summary, while db.tables_written, db.table_count, db.row_count, and db.status keep the details available as EngLang bindings
 typed_payload.structured_reads includes sqlite readback for persisted_predictions
 typed args.database_target controls the SQLite output boundary
 typed args.output controls the sampling summary and workflow summary export paths
@@ -56,7 +56,7 @@ and the result JSON. It also reads `cases.pending_count`, `case_inputs.expected_
 rendering, and native result collection are visible without digging through JSON
 artifacts. Domain adapters can replace the
 deterministic surrogate formulas later, but they should still enter EngLang
-through typed tables, model cards, prediction manifests, typed DB readback, DB connection summary bindings, and
+through typed tables, model cards, prediction manifests, typed DB readback, DB connection summary bindings such as `db.summary`, and
 explicit side-effect records.
 
 Run:

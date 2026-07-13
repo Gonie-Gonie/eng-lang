@@ -9374,6 +9374,7 @@ fn evaluate_db_connection_field_expression(
         .iter()
         .find(|connection| connection.binding == binding.trim())?;
     match field.trim() {
+        "summary" => Some(RuntimeFormatValue::Text(db_connection_summary(connection))),
         "tables" | "tables_written" => {
             Some(RuntimeFormatValue::Text(db_tables_summary(connection)))
         }
@@ -9399,6 +9400,16 @@ fn evaluate_db_connection_field_expression(
         "path" | "database" => Some(RuntimeFormatValue::Text(connection.path.clone())),
         _ => None,
     }
+}
+
+fn db_connection_summary(connection: &runtime_data::RuntimeDbConnection) -> String {
+    format!(
+        "{}: {} table(s), {} row(s); {}",
+        connection.status,
+        connection.table_count,
+        connection.row_count,
+        db_tables_summary(connection)
+    )
 }
 
 fn db_tables_summary(connection: &runtime_data::RuntimeDbConnection) -> String {
@@ -21057,11 +21068,12 @@ mod tests {
                 "with {\n",
                 "    mode = append\n",
                 "}\n",
+                "db_summary = db.summary\n",
                 "db_tables = db.tables_written\n",
                 "db_table_count = db.table_count\n",
                 "db_rows = db.row_count\n",
                 "db_status = db.status\n",
-                "print \"DB tables = {db_tables} count={db_table_count} rows={db_rows} status={db_status}\"\n",
+                "print \"DB summary = {db_summary}\"\n",
             ),
         )
         .expect("source");
@@ -21113,7 +21125,7 @@ mod tests {
         );
         assert!(output
             .stdout
-            .contains("DB tables = simulation_results(2 rows) count=1 rows=2 status=loaded"));
+            .contains("DB summary = loaded: 1 table(s), 2 row(s); simulation_results(2 rows)"));
 
         let output_manifest: Value =
             serde_json::from_str(&output.output_manifest_json).expect("output manifest json");

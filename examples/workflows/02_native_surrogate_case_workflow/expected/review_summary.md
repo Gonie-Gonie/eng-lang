@@ -20,5 +20,5 @@ two native SQLite db_write manifests using args.database_target: simulation_resu
 typed SQLite structured readback for persisted_predictions from the predictions table
 output_manifest.json entries for case_input, template_render_manifest, sqlite_database, db_write_manifest, sampling_summary.txt, csv_export, and model:// artifacts
 process_results.json with process_count = 0
-report entries for sampler method/seed/count/row-preview metadata, case status counts, training, case-input, case-result-collection, prediction row counts, persisted prediction readback count, model metrics, the DB target, and native DB table/count/status summaries
+report entries for sampler method/seed/count/row-preview metadata, case status counts, training, case-input, case-result-collection, prediction row counts, persisted prediction readback count, model metrics, the DB target, and native DB summary/table/count/status bindings
 ```

@@ -13303,6 +13303,7 @@ system Envelope {
                 "    key = case_id\n",
                 "    transaction = commit\n",
                 "}\n",
+                "db_summary = db.summary\n",
                 "db_tables = db.tables_written\n",
                 "db_table_count = db.table_count\n",
                 "db_rows = db.row_count\n",
@@ -13328,6 +13329,7 @@ system Envelope {
                 .find(|binding| binding.name == name)
                 .map(|binding| binding.semantic_type.quantity_kind.as_str())
         };
+        assert_eq!(binding_type("db_summary"), Some("String"));
         assert_eq!(binding_type("db_tables"), Some("String"));
         assert_eq!(binding_type("db_table_count"), Some("Count"));
         assert_eq!(binding_type("db_rows"), Some("Count"));

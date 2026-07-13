@@ -5905,9 +5905,8 @@ fn db_connection_field_semantic_type(
         "table_count" | "write_count" | "row_count" | "rows_written" => {
             semantic_type("Count", "count")
         }
-        "tables" | "tables_written" | "table_names" | "status" | "path" | "database" => {
-            semantic_type("String", "")
-        }
+        "summary" | "tables" | "tables_written" | "table_names" | "status" | "path"
+        | "database" => semantic_type("String", ""),
         _ => None,
     }
 }

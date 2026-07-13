@@ -105,6 +105,7 @@ with {
     transaction = commit
 }
 
+db_summary = db.summary
 db_tables_written = db.tables_written
 db_table_count = db.table_count
 db_rows_written = db.row_count
@@ -127,7 +128,7 @@ print "Case inputs = {case_inputs.rows} expected={case_input_expected_count} ren
 print "Case result collection = {case_result_collection.rows} collected={case_result_collected_count} missing={case_result_missing_count} blocked={case_result_blocked_count} status={case_result_collection_status}"
 print "Predictions = {predictions.rows}"
 print "Persisted predictions readback = {persisted_predictions.rows}"
-print "DB summary = {db_tables_written} tables={db_table_count} rows={db_rows_written} status={db_status}"
+print "DB summary = {db_summary}"
 log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
 export summary to csv join(args.output, "workflow_summary.csv") {
@@ -173,6 +174,7 @@ report {
     show native_model_status
     show model_card_summary
     show model_metrics
+    show db_summary
     show db_tables_written
     show db_table_count
     show db_rows_written
