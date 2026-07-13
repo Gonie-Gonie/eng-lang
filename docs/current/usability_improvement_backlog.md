@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 748: Added `dev.bat vscode-status` so local VS Code extension install/package readiness can be checked without triggering a reinstall or failing on open VS Code windows.
 - Batch 747: Added LSP and VS Code local quick fixes for `E-SOLVE-SOLVER-UNSUPPORTED`, using `solver = fixed_point` so solve-block solver diagnostics are actionable like simulation solver diagnostics.
 - Batch 746: Added LSP and VS Code local quick fixes for `E-NET-BODY-POLICY` so unsupported secret request bodies can be replaced with an explicit string-literal body from either editor backend.
 This file is the short current backlog for API clarity, native workflow usability,

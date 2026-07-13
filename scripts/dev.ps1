@@ -3127,8 +3127,10 @@ function Assert-VscodeExtensionContract {
         }
     }
     foreach ($RequiredVscodeInstallPattern in @(
+        '(?m)^\s+"vscode-status"\s*\{\s*Invoke-VscodeStatus\s*\}',
         '(?m)^\s+"vscode-package"\s*\{\s*Invoke-VscodePackage\s*\}',
         '(?m)^\s+"vscode-install"\s*\{\s*Invoke-VscodeInstall\s*\}',
+        '(?m)^\s+\.\\dev\.bat vscode-status  Show local VS Code extension install/package status\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-package Build a local installable VS Code extension VSIX\s*$',
         '(?m)^\s+\.\\dev\.bat vscode-install Build and install the EngLang VS Code extension with the code CLI\s*$'
     )) {
@@ -3137,6 +3139,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     foreach ($RequiredVscodeInstallDocToken in @(
+        ".\dev.bat vscode-status",
         ".\dev.bat vscode-install",
         ".\dev.bat vscode-package",
         "dist\local-vscode\tools\englang-vscode-<version>.vsix",
@@ -6342,6 +6345,45 @@ function Get-RunningVscodeProcessSummaries {
     return @(Get-Process -Name "Code" -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProcessName)#$($_.Id)" })
 }
 
+function Invoke-VscodeStatus {
+    $Code = Get-VscodeCli
+    $VsixPath = Get-LocalVscodeVsixPath
+    $InstalledExtensions = Get-InstalledVscodeEnglangExtensionPaths
+    $RunningVscode = Get-RunningVscodeProcessSummaries
+
+    if ($null -eq $Code) {
+        Write-Host "VS Code CLI: not found"
+    } else {
+        Write-Host "VS Code CLI: $Code"
+    }
+
+    if (Test-Path -LiteralPath $VsixPath -PathType Leaf) {
+        Write-Host "Built VSIX: $VsixPath"
+    } else {
+        Write-Host "Built VSIX: missing - run .\dev.bat vscode-package"
+    }
+
+    if ($InstalledExtensions.Count -eq 0) {
+        Write-Host "Installed EngLang extension(s): none"
+    } else {
+        Write-Host "Installed EngLang extension(s): $($InstalledExtensions -join ', ')"
+    }
+
+    if ($RunningVscode.Count -eq 0) {
+        Write-Host "Running VS Code process(es): none"
+    } else {
+        Write-Host "Running VS Code process(es): $($RunningVscode -join ', ')"
+    }
+
+    if ($InstalledExtensions.Count -gt 0 -and $RunningVscode.Count -gt 0) {
+        Write-Host "Install preflight: blocked - close all VS Code windows before reinstalling EngLang."
+    } elseif ($null -eq $Code) {
+        Write-Host "Install preflight: manual VSIX install required because the code CLI was not found."
+    } else {
+        Write-Host "Install preflight: ready - run .\dev.bat vscode-install."
+    }
+}
+
 function Assert-VscodeInstallPreflight {
     $InstalledExtensions = Get-InstalledVscodeEnglangExtensionPaths
     if ($InstalledExtensions.Count -eq 0) {
@@ -7092,6 +7134,7 @@ Usage:
   .\dev.bat vscode-build-grammar Regenerate VS Code TextMate grammar from source JSON
   .\dev.bat vscode-build-editor-metadata Regenerate VS Code editor metadata from eng-lsp
   .\dev.bat vscode-grammar-test  Check VS Code TextMate grammar source, generated output, and token fixtures
+  .\dev.bat vscode-status  Show local VS Code extension install/package status
   .\dev.bat vscode-package Build a local installable VS Code extension VSIX
   .\dev.bat vscode-install Build and install the EngLang VS Code extension with the code CLI
   .\dev.bat ide-check      Validate the native IDE and VS Code extension preview
@@ -7128,6 +7171,7 @@ switch ($Command) {
     "vscode-build-grammar" { Invoke-VscodeBuildGrammar }
     "vscode-build-editor-metadata" { Invoke-VscodeBuildEditorMetadata }
     "vscode-grammar-test" { Invoke-VscodeGrammarTest }
+    "vscode-status" { Invoke-VscodeStatus }
     "vscode-package" { Invoke-VscodePackage }
     "vscode-install" { Invoke-VscodeInstall }
     "ide-check" { Invoke-IdeCheck }
