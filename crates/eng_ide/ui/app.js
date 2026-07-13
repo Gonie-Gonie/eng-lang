@@ -3557,6 +3557,10 @@ function renderNetworkBoundaries(boundaries) {
   const rows = boundaries.map((boundary) => {
     const query = Array.isArray(boundary.query) ? boundary.query : [];
     const bodyLimit = boundary.body_size_limit_bytes ?? boundary.bodySizeLimitBytes;
+    const responseSource = boundary.response_source || boundary.responseSource || boundary.status || "-";
+    const httpStatus = [boundary.status_class || boundary.statusClass || "", boundary.status_code ?? boundary.statusCode ?? ""]
+      .filter((part) => part !== "")
+      .join(" ") || "-";
     const policy = [
       boundary.retry !== undefined && boundary.retry !== null ? `retry ${boundary.retry}` : "",
       boundary.timeout ? `timeout ${boundary.timeout}` : "",
@@ -3566,7 +3570,7 @@ function renderNetworkBoundaries(boundaries) {
     return `
       <tr>
         <td><strong>${escapeHtml(boundary.kind || "-")}</strong><div class="muted">${escapeHtml(boundary.binding || boundary.target || "-")}</div></td>
-        <td>${escapeHtml(boundary.status || "-")}<div class="muted">${escapeHtml(boundary.status_class || boundary.statusClass || "-")} ${escapeHtml(boundary.status_code ?? boundary.statusCode ?? "")}</div></td>
+        <td>${escapeHtml(responseSource)}<div class="muted">HTTP ${escapeHtml(httpStatus)}</div></td>
         <td><code>${escapeHtml(compactText(boundary.url || boundary.target || "-", 90))}</code></td>
         <td>${escapeHtml(policy)}</td>
         <td><code>${escapeHtml(compactText(boundary.response_hash || boundary.responseHash || "-", 68))}</code><div class="muted"><code>${escapeHtml(compactText(boundary.expected_sha256 || boundary.expectedSha256 || "-", 68))}</code></div></td>
@@ -3576,7 +3580,7 @@ function renderNetworkBoundaries(boundaries) {
   }).join("");
   return `
     <table class="artifact-table">
-      <thead><tr><th>Boundary</th><th>Status</th><th>URL / Target</th><th>Policy</th><th>Observed / Expected</th><th>Source</th></tr></thead>
+      <thead><tr><th>Boundary</th><th>Response Source</th><th>URL / Target</th><th>Policy</th><th>Observed / Expected</th><th>Source</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="6" class="muted">No network boundaries.</td></tr>`}</tbody>
     </table>
   `;

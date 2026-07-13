@@ -93,6 +93,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 634: Added the missing VS Code local rename action for `response.status` diagnostics so fallback quick fixes now match LSP guidance and rewrite the compatibility alias to `response.response_source`.
 - Batch 635: Fixed VS Code TextMate `with { ... }` fallback ordering so option-block constants/operators keep their expected colors before generic local identifiers, including nested option maps.
 - Batch 636: Extended `workflows-test` so workflow 01/02/03 runtime artifacts fail if Python/notebook markers or `run command` wording reappear after native execution, not just in source/docs and process counts.
+- Batch 637: Reworded VS Code and native IDE network boundary tables to show `response_source` as response source instead of generic status, while preserving compatibility status fields in artifacts.
 
 ## Documentation Policy
 

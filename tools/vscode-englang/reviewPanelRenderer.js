@@ -363,14 +363,14 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
 
     <h2>External Boundaries</h2>
     ${renderReviewTable(
-      ["Line", "Name", "Target", "Status", "Risk", "Headers", "Effects"],
+      ["Line", "Name", "Target", "Source / Status", "Risk", "Headers", "Effects"],
       boundaries,
       "No external boundaries.",
       (boundary) => `<tr>
         <td>${sourceLineCell(boundary)}</td>
         <td><strong>${escapeHtml(reviewValue(boundary, "name", "kind"))}</strong><div class="muted">${escapeHtml(reviewValue(boundary, "kind"))}</div></td>
         <td><code>${escapeHtml(compactText(reviewValue(boundary, "target"), 120))}</code></td>
-        <td>${statusPill(reviewValue(boundary, "status"))}<div class="muted">${escapeHtml(boundary.status_class || boundary.statusClass || "")} ${escapeHtml(boundary.status_code ?? boundary.statusCode ?? "")}</div></td>
+        <td>${boundarySourceOrStatusCell(boundary)}</td>
         <td>${statusPill(reviewValue(boundary, "risk_level", "riskLevel"))}</td>
         <td>${boundaryHeadersCell(boundary)}</td>
         <td>${escapeHtml(reviewList(reviewArray(boundary, "side_effects", "sideEffects"), 120))}</td>
@@ -568,6 +568,23 @@ function boundaryHeadersCell(boundary) {
     .join(", ");
   const label = `${count} header${Number(count) === 1 ? "" : "s"}`;
   return `${escapeHtml(label)}${names ? `<div class="muted">${escapeHtml(compactText(names, 80))}</div>` : ""}`;
+}
+
+function boundarySourceOrStatusCell(boundary) {
+  const responseSource = reviewValue(boundary, "response_source", "responseSource", "");
+  const status = reviewValue(boundary, "status", "status", "");
+  const primary = responseSource || status || "-";
+  const detailParts = [];
+  if (responseSource && status && responseSource !== status) {
+    detailParts.push(`status ${status}`);
+  }
+  const statusClass = boundary.status_class || boundary.statusClass || "";
+  const statusCode = boundary.status_code ?? boundary.statusCode ?? "";
+  const httpDetail = [statusClass, statusCode].filter((part) => part !== "").join(" ");
+  if (httpDetail) {
+    detailParts.push(`HTTP ${httpDetail}`);
+  }
+  return `${statusPill(primary)}${detailParts.length ? `<div class="muted">${escapeHtml(detailParts.join(" | "))}</div>` : ""}`;
 }
 
 function reviewValue(object, snakeKey, camelKey = snakeKey, fallback = "-") {

@@ -3761,6 +3761,9 @@ function Assert-VscodeExtensionContract {
     if (-not $CommandHandlersSource.Contains('require("./reviewPanelRenderer")') -or -not $ReviewPanelRendererSource.Contains("function renderReviewSummaryHtml") -or -not $ReviewPanelRendererSource.Contains("function reviewPanelArtifacts")) {
         throw "VS Code extension must load review panel rendering helpers from reviewPanelRenderer.js"
     }
+    if (-not $ReviewPanelRendererSource.Contains("Source / Status") -or -not $ReviewPanelRendererSource.Contains("response_source") -or -not $ReviewPanelRendererSource.Contains("boundarySourceOrStatusCell")) {
+        throw "VS Code review panel must label network response source separately from generic status"
+    }
     if ($ExtensionSource.Contains("function renderReviewSummaryHtml") -or $ExtensionSource.Contains("function renderReviewTable") -or $ExtensionSource.Contains("function lineValue(item)") -or $ExtensionSource.Contains("function reviewPanelArtifacts")) {
         throw "VS Code extension must keep review panel rendering helpers in reviewPanelRenderer.js"
     }
@@ -5355,6 +5358,9 @@ function Invoke-IdeCheck {
     }
     if (-not $IdeUiSource.Contains("Review Fingerprint")) {
         throw "Native IDE review panel must label semantic_hash as Review Fingerprint"
+    }
+    if (-not $IdeUiSource.Contains("Response Source") -or -not $IdeUiSource.Contains("response_source") -or -not $IdeUiSource.Contains("responseSource")) {
+        throw "Native IDE network panel must label response source separately from generic status"
     }
     foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleStatusDetail", "module.status_label", "module.status_detail", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
         if (-not $IdeUiSource.Contains($RequiredModuleWordingToken)) {
