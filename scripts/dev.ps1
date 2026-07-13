@@ -1303,6 +1303,8 @@ function Test-PublicWorkflowDocs {
             "workflow skeletons",
             "External process seed",
             "implementation seed",
+            "uncertainty and data-driven modeling seeds",
+            "component-solver seeds",
             "case_inputs.planned_count",
             "case-input planned/blocked counts",
             "remaining planned counts"
@@ -1495,6 +1497,7 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "docs\current\workflow_modules.md"),
         (Join-Path $RepoRoot "docs\workflows\index.md"),
         (Join-Path $RepoRoot "docs\workflows\native_surrogate_case_workflow.md"),
+        (Join-Path $RepoRoot "docs\release\v0.1.0.md"),
         (Join-Path $RepoRoot "examples\workflows\02_native_surrogate_case_workflow\expected\review_summary.md")
     )
     Test-ArchitectureDocsWording -Paths @(

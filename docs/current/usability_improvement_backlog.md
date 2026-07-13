@@ -69,6 +69,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 610: Deprecated the Rust `editor_completion_seed()` helper in favor of `editor_completion_items()`, kept an alias regression test, and clarified the static editor metadata reference so `completion_seed` reads as compatibility-only.
 - Batch 611: Tightened workflow 01/02/03 native-only guards for `python2`/`python3`, `.ipynb`, and `jupyterlab` markers in CLI smoke and dev workflow checks, with a unit test for notebook/process marker detection.
 - Batch 612: Expanded bundled VS Code theme TextMate first-paint colors for EngLang leaf scopes such as imports, deprecated keywords, operators, punctuation, interpolation markers, namespace/type declarations, and role variables, with a grammar smoke guard that keeps both bundled themes covering every non-meta expected scope.
+- Batch 613: Reworded public release-note repository-only fixture bullets so implementation-track solver/model fixtures are not described as seeds, and extended docs-check wording guards to keep those stale seed phrases out of public workflow/release docs.
 
 ## Documentation Policy
 
