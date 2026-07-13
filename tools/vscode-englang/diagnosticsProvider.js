@@ -99,7 +99,7 @@ class EngDiagnosticsController {
     const documentVersion = document.version;
     const runtimeLabel = this.diagnosticsRuntimeLabel(runtimeMode);
     this.appendLine(`${runtimeLabel} check ${document.uri.fsPath}`);
-    this.appendLine(`diagnostics source: ${runtimeLabel}; tool: ${runtime}`);
+    this.appendLine(`Problems source: ${diagnosticSource(runtimeLabel)}; diagnostics: ${runtimeLabel}; tool: ${runtime}`);
 
     cp.execFile(
       runtime,
@@ -116,7 +116,7 @@ class EngDiagnosticsController {
       const documentVersion = document.version;
       const runtime = this.findLspRuntime?.(this.context, document) ?? "eng-lsp.exe";
       this.appendLine(`live buffer check ${document.uri.fsPath}`);
-      this.appendLine(`diagnostics source: live buffer; tool: ${runtime}`);
+      this.appendLine(`Problems source: ${diagnosticSource("live buffer")}; diagnostics: live buffer; tool: ${runtime}`);
       this.snapshotDocumentSource(document, this.context)
         .then((review) => {
           if (document.version !== documentVersion) {
@@ -147,7 +147,7 @@ class EngDiagnosticsController {
     const cwd = this.workspaceRoot(document);
     const documentVersion = document.version;
     this.appendLine(`live buffer check ${document.uri.fsPath}`);
-    this.appendLine(`diagnostics source: live buffer; tool: ${runtime}`);
+    this.appendLine(`Problems source: ${diagnosticSource("live buffer")}; diagnostics: live buffer; tool: ${runtime}`);
 
     const child = cp.execFile(
       runtime,
@@ -200,7 +200,7 @@ class EngDiagnosticsController {
     this.updateSemanticSymbolDecorations(document, review);
     const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
     const warnings = review.diagnostics?.filter((item) => severityName(item.severity) === "warning").length ?? 0;
-    this.appendLine(`diagnostics (${runtimeLabel}): ${errors} error(s), ${warnings} warning(s)`);
+    this.appendLine(`diagnostics (${diagnosticSource(runtimeLabel)}): ${errors} error(s), ${warnings} warning(s)`);
   }
 
   applyUnavailableSnapshotDiagnostic(document, runtimeLabel = "editor", failure = undefined) {

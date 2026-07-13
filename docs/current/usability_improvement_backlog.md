@@ -90,6 +90,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 711: Renamed workflow 01 public HTTP replay arg from `offline_response_file` to `pinned_response_file` and guarded the native workflow smoke so API examples read as pinned native network/cache boundaries instead of fixture plumbing.
 - Batch 712: Archived compact summaries for batches 571-650 from the current usability backlog so the active docs stay focused on recent IDE/workflow work and open cleanup candidates.
 - Batch 713: Reworded the VS Code editor metadata public-member API docs and package guard so compiler-owned member catalogs are described as runtime-backed public fields, not editor-only placeholders.
+- Batch 714: Aligned VS Code diagnostics output-panel source wording with the Problems source labels, so saved-file and live-buffer checks report `eng/file` and `eng/live` consistently.
 
 ## Documentation Policy
 
