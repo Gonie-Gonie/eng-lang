@@ -99,7 +99,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links."
 artifacts = ["output_manifest", "review.side_effects", "artifact_registry"]
-diagnostics = ["artifact_validation_failed"]
+diagnostics = []
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime output_manifest", "cargo test -p eng_runtime run_file_writes_standard_text_from_native_table"]
 
@@ -108,7 +108,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records."
 artifacts = ["review"]
-diagnostics = ["semantic_diff_changed", "review_risk"]
+diagnostics = []
 examples = ["eng review examples/workflows/01_weather_api_to_standard_file/main.eng"]
 tests = ["cargo test -p eng_compiler review_json_exposes_normalized_review_document", "cargo test -p eng_cli review_semantic_diff_compares_workflow_modules"]
 
@@ -180,7 +180,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links."
 artifacts = ["run_plan", "run_lock", "output_manifest", "run_log"]
-diagnostics = ["run_lock_changed", "artifact_hash_mismatch"]
+diagnostics = []
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime run_plan"]
 
@@ -189,7 +189,7 @@ status = "native_preview"
 backing = "eng_report"
 purpose = "Report block projection to report_spec/review/output manifests and HTML report artifacts; broader pure .eng report helper vocabulary remains planned."
 artifacts = ["report_spec", "report_html", "review", "output_manifest"]
-diagnostics = ["none_current"]
+diagnostics = []
 examples = ["examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_report"]
 
@@ -207,7 +207,7 @@ status = "native_preview"
 backing = "eng_report"
 purpose = "PlotSpec, plot manifest, and SVG artifact generation from report plot directives; broader pure .eng plot helper vocabulary remains planned."
 artifacts = ["plot_spec", "plot_manifest", "plot_svg", "output_manifest"]
-diagnostics = ["none_current"]
+diagnostics = []
 examples = ["examples/official/01_csv_plot", "examples/workflows/03_uncertain_sensor_report"]
 tests = ["cargo test -p eng_report plot"]
 
@@ -216,7 +216,7 @@ status = "planned"
 backing = "none"
 purpose = "Building, zone, and construction object vocabulary before domain simulation adapters."
 artifacts = ["review.objects"]
-diagnostics = ["planned"]
+diagnostics = []
 examples = ["planned_building_examples"]
 tests = ["planned_building_tests"]
 
@@ -225,7 +225,7 @@ status = "internal_planned"
 backing = "internal"
 purpose = "Solver-facing adapters and metadata, not the public identity of stdlib."
 artifacts = ["review.systems", "system_ir"]
-diagnostics = ["solver_or_numeric"]
+diagnostics = []
 examples = ["examples/advanced_solver/31_external_behavior_solver"]
 tests = ["cargo test -p eng_runtime system"]
 

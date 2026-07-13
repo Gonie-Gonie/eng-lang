@@ -269,6 +269,17 @@ fn parse_string_array(value: &str, line_number: usize) -> Result<Vec<String>, Mo
     Ok(items)
 }
 
+fn is_module_registry_diagnostic_code(value: &str) -> bool {
+    let Some((prefix, rest)) = value.split_once('-') else {
+        return false;
+    };
+    matches!(prefix, "E" | "W")
+        && !rest.is_empty()
+        && rest.bytes().all(|byte| {
+            byte.is_ascii_uppercase() || byte.is_ascii_digit() || byte == b'-' || byte == b'_'
+        })
+}
+
 fn registry_error(line: usize, message: &str) -> ModuleRegistryError {
     ModuleRegistryError {
         line,
@@ -291,23 +302,36 @@ struct PartialModuleRegistryEntry {
 
 impl PartialModuleRegistryEntry {
     fn finish(self, line: usize) -> Result<ModuleRegistryEntry, ModuleRegistryError> {
+        let status = self
+            .status
+            .ok_or_else(|| registry_error(line, "module is missing status"))?;
+        let backing = self
+            .backing
+            .ok_or_else(|| registry_error(line, "module is missing backing"))?;
+        let purpose = self
+            .purpose
+            .ok_or_else(|| registry_error(line, "module is missing purpose"))?;
+        let artifacts = self
+            .artifacts
+            .ok_or_else(|| registry_error(line, "module is missing artifacts"))?;
+        let diagnostics = self
+            .diagnostics
+            .ok_or_else(|| registry_error(line, "module is missing diagnostics"))?;
+        for diagnostic in &diagnostics {
+            if !is_module_registry_diagnostic_code(diagnostic) {
+                return Err(registry_error(
+                    line,
+                    &format!("module diagnostic `{diagnostic}` must use an E-/W- diagnostic code"),
+                ));
+            }
+        }
         Ok(ModuleRegistryEntry {
             name: self.name,
-            status: self
-                .status
-                .ok_or_else(|| registry_error(line, "module is missing status"))?,
-            backing: self
-                .backing
-                .ok_or_else(|| registry_error(line, "module is missing backing"))?,
-            purpose: self
-                .purpose
-                .ok_or_else(|| registry_error(line, "module is missing purpose"))?,
-            artifacts: self
-                .artifacts
-                .ok_or_else(|| registry_error(line, "module is missing artifacts"))?,
-            diagnostics: self
-                .diagnostics
-                .ok_or_else(|| registry_error(line, "module is missing diagnostics"))?,
+            status,
+            backing,
+            purpose,
+            artifacts,
+            diagnostics,
             examples: self
                 .examples
                 .ok_or_else(|| registry_error(line, "module is missing examples"))?,
@@ -402,6 +426,24 @@ mod tests {
                 && module.examples.iter().all(|value| value != "")
                 && module.tests.iter().all(|value| value != "")
         }));
+    }
+
+    #[test]
+    fn registry_rejects_placeholder_diagnostics() {
+        let error = parse_module_registry(
+            r#"
+[module."eng.report"]
+status = "native_preview"
+backing = "eng_report"
+purpose = "Report artifacts without direct diagnostics."
+artifacts = []
+diagnostics = ["none_current"]
+examples = []
+tests = []
+"#,
+        )
+        .expect_err("placeholder diagnostics should fail");
+        assert!(error.message.contains("must use an E-/W- diagnostic code"));
     }
 
     #[test]

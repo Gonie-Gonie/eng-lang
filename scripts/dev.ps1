@@ -1247,6 +1247,11 @@ function Test-ModuleRegistryDocs {
                 throw "module registry entry $($entry.name) is missing $field"
             }
         }
+        foreach ($diagnostic in @($entry.diagnostics)) {
+            if ($diagnostic -notmatch '^[EW]-[A-Z0-9][A-Z0-9_-]*$') {
+                throw "module registry entry $($entry.name) has non-diagnostic diagnostics value '$diagnostic'"
+            }
+        }
     }
 
     $ReadmeModules = [System.Collections.Generic.HashSet[string]]::new()
