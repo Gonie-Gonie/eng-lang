@@ -194,13 +194,13 @@ class EngDiagnosticsController {
 
   applyUnavailableSnapshotDiagnostic(document, runtimeLabel = "editor") {
     const settingHint = diagnosticsSettingHint(runtimeLabel);
-    this.diagnostics.set(document.uri, [
-      new vscode.Diagnostic(
-        firstLineRange(document),
-        `EngLang ${runtimeLabel} diagnostics did not return editor JSON. Run EngLang: Show Tooling Status to confirm selected tool paths, or check ${settingHint}.`,
-        vscode.DiagnosticSeverity.Error
-      )
-    ]);
+    const diagnostic = new vscode.Diagnostic(
+      firstLineRange(document),
+      `EngLang ${runtimeLabel} diagnostics did not return editor JSON. Run EngLang: Show Tooling Status to confirm selected tool paths, or check ${settingHint}.`,
+      vscode.DiagnosticSeverity.Error
+    );
+    diagnostic.source = diagnosticSource(runtimeLabel);
+    this.diagnostics.set(document.uri, [diagnostic]);
     this.updateReviewRiskDecorations(document, undefined);
     this.updateSemanticSymbolDecorations(document, undefined);
   }
