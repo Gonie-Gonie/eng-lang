@@ -101,6 +101,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 642: Reordered native IDE side tabs around the review workflow and added a dedicated Units tab that surfaces review unit records and unit conversions before Schema.
 - Batch 643: Suppressed empty display-unit labels in LSP and VS Code hover markdown so string/API fields no longer render as blank unit metadata.
 - Batch 644: Added native SQLite connection summary bindings such as `db.tables_written`, `db.table_count`, `db.row_count`, and `db.status`, then replaced workflow 02's hardcoded DB table summary with actual DB write/readback metadata.
+- Batch 645: Propagated semantic token modifiers from typed workflow receivers onto their public member fields, so DB/sample/case/HTTP fields color consistently instead of falling back to generic property coloring.
 
 ## Documentation Policy
 

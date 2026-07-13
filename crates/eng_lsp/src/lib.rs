@@ -2194,7 +2194,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "DbConnection" => builder.push_member_fields(
                 &binding.name,
                 DB_CONNECTION_FIELD_COMPLETIONS,
-                &["workflowStep"],
+                &["db", "workflowStep"],
             ),
             _ => {}
         }
@@ -5069,7 +5069,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         field_start,
                         field_end - field_start,
                         "property",
-                        &[],
+                        receiver_modifiers,
                     );
                     search_start = field_end;
                 }
@@ -11830,12 +11830,25 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "row_count"));
-        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
-            token.token_type == "property"
-                && source.lines().nth(token.line).is_some_and(|line| {
-                    &line[token.start..token.start + token.length] == "tables_written"
-                })
-        }));
+        let tables_written_token = snapshot
+            .semantic_tokens
+            .tokens
+            .iter()
+            .find(|token| {
+                token.token_type == "property"
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        &line[token.start..token.start + token.length] == "tables_written"
+                    })
+            })
+            .expect("DB connection field token should be semantic-highlighted");
+        assert!(tables_written_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "db"));
+        assert!(tables_written_token
+            .modifiers
+            .iter()
+            .any(|modifier| modifier == "workflowStep"));
     }
     #[test]
     fn snapshot_exposes_case_table_member_fields() {
