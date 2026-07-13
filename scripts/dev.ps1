@@ -4221,6 +4221,13 @@ function Assert-VscodeExtensionContract {
         "live buffer check",
         "diagnostics source:",
         "diagnosticsSettingHint",
+        "diagnosticSource",
+        "function diagnosticSource",
+        "eng/file",
+        "eng/live",
+        "source: diagnosticSource(runtimeLabel)",
+        "diagnostic.source = source",
+        "diagnostic.source = diagnosticSource(runtimeLabel)",
         "EngLang: Show Tooling Status",
         "diagnostics did not return editor JSON"
     )) {

@@ -108,6 +108,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 649: Extended TextMate public workflow member coloring through dotted receivers such as `study.designs.row_preview` and `args.designs.row_preview`, so member fields do not fall back to generic property coloring when the table/model source is nested.
 - Batch 650: Labeled VS Code Problems diagnostics by source as `eng/file` or `eng/live`, making saved-file and live-buffer linter results distinguishable without opening the EngLang output panel.
 - Batch 651: Applied the same `eng/file` and `eng/live` Problems source labels to fallback diagnostics emitted when editor JSON is unavailable.
+- Batch 652: Added VS Code package-contract guards so file/live Problems source labels and fallback diagnostic source labels cannot silently drift out of `diagnosticsProvider.js`.
 
 ## Documentation Policy
 
