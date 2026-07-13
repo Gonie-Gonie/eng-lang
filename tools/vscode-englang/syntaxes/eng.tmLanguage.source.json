@@ -451,7 +451,7 @@
           },
           {
             "name": "meta.workflow.return-statement.englang",
-            "begin": "\\b(return)\\b",
+            "begin": "^\\s*(return)\\b",
             "beginCaptures": {
               "1": { "name": "keyword.control.workflow.englang" }
             },

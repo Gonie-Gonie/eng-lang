@@ -112,6 +112,7 @@ E-REPORT-BINDING-001  report commands such as summarize/show/plot cannot be boun
 E-VALIDATE-BINDING-001 validation commands such as validate/assert/golden cannot be bound as values
 E-SIDE-EFFECT-BINDING-001 statement-only outputs/side effects such as print/log/write/export/download/copy cannot be bound as values
 E-BLOCK-BINDING-001 block/declaration headers such as args/schema/where/with cannot be bound as values
+E-STATEMENT-BINDING-001 statement-only forms such as return/use/import/connect cannot be bound as values
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
 E-UNC-SOURCE-001      missing or unknown uncertainty source reference

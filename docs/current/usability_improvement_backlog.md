@@ -154,6 +154,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 695: Added `E-SIDE-EFFECT-BINDING-001` for statement-only side effects used as bound values and anchored matching VS Code TextMate scopes to top-level side-effect statements.
 - Batch 696: Extended bound statement diagnostics and TextMate anchoring to `print`, `log`, and `report { ... }` so output/report blocks cannot masquerade as bound values.
 - Batch 697: Added `E-BLOCK-BINDING-001` for declaration/block headers used as bound values and anchored declaration plus validation-block TextMate scopes to statement starts.
+- Batch 698: Added `E-STATEMENT-BINDING-001` for `return`, `use`/`import`, and `connect` used as bound values, plus a TextMate guard for bound `return` statements.
 
 ## Documentation Policy
 

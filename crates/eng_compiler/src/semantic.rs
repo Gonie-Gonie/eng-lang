@@ -11994,6 +11994,16 @@ fn bound_block_header_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
         Some("Write block and declaration headers at the start of a statement, such as `schema Name { ... }` or `args { ... }`; attach `where` and `with` blocks after a supported owner statement."),
     ))
 }
+fn bound_statement_only_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let command =
+        leading_statement_word(&binding.expression, &["return", "use", "import", "connect"])?;
+    Some(Diagnostic::error(
+        "E-STATEMENT-BINDING-001",
+        binding.line,
+        &format!("Statement `{command}` cannot be used as a bound value."),
+        Some("Write statement-only forms at the start of a statement: `return` belongs inside a function, `use`/`import` at file scope, and `connect` at top level."),
+    ))
+}
 
 const BLOCK_HEADER_COMMANDS: &[&str] = &[
     "args",
@@ -12098,6 +12108,10 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         return;
     }
     if let Some(diagnostic) = bound_block_header_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
+        return;
+    }
+    if let Some(diagnostic) = bound_statement_only_command_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
         return;
     }

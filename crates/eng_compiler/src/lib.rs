@@ -10723,6 +10723,34 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_bound_statement_only_commands() {
+        for expression in [
+            "bad_return = return Q",
+            "bad_use = use eng.path",
+            "bad_import = import eng.table",
+            "bad_connect = connect A.out -> B.in",
+        ] {
+            let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
+
+            assert!(report.has_errors(), "{expression} should be rejected");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "E-STATEMENT-BINDING-001"),
+                "{expression} should emit E-STATEMENT-BINDING-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"),
+                "{expression} should not fall through to E-FN-CALL-001"
+            );
+        }
+    }
+    #[test]
     fn rejects_bound_block_header_commands() {
         for expression in [
             "bad_args = args {",

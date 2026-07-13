@@ -1118,6 +1118,7 @@ Assert-ScopeDoesNotMatchText -Scope "meta.declaration.function.englang" -Text 'b
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.constant.englang" -Text 'bad_const = const cp' -Description "unsupported bound const declaration"
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.test.englang" -Text 'bad_test = test "ok" {' -Description "unsupported bound test declaration"
 Assert-ScopeDoesNotMatchText -Scope "meta.block.validation.englang" -Text 'bad_constraints = constraints {' -Description "unsupported bound validation block"
+Assert-ScopeDoesNotMatchText -Scope "meta.workflow.return-statement.englang" -Text 'bad_return = return args.Q' -Description "unsupported bound return statement"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels @("Array[String]", "List[Int]") -Description "schema collection generic type"
