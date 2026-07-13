@@ -559,6 +559,33 @@ function Assert-ExpectedTokenTextsCoverLabels {
     }
 }
 
+function Test-ExpectedScopedTokenCoversLabel {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string] $Label
+    )
+
+    foreach ($case in $Expected) {
+        if ([string]$case.scope -eq $Scope -and [string]$case.text -eq $Label) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Assert-ExpectedScopedTokenTextsCoverLabels {
+    param(
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string[]] $Labels,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $missing = @($Labels | Where-Object { -not (Test-ExpectedScopedTokenCoversLabel -Scope $Scope -Label $_) } | Sort-Object -Unique)
+    if ($missing.Count -gt 0) {
+        throw "grammar smoke expected tokens missing $Description scoped coverage for ${Scope}: $($missing -join ', ')"
+    }
+}
+
 function Assert-WorkflowPatternIncludes {
     param(
         [Parameter(Mandatory = $true)][string] $Name,
@@ -1198,6 +1225,11 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $
 Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels ($WorkflowOptions + $LegacyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases) -Description "LSP workflow named argument" -Suffix "="
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "language constant"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "operator word"
+foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
+    Assert-ExpectedScopedTokenTextsCoverLabels -Scope $KeywordGroupCheck.Scope -Labels $KeywordGroupCheck.Labels -Description "keyword group $($KeywordGroupCheck.Name)"
+}
 Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-ExpectedLeafScopesCoverGrammar
 Assert-BundledThemeLeafScopeCoverage

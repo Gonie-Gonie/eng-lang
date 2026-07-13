@@ -1,12 +1,21 @@
 script LegacyScript
 struct LegacyArgs
 
-draft_declaration_keywords = [schema, class, system, domain, component, fn, method, test, const, state, input, parameter, output, port, across, through, operator, index]
-draft_operator_keywords = [if, else, in, into, is, null, not, or, policy, vs]
-draft_workflow_keywords = [sample, filter, select, derive, sort, require_one, materialize, cases, collect, results, apply, train, regression, predict]
-draft_timeseries_quality_keywords = [fill, align, resample, check, coverage]
-draft_sampling_literals = [lhs, latin_hypercube, latin-hypercube, grid, random, uniform]
-draft_case_status_literals = [pending, planned, partial, running, passed, failed, succeeded, skipped, blocked, completed, rendered, collected, empty]
+catalog_import_keywords = [use, import, from, as]
+catalog_deprecated_keywords = [script, struct]
+catalog_declaration_keywords = [schema, class, system, domain, component]
+catalog_function_keywords = [fn, method]
+catalog_test_keywords = [test]
+catalog_block_keywords = [args, where, with, on]
+catalog_modifier_keywords = [const, state, input, parameter, output, port, across, through, operator, index]
+catalog_report_keywords = [report, show, plot, line, bar, histogram, summarize, summary, distribution]
+catalog_validation_keywords = [validate, assert, golden, matches, within, constraints, missing, interpolate, monotonic, fill, align, resample, check, coverage]
+catalog_side_effect_keywords = [write, export, copy, move, delete, mkdir, render, template, print, log]
+catalog_external_boundary_keywords = [run, command, open, sqlite, http, get, post, put, patch, head, request, fetch, download]
+catalog_solver_keywords = [simulate, solve, connect, conservation, equation, operator, states, inputs, outputs]
+catalog_workflow_keywords = [promote, read, text, json, toml, csv, records, column, columns, to, policy, package, version, model, return, if, else, sample, filter, select, derive, sort, require_one, materialize, cases, collect, results, apply, train, regression, predict]
+catalog_operator_words = [eq, is, and, or, not, between, over, by, using, in, into, of, vs, to, within, matches]
+catalog_constants = [true, false, none, null, info, warn, debug, error, safe, normal, repro, append, insert, upsert, replace, commit, rollback, keep, empty, interpolate, monotonic, linear, interval, ensemble, monte_carlo, source_linear_terms, finite_difference, asc, desc, pending, planned, partial, running, passed, failed, succeeded, skipped, blocked, completed, rendered, collected, cached, stale, hit, miss, created, updated, metadata_ready, warnings_present, diagnostics_present, fixed_step, rk4, adaptive_heun, fixed_point, newton, implicit_euler_dae, dynamic_component_explicit_euler, dynamic_component_semi_implicit_euler, dynamic_component_adaptive_heun, trapezoidal, lhs, latin_hypercube, latin-hypercube, grid, random, uniform]
 
 const cp_water: SpecificHeat [J/kg/K] = 4.18 kJ/K
 
