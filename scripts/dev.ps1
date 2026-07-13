@@ -4867,6 +4867,19 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata must keep compatibility-only model option alias $HiddenModelOptionAlias as a highlight-only legacy workflow option alias"
         }
     }
+    foreach ($NativeModuleCompletion in @("eng.net", "eng.cache", "eng.report", "eng.plot", "eng.uncertainty")) {
+        $ModuleCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $NativeModuleCompletion }) | Select-Object -First 1
+        if ($null -eq $ModuleCompletion) {
+            throw "generated VS Code editor metadata missing module completion $NativeModuleCompletion"
+        }
+        $ModuleCompletionDetail = [string]$ModuleCompletion.detail
+        if (-not $ModuleCompletionDetail.StartsWith("Native: ")) {
+            throw "generated VS Code editor metadata module completion $NativeModuleCompletion must use short Native: completion detail"
+        }
+        if ($ModuleCompletionDetail.Contains("Native workflow support:") -or $ModuleCompletionDetail.Contains("broader") -or $ModuleCompletionDetail.Contains("remains planned")) {
+            throw "generated VS Code editor metadata module completion $NativeModuleCompletion must not expose full status labels or planned-scope tails"
+        }
+    }
     foreach ($RequiredHttpResponseField in @("body", "response_source", "status_code", "query_string", "url_with_query")) {
         $HttpResponseField = @($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq $RequiredHttpResponseField }) | Select-Object -First 1
         if ($null -eq $HttpResponseField) {

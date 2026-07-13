@@ -87,6 +87,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 628: Hid compatibility-only model option aliases `x`, `y`, `test_fraction`, and `layers` from generated editor workflow-option suggestions while keeping canonical `features`, `target`, `test`, and `hidden` visible and preserving the aliases as highlight-only compatibility scopes.
 - Batch 629: Aligned compiler, LSP, and VS Code local quick-fix comment stripping for `#` and `//` comments so legacy helper mentions inside comments or strings no longer produce row-selection warnings or migration actions.
 - Batch 630: Shortened generated module completion details by using completion-only status labels such as `Native:` and removing planned-scope tails from native module purpose text, while keeping full registry status labels in docs/review payloads.
+- Batch 631: Added a VS Code package-contract guard that keeps generated native module completions on the short `Native:` detail wording and prevents full status labels or planned-scope tails from returning.
 
 ## Documentation Policy
 
