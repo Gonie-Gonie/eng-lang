@@ -1818,6 +1818,9 @@ pub fn editor_completion_items() -> Vec<LspCompletion> {
     completion_items(&report)
 }
 
+#[deprecated(
+    note = "use editor_completion_items(); completion_seed is a generated metadata compatibility alias only"
+)]
 pub fn editor_completion_seed() -> Vec<LspCompletion> {
     editor_completion_items()
 }
@@ -8932,6 +8935,12 @@ mod tests {
             "eng.cache completion detail should describe pinned network response cache, got {}",
             cache_completion["detail"]
         );
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn editor_completion_seed_is_legacy_alias_for_completion_items() {
+        assert_eq!(editor_completion_seed(), editor_completion_items());
     }
 
     #[test]

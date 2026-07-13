@@ -78,9 +78,10 @@ It contains:
 - `syntax_catalog`: keyword, workflow builtin, with-option, public type,
   quantity, and unit labels used by grammar and highlight checks.
 - `completion_items`: fallback completions used when live completion is
-  unavailable.
+  unavailable. Rust callers should use `editor_completion_items()`.
 - `completion_seed`: legacy alias for `completion_items`; new tooling should
-  read `completion_items`.
+  read `completion_items`. The Rust `editor_completion_seed()` helper is
+  deprecated and kept only for compatibility.
 
 ## Diagnostics
 
