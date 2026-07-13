@@ -130,6 +130,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 671: Added member-aware TextMate fallbacks to uncertainty distribution calls such as `measured(...)`, `interval(...)`, `propagate(...)`, and `probability(...)`, completing the broad workflow fallback gap scan.
 - Batch 672: Reworked table and case operation TextMate phrase scopes such as `filter`, `derive`, `sort`, `join`, `require_one`, `materialize cases`, and `collect results` so dotted operands use member-aware first-paint highlighting.
 - Batch 673: Reworked `predict`, `train regression`, and `apply` TextMate phrase scopes so dotted model/table/step/case operands use member-aware first-paint highlighting while local workflow-step coloring is preserved.
+- Batch 674: Reworked `integrate(...)`, statistical axis calls, and summary export field TextMate scopes so dotted series, axis, and summary operands use member-aware first-paint highlighting.
 
 ## Documentation Policy
 

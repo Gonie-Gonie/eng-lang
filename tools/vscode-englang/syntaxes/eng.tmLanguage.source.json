@@ -483,17 +483,30 @@
           },
           {
             "name": "meta.workflow.summary-field.englang",
-            "begin": "^\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(as)\\s+(\\S+)\\s+(with)\\b",
-            "beginCaptures": {
-              "1": { "name": "variable.parameter.property.englang" },
-              "2": { "name": "variable.other.property.englang" },
-              "3": { "name": "variable.other.local.englang" },
-              "4": { "name": "keyword.operator.word.englang" },
-              "5": { "name": "constant.other.unit.englang" },
-              "6": { "name": "keyword.operator.word.englang" }
-            },
+            "begin": "^\\s*(?=(?:args\\.[A-Za-z_][A-Za-z0-9_]*|[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+|[A-Za-z_][A-Za-z0-9_]*)\\s+as\\s+\\S+\\s+with\\b)",
             "end": "(?=#|$)",
             "patterns": [
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\b(as|with)\\b"
+              },
+              {
+                "name": "constant.other.unit.englang",
+                "match": "\\S+(?=\\s+with\\b)"
+              },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
               { "include": "#strings" },
               { "include": "#punctuation" }
             ]
@@ -1411,21 +1424,40 @@
           },
           {
             "name": "meta.workflow.integrate-call.englang",
-            "match": "\\b(integrate)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(,)\\s*(over)\\s*(=)\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(\\))",
-            "captures": {
+            "begin": "\\b(integrate)\\s*(\\()",
+            "beginCaptures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "punctuation.section.parens.begin.englang" },
-              "3": { "name": "variable.parameter.property.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "variable.other.local.englang" },
-              "6": { "name": "punctuation.separator.comma.englang" },
-              "7": { "name": "keyword.operator.word.englang" },
-              "8": { "name": "keyword.operator.englang" },
-              "9": { "name": "variable.parameter.property.englang" },
-              "10": { "name": "variable.other.property.englang" },
-              "11": { "name": "variable.other.local.englang" },
-              "12": { "name": "punctuation.section.parens.end.englang" }
-            }
+              "2": { "name": "punctuation.section.parens.begin.englang" }
+            },
+            "end": "\\)",
+            "endCaptures": {
+              "0": { "name": "punctuation.section.parens.end.englang" }
+            },
+            "patterns": [
+              {
+                "name": "punctuation.separator.comma.englang",
+                "match": ","
+              },
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\bover\\b"
+              },
+              { "include": "#operators" },
+              { "include": "#punctuation" },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.integrate-series.englang",
@@ -1456,21 +1488,40 @@
           },
           {
             "name": "meta.workflow.stat-axis-call.englang",
-            "match": "\\b(mean|max|min|sum)\\s*(\\()\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(,)\\s*(axis)\\s*(=)\\s*(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s*(\\))",
-            "captures": {
+            "begin": "\\b(mean|max|min|sum)\\s*(\\()",
+            "beginCaptures": {
               "1": { "name": "support.function.builtin.englang" },
-              "2": { "name": "punctuation.section.parens.begin.englang" },
-              "3": { "name": "variable.parameter.property.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "variable.other.local.englang" },
-              "6": { "name": "punctuation.separator.comma.englang" },
-              "7": { "name": "variable.parameter.property.englang" },
-              "8": { "name": "keyword.operator.englang" },
-              "9": { "name": "variable.parameter.property.englang" },
-              "10": { "name": "variable.other.property.englang" },
-              "11": { "name": "variable.other.local.englang" },
-              "12": { "name": "punctuation.section.parens.end.englang" }
-            }
+              "2": { "name": "punctuation.section.parens.begin.englang" }
+            },
+            "end": "\\)",
+            "endCaptures": {
+              "0": { "name": "punctuation.section.parens.end.englang" }
+            },
+            "patterns": [
+              {
+                "name": "punctuation.separator.comma.englang",
+                "match": ","
+              },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\baxis\\b(?=\\s*=)"
+              },
+              { "include": "#operators" },
+              { "include": "#punctuation" },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.stat-series.englang",

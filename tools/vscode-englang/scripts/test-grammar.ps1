@@ -1099,6 +1099,9 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.predict-model.englang" -Incl
 Assert-WorkflowPatternIncludes -Name "meta.workflow.train-regression.englang" -Include "#members" -Description "train regression"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.apply-call.englang" -Include "#members" -Description "apply call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.apply-step.englang" -Include "#members" -Description "apply step"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.integrate-call.englang" -Include "#members" -Description "integrate call"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.stat-axis-call.englang" -Include "#members" -Description "stat axis call"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.summary-field.englang" -Include "#members" -Description "summary field"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern

@@ -149,6 +149,11 @@ Predict, train, and apply phrases such as `predict <model> using <table>`,
 over=...)` keep local workflow-step coloring while routing dotted model, table,
 step, and case operands through member-aware fallbacks.
 
+Integrate/statistical calls such as `integrate(<series>, over=<axis>)` and
+`mean(<series>, axis=<axis>)`, plus summary export fields like `<value> as
+<unit> with <format>`, use member-aware fallbacks so dotted series, axis, and
+summary operands split before broad property scopes.
+
 Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
 `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` also include
 member-aware fallbacks so nested model, split, table, and feature operands stay
