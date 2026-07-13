@@ -141,6 +141,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 682: Improved VS Code unavailable-diagnostics UX so Problems entries include a short `Tool failure:` reason when the selected checker exits without editor JSON, while detailed stderr/stdout stays in the EngLang output channel.
 - Batch 683: Added a VS Code command registration guard so every package-exposed command has an `extension.js` handler and the only registered-only command is the legacy `englang.switchProblemsSource` compatibility alias.
 - Batch 684: Added the Problems source label (`eng/file` or `eng/live`) to the VS Code tooling status payload so diagnostics mode and Problems-column source wording stay aligned.
+- Batch 685: Standardized VS Code tooling status wording on `live editor checks` instead of `live editor requests`, keeping live Problems, hover, completion, and highlight wording aligned.
 
 ## Documentation Policy
 

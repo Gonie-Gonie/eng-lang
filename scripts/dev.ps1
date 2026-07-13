@@ -3761,6 +3761,7 @@ function Assert-VscodeExtensionContract {
         "diagnosticsModeChangeSummary",
         "diagnosticsStatusSummary",
         "toolStatusSummary",
+        "toolStatusSummary(liveEditorTool, `"live editor checks`")",
         "const problemsSource = mode",
         "updates_while_typing",
         "source_label",
@@ -3799,7 +3800,8 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($ForbiddenToolingStatusWording in @(
         "fresh live editor request",
-        "short-lived live editor request"
+        "short-lived live editor request",
+        "live editor requests"
     )) {
         if ($CommandHandlersSource.Contains($ForbiddenToolingStatusWording)) {
             throw "VS Code tooling status must describe editor checks in user-facing wording: $ForbiddenToolingStatusWording"

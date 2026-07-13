@@ -725,7 +725,7 @@ function createCommandHandlers(options = {}) {
     return {
       summary: {
         check_and_run_tool: toolStatusSummary(checkAndRunTool, "saved-file checks and program runs"),
-        live_editor_tool: toolStatusSummary(liveEditorTool, "live editor requests"),
+        live_editor_tool: toolStatusSummary(liveEditorTool, "live editor checks"),
         diagnostics: diagnosticsSummary,
         role_aware_colors: roleAwareColorSummary
       },
@@ -774,7 +774,7 @@ function createCommandHandlers(options = {}) {
           enabled: semanticHighlighting,
           summary: roleAwareColorSummary,
           tool: "live_editor",
-          request_model: "on-demand live editor check"
+          request_model: "on-demand live editor checks"
         }
       },
       settings: {
@@ -829,7 +829,7 @@ function createCommandHandlers(options = {}) {
     return {
       enabled: true,
       tool,
-      request_model: "on-demand live editor check"
+      request_model: "on-demand live editor checks"
     };
   }
 
