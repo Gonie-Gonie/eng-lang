@@ -305,6 +305,10 @@
           "property.declaration": [
             "variable.other.property.englang"
           ],
+          "property.readonly": [
+            "variable.other.public-member.englang",
+            "variable.other.property.englang"
+          ],
           "property.static": [
             "variable.other.property.englang",
             "storage.modifier.englang"
@@ -330,6 +334,11 @@
           "variable.readonly": [
             "variable.other.constant.englang",
             "variable.other.definition.englang"
+          ],
+          "variable.deprecated": [
+            "keyword.control.deprecated.englang",
+            "variable.other.definition.englang",
+            "variable.other.local.englang"
           ],
           "variable.static": [
             "variable.other.definition.englang",
@@ -529,6 +538,11 @@
             "keyword.control.deprecated.englang",
             "entity.name.function.call.englang",
             "entity.name.function.englang"
+          ],
+          "property.deprecated": [
+            "keyword.control.deprecated.englang",
+            "variable.other.public-member.englang",
+            "variable.other.property.englang"
           ],
           "class.deprecated": [
             "entity.name.type.englang"

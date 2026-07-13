@@ -3445,13 +3445,13 @@ function Assert-VscodeExtensionContract {
         "function", "function.static", "interface", "interface.static", "method", "method.declaration", "method.static", "namespace", "namespace.static", "variable.local", "function.declaration",
         "function.definition", "function.report", "interface.declaration", "interface.defaultLibrary",
         "keyword", "keyword.declaration", "keyword.state", "keyword.input", "keyword.output", "keyword.local", "keyword.static", "modifier", "modifier.static", "namespace.declaration", "number",
-        "parameter", "parameter.readonly", "parameter.static", "property", "property.declaration", "property.static", "variable",
-        "variable.declaration", "variable.defaultLibrary", "variable.readonly", "variable.static",
+        "parameter", "parameter.readonly", "parameter.static", "property", "property.declaration", "property.readonly", "property.static", "variable",
+        "variable.declaration", "variable.defaultLibrary", "variable.readonly", "variable.deprecated", "variable.static",
         "type.unit", "type.quantity", "property.unit", "variable.quantity", "function.external",
         "method.sideEffect", "property.sideEffect", "variable.validation", "variable.report",
         "keyword.sideEffect", "keyword.external", "keyword.validation",
         "keyword.report", "keyword.solver", "function.solver",
-        "property.external", "property.solver", "keyword.deprecated", "class.deprecated", "variable.state",
+        "property.external", "property.solver", "keyword.deprecated", "property.deprecated", "class.deprecated", "variable.state",
         "variable.input", "parameter.input", "variable.output", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "property.db",
@@ -3494,6 +3494,20 @@ function Assert-VscodeExtensionContract {
         "variable.local" = @(
             "variable.other.local.englang",
             "variable.other.definition.englang"
+        )
+        "property.readonly" = @(
+            "variable.other.public-member.englang",
+            "variable.other.property.englang"
+        )
+        "variable.deprecated" = @(
+            "keyword.control.deprecated.englang",
+            "variable.other.definition.englang",
+            "variable.other.local.englang"
+        )
+        "property.deprecated" = @(
+            "keyword.control.deprecated.englang",
+            "variable.other.public-member.englang",
+            "variable.other.property.englang"
         )
     }
     foreach ($Selector in $RequiredSemanticObservedFallbacks.Keys) {
@@ -3641,6 +3655,10 @@ function Assert-VscodeExtensionContract {
             if ($null -eq $RequiredTheme.Theme.semanticTokenColors.PSObject.Properties[$RequiredThemeSelector]) {
                 throw "VS Code extension theme $($RequiredTheme.Label) missing semantic token color $RequiredThemeSelector"
             }
+        }
+        $ThemeOnlySelectors = @($RequiredTheme.Theme.semanticTokenColors.PSObject.Properties.Name | Where-Object { $RequiredThemeSelectors -notcontains [string]$_ } | Sort-Object -Unique)
+        if ($ThemeOnlySelectors.Count -gt 0) {
+            throw "VS Code extension theme $($RequiredTheme.Label) has semantic token colors without fallback scope mappings: $($ThemeOnlySelectors -join ', ')"
         }
     }
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {

@@ -334,8 +334,8 @@ from generic fallback colors. Important pairings:
 | `namespace`, `namespace.declaration` | Imported or declared module namespaces. |
 | `number` | Numeric literals. |
 | `parameter`, `parameter.readonly` | Function parameters, args-like parameters, and read-only parameter roles. |
-| `property`, `property.declaration` | Property paths and declared schema/class/system fields. |
-| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly`, `variable.static` | Plain variables, local references, declared bindings, bundled value symbols, read-only constants, and static-like values. |
+| `property`, `property.declaration`, `property.readonly` | Property paths, declared schema/class/system fields, and read-only property roles. |
+| `variable`, `variable.local`, `variable.declaration`, `variable.defaultLibrary`, `variable.readonly`, `variable.deprecated`, `variable.static` | Plain variables, local references, declared bindings, bundled value symbols, read-only constants, deprecated variables, and static-like values. |
 | `type.unit`, `property.unit` | Unit literal and type coloring. |
 | `variable.quantity`, `property.quantity`, `parameter.quantity` | Quantity-bearing values and properties. |
 | `parameter.declaration` | Function and args parameter declarations. |
@@ -349,7 +349,7 @@ from generic fallback colors. Important pairings:
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |
 | `keyword.report`, `variable.report`, `property.report` | Report and plot operations. |
 | `function.solver`, `keyword.solver`, `variable.solver` | Solver and equation operations. |
-| `class.deprecated` | Deprecated legacy declaration names. |
+| `class.deprecated`, `property.deprecated` | Deprecated legacy declaration names and deprecated property roles. |
 | `variable.state`, `property.state` | System state tokens. |
 | `variable.input`, `parameter.input` | System inputs and input parameters. |
 | `variable.output` | System outputs and output-like workflow values. |
@@ -385,7 +385,7 @@ The extension also contributes optional `EngLang Dark` and `EngLang Light`
 color themes. Those themes define both TextMate fallback colors and direct
 `semanticTokenColors` for every EngLang selector contributed in `package.json`,
 including base selectors, standard modifiers, domain roles, and review-risk
-roles. Keep theme selectors aligned with this fallback map so users can choose
+roles. Keep theme selectors aligned with this fallback map; package validation rejects theme-only semantic selectors without fallback mappings so users can choose
 between their normal VS Code theme and a more colorful EngLang-specific theme.
 
 The fallback map currently references these TextMate scopes directly:

@@ -162,6 +162,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 703: Tightened native workflow guards so workflow 01/02/03 and their artifacts reject additional Python toolchain markers such as `.pyw`, `poetry`, `pyenv`, `tox`, `nox`, `mypy`, and `ruff`.
 - Batch 704: Reworded the Plotting reference so runtime workflow PlotSpec points are described as materialized TimeSeries data, with sample renderer points limited to report-only smoke tests.
 - Batch 705: Added VS Code semantic fallback coverage and a package-contract guard for the schema `index` modifier scope so TextMate and semantic-highlight inspection stay aligned.
+- Batch 706: Aligned bundled VS Code semantic theme selectors with package fallback mappings by adding readonly/deprecated property and variable selectors plus a package guard against theme-only selectors.
 
 ## Documentation Policy
 
