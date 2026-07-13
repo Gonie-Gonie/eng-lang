@@ -4106,6 +4106,9 @@ function Assert-VscodeExtensionContract {
     if (-not $CompletionProviderSource.Contains("((?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*)\.") -or -not $CompletionProviderSource.Contains("[receiver, lastSegment]")) {
         throw "VS Code member completions must preserve dotted receivers and fall back to the terminal receiver segment for generated field maps"
     }
+    if (-not $CompletionProviderSource.Contains("function stripLineComment(text)") -or -not $CompletionProviderSource.Contains("function lineCommentStart(text)") -or -not $CompletionProviderSource.Contains("const withoutComment = stripLineComment(line)") -or $CompletionProviderSource.Contains("line.replace(/#.*/")) {
+        throw "VS Code local field completions must strip # and // comments with string-aware parsing"
+    }
     $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticDebugToken in @(
         "showSemanticTokensDebug",

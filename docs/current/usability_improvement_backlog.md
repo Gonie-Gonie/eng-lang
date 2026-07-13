@@ -132,6 +132,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 673: Reworked `predict`, `train regression`, and `apply` TextMate phrase scopes so dotted model/table/step/case operands use member-aware first-paint highlighting while local workflow-step coloring is preserved.
 - Batch 674: Reworked `integrate(...)`, statistical axis calls, and summary export field TextMate scopes so dotted series, axis, and summary operands use member-aware first-paint highlighting.
 - Batch 675: Added a TextMate grammar regression guard requiring workflow property fallback scopes to include `#members`, with only fixed `status` key/literal scopes allowed as exceptions.
+- Batch 676: Aligned VS Code local args/schema field completions with quick-fix parsing so `#` and `//` inside strings are not mistaken for comments.
 
 ## Documentation Policy
 

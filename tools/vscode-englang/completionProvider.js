@@ -84,7 +84,7 @@ function argsFieldCompletionsFromDocument(document) {
   const fields = [];
   const seen = new Set();
   for (const line of body.split(/\r?\n/)) {
-    const withoutComment = line.replace(/#.*/, "").replace(/\/\/.*/, "");
+    const withoutComment = stripLineComment(line);
     const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]*)/.exec(withoutComment);
     if (!match || seen.has(match[1])) {
       continue;
@@ -219,7 +219,7 @@ function schemaFieldCompletionsFromBody(body) {
   const fields = [];
   const seen = new Set();
   for (const line of body.split(/\r?\n/)) {
-    const withoutComment = line.replace(/#.*/, "").replace(/\/\/.*/, "");
+    const withoutComment = stripLineComment(line);
     const match = /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:\s*([^=]*)/.exec(withoutComment);
     if (!match || seen.has(match[1])) {
       continue;
@@ -234,6 +234,33 @@ function schemaFieldCompletionsFromBody(body) {
     });
   }
   return fields;
+}
+
+function stripLineComment(text) {
+  const index = lineCommentStart(text);
+  return index >= 0 ? text.slice(0, index) : text;
+}
+
+function lineCommentStart(text) {
+  let inString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === "\\" && inString) {
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString && character === "#") {
+      return index;
+    }
+    if (!inString && character === "/" && text[index + 1] === "/") {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function blockCloseIndex(text, openIndex) {
