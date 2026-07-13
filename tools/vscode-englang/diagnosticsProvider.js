@@ -123,14 +123,22 @@ class EngDiagnosticsController {
             return;
           }
           if (!review) {
-            this.applyUnavailableSnapshotDiagnostic(document, "live buffer");
+            this.applyUnavailableSnapshotDiagnostic(
+              document,
+              "live buffer",
+              diagnosticsFailureDetail({ parseError: new Error("empty snapshot response") })
+            );
             return;
           }
           this.finishParsedDocumentCheck(document, "live buffer", documentVersion, review);
         })
         .catch((error) => {
           this.appendLine(`live buffer check failed: ${error.message}`);
-          this.applyUnavailableSnapshotDiagnostic(document, "live buffer");
+          this.applyUnavailableSnapshotDiagnostic(
+            document,
+            "live buffer",
+            diagnosticsFailureDetail({ error })
+          );
         });
       return;
     }
@@ -166,14 +174,17 @@ class EngDiagnosticsController {
     try {
       review = JSON.parse(stdout);
     } catch (parseError) {
+      const failure = diagnosticsFailureDetail({ error, stderr, stdout, parseError });
       this.appendLine(`Unable to parse EngLang ${runtimeLabel} output: ${parseError.message}`);
+      if (failure.problemMessage) {
+        this.appendLine(`diagnostics failure detail: ${failure.problemMessage}`);
+      }
       if (error) {
         this.appendLine(error.message);
       }
-      this.applyUnavailableSnapshotDiagnostic(document, runtimeLabel);
+      this.applyUnavailableSnapshotDiagnostic(document, runtimeLabel, failure);
       return;
     }
-
     this.finishParsedDocumentCheck(document, runtimeLabel, documentVersion, review);
   }
 
@@ -192,11 +203,17 @@ class EngDiagnosticsController {
     this.appendLine(`diagnostics (${runtimeLabel}): ${errors} error(s), ${warnings} warning(s)`);
   }
 
-  applyUnavailableSnapshotDiagnostic(document, runtimeLabel = "editor") {
+  applyUnavailableSnapshotDiagnostic(document, runtimeLabel = "editor", failure = undefined) {
     const settingHint = diagnosticsSettingHint(runtimeLabel);
+    const failureMessage = failure?.problemMessage
+      ? ` Tool failure: ${failure.problemMessage}.`
+      : "";
+    const outputHint = failure?.hasOutput
+      ? " See the EngLang output channel for stderr/stdout details."
+      : "";
     const diagnostic = new vscode.Diagnostic(
       firstLineRange(document),
-      `EngLang ${runtimeLabel} diagnostics did not return editor JSON. Run EngLang: Show Tooling Status to confirm selected tool paths, or check ${settingHint}.`,
+      `EngLang ${runtimeLabel} diagnostics did not return editor JSON.${failureMessage} Run EngLang: Show Tooling Status to confirm selected tool paths, or check ${settingHint}.${outputHint}`,
       vscode.DiagnosticSeverity.Error
     );
     diagnostic.source = diagnosticSource(runtimeLabel);
@@ -286,6 +303,44 @@ function diagnosticTags(item) {
   return [];
 }
 
+function diagnosticsFailureDetail(details = {}) {
+  const problemParts = [];
+  const error = details.error;
+  if (error?.code !== undefined) {
+    problemParts.push(`exit code ${error.code}`);
+  } else if (error?.signal) {
+    problemParts.push(`signal ${error.signal}`);
+  }
+  if (details.parseError?.message) {
+    problemParts.push(`invalid JSON: ${compactDiagnosticText(details.parseError.message, 120)}`);
+  }
+
+  const stderrText = compactDiagnosticText(details.stderr);
+  const stdoutText = compactDiagnosticText(details.stdout);
+  if (stderrText) {
+    problemParts.push(`stderr: ${stderrText}`);
+  } else if (stdoutText) {
+    problemParts.push(`stdout: ${stdoutText}`);
+  } else if (error?.message) {
+    problemParts.push(compactDiagnosticText(error.message));
+  } else if (!stdoutText) {
+    problemParts.push("empty stdout");
+  }
+
+  return {
+    problemMessage: problemParts.filter(Boolean).join("; "),
+    hasOutput: Boolean(stderrText || stdoutText)
+  };
+}
+
+function compactDiagnosticText(value, maxLength = 220) {
+  const text = String(value ?? "").replace(/\s+/g, " ").trim();
+  if (text.length <= maxLength) {
+    return text;
+  }
+  return `${text.slice(0, Math.max(0, maxLength - 1))}...`;
+}
+
 function diagnosticSource(runtimeLabel) {
   const label = String(runtimeLabel ?? "").toLowerCase();
   if (label.includes("live")) {
@@ -340,6 +395,7 @@ module.exports = {
   diagnosticCodeTarget,
   diagnosticSource,
   diagnosticTags,
+  diagnosticsFailureDetail,
   diagnosticsSettingHint,
   severityName,
   toDiagnostics

@@ -138,6 +138,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 679: Made TextMate `print` and `log` workflow phrase scopes member-aware so public fields such as `model.rmse` and `predictions.output_column` stay colorful in runtime message statements before semantic tokens arrive.
 - Batch 680: Made TextMate `run command` phrase scopes member-aware so external-boundary command operands such as `args.simulator` split into parameter/member tokens before semantic highlighting arrives.
 - Batch 681: Added a TextMate grammar guard requiring begin/end workflow phrase scopes to include `#members`, preventing print/log/run-style operand highlighting gaps from returning.
+- Batch 682: Improved VS Code unavailable-diagnostics UX so Problems entries include a short `Tool failure:` reason when the selected checker exits without editor JSON, while detailed stderr/stdout stays in the EngLang output channel.
 
 ## Documentation Policy
 

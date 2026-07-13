@@ -174,9 +174,11 @@ uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
 Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. If diagnostics cannot parse editor JSON, run
-`EngLang: Show Tooling Status` to inspect the selected paths. Set
-`englang.lintOnChange = false` to disable live typing checks while keeping
-live open/save analysis.
+`EngLang: Show Tooling Status` to inspect the selected paths. When the selected
+tool exits without editor JSON, the Problems entry includes a short
+`Tool failure:` reason and the EngLang output channel keeps stderr/stdout
+details. Set `englang.lintOnChange = false` to disable live typing checks while
+keeping live open/save analysis.
 
 Quick fixes are available for common syntax migrations, quantity/unit
 annotations, schema column annotations, side-effect confirmations, and invalid

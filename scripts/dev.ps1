@@ -4253,7 +4253,12 @@ function Assert-VscodeExtensionContract {
         "diagnostic.source = source",
         "diagnostic.source = diagnosticSource(runtimeLabel)",
         "EngLang: Show Tooling Status",
-        "diagnostics did not return editor JSON"
+        "diagnostics did not return editor JSON",
+        "Tool failure:",
+        "diagnosticsFailureDetail",
+        "compactDiagnosticText",
+        "stdout:",
+        "See the EngLang output channel for stderr/stdout details"
     )) {
         if (-not $DiagnosticsSource.Contains($RequiredDiagnosticsToken)) {
             throw "VS Code extension missing diagnostics provider token $RequiredDiagnosticsToken"
