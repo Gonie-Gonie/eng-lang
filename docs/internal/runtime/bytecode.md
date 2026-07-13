@@ -5,7 +5,7 @@ TimeSeries/statistics metadata, PlotSpec/SVG/manifest output, explicit
 write/export outputs, constrained file operation records, output manifest
 metadata, structured run-log messages, explicit process-result records, system
 metadata, runtime test-result records, residuals, system IR dependencies,
-metadata-only solver_plan seeds, an explicit solver boundary, and a fixed-step
+metadata-only solver_plan records, an explicit solver boundary, and a fixed-step
 ODE path for the official one-state thermal system:
 
 ```text
@@ -13,7 +13,7 @@ ODE path for the official one-state thermal system:
   -> compiler check
   -> top-level workflow metadata
   -> .engbc bytecode v1
-  -> native VM seed
+  -> native VM execution
   -> result.engres v1
   -> PlotSpec v1
   -> SVG + plot manifest + run log + process results + test results + output manifest
@@ -142,7 +142,7 @@ Data-driven modeling track records:
 typed_payload.ml
 ```
 
-The `typed_payload` is a Report seed. It carries computed statistics for the
+The `typed_payload` is the report payload. It carries computed statistics for the
 official CSV path, integration metadata, policy results, and reviewable system
 metadata. Future-track fields may carry deterministic uncertainty summaries and
 data-driven modeling metrics/plot points:

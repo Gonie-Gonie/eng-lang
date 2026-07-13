@@ -10,7 +10,7 @@ development scope: named tracks
 stable core: reserved until behavior and support are genuinely stable
 ```
 
-Use this file to understand why certain historical implementation seeds exist. Do not use it
+Use this file to understand why certain historical implementation-track entries exist. Do not use it
 as the active release roadmap; use `docs/current/version_plan.md`,
 `docs/current/tracks.md`, and `docs/current/status.md` instead.
 
@@ -68,7 +68,7 @@ When describing these features in public docs:
 ```text
 Say:
   current supported scope
-  internal implementation seed
+  internal implementation evidence
   uncertainty track
   data-driven modeling track
   IDE/LSP track
@@ -78,7 +78,7 @@ Say:
 Avoid:
   using old high-numbered planning labels as public release names
   claiming stable-core support before the stable gate is met
-  implying implementation seeds are complete engines
+  implying internal implementation evidence is a complete engine
 ```
 
 ## Next Audit Point

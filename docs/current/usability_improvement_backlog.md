@@ -95,6 +95,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 636: Extended `workflows-test` so workflow 01/02/03 runtime artifacts fail if Python/notebook markers or `run command` wording reappear after native execution, not just in source/docs and process counts.
 - Batch 637: Reworded VS Code and native IDE network boundary tables to show `response_source` as response source instead of generic status, while preserving compatibility status fields in artifacts.
 - Batch 638: Added operator-token fallback includes to VS Code workflow phrase scopes for print/log, standard text writes, run command, summarize, and HTTP request lines so operators color consistently across native workflow statements.
+- Batch 639: Reworded current/internal docs that still described implemented tracks as implementation seeds, and added a docs-check guard so those stale implementation-seed phrases do not return outside archives.
 
 ## Documentation Policy
 

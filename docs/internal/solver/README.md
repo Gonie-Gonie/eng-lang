@@ -23,7 +23,7 @@ Use these labels consistently:
 - `Public package`: documented workflow available in the current portable
   package.
 - `Supported`: narrow, documented, tested main behavior with explicit limits.
-- `Internal`: implementation seed or regression fixture, not public support.
+- `Internal`: implementation evidence or regression fixture, not public support.
 - `Planned`: future work.
 
 Do not present one-state thermal, source-equation ODE, state-space, Newton,

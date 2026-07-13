@@ -1342,6 +1342,34 @@ function Test-PublicWorkflowDocs {
     Write-Host "Public workflow docs wording check passed."
 }
 
+function Test-CurrentDocsImplementationWording {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths
+    )
+
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            throw "missing current documentation wording input at $path"
+        }
+        $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+        foreach ($stalePhrase in @(
+            "Implementation seeds",
+            "implementation seed",
+            "implementation seeds",
+            "metadata-only solver_plan seeds",
+            "native VM seed",
+            "Report seed"
+        )) {
+            if ($text.IndexOf($stalePhrase, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+                throw "current docs still contain stale implementation wording '$stalePhrase' at $path"
+            }
+        }
+    }
+
+    Write-Host "Current docs implementation wording check passed."
+}
+
 function Test-ArchitectureDocsWording {
     param(
         [Parameter(Mandatory = $true)]
@@ -1523,6 +1551,12 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "docs\workflows\native_surrogate_case_workflow.md"),
         (Join-Path $RepoRoot "docs\release\v0.1.0.md"),
         (Join-Path $RepoRoot "examples\workflows\02_native_surrogate_case_workflow\expected\review_summary.md")
+    )
+    Test-CurrentDocsImplementationWording -Paths @(
+        (Join-Path $RepoRoot "LLM_CONTEXT.md"),
+        (Join-Path $RepoRoot "docs\development\05_historical_stable_core_gap_audit.md"),
+        (Join-Path $RepoRoot "docs\internal\runtime\bytecode.md"),
+        (Join-Path $RepoRoot "docs\internal\solver\README.md")
     )
     Test-ArchitectureDocsWording -Paths @(
         (Join-Path $RepoRoot "docs\architecture\02_compiler_frontend.md"),

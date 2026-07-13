@@ -87,10 +87,10 @@ The public package centers on:
 
 ## Internal / Narrow Tracks
 
-Implementation seeds for uncertainty, data-driven modeling, LSP, JIT/AOT,
+Implementation evidence for uncertainty, data-driven modeling, LSP, JIT/AOT,
 domain/component, state-space, class/domain-object, and solver work may exist on
-`main`. Treat them as `Internal` unless the status documents state a narrow
-`Supported` scope and evidence.
+`main`. Treat those tracks as `Internal` unless the status documents state a
+narrow `Supported` scope and evidence.
 
 Solvers are producers of typed TimeSeries and reviewable residual/convergence
 artifacts. They are supporting capability, not the primary identity of EngLang.
