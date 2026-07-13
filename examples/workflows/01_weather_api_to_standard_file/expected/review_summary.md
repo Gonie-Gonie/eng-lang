@@ -8,7 +8,7 @@ filter/require_one station transform, resolved selected station_id from station.
 schema WeatherApiRecord with two typed hourly records promoted from api_contract.records
 WeatherApiPayload contract validated directly from api_response.body
 generic DateTime coverage artifact with Gregorian-year expected count, missing interval, status, and max gap
-native http get boundary for api_response with args.api_url, resolved station query, pinned response, SHA-256, retry, timeout, and cache key
+native http get boundary for api_response with args.api_url, resolved station query, args.pinned_response_file, SHA-256, retry, timeout, and cache key
 network cache entry owned by network_request/api_response with region/year key parts and replayable response materialization
 workflow-level response metadata bindings for method, query URL, response source, status code, status class, and response SHA-256
 review/provenance entries showing weather source_format = json_records

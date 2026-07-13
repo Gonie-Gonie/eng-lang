@@ -41,7 +41,7 @@ args {
     year: Int = 2024
     region: String = "demo"
     station_map: CsvFile = file("data/station_map_sample.csv")
-    offline_response_file: JsonFile = file("data/offline_weather_response.json")
+    pinned_response_file: JsonFile = file("data/offline_weather_response.json")
     api_url: Url = url("https://api.example.org/weather/hourly")
     output: DirectoryPath = dir("outputs")
 }
@@ -65,7 +65,7 @@ with {
         station = station.station_id
         year = args.year
     }
-    offline_response = args.offline_response_file
+    offline_response = args.pinned_response_file
     expected_sha256 = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"
     retry = 2
     timeout = 30 s

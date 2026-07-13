@@ -3,7 +3,7 @@
 This workflow demonstrates a native, domain-neutral API-to-artifact pattern:
 
 ```text
-station table -> selected station -> args-driven HTTP boundary with pinned response/cache replay ->
+station table -> selected station -> args-driven HTTP boundary with args.pinned_response_file/cache replay ->
 native HTTP response object metadata -> response body artifact -> API JSON
 schema contract -> JSON records weather table -> TimeSeries coverage ->
 native standard_text artifact and quality text artifact
@@ -12,7 +12,7 @@ native standard_text artifact and quality text artifact
 The workflow uses:
 
 ```text
-eng.net       http get args.api_url with selected station query, pinned response, SHA-256, retry, timeout, cache key, response source/status-code/hash/query URL fields
+eng.net       http get args.api_url with selected station query, args.pinned_response_file, SHA-256, retry, timeout, cache key, response source/status-code/hash/query URL fields
 eng.cache     cache records and replayable response materialization from args-driven key parts
 eng.config    direct JSON promotion validation from the native HTTP response body
 eng.table     station CSV promotion, JSON records table promotion, and filter/require_one row selection
@@ -24,7 +24,7 @@ Expected saved-run properties:
 
 ```text
 process_results.json has process_count = 0
-cache_manifest.json records the api_response network cache key from region/year args
+cache_manifest.json records the api_response network cache key from region/year args and the pinned response materialization path
 result.engres records the resolved network query station value from station.station_id
 weather_quality_summary.txt records the native response source, status code, status class, response hash, and query URL
 result.engres typed_payload.config_promotions validates WeatherApiPayload from api_response.body

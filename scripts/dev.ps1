@@ -570,6 +570,7 @@ function Invoke-WorkflowsTest {
                     "fixture fetched",
                     "network/cache fixture",
                     "HTTP fixture",
+                    "offline_response_file",
                     "schema StationMap with two fixture rows"
                 )) {
                     if ($WorkflowPublicText.Contains($ForbiddenWorkflowWording)) {
@@ -685,6 +686,9 @@ function Invoke-WorkflowsTest {
             $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
             $CacheManifestJson = Get-Content -LiteralPath $CacheManifestPath -Raw
             $RunLogJson = Get-Content -LiteralPath $RunLogPath -Raw
+            if (-not $WorkflowSource.Contains("pinned_response_file") -or $WorkflowSource.Contains("offline_response_file")) {
+                throw "Workflow 01 native API args must expose pinned_response_file and not offline_response_file"
+            }
             foreach ($RequiredWeatherResultToken in @(
                 '"network_boundaries"',
                 '"network_boundary_count": 1',
