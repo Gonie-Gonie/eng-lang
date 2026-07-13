@@ -90,6 +90,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 631: Added a VS Code package-contract guard that keeps generated native module completions on the short `Native:` detail wording and prevents full status labels or planned-scope tails from returning.
 - Batch 632: Routed native IDE module status helpers through compiler-owned `status_label`/`status_detail` fields and shortened VS Code/native fallback-only `native_preview` labels to `Native` so UI fallback wording does not drift from completion wording.
 - Batch 633: Removed compatibility-only model option aliases from VS Code and LSP model quick-fix candidate tables so repairs keep using canonical `test` and `hidden` option names even if legacy aliases remain highlight-only metadata.
+- Batch 634: Added the missing VS Code local rename action for `response.status` diagnostics so fallback quick fixes now match LSP guidance and rewrite the compatibility alias to `response.response_source`.
 
 ## Documentation Policy
 

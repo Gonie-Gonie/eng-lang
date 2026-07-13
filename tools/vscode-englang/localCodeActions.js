@@ -132,6 +132,18 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "W-NET-RESPONSE-STATUS-ALIAS") {
+      const action = diagnosticRangeReplacementAction(
+        document,
+        diagnostic,
+        "response_source",
+        "Rename status to response_source"
+      );
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "W-TABLE-LEGACY-SELECT-FIRST-ROW") {
       const action = selectFirstRowMigrationAction(document, diagnostic);
       if (action) {
