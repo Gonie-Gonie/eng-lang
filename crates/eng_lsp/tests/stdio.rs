@@ -887,6 +887,7 @@ with {
     cache_ttl = forever
 }
 legacy_response_hash = response.hash
+legacy_response_status = response.status
 
 bad_url_response = http get url("ftp://example.org/data.json")
 
@@ -1140,6 +1141,7 @@ report {
         "E-NET-HASH-MISMATCH",
         "W-NET-FIXTURE-ALIAS",
         "W-NET-RESPONSE-HASH-ALIAS",
+        "W-NET-RESPONSE-STATUS-ALIAS",
         "E-IO-JSON-FIELD-ACCESS-001",
         "E-CACHE-KEY-NONDETERMINISTIC",
         "E-CACHE-DIR",
@@ -1364,6 +1366,12 @@ report {
         &uri,
         "Rename hash to response_hash",
         "response_hash",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Rename status to response_source",
+        "response_source",
     );
     assert_action_edit_contains(
         actions,
@@ -1796,6 +1804,9 @@ schema SensorData {
     m_dot = 1 kg/s
 }
 
+response = http get url("https://example.org/data.json")
+cli_legacy_response_status = response.status
+
 bad_url_response = http get url("ftp://example.org/data.json")
 
 get_with_body = http get url("https://example.org/submit")
@@ -1988,6 +1999,12 @@ report {
         &uri,
         "Replace URL with https://example.org",
         "\"https://example.org\"",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Rename status to response_source",
+        "response_source",
     );
     assert_action_edit(actions, &uri, "Change HTTP method to post", "post");
     assert_action_edit(

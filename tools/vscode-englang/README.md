@@ -37,7 +37,7 @@ embedding compiler logic in JavaScript.
   parenthesizing, unknown stdlib module replacements, planned/internal stdlib
   import removal, schema column annotation migrations, required file-mutation
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies, invalid
-  legacy network `fixture` aliases, legacy response `.hash` aliases,
+  legacy network `fixture` aliases, legacy response `.hash`/`.status` aliases,
   raw `read json` field-access promotion edits,
   HeatRate TimeSeries sum-to-integrate repairs,
   statement-only binding prefix removals for report, validation, side-effect,
