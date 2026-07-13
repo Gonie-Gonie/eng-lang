@@ -3108,9 +3108,12 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredVscodeInstallPreflightToken in @(
         "Assert-VscodeInstallPreflight",
+        "Get-VscodeUserExtensionsDirectory",
         "Get-InstalledVscodeEnglangExtensionPaths",
         "Get-RunningVscodeProcessSummaries",
         "Invoke-NativeInDirectory",
+        "--user-data-dir",
+        "--extensions-dir",
         "vscode-install",
         "Close all VS Code windows before reinstalling EngLang",
         "vscode-package"
@@ -6073,8 +6076,12 @@ function Get-VscodeCli {
     return $null
 }
 
+function Get-VscodeUserExtensionsDirectory {
+    return Join-Path $env:USERPROFILE ".vscode\extensions"
+}
+
 function Get-InstalledVscodeEnglangExtensionPaths {
-    $ExtensionRoot = Join-Path $env:USERPROFILE ".vscode\extensions"
+    $ExtensionRoot = Get-VscodeUserExtensionsDirectory
     if (-not (Test-Path -LiteralPath $ExtensionRoot -PathType Container)) {
         return @()
     }
@@ -6123,10 +6130,13 @@ function Invoke-VscodeInstall {
         throw "VS Code CLI not found. Install the VSIX manually from $VsixPath, or add the VS Code 'code' command to PATH."
     }
     $InstallWorkingDirectory = Join-Path $CacheHome "vscode-install"
+    $InstallUserDataDirectory = Join-Path $InstallWorkingDirectory "user-data"
+    $InstallExtensionsDirectory = Get-VscodeUserExtensionsDirectory
+    New-Item -ItemType Directory -Force -Path $InstallUserDataDirectory, $InstallExtensionsDirectory | Out-Null
     try {
-        Invoke-NativeInDirectory -WorkingDirectory $InstallWorkingDirectory -FilePath $Code "--install-extension" $VsixPath "--force"
+        Invoke-NativeInDirectory -WorkingDirectory $InstallWorkingDirectory -FilePath $Code "--user-data-dir" $InstallUserDataDirectory "--extensions-dir" $InstallExtensionsDirectory "--install-extension" $VsixPath "--force"
     } catch {
-        throw "VS Code extension install failed. Close all VS Code windows and rerun .\dev.bat vscode-install, or install the generated VSIX manually from $VsixPath. VS Code CLI logs, if any, are under $InstallWorkingDirectory. $($_.Exception.Message)"
+        throw "VS Code extension install failed. Close all VS Code windows and rerun .\dev.bat vscode-install, or install the generated VSIX manually from $VsixPath. VS Code CLI user data and logs, if any, are under $InstallUserDataDirectory. $($_.Exception.Message)"
     }
     Write-Host "Installed EngLang VS Code extension from $VsixPath"
     Write-Host "Reload VS Code windows that already had EngLang files open."
