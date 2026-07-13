@@ -158,6 +158,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 699: Extended `E-BLOCK-BINDING-001` and TextMate anchoring to block-member declarations such as `state`, `input`, `equation`, `port`, and `conservation` when they are incorrectly used as bound values.
 - Batch 700: Anchored the dedicated TextMate `args { ... }` block scope to statement starts so bound `bad_args = args {` no longer receives args-block first-paint highlighting.
 - Batch 701: Extended bound header diagnostics to metadata/member keywords such as `index`, `package`, and `version`, and narrowed TextMate `index` highlighting to schema-field positions.
+- Batch 702: Added `E-OPTION-BINDING-001` for workflow option assignments such as `unit y = kW` used as bound values, and narrowed root TextMate unit-option highlighting to line-start option positions.
 
 ## Documentation Policy
 

@@ -11985,6 +11985,85 @@ fn bound_side_effect_statement_diagnostic(binding: &FastBinding) -> Option<Diagn
         Some("Write output and side-effect statements as top-level workflow statements such as `print ...`, `log info ...`, `write text ...`, or `download ... to ...`; bind only the explicit result values supported by the workflow syntax."),
     ))
 }
+fn bound_workflow_option_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let key = bound_workflow_option_key(&binding.expression)?;
+    Some(Diagnostic::error(
+        "E-OPTION-BINDING-001",
+        binding.line,
+        &format!("Workflow option `{key}` cannot be used as a bound value."),
+        Some("Move workflow options into a `with { ... }` block attached to the statement they configure, such as `plot Q over Time` followed by `with { unit y = kW }`."),
+    ))
+}
+
+fn bound_workflow_option_key(expression: &str) -> Option<String> {
+    let trimmed = expression.trim_start();
+    if let Some(rest) = trimmed.strip_prefix("unit ") {
+        let (axis, value) = rest.split_once('=')?;
+        let axis = axis.trim();
+        if axis.is_empty() || value.trim().is_empty() {
+            return None;
+        }
+        let key = format!("unit {axis}");
+        return known_with_option(&key).then_some(key);
+    }
+
+    let (key, value) = trimmed.split_once('=')?;
+    let key = key.trim();
+    if key.is_empty() || value.trim().is_empty() {
+        return None;
+    }
+    exposed_workflow_option_key(key).then(|| key.to_owned())
+}
+
+fn exposed_workflow_option_key(key: &str) -> bool {
+    known_with_option(key)
+        || matches!(
+            key,
+            "algorithm"
+                | "body"
+                | "body_size_limit"
+                | "bias"
+                | "case_id"
+                | "count"
+                | "end"
+                | "epochs"
+                | "expected_step"
+                | "features"
+                | "gain"
+                | "headers"
+                | "hidden"
+                | "key"
+                | "kind"
+                | "lower"
+                | "max_gap"
+                | "mode"
+                | "n"
+                | "offset"
+                | "output_root"
+                | "query"
+                | "relative_error"
+                | "response_body_limit"
+                | "return_column"
+                | "scale"
+                | "sigma"
+                | "split"
+                | "start"
+                | "status"
+                | "status_code"
+                | "step"
+                | "target"
+                | "template"
+                | "test"
+                | "timeout"
+                | "transaction"
+                | "upper"
+                | "values"
+                | "x"
+                | "y"
+                | "year"
+        )
+}
+
 fn bound_block_header_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
     let command = leading_statement_word(&binding.expression, BLOCK_HEADER_COMMANDS)?;
     Some(Diagnostic::error(
@@ -12116,6 +12195,10 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         return;
     }
     if let Some(diagnostic) = bound_side_effect_statement_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
+        return;
+    }
+    if let Some(diagnostic) = bound_workflow_option_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
         return;
     }

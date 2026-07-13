@@ -1124,6 +1124,7 @@ Assert-ScopeDoesNotMatchText -Scope "meta.declaration.system-member.englang" -Te
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.equation.englang" -Text 'bad_equation = equation balance: Q eq load' -Description "unsupported bound equation declaration"
 Assert-ScopeDoesNotMatchText -Scope "meta.declaration.interface-member.englang" -Text 'bad_port = port heat: Thermal' -Description "unsupported bound interface member declaration"
 Assert-ScopeDoesNotMatchText -Scope "storage.modifier.schema.englang" -Text 'bad_index = index time' -Description "unsupported bound schema index modifier"
+Assert-ScopeDoesNotMatchText -Scope "meta.report.unit-axis.englang" -Text 'bad_unit = unit y = kW' -Description "unsupported bound workflow unit option"
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $PublicTypes -Description "LSP public type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels $PublicGenericTypes -Description "LSP public generic type"
 Assert-ScopeMatchesLabels -Scope "meta.type.generic.englang" -Labels @("Array[String]", "List[Int]") -Description "schema collection generic type"

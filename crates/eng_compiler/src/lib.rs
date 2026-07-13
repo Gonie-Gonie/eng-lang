@@ -10816,6 +10816,47 @@ system Envelope {
         }
     }
     #[test]
+    fn rejects_bound_workflow_option_assignments() {
+        for expression in [
+            "bad_unit_y = unit y = kW",
+            "bad_unit_x = unit x = h",
+            "bad_display_unit = display_unit = kW",
+            "bad_timeout = timeout = 10 s",
+            "bad_body_size_limit = body_size_limit = 2 MB",
+            "bad_status_code = status_code = 201",
+            "bad_template = template = file(\"template.txt\")",
+            "bad_allow_failure = allow_failure = true",
+            "bad_status = status = completed",
+        ] {
+            let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
+
+            assert!(report.has_errors(), "{expression} should be rejected");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "E-OPTION-BINDING-001"),
+                "{expression} should emit E-OPTION-BINDING-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"),
+                "{expression} should not fall through to E-FN-CALL-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "W-QTY-AMBIG-001"),
+                "{expression} should not fall through to W-QTY-AMBIG-001"
+            );
+        }
+    }
+
+    #[test]
     fn rejects_bound_validation_statement_commands() {
         for expression in [
             "bad_validate = validate Q > 0 kW",

@@ -2902,7 +2902,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.report.unit-axis.englang",
-                                                                    "match":  "\\b(unit)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
+                                                                    "match":  "^\\s*(unit)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
                                                                     "captures":  {
                                                                                      "1":  {
                                                                                                "name":  "variable.parameter.property.englang"
