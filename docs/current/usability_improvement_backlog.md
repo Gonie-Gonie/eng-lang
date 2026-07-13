@@ -106,6 +106,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 647: Cleaned the public native surrogate workflow guide so it names `db.summary` alongside DB manifests instead of documenting only the lower-level DB write artifacts.
 - Batch 648: Added TextMate first-paint coloring for compiler-catalog public workflow member fields, using generated HTTP/sample/DB/case field metadata instead of another hardcoded member list.
 - Batch 649: Extended TextMate public workflow member coloring through dotted receivers such as `study.designs.row_preview` and `args.designs.row_preview`, so member fields do not fall back to generic property coloring when the table/model source is nested.
+- Batch 650: Labeled VS Code Problems diagnostics by source as `eng/file` or `eng/live`, making saved-file and live-buffer linter results distinguishable without opening the EngLang output panel.
 
 ## Documentation Policy
 

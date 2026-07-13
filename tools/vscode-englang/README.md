@@ -167,7 +167,9 @@ listed as fixed commands.
 When the diagnostics mode is `live`, dirty buffers are checked after a short
 typing pause, so Problems can update before the file is saved. The EngLang output
 panel records whether Problems came from file diagnostics or live-buffer
-diagnostics and which tool path was selected. Saved-file open/save diagnostics
+diagnostics and which tool path was selected. The VS Code Problems source column
+uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
+Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. If diagnostics cannot parse editor JSON, run
 `EngLang: Show Tooling Status` to inspect the selected paths. Set

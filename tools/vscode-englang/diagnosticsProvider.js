@@ -182,7 +182,9 @@ class EngDiagnosticsController {
       return;
     }
     this.cacheReview(document, review);
-    this.diagnostics.set(document.uri, toDiagnostics(document, review));
+    this.diagnostics.set(document.uri, toDiagnostics(document, review, {
+      source: diagnosticSource(runtimeLabel)
+    }));
     this.updateReviewRiskDecorations(document, review);
     this.updateSemanticSymbolDecorations(document, review);
     const errors = review.diagnostics?.filter((item) => severityName(item.severity) === "error").length ?? 0;
@@ -208,7 +210,10 @@ class EngDiagnosticsController {
   }
 }
 
-function toDiagnostics(document, review) {
+function toDiagnostics(document, review, options = {}) {
+  const source = typeof options.source === "string" && options.source.length > 0
+    ? options.source
+    : "eng";
   return (review.diagnostics ?? []).map((item) => {
     const sourceLine = item.range?.start?.line ?? Math.max(0, (item.line ?? 1) - 1);
     const line = Math.max(0, Math.min(sourceLine, document.lineCount - 1));
@@ -229,7 +234,7 @@ function toDiagnostics(document, review) {
     if (code !== undefined) {
       diagnostic.code = code;
     }
-    diagnostic.source = "eng";
+    diagnostic.source = source;
     const tags = diagnosticTags(item);
     if (tags.length > 0) {
       diagnostic.tags = tags;
@@ -281,6 +286,17 @@ function diagnosticTags(item) {
   return [];
 }
 
+function diagnosticSource(runtimeLabel) {
+  const label = String(runtimeLabel ?? "").toLowerCase();
+  if (label.includes("live")) {
+    return "eng/live";
+  }
+  if (label.includes("file")) {
+    return "eng/file";
+  }
+  return "eng";
+}
+
 function diagnosticsSettingHint(runtimeLabel) {
   const label = String(runtimeLabel ?? "").toLowerCase();
   if (label.includes("live")) {
@@ -322,6 +338,7 @@ module.exports = {
   EngDiagnosticsController,
   diagnosticCode,
   diagnosticCodeTarget,
+  diagnosticSource,
   diagnosticTags,
   diagnosticsSettingHint,
   severityName,
