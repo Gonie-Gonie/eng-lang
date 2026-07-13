@@ -224,7 +224,8 @@ rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with a plain
 status summary, legend, selector/type/detail counts, representative source-text
 samples, normalized highlight rows with primary selector, mapped/missing
-fallback status, direct selector coverage, theme fallback scopes, and raw
+fallback status, direct selector coverage, status text that names both
+fallback-scope and direct-selector mapping gaps, theme fallback scopes, and raw
 highlight payload for debugging theme or scope mismatches. If no highlight data
 is available, the warning can
 open

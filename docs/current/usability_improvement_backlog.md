@@ -163,6 +163,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 704: Reworded the Plotting reference so runtime workflow PlotSpec points are described as materialized TimeSeries data, with sample renderer points limited to report-only smoke tests.
 - Batch 705: Added VS Code semantic fallback coverage and a package-contract guard for the schema `index` modifier scope so TextMate and semantic-highlight inspection stay aligned.
 - Batch 706: Aligned bundled VS Code semantic theme selectors with package fallback mappings by adding readonly/deprecated property and variable selectors plus a package guard against theme-only selectors.
+- Batch 707: Clarified VS Code highlight-inspection status text so fallback-scope gaps and direct-selector mapping gaps are both named in the first summary line.
 
 ## Documentation Policy
 

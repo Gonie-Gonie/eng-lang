@@ -384,7 +384,7 @@ function createCommandHandlers(options = {}) {
       source: document.uri.fsPath,
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       summary: {
-        status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope),
+        status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors),
         fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
         direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors),
         token_count: tokenCount,
@@ -512,14 +512,22 @@ function createCommandHandlers(options = {}) {
     await vscode.window.showTextDocument(debugDocument, { preview: false });
   }
 
-  function highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope) {
+  function highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors) {
     if (tokenCount === 0) {
       return "No role-aware highlight tokens were returned for this file.";
     }
+    const tokenLabel = `${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"}`;
+    const issues = [];
     if (tokensWithoutFallbackScope > 0) {
-      return `${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"} returned; ${tokensWithoutFallbackScope} token${tokensWithoutFallbackScope === 1 ? "" : "s"} need theme fallback scope coverage.`;
+      issues.push(`${tokensWithoutFallbackScope} token${tokensWithoutFallbackScope === 1 ? "" : "s"} need theme fallback scope coverage`);
     }
-    return `${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"} returned with theme fallback scope coverage.`;
+    if (tokensWithUnmappedSelectors > 0) {
+      issues.push(`${tokensWithUnmappedSelectors} token${tokensWithUnmappedSelectors === 1 ? "" : "s"} need direct selector mapping`);
+    }
+    if (issues.length > 0) {
+      return `${tokenLabel} returned; ${issues.join(" and ")}.`;
+    }
+    return `${tokenLabel} returned with theme fallback scope coverage and direct selector mappings.`;
   }
 
   function highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope) {
