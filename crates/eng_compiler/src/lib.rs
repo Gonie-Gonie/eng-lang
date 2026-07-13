@@ -7261,7 +7261,7 @@ fn push_review_fallbacks_json(json: &mut String, report: &CheckReport) {
     let mut first = true;
     for record in review_fallback_records(report) {
         push_review_comma(json, &mut first);
-        push_review_fallback_record_json(json, &record, 6);
+        push_review_fallback_record_json(json, &record, 6, &report.source_lines);
     }
     json.push_str("\n    ],\n");
 }
@@ -7270,6 +7270,7 @@ fn push_review_fallback_record_json(
     json: &mut String,
     record: &ReviewFallbackRecord,
     indent: usize,
+    source_lines: &[String],
 ) {
     let spaces = " ".repeat(indent);
     json.push_str(&format!("{spaces}{{\n"));
@@ -7313,7 +7314,15 @@ fn push_review_fallback_record_json(
         "{spaces}  \"reason\": \"{}\",\n",
         json_escape(&record.reason)
     ));
-    json.push_str(&format!("{spaces}  \"line\": {}\n", record.line));
+    json.push_str(&format!("{spaces}  \"line\": {},\n", record.line));
+    write_source_span_json(
+        json,
+        &format!("{spaces}  "),
+        record.line,
+        source_lines,
+        false,
+    );
+    json.push_str("\n");
     json.push_str(&format!("{spaces}}}"));
 }
 
@@ -7334,6 +7343,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             classification.level,
             &diagnostic.message,
             diagnostic.line,
+            &report.source_lines,
         );
     }
     for schema in &report.semantic_program.schemas {
@@ -7350,6 +7360,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                     schema.name, policy.policy, policy.column
                 ),
                 policy.line,
+                &report.source_lines,
             );
         }
     }
@@ -7372,6 +7383,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 process.binding
             ),
             process.line,
+            &report.source_lines,
         );
     }
     for export in &report.semantic_program.csv_exports {
@@ -7384,6 +7396,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             classification.level,
             &format!("CSV export `{}` writes `{}`", export.source, export.path),
             export.line,
+            &report.source_lines,
         );
     }
     for write in &report.semantic_program.writes {
@@ -7396,6 +7409,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             classification.level,
             &format!("write {} output to `{}`", write.format, write.path),
             write.line,
+            &report.source_lines,
         );
     }
     for operation in &report.semantic_program.file_operations {
@@ -7411,6 +7425,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 operation.operation
             ),
             operation.line,
+            &report.source_lines,
         );
     }
     for request in &report.semantic_program.net_requests {
@@ -7425,6 +7440,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 request.binding
             ),
             request.line,
+            &report.source_lines,
         );
     }
     for download in &report.semantic_program.net_downloads {
@@ -7437,6 +7453,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             classification.level,
             &format!("network download writes `{}`", download.target_value),
             download.line,
+            &report.source_lines,
         );
     }
     for dependency in &report.semantic_program.environment_dependencies {
@@ -7452,6 +7469,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 dependency.name
             ),
             dependency.line,
+            &report.source_lines,
         );
     }
     for uncertainty in &report.semantic_program.uncertainty_infos {
@@ -7467,6 +7485,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 uncertainty.kind
             ),
             uncertainty.line,
+            &report.source_lines,
         );
     }
     for system in &report.semantic_program.systems {
@@ -7479,6 +7498,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
             classification.level,
             &format!("system `{}` has solver metadata boundary", system.name),
             system.line,
+            &report.source_lines,
         );
     }
     for assembly in &report.semantic_program.component_assemblies {
@@ -7494,6 +7514,7 @@ fn push_review_risks_json(json: &mut String, report: &CheckReport) {
                 assembly.name, assembly.boundary.unknown_count, assembly.boundary.equation_count
             ),
             assembly.line,
+            &report.source_lines,
         );
     }
     json.push_str("\n    ]\n");
@@ -7506,6 +7527,7 @@ fn push_review_risk_json(
     level: &str,
     summary: &str,
     line: usize,
+    source_lines: &[String],
 ) {
     json.push_str("      {\n");
     json.push_str(&format!(
@@ -7521,7 +7543,9 @@ fn push_review_risk_json(
         "        \"summary\": \"{}\",\n",
         json_escape(summary)
     ));
-    json.push_str(&format!("        \"line\": {}\n", line));
+    json.push_str(&format!("        \"line\": {},\n", line));
+    write_source_span_json(json, "        ", line, source_lines, false);
+    json.push_str("\n");
     json.push_str("      }");
 }
 
@@ -12775,6 +12799,19 @@ system Envelope {
                 .and_then(serde_json::Value::as_str),
             Some("external boundary status")
         );
+        assert_eq!(
+            fallback
+                .pointer("/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(5)
+        );
+        assert!(value
+            .pointer("/review_document/risks")
+            .and_then(serde_json::Value::as_array)
+            .is_some_and(|risks| risks.iter().any(|risk| risk
+                .pointer("/source_span/column")
+                .and_then(serde_json::Value::as_u64)
+                == Some(1))));
         assert_eq!(
             value
                 .pointer("/review_document/root_contract/fallback_count")
