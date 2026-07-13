@@ -332,6 +332,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-CMD-UNKNOWN-VERB") {
+      const action = commandStyleFunctionCallAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-STDLIB-MODULE-UNKNOWN") {
       const action = stdlibModuleReplacementAction(document, diagnostic, options.completionItems);
       if (action) {
@@ -2939,6 +2946,154 @@ function commandTargetParenthesesAction(document, diagnostic) {
 function commandTargetFromDiagnostic(message) {
   return /Command target `([^`]+)` is ambiguous without parentheses\./
     .exec(String(message ?? ""))?.[1]?.trim();
+}
+
+function commandStyleFunctionCallAction(document, diagnostic) {
+  const verb = commandStyleVerbFromDiagnostic(diagnostic.message);
+  if (!verb) {
+    return undefined;
+  }
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const edit = commandStyleFunctionCallEdit(code, verb);
+  if (!edit) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    "Convert command-style call to function call",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(
+    document.uri,
+    new vscode.Range(line.lineNumber, edit.start, line.lineNumber, edit.end),
+    edit.newText
+  );
+  return action;
+}
+
+function commandStyleFunctionCallEdit(code, verb) {
+  if (!isIdentifier(verb)) {
+    return undefined;
+  }
+  const equals = code.indexOf("=");
+  const searchStart = equals >= 0 ? equals + 1 : lineIndent(code).length;
+  const match = findIdentifierFollowedByWhitespace(code, verb, searchStart);
+  if (!match) {
+    return undefined;
+  }
+  let argumentStart = match.end;
+  if (!/\s/.test(code[argumentStart] ?? "")) {
+    return undefined;
+  }
+  while (argumentStart < code.length && /\s/.test(code[argumentStart])) {
+    argumentStart += 1;
+  }
+  const end = code.trimEnd().length;
+  if (argumentStart >= end) {
+    return undefined;
+  }
+  const argument = commandStyleFunctionCallArguments(code.slice(argumentStart, end));
+  if (!argument) {
+    return undefined;
+  }
+  return { start: match.start, end, newText: `${verb}(${argument})` };
+}
+
+function commandStyleFunctionCallArguments(rest) {
+  const [target, clauses] = splitTopLevelCommandClauses(rest);
+  const trimmedTarget = target.trim();
+  if (!trimmedTarget || trimmedTarget.startsWith("(") || trimmedTarget.endsWith("{")) {
+    return undefined;
+  }
+  const args = [trimmedTarget];
+  for (const [name, value] of clauses) {
+    const trimmedValue = value.trim();
+    if (!trimmedValue) {
+      return undefined;
+    }
+    args.push(`${name}=${trimmedValue}`);
+  }
+  return args.join(", ");
+}
+
+function commandStyleVerbFromDiagnostic(message) {
+  const verb = /^`([^`]+)` is not a supported command-style verb\./
+    .exec(String(message ?? ""))?.[1]?.trim();
+  return isIdentifier(verb) ? verb : undefined;
+}
+
+function findIdentifierFollowedByWhitespace(text, name, searchStart) {
+  let cursor = Math.max(0, Math.min(searchStart, text.length));
+  while (cursor < text.length) {
+    const start = text.indexOf(name, cursor);
+    if (start < 0) {
+      return undefined;
+    }
+    const end = start + name.length;
+    if (identifierBoundary(text, start, end) && /\s/.test(text[end] ?? "")) {
+      return { start, end };
+    }
+    cursor = end;
+  }
+  return undefined;
+}
+
+function splitTopLevelCommandClauses(rest) {
+  const positions = topLevelCommandClausePositions(rest);
+  if (positions.length === 0) {
+    return [String(rest ?? "").trim(), []];
+  }
+  const target = rest.slice(0, positions[0].index).trim();
+  const clauses = positions.map(({ index, name }, positionIndex) => {
+    const valueStart = index + name.length;
+    const valueEnd = positions[positionIndex + 1]?.index ?? rest.length;
+    return [name, rest.slice(valueStart, valueEnd).trim()];
+  });
+  return [target, clauses];
+}
+
+function topLevelCommandClausePositions(text) {
+  const clauses = ["over", "by", "as", "above", "below", "between", "from", "to", "with"];
+  const positions = [];
+  let parenDepth = 0;
+  let bracketDepth = 0;
+  let inString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const char = text[index];
+    if (char === '"') {
+      inString = !inString;
+    } else if (!inString && char === "(") {
+      parenDepth += 1;
+    } else if (!inString && char === ")") {
+      parenDepth -= 1;
+    } else if (!inString && char === "[") {
+      bracketDepth += 1;
+    } else if (!inString && char === "]") {
+      bracketDepth -= 1;
+    }
+    if (inString || parenDepth !== 0 || bracketDepth !== 0) {
+      continue;
+    }
+    for (const clause of clauses) {
+      if (startsWithWordAt(text, index, clause)) {
+        positions.push({ index, name: clause });
+      }
+    }
+  }
+  return positions
+    .sort((left, right) => left.index - right.index)
+    .filter((position, index, all) => index === 0 || all[index - 1].index !== position.index);
+}
+
+function startsWithWordAt(text, index, word) {
+  if (!text.slice(index).startsWith(word)) {
+    return false;
+  }
+  const before = index === 0 ? undefined : text[index - 1];
+  const after = text[index + word.length];
+  return !isIdentifierCharacter(before) && !isIdentifierCharacter(after);
 }
 
 function firstNonWhitespace(text) {

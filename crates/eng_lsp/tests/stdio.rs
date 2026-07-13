@@ -1051,6 +1051,7 @@ with {
 print "empty {} interpolation"
 print "unknown {missing_value} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
+median_Q = median Q_plot over Time
 bad_show = show Q_plot
 bad_validate = validate Q_plot > 0 kW
 bad_print_binding = print "bound"
@@ -1123,6 +1124,7 @@ report {
         "W-QTY-AMBIG-001",
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
+        "E-CMD-UNKNOWN-VERB",
         "E-ASSERT-001",
         "E-GOLDEN-001",
         "E-GOLDEN-002",
@@ -1298,6 +1300,12 @@ report {
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Convert command-style call to function call",
+        "median(Q_plot, over=Time)",
+    );
     assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
     assert_action_edit(actions, &uri, "Close interpolation with }", "}");
     assert_action_edit(actions, &uri, "Remove empty interpolation", "");
@@ -1895,6 +1903,7 @@ with {
 print "empty {} interpolation"
 print "unknown {missing_value} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
+median_Q = median Q_plot over Time
 bad_show = show Q_plot
 bad_validate = validate Q_plot > 0 kW
 bad_print_binding = print "bound"
@@ -1977,6 +1986,12 @@ report {
     );
     assert_action_edit(actions, &uri, "Add unit kW to 10", " kW");
     assert_action_edit(actions, &uri, "Parenthesize command target", "(Q1 + Q2)");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Convert command-style call to function call",
+        "median(Q_plot, over=Time)",
+    );
     assert_action_edit(actions, &uri, "Replace sum with integrate", "integrate");
     assert_action_edit(actions, &uri, "Close interpolation with }", "}");
     assert_action_edit(actions, &uri, "Remove empty interpolation", "");

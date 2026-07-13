@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 768: Added LSP and VS Code local quick fixes for simple `E-CMD-UNKNOWN-VERB` diagnostics, converting clause-bearing command-style calls such as `median Q_plot over Time` into `median(Q_plot, over=Time)`.
 - Batch 767: Exposed the legacy `select_first_row` compatibility warning through `eng.table` module metadata and public syntax diagnostics docs.
 - Batch 766: Exposed write/export diagnostics through `eng.io` module metadata and filled the missing public syntax/CLI wording for those codes.
 - Batch 765: Exposed the real file-operation syntax diagnostics `E-FS-001/002/003` through the `eng.fs` module registry, workflow-module table, and public CLI/syntax diagnostics docs.

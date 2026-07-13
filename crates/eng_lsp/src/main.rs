@@ -860,6 +860,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-CMD-AMBIG-001" => optional_code_action(lsp_parenthesize_command_target_code_action(
             uri, text, diagnostic,
         )),
+        "E-CMD-UNKNOWN-VERB" => optional_code_action(lsp_command_style_function_call_code_action(
+            uri, text, diagnostic,
+        )),
         "E-STDLIB-MODULE-UNKNOWN" => optional_code_action(
             lsp_stdlib_module_replacement_code_action(uri, text, diagnostic),
         ),
@@ -4251,6 +4254,181 @@ fn lsp_parenthesize_command_target_code_action(
             &replacement
         )
     }))
+}
+
+fn lsp_command_style_function_call_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let verb = command_style_verb_from_diagnostic(diagnostic_message(diagnostic))?;
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let edit = command_style_function_call_edit(code, verb)?;
+    Some(json!({
+        "title": "Convert command-style call to function call",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, edit.start_byte, edit.end_byte),
+            &edit.new_text
+        )
+    }))
+}
+
+struct CommandStyleFunctionCallEdit {
+    start_byte: usize,
+    end_byte: usize,
+    new_text: String,
+}
+
+fn command_style_function_call_edit(
+    code: &str,
+    verb: &str,
+) -> Option<CommandStyleFunctionCallEdit> {
+    if !is_identifier(verb) {
+        return None;
+    }
+    let search_start = code
+        .find('=')
+        .map(|index| index + 1)
+        .unwrap_or_else(|| line_indent(code).len());
+    let (verb_start, verb_end) = find_identifier_followed_by_whitespace(code, verb, search_start)?;
+    let mut argument_start = verb_end;
+    let bytes = code.as_bytes();
+    if !bytes
+        .get(argument_start)
+        .is_some_and(u8::is_ascii_whitespace)
+    {
+        return None;
+    }
+    while argument_start < bytes.len() && bytes[argument_start].is_ascii_whitespace() {
+        argument_start += 1;
+    }
+    let end_byte = code.trim_end().len();
+    if argument_start >= end_byte {
+        return None;
+    }
+    let arguments = command_style_function_call_arguments(&code[argument_start..end_byte])?;
+    Some(CommandStyleFunctionCallEdit {
+        start_byte: verb_start,
+        end_byte,
+        new_text: format!("{verb}({arguments})"),
+    })
+}
+
+fn command_style_function_call_arguments(rest: &str) -> Option<String> {
+    let (target, clauses) = split_top_level_command_clauses(rest);
+    let target = target.trim();
+    if target.is_empty() || target.starts_with('(') || target.ends_with('{') {
+        return None;
+    }
+    let mut arguments = vec![target.to_owned()];
+    for (name, value) in clauses {
+        let value = value.trim();
+        if value.is_empty() {
+            return None;
+        }
+        arguments.push(format!("{name}={value}"));
+    }
+    Some(arguments.join(", "))
+}
+
+fn command_style_verb_from_diagnostic(message: &str) -> Option<&str> {
+    let verb = first_backtick_payload(message)?.trim();
+    is_identifier(verb).then_some(verb)
+}
+
+fn find_identifier_followed_by_whitespace(
+    text: &str,
+    name: &str,
+    search_start: usize,
+) -> Option<(usize, usize)> {
+    let mut cursor = search_start.min(text.len());
+    while let Some(relative_start) = text[cursor..].find(name) {
+        let start = cursor + relative_start;
+        let end = start + name.len();
+        if identifier_boundary(text, start, end)
+            && text
+                .as_bytes()
+                .get(end)
+                .is_some_and(u8::is_ascii_whitespace)
+        {
+            return Some((start, end));
+        }
+        cursor = end;
+    }
+    None
+}
+
+fn split_top_level_command_clauses(rest: &str) -> (String, Vec<(&'static str, String)>) {
+    let positions = top_level_command_clause_positions(rest);
+    if positions.is_empty() {
+        return (rest.trim().to_owned(), Vec::new());
+    }
+    let target = rest[..positions[0].0].trim().to_owned();
+    let mut clauses = Vec::new();
+    for (index, (start, name)) in positions.iter().enumerate() {
+        let value_start = start + name.len();
+        let value_end = positions
+            .get(index + 1)
+            .map(|(next_start, _)| *next_start)
+            .unwrap_or(rest.len());
+        clauses.push((*name, rest[value_start..value_end].trim().to_owned()));
+    }
+    (target, clauses)
+}
+
+fn top_level_command_clause_positions(text: &str) -> Vec<(usize, &'static str)> {
+    const CLAUSES: &[&str] = &[
+        "over", "by", "as", "above", "below", "between", "from", "to", "with",
+    ];
+    let mut positions = Vec::new();
+    let mut paren_depth = 0i32;
+    let mut bracket_depth = 0i32;
+    let mut in_string = false;
+    for (index, character) in text.char_indices() {
+        match character {
+            '"' => in_string = !in_string,
+            '(' if !in_string => paren_depth += 1,
+            ')' if !in_string => paren_depth -= 1,
+            '[' if !in_string => bracket_depth += 1,
+            ']' if !in_string => bracket_depth -= 1,
+            _ => {}
+        }
+        if in_string || paren_depth != 0 || bracket_depth != 0 {
+            continue;
+        }
+        for clause in CLAUSES {
+            if starts_with_word_at(text, index, clause) {
+                positions.push((index, *clause));
+            }
+        }
+    }
+    positions.sort_by_key(|(index, _)| *index);
+    positions.dedup_by_key(|(index, _)| *index);
+    positions
+}
+
+fn starts_with_word_at(text: &str, index: usize, word: &str) -> bool {
+    if !text[index..].starts_with(word) {
+        return false;
+    }
+    let before_ok = index == 0
+        || text[..index]
+            .chars()
+            .next_back()
+            .is_some_and(|character| !is_identifier_character(character));
+    let after_index = index + word.len();
+    let after_ok = after_index >= text.len()
+        || text[after_index..]
+            .chars()
+            .next()
+            .is_some_and(|character| !is_identifier_character(character));
+    before_ok && after_ok
 }
 
 fn lsp_stdlib_module_replacement_code_action(
