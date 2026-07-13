@@ -2162,7 +2162,7 @@ fn bind_runtime_network_response(
         request.response_hash = Some(response.hash.clone());
         request.status_code = Some(response.status_code);
         request.status_class = response.status_class.clone();
-        request.status = response.status.clone();
+        request.response_source = response.status.clone();
     }
     bind_runtime_response_body_source(
         report,
@@ -2189,7 +2189,7 @@ fn bind_runtime_network_download(
         download.response_hash = Some(response.hash);
         download.status_code = Some(response.status_code);
         download.status_class = response.status_class;
-        download.status = response.status;
+        download.response_source = response.status;
     }
 }
 
@@ -8203,7 +8203,7 @@ fn network_offline_response_source_records(
             hash: request.response_hash.clone(),
             schema: None,
             row_count: None,
-            status: request.status.clone(),
+            status: request.response_source.clone(),
             line: request.line,
         });
     }
@@ -8221,7 +8221,7 @@ fn network_offline_response_source_records(
             hash: download.response_hash.clone(),
             schema: None,
             row_count: None,
-            status: download.status.clone(),
+            status: download.response_source.clone(),
             line: download.line,
         });
     }
@@ -8376,7 +8376,7 @@ fn external_boundary_records_for_network(
             .clone()
             .or_else(|| cached_hash.map(ToOwned::to_owned));
         let status = network_status_with_cache(
-            &request.status,
+            &request.response_source,
             request.response_hash.as_deref(),
             cached_hash,
         );
@@ -8419,7 +8419,7 @@ fn external_boundary_records_for_network(
             .clone()
             .or_else(|| cached_hash.map(ToOwned::to_owned));
         let status = network_status_with_cache(
-            &download.status,
+            &download.response_source,
             download.response_hash.as_deref(),
             cached_hash,
         );
@@ -9578,7 +9578,7 @@ fn evaluate_network_response_field_expression(
             fs::read_to_string(path).ok().map(RuntimeFormatValue::Text)
         }
         "method" => Some(RuntimeFormatValue::Text(request.method.clone())),
-        "response_source" | "status" => Some(RuntimeFormatValue::Text(request.status.clone())),
+        "response_source" | "status" => Some(RuntimeFormatValue::Text(request.response_source.clone())),
         "status_class" => Some(RuntimeFormatValue::Text(request.status_class.clone())),
         "status_code" => request
             .status_code
@@ -16458,7 +16458,7 @@ fn network_boundaries_json(
             network_cache_hit_hash(cache_records, "network_request", &request.binding);
         let response_hash = request.response_hash.as_deref().or(cached_hash);
         let status = network_status_with_cache(
-            &request.status,
+            &request.response_source,
             request.response_hash.as_deref(),
             cached_hash,
         );
@@ -16536,7 +16536,7 @@ fn network_boundaries_json(
             network_cache_hit_hash(cache_records, "network_download", &download.target_value);
         let response_hash = download.response_hash.as_deref().or(cached_hash);
         let status = network_status_with_cache(
-            &download.status,
+            &download.response_source,
             download.response_hash.as_deref(),
             cached_hash,
         );

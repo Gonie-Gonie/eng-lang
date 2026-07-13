@@ -4880,11 +4880,11 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
         ));
         json.push_str(&format!(
             "{spaces}    \"response_source\": \"{}\",\n",
-            json_escape(&request.status)
+            json_escape(&request.response_source)
         ));
         json.push_str(&format!(
             "{spaces}    \"status\": \"{}\",\n",
-            json_escape(&request.status)
+            json_escape(&request.response_source)
         ));
         json.push_str(&format!("{spaces}    \"line\": {}\n", request.line));
         json.push_str(&format!("{spaces}  }}"));
@@ -4948,11 +4948,11 @@ fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usiz
         ));
         json.push_str(&format!(
             "{spaces}    \"response_source\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&download.response_source)
         ));
         json.push_str(&format!(
             "{spaces}    \"status\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&download.response_source)
         ));
         json.push_str(&format!("{spaces}    \"line\": {}\n", download.line));
         json.push_str(&format!("{spaces}  }}"));
@@ -7017,11 +7017,11 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
         ));
         json.push_str(&format!(
             "        \"response_source\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&download.response_source)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&download.response_source)
         ));
         json.push_str(&format!("        \"line\": {}\n", download.line));
         json.push_str("      }");
@@ -7148,11 +7148,11 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str(&format!(
             "        \"response_source\": \"{}\",\n",
-            json_escape(&request.status)
+            json_escape(&request.response_source)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&request.status)
+            json_escape(&request.response_source)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", request.line));
         json.push_str(&format!("        \"line\": {}\n", request.line));
@@ -7190,11 +7190,11 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         ));
         json.push_str(&format!(
             "        \"response_source\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&download.response_source)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
-            json_escape(&download.status)
+            json_escape(&download.response_source)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", download.line));
         json.push_str(&format!("        \"line\": {}\n", download.line));
@@ -14227,7 +14227,7 @@ system Envelope {
         assert_eq!(request.method, "GET");
         assert_eq!(request.url_literal, "args.api_url");
         assert_eq!(request.url_value, "https://api.example.org/hourly");
-        assert_eq!(request.status, "offline_response");
+        assert_eq!(request.response_source, "offline_response");
         assert_eq!(request.retry, Some(2));
         assert_eq!(request.timeout.as_deref(), Some("30 s"));
         assert_eq!(request.body_size_limit_bytes, Some(2_000_000));
@@ -14584,11 +14584,11 @@ system Envelope {
             .iter()
             .any(|diagnostic| diagnostic.message.contains("111111")));
         assert_eq!(
-            report.semantic_program.net_requests[0].status,
+            report.semantic_program.net_requests[0].response_source,
             "hash_mismatch"
         );
         assert_eq!(
-            report.semantic_program.net_downloads[0].status,
+            report.semantic_program.net_downloads[0].response_source,
             "hash_mismatch"
         );
     }

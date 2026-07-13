@@ -52,7 +52,7 @@ pub struct NetRequestInfo {
     pub status_code: Option<u16>,
     pub status_class: String,
     pub response_hash: Option<String>,
-    pub status: String,
+    pub response_source: String,
     pub line: usize,
 }
 
@@ -72,7 +72,7 @@ pub struct NetDownloadInfo {
     pub status_code: Option<u16>,
     pub status_class: String,
     pub response_hash: Option<String>,
-    pub status: String,
+    pub response_source: String,
     pub line: usize,
 }
 
@@ -206,7 +206,7 @@ fn build_request(
         status_code,
         status_class: http_status_class(status_code).to_owned(),
         response_hash: offline_response_read.as_ref().map(|read| read.hash.clone()),
-        status: offline_response_status(offline_response_read.as_ref(), hash_valid),
+        response_source: offline_response_status(offline_response_read.as_ref(), hash_valid),
         line,
     }
 }
@@ -261,7 +261,7 @@ fn build_download(
         status_code,
         status_class: http_status_class(status_code).to_owned(),
         response_hash: offline_response_read.as_ref().map(|read| read.hash.clone()),
-        status: offline_response_status(offline_response_read.as_ref(), hash_valid),
+        response_source: offline_response_status(offline_response_read.as_ref(), hash_valid),
         line,
     }
 }

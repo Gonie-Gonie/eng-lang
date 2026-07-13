@@ -96,6 +96,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 637: Reworded VS Code and native IDE network boundary tables to show `response_source` as response source instead of generic status, while preserving compatibility status fields in artifacts.
 - Batch 638: Added operator-token fallback includes to VS Code workflow phrase scopes for print/log, standard text writes, run command, summarize, and HTTP request lines so operators color consistently across native workflow statements.
 - Batch 639: Reworded current/internal docs that still described implemented tracks as implementation seeds, and added a docs-check guard so those stale implementation-seed phrases do not return outside archives.
+- Batch 640: Renamed the compiler internal net request/download response-origin field from `status` to `response_source` while keeping emitted artifact `status` as a compatibility alias.
 
 ## Documentation Policy
 
