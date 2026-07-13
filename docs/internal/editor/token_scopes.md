@@ -134,6 +134,11 @@ I/O and external-boundary phrases such as `read json`, `write text`,
 before broad `args.*` and dotted-path fallbacks so source and target operands
 split consistently before semantic highlighting arrives.
 
+DB/table phrases such as `open sqlite`, `read sqlite <db>.table(...)`,
+`write <table> to <db>.table(...)`, and `select <table> columns ...` use the
+same member-aware fallback ordering so nested DB/table receivers and selected
+source tables split before broad property scopes.
+
 TimeSeries quality phrases such as `check coverage`, `fill missing`, `align`,
 and `resample` also include member-aware source-path fallbacks so
 `measured.T_zone`, `simulated.T_zone`, and `args.measured_zone` split into

@@ -125,6 +125,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 666: Extended the TextMate `plot` command fallback for multi-series and named plot functions with member-aware report operand fallbacks, guarded so dotted report paths do not collapse into broad property scopes.
 - Batch 667: Reworked TextMate `summarize <series> by ...` and `show <value>` report phrase scopes to use member-aware fallbacks, so dotted report operands split into receiver/member scopes before semantic tokens arrive.
 - Batch 668: Added member-aware TextMate fallbacks to I/O and external-boundary workflow phrases including `read`, `write`, `export`, `download`, `http`, `render template`, and file operations so dotted source/target operands stay split before semantic highlighting.
+- Batch 669: Reworked DB/table TextMate phrase scopes for `open sqlite`, `read sqlite <db>.table(...)`, `write <table> to <db>.table(...)`, and `select <table> columns ...` so nested receivers use member-aware first-paint highlighting.
 
 ## Documentation Policy
 

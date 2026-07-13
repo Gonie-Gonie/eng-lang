@@ -1074,6 +1074,10 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -In
 Assert-WorkflowPatternIncludes -Name "meta.workflow.read-structured.englang" -Include "#members" -Description "read structured"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#members" -Description "download"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.http-request.englang" -Include "#members" -Description "http request"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.db-read.englang" -Include "#members" -Description "db read"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.open-sqlite.englang" -Include "#members" -Description "open sqlite"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.db-write.englang" -Include "#members" -Description "db write"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.select-columns.englang" -Include "#members" -Description "select columns"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
