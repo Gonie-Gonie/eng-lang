@@ -3784,8 +3784,7 @@ fn option_assignment_range(line: &str, option_names: &[&str]) -> Option<OptionAs
                 .take_while(|character| character.is_whitespace())
                 .map(char::len_utf8)
                 .sum::<usize>();
-        let comment_start = line[value_start..]
-            .find('#')
+        let comment_start = line_comment_start(&line[value_start..])
             .map(|offset| value_start + offset)
             .unwrap_or(line.len());
         let value_end = value_start + line[value_start..comment_start].trim_end().len();
@@ -4844,4 +4843,37 @@ fn write_response<W: Write>(output: &mut W, value: Value) -> io::Result<()> {
     let body = value.to_string();
     write!(output, "Content-Length: {}\r\n\r\n{}", body.len(), body)?;
     output.flush()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn option_assignment_range_preserves_trailing_line_comments() {
+        let slash_line = "    timeout = 90 s // keep this note";
+        let slash_assignment = option_assignment_range(slash_line, &["timeout"]).unwrap();
+        assert_eq!(slash_assignment.option_name, "timeout");
+        assert_eq!(
+            &slash_line[slash_assignment.value_start..slash_assignment.value_end],
+            "90 s"
+        );
+
+        let hash_line = "    expected_sha256 = \"old\" # observed mismatch";
+        let hash_assignment = option_assignment_range(hash_line, &["expected_sha256"]).unwrap();
+        assert_eq!(
+            &hash_line[hash_assignment.value_start..hash_assignment.value_end],
+            "\"old\""
+        );
+    }
+
+    #[test]
+    fn option_assignment_range_keeps_comment_markers_inside_strings() {
+        let line = "    cache_key = [\"https://example.org/#fragment\"] // note";
+        let assignment = option_assignment_range(line, &["cache_key"]).unwrap();
+        assert_eq!(
+            &line[assignment.value_start..assignment.value_end],
+            "[\"https://example.org/#fragment\"]"
+        );
+    }
 }

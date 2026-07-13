@@ -2558,7 +2558,8 @@ function firstNonWhitespaceFromRight(text) {
 
 function optionAssignmentRange(lineText, optionNames) {
   const options = optionNames.map(escapeRegExp).join("|");
-  const match = new RegExp(`^(\\s*)(${options})(\\s*=\\s*)([^#]*?)(\\s*(?:#.*)?)$`).exec(lineText);
+  const code = stripLineComment(lineText);
+  const match = new RegExp(`^(\\s*)(${options})(\\s*=\\s*)(.*?)(\\s*)$`).exec(code);
   if (!match) {
     return undefined;
   }

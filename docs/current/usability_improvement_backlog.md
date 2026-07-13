@@ -113,6 +113,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 654: Extended LSP/native IDE member completion parsing through dotted receivers and terminal binding fallback, with sample-table coverage for nested receiver paths.
 - Batch 655: Tightened LSP semantic-token coverage so nested sample-table member paths prove the specific dotted-receiver line receives workflow-step property highlighting.
 - Batch 656: Added exact LSP hover metadata for compiler-catalog public workflow member accesses, including nested paths such as `study.samples.row_preview`, so hover does not fall back to unrelated same-label bindings.
+- Batch 657: Aligned VS Code fallback and LSP option-value quick fixes to strip full EngLang line comments before computing replacement ranges, preserving trailing `#` and `//` notes while still allowing comment markers inside strings.
 
 ## Documentation Policy
 

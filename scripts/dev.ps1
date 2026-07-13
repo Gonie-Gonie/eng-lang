@@ -4591,6 +4591,9 @@ function Assert-VscodeExtensionContract {
             throw "VS Code model option quick fixes must not expose compatibility-only option aliases"
         }
     }
+    if (-not $LocalCodeActionsSource.Contains('const code = stripLineComment(lineText)') -or -not $LocalCodeActionsSource.Contains('new RegExp(`^(\\s*)(${options})(\\s*=\\s*)(.*?)(\\s*)$`)')) {
+        throw "VS Code option value quick fixes must strip # and // comments before replacing option values"
+    }
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
     }
@@ -4690,6 +4693,9 @@ function Assert-VscodeExtensionContract {
         if ($LspCliSource.Contains($HiddenModelOptionAlias)) {
             throw "eng-lsp model option quick fixes must not expose compatibility-only option aliases"
         }
+    }
+    if (-not $LspCliSource.Contains('line_comment_start(&line[value_start..])') -or -not $LspCliSource.Contains('option_assignment_range_preserves_trailing_line_comments')) {
+        throw "eng-lsp option value quick fixes must preserve # and // comments when replacing option values"
     }
     foreach ($RequiredLspDefinitionToken in @(
         "--definition-stdin",
