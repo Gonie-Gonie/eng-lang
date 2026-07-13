@@ -222,8 +222,9 @@ is available, the warning can
 open
 `EngLang: Show Tooling Status` so the selected live editor tool path is visible.
 `EngLang: Inspect Highlight Token at Cursor` opens a cursor status summary, the
-token under the caret when one exists, the nearest highlight tokens, and the
-other highlight tokens on the same line.
+token under the caret when one exists, the nearest highlight tokens, copy-ready
+text/range/selector fields for the selected token, and the other highlight tokens
+on the same line.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set

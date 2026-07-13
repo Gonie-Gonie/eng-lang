@@ -494,7 +494,8 @@ function createCommandHandlers(options = {}) {
         nearest_token_count: nearestTokens.length,
         line_token_count: lineTokens.length,
         cursor_token_hint: cursorTokenHint,
-        scope_map_entry_count: Object.keys(semanticTokenScopeMap).length
+        scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
+        copy_ready: semanticTokenCopyReady(matchingTokens[0] ?? nearestTokens[0] ?? null)
       },
       matching_tokens: matchingTokens,
       nearest_tokens: nearestTokens,
@@ -561,24 +562,54 @@ function createCommandHandlers(options = {}) {
   function semanticTokenDebugRow(document, token, semanticScopeMap) {
     const sample = semanticTokenDebugSample(document, token, semanticScopeMap);
     const start = Number(sample.start);
+    const length = Number(sample.length);
+    const line = Number(sample.line);
+    const column = Number.isFinite(start) ? start + 1 : null;
     const semanticSelectors = sample.semantic_selectors ?? [];
     const fallbackScopes = sample.fallback_scopes ?? [];
     const unmappedSelectors = sample.unmapped_semantic_selectors ?? [];
+    const rangeText = semanticTokenRangeText(line, column, length);
+    const primarySelector = semanticSelectors[0] ?? sample.type;
     return {
       line: sample.line,
-      column: Number.isFinite(start) ? start + 1 : null,
+      column,
       start: sample.start,
       length: sample.length,
+      end: Number.isFinite(start) && Number.isFinite(length) ? start + length : null,
+      range_text: rangeText,
       text: sample.text,
       type: sample.type,
       modifiers: sample.modifiers,
-      primary_selector: semanticSelectors[0] ?? sample.type,
+      primary_selector: primarySelector,
       fallback_status: fallbackScopes.length > 0 ? "mapped" : "missing_fallback_scope",
       direct_selector_status: unmappedSelectors.length > 0 ? "missing_direct_scope" : "mapped",
       fallback_scope_count: fallbackScopes.length,
       semantic_selectors: semanticSelectors,
       unmapped_semantic_selectors: unmappedSelectors,
-      fallback_scopes: fallbackScopes
+      fallback_scopes: fallbackScopes,
+      copy_text: sample.text,
+      copy_range: rangeText,
+      copy_selector: primarySelector
+    };
+  }
+
+  function semanticTokenRangeText(line, column, length) {
+    if (!Number.isFinite(line) || !Number.isFinite(column) || !Number.isFinite(length) || length <= 0) {
+      return null;
+    }
+    return `L${line}:C${column}-C${column + length}`;
+  }
+
+  function semanticTokenCopyReady(row) {
+    if (!row) {
+      return null;
+    }
+    return {
+      text: row.copy_text ?? row.text ?? "",
+      range: row.copy_range ?? row.range_text ?? null,
+      selector: row.copy_selector ?? row.primary_selector ?? row.type ?? "-",
+      fallback_status: row.fallback_status ?? "-",
+      direct_selector_status: row.direct_selector_status ?? "-"
     };
   }
 
