@@ -5916,6 +5916,13 @@
                                                        "kJ",
                                                        "%"
                                                    ],
+                           "legacy_workflow_builtin_aliases":  [
+                                                                   "regression_table",
+                                                                   "train_regression"
+                                                               ],
+                           "legacy_workflow_option_aliases":  [
+                                                                  "fixture"
+                                                              ],
                            "operator_words":  [
                                                   "eq",
                                                   "is",

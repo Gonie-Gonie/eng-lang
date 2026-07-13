@@ -733,7 +733,9 @@ function Assert-BundledThemeLeafScopeCoverage {
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
+$LegacyWorkflowBuiltinAliases = @($SyntaxCatalog.legacy_workflow_builtin_aliases | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($SyntaxCatalog.workflow_options | ForEach-Object { [string]$_.label })
+$LegacyWorkflowOptionAliases = @($SyntaxCatalog.legacy_workflow_option_aliases | ForEach-Object { [string]$_ })
 $LanguageConstants = @($SyntaxCatalog.constants | ForEach-Object { [string]$_ })
 $WorkflowStatusLiterals = @($SyntaxCatalog.workflow_status_literals | ForEach-Object { [string]$_ })
 if ($WorkflowStatusLiterals.Count -eq 0) {
@@ -755,13 +757,6 @@ $KeywordGroupScopeChecks = @(
     @{ Name = "external_boundary"; Scope = "keyword.control.external-boundary.englang"; Labels = @($KeywordGroups.external_boundary | ForEach-Object { [string]$_ }) },
     @{ Name = "solver"; Scope = "keyword.control.solver.englang"; Labels = @($KeywordGroups.solver | ForEach-Object { [string]$_ }) },
     @{ Name = "workflow"; Scope = "keyword.control.workflow.englang"; Labels = @($KeywordGroups.workflow | ForEach-Object { [string]$_ }) }
-)
-$GrammarOnlyWorkflowBuiltinAliases = @(
-    "regression_table",
-    "train_regression"
-)
-$GrammarOnlyWorkflowOptionAliases = @(
-    "fixture"
 )
 $GrammarOnlyFunctionArgumentAliases = @(
     "axis",
@@ -789,9 +784,9 @@ $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
-Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowBuiltinAliases -Description "grammar-only workflow builtin alias"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LegacyWorkflowBuiltinAliases -Description "legacy workflow builtin alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowOptions -Description "LSP workflow option"
-Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $GrammarOnlyWorkflowOptionAliases -Description "grammar-only workflow option alias"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LegacyWorkflowOptionAliases -Description "legacy workflow option alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LanguageConstants -Description "LSP language constant"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowStatusLiterals -Description "LSP workflow status literal"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $OperatorWords -Description "LSP operator word"
@@ -809,7 +804,7 @@ Assert-ScopeMatchesLabels -Scope "keyword.operator.word.englang" -Labels $Operat
 foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
     Assert-ScopeMatchesLabels -Scope $KeywordGroupCheck.Scope -Labels $KeywordGroupCheck.Labels -Description "LSP keyword group $($KeywordGroupCheck.Name)"
 }
-$AllowedGrammarWorkflowOptions = @($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
+$AllowedGrammarWorkflowOptions = @($WorkflowOptions + $LegacyWorkflowOptionAliases)
 $GrammarOptionsMissingFromLsp = @($GrammarWorkflowOptions | Where-Object { $AllowedGrammarWorkflowOptions -notcontains $_ } | Sort-Object -Unique)
 if ($GrammarOptionsMissingFromLsp.Count -gt 0) {
     throw "TextMate workflow option labels are missing from LSP workflow options: $($GrammarOptionsMissingFromLsp -join ', ')"
@@ -1002,7 +997,7 @@ Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $L
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="
-Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases) -Description "LSP workflow named argument" -Suffix "="
+Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels ($WorkflowOptions + $LegacyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases) -Description "LSP workflow named argument" -Suffix "="
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedWorkflowScopesCoverGrammar

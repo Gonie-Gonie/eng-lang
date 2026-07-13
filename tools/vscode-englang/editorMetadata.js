@@ -45,6 +45,8 @@ function loadEditorMetadata(extensionRoot) {
     requiredKeywordGroups.some((group) => !Array.isArray(keywordGroups[group])) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
     !Array.isArray(syntaxCatalog.hyphenated_workflow_builtins) ||
+    !Array.isArray(syntaxCatalog.legacy_workflow_builtin_aliases) ||
+    !Array.isArray(syntaxCatalog.legacy_workflow_option_aliases) ||
     !Array.isArray(syntaxCatalog.workflow_options) ||
     !Array.isArray(syntaxCatalog.public_types) ||
     !Array.isArray(syntaxCatalog.quantities) ||

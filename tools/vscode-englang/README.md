@@ -269,8 +269,8 @@ The generated TextMate grammar lives at `syntaxes/eng.tmLanguage.json`. Edit
 
 The source grammar may use `{{...}}` placeholders for compiler-owned keyword,
 constant, operator-word, keyword-group, type, unit, option, and highlight-only
-legacy unit alias lists. `vscode-build-grammar` expands those placeholders from
-`generated/editor/englang-editor-metadata.json`.
+legacy workflow alias and legacy unit alias lists. `vscode-build-grammar` expands
+those placeholders from `generated/editor/englang-editor-metadata.json`.
 
 The grammar smoke writes token-check output under
 `build\editor-tests\textmate_tokens\grammar_smoke.json`.
@@ -286,11 +286,14 @@ provides the static completion fallback used when live completion is
 unavailable. New tooling should read the `completion_items` catalog;
 `completion_seed` remains a legacy alias for older consumers. The VS Code
 extension requires `completion_items` at runtime and validates that
-`completion_seed` is only an exact compatibility alias. `syntax_catalog.units`
-contains compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
+`completion_seed` is only an exact compatibility alias.
+`syntax_catalog.legacy_workflow_builtin_aliases` and
+`syntax_catalog.legacy_workflow_option_aliases` contain highlight-only compatibility
+spellings that are not added back to completions. `syntax_catalog.units` contains
+compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
 highlight-only compatibility aliases such as byte-size units and `%`. Regenerate
 it after LSP completion, keyword, constant, operator-word, option, type, unit,
-legacy unit alias, or highlight legend changes:
+legacy workflow alias, legacy unit alias, or highlight legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata

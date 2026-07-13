@@ -2945,7 +2945,7 @@ function Assert-VscodeExtensionContract {
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
     $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
-    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the preferred editor metadata completion catalog and legacy_unit_aliases as highlight-only metadata"
     }
     if ($Package.name -ne "englang") {
@@ -3115,8 +3115,8 @@ function Assert-VscodeExtensionContract {
             throw "editor token scope contract missing workflow phrase scope $WorkflowPhraseScope"
         }
     }
-    if (-not $BuildGrammarSource.Contains("GrammarOnlyWorkflowOptionAliases") -or -not $BuildGrammarSource.Contains('"fixture"')) {
-        throw "VS Code grammar build must keep fixture as a compatibility-only option highlight alias"
+    if (-not $BuildGrammarSource.Contains("legacy_workflow_builtin_aliases") -or -not $BuildGrammarSource.Contains("LegacyWorkflowBuiltinAliases") -or -not $BuildGrammarSource.Contains("legacy_workflow_option_aliases") -or -not $BuildGrammarSource.Contains("LegacyWorkflowOptionAliases")) {
+        throw "VS Code grammar build must read compatibility-only workflow builtin and option highlight aliases from generated metadata"
     }
     if (-not $BuildGrammarSource.Contains("operator_words") -or -not $BuildGrammarSource.Contains("GrammarOnlyOperatorWordAliases") -or -not $BuildGrammarSource.Contains("{{OPERATOR_WORDS}}")) {
         throw "VS Code grammar build must generate operator words from editor metadata while preserving compatibility aliases"
@@ -3325,6 +3325,8 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredTokenScopeDocToken in @(
         "syntax_catalog.workflow_status_literals",
+        "syntax_catalog.legacy_workflow_builtin_aliases",
+        "syntax_catalog.legacy_workflow_option_aliases",
         "syntax_catalog.keywords",
         "syntax_catalog.keyword_groups",
         "syntax_catalog.constants",
@@ -3918,8 +3920,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
     }
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ?? metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("const legacyCompletionItems = metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("completion_seed must remain an exact legacy alias of completion_items")) {
         throw "VS Code editor metadata loader must require completion_items as the runtime catalog and validate completion_seed only as a legacy alias"
@@ -5008,6 +5010,12 @@ function Invoke-IdeCheck {
         "...normalized.legacyUnitAliases",
         "hyphenatedWorkflowBuiltins",
         "hyphenated_workflow_builtins",
+        "legacyWorkflowBuiltinAliases",
+        "legacy_workflow_builtin_aliases",
+        "...normalized.legacyWorkflowBuiltinAliases",
+        "legacyWorkflowOptionAliases",
+        "legacy_workflow_option_aliases",
+        "...normalized.legacyWorkflowOptionAliases",
         "lexicalUnitPattern",
         "hl-doc-comment",
         'rest.startsWith("///")',

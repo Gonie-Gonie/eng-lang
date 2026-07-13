@@ -117,7 +117,9 @@ function emptySyntaxCatalog() {
     operatorWords: [],
     workflowBuiltins: [],
     hyphenatedWorkflowBuiltins: [],
+    legacyWorkflowBuiltinAliases: [],
     workflowOptions: [],
+    legacyWorkflowOptionAliases: [],
     publicTypes: [],
     quantities: [],
     units: [],
@@ -142,7 +144,13 @@ function normalizeSyntaxCatalog(catalog) {
     hyphenatedWorkflowBuiltins: stringArray(
       source.hyphenatedWorkflowBuiltins ?? source.hyphenated_workflow_builtins
     ),
+    legacyWorkflowBuiltinAliases: stringArray(
+      source.legacyWorkflowBuiltinAliases ?? source.legacy_workflow_builtin_aliases
+    ),
     workflowOptions: catalogItemLabels(source.workflowOptions ?? source.workflow_options),
+    legacyWorkflowOptionAliases: stringArray(
+      source.legacyWorkflowOptionAliases ?? source.legacy_workflow_option_aliases
+    ),
     publicTypes: catalogPublicTypeLabels(source.publicTypes ?? source.public_types),
     quantities: catalogItemLabels(source.quantities),
     units: catalogItemLabels(source.units),
@@ -161,7 +169,8 @@ function buildLexicalCatalog(catalog) {
   const normalized = normalizeSyntaxCatalog(catalog);
   const workflowBuiltinSet = new Set([
     ...normalized.workflowBuiltins,
-    ...normalized.hyphenatedWorkflowBuiltins
+    ...normalized.hyphenatedWorkflowBuiltins,
+    ...normalized.legacyWorkflowBuiltinAliases
   ]);
   const keywordSet = new Set([
     ...normalized.keywords,
@@ -178,7 +187,10 @@ function buildLexicalCatalog(catalog) {
     workflowStatusLiterals: new Set(normalized.workflowStatusLiterals),
     operatorWords: new Set(normalized.operatorWords),
     constants: new Set(normalized.constants),
-    workflowOptions: new Set(normalized.workflowOptions),
+    workflowOptions: new Set([
+      ...normalized.workflowOptions,
+      ...normalized.legacyWorkflowOptionAliases
+    ]),
     publicTypes: new Set(normalized.publicTypes),
     quantities: new Set(normalized.quantities),
     units: new Set(unitLabels),

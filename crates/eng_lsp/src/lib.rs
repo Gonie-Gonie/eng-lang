@@ -655,6 +655,9 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
     ("PlotFile", "Plot output file path"),
 ];
 
+const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] = &["regression_table", "train_regression"];
+const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] = &["fixture"];
+
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("date", "calendar date constructor"),
     ("datetime", "timestamp constructor"),
@@ -1761,6 +1764,8 @@ pub fn editor_syntax_catalog_json() -> Value {
         },
         "workflow_builtins": WORKFLOW_BUILTIN_KEYWORDS,
         "hyphenated_workflow_builtins": HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS,
+        "legacy_workflow_builtin_aliases": EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES,
+        "legacy_workflow_option_aliases": EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES,
         "workflow_options": WORKFLOW_OPTION_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -8722,6 +8727,18 @@ mod tests {
                 .as_array()
                 .is_some_and(|labels| labels.iter().any(|label| label == "latin-hypercube")),
             "syntax catalog should expose hyphenated workflow builtin labels"
+        );
+        assert!(
+            syntax_catalog["legacy_workflow_builtin_aliases"]
+                .as_array()
+                .is_some_and(|labels| labels.iter().any(|label| label == "regression_table")),
+            "syntax catalog should expose legacy workflow builtin aliases"
+        );
+        assert!(
+            syntax_catalog["legacy_workflow_option_aliases"]
+                .as_array()
+                .is_some_and(|labels| labels.iter().any(|label| label == "fixture")),
+            "syntax catalog should expose legacy workflow option aliases"
         );
         assert!(
             syntax_catalog["workflow_options"]

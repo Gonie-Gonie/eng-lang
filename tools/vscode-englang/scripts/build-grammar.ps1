@@ -107,7 +107,9 @@ foreach ($KeywordGroupName in $KeywordGroupNames) {
 $KeywordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "keywords"
 $WorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_builtins"
 $HyphenatedWorkflowBuiltinItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "hyphenated_workflow_builtins"
+$LegacyWorkflowBuiltinAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_workflow_builtin_aliases"
 $WorkflowOptionItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_options"
+$LegacyWorkflowOptionAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_workflow_option_aliases"
 $LanguageConstantItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "constants"
 $WorkflowStatusLiteralItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "workflow_status_literals"
 $OperatorWordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "operator_words"
@@ -121,22 +123,14 @@ Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" 
 Assert-CatalogItemsHaveProperty -Items $UnitItems -CatalogName "units" -PropertyName "label"
 $WorkflowBuiltins = @($WorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($HyphenatedWorkflowBuiltinItems | ForEach-Object { [string]$_ })
+$LegacyWorkflowBuiltinAliases = @($LegacyWorkflowBuiltinAliasItems | ForEach-Object { [string]$_ })
 $WorkflowOptions = @($WorkflowOptionItems | ForEach-Object { [string]$_.label })
+$LegacyWorkflowOptionAliases = @($LegacyWorkflowOptionAliasItems | ForEach-Object { [string]$_ })
 $LanguageConstants = @($LanguageConstantItems | ForEach-Object { [string]$_ })
 $WorkflowStatusLiterals = @($WorkflowStatusLiteralItems | ForEach-Object { [string]$_ })
 $OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
 $LegacyUnitAliases = @($LegacyUnitAliasItems | ForEach-Object { [string]$_ })
-# Keep legacy workflow helper spellings colored for existing files without
-# suggesting them through the generated completion catalog.
-$GrammarOnlyWorkflowBuiltinAliases = @(
-    "regression_table",
-    "train_regression"
-)
-# Keep legacy option keys colored for existing files without suggesting them
-# through the generated completion catalog.
-$GrammarOnlyWorkflowOptionAliases = @(
-    "fixture"
-)
+
 $GrammarOnlyFunctionArgumentAliases = @(
     "axis",
     "over",
@@ -206,9 +200,9 @@ $TemplateValues = @{
     "{{KEYWORD_GROUP_WORKFLOW}}" = ConvertTo-RegexAlternation @($KeywordGroupItems["workflow"])
     "{{PUBLIC_TYPE_BASES}}" = ConvertTo-RegexAlternation $PublicTypeBases
     "{{QUANTITY_LABELS}}" = ConvertTo-RegexAlternation $QuantityLabels
-    "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $GrammarOnlyWorkflowBuiltinAliases)
-    "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases)
-    "{{WORKFLOW_NAMED_ARGS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $GrammarOnlyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases)
+    "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $LegacyWorkflowBuiltinAliases)
+    "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $LegacyWorkflowOptionAliases)
+    "{{WORKFLOW_NAMED_ARGS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $LegacyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases)
 }
 
 $SourceRaw = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8

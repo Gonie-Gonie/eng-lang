@@ -315,7 +315,9 @@ lexical fallback also consumes `syntax_catalog.units` plus generated
 numeric/unit coloring uses the compiler-owned unit catalog and editor-only
 compatibility unit aliases before semantic tokens arrive.
 Native IDE keyword coloring uses `syntax_catalog.keywords`,
-`syntax_catalog.keyword_groups`, and workflow builtin catalogs directly. Native
+`syntax_catalog.keyword_groups`, workflow builtin catalogs, and generated
+`syntax_catalog.legacy_workflow_builtin_aliases` / `syntax_catalog.legacy_workflow_option_aliases`
+for highlight-only compatibility spellings directly. Native
 IDE constant coloring uses `syntax_catalog.constants` directly, so status,
 policy, solver, and quality-status literals follow the LSP catalog. Native IDE
 operator-word coloring uses `syntax_catalog.operator_words` directly, so words

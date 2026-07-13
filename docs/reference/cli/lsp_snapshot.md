@@ -76,8 +76,8 @@ It contains:
 
 - `semantic_token_legend`: token types and modifiers shared with VS Code.
 - `syntax_catalog`: keyword, workflow builtin, with-option, public type,
-  quantity, compiler unit labels, and highlight-only legacy unit aliases used by
-  grammar and highlight checks.
+  quantity, compiler unit labels, highlight-only legacy workflow aliases, and
+  highlight-only legacy unit aliases used by grammar and highlight checks.
 - `completion_items`: fallback completions used when live completion is
   unavailable. Rust callers should use `editor_completion_items()`.
 - `completion_seed`: legacy alias for `completion_items`; new tooling should
