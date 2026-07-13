@@ -11948,13 +11948,14 @@ fn bound_report_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> 
     ))
 }
 
-fn bound_validate_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
-    let command = leading_statement_command(&binding.expression, &["validate"])?;
+fn bound_validation_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let command =
+        leading_statement_command(&binding.expression, &["validate", "assert", "golden"])?;
     Some(Diagnostic::error(
         "E-VALIDATE-BINDING-001",
         binding.line,
         &format!("Validation command `{command}` cannot be used as a bound value."),
-        Some("Write `validate value < threshold` as a statement, or bind a supported Bool expression first."),
+        Some("Write validation commands such as `validate value < threshold` as statements, or bind a supported Bool expression first."),
     ))
 }
 
@@ -12011,7 +12012,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         accum.diagnostics.push(diagnostic);
         return;
     }
-    if let Some(diagnostic) = bound_validate_command_diagnostic(binding) {
+    if let Some(diagnostic) = bound_validation_command_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
         return;
     }

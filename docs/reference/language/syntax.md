@@ -1817,7 +1817,7 @@ generation.
 | `E-CMD-AMBIG-001` | Command target is ambiguous | Parenthesize the target |
 | `E-CMD-UNKNOWN-VERB` | Command-style verb is not supported | Use a supported built-in verb or parenthesized function call |
 | `E-REPORT-BINDING-001` | Report command used as a bound value | Move it inside `report { ... }` or bind a value expression first |
-| `E-VALIDATE-BINDING-001` | `validate` command used as a bound value | Write `validate value < threshold` as a statement or bind a Bool expression first |
+| `E-VALIDATE-BINDING-001` | Validation command used as a bound value | Write validation commands as statements or bind a Bool expression first |
 | `E-VALIDATE-BOOL-001` | `validate` target is not a comparison | Write `validate value < threshold` |
 | `E-VALIDATE-EXPR-001` | `validate` expression cannot be resolved | Bind the value or fix the name |
 | `E-VALIDATE-UNIT-001` | `validate` compares incompatible units | Use a compatible threshold |

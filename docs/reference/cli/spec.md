@@ -109,7 +109,7 @@ E-SCRIPT-001           `script` blocks are not supported as execution roots
 E-STRUCT-ARGS-001      `struct Args` is not supported for execution arguments
 W-STATS-SUM-001        HeatRate summed over Time should use integrate
 E-REPORT-BINDING-001  report commands such as summarize/show/plot cannot be bound as values
-E-VALIDATE-BINDING-001 validate command cannot be bound as a value
+E-VALIDATE-BINDING-001 validation commands such as validate/assert/golden cannot be bound as values
 E-EQ-BOOL-001          physical equation used == instead of eq
 E-EQ-UNIT-001          physical equation dimensions do not match
 E-UNC-SOURCE-001      missing or unknown uncertainty source reference

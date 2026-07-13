@@ -10722,26 +10722,38 @@ system Envelope {
     }
 
     #[test]
-    fn rejects_bound_validate_statement_command() {
-        let report = check_source(
-            "bad.eng",
-            "Q: HeatRate [kW] = 5 kW\nbad_validate = validate Q > 0 kW\n",
-            &CheckOptions::default(),
-        );
+    fn rejects_bound_validation_statement_commands() {
+        for expression in [
+            "bad_validate = validate Q > 0 kW",
+            "bad_assert = assert Q > 0 kW",
+            "bad_golden = golden \"summary.csv\" matches file(\"golden/summary.csv\")",
+        ] {
+            let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
 
-        assert!(report.has_errors());
-        assert!(report
-            .diagnostics
-            .iter()
-            .any(|diagnostic| diagnostic.code == "E-VALIDATE-BINDING-001"));
-        assert!(report
-            .diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
-        assert!(report
-            .diagnostics
-            .iter()
-            .all(|diagnostic| diagnostic.code != "W-QTY-AMBIG-001"));
+            assert!(report.has_errors(), "{expression} should be rejected");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "E-VALIDATE-BINDING-001"),
+                "{expression} should emit E-VALIDATE-BINDING-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"),
+                "{expression} should not fall through to E-FN-CALL-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "W-QTY-AMBIG-001"),
+                "{expression} should not fall through to W-QTY-AMBIG-001"
+            );
+        }
     }
 
     #[test]
