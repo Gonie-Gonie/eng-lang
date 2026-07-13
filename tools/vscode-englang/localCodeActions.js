@@ -808,9 +808,7 @@ function modelOptionValueAction(document, diagnostic, code, workflowOptionLabels
 function modelOptionFixes(code) {
   const sharedFixes = [
     { optionName: "test", value: "0.25", label: "Set model test split" },
-    { optionName: "test_fraction", value: "0.25", label: "Set model test split" },
     { optionName: "hidden", value: "[8]", label: "Set model hidden layers" },
-    { optionName: "layers", value: "[8]", label: "Set model hidden layers" },
     { optionName: "epochs", value: "20", label: "Set model epochs" }
   ];
   if (code === "E-ML-ARGS-001") {

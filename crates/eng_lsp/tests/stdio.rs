@@ -1426,6 +1426,8 @@ report {
     assert_action_edit(actions, &uri, "Set solver initial value: initial = 1", "1");
     assert_action_edit(actions, &uri, "Set model test split: test = 0.25", "0.25");
     assert_action_edit(actions, &uri, "Set model seed: seed = 7", "7");
+    assert_no_action_title_or_edit_text(actions, "test_fraction");
+    assert_no_action_title_or_edit_text(actions, "layers =");
     assert_action_edit(
         actions,
         &uri,
@@ -2965,6 +2967,29 @@ fn assert_action_edit_at_line(
             panic!("code actions should include {title} editing to {new_text} on line {line}")
         });
     assert_eq!(action["kind"], "quickfix");
+}
+
+fn assert_no_action_title_or_edit_text(actions: &[Value], text: &str) {
+    for action in actions {
+        assert!(
+            !action["title"]
+                .as_str()
+                .is_some_and(|title| title.contains(text)),
+            "code action title should not expose `{text}`: {action:?}"
+        );
+        let exposes_edit_text = action["edit"]["changes"]
+            .as_object()
+            .into_iter()
+            .flat_map(|changes| changes.values())
+            .filter_map(|edits| edits.as_array())
+            .flat_map(|edits| edits.iter())
+            .filter_map(|edit| edit["newText"].as_str())
+            .any(|new_text| new_text.contains(text));
+        assert!(
+            !exposes_edit_text,
+            "code action edit should not expose `{text}`: {action:?}"
+        );
+    }
 }
 
 fn assert_action_edit_contains(actions: &[Value], uri: &str, title: &str, text: &str) {

@@ -4497,6 +4497,11 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('const WORKFLOW_OPTION_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.workflow_options)') -or -not $ExtensionSource.Contains('workflowOptionLabels: WORKFLOW_OPTION_LABELS') -or -not $CodeActionProviderSource.Contains('this.workflowOptionLabels = Array.isArray(options.workflowOptionLabels)') -or -not $CodeActionProviderSource.Contains('workflowOptionLabels: this.workflowOptionLabels') -or -not $LocalCodeActionsSource.Contains('withOptionAliasAction(document, diagnostic, options.workflowOptionLabels)') -or -not $LocalCodeActionsSource.Contains('optionValueReplacementAction(') -or -not $LocalCodeActionsSource.Contains('modelOptionValueAction(document, diagnostic, code, options.workflowOptionLabels)') -or -not $LocalCodeActionsSource.Contains('knownWorkflowOptionNames(fix.optionNames, workflowOptionLabels)') -or -not $LocalCodeActionsSource.Contains('workflowOptionLabelSet(workflowOptionLabels)')) {
         throw "VS Code with-option quick fixes must use generated workflow option catalog labels"
     }
+    foreach ($HiddenModelOptionAlias in @('optionName: "test_fraction"', 'optionName: "layers"')) {
+        if ($LocalCodeActionsSource.Contains($HiddenModelOptionAlias)) {
+            throw "VS Code model option quick fixes must not expose compatibility-only option aliases"
+        }
+    }
     if (-not $CodeActionProviderSource.Contains('require("./lspCodeActions")') -or -not $LspCodeActionsSource.Contains("lspCodeActionsFromPayload") -or -not $LspCodeActionsSource.Contains("workspaceEditFromLspCodeAction")) {
         throw "VS Code code action provider must load LSP quick fix bridge helpers from lspCodeActions.js"
     }
@@ -4590,6 +4595,11 @@ function Assert-VscodeExtensionContract {
     )) {
         if (-not $LspCliSource.Contains($RequiredLspQuickFixToken)) {
             throw "eng-lsp code action source missing quick fix token $RequiredLspQuickFixToken"
+        }
+    }
+    foreach ($HiddenModelOptionAlias in @('"test_fraction"', '"layers"')) {
+        if ($LspCliSource.Contains($HiddenModelOptionAlias)) {
+            throw "eng-lsp model option quick fixes must not expose compatibility-only option aliases"
         }
     }
     foreach ($RequiredLspDefinitionToken in @(

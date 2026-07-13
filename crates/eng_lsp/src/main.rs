@@ -1968,32 +1968,23 @@ fn option_quick_fix_for_option(code: &str, option_name: &str) -> Option<OptionVa
 
 fn model_option_quick_fix_option_names(code: &str) -> Option<&'static [&'static str]> {
     match code {
-        "E-ML-ARGS-001" => Some(&["test", "test_fraction", "hidden", "layers", "epochs"]),
-        "E-ML-ARGS-002" => Some(&[
-            "test",
-            "test_fraction",
-            "seed",
-            "hidden",
-            "layers",
-            "epochs",
-        ]),
+        "E-ML-ARGS-001" => Some(&["test", "hidden", "epochs"]),
+        "E-ML-ARGS-002" => Some(&["test", "seed", "hidden", "epochs"]),
         _ => None,
     }
 }
 
 fn model_option_quick_fix(code: &str, option_name: &str) -> Option<OptionValueQuickFix> {
     match (code, option_name) {
-        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "test" | "test_fraction") => {
-            Some(OptionValueQuickFix {
-                value: "0.25",
-                label: "Set model test split",
-            })
-        }
+        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "test") => Some(OptionValueQuickFix {
+            value: "0.25",
+            label: "Set model test split",
+        }),
         ("E-ML-ARGS-002", "seed") => Some(OptionValueQuickFix {
             value: "7",
             label: "Set model seed",
         }),
-        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "hidden" | "layers") => Some(OptionValueQuickFix {
+        ("E-ML-ARGS-001" | "E-ML-ARGS-002", "hidden") => Some(OptionValueQuickFix {
             value: "[8]",
             label: "Set model hidden layers",
         }),
