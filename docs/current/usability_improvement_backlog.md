@@ -89,6 +89,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 710: Added a VS Code package contract guard comparing compiler lexer keywords against generated editor metadata so future keyword additions cannot lose TextMate/IDE catalog coverage silently.
 - Batch 711: Renamed workflow 01 public HTTP replay arg from `offline_response_file` to `pinned_response_file` and guarded the native workflow smoke so API examples read as pinned native network/cache boundaries instead of fixture plumbing.
 - Batch 712: Archived compact summaries for batches 571-650 from the current usability backlog so the active docs stay focused on recent IDE/workflow work and open cleanup candidates.
+- Batch 713: Reworded the VS Code editor metadata public-member API docs and package guard so compiler-owned member catalogs are described as runtime-backed public fields, not editor-only placeholders.
 
 ## Documentation Policy
 

@@ -307,8 +307,8 @@ highlight-only compatibility aliases such as byte-size units and `%`.
 `syntax_catalog.model_fields` and `syntax_catalog.prediction_table_fields`, along
 with the HTTP/sample/DB/case field catalogs, are compiler-owned public member API
 catalogs used by TextMate public-member highlighting and local completion
-fallback. They should describe executable compiler/runtime member fields, not
-non-executable placeholder suggestions. Regenerate it after LSP completion, keyword, constant,
+fallback. They describe runtime-backed public fields, not editor-only placeholders.
+Regenerate it after LSP completion, keyword, constant,
 operator-word, option, type, unit, public member field, legacy workflow alias,
 legacy unit alias, or highlight legend changes:
 

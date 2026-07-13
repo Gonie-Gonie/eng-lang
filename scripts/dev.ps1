@@ -3038,11 +3038,13 @@ function Assert-VscodeExtensionContract {
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
     $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
-    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("non-executable placeholder suggestions") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the preferred editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata"
     }
-    if ($VscodeReadmeSource.Contains("seed-only suggestions")) {
-        throw "VS Code README must not describe public member catalogs as seed-only suggestions"
+    foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
+        if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
+            throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
+        }
     }
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
