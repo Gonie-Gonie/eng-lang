@@ -101,7 +101,7 @@
       "settings": { "foreground": "#2948C7", "fontStyle": "bold" }
     },
     {
-      "scope": ["punctuation.accessor.dot.englang", "punctuation.definition.string.begin.englang", "punctuation.definition.string.end.englang", "punctuation.section.block.begin.englang", "punctuation.section.block.end.englang", "punctuation.section.brackets.begin.englang", "punctuation.section.brackets.end.englang", "punctuation.section.parens.begin.englang", "punctuation.section.parens.end.englang", "punctuation.separator.colon.englang", "punctuation.separator.comma.englang"],
+      "scope": ["punctuation.accessor.dot.englang", "punctuation.definition.string.begin.englang", "punctuation.definition.string.end.englang", "punctuation.section.block.begin.englang", "punctuation.section.block.end.englang", "punctuation.section.brackets.begin.englang", "punctuation.section.brackets.end.englang", "punctuation.section.parens.begin.englang", "punctuation.section.parens.end.englang", "punctuation.separator.colon.englang", "punctuation.separator.comma.englang", "punctuation.separator.parameter.englang"],
       "settings": { "foreground": "#6A737D" }
     },
     {

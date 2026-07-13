@@ -52,6 +52,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `keyword.operator*.englang` | Word and symbolic operators. |
 | `punctuation.section.*.englang` | Block, bracket, and parenthesis delimiters. |
 | `punctuation.separator.*.englang` | Separators such as commas and colons. |
+| `punctuation.separator.parameter.englang` | Function and method parameter-list separators captured while declaration parameters are incomplete. |
 | `punctuation.accessor.*.englang` | Accessor punctuation such as dots in paths or members. |
 | `meta.block.header.englang` | Full non-validation block opener headers such as `args {`, `report {`, `where {`, and `on {`. |
 | `meta.block.validation.englang` | Full validation block opener headers such as `constraints {` and `missing {`. |

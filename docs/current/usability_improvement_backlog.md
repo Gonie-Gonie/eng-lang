@@ -94,6 +94,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 715: Added the `eng/file` and `eng/live` Problems source labels to VS Code diagnostics mode change messages and Tooling Status summaries so users see the active linter source without opening raw JSON fields.
 - Batch 716: Split VS Code first-paint TextMate scopes for system/interface member keywords so `state`, `input`, `output`, `parameter`, `operator`, `port`, `across`, and `through` receive role-specific colors before semantic tokens arrive.
 - Batch 717: Added VS Code string escape first-paint coverage so `\\n`, `\\"`, and `\\\\` escape sequences receive `constant.character.escape.englang` theme colors and grammar smoke protection.
+- Batch 718: Added VS Code grammar smoke and theme coverage for `punctuation.separator.parameter.englang` so function/method parameter-list separators stay colored on first paint.
 
 ## Documentation Policy
 
