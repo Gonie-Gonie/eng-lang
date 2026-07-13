@@ -73,6 +73,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 614: Extended the VS Code language word pattern so slash/exponent engineering units such as `kg/s`, `J/kg/K`, `W/m^2`, and `people/m2` are selected as whole tokens alongside dotted EngLang symbols.
 - Batch 615: Reworded generated sampling completion details from seeded-table language to deterministic sampling behavior and added a VS Code package guard so those seed-only phrases cannot return in public editor metadata.
 - Batch 616: Moved TextMate-only unit aliases into generated `syntax_catalog.legacy_unit_aliases` and routed both VS Code grammar and native IDE lexical fallback through that catalog so `%`, byte-size, and compatibility unit colors do not drift.
+- Batch 617: Clarified the VS Code README editor-metadata contract so `syntax_catalog.legacy_unit_aliases` is documented as highlight-only compatibility metadata, with a package guard to keep that wording from drifting.
 
 ## Documentation Policy
 

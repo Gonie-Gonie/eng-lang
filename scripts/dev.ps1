@@ -2945,8 +2945,8 @@ function Assert-VscodeExtensionContract {
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
     $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
-    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias")) {
-        throw "VS Code README must document completion_items as the preferred editor metadata completion catalog"
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
+        throw "VS Code README must document completion_items as the preferred editor metadata completion catalog and legacy_unit_aliases as highlight-only metadata"
     }
     if ($Package.name -ne "englang") {
         throw "VS Code extension package name must be englang"
