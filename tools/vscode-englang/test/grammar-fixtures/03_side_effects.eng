@@ -7,6 +7,7 @@ with {
 }
 
 process_result = run command "cmd"
+process_args_result = run command args.simulator
 with {
     args = ["/C", "echo", "ok"]
     expected_outputs = [file("outputs/result.csv")]

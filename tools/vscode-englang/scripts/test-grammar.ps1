@@ -1116,6 +1116,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.log-message.englang" -Includ
 Assert-WorkflowPatternIncludes -Name "meta.workflow.log-message.englang" -Include "#members" -Description "log message"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.write-standard-text.englang" -Include "#operators" -Description "write standard text"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.run-command.englang" -Include "#operators" -Description "run command"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.run-command.englang" -Include "#members" -Description "run command"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.summarize-series.englang" -Include "#operators" -Description "summarize series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.summarize-series.englang" -Include "#members" -Description "summarize series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.show-report.englang" -Include "#members" -Description "show report"

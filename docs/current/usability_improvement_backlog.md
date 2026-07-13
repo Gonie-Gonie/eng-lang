@@ -136,6 +136,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 677: Added executable model and prediction public member fields such as `model.rmse` and `predictions.output_column` across compiler typing, runtime interpolation, LSP hover/completion/semantic tokens, generated VS Code metadata, and local completion fallback.
 - Batch 678: Documented compiler-owned model and prediction public member catalogs in LSP/VS Code references and added a package guard so executable public member fields are not described as seed-only editor suggestions.
 - Batch 679: Made TextMate `print` and `log` workflow phrase scopes member-aware so public fields such as `model.rmse` and `predictions.output_column` stay colorful in runtime message statements before semantic tokens arrive.
+- Batch 680: Made TextMate `run command` phrase scopes member-aware so external-boundary command operands such as `args.simulator` split into parameter/member tokens before semantic highlighting arrives.
 
 ## Documentation Policy
 

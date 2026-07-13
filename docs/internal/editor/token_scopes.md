@@ -221,7 +221,7 @@ Current workflow phrase scopes:
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` or `resample <series> with <series>` |
 | `meta.workflow.render-template.englang` | `render template <source>` and `render template <source> to <output>` |
 | `meta.workflow.return-statement.englang` | `return <value>` function return lines. |
-| `meta.workflow.run-command.englang` | `run command ...` |
+| `meta.workflow.run-command.englang` | `run command ...`; includes member-aware first-paint fallbacks for command operands such as `args.simulator`. |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.select-columns.englang` | `select <table> column <column>` or `select <table> columns <columns>` |
 | `meta.workflow.show-report.englang` | `show <value>` and optional report display suffixes; includes member-aware first-paint fallbacks for dotted report values. |

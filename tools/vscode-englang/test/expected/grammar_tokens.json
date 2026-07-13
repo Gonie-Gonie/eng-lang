@@ -4286,5 +4286,23 @@
     "scope": "variable.other.public-member.englang",
     "text": "output_column",
     "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.run-command.englang",
+    "text": "run command args.simulator",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.path.parameter.englang",
+    "text": "args.simulator",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.parameter.property.member.englang",
+    "text": "simulator",
+    "fullMatch": true
   }
 ]
