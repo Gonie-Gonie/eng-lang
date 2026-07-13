@@ -878,7 +878,6 @@ const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
         "response_source",
         "response source such as live, cached, or offline_response",
     ),
-    ("status", "compatibility alias for response_source"),
     ("status_code", "HTTP status code"),
     ("status_class", "HTTP status class"),
     ("response_hash", "response SHA-256 hash"),
@@ -8783,6 +8782,12 @@ mod tests {
             "syntax catalog should expose HTTP response field labels"
         );
         assert!(
+            syntax_catalog["http_response_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().all(|field| field["label"] != "status")),
+            "syntax catalog should not expose response.status as a completion field"
+        );
+        assert!(
             syntax_catalog["sample_table_fields"]
                 .as_array()
                 .is_some_and(|fields| fields.iter().any(|field| field["label"] == "sample_count")),
@@ -11609,6 +11614,9 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "response_source"));
+        assert!(!member_completions
+            .iter()
+            .any(|completion| completion.label == "status"));
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "status_code"));

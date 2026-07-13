@@ -5564,10 +5564,6 @@
                                                             "label":  "response_source"
                                                         },
                                                         {
-                                                            "detail":  "compatibility alias for response_source",
-                                                            "label":  "status"
-                                                        },
-                                                        {
                                                             "detail":  "HTTP status code",
                                                             "label":  "status_code"
                                                         },

@@ -4823,6 +4823,9 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata HTTP response field $RequiredHttpResponseField missing detail"
         }
     }
+    if (@($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq "status" }).Count -gt 0) {
+        throw "generated VS Code editor metadata must not suggest response.status; use response_source"
+    }
     foreach ($RequiredSampleTableField in @("sample_count", "method", "seed", "parameter_count")) {
         $SampleTableField = @($EditorMetadata.syntax_catalog.sample_table_fields | Where-Object { $_.label -eq $RequiredSampleTableField }) | Select-Object -First 1
         if ($null -eq $SampleTableField) {
