@@ -10698,6 +10698,7 @@ system Envelope {
             "arg_show = show Q_series",
             "arg_plot = plot Q_series over Time",
             "arg_plot_dist = plot distribution(Q_series)",
+            "arg_report = report {",
         ] {
             let source =
                 format!("Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n{expression}\n");
@@ -10759,6 +10760,8 @@ system Envelope {
     #[test]
     fn rejects_bound_side_effect_statement_commands() {
         for expression in [
+            "bad_print = print \"ok\"",
+            "bad_log = log info \"ok\"",
             "bad_download = download url(\"https://example.org/file.csv\") to file(\"outputs/file.csv\")",
             "bad_export = export summary to csv file(\"outputs/summary.csv\")",
             "bad_write_text = write text file(\"outputs/out.txt\"), \"ok\"",

@@ -11938,7 +11938,7 @@ fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut
 fn bound_report_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
     let command = leading_statement_command(
         &binding.expression,
-        &["summarize", "summary", "show", "plot"],
+        &["report", "summarize", "summary", "show", "plot"],
     )?;
     Some(Diagnostic::error(
         "E-REPORT-BINDING-001",
@@ -11963,14 +11963,14 @@ fn bound_side_effect_statement_diagnostic(binding: &FastBinding) -> Option<Diagn
     let command = leading_statement_word(
         &binding.expression,
         &[
-            "download", "export", "write", "copy", "move", "delete", "mkdir",
+            "print", "log", "download", "export", "write", "copy", "move", "delete", "mkdir",
         ],
     )?;
     Some(Diagnostic::error(
         "E-SIDE-EFFECT-BINDING-001",
         binding.line,
-        &format!("Side-effect statement `{command}` cannot be used as a bound value."),
-        Some("Write side-effect outputs as top-level statements such as `write text ...`, `download ... to ...`, or `copy ... to ...`; bind only the explicit result values supported by the workflow syntax."),
+        &format!("Output or side-effect statement `{command}` cannot be used as a bound value."),
+        Some("Write output and side-effect statements as top-level workflow statements such as `print ...`, `log info ...`, `write text ...`, or `download ... to ...`; bind only the explicit result values supported by the workflow syntax."),
     ))
 }
 

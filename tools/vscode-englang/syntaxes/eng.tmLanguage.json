@@ -514,7 +514,7 @@
                                                        },
                                                        {
                                                            "name":  "meta.block.header.englang",
-                                                           "match":  "\\b(args|report|test|where|with|on)(\\s*)(\\{)",
+                                                           "match":  "^\\s*(args|report|test|where|with|on)(\\s*)(\\{)",
                                                            "captures":  {
                                                                             "1":  {
                                                                                       "name":  "storage.type.block.englang"
@@ -530,7 +530,7 @@
                                                "patterns":  [
                                                                 {
                                                                     "name":  "meta.workflow.print-message.englang",
-                                                                    "begin":  "\\b(print)\\b",
+                                                                    "begin":  "^\\s*(print)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
@@ -581,7 +581,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.log-message.englang",
-                                                                    "begin":  "\\b(log)\\s+(debug|info|warn|error)\\b",
+                                                                    "begin":  "^\\s*(log)\\s+(debug|info|warn|error)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.side-effect.englang"
