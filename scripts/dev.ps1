@@ -2899,6 +2899,7 @@ function Assert-VscodeExtensionContract {
     $SnippetsPath = Join-Path $ExtensionRoot "snippets\eng.json"
     $LspSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\lib.rs"
     $LspCliSourcePath = Join-Path $RepoRoot "crates\eng_lsp\src\main.rs"
+    $CompilerLexerPath = Join-Path $RepoRoot "crates\eng_compiler\src\lexer.rs"
     $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
     $SemanticLegendPath = Join-Path $ExtensionRoot "generated\editor\englang-semantic-legend.json"
     $CompletionsPath = Join-Path $ExtensionRoot "generated\editor\englang-completions.json"
@@ -3002,6 +3003,9 @@ function Assert-VscodeExtensionContract {
     if (-not (Test-Path $LspCliSourcePath)) {
         throw "missing eng_lsp CLI source at $LspCliSourcePath"
     }
+    if (-not (Test-Path $CompilerLexerPath)) {
+        throw "missing compiler lexer source at $CompilerLexerPath"
+    }
     foreach ($RequiredMetadataPath in @($EditorMetadataPath, $SemanticLegendPath, $CompletionsPath, $SyntaxCatalogPath)) {
         if (-not (Test-Path $RequiredMetadataPath)) {
             throw "missing generated VS Code editor metadata at $RequiredMetadataPath"
@@ -3021,6 +3025,7 @@ function Assert-VscodeExtensionContract {
     $VscodeDarkTheme = Get-Content -LiteralPath $VscodeDarkThemePath -Raw | ConvertFrom-Json
     $VscodeLightTheme = Get-Content -LiteralPath $VscodeLightThemePath -Raw | ConvertFrom-Json
     $TokenScopesDoc = Get-Content -LiteralPath $TokenScopesDocPath -Raw
+    $CompilerLexerSource = Get-Content -LiteralPath $CompilerLexerPath -Raw
     $DevScriptSource = Get-Content -LiteralPath $DevScriptPath -Raw
     $VscodeReadmeSource = Get-Content -LiteralPath $VscodeReadmePath -Raw
     $NativeIdeHowtoSource = Get-Content -LiteralPath $NativeIdeHowtoPath -Raw
@@ -5071,6 +5076,15 @@ function Assert-VscodeExtensionContract {
         $SyntaxKeyword = @($EditorMetadata.syntax_catalog.keywords | Where-Object { $_ -eq $RequiredSyntaxKeyword }) | Select-Object -First 1
         if ($null -eq $SyntaxKeyword) {
             throw "generated VS Code editor metadata missing syntax keyword $RequiredSyntaxKeyword"
+        }
+    }
+    $CompilerLexerKeywords = [regex]::Matches($CompilerLexerSource, '"([a-z_]+)"\s*=>\s*Some\(Keyword::') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+    if (@($CompilerLexerKeywords).Count -eq 0) {
+        throw "compiler lexer keyword registry guard found no keywords"
+    }
+    foreach ($CompilerLexerKeyword in $CompilerLexerKeywords) {
+        if (@($EditorMetadata.syntax_catalog.keywords) -notcontains $CompilerLexerKeyword) {
+            throw "generated VS Code editor metadata missing compiler lexer keyword $CompilerLexerKeyword"
         }
     }
     foreach ($HiddenModelOptionAlias in @("x", "y", "test_fraction", "layers")) {
