@@ -1042,6 +1042,10 @@ Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "g
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-BundledThemeLeafScopeCoverage
+Assert-WorkflowPatternIncludes -Name "meta.workflow.check-coverage.englang" -Include "#members" -Description "check coverage"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.fill-missing.englang" -Include "#members" -Description "fill missing"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.align-series.englang" -Include "#members" -Description "align series"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.resample-series.englang" -Include "#members" -Description "resample series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.promote-csv.englang" -Include "#members" -Description "promote csv"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.promote-json.englang" -Include "#members" -Description "promote json"

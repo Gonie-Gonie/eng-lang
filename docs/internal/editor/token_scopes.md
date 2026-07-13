@@ -128,6 +128,11 @@ fallbacks, while LSP semantic tokens add `workflowStep` plus `external` to
 source operands such as `file(...)`, `args.input`, `payload`, and
 `payload.records`.
 
+TimeSeries quality phrases such as `check coverage`, `fill missing`, `align`,
+and `resample` also include member-aware source-path fallbacks so
+`measured.T_zone`, `simulated.T_zone`, and `args.measured_zone` split into
+receiver, dot, and member scopes before semantic highlighting arrives.
+
 Current workflow phrase scopes:
 
 | Scope | Phrase |

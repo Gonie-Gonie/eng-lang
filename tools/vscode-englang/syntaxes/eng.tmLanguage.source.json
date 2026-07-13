@@ -1138,53 +1138,105 @@
           },
           {
             "name": "meta.workflow.check-coverage.englang",
-            "match": "\\b(check)\\s+(coverage)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-            "captures": {
+            "begin": "\\b(check)\\s+(coverage)\\b",
+            "beginCaptures": {
               "1": { "name": "keyword.control.validation.englang" },
-              "2": { "name": "keyword.control.validation.englang" },
-              "3": { "name": "variable.parameter.property.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "variable.other.local.englang" }
-            }
+              "2": { "name": "keyword.control.validation.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.fill-missing.englang",
-            "match": "\\b(fill)\\s+(missing)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-            "captures": {
+            "begin": "\\b(fill)\\s+(missing)\\b",
+            "beginCaptures": {
               "1": { "name": "keyword.control.validation.englang" },
-              "2": { "name": "keyword.control.validation.englang" },
-              "3": { "name": "variable.parameter.property.englang" },
-              "4": { "name": "variable.other.property.englang" },
-              "5": { "name": "variable.other.local.englang" }
-            }
+              "2": { "name": "keyword.control.validation.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.align-series.englang",
-            "match": "\\b(align)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with|to)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-            "captures": {
-              "1": { "name": "keyword.control.validation.englang" },
-              "2": { "name": "variable.parameter.property.englang" },
-              "3": { "name": "variable.other.property.englang" },
-              "4": { "name": "variable.other.local.englang" },
-              "5": { "name": "keyword.operator.word.englang" },
-              "6": { "name": "variable.parameter.property.englang" },
-              "7": { "name": "variable.other.property.englang" },
-              "8": { "name": "variable.other.local.englang" }
-            }
+            "begin": "\\b(align)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.validation.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\b(with|to)\\b"
+              },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.resample-series.englang",
-            "match": "\\b(resample)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(to|with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-            "captures": {
-              "1": { "name": "keyword.control.validation.englang" },
-              "2": { "name": "variable.parameter.property.englang" },
-              "3": { "name": "variable.other.property.englang" },
-              "4": { "name": "variable.other.local.englang" },
-              "5": { "name": "keyword.operator.word.englang" },
-              "6": { "name": "variable.parameter.property.englang" },
-              "7": { "name": "variable.other.property.englang" },
-              "8": { "name": "variable.other.local.englang" }
-            }
+            "begin": "\\b(resample)\\b",
+            "beginCaptures": {
+              "1": { "name": "keyword.control.validation.englang" }
+            },
+            "end": "(?=#|$)",
+            "patterns": [
+              {
+                "name": "keyword.operator.word.englang",
+                "match": "\\b(to|with)\\b"
+              },
+              { "include": "#members" },
+              {
+                "name": "variable.parameter.property.englang",
+                "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
+              {
+                "name": "variable.other.property.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+              },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              }
+            ]
           },
           {
             "name": "meta.workflow.integrate-call.englang",
