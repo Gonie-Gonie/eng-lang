@@ -12,3 +12,4 @@ first-user public package documentation unless a current status document says so
 - [Uncertainty internals](uncertainty_internal/README.md)
 - [Runtime internals](runtime/bytecode.md)
 - [Design notes](design_notes/README.md)
+- [Implementation issue backlog](implementation_issue_backlog.md)
