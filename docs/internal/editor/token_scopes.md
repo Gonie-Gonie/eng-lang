@@ -144,6 +144,10 @@ Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
 member-aware fallbacks so nested model, split, table, and feature operands stay
 split before broad property scopes.
 
+Uncertainty distribution calls such as `measured(...)`, `interval(...)`,
+`propagate(...)`, `ensemble(...)`, and `probability(...)` also keep `#members`
+ahead of broad dotted-path fallbacks for nested uncertainty operands.
+
 TimeSeries quality phrases such as `check coverage`, `fill missing`, `align`,
 and `resample` also include member-aware source-path fallbacks so
 `measured.T_zone`, `simulated.T_zone`, and `args.measured_zone` split into

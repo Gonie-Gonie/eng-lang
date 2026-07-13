@@ -127,6 +127,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 668: Added member-aware TextMate fallbacks to I/O and external-boundary workflow phrases including `read`, `write`, `export`, `download`, `http`, `render template`, and file operations so dotted source/target operands stay split before semantic highlighting.
 - Batch 669: Reworked DB/table TextMate phrase scopes for `open sqlite`, `read sqlite <db>.table(...)`, `write <table> to <db>.table(...)`, and `select <table> columns ...` so nested receivers use member-aware first-paint highlighting.
 - Batch 670: Added member-aware TextMate fallbacks to model call phrase scopes including `train_test_split(...)`, `regression_table(...)`, `evaluate(...)`, and `model_card(...)`, keeping nested model/table operands split before semantic tokens arrive.
+- Batch 671: Added member-aware TextMate fallbacks to uncertainty distribution calls such as `measured(...)`, `interval(...)`, `propagate(...)`, and `probability(...)`, completing the broad workflow fallback gap scan.
 
 ## Documentation Policy
 

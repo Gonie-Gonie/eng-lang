@@ -1081,6 +1081,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.select-columns.englang" -Inc
 Assert-WorkflowPatternIncludes -Name "meta.workflow.model-train-call.englang" -Include "#members" -Description "model train call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.regression-table.englang" -Include "#members" -Description "regression table"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.model-summary-call.englang" -Include "#members" -Description "model summary call"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.distribution-call.englang" -Include "#members" -Description "distribution call"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
