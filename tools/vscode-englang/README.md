@@ -296,9 +296,14 @@ extension requires `completion_items` at runtime and validates that
 `syntax_catalog.legacy_workflow_option_aliases` contain highlight-only compatibility
 spellings that are not added back to completions. `syntax_catalog.units` contains
 compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
-highlight-only compatibility aliases such as byte-size units and `%`. Regenerate
-it after LSP completion, keyword, constant, operator-word, option, type, unit,
-legacy workflow alias, legacy unit alias, or highlight legend changes:
+highlight-only compatibility aliases such as byte-size units and `%`.
+`syntax_catalog.model_fields` and `syntax_catalog.prediction_table_fields`, along
+with the HTTP/sample/DB/case field catalogs, are compiler-owned public member API
+catalogs used by TextMate public-member highlighting and local completion
+fallback. They should describe executable compiler/runtime member fields, not
+seed-only suggestions. Regenerate it after LSP completion, keyword, constant,
+operator-word, option, type, unit, public member field, legacy workflow alias,
+legacy unit alias, or highlight legend changes:
 
 ```bat
 .\dev.bat vscode-build-editor-metadata
