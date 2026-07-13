@@ -48,7 +48,7 @@ artifacts, and report/review projection. `result.engres` now records
 `typed_payload.numeric_values` so certain scalars stay on the fast path while
 measured, interval, distribution, and ensemble scalars carry an uncertainty
 link. It is not yet a stable propagation contract for arbitrary arithmetic,
-TimeSeries uncertainty, or seeded Monte Carlo workflows.
+TimeSeries uncertainty, or production Monte Carlo propagation workflows.
 `examples/workflows/03_uncertain_sensor_report` is an executable native
 workflow example for typed sensor data with `sensor_std`, summary/duration
 linkage, and confidence-band plot metadata while keeping broad uncertainty
@@ -225,7 +225,7 @@ alignment work.
 The uncertainty track should not:
 
 ```text
-claim stable Monte Carlo semantics before seeded reproducibility is enforced
+claim stable Monte Carlo semantics before reproducibility policy is implemented
 hide propagation assumptions inside runtime code
 make every deterministic scalar pay an uncertainty allocation cost
 promote uncertainty to the public package before artifacts and IDE agree

@@ -21,8 +21,8 @@ metadata for the supported example.
 
 The current user-facing message is narrow: uncertainty metadata can be attached
 and reviewed in selected workflow examples, but broad probabilistic TimeSeries
-propagation, seeded Monte Carlo workflows, and general uncertainty calculus are
-not stable public features yet.
+propagation, production Monte Carlo propagation, and general uncertainty
+calculus are not stable public features yet.
 
 The language philosophy is still important: uncertainty should be explicit,
 auditable, and connected to measurements or assumptions rather than hidden in

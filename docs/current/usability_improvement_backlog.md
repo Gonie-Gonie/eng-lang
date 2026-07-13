@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 789: Reworded public uncertainty docs away from seed-centered Monte Carlo workflow phrasing while preserving explicit seed option policy, and added docs-check guards against that wording returning.
 - Batch 788: Split VS Code EngLang theme colors inside model, DB, and cache semantic role families so keywords, helpers, bindings, and public members remain visually distinct after semantic tokens arrive.
 - Batch 787: Routed direct VS Code diagnostics setting changes through the same active-editor refresh/clear path as `EngLang: Switch Diagnostics Mode...`, keeping Problems aligned with `diagnosticsMode`, `lintOnSave`, and `lintOnChange`.
 - Batch 786: Cleared cached live review data when switching dirty editors back to file diagnostics mode so stale risk or semantic decorations cannot reappear from `reviewCache`.

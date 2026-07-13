@@ -29,8 +29,8 @@ eng.exe run examples/workflows/03_uncertain_sensor_report/main.eng --save-artifa
 
 ## What It Does Not Claim
 
-This is not broad uncertainty propagation, seeded Monte Carlo, or a stable
-public probabilistic programming API. It is a native measured-uncertainty
+This is not broad uncertainty propagation, production Monte Carlo propagation,
+or a stable public probabilistic programming API. It is a native measured-uncertainty
 workflow that keeps uncertainty propagation deliberately narrow and reviewable.
 
 ## Review Points

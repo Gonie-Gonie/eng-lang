@@ -1450,7 +1450,8 @@ function Test-PublicWorkflowDocs {
             "component-solver seeds",
             "case_inputs.planned_count",
             "case-input planned/blocked counts",
-            "remaining planned counts"
+            "remaining planned counts",
+            "seeded Monte Carlo"
         )) {
             if ($text.Contains($stalePhrase)) {
                 throw "public workflow doc still contains stale phrase '$stalePhrase' at $path"
@@ -1541,7 +1542,9 @@ function Test-CurrentDocsImplementationWording {
             "implementation seeds",
             "metadata-only solver_plan seeds",
             "native VM seed",
-            "Report seed"
+            "Report seed",
+            "seeded Monte Carlo workflows",
+            "claim stable Monte Carlo semantics before seeded reproducibility is enforced"
         )) {
             if ($text.IndexOf($stalePhrase, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
                 throw "current docs still contain stale implementation wording '$stalePhrase' at $path"
@@ -1598,6 +1601,9 @@ function Test-UserDocsExecutionWording {
         }
         if ($text -match "(?i)\brun commands\b") {
             throw "user docs should say execute commands instead of run commands: $($docPath.FullName)"
+        }
+        if ($text.Contains("seeded Monte Carlo")) {
+            throw "user docs should describe Monte Carlo scope without seed-centered workflow wording: $($docPath.FullName)"
         }
     }
 
