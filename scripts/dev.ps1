@@ -3940,7 +3940,9 @@ function Assert-VscodeExtensionContract {
         "source_column",
         "sourceColumn",
         "message.column",
-        "sourceColumnCharacter"
+        "sourceColumnCharacter",
+        "characterBytes",
+        "byteOffset + characterBytes > targetByte"
     )) {
         if (-not $ReviewPanelSourceCombined.Contains($RequiredReviewPanelSourceColumnToken) -and -not $CommandHandlersSource.Contains($RequiredReviewPanelSourceColumnToken)) {
             throw "VS Code extension review panel missing source-column navigation token $RequiredReviewPanelSourceColumnToken"

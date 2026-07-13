@@ -332,16 +332,18 @@ function createCommandHandlers(options = {}) {
       return 0;
     }
     const targetByte = Math.max(0, Math.trunc(columnNumber) - 1);
+    const text = String(lineText || "");
     let byteOffset = 0;
     let characterOffset = 0;
-    for (const character of String(lineText || "")) {
-      if (byteOffset >= targetByte) {
+    for (const character of text) {
+      const characterBytes = Buffer.byteLength(character, "utf8");
+      if (byteOffset + characterBytes > targetByte) {
         break;
       }
-      byteOffset += Buffer.byteLength(character, "utf8");
+      byteOffset += characterBytes;
       characterOffset += character.length;
     }
-    return Math.min(characterOffset, String(lineText || "").length);
+    return Math.min(characterOffset, text.length);
   }
 
   function reviewPanelNonce() {
