@@ -4,6 +4,37 @@ const {
   identifierPathRangeAt
 } = require("./lspNavigation");
 
+const HOVER_KIND_LABELS = Object.freeze({
+  variable: "Variable",
+  domain: "Domain",
+  domain_variable: "Domain variable",
+  domain_conservation: "Domain conservation",
+  component: "Component",
+  component_port: "Component port",
+  connection: "Connection",
+  component_assembly: "Component assembly",
+  connection_set: "Connection set",
+  assembly_equation: "Assembly equation",
+  function: "Function",
+  function_local: "Function local",
+  where_local: "where local",
+  class: "Class",
+  class_field: "Class field",
+  class_validation: "Class validation",
+  class_method: "Class method",
+  class_object: "Class object",
+  object_field: "Object field",
+  object_validation: "Object validation",
+  http_response_field: "HTTP response field",
+  sample_table_field: "Sample table field",
+  db_connection_field: "DB connection field",
+  case_table_field: "Case table field",
+  case_output_table_field: "Case output field",
+  case_result_collection_table_field: "Case result collection field",
+  model_field: "Model field",
+  prediction_table_field: "Prediction table field"
+});
+
 class EngHoverProvider {
   constructor(context, options = {}) {
     this.context = context;
@@ -104,8 +135,9 @@ function hoverMarkdown(hover, word) {
   const markdown = new vscode.MarkdownString();
   markdown.isTrusted = false;
   markdown.appendMarkdown(`**${hover.name ?? word}**\n\n`);
-  if (hover.kind) {
-    markdown.appendMarkdown(`Kind: \`${hover.kind}\`\n\n`);
+  const kindLabel = hoverKindLabel(hover.kind);
+  if (kindLabel) {
+    markdown.appendMarkdown(`Kind: ${kindLabel}\n\n`);
   }
   markdown.appendMarkdown(`${hover.detail ?? "EngLang symbol"}\n\n`);
   if (hover.quantity_kind) {
@@ -133,9 +165,32 @@ function hoverDisplayUnit(value) {
   return text && text !== "-" ? text : "";
 }
 
+function hoverKindLabel(kind) {
+  const text = String(kind ?? "").trim().toLowerCase();
+  if (!text) {
+    return "";
+  }
+  return HOVER_KIND_LABELS[text] ?? text
+    .split(/[_-]+/)
+    .filter((part) => part.length > 0)
+    .map((part) => hoverKindWordLabel(part))
+    .join(" ");
+}
+
+function hoverKindWordLabel(part) {
+  if (part === "db") {
+    return "DB";
+  }
+  if (part === "http") {
+    return "HTTP";
+  }
+  return part.charAt(0).toUpperCase() + part.slice(1);
+}
+
 module.exports = {
   EngHoverProvider,
   findHoverForWord,
+  hoverKindLabel,
   hoverFromSnapshot,
   hoverMarkdown
 };

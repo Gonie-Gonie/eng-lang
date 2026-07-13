@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 791: Reworded VS Code hover kind display from raw payload ids such as `model_field` and `db_connection_field` into user-facing role labels while keeping payload matching unchanged.
 - Batch 790: Linked native IDE caret highlight actions to related inspector tabs, so checked schema, TimeSeries, validation, side-effect, external, model, DB, unit, and variable tokens can jump from the editor meta bar into the matching review panel.
 - Batch 789: Reworded public uncertainty docs away from seed-centered Monte Carlo workflow phrasing while preserving explicit seed option policy, and added docs-check guards against that wording returning.
 - Batch 788: Split VS Code EngLang theme colors inside model, DB, and cache semantic role families so keywords, helpers, bindings, and public members remain visually distinct after semantic tokens arrive.
