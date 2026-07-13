@@ -100,6 +100,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 721: Aligned native IDE local member completions with generated DB/model/prediction public field catalogs and dotted-receiver fallback lookup.
 - Batch 722: Added Native IDE source-column jumps for source-span buttons and extended docs-check guards for generated public field member completions.
 - Batch 723: Preserved checked source lines in `CheckReport` and emitted first-token source-span columns for component graph IDE navigation.
+- Batch 724: Made the VS Code review panel source-line buttons column-aware, matching Native IDE `L:C` navigation for `source_span.column` metadata.
 
 ## Documentation Policy
 

@@ -510,8 +510,9 @@ function renderReviewSummaryHtml(review, sourcePath, nonce, artifactLinks = []) 
           return;
         }
         const line = Number(target.getAttribute("data-source-line"));
+        const column = Number(target.getAttribute("data-source-column") || 1);
         if (Number.isFinite(line) && line > 0) {
-          vscode.postMessage({ type: "openSourceLine", line });
+          vscode.postMessage({ type: "openSourceLine", line, column });
         }
       });
     })();
@@ -611,6 +612,14 @@ function lineValue(item) {
     ?? "-";
 }
 
+function columnValue(item) {
+  return item?.source_span?.column
+    ?? item?.sourceSpan?.column
+    ?? item?.source_column
+    ?? item?.sourceColumn
+    ?? item?.column;
+}
+
 function sourceLineCell(item) {
   const line = lineValue(item);
   const lineNumber = Number(line);
@@ -618,7 +627,16 @@ function sourceLineCell(item) {
     return escapeHtml(line);
   }
   const safeLine = Math.trunc(lineNumber);
-  return `<button class="line-button" type="button" data-source-line="${escapeAttr(safeLine)}" title="Open source line ${escapeAttr(safeLine)}">L${escapeHtml(safeLine)}</button>`;
+  const column = columnValue(item);
+  const columnNumber = Number(column);
+  const hasColumn = Number.isFinite(columnNumber) && columnNumber > 1;
+  const safeColumn = hasColumn ? Math.trunc(columnNumber) : null;
+  const columnAttr = hasColumn ? ` data-source-column="${escapeAttr(safeColumn)}"` : "";
+  const label = hasColumn ? `L${safeLine}:C${safeColumn}` : `L${safeLine}`;
+  const title = hasColumn
+    ? `Open source line ${safeLine}, column ${safeColumn}`
+    : `Open source line ${safeLine}`;
+  return `<button class="line-button" type="button" data-source-line="${escapeAttr(safeLine)}"${columnAttr} title="${escapeAttr(title)}">${escapeHtml(label)}</button>`;
 }
 
 function reviewList(value, limit = 120) {

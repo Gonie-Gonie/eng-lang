@@ -226,7 +226,7 @@ function createCommandHandlers(options = {}) {
     );
     panel.webview.onDidReceiveMessage((message) => {
       if (message?.type === "openSourceLine") {
-        openSourceLine(result.document.uri, message.line).catch((error) => {
+        openSourceLine(result.document.uri, message.line, message.column).catch((error) => {
           output.appendLine(`Unable to open EngLang source line: ${error.message}`);
         });
       }
@@ -300,7 +300,7 @@ function createCommandHandlers(options = {}) {
     vscode.window.showInformationMessage(successMessage);
   }
 
-  async function openSourceLine(uri, line) {
+  async function openSourceLine(uri, line, column = 1) {
     const lineNumber = Number(line);
     if (!Number.isFinite(lineNumber) || lineNumber < 1) {
       return;
@@ -312,15 +312,36 @@ function createCommandHandlers(options = {}) {
     });
     const targetLine = Math.min(Math.max(0, Math.trunc(lineNumber) - 1), document.lineCount - 1);
     const textLine = document.lineAt(targetLine);
-    const position = new vscode.Position(targetLine, 0);
+    const targetCharacter = sourceColumnCharacter(textLine.text, column);
+    const position = new vscode.Position(targetLine, targetCharacter);
     const range = new vscode.Range(
       targetLine,
-      0,
+      targetCharacter,
       targetLine,
-      Math.max(1, textLine.text.length)
+      Math.max(targetCharacter, textLine.text.length)
     );
-    editor.selection = new vscode.Selection(position, position);
+    editor.selection = targetCharacter > 0
+      ? new vscode.Selection(position, range.end)
+      : new vscode.Selection(position, position);
     editor.revealRange(range, vscode.TextEditorRevealType.InCenterIfOutsideViewport);
+  }
+
+  function sourceColumnCharacter(lineText, column) {
+    const columnNumber = Number(column);
+    if (!Number.isFinite(columnNumber) || columnNumber <= 1) {
+      return 0;
+    }
+    const targetByte = Math.max(0, Math.trunc(columnNumber) - 1);
+    let byteOffset = 0;
+    let characterOffset = 0;
+    for (const character of String(lineText || "")) {
+      if (byteOffset >= targetByte) {
+        break;
+      }
+      byteOffset += Buffer.byteLength(character, "utf8");
+      characterOffset += character.length;
+    }
+    return Math.min(characterOffset, String(lineText || "").length);
   }
 
   function reviewPanelNonce() {

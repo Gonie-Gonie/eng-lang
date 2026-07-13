@@ -3934,6 +3934,18 @@ function Assert-VscodeExtensionContract {
     if (-not $CommandHandlersSource.Contains("onDidReceiveMessage") -or -not $ReviewPanelSourceCombined.Contains("data-source-line") -or -not $CommandHandlersSource.Contains("openSourceLine")) {
         throw "VS Code extension review panel must support source-line navigation"
     }
+    foreach ($RequiredReviewPanelSourceColumnToken in @(
+        "function columnValue(item)",
+        "data-source-column",
+        "source_column",
+        "sourceColumn",
+        "message.column",
+        "sourceColumnCharacter"
+    )) {
+        if (-not $ReviewPanelSourceCombined.Contains($RequiredReviewPanelSourceColumnToken) -and -not $CommandHandlersSource.Contains($RequiredReviewPanelSourceColumnToken)) {
+            throw "VS Code extension review panel missing source-column navigation token $RequiredReviewPanelSourceColumnToken"
+        }
+    }
     foreach ($RequiredSourceLineToken in @(
         "function lineValue(item)",
         "source_span",
