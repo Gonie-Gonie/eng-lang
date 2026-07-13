@@ -403,6 +403,7 @@ function Invoke-WorkflowsTest {
         "\bpython(?:\d+(?:\.\d+)*)?(?:\.exe)?\b",
         "\bpy(?:\.exe)?\b",
         "\.py\b",
+        "\.ipynb\b",
         "\bpip(?:3)?\b",
         "\bconda\b",
         "\bvirtualenv\b",
@@ -425,12 +426,14 @@ function Invoke-WorkflowsTest {
         "\bpytorch\b",
         "\btorch\b",
         "\bjupyter\b",
+        "\bjupyterlab\b",
         "\bnotebook\b"
     )
     $ForbiddenNativeWorkflowDocMarkers = @(
         "\bpython(?:\d+(?:\.\d+)*)?(?:\.exe)?\b",
         "\bpy(?:\.exe)?\b",
         "\.py\b",
+        "\.ipynb\b",
         "\bpip(?:3)?\b",
         "\bconda\b",
         "\bvirtualenv\b",
@@ -451,6 +454,7 @@ function Invoke-WorkflowsTest {
         "\bpytorch\b",
         "\btorch\b",
         "\bjupyter\b",
+        "\bjupyterlab\b",
         "\bnotebook\b"
     )
     $NativeWorkflowSourceAuditPaths = @($RequiredWorkflowSourcePaths | ForEach-Object {

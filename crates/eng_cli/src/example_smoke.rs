@@ -6967,8 +6967,11 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
     let banned_fragments = [
         ("run command", "external process adapter"),
         ("python", "Python runtime dependency"),
+        ("python2", "Python runtime dependency"),
+        ("python3", "Python runtime dependency"),
         ("py.exe", "Python launcher dependency"),
         (".py", "Python script path"),
+        (".ipynb", "Jupyter notebook path"),
         ("pip", "Python package manager dependency"),
         ("conda", "Python environment dependency"),
         ("virtualenv", "Python environment dependency"),
@@ -6991,6 +6994,7 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
         ("pytorch", "Python ML dependency"),
         ("torch", "Python ML dependency"),
         ("jupyter", "notebook workflow dependency"),
+        ("jupyterlab", "notebook workflow dependency"),
         ("notebook", "notebook workflow dependency"),
         ("select_first_row", "legacy seeded row selection helper"),
     ];
@@ -8930,4 +8934,29 @@ fn safe_profile_rejects_source(name: &str, source: &str, expected_code: &str) ->
         return false;
     }
     safe_profile_rejects_path(&source_path, &build_root, expected_code)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn native_workflow_banned_marker_covers_python_notebook_and_process_markers() {
+        for (source, marker) in [
+            ("run command \"tool\"", "run command"),
+            ("python3.11 workflow.py", "python3"),
+            ("analysis.ipynb", ".ipynb"),
+            ("jupyterlab execute", "jupyterlab"),
+            ("import numpy as np", "numpy"),
+        ] {
+            assert!(
+                contains_native_workflow_banned_marker(source, marker),
+                "expected marker {marker} in {source}"
+            );
+        }
+        assert!(!contains_native_workflow_banned_marker(
+            "numpy_score = 1",
+            "numpy"
+        ));
+    }
 }

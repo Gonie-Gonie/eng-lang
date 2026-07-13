@@ -67,6 +67,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 608: Added a VS Code grammar smoke guard that keeps generated `status = <workflow-status>` option highlighting ahead of generic with-block fallbacks and preserves its property/operator/literal captures.
 - Batch 609: Made the VS Code metadata loader consume `completion_items` as the required runtime completion catalog and validate `completion_seed` only as an exact legacy compatibility alias, with package/readme guards to reduce generated API naming confusion.
 - Batch 610: Deprecated the Rust `editor_completion_seed()` helper in favor of `editor_completion_items()`, kept an alias regression test, and clarified the static editor metadata reference so `completion_seed` reads as compatibility-only.
+- Batch 611: Tightened workflow 01/02/03 native-only guards for `python2`/`python3`, `.ipynb`, and `jupyterlab` markers in CLI smoke and dev workflow checks, with a unit test for notebook/process marker detection.
 
 ## Documentation Policy
 
