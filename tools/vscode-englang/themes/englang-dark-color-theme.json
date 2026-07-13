@@ -270,6 +270,7 @@
     "property.db": "#4DD0E1",
     "keyword.cache": "#A3E635",
     "function.cache": "#A3E635",
+    "method.cache": "#A3E635",
     "variable.cache": "#A3E635",
     "property.cache": "#A3E635",
     "keyword.state": "#B9F27C",

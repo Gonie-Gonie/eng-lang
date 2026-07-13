@@ -363,8 +363,8 @@ from generic fallback colors. Important pairings:
 | `variable.input`, `parameter.input` | System inputs and input parameters. |
 | `variable.output` | System outputs and output-like workflow values. |
 | `variable.model`, `function.model`, `keyword.model`, `property.model` | Model and prediction artifacts. |
-| `variable.db`, `keyword.db`, `property.db` | SQLite and DB-write boundaries. |
-| `variable.cache`, `keyword.cache`, `property.cache` | Cache keys, cache option values, and records. |
+| `variable.db`, `keyword.db`, `function.db`, `method.db`, `property.db` | SQLite and DB-write boundaries. |
+| `variable.cache`, `keyword.cache`, `function.cache`, `method.cache`, `property.cache` | Cache keys, cache helpers, cache option values, and records. |
 | `keyword.workflowStep`, `function.workflowStep`, `variable.workflowStep`, `property.workflowStep` | Sampling, case, prediction, and workflow-step phrases. |
 | `variable.riskHigh`, `variable.riskMedium` | Review-risk fallbacks. |
 | `variable.planned`, `variable.internal`, `namespace.planned`, `namespace.internal` | Planned/internal symbol visibility. |

@@ -3645,10 +3645,11 @@ function Assert-VscodeExtensionContract {
         "property.external", "property.solver", "keyword.deprecated", "property.deprecated", "class.deprecated", "variable.state",
         "variable.input", "parameter.input", "variable.output", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
-        "property.riskMedium", "variable.model", "variable.db", "property.db",
+        "property.riskMedium", "variable.model", "variable.db", "keyword.db", "function.db", "method.db", "property.db",
         "function.model", "keyword.model", "function.defaultLibrary", "function.timeseries", "namespace.defaultLibrary",
-        "namespace.imported", "namespace.internal", "namespace.planned", "type.axis", "variable.cache", "keyword.cache", "keyword.uncertain", "keyword.workflowStep",
-        "function.workflowStep"
+        "namespace.imported", "namespace.internal", "namespace.planned", "type.axis",
+        "variable.cache", "keyword.cache", "function.cache", "method.cache", "property.cache",
+        "keyword.uncertain", "keyword.workflowStep", "function.workflowStep"
     )) {
         $ScopeProperty = $SemanticScopeRule.scopes.PSObject.Properties[$RequiredTokenScope]
         if ($null -eq $ScopeProperty -or @($ScopeProperty.Value).Count -eq 0) {
@@ -3678,6 +3679,38 @@ function Assert-VscodeExtensionContract {
         )
         "method.declaration" = @(
             "entity.name.function.englang"
+        )
+        "variable.cache" = @(
+            "keyword.control.workflow.englang",
+            "variable.other.definition.englang"
+        )
+        "function.cache" = @(
+            "keyword.control.workflow.englang",
+            "support.function.builtin.englang"
+        )
+        "method.cache" = @(
+            "keyword.control.workflow.englang",
+            "entity.name.function.englang"
+        )
+        "property.cache" = @(
+            "keyword.control.workflow.englang",
+            "variable.other.property.englang"
+        )
+        "variable.db" = @(
+            "keyword.control.external-boundary.englang",
+            "variable.other.definition.englang"
+        )
+        "function.db" = @(
+            "keyword.control.external-boundary.englang",
+            "support.function.builtin.englang"
+        )
+        "method.db" = @(
+            "keyword.control.external-boundary.englang",
+            "entity.name.function.englang"
+        )
+        "property.db" = @(
+            "keyword.control.external-boundary.englang",
+            "variable.other.property.englang"
         )
         "namespace" = @(
             "support.namespace.module.englang"

@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 775: Added direct VS Code `method.cache` selector coverage and tightened cache semantic fallback/theme guards so cache helpers, keys, option values, and records stay consistently colored.
 - Batch 774: Replaced Workflow 01's token-only native API/cache smoke with structured JSON assertions for HTTP query metadata, response hashes, cache records, output-manifest network entries, and run-log events.
 - Batch 773: Promoted `solver_plan.jacobian_sparsity` to the required artifact-schema field, kept `jacobian_seed` as an optional compatibility alias, and taught artifact golden checks to validate both names separately.
 - Batch 772: Aligned LSP semantic highlighting with the generated VS Code syntax catalog, added `index` as a schema modifier completion, and guarded keyword/operator/constant catalog labels against semantic-token gaps.
