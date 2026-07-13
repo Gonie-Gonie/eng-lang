@@ -63,7 +63,7 @@ status = "native_preview"
 backing = "compiler_runtime_builtin"
 purpose = "Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned."
 artifacts = ["review.inputs", "review_document.table_transforms", "typed_payload.table_diagnostics", "typed_payload.table_selections", "typed_payload.table_transforms"]
-diagnostics = ["E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH"]
+diagnostics = ["E-TABLE-UNKNOWN-COLUMN", "E-TABLE-PREDICATE-TYPE", "E-TABLE-JOIN-KEY-MISMATCH", "E-TABLE-SCHEMA-MISMATCH", "W-TABLE-LEGACY-SELECT-FIRST-ROW"]
 examples = ["examples/workflows/01_weather_api_to_standard_file", "examples/workflows/02_native_surrogate_case_workflow"]
 tests = ["cargo test -p eng_runtime table_", "cargo test -p eng_compiler table_"]
 
