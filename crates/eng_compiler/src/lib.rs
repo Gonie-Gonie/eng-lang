@@ -7118,7 +7118,9 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         json.push_str("],\n");
         json.push_str("        \"status\": \"declared\",\n");
         json.push_str(&format!("        \"source_line\": {},\n", process.line));
-        json.push_str(&format!("        \"line\": {}\n", process.line));
+        json.push_str(&format!("        \"line\": {},\n", process.line));
+        write_source_span_json(json, "        ", process.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for dependency in &report.semantic_program.environment_dependencies {
@@ -7154,7 +7156,15 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             json_escape(&dependency.status)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", dependency.line));
-        json.push_str(&format!("        \"line\": {}\n", dependency.line));
+        json.push_str(&format!("        \"line\": {},\n", dependency.line));
+        write_source_span_json(
+            json,
+            "        ",
+            dependency.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for request in &report.semantic_program.net_requests {
@@ -7209,7 +7219,9 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             json_escape(&request.response_source)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", request.line));
-        json.push_str(&format!("        \"line\": {}\n", request.line));
+        json.push_str(&format!("        \"line\": {},\n", request.line));
+        write_source_span_json(json, "        ", request.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for download in &report.semantic_program.net_downloads {
@@ -7251,7 +7263,9 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             json_escape(&download.response_source)
         ));
         json.push_str(&format!("        \"source_line\": {},\n", download.line));
-        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str(&format!("        \"line\": {},\n", download.line));
+        write_source_span_json(json, "        ", download.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -14913,6 +14927,29 @@ schema SensorData {
             Some(cache_record.line as u64)
         );
         assert_eq!(review_cache["source_span"]["column"].as_u64(), Some(1));
+        let boundaries = value["review_document"]["external_boundaries"]
+            .as_array()
+            .expect("external boundary review rows");
+        let request_boundary = boundaries
+            .iter()
+            .find(|boundary| {
+                boundary["kind"] == "network_request" && boundary["name"] == "response"
+            })
+            .expect("response network boundary row");
+        assert_eq!(
+            request_boundary["source_span"]["line"].as_u64(),
+            Some(request.line as u64)
+        );
+        assert_eq!(request_boundary["source_span"]["column"].as_u64(), Some(1));
+        let download_boundary = boundaries
+            .iter()
+            .find(|boundary| boundary["kind"] == "network_download")
+            .expect("download network boundary row");
+        assert_eq!(
+            download_boundary["source_span"]["line"].as_u64(),
+            Some(download.line as u64)
+        );
+        assert_eq!(download_boundary["source_span"]["column"].as_u64(), Some(1));
         let risks = value
             .pointer("/review_document/risks")
             .and_then(serde_json::Value::as_array)
