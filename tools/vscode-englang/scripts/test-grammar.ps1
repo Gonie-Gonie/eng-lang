@@ -683,6 +683,53 @@ function Assert-WorkflowStatusOptionPattern {
         "include:#constants"
     ) -Description "workflow status option values"
 }
+
+function Read-ThemeTokenScopes {
+    param([Parameter(Mandatory = $true)][string] $ThemePath)
+
+    if (-not (Test-Path -LiteralPath $ThemePath -PathType Leaf)) {
+        throw "missing VS Code theme at $ThemePath"
+    }
+    $theme = Get-Content -LiteralPath $ThemePath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $scopes = New-Object System.Collections.Generic.List[string]
+    foreach ($rule in @($theme.tokenColors)) {
+        foreach ($scope in @($rule.scope)) {
+            $scopeText = [string]$scope
+            if (-not [string]::IsNullOrWhiteSpace($scopeText)) {
+                $scopes.Add($scopeText) | Out-Null
+            }
+        }
+    }
+    return @($scopes)
+}
+
+function Test-ThemeScopeCoversScope {
+    param(
+        [Parameter(Mandatory = $true)][string[]] $ThemeScopes,
+        [Parameter(Mandatory = $true)][string] $Scope
+    )
+
+    foreach ($themeScope in $ThemeScopes) {
+        if ($Scope -eq $themeScope -or $Scope.StartsWith("$themeScope.")) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Assert-BundledThemeLeafScopeCoverage {
+    $leafScopes = @($Expected | ForEach-Object { [string]$_.scope } | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_) -and $_ -notlike "meta.*"
+    } | Sort-Object -Unique)
+    foreach ($themeName in @("englang-dark-color-theme.json", "englang-light-color-theme.json")) {
+        $themePath = Join-Path (Join-Path $ExtensionRoot "themes") $themeName
+        $themeScopes = Read-ThemeTokenScopes -ThemePath $themePath
+        $missing = @($leafScopes | Where-Object { -not (Test-ThemeScopeCoversScope -ThemeScopes $themeScopes -Scope $_) })
+        if ($missing.Count -gt 0) {
+            throw "$themeName tokenColors are missing EngLang leaf scope coverage: $($missing -join ', ')"
+        }
+    }
+}
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
@@ -953,6 +1000,7 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels (
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedWorkflowScopesCoverGrammar
+Assert-BundledThemeLeafScopeCoverage
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#operators" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
 Assert-FunctionCallFallbacks
