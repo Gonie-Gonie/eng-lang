@@ -7035,7 +7035,9 @@ fn push_review_validations_json(json: &mut String, report: &CheckReport) {
             "        \"status\": \"{}\",\n",
             json_escape(&command.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", command.line));
+        json.push_str(&format!("        \"line\": {},\n", command.line));
+        write_source_span_json(json, "        ", command.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for class in &report.semantic_program.classes {
@@ -7051,7 +7053,15 @@ fn push_review_validations_json(json: &mut String, report: &CheckReport) {
                 "        \"status\": \"{}\",\n",
                 json_escape(&validation.status)
             ));
-            json.push_str(&format!("        \"line\": {}\n", validation.line));
+            json.push_str(&format!("        \"line\": {},\n", validation.line));
+            write_source_span_json(
+                json,
+                "        ",
+                validation.line,
+                &report.source_lines,
+                false,
+            );
+            json.push('\n');
             json.push_str("      }");
         }
     }
@@ -9927,6 +9937,18 @@ system Envelope {
         assert!(review.contains("\"validation_count\": 2"));
         assert!(review.contains("\"method_count\": 1"));
         assert!(review.contains("\"construction\": \"copy_with\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let class_validation = value["review_document"]["validations"]
+            .as_array()
+            .and_then(|validations| {
+                validations.iter().find(|validation| {
+                    validation["kind"] == "class_validation"
+                        && validation["expression"] == "u_value > 0 W/K"
+                })
+            })
+            .expect("class validation review row");
+        assert_eq!(class_validation["source_span"]["line"].as_u64(), Some(6));
+        assert_eq!(class_validation["source_span"]["column"].as_u64(), Some(9));
     }
 
     #[test]
@@ -13097,6 +13119,18 @@ system Envelope {
         assert_eq!(
             value
                 .pointer("/review_document/calculations/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/validations/0/source_span/line")
+                .and_then(serde_json::Value::as_u64),
+            Some(2)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/validations/0/source_span/column")
                 .and_then(serde_json::Value::as_u64),
             Some(1)
         );

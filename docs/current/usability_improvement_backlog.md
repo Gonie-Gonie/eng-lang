@@ -67,6 +67,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 738: Added normalized review-document `source_span` metadata for Side Effects rows across exports, writes, file operations, and network downloads.
 - Batch 739: Added normalized review-document `source_span` metadata for Table Transform rows so review-table clicks open transform declarations precisely.
 - Batch 740: Added normalized review-document `source_span` metadata for TimeSeries calculation and Report Outputs rows covering summaries, integrations, and plot candidates.
+- Batch 741: Added normalized review-document `source_span` metadata for Validation rows covering top-level validate commands and class validations.
 
 ## Documentation Policy
 
