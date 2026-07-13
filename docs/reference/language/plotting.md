@@ -60,9 +60,10 @@ Example:
 }
 ```
 
-The `points` array is the renderer-independent data model. The current runtime
-uses runtime TimeSeries points for the official CSV example and deterministic
-fallback points only when materialized runtime data is not available.
+The `points` array is the renderer-independent data model. Normal `eng run`
+workflows populate it from materialized runtime TimeSeries data, including the
+official CSV and workflow examples. The report-only renderer keeps a tiny sample
+series for direct renderer smoke tests that do not load a runtime result.
 
 For multi-series line plots, PlotSpec stores one `series` object per line. The
 native SVG renderer draws each line with a stable color and emits a compact
