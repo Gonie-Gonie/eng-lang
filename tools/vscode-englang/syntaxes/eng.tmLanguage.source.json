@@ -1557,12 +1557,32 @@
       "members": {
         "patterns": [
           {
+            "name": "meta.path.parameter-public-member.englang",
+            "match": "\\b(args)(\\.)([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)(\\.)({{PUBLIC_MEMBER_FIELDS}})\\b",
+            "captures": {
+              "1": { "name": "variable.parameter.property.englang" },
+              "2": { "name": "punctuation.accessor.dot.englang" },
+              "3": { "name": "variable.parameter.property.member.englang" },
+              "4": { "name": "punctuation.accessor.dot.englang" },
+              "5": { "name": "variable.other.public-member.englang" }
+            }
+          },
+          {
             "name": "meta.path.parameter.englang",
             "match": "\\b(args)(\\.)([A-Za-z_][A-Za-z0-9_]*)\\b",
             "captures": {
               "1": { "name": "variable.parameter.property.englang" },
               "2": { "name": "punctuation.accessor.dot.englang" },
               "3": { "name": "variable.parameter.property.member.englang" }
+            }
+          },
+          {
+            "name": "meta.path.public-member.englang",
+            "match": "\\b([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)(\\.)({{PUBLIC_MEMBER_FIELDS}})\\b",
+            "captures": {
+              "1": { "name": "variable.other.property.englang" },
+              "2": { "name": "punctuation.accessor.dot.englang" },
+              "3": { "name": "variable.other.public-member.englang" }
             }
           },
           {

@@ -96,7 +96,9 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.declaration.field.englang` | Field declarations written with `name:`. |
 | `variable.other.property.englang` | Schema/class fields, component members, property paths, and object fields. |
 | `meta.path.property.englang` | Full dotted property paths such as `samples.row_preview` for TextMate first-paint grouping. |
+| `meta.path.public-member.englang` | Public workflow member paths such as `samples.row_preview` and `study.designs.row_preview`. |
 | `meta.path.parameter.englang` | Full `args.*` paths for TextMate first-paint grouping. |
+| `meta.path.parameter-public-member.englang` | Public workflow member paths reached through `args.*`, such as `args.designs.row_preview`. |
 | `variable.other.member.englang` | Member segments after a dot in dotted property paths. |
 | `variable.other.public-member.englang` | Compiler-catalog public workflow API member segments such as `response_source`, `row_preview`, the `summary` member on DB connections, and case count fields. |
 | `variable.parameter.property.member.englang` | Member segments after `args.` in dotted parameter paths. |

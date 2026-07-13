@@ -1029,7 +1029,11 @@ Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $C
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
 $PublicWorkflowMemberFixture = ($PublicWorkflowMemberFields | ForEach-Object { "api.$_" }) -join "`n"
+$DottedPublicWorkflowMemberFixture = ($PublicWorkflowMemberFields | ForEach-Object { "api.resource.$_" }) -join "`n"
+$ArgsPublicWorkflowMemberFixture = ($PublicWorkflowMemberFields | ForEach-Object { "args.resource.$_" }) -join "`n"
 Assert-AnyScopeMatchesLabels -Scopes @("variable.other.public-member.englang") -Labels $PublicWorkflowMemberFields -Description "public workflow member field" -FixtureText $PublicWorkflowMemberFixture
+Assert-AnyScopeMatchesLabels -Scopes @("variable.other.public-member.englang") -Labels $PublicWorkflowMemberFields -Description "dotted public workflow member field" -FixtureText $DottedPublicWorkflowMemberFixture
+Assert-AnyScopeMatchesLabels -Scopes @("variable.other.public-member.englang") -Labels $PublicWorkflowMemberFields -Description "args dotted public workflow member field" -FixtureText $ArgsPublicWorkflowMemberFixture
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="

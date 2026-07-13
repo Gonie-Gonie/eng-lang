@@ -12,6 +12,8 @@ with {
 }
 
 sample_preview = designs.row_preview
+nested_sample_preview = study.designs.row_preview
+arg_sample_preview = args.designs.row_preview
 
 arg_distribution = normal(args.cooling_mean, std=args.cooling_std)
 property_distribution = uniform(sensor.cooling_min, sensor.cooling_max)

@@ -105,6 +105,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 646: Added `db.summary` as the preferred native SQLite connection summary binding, keeping detailed table/count/row/status fields as drill-down APIs.
 - Batch 647: Cleaned the public native surrogate workflow guide so it names `db.summary` alongside DB manifests instead of documenting only the lower-level DB write artifacts.
 - Batch 648: Added TextMate first-paint coloring for compiler-catalog public workflow member fields, using generated HTTP/sample/DB/case field metadata instead of another hardcoded member list.
+- Batch 649: Extended TextMate public workflow member coloring through dotted receivers such as `study.designs.row_preview` and `args.designs.row_preview`, so member fields do not fall back to generic property coloring when the table/model source is nested.
 
 ## Documentation Policy
 

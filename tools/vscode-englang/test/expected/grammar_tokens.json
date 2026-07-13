@@ -628,6 +628,18 @@
   },
   {
     "fixture": "05_sampling_model.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "study.designs.row_preview",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
+    "scope": "meta.path.parameter-public-member.englang",
+    "text": "args.designs.row_preview",
+    "fullMatch": true
+  },
+  {
+    "fixture": "05_sampling_model.eng",
     "scope": "meta.path.property.englang",
     "text": "designs.row_preview",
     "fullMatch": true
