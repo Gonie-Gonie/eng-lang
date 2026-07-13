@@ -2157,14 +2157,16 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for stats in &program.stats_infos {
         builder.push_keywords_on_line(stats.line, &["summarize", "by"], &["report"]);
-        builder.push_on_line(stats.line, &stats.source, "variable", &["report"]);
+        builder.push_identifier_path_on_line(stats.line, &stats.source, &["report", "timeseries"]);
         for statistic in &stats.statistics {
-            builder.push_on_line(
-                stats.line,
-                statistic,
-                "function",
-                &["defaultLibrary", "report"],
-            );
+            for name in summary_statistic_names(statistic) {
+                builder.push_on_line(
+                    stats.line,
+                    name,
+                    "function",
+                    &["defaultLibrary", "report", "timeseries"],
+                );
+            }
         }
     }
 
@@ -5807,6 +5809,22 @@ fn command_style_identifier_paths<'a>(text: &'a str, skip: &[&str]) -> Vec<&'a s
         }
     })
     .collect()
+}
+
+fn summary_statistic_names(text: &str) -> Vec<&str> {
+    text.trim()
+        .trim_start_matches('[')
+        .trim_end_matches(']')
+        .split(',')
+        .filter_map(|item| {
+            let statistic = item.trim_start();
+            let end = statistic
+                .find(|character: char| !(character.is_ascii_alphanumeric() || character == '_'))
+                .unwrap_or(statistic.len());
+            let name = &statistic[..end];
+            is_simple_identifier_segment(name).then_some(name)
+        })
+        .collect()
 }
 
 fn is_table_join_phrase(line: &str, token_start: usize) -> bool {
@@ -10703,7 +10721,7 @@ E_series = integrate Q_series over Time
 mean_Q = mean Q_series over Time
 reg_eval = payload
 report {
-    summarize Q_series by [mean, time_weighted_mean, p90, p95]
+    summarize Q_series by [mean, time_weighted_mean, p90, p95, duration_above(5 kW)]
     plot Q_series over Time
     plot Q_series and Q_total_unc over Time
     plot histogram(Q_series)
@@ -10780,19 +10798,37 @@ struct LegacyArgs
         for label in ["summarize", "summary", "distribution", "line", "bar"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
         }
+        let summary_line =
+            "    summarize Q_series by [mean, time_weighted_mean, p90, p95, duration_above(5 kW)]";
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
-            "    summarize Q_series by [mean, time_weighted_mean, p90, p95]",
+            summary_line,
             "by",
             "keyword",
             "report",
         );
-        for label in ["mean", "time_weighted_mean", "p90", "p95"] {
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            summary_line,
+            "Q_series",
+            "variable",
+            "report",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            summary_line,
+            "Q_series",
+            "variable",
+            "timeseries",
+        );
+        for label in ["mean", "time_weighted_mean", "p90", "p95", "duration_above"] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,
                 source,
-                "    summarize Q_series by [mean, time_weighted_mean, p90, p95]",
+                "    summarize Q_series by [mean, time_weighted_mean, p90, p95, duration_above(5 kW)]",
                 label,
                 "function",
                 "report",
@@ -10800,12 +10836,30 @@ struct LegacyArgs
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,
                 source,
-                "    summarize Q_series by [mean, time_weighted_mean, p90, p95]",
+                "    summarize Q_series by [mean, time_weighted_mean, p90, p95, duration_above(5 kW)]",
                 label,
                 "function",
                 "timeseries",
             );
         }
+        let summary_line_index = source
+            .lines()
+            .position(|line| line.contains(summary_line))
+            .expect("summary source line should be present");
+        for modifier in ["report", "timeseries"] {
+            assert!(
+                !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == summary_line_index
+                        && token.token_type == "function"
+                        && source.lines().nth(token.line).is_some_and(|line| {
+                            line.get(token.start..token.start + token.length) == Some("kW")
+                                && token.modifiers.iter().any(|item| item == modifier)
+                        })
+                }),
+                "duration statistic unit `kW` should not be a report statistic function"
+            );
+        }
+
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,

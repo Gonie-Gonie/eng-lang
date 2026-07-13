@@ -143,8 +143,8 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 684: Added the Problems source label (`eng/file` or `eng/live`) to the VS Code tooling status payload so diagnostics mode and Problems-column source wording stay aligned.
 - Batch 685: Standardized VS Code tooling status wording on `live editor checks` instead of `live editor requests`, keeping live Problems, hover, completion, and highlight wording aligned.
 - Batch 686: Implemented `resample <series> by <duration>` as a native TimeSeries resampling hook, with runtime artifact coverage and VS Code TextMate first-paint highlighting aligned to the new step-only form.
-
 - Batch 687: Aligned LSP semantic highlighting for `resample <series> by <duration>` so the `by` clause keeps workflowStep/timeseries/validation role coloring after semantic overlay, while duration units are not treated as workflow identifiers.
+- Batch 688: Tightened LSP semantic highlighting for supported report `summarize <series> by [...]` statements so the source series keeps report/timeseries role coloring and statistics such as `duration_above(5 kW)` color only the statistic function, not the unit argument.
 
 ## Documentation Policy
 
