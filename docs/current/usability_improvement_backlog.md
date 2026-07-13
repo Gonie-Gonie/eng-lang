@@ -111,6 +111,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 652: Added VS Code package-contract guards so file/live Problems source labels and fallback diagnostic source labels cannot silently drift out of `diagnosticsProvider.js`.
 - Batch 653: Extended VS Code local member completions through dotted receivers, including generated field-map lookup by the terminal receiver segment, so nested sample/schema/workflow member APIs complete consistently with TextMate coloring.
 - Batch 654: Extended LSP/native IDE member completion parsing through dotted receivers and terminal binding fallback, with sample-table coverage for nested receiver paths.
+- Batch 655: Tightened LSP semantic-token coverage so nested sample-table member paths prove the specific dotted-receiver line receives workflow-step property highlighting.
 
 ## Documentation Policy
 

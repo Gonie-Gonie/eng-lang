@@ -8183,6 +8183,31 @@ mod tests {
         );
     }
 
+    fn assert_semantic_token_on_line(
+        snapshot: &LspSnapshot,
+        source: &str,
+        line_match: &str,
+        label: &str,
+        token_type: &str,
+        modifier: &str,
+    ) {
+        let line_number = source
+            .lines()
+            .position(|line| line.contains(line_match))
+            .unwrap_or_else(|| panic!("source should contain line matching `{line_match}`"));
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_number
+                    && token.token_type == token_type
+                    && token.modifiers.iter().any(|item| item == modifier)
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                    })
+            }),
+            "semantic token `{label}` on `{line_match}` should be {token_type} with modifier `{modifier}`"
+        );
+    }
+
     fn repo_root_for_tests() -> PathBuf {
         Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
@@ -11819,18 +11844,30 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(nested_member_completions
             .iter()
             .any(|completion| completion.label == "row_preview"));
-        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
-            token.token_type == "property"
-                && source.lines().nth(token.line).is_some_and(|line| {
-                    &line[token.start..token.start + token.length] == "sample_count"
-                })
-        }));
-        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
-            token.token_type == "property"
-                && source.lines().nth(token.line).is_some_and(|line| {
-                    &line[token.start..token.start + token.length] == "row_preview"
-                })
-        }));
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "sample_count =",
+            "sample_count",
+            "property",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "row_preview =",
+            "row_preview",
+            "property",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "nested_row_preview =",
+            "row_preview",
+            "property",
+            "workflowStep",
+        );
     }
 
     #[test]
