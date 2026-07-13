@@ -117,10 +117,22 @@ $PublicTypeItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "publ
 $QuantityItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "quantities"
 $UnitItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "units"
 $LegacyUnitAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_unit_aliases"
+$HttpResponseFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "http_response_fields"
+$SampleTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "sample_table_fields"
+$DbConnectionFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "db_connection_fields"
+$CaseTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_table_fields"
+$CaseOutputTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_output_table_fields"
+$CaseResultCollectionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_result_collection_table_fields"
 Assert-CatalogItemsHaveProperty -Items $WorkflowOptionItems -CatalogName "workflow_options" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $PublicTypeItems -CatalogName "public_types" -PropertyName "base"
 Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $UnitItems -CatalogName "units" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $HttpResponseFieldItems -CatalogName "http_response_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $SampleTableFieldItems -CatalogName "sample_table_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $DbConnectionFieldItems -CatalogName "db_connection_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $CaseTableFieldItems -CatalogName "case_table_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $CaseOutputTableFieldItems -CatalogName "case_output_table_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $CaseResultCollectionTableFieldItems -CatalogName "case_result_collection_table_fields" -PropertyName "label"
 $WorkflowBuiltins = @($WorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($HyphenatedWorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $LegacyWorkflowBuiltinAliases = @($LegacyWorkflowBuiltinAliasItems | ForEach-Object { [string]$_ })
@@ -130,6 +142,14 @@ $LanguageConstants = @($LanguageConstantItems | ForEach-Object { [string]$_ })
 $WorkflowStatusLiterals = @($WorkflowStatusLiteralItems | ForEach-Object { [string]$_ })
 $OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
 $LegacyUnitAliases = @($LegacyUnitAliasItems | ForEach-Object { [string]$_ })
+$PublicMemberFields = @(
+    $HttpResponseFieldItems +
+    $SampleTableFieldItems +
+    $DbConnectionFieldItems +
+    $CaseTableFieldItems +
+    $CaseOutputTableFieldItems +
+    $CaseResultCollectionTableFieldItems
+) | ForEach-Object { [string]$_.label } | Sort-Object -Unique
 
 $GrammarOnlyFunctionArgumentAliases = @(
     "axis",
@@ -203,6 +223,7 @@ $TemplateValues = @{
     "{{WORKFLOW_BUILTINS}}" = ConvertTo-RegexAlternation ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins + $LegacyWorkflowBuiltinAliases)
     "{{WORKFLOW_OPTIONS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $LegacyWorkflowOptionAliases)
     "{{WORKFLOW_NAMED_ARGS}}" = ConvertTo-RegexAlternation ($WorkflowOptions + $LegacyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases)
+    "{{PUBLIC_MEMBER_FIELDS}}" = ConvertTo-RegexAlternation $PublicMemberFields
 }
 
 $SourceRaw = Get-Content -LiteralPath $SourcePath -Raw -Encoding UTF8

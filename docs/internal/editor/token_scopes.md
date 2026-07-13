@@ -98,6 +98,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.path.property.englang` | Full dotted property paths such as `samples.row_preview` for TextMate first-paint grouping. |
 | `meta.path.parameter.englang` | Full `args.*` paths for TextMate first-paint grouping. |
 | `variable.other.member.englang` | Member segments after a dot in dotted property paths. |
+| `variable.other.public-member.englang` | Compiler-catalog public workflow API member segments such as `response_source`, `row_preview`, the `summary` member on DB connections, and case count fields. |
 | `variable.parameter.property.member.englang` | Member segments after `args.` in dotted parameter paths. |
 | `variable.other.definition.englang` | Runtime binding names written with `name = ...`. |
 | `meta.workflow.*.englang` | Phrase scopes for multi-token workflow operations. |

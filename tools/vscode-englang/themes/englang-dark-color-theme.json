@@ -125,6 +125,10 @@
       "settings": { "foreground": "#9CDCFE" }
     },
     {
+      "scope": ["variable.other.public-member.englang"],
+      "settings": { "foreground": "#4DD0E1" }
+    },
+    {
       "scope": ["variable.parameter.property.member.englang"],
       "settings": { "foreground": "#F4D35E" }
     },

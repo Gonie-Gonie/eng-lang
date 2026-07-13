@@ -1566,6 +1566,15 @@
             }
           },
           {
+            "name": "meta.path.public-member.englang",
+            "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(\\.)({{PUBLIC_MEMBER_FIELDS}})\\b",
+            "captures": {
+              "1": { "name": "variable.other.local.englang" },
+              "2": { "name": "punctuation.accessor.dot.englang" },
+              "3": { "name": "variable.other.public-member.englang" }
+            }
+          },
+          {
             "name": "meta.path.property.englang",
             "match": "\\b([A-Za-z_][A-Za-z0-9_]*)(\\.)([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)*)\\b",
             "captures": {

@@ -802,6 +802,17 @@ $LegacyUnitAliases = @($SyntaxCatalog.legacy_unit_aliases | ForEach-Object { [st
     $_ -cmatch '^[\x20-\x7E]+$'
 } | Select-Object -Unique)
 $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
+$PublicWorkflowMemberFields = @(
+    $SyntaxCatalog.http_response_fields +
+    $SyntaxCatalog.sample_table_fields +
+    $SyntaxCatalog.db_connection_fields +
+    $SyntaxCatalog.case_table_fields +
+    $SyntaxCatalog.case_output_table_fields +
+    $SyntaxCatalog.case_result_collection_table_fields
+) | ForEach-Object { [string]$_.label } | Sort-Object -Unique
+if ($PublicWorkflowMemberFields.Count -eq 0) {
+    throw "generated editor metadata public workflow member field catalog is empty"
+}
 
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $WorkflowBuiltins -Description "LSP workflow builtin"
@@ -819,6 +830,7 @@ Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $Publ
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LegacyUnitAliases -Description "legacy unit alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicWorkflowMemberFields -Description "public workflow member field"
 Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $GrammarSource.grammar
 Assert-WorkflowOptionsAreScopedToWithBlocks
 Assert-ScopeMatchesLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "LSP language constant"
@@ -1016,6 +1028,8 @@ Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $Compiler
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
+$PublicWorkflowMemberFixture = ($PublicWorkflowMemberFields | ForEach-Object { "api.$_" }) -join "`n"
+Assert-AnyScopeMatchesLabels -Scopes @("variable.other.public-member.englang") -Labels $PublicWorkflowMemberFields -Description "public workflow member field" -FixtureText $PublicWorkflowMemberFixture
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="

@@ -104,6 +104,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 645: Propagated semantic token modifiers from typed workflow receivers onto their public member fields, so DB/sample/case/HTTP fields color consistently instead of falling back to generic property coloring.
 - Batch 646: Added `db.summary` as the preferred native SQLite connection summary binding, keeping detailed table/count/row/status fields as drill-down APIs.
 - Batch 647: Cleaned the public native surrogate workflow guide so it names `db.summary` alongside DB manifests instead of documenting only the lower-level DB write artifacts.
+- Batch 648: Added TextMate first-paint coloring for compiler-catalog public workflow member fields, using generated HTTP/sample/DB/case field metadata instead of another hardcoded member list.
 
 ## Documentation Policy
 
