@@ -6053,7 +6053,9 @@ fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
             }
             json.push_str(&format!("        \"redacted\": {},\n", field.redacted));
             json.push_str(&format!("        \"required\": {},\n", field.required));
-            json.push_str(&format!("        \"line\": {}\n", field.line));
+            json.push_str(&format!("        \"line\": {},\n", field.line));
+            write_source_span_json(json, "        ", field.line, &report.source_lines, false);
+            json.push('\n');
             json.push_str("      }");
         }
     }
@@ -6077,7 +6079,9 @@ fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
             "        \"missing_policy_count\": {},\n",
             schema.missing_policies.len()
         ));
-        json.push_str(&format!("        \"line\": {}\n", schema.line));
+        json.push_str(&format!("        \"line\": {},\n", schema.line));
+        write_source_span_json(json, "        ", schema.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for dependency in &report.semantic_program.environment_dependencies {
@@ -6103,7 +6107,15 @@ fn push_review_inputs_json(json: &mut String, report: &CheckReport) {
             "        \"status\": \"{}\",\n",
             json_escape(&dependency.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", dependency.line));
+        json.push_str(&format!("        \"line\": {},\n", dependency.line));
+        write_source_span_json(
+            json,
+            "        ",
+            dependency.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -12941,6 +12953,39 @@ system Envelope {
             .pointer("/review_document/section_hashes/workflow_modules")
             .and_then(serde_json::Value::as_str)
             .is_some());
+    }
+
+    #[test]
+    fn review_json_inputs_include_source_spans() {
+        let report = check_source(
+            "inputs.eng",
+            r#"args {
+    input: CsvFile = file("data.csv")
+}
+
+schema SensorData {
+    time: DateTime index
+}
+"#,
+            &CheckOptions::default(),
+        );
+        let review = review_json(&report);
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review json");
+        let inputs = value["review_document"]["inputs"]
+            .as_array()
+            .expect("inputs array");
+        let arg = inputs
+            .iter()
+            .find(|input| input["kind"] == "arg" && input["name"] == "input")
+            .expect("arg input row");
+        assert_eq!(arg["source_span"]["line"].as_u64(), Some(2));
+        assert_eq!(arg["source_span"]["column"].as_u64(), Some(5));
+        let schema = inputs
+            .iter()
+            .find(|input| input["kind"] == "schema" && input["name"] == "SensorData")
+            .expect("schema input row");
+        assert_eq!(schema["source_span"]["line"].as_u64(), Some(5));
+        assert_eq!(schema["source_span"]["column"].as_u64(), Some(1));
     }
 
     #[test]
