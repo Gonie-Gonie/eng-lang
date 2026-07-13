@@ -27,7 +27,7 @@ status = "supported_narrow"
 backing = "compiler_runtime_builtin"
 purpose = "Explicit generated-output copy, move, delete, and mkdir operations."
 artifacts = ["review.side_effects", "output_manifest", "run_log"]
-diagnostics = ["E-FS-CONFIRM-001", "E-FS-DELETE-001", "E-PROFILE-SAFE-FS"]
+diagnostics = ["E-FS-001", "E-FS-002", "E-FS-003", "E-FS-CONFIRM-001", "E-FS-DELETE-001", "E-PROFILE-SAFE-FS"]
 examples = ["examples/official/13_file_operations"]
 tests = ["cargo test -p eng_compiler file_operations"]
 

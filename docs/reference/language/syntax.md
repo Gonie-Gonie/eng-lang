@@ -1837,6 +1837,9 @@ generation.
 | `E-WRITE-003` | Write expression cannot be resolved | Bind/write a supported expression |
 | `E-WRITE-FMT-003` | `write text` interpolation requested incompatible unit | Fix the interpolation unit |
 | `E-WRITE-FMT-004` | `write text` interpolation expression cannot be resolved | Bind the value or fix the placeholder |
+| `E-FS-001` | File operation is not at top level | Move it to the root workflow |
+| `E-FS-002` | Unsupported file operation | Use `copy`, `move`, `delete`, or `mkdir` |
+| `E-FS-003` | `copy` or `move` is missing a destination | Write `<operation> <source> to <destination>` |
 | `E-FS-CONFIRM-001` | Move/delete missing confirmation | Add `with { confirm = true }` |
 | `E-FS-DELETE-001` | Directory delete missing recursive option | Add `recursive = true` and `confirm = true` |
 | `E-PROCESS-BINDING-001` | `run command` has no binding | Write `result = run command "tool"` |

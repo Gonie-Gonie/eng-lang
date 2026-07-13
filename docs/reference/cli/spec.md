@@ -173,6 +173,9 @@ W-MODEL-EXTRAPOLATION prediction manifest reported schema/extrapolation warning
 E-PATH-INVALID         generated output path is empty
 E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
 E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted
+E-FS-001              file operations must be top-level workflow statements
+E-FS-002              file operation verb is not supported
+E-FS-003              copy or move file operation is missing a destination path
 E-FS-CONFIRM-001      generated-output move/delete requires confirm = true
 E-FS-DELETE-001       directory delete requires recursive = true and confirm = true
 E-PROFILE-SAFE-FS     safe profile rejects generated-output filesystem side effects
