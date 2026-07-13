@@ -1065,6 +1065,15 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.summarize-series.englang" -I
 Assert-WorkflowPatternIncludes -Name "meta.workflow.summarize-series.englang" -Include "#members" -Description "summarize series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.show-report.englang" -Include "#members" -Description "show report"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.http-request.englang" -Include "#operators" -Description "http request"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.export-summary-csv.englang" -Include "#members" -Description "export summary csv"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.write-text.englang" -Include "#members" -Description "write text"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.write-json.englang" -Include "#members" -Description "write json"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.write-standard-text.englang" -Include "#members" -Description "write standard text"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.file-operation.englang" -Include "#members" -Description "file operation"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#members" -Description "render template"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.read-structured.englang" -Include "#members" -Description "read structured"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#members" -Description "download"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.http-request.englang" -Include "#members" -Description "http request"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern

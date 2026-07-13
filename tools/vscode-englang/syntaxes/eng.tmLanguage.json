@@ -755,6 +755,9 @@
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
                                                                                          "name":  "variable.parameter.property.englang",
                                                                                          "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      },
@@ -830,6 +833,9 @@
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
                                                                                          "name":  "variable.parameter.property.englang",
                                                                                          "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      },
@@ -870,6 +876,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
                                                                                      },
                                                                                      {
                                                                                          "name":  "variable.parameter.property.englang",
@@ -916,6 +925,9 @@
                                                                                      {
                                                                                          "name":  "keyword.operator.word.englang",
                                                                                          "match":  "\\bto\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
                                                                                      },
                                                                                      {
                                                                                          "name":  "variable.parameter.property.englang",
@@ -965,6 +977,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
                                                                                      },
                                                                                      {
                                                                                          "name":  "variable.parameter.property.englang",
@@ -1070,6 +1085,9 @@
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
                                                                                          "name":  "variable.parameter.property.englang",
                                                                                          "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      },
@@ -1110,6 +1128,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
                                                                                      },
                                                                                      {
                                                                                          "name":  "variable.parameter.property.englang",
@@ -2701,6 +2722,9 @@
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
                                                                                          "name":  "variable.parameter.property.englang",
                                                                                          "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      },
@@ -2747,6 +2771,9 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
                                                                                      },
                                                                                      {
                                                                                          "name":  "variable.parameter.property.englang",

@@ -128,6 +128,12 @@ fallbacks, while LSP semantic tokens add `workflowStep` plus `external` to
 source operands such as `file(...)`, `args.input`, `payload`, and
 `payload.records`.
 
+I/O and external-boundary phrases such as `read json`, `write text`,
+`write json`, `write standard_text`, `export summary to csv`, `download`,
+`http ...`, `render template`, and file operations also keep `#members`
+before broad `args.*` and dotted-path fallbacks so source and target operands
+split consistently before semantic highlighting arrives.
+
 TimeSeries quality phrases such as `check coverage`, `fill missing`, `align`,
 and `resample` also include member-aware source-path fallbacks so
 `measured.T_zone`, `simulated.T_zone`, and `args.measured_zone` split into
