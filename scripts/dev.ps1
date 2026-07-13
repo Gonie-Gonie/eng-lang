@@ -3318,6 +3318,8 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredTokenScopeDocToken in @(
         "syntax_catalog.workflow_status_literals",
+        "syntax_catalog.keywords",
+        "syntax_catalog.keyword_groups",
         "syntax_catalog.constants",
         "syntax_catalog.operator_words",
         "syntax_catalog.units",
@@ -4782,6 +4784,12 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata missing keyword group $RequiredKeywordGroup"
         }
     }
+    foreach ($RequiredSyntaxKeyword in @("histogram", "parity", "residuals", "return", "if", "else")) {
+        $SyntaxKeyword = @($EditorMetadata.syntax_catalog.keywords | Where-Object { $_ -eq $RequiredSyntaxKeyword }) | Select-Object -First 1
+        if ($null -eq $SyntaxKeyword) {
+            throw "generated VS Code editor metadata missing syntax keyword $RequiredSyntaxKeyword"
+        }
+    }
     foreach ($RequiredHttpResponseField in @("body", "status_code", "query_string", "url_with_query")) {
         $HttpResponseField = @($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq $RequiredHttpResponseField }) | Select-Object -First 1
         if ($null -eq $HttpResponseField) {
@@ -4965,6 +4973,8 @@ function Invoke-IdeCheck {
         "operatorWords",
         "operator_words",
         "normalized.constants",
+        "keywords: stringArray(source.keywords)",
+        "const keywordSet = new Set([",
         "constants: new Set(normalized.constants)",
         "normalized.operatorWords",
         "operatorWords: new Set(normalized.operatorWords)",
@@ -4972,10 +4982,6 @@ function Invoke-IdeCheck {
         "const unitLabels = uniqueStrings(normalized.units)",
         "hyphenatedWorkflowBuiltins",
         "hyphenated_workflow_builtins",
-        "FALLBACK_LEXICAL_KEYWORDS",
-        "histogram",
-        "parity",
-        "residuals",
         "lexicalUnitPattern",
         "hl-doc-comment",
         'rest.startsWith("///")',
@@ -5253,6 +5259,9 @@ function Invoke-IdeCheck {
         if ($CompilerSemanticSource.Contains($ForbiddenAssemblyBalanceStatusToken)) {
             throw "Compiler assembly balance status must not expose legacy seed status $ForbiddenAssemblyBalanceStatusToken"
         }
+    }
+    if ($IdeUiSource.Contains("FALLBACK_LEXICAL_KEYWORDS")) {
+        throw "Native IDE keyword fallback must use syntax_catalog keywords and keyword_groups instead of a hardcoded JS list"
     }
     if ($IdeUiSource.Contains("FALLBACK_LEXICAL_CONSTANTS")) {
         throw "Native IDE constant fallback must use syntax_catalog.constants instead of a hardcoded JS list"

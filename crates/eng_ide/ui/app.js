@@ -5,18 +5,6 @@ const RUN_HISTORY_STORAGE_PREFIX = "englang.nativeIde.runHistory.v1:";
 const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
-const FALLBACK_LEXICAL_KEYWORDS = [
-  "use", "import", "from", "as", "schema", "class", "system", "component", "domain",
-  "args", "report", "test", "where", "with", "on", "const", "fn", "method",
-  "state", "input", "parameter", "output", "operator", "port", "across", "through",
-  "promote", "read", "write", "export", "render", "template", "run", "command",
-  "open", "sqlite", "http", "get", "post", "put", "patch", "head", "request",
-  "fetch", "download", "simulate", "solve", "connect", "conservation", "equation",
-  "validate", "assert", "golden", "show", "plot", "line", "bar", "histogram",
-  "distribution", "parity", "residuals", "summarize", "summary", "return", "if", "else"
-];
-
-
 
 const LEXICAL_KEYWORD_GROUP_ORDER = [
   "deprecated", "import", "declaration", "function", "test", "block", "modifier",
@@ -174,7 +162,6 @@ function buildLexicalCatalog(catalog) {
     ...normalized.hyphenatedWorkflowBuiltins
   ]);
   const keywordSet = new Set([
-    ...FALLBACK_LEXICAL_KEYWORDS,
     ...normalized.keywords,
     ...workflowBuiltinSet
   ]);

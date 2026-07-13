@@ -3829,6 +3829,8 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "keywordGroups: catalogKeywordGroups(source.keywordGroups ?? source.keyword_groups)",
         "function catalogKeywordGroups(value)",
         "workflowStatusLiterals: stringArray(source.workflowStatusLiterals ?? source.workflow_status_literals)",
+        "keywords: stringArray(source.keywords)",
+        "const keywordSet = new Set([",
         "workflowStatusLiterals: new Set(normalized.workflowStatusLiterals)",
         "operatorWords: new Set(normalized.operatorWords)",
         "constants: new Set(normalized.constants)",
@@ -3853,6 +3855,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
                 "native IDE app.js should include UI behavior contract `{required}`"
             ));
         }
+    }
+    if app_js.contains("FALLBACK_LEXICAL_KEYWORDS") {
+        return Err(
+            "native IDE keyword fallback must use syntax_catalog keywords and keyword_groups instead of a JS fallback list"
+                .to_owned(),
+        );
     }
     if app_js.contains("FALLBACK_LEXICAL_CONSTANTS") {
         return Err(

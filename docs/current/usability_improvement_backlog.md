@@ -97,6 +97,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 596: Removed the native IDE hardcoded operator-word fallback list so operator-word coloring uses generated `syntax_catalog.operator_words`.
 - Batch 597: Made native `collect results <CaseOutput>` require rendered CaseOutput evidence before reporting rows as collected; planned output paths now remain missing.
 - Batch 598: Removed the native IDE hardcoded constant fallback list so constant coloring uses generated `syntax_catalog.constants`.
+- Batch 599: Removed the native IDE hardcoded keyword fallback list so keyword coloring uses generated `syntax_catalog.keywords`, keyword groups, and workflow builtin catalogs.
 
 ## Documentation Policy
 
