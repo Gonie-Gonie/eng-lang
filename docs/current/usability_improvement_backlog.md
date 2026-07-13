@@ -97,6 +97,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 638: Added operator-token fallback includes to VS Code workflow phrase scopes for print/log, standard text writes, run command, summarize, and HTTP request lines so operators color consistently across native workflow statements.
 - Batch 639: Reworded current/internal docs that still described implemented tracks as implementation seeds, and added a docs-check guard so those stale implementation-seed phrases do not return outside archives.
 - Batch 640: Renamed the compiler internal net request/download response-origin field from `status` to `response_source` while keeping emitted artifact `status` as a compatibility alias.
+- Batch 641: Kept the VS Code last-run artifact picker in registry workflow order instead of resorting available artifacts alphabetically, so report, review, result, and run-graph artifacts stay in predictable positions.
 
 ## Documentation Policy
 

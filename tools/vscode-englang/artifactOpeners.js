@@ -106,11 +106,6 @@ function lastRunArtifactQuickPickItems(root) {
       artifact,
       available: availability.exists
     };
-  }).sort((left, right) => {
-    if (left.available !== right.available) {
-      return left.available ? -1 : 1;
-    }
-    return left.label.localeCompare(right.label);
   });
 }
 

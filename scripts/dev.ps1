@@ -3881,6 +3881,15 @@ function Assert-VscodeExtensionContract {
     if (-not $ArtifactRegistrySource.Contains("function lastRunArtifactAvailability") -or -not $ArtifactOpenersSource.Contains("lastRunArtifactAvailability") -or -not $ReviewPanelRendererSource.Contains("lastRunArtifactAvailability") -or -not $ArtifactOpenersSource.Contains("available: availability.exists")) {
         throw "VS Code artifact picker and review panel must share last-run artifact availability state"
     }
+    $LastRunArtifactQuickPickIndex = $ArtifactOpenersSource.IndexOf("function lastRunArtifactQuickPickItems(root)")
+    $OutputManifestArtifactItemsIndex = $ArtifactOpenersSource.IndexOf("function outputManifestArtifactItems", [Math]::Max($LastRunArtifactQuickPickIndex, 0))
+    if ($LastRunArtifactQuickPickIndex -lt 0 -or $OutputManifestArtifactItemsIndex -lt $LastRunArtifactQuickPickIndex -or -not $ArtifactOpenersSource.Contains("LAST_RUN_ARTIFACTS.map((artifact)")) {
+        throw "VS Code last-run artifact picker must be built directly from the artifact registry"
+    }
+    $LastRunArtifactQuickPickSource = $ArtifactOpenersSource.Substring($LastRunArtifactQuickPickIndex, $OutputManifestArtifactItemsIndex - $LastRunArtifactQuickPickIndex)
+    if ($LastRunArtifactQuickPickSource.Contains(".sort((left, right)") -or $LastRunArtifactQuickPickSource.Contains("left.label.localeCompare")) {
+        throw "VS Code last-run artifact picker must keep registry workflow order instead of resorting artifacts"
+    }
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
