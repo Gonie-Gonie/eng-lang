@@ -1088,10 +1088,10 @@
                                                                     "begin":  "\\b(read)\\s+(json|toml|text)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.external-boundary.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",

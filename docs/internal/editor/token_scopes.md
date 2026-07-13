@@ -161,7 +161,7 @@ Current workflow phrase scopes:
 | `meta.workflow.promote-json.englang` | `promote json <source> as <schema>` |
 | `meta.workflow.promote-json-records.englang` | `promote json records <source> as <schema>` |
 | `meta.workflow.promote-toml.englang` | `promote toml <source> as <schema>` |
-| `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads. Use `promote csv <source> as <schema>` for CSV tables. |
+| `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads; phrase keywords use external-boundary coloring because the source can be a file, response body, or other boundary value. Use `promote csv <source> as <schema>` for CSV tables. |
 | `meta.workflow.regression-table.englang` | Legacy-compatible `regression_table(<table>, target=..., features=..., ...)` table-model training calls. |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
 | `meta.workflow.resample-series.englang` | `resample <series> to <series>` or `resample <series> with <series>` |

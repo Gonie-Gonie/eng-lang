@@ -5451,7 +5451,7 @@ fn add_read_only_io_semantic_tokens(
         "variable",
         &["declaration", "workflowStep", "external"],
     );
-    builder.push_keywords_on_line(line, &["read", kind], &["workflowStep"]);
+    builder.push_keywords_on_line(line, &["read", kind], modifiers);
     let Some(line_index) = line.checked_sub(1) else {
         return true;
     };
@@ -10544,6 +10544,7 @@ report {
 
 payload = read json file("payload.json")
 settings = read toml file("settings.toml")
+notes = read text file("notes.txt")
 choice = if true else false
 Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
 Q_total_unc: TimeSeries[Time] of HeatRate [kW] = 1 kW
@@ -10777,6 +10778,20 @@ struct LegacyArgs
         }
         for label in ["read", "csv", "json", "toml", "text"] {
             assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
+        for (line, label) in [
+            (r#"payload = read json file("payload.json")"#, "read"),
+            (r#"payload = read json file("payload.json")"#, "json"),
+            (r#"settings = read toml file("settings.toml")"#, "read"),
+            (r#"settings = read toml file("settings.toml")"#, "toml"),
+            (r#"notes = read text file("notes.txt")"#, "read"),
+            (r#"notes = read text file("notes.txt")"#, "text"),
+            ("payload_from_response = read json response.body", "read"),
+            ("payload_from_response = read json response.body", "json"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "keyword", "external",
+            );
         }
         for (line, label, token_type) in [
             (

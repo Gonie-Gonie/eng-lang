@@ -158,6 +158,30 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "read",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "json",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "text",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "keyword.control.external-boundary.englang",
+    "text": "toml",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "meta.workflow.read-structured.englang",
     "text": "read text args.notes",
     "fullMatch": true
