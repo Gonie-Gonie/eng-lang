@@ -1819,6 +1819,7 @@ generation.
 | `E-REPORT-BINDING-001` | Report command used as a bound value | Move it inside `report { ... }` or bind a value expression first |
 | `E-VALIDATE-BINDING-001` | Validation command used as a bound value | Write validation commands as statements or bind a Bool expression first |
 | `E-SIDE-EFFECT-BINDING-001` | Statement-only side effect used as a bound value | Write `print`/`log`/`write`/`export`/`download`/file operations as top-level statements |
+| `E-BLOCK-BINDING-001` | Block/declaration header used as a bound value | Write block headers at statement start or attach `where`/`with` to a supported owner |
 | `E-VALIDATE-BOOL-001` | `validate` target is not a comparison | Write `validate value < threshold` |
 | `E-VALIDATE-EXPR-001` | `validate` expression cannot be resolved | Bind the value or fix the name |
 | `E-VALIDATE-UNIT-001` | `validate` compares incompatible units | Use a compatible threshold |

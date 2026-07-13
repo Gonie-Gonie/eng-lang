@@ -10723,6 +10723,55 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_bound_block_header_commands() {
+        for expression in [
+            "bad_args = args {",
+            "bad_schema = schema Row {",
+            "bad_class = class Row {",
+            "bad_system = system Room {",
+            "bad_component = component Coil {",
+            "bad_domain = domain Thermal {",
+            "bad_states = states ThermalState {",
+            "bad_inputs = inputs ThermalInput {",
+            "bad_outputs = outputs ThermalOutput {",
+            "bad_fn = fn helper {",
+            "bad_method = method helper {",
+            "bad_const = const cp",
+            "bad_test = test \"ok\" {",
+            "bad_where = where {",
+            "bad_with = with {",
+            "bad_on = on {",
+            "bad_constraints = constraints {",
+            "bad_missing = missing {",
+        ] {
+            let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
+
+            assert!(report.has_errors(), "{expression} should be rejected");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "E-BLOCK-BINDING-001"),
+                "{expression} should emit E-BLOCK-BINDING-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-CLASS-OBJECT-001"),
+                "{expression} should not fall through to E-CLASS-OBJECT-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"),
+                "{expression} should not fall through to E-FN-CALL-001"
+            );
+        }
+    }
+    #[test]
     fn rejects_bound_validation_statement_commands() {
         for expression in [
             "bad_validate = validate Q > 0 kW",

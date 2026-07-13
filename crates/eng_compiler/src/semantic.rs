@@ -6669,6 +6669,18 @@ fn analyze_class_object_decl(
         .iter()
         .any(|class_info| class_info.name == object.class_name);
     if !class_exists {
+        if is_block_header_command(&object.class_name) {
+            diagnostics.push(Diagnostic::error(
+                "E-BLOCK-BINDING-001",
+                object.line,
+                &format!(
+                    "Block or declaration header `{}` cannot be used as a bound value.",
+                    object.class_name
+                ),
+                Some("Write block and declaration headers at the start of a statement, such as `schema Name { ... }` or `args { ... }`; attach `where` and `with` blocks after a supported owner statement."),
+            ));
+            return;
+        }
         diagnostics.push(Diagnostic::error(
             "E-CLASS-OBJECT-001",
             object.line,
@@ -11973,6 +11985,40 @@ fn bound_side_effect_statement_diagnostic(binding: &FastBinding) -> Option<Diagn
         Some("Write output and side-effect statements as top-level workflow statements such as `print ...`, `log info ...`, `write text ...`, or `download ... to ...`; bind only the explicit result values supported by the workflow syntax."),
     ))
 }
+fn bound_block_header_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let command = leading_statement_word(&binding.expression, BLOCK_HEADER_COMMANDS)?;
+    Some(Diagnostic::error(
+        "E-BLOCK-BINDING-001",
+        binding.line,
+        &format!("Block or declaration header `{command}` cannot be used as a bound value."),
+        Some("Write block and declaration headers at the start of a statement, such as `schema Name { ... }` or `args { ... }`; attach `where` and `with` blocks after a supported owner statement."),
+    ))
+}
+
+const BLOCK_HEADER_COMMANDS: &[&str] = &[
+    "args",
+    "schema",
+    "class",
+    "system",
+    "component",
+    "domain",
+    "states",
+    "inputs",
+    "outputs",
+    "fn",
+    "method",
+    "const",
+    "test",
+    "where",
+    "with",
+    "on",
+    "constraints",
+    "missing",
+];
+
+fn is_block_header_command(value: &str) -> bool {
+    BLOCK_HEADER_COMMANDS.contains(&value)
+}
 
 fn leading_statement_command(
     expression: &str,
@@ -12048,6 +12094,10 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         return;
     }
     if let Some(diagnostic) = bound_side_effect_statement_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
+        return;
+    }
+    if let Some(diagnostic) = bound_block_header_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
         return;
     }

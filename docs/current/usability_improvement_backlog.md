@@ -153,6 +153,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 694: Extended `E-VALIDATE-BINDING-001` to the full validation statement family so bound `assert` and `golden` forms no longer pass or degrade into unrelated warnings.
 - Batch 695: Added `E-SIDE-EFFECT-BINDING-001` for statement-only side effects used as bound values and anchored matching VS Code TextMate scopes to top-level side-effect statements.
 - Batch 696: Extended bound statement diagnostics and TextMate anchoring to `print`, `log`, and `report { ... }` so output/report blocks cannot masquerade as bound values.
+- Batch 697: Added `E-BLOCK-BINDING-001` for declaration/block headers used as bound values and anchored declaration plus validation-block TextMate scopes to statement starts.
 
 ## Documentation Policy
 

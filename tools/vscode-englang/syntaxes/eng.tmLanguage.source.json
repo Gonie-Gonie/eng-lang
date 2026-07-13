@@ -132,7 +132,7 @@
         "patterns": [
           {
             "name": "entity.name.type.declaration.englang",
-            "match": "\\b(script|struct)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(script|struct)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "keyword.control.deprecated.englang" },
               "2": { "name": "entity.name.type.englang" }
@@ -140,7 +140,7 @@
           },
           {
             "name": "entity.name.type.declaration.englang",
-            "match": "\\b(schema|system|domain|component|class|states|inputs|outputs)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(schema|system|domain|component|class|states|inputs|outputs)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.type.declaration.englang" },
               "2": { "name": "entity.name.type.englang" }
@@ -148,7 +148,7 @@
           },
           {
             "name": "meta.declaration.function.englang",
-            "match": "\\b(fn|method)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(fn|method)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.type.function.englang" },
               "2": { "name": "entity.name.function.englang" }
@@ -169,7 +169,7 @@
           },
           {
             "name": "meta.declaration.constant.typed.englang",
-            "match": "\\b(const)\\s+([A-Za-z_][A-Za-z0-9_]*)(\\s*:)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\s*(\\[)\\s*([^\\]]+)\\s*(\\]))?",
+            "match": "^\\s*(const)\\s+([A-Za-z_][A-Za-z0-9_]*)(\\s*:)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\s*(\\[)\\s*([^\\]]+)\\s*(\\]))?",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "variable.other.constant.englang" },
@@ -182,7 +182,7 @@
           },
           {
             "name": "meta.declaration.constant.englang",
-            "match": "\\b(const)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(const)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "variable.other.constant.englang" }
@@ -190,7 +190,7 @@
           },
           {
             "name": "meta.declaration.test.englang",
-            "match": "\\b(test)\\s+(\"[^\"]*\")",
+            "match": "^\\s*(test)\\s+(\"[^\"]*\")",
             "captures": {
               "1": { "name": "storage.type.test.englang" },
               "2": { "name": "entity.name.section.englang" }
@@ -324,7 +324,7 @@
         "patterns": [
           {
             "name": "meta.block.validation.englang",
-            "match": "\\b(constraints|missing)(\\s*)(\\{)",
+            "match": "^\\s*(constraints|missing)(\\s*)(\\{)",
             "captures": {
               "1": { "name": "keyword.control.validation.englang" },
               "3": { "name": "punctuation.section.block.begin.englang" }
