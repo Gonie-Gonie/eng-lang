@@ -58,6 +58,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 729: Made VS Code Problems diagnostics consume review `source_span`/source-column metadata and convert UTF-8 byte columns into precise editor ranges.
 - Batch 730: Added top-level compiler review diagnostic `source_span` metadata so saved-file VS Code Problems can use precise source columns, not only line ranges.
 - Batch 731: Added normalized review-document `source_span` metadata for Symbols and Units rows so IDE review tables can jump to precise source columns.
+- Batch 732: Added normalized review-document `source_span` metadata for derived-value and binding-calculation rows, extending precise IDE review-table source jumps.
 
 ## Documentation Policy
 

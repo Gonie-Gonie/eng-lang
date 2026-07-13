@@ -6398,7 +6398,15 @@ fn push_review_derived_values_json(json: &mut String, report: &CheckReport) {
             "        \"display_unit\": \"{}\",\n",
             json_escape(&declaration.display_unit)
         ));
-        json.push_str(&format!("        \"line\": {}\n", declaration.line));
+        json.push_str(&format!("        \"line\": {},\n", declaration.line));
+        write_source_span_json(
+            json,
+            "        ",
+            declaration.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -6518,7 +6526,15 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             &declaration.quantity_kind,
             declaration.line,
         );
-        json.push_str(&format!("        \"line\": {}\n", declaration.line));
+        json.push_str(&format!("        \"line\": {},\n", declaration.line));
+        write_source_span_json(
+            json,
+            "        ",
+            declaration.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for statistic in &report.semantic_program.stats_infos {
@@ -12867,6 +12883,18 @@ system Envelope {
         assert_eq!(
             value
                 .pointer("/review_document/units_quantities/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/derived_values/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+        assert_eq!(
+            value
+                .pointer("/review_document/calculations/0/source_span/column")
                 .and_then(serde_json::Value::as_u64),
             Some(1)
         );
