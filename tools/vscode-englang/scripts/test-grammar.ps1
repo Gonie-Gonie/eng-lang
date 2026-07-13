@@ -513,6 +513,28 @@ function Assert-ExpectedWorkflowScopesCoverGrammar {
     }
 }
 
+function Assert-ExpectedLeafScopesCoverGrammar {
+    $RootGrammarName = [string]$Grammar.name
+    $GrammarLeafScopes = @($PatternsByScope.Keys | Where-Object {
+        $scope = [string]$_
+        -not [string]::IsNullOrWhiteSpace($scope) -and
+            $scope -ne $RootGrammarName -and
+            $scope -notlike "meta.*"
+    } | Sort-Object -Unique)
+    $ExpectedLeafScopes = @($Expected | ForEach-Object {
+        [string]$_.scope
+    } | Where-Object {
+        -not [string]::IsNullOrWhiteSpace($_) -and $_ -notlike "meta.*"
+    } | Sort-Object -Unique)
+
+    $MissingLeafScopes = @($GrammarLeafScopes | Where-Object {
+        $ExpectedLeafScopes -notcontains $_
+    })
+    if ($MissingLeafScopes.Count -gt 0) {
+        throw "grammar smoke expected tokens missing leaf scope coverage: $($MissingLeafScopes -join ', ')"
+    }
+}
+
 function Test-ExpectedTokenTextCoversLabel {
     param([Parameter(Mandatory = $true)][string] $Label)
 
@@ -1181,6 +1203,7 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels (
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
 Assert-ExpectedWorkflowScopesCoverGrammar
+Assert-ExpectedLeafScopesCoverGrammar
 Assert-BundledThemeLeafScopeCoverage
 Assert-WorkflowPatternIncludes -Name "meta.workflow.integrate-series.englang" -Include "#members" -Description "integrate series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.stat-series.englang" -Include "#members" -Description "stat series"
