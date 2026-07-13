@@ -6896,7 +6896,15 @@ fn push_review_table_transforms_json(json: &mut String, report: &CheckReport) {
             "        \"status\": \"{}\",\n",
             json_escape(&transform.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", transform.line));
+        json.push_str(&format!("        \"line\": {},\n", transform.line));
+        write_source_span_json(
+            json,
+            "        ",
+            transform.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -13280,6 +13288,28 @@ schema SensorData {
         assert!(review.contains("\"table_transform_count\": 2"));
         assert!(review.contains("\"operation\": \"filter\""));
         assert!(review.contains("\"operation\": \"require_one\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let transforms = value["review_document"]["table_transforms"]
+            .as_array()
+            .expect("table transform review rows");
+        let filter_row = transforms
+            .iter()
+            .find(|transform| transform["binding"] == "candidates")
+            .expect("filter transform row");
+        assert_eq!(
+            filter_row["source_span"]["line"].as_u64(),
+            Some(filter.line as u64)
+        );
+        assert_eq!(filter_row["source_span"]["column"].as_u64(), Some(1));
+        let require_one_row = transforms
+            .iter()
+            .find(|transform| transform["binding"] == "station")
+            .expect("require_one transform row");
+        assert_eq!(
+            require_one_row["source_span"]["line"].as_u64(),
+            Some(require_one.line as u64)
+        );
+        assert_eq!(require_one_row["source_span"]["column"].as_u64(), Some(1));
     }
 
     #[test]
