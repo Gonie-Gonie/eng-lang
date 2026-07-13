@@ -6010,9 +6010,12 @@ fn completion_json_with_kind(completion: &LspCompletion, kind: Value) -> Value {
 
 pub fn hover_json(hover: &LspHover) -> Value {
     let mut value = format!(
-        "**{}**\n\nKind: `{}`\n\n{}\n\nQuantity: `{}`\n\nDisplay unit: `{}`",
-        hover.name, hover.kind, hover.detail, hover.quantity_kind, hover.display_unit
+        "**{}**\n\nKind: `{}`\n\n{}\n\nQuantity: `{}`",
+        hover.name, hover.kind, hover.detail, hover.quantity_kind
     );
+    if let Some(display_unit) = hover_display_unit(&hover.display_unit) {
+        value.push_str(&format!("\n\nDisplay unit: `{display_unit}`"));
+    }
     if let Some(status) = &hover.status {
         value.push_str(&format!("\n\nStatus: `{status}`"));
     }
@@ -6028,6 +6031,15 @@ pub fn hover_json(hover: &LspHover) -> Value {
             "value": value
         }
     })
+}
+
+fn hover_display_unit(display_unit: &str) -> Option<&str> {
+    let trimmed = display_unit.trim();
+    if trimmed.is_empty() || trimmed == "-" {
+        None
+    } else {
+        Some(trimmed)
+    }
 }
 
 pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
@@ -11663,6 +11675,18 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(!member_completions
             .iter()
             .any(|completion| completion.label == "hash"));
+        let response_text_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "response_text")
+            .expect("HTTP response string binding should have hover detail");
+        let response_text_markdown = hover_json(response_text_hover)["contents"]["value"]
+            .as_str()
+            .expect("HTTP response string hover should render markdown")
+            .to_owned();
+        assert!(response_text_markdown.contains("Quantity: `String`"));
+        assert!(!response_text_markdown.contains("Display unit: ``"));
+        assert!(!response_text_markdown.contains("Display unit: `-`"));
         assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
             token.token_type == "property"
                 && source

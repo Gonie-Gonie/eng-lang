@@ -4008,6 +4008,7 @@ function Assert-VscodeExtensionContract {
         "hoverNameMatches",
         "hoverFromSnapshot",
         "hoverMarkdown",
+        "hoverDisplayUnit",
         "snapshotDocumentSource",
         "cachedSnapshotForDocument",
         "cacheSnapshotForDocument",
@@ -5020,6 +5021,9 @@ function Assert-VscodeExtensionContract {
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)
     $GeneratedSemanticModifiers = @($EditorMetadata.semantic_token_legend.token_modifiers)
+    if (-not $LspSource.Contains("fn hover_display_unit") -or -not $LspSource.Contains('Display unit: `{display_unit}`')) {
+        throw "eng-lsp hover markdown must suppress empty display-unit labels"
+    }
     $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"
     $LspSemanticModifiers = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_MODIFIERS"
     Assert-SameStringSequence -Left $GeneratedSemanticTypes -Right $LspSemanticTypes -Description "VS Code generated/LSP semantic token types"
@@ -5496,6 +5500,9 @@ function Invoke-IdeCheck {
         if ($LspLanguageConstants -notcontains $RequiredNativeIdeCatalogConstant) {
             throw "LSP language constants missing native IDE lexical catalog constant $RequiredNativeIdeCatalogConstant"
         }
+    }
+    if (-not $LspSource.Contains("fn hover_display_unit") -or -not $LspSource.Contains('Display unit: `{display_unit}`')) {
+        throw "eng-lsp hover markdown must suppress empty display-unit labels"
     }
     $LspSemanticTypes = Read-RustStringSliceConst -Source $LspSource -Name "SEMANTIC_TOKEN_TYPES"
     foreach ($TokenType in $LspSemanticTypes) {

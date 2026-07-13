@@ -111,11 +111,13 @@ function hoverMarkdown(hover, word) {
   if (hover.quantity_kind) {
     markdown.appendMarkdown(`Quantity: \`${hover.quantity_kind}\`\n\n`);
   }
-  if (hover.display_unit) {
-    markdown.appendMarkdown(`Display unit: \`${hover.display_unit}\`\n\n`);
+  const displayUnit = hoverDisplayUnit(hover.display_unit);
+  if (displayUnit) {
+    markdown.appendMarkdown(`Display unit: \`${displayUnit}\`\n\n`);
   }
-  if (hover.canonical_unit) {
-    markdown.appendMarkdown(`Canonical unit: \`${hover.canonical_unit}\`\n\n`);
+  const canonicalUnit = hoverDisplayUnit(hover.canonical_unit);
+  if (canonicalUnit) {
+    markdown.appendMarkdown(`Canonical unit: \`${canonicalUnit}\`\n\n`);
   }
   if (hover.dimension) {
     markdown.appendMarkdown(`Dimension: \`${hover.dimension}\`\n\n`);
@@ -124,6 +126,11 @@ function hoverMarkdown(hover, word) {
     markdown.appendMarkdown(`Status: \`${hover.status}\``);
   }
   return markdown;
+}
+
+function hoverDisplayUnit(value) {
+  const text = String(value ?? "").trim();
+  return text && text !== "-" ? text : "";
 }
 
 module.exports = {
