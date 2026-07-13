@@ -106,8 +106,8 @@ To build and install the extension from the current checkout:
 This builds a release `eng.exe` and `eng-lsp.exe`, packages
 `dist\local-vscode\tools\englang-vscode-<version>.vsix`, and installs it with
 the VS Code `code` CLI. Run `.\dev.bat vscode-status` first to see the built
-VSIX path, installed EngLang extension folders, running VS Code processes, and
-whether reinstall is currently blocked. Close all VS Code windows before reinstalling EngLang;
+VSIX path, installed EngLang extension folders, running VS Code processes, the
+Install freshness result, and whether reinstall is currently blocked. Close all VS Code windows before reinstalling EngLang;
 VS Code can lock the existing extension folder while it is running, so
 `vscode-install` checks for that before starting the release build. If a built
 VSIX already exists, the preflight error includes its path so you can install it

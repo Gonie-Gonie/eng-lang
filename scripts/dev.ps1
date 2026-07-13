@@ -3308,7 +3308,8 @@ function Assert-VscodeExtensionContract {
         ".\dev.bat vscode-package",
         "dist\local-vscode\tools\englang-vscode-<version>.vsix",
         "Extensions: Install from VSIX...",
-        "Close all VS Code windows before reinstalling EngLang"
+        "Close all VS Code windows before reinstalling EngLang",
+        "Install freshness"
     )) {
         if (-not $VscodeReadmeSource.Contains($RequiredVscodeInstallDocToken)) {
             throw "VS Code README missing local install token $RequiredVscodeInstallDocToken"
@@ -3325,6 +3326,11 @@ function Assert-VscodeExtensionContract {
         "Get-RunningVscodeProcessSummaries",
         "Get-LocalVscodeVsixSummary",
         "Get-VscodeExtensionInstallSummary",
+        "Get-VscodeExtensionInstallUpdatedTime",
+        "Get-VscodeExtensionFreshnessSummary",
+        "Format-VscodeTimestamp",
+        "Install freshness",
+        "update available",
         "Format-ByteSize",
         'version $(Get-WorkspaceVersion)',
         'updated $Updated',
@@ -6633,21 +6639,88 @@ function Format-ByteSize {
     return "$Bytes B"
 }
 
+function Get-VscodeExtensionInstallUpdatedTime {
+    param([Parameter(Mandatory = $true)][string] $Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Container)) {
+        return $null
+    }
+    try {
+        $Newest = (Get-Item -LiteralPath $Path).LastWriteTimeUtc
+        foreach ($InstalledFile in @(Get-ChildItem -LiteralPath $Path -Recurse -File -ErrorAction SilentlyContinue)) {
+            if ($InstalledFile.LastWriteTimeUtc -gt $Newest) {
+                $Newest = $InstalledFile.LastWriteTimeUtc
+            }
+        }
+        return $Newest
+    } catch {
+        return $null
+    }
+}
+
+function Format-VscodeTimestamp {
+    param([Parameter(Mandatory = $true)] $Timestamp)
+
+    return $Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")
+}
+
 function Get-VscodeExtensionInstallSummary {
     param([Parameter(Mandatory = $true)][string] $Path)
 
+    $UpdatedTime = Get-VscodeExtensionInstallUpdatedTime -Path $Path
+    $UpdatedSuffix = ""
+    if ($null -ne $UpdatedTime) {
+        $UpdatedSuffix = ", updated $(Format-VscodeTimestamp -Timestamp $UpdatedTime)"
+    }
     $PackageJsonPath = Join-Path $Path "package.json"
     if (Test-Path -LiteralPath $PackageJsonPath -PathType Leaf) {
         try {
             $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
             if ($null -ne $Package.version -and [string]$Package.version -ne "") {
-                return "$Path (version $($Package.version))"
+                return "$Path (version $($Package.version)$UpdatedSuffix)"
             }
         } catch {
-            return "$Path (package.json unreadable)"
+            return "$Path (package.json unreadable$UpdatedSuffix)"
         }
     }
+    if ($UpdatedSuffix -ne "") {
+        return "$Path ($($UpdatedSuffix.TrimStart(', ')))"
+    }
     return $Path
+}
+
+function Get-VscodeExtensionFreshnessSummary {
+    param(
+        [Parameter(Mandatory = $true)][string] $VsixPath,
+        [Parameter(Mandatory = $true)] $InstalledExtensions
+    )
+
+    if (-not (Test-Path -LiteralPath $VsixPath -PathType Leaf)) {
+        return "Install freshness: unknown - build the VSIX with .\dev.bat vscode-package."
+    }
+    if ($InstalledExtensions.Count -eq 0) {
+        return "Install freshness: not installed - run .\dev.bat vscode-install or install the VSIX manually."
+    }
+
+    $InstalledUpdates = @()
+    foreach ($InstalledExtension in $InstalledExtensions) {
+        $UpdatedTime = Get-VscodeExtensionInstallUpdatedTime -Path $InstalledExtension
+        if ($null -ne $UpdatedTime) {
+            $InstalledUpdates += [PSCustomObject]@{ Path = $InstalledExtension; Updated = $UpdatedTime }
+        }
+    }
+    if ($InstalledUpdates.Count -eq 0) {
+        return "Install freshness: unknown - installed EngLang extension timestamp could not be read."
+    }
+
+    $VsixItem = Get-Item -LiteralPath $VsixPath
+    $NewestInstalled = $InstalledUpdates | Sort-Object Updated -Descending | Select-Object -First 1
+    if ($VsixItem.LastWriteTimeUtc -gt $NewestInstalled.Updated.AddSeconds(1)) {
+        $VsixUpdated = Format-VscodeTimestamp -Timestamp $VsixItem.LastWriteTimeUtc
+        $InstalledUpdated = Format-VscodeTimestamp -Timestamp $NewestInstalled.Updated
+        return "Install freshness: update available - built VSIX is newer than installed EngLang extension (VSIX $VsixUpdated, installed $InstalledUpdated); close all VS Code windows and run .\dev.bat vscode-install."
+    }
+    return "Install freshness: current - installed EngLang extension is at least as new as the built VSIX."
 }
 
 function Get-LocalVscodeVsixSummary {
@@ -6693,6 +6766,8 @@ function Invoke-VscodeStatus {
     } else {
         Write-Host "Running VS Code process(es): $($RunningVscode -join ', ')"
     }
+
+    Write-Host (Get-VscodeExtensionFreshnessSummary -VsixPath $VsixPath -InstalledExtensions $InstalledExtensions)
 
     if ($InstalledExtensions.Count -gt 0 -and $RunningVscode.Count -gt 0) {
         Write-Host "Install preflight: blocked - close all VS Code windows before reinstalling EngLang."
