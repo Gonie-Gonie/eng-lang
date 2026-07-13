@@ -3714,6 +3714,24 @@ function Assert-VscodeExtensionContract {
         throw "VS Code extension must keep runtime discovery helpers in runtimeDiscovery.js"
     }
     $CommandSourceCombined = $ExtensionSource + "`n" + $CommandHandlersSource
+    $RegisteredCommands = @([regex]::Matches($ExtensionSource, 'registerCommand\("([^"]+)"') | ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique)
+    foreach ($Command in $Commands) {
+        if ($RegisteredCommands -notcontains $Command) {
+            throw "VS Code package command $Command is not registered in extension.js"
+        }
+    }
+    $AllowedCodeOnlyCommands = @("englang.switchProblemsSource")
+    foreach ($Command in $AllowedCodeOnlyCommands) {
+        if ($RegisteredCommands -notcontains $Command) {
+            throw "VS Code extension must keep $Command as a code-only compatibility alias"
+        }
+    }
+    $UnexpectedRegisteredOnlyCommands = @($RegisteredCommands | Where-Object {
+        $Commands -notcontains $_ -and $AllowedCodeOnlyCommands -notcontains $_
+    })
+    if ($UnexpectedRegisteredOnlyCommands.Count -gt 0) {
+        throw "VS Code extension registers command(s) not exposed in package metadata: $($UnexpectedRegisteredOnlyCommands -join ', ')"
+    }
     if (-not $ExtensionSource.Contains('require("./commandHandlers")') -or -not $CommandHandlersSource.Contains("function createCommandHandlers")) {
         throw "VS Code extension must load command handlers from commandHandlers.js"
     }
