@@ -144,6 +144,11 @@ Table and case operation phrases such as `filter`, `derive`, `sort`, `join`,
 member-aware fallbacks so dotted table and case operands stay split on first
 paint.
 
+Predict, train, and apply phrases such as `predict <model> using <table>`,
+`train regression <table>`, `apply <step> over <table>`, and `apply(...,
+over=...)` keep local workflow-step coloring while routing dotted model, table,
+step, and case operands through member-aware fallbacks.
+
 Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
 `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` also include
 member-aware fallbacks so nested model, split, table, and feature operands stay

@@ -155,14 +155,20 @@ function Test-PatternMatchesText {
     }
 
     if ($null -ne $patternNode.match) {
-        $match = [regex]::Match($Text, [string] $patternNode.match)
-        if (-not $match.Success) {
+        $patternText = [string] $patternNode.match
+        $match = [regex]::Match($Text, $patternText)
+        if ($FullMatch) {
+            if ($match.Success -and $match.Value -eq $Text) {
+                return $true
+            }
+            foreach ($fixtureMatch in [regex]::Matches($FixtureText, $patternText, [System.Text.RegularExpressions.RegexOptions]::Multiline)) {
+                if ($fixtureMatch.Value -eq $Text) {
+                    return $true
+                }
+            }
             return $false
         }
-        if ($FullMatch) {
-            return $match.Value -eq $Text
-        }
-        return $true
+        return $match.Success
     }
     if ($null -ne $patternNode.begin -and $null -ne $patternNode.end) {
         if (-not [regex]::IsMatch($Text, [string] $patternNode.begin)) {
@@ -1089,6 +1095,10 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.join-table.englang" -Include
 Assert-WorkflowPatternIncludes -Name "meta.workflow.materialize-cases.englang" -Include "#members" -Description "materialize cases"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.collect-results.englang" -Include "#members" -Description "collect results"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.require-one.englang" -Include "#members" -Description "require one"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.predict-model.englang" -Include "#members" -Description "predict model"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.train-regression.englang" -Include "#members" -Description "train regression"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.apply-call.englang" -Include "#members" -Description "apply call"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.apply-step.englang" -Include "#members" -Description "apply step"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
