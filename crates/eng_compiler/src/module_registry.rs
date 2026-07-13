@@ -32,8 +32,35 @@ impl ModuleRegistryEntry {
     }
 
     pub fn completion_detail(&self) -> String {
-        format!("{}: {}", self.status_label(), self.purpose)
+        format!(
+            "{}: {}",
+            module_completion_status_label(&self.status),
+            module_completion_purpose(&self.purpose)
+        )
     }
+}
+
+fn module_completion_status_label(status: &str) -> &'static str {
+    match status {
+        "supported" | "supported_narrow" => "Supported",
+        "native_preview" => "Native",
+        "planned" => "Planned",
+        "internal_planned" => "Internal planned",
+        "internal" => "Internal",
+        _ => "Unknown",
+    }
+}
+
+fn module_completion_purpose(purpose: &str) -> String {
+    let trimmed = purpose.trim();
+    for marker in ["; broader ", "; broad "] {
+        if let Some(index) = trimmed.find(marker) {
+            if trimmed[index + marker.len()..].contains("planned") {
+                return trimmed[..index].trim_end_matches('.').to_owned();
+            }
+        }
+    }
+    trimmed.to_owned()
 }
 
 pub fn module_status_label(status: &str) -> &'static str {
@@ -346,10 +373,18 @@ mod tests {
             .find(|module| module.name == "eng.net")
             .expect("eng.net should be registered");
         assert_eq!(net_module.status_label(), "Native workflow support");
-        assert!(net_module
-            .completion_detail()
-            .starts_with("Native workflow support:"));
+        assert!(net_module.completion_detail().starts_with("Native:"));
         assert!(!net_module.completion_detail().contains("native_preview"));
+        assert!(!net_module
+            .completion_detail()
+            .contains("Native workflow support"));
+        let cache_module = registry
+            .modules
+            .iter()
+            .find(|module| module.name == "eng.cache")
+            .expect("eng.cache should be registered");
+        assert!(cache_module.completion_detail().starts_with("Native:"));
+        assert!(!cache_module.completion_detail().contains("broader"));
         assert!(net_module
             .diagnostics
             .iter()

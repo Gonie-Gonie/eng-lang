@@ -8496,14 +8496,13 @@ mod tests {
             );
         }
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.net" && completion.detail.contains("Native workflow support")
+            completion.label == "eng.net" && completion.detail.starts_with("Native:")
         }));
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.cache" && completion.detail.contains("Native workflow support")
+            completion.label == "eng.cache" && completion.detail.starts_with("Native:")
         }));
         assert!(snapshot.completions.iter().any(|completion| {
-            completion.label == "eng.uncertainty"
-                && completion.detail.contains("Native workflow support")
+            completion.label == "eng.uncertainty" && completion.detail.starts_with("Native:")
         }));
         for (label, detail_part) in [
             ("require_one", "exactly one row"),
@@ -9003,6 +9002,13 @@ mod tests {
                 .as_str()
                 .is_some_and(|detail| detail.contains("pinned network response cache")),
             "eng.cache completion detail should describe pinned network response cache, got {}",
+            cache_completion["detail"]
+        );
+        assert!(
+            cache_completion["detail"].as_str().is_some_and(
+                |detail| !detail.contains("broader") && !detail.contains("remains planned")
+            ),
+            "eng.cache completion detail should hide planned-scope tail, got {}",
             cache_completion["detail"]
         );
     }

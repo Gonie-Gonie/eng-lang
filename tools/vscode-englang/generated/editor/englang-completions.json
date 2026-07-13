@@ -1868,7 +1868,7 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "Native workflow support: Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links.",
+                                 "detail":  "Native: Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links.",
                                  "kind":  "stdlib",
                                  "label":  "eng.artifact",
                                  "lsp_kind":  9
@@ -1880,31 +1880,31 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, review/run-log cache summaries, and manifest-path cache invalidation; broader process/model replay policy remains planned.",
+                                 "detail":  "Native: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, review/run-log cache summaries, and manifest-path cache invalidation",
                                  "kind":  "stdlib",
                                  "label":  "eng.cache",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata.",
+                                 "detail":  "Native: CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata.",
                                  "kind":  "stdlib",
                                  "label":  "eng.case",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Supported narrow: Typed JSON/TOML file promotion with nested object/list schema validation, optional/default field policy, source hashes, and config summaries.",
+                                 "detail":  "Supported: Typed JSON/TOML file promotion with nested object/list schema validation, optional/default field policy, source hashes, and config summaries.",
                                  "kind":  "stdlib",
                                  "label":  "eng.config",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Native SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records.",
+                                 "detail":  "Native: Native SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records.",
                                  "kind":  "stdlib",
                                  "label":  "eng.db",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Supported narrow: Explicit generated-output copy, move, delete, and mkdir operations.",
+                                 "detail":  "Supported: Explicit generated-output copy, move, delete, and mkdir operations.",
                                  "kind":  "stdlib",
                                  "label":  "eng.fs",
                                  "lsp_kind":  9
@@ -1928,13 +1928,13 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                 "detail":  "Native: ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
                                  "kind":  "stdlib",
                                  "label":  "eng.model",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Live HTTP(S) GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries.",
+                                 "detail":  "Native: Live HTTP(S) GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries.",
                                  "kind":  "stdlib",
                                  "label":  "eng.net",
                                  "lsp_kind":  9
@@ -2002,37 +2002,37 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: PlotSpec, plot manifest, and SVG artifact generation from report plot directives; broader pure .eng plot helper vocabulary remains planned.",
+                                 "detail":  "Native: PlotSpec, plot manifest, and SVG artifact generation from report plot directives",
                                  "kind":  "stdlib",
                                  "label":  "eng.plot",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Supported narrow: Explicit external process boundaries with args, env, cwd, timeout/retry, tool version, expected outputs, and captured output hashes.",
+                                 "detail":  "Supported: Explicit external process boundaries with args, env, cwd, timeout/retry, tool version, expected outputs, and captured output hashes.",
                                  "kind":  "stdlib",
                                  "label":  "eng.process",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
+                                 "detail":  "Native: Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
                                  "kind":  "stdlib",
                                  "label":  "eng.quality",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Report block projection to report_spec/review/output manifests and HTML report artifacts; broader pure .eng report helper vocabulary remains planned.",
+                                 "detail":  "Native: Report block projection to report_spec/review/output manifests and HTML report artifacts",
                                  "kind":  "stdlib",
                                  "label":  "eng.report",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records.",
+                                 "detail":  "Native: Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records.",
                                  "kind":  "stdlib",
                                  "label":  "eng.review",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
+                                 "detail":  "Native: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
                                  "kind":  "stdlib",
                                  "label":  "eng.sampling",
                                  "lsp_kind":  9
@@ -2050,37 +2050,37 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned.",
+                                 "detail":  "Native: Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics",
                                  "kind":  "stdlib",
                                  "label":  "eng.table",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement.",
+                                 "detail":  "Native: Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement.",
                                  "kind":  "stdlib",
                                  "label":  "eng.template",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Supported narrow: Local assertions, golden checks, and test-result artifacts.",
+                                 "detail":  "Supported: Local assertions, golden checks, and test-result artifacts.",
                                  "kind":  "stdlib",
                                  "label":  "eng.test",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
+                                 "detail":  "Native: TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
                                  "kind":  "stdlib",
                                  "label":  "eng.timeseries",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                 "detail":  "Native: Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts",
                                  "kind":  "stdlib",
                                  "label":  "eng.uncertainty",
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Native workflow support: Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links.",
+                                 "detail":  "Native: Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links.",
                                  "kind":  "stdlib",
                                  "label":  "eng.workflow",
                                  "lsp_kind":  9
@@ -4486,7 +4486,7 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "Native workflow support: Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links.",
+                                "detail":  "Native: Generated artifact kinds, write standard_text table artifacts, hashes, manifests, validation records, and report/review links.",
                                 "kind":  "stdlib",
                                 "label":  "eng.artifact",
                                 "lsp_kind":  9
@@ -4498,31 +4498,31 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, review/run-log cache summaries, and manifest-path cache invalidation; broader process/model replay policy remains planned.",
+                                "detail":  "Native: Explicit cache keys, pinned network response cache materialization/replay, hit/miss records, stale cache diagnostics, cache records, review/run-log cache summaries, and manifest-path cache invalidation",
                                 "kind":  "stdlib",
                                 "label":  "eng.cache",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata.",
+                                "detail":  "Native: CaseTable summaries, per-case manifests, generated case directories, pending/succeeded/failed/skipped status, collection status, scheduler hooks, process-output enrichment, and case cache metadata.",
                                 "kind":  "stdlib",
                                 "label":  "eng.case",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Supported narrow: Typed JSON/TOML file promotion with nested object/list schema validation, optional/default field policy, source hashes, and config summaries.",
+                                "detail":  "Supported: Typed JSON/TOML file promotion with nested object/list schema validation, optional/default field policy, source hashes, and config summaries.",
                                 "kind":  "stdlib",
                                 "label":  "eng.config",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Native SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records.",
+                                "detail":  "Native: Native SQLite append/upsert/replace writes plus typed SQLite table readback with schema mapping, DB manifests, hashes, transaction status, and reviewable side-effect/read records.",
                                 "kind":  "stdlib",
                                 "label":  "eng.db",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Supported narrow: Explicit generated-output copy, move, delete, and mkdir operations.",
+                                "detail":  "Supported: Explicit generated-output copy, move, delete, and mkdir operations.",
                                 "kind":  "stdlib",
                                 "label":  "eng.fs",
                                 "lsp_kind":  9
@@ -4546,13 +4546,13 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
+                                "detail":  "Native: ModelSpec, FeatureSpec, TargetSpec, model-card, metric, residual, native predict-table, prediction-manifest, confidence, and hash review artifacts.",
                                 "kind":  "stdlib",
                                 "label":  "eng.model",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Live HTTP(S) GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries.",
+                                "detail":  "Native: Live HTTP(S) GET/download execution plus POST/PUT/PATCH request bodies and pinned offline/cache HTTP(S) boundary records with redacted Secret[T] query values, SHA-256 checks, and artifact summaries.",
                                 "kind":  "stdlib",
                                 "label":  "eng.net",
                                 "lsp_kind":  9
@@ -4620,37 +4620,37 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: PlotSpec, plot manifest, and SVG artifact generation from report plot directives; broader pure .eng plot helper vocabulary remains planned.",
+                                "detail":  "Native: PlotSpec, plot manifest, and SVG artifact generation from report plot directives",
                                 "kind":  "stdlib",
                                 "label":  "eng.plot",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Supported narrow: Explicit external process boundaries with args, env, cwd, timeout/retry, tool version, expected outputs, and captured output hashes.",
+                                "detail":  "Supported: Explicit external process boundaries with args, env, cwd, timeout/retry, tool version, expected outputs, and captured output hashes.",
                                 "kind":  "stdlib",
                                 "label":  "eng.process",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
+                                "detail":  "Native: Common quality result projection for validations, schema constraints, TimeSeries quality summaries, lightweight expectation suites, row/field failure details, report-facing quality tables, and IDE quality inspection.",
                                 "kind":  "stdlib",
                                 "label":  "eng.quality",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Report block projection to report_spec/review/output manifests and HTML report artifacts; broader pure .eng report helper vocabulary remains planned.",
+                                "detail":  "Native: Report block projection to report_spec/review/output manifests and HTML report artifacts",
                                 "kind":  "stdlib",
                                 "label":  "eng.report",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records.",
+                                "detail":  "Native: Review IR, risk/fallback vocabulary, semantic diff payloads, and shared inspection records.",
                                 "kind":  "stdlib",
                                 "label":  "eng.review",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
+                                "detail":  "Native: Deterministic grid/random/LHS sample generation plus promoted sample-table metadata, parameter ranges, duplicate case IDs, seed policy, row hashes, and row-value previews.",
                                 "kind":  "stdlib",
                                 "label":  "eng.sampling",
                                 "lsp_kind":  9
@@ -4668,37 +4668,37 @@
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics; broader table transforms are planned.",
+                                "detail":  "Native: Promoted table diagnostics and schema-aware filter/select/derive/sort/require_one/join transform records with row-level diagnostics",
                                 "kind":  "stdlib",
                                 "label":  "eng.table",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement.",
+                                "detail":  "Native: Native text template rendering with {{name}} placeholders, typed/unit value formatting, render manifests, and output-boundary enforcement.",
                                 "kind":  "stdlib",
                                 "label":  "eng.template",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Supported narrow: Local assertions, golden checks, and test-result artifacts.",
+                                "detail":  "Supported: Local assertions, golden checks, and test-result artifacts.",
                                 "kind":  "stdlib",
                                 "label":  "eng.test",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
+                                "detail":  "Native: TimeSeries statistics, coverage checks, explicit fill/interpolation metadata, quality summaries, alignment/resampling hooks, and integration.",
                                 "kind":  "stdlib",
                                 "label":  "eng.timeseries",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts; broad probabilistic propagation remains planned.",
+                                "detail":  "Native: Narrow native uncertainty constructors, linear propagation metadata, sensor_std TimeSeries review metadata, probability/statistic validation, and report confidence-band artifacts",
                                 "kind":  "stdlib",
                                 "label":  "eng.uncertainty",
                                 "lsp_kind":  9
                             },
                             {
-                                "detail":  "Native workflow support: Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links.",
+                                "detail":  "Native: Static and runtime RunPlan artifacts, run lock, dependency graph, rerun decisions, workflow node status, and workflow graph review links.",
                                 "kind":  "stdlib",
                                 "label":  "eng.workflow",
                                 "lsp_kind":  9
