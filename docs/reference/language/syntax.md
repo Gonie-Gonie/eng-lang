@@ -1832,11 +1832,19 @@ generation.
 | `E-LOG-LEVEL-001` | Unknown or missing log level | Use `log debug/info/warn/error "..."` |
 | `E-PRINT-FMT-003` | Print requested incompatible unit | Fix the print unit |
 | `E-PRINT-FMT-004` | Print expression cannot be resolved | Bind the value or fix the name |
+| `E-EXPORT-CSV-001` | CSV export field is outside an export block | Move the field inside `export summary to csv ... { ... }` |
+| `E-EXPORT-CSV-002` | CSV export source is unsupported | Use `export summary to csv ...` |
 | `E-EXPORT-CSV-003` | CSV export expression cannot be resolved | Bind/export a supported scalar |
 | `E-EXPORT-CSV-004` | CSV export requested incompatible unit | Fix the export unit |
+| `E-WRITE-001` | `write` is not at top level | Move it to the root workflow |
+| `E-WRITE-002` | Write format is unsupported | Use `write text`, `write json`, or `write standard_text` |
 | `E-WRITE-003` | Write expression cannot be resolved | Bind/write a supported expression |
+| `E-WRITE-FMT-001` | `write text` interpolation is unterminated | Close the placeholder with `}` |
+| `E-WRITE-FMT-002` | `write text` interpolation is empty | Remove it or name a value |
 | `E-WRITE-FMT-003` | `write text` interpolation requested incompatible unit | Fix the interpolation unit |
 | `E-WRITE-FMT-004` | `write text` interpolation expression cannot be resolved | Bind the value or fix the placeholder |
+| `E-WRITE-STANDARD-TEXT-001` | `write standard_text` source is not a typed table | Write a promoted or generated table |
+| `E-WRITE-STANDARD-TEXT-OUTPUT` | `write standard_text` has no output path | Add `with { output = ... }` or `to "outputs/file.txt"` |
 | `E-FS-001` | File operation is not at top level | Move it to the root workflow |
 | `E-FS-002` | Unsupported file operation | Use `copy`, `move`, `delete`, or `mkdir` |
 | `E-FS-003` | `copy` or `move` is missing a destination | Write `<operation> <source> to <destination>` |

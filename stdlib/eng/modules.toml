@@ -18,7 +18,7 @@ status = "supported"
 backing = "compiler_runtime_builtin"
 purpose = "Read text/json/toml, write text/json, exports, source hashes, and output hashes; table-to-standard text artifacts are recorded through eng.artifact."
 artifacts = ["review.inputs", "review.side_effects", "output_manifest"]
-diagnostics = ["E-IO-JSON-PARSE", "E-IO-TOML-PARSE", "E-IO-JSON-FIELD-ACCESS-001"]
+diagnostics = ["E-IO-JSON-PARSE", "E-IO-TOML-PARSE", "E-IO-JSON-FIELD-ACCESS-001", "E-EXPORT-CSV-001", "E-EXPORT-CSV-002", "E-EXPORT-CSV-003", "E-EXPORT-CSV-004", "E-WRITE-001", "E-WRITE-002", "E-WRITE-003", "E-WRITE-FMT-001", "E-WRITE-FMT-002", "E-WRITE-FMT-003", "E-WRITE-FMT-004", "E-WRITE-STANDARD-TEXT-001", "E-WRITE-STANDARD-TEXT-OUTPUT"]
 examples = ["examples/official/11_read_only_io"]
 tests = ["cargo test -p eng_compiler read_only_io"]
 

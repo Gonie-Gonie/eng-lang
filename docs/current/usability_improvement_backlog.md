@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 766: Exposed write/export diagnostics through `eng.io` module metadata and filled the missing public syntax/CLI wording for those codes.
 - Batch 765: Exposed the real file-operation syntax diagnostics `E-FS-001/002/003` through the `eng.fs` module registry, workflow-module table, and public CLI/syntax diagnostics docs.
 - Batch 764: Added CLI reference coverage for every module-registry diagnostic and a docs-check guard so future registry diagnostics cannot lack public CLI wording.
 - Batch 763: Removed placeholder/status words from module-registry diagnostic lists and added registry/docs-check guards so diagnostics must be real `E-`/`W-` codes.

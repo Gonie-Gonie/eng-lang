@@ -113,6 +113,19 @@ E-LOG-LEVEL-001       log statement level is missing or unsupported
 E-REPORT-BINDING-001  report commands such as summarize/show/plot cannot be bound as values
 E-VALIDATE-BINDING-001 validation commands such as validate/assert/golden cannot be bound as values
 E-SIDE-EFFECT-BINDING-001 statement-only outputs/side effects such as print/log/write/export/download/copy cannot be bound as values
+E-EXPORT-CSV-001     CSV export field appears outside an export block
+E-EXPORT-CSV-002     CSV export source is unsupported
+E-EXPORT-CSV-003     CSV export expression cannot be resolved
+E-EXPORT-CSV-004     CSV export requested an incompatible display unit
+E-WRITE-001          write statement must be top-level
+E-WRITE-002          write format is unsupported
+E-WRITE-003          write expression cannot be resolved
+E-WRITE-FMT-001      write text interpolation is unterminated
+E-WRITE-FMT-002      write text interpolation is empty
+E-WRITE-FMT-003      write text interpolation requested an incompatible display unit
+E-WRITE-FMT-004      write text interpolation expression cannot be resolved
+E-WRITE-STANDARD-TEXT-001 write standard_text source is not a typed table
+E-WRITE-STANDARD-TEXT-OUTPUT write standard_text is missing an output path
 E-BLOCK-BINDING-001 block/declaration/member metadata headers such as args/schema/state/port/index/package/where/with cannot be bound as values
 E-STATEMENT-BINDING-001 statement-only forms such as return/use/import/connect cannot be bound as values
 E-OPTION-BINDING-001 workflow option assignments such as unit y/title/timeout cannot be bound as values
