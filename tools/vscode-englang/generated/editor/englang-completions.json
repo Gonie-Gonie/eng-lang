@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v2",
-    "completion_items_count":  421,
+    "completion_items_count":  422,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -870,6 +870,12 @@
                                  "kind":  "property",
                                  "label":  "inputs",
                                  "lsp_kind":  10
+                             },
+                             {
+                                 "detail":  "EngLang keyword",
+                                 "kind":  "keyword",
+                                 "label":  "index",
+                                 "lsp_kind":  14
                              },
                              {
                                  "detail":  "EngLang keyword",

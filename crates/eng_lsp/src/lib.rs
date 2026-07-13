@@ -212,6 +212,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "import",
     "input",
     "inputs",
+    "index",
     "insert",
     "integrate",
     "interpolate",
@@ -4428,6 +4429,9 @@ impl<'a> SemanticTokenBuilder<'a> {
             .iter()
             .filter_map(|(type_name, _)| public_generic_type_base(type_name))
             .collect::<BTreeSet<_>>();
+        let constant_keywords = editor_constant_keywords()
+            .into_iter()
+            .collect::<BTreeSet<_>>();
         let units = {
             let mut units = all_unit_infos()
                 .iter()
@@ -4466,10 +4470,16 @@ impl<'a> SemanticTokenBuilder<'a> {
                     &public_types,
                     &unit_ranges,
                     &units,
+                    &constant_keywords,
                 );
                 self.scan_workflow_status_condition_tokens(line_index, start, end);
                 self.scan_legacy_declaration_names(line_index, start, end);
-                self.scan_hyphenated_workflow_builtin_tokens(line_index, start, end);
+                self.scan_hyphenated_workflow_builtin_tokens(
+                    line_index,
+                    start,
+                    end,
+                    &constant_keywords,
+                );
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
                 self.scan_number_tokens(line_index, start, end);
                 self.scan_symbol_operator_tokens(line_index, start, end, &unit_ranges);
@@ -4652,6 +4662,7 @@ impl<'a> SemanticTokenBuilder<'a> {
         public_types: &BTreeSet<&str>,
         unit_ranges: &[(usize, usize)],
         units: &[&str],
+        constant_keywords: &BTreeSet<&str>,
     ) {
         let line = self.lines[line_index];
         let bytes = line.as_bytes();
@@ -4672,12 +4683,19 @@ impl<'a> SemanticTokenBuilder<'a> {
                     continue;
                 }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
+                    let (token_type, modifiers) = workflow_builtin_semantic_class(
+                        line,
+                        token,
+                        token_start,
+                        index,
+                        constant_keywords,
+                    );
                     self.push_byte_range(
                         line_index,
                         token_start,
                         index - token_start,
-                        workflow_builtin_token_type_for_line(line, token, token_start),
-                        workflow_builtin_modifiers_for_line(line, token, token_start),
+                        token_type,
+                        modifiers,
                     );
                 } else if COMPLETION_KEYWORDS.contains(&token) {
                     self.push_byte_range(
@@ -4687,7 +4705,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         "keyword",
                         keyword_modifiers(token),
                     );
-                } else if LANGUAGE_CONSTANT_KEYWORDS.contains(&token) {
+                } else if constant_keywords.contains(token) {
                     self.push_byte_range(
                         line_index,
                         token_start,
@@ -4871,6 +4889,7 @@ impl<'a> SemanticTokenBuilder<'a> {
         line_index: usize,
         start: usize,
         end: usize,
+        constant_keywords: &BTreeSet<&str>,
     ) {
         let line = self.lines[line_index];
         for token in HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS {
@@ -4882,12 +4901,19 @@ impl<'a> SemanticTokenBuilder<'a> {
                 let token_start = search_start + relative_start;
                 let token_end = token_start + token.len();
                 if is_identifier_boundary(line, token_start, token_end) {
+                    let (token_type, modifiers) = workflow_builtin_semantic_class(
+                        line,
+                        token,
+                        token_start,
+                        token_end,
+                        constant_keywords,
+                    );
                     self.push_byte_range(
                         line_index,
                         token_start,
                         token.len(),
-                        workflow_builtin_token_type_for_line(line, token, token_start),
-                        workflow_builtin_modifiers_for_line(line, token, token_start),
+                        token_type,
+                        modifiers,
                     );
                 }
                 search_start = token_end;
@@ -5332,6 +5358,9 @@ fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
         | "source_linear_terms"
         | "finite_difference" => &["solver"],
         "interval" | "ensemble" | "monte_carlo" => &["uncertain"],
+        "lhs" | "latin_hypercube" | "latin-hypercube" | "grid" | "random" | "uniform" => {
+            &["workflowStep"]
+        }
         _ => &[],
     }
 }
@@ -5375,6 +5404,27 @@ fn workflow_builtin_modifiers(keyword: &str) -> &'static [&'static str] {
         "check" | "coverage" | "fill_missing" => &["defaultLibrary", "validation", "timeseries"],
         "select_first_row" => &["defaultLibrary", "deprecated"],
         _ => &["defaultLibrary"],
+    }
+}
+
+fn workflow_builtin_semantic_class(
+    line: &str,
+    keyword: &str,
+    token_start: usize,
+    token_end: usize,
+    constant_keywords: &BTreeSet<&str>,
+) -> (&'static str, &'static [&'static str]) {
+    let token_type = workflow_builtin_token_type_for_line(line, keyword, token_start);
+    if token_type == "function"
+        && constant_keywords.contains(keyword)
+        && next_non_whitespace_after(line, token_end) != Some('(')
+    {
+        ("keyword", language_constant_modifiers(keyword))
+    } else {
+        (
+            token_type,
+            workflow_builtin_modifiers_for_line(line, keyword, token_start),
+        )
     }
 }
 
@@ -9292,6 +9342,7 @@ mod tests {
             ("kW", "unit"),
             ("output", "property"),
             ("inputs", "property"),
+            ("index", "keyword"),
             ("split", "property"),
         ] {
             assert!(
@@ -11655,6 +11706,95 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             }),
             "semantic operator scan should not split slash-delimited unit tokens"
         );
+    }
+
+    #[test]
+    fn snapshot_semantic_tokens_cover_generated_syntax_catalog_literals() {
+        let metadata = editor_metadata_json();
+        let catalog = &metadata["syntax_catalog"];
+        let mut keyword_labels = BTreeSet::<String>::new();
+        let keyword_groups = catalog["keyword_groups"]
+            .as_object()
+            .expect("syntax catalog keyword groups should be an object");
+        for labels in keyword_groups.values() {
+            for label in labels
+                .as_array()
+                .expect("keyword group should contain labels")
+            {
+                keyword_labels.insert(
+                    label
+                        .as_str()
+                        .expect("keyword group label should be a string")
+                        .to_owned(),
+                );
+            }
+        }
+        for label in catalog["operator_words"]
+            .as_array()
+            .expect("syntax catalog operator words should be an array")
+        {
+            keyword_labels.insert(
+                label
+                    .as_str()
+                    .expect("operator word label should be a string")
+                    .to_owned(),
+            );
+        }
+
+        let constant_labels = catalog["constants"]
+            .as_array()
+            .expect("syntax catalog constants should be an array")
+            .iter()
+            .map(|label| {
+                label
+                    .as_str()
+                    .expect("constant label should be a string")
+                    .to_owned()
+            })
+            .collect::<BTreeSet<_>>();
+
+        let mut rows = Vec::<(String, String, bool)>::new();
+        for label in keyword_labels {
+            rows.push((
+                format!("catalog_keyword_{} = {}", rows.len(), label),
+                label,
+                false,
+            ));
+        }
+        for label in constant_labels {
+            rows.push((
+                format!("catalog_constant_{} = {}", rows.len(), label),
+                label,
+                true,
+            ));
+        }
+        let source = rows
+            .iter()
+            .map(|(line, _, _)| line.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+            + "\n";
+        let snapshot =
+            snapshot_for_source(Path::new("syntax_catalog_semantic_tokens.eng"), &source);
+
+        for (line, label, is_constant) in rows {
+            assert!(
+                snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    source
+                        .lines()
+                        .nth(token.line)
+                        .is_some_and(|candidate| {
+                            candidate.contains(&line)
+                                && candidate.get(token.start..token.start + token.length)
+                                    == Some(label.as_str())
+                        })
+                }),
+                "generated syntax catalog label `{label}` should produce a semantic token on `{line}`"
+            );
+            if is_constant {
+                assert_semantic_token_on_line_type(&snapshot, &source, &line, &label, "keyword");
+            }
+        }
     }
 
     #[test]

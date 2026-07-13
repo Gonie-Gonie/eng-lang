@@ -872,6 +872,12 @@
                              {
                                  "detail":  "EngLang keyword",
                                  "kind":  "keyword",
+                                 "label":  "index",
+                                 "lsp_kind":  14
+                             },
+                             {
+                                 "detail":  "EngLang keyword",
+                                 "kind":  "keyword",
                                  "label":  "insert",
                                  "lsp_kind":  14
                              },
@@ -2616,7 +2622,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  421,
+    "completion_items_count":  422,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -3169,6 +3175,7 @@
                                             "import",
                                             "input",
                                             "inputs",
+                                            "index",
                                             "insert",
                                             "integrate",
                                             "interpolate",
