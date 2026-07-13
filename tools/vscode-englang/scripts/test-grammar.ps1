@@ -558,6 +558,31 @@ function Assert-WorkflowPatternIncludes {
     }
 }
 
+function Assert-BeginEndWorkflowPhrasesAreMemberAware {
+    $offenders = New-Object System.Collections.Generic.List[string]
+    foreach ($pattern in @($GrammarSource.grammar.repository.workflowPhrases.patterns)) {
+        $name = [string]$pattern.name
+        if ($name -notlike "meta.workflow.*") {
+            continue
+        }
+        if ($null -eq $pattern.begin -or $null -eq $pattern.end) {
+            continue
+        }
+        $includes = @($pattern.patterns | Where-Object {
+            $null -ne $_.include
+        } | ForEach-Object {
+            [string]$_.include
+        })
+        if ($includes -notcontains "#members") {
+            $offenders.Add($name) | Out-Null
+        }
+    }
+
+    $uniqueOffenders = @($offenders | Sort-Object -Unique)
+    if ($uniqueOffenders.Count -gt 0) {
+        throw "TextMate begin/end workflow phrase patterns must include #members for member-aware first-paint highlighting: $($uniqueOffenders -join ', ')"
+    }
+}
 function Assert-WorkflowPropertyFallbacksAreMemberAware {
     $allowedWithoutMembers = @(
         "meta.workflow.status-condition.englang",
@@ -1152,6 +1177,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.apply-step.englang" -Include
 Assert-WorkflowPatternIncludes -Name "meta.workflow.integrate-call.englang" -Include "#members" -Description "integrate call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.stat-axis-call.englang" -Include "#members" -Description "stat axis call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.summary-field.englang" -Include "#members" -Description "summary field"
+Assert-BeginEndWorkflowPhrasesAreMemberAware
 Assert-WorkflowPropertyFallbacksAreMemberAware
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
