@@ -1001,6 +1001,11 @@ with {
     initial = bad
 }
 
+unsupported_solve_solver = solve component_graph
+with {
+    solver = unsupported
+}
+
 model_designs = sample lhs
 with {
     count = 4
@@ -1130,6 +1135,7 @@ report {
         "E-SIM-DURATION-INVALID",
         "E-SIM-TOLERANCE-INVALID",
         "E-SIM-SOLVER-UNSUPPORTED",
+        "E-SOLVE-SOLVER-UNSUPPORTED",
         "E-SOLVE-TOLERANCE-INVALID",
         "E-SOLVE-MAX-ITER-INVALID",
         "E-SOLVE-RELAXATION-INVALID",
@@ -1422,6 +1428,12 @@ report {
         &uri,
         "Set simulation solver: solver = fixed_step",
         "fixed_step",
+    );
+    assert_action_edit(
+        actions,
+        &uri,
+        "Set solve solver: solver = fixed_point",
+        "fixed_point",
     );
     assert_action_edit(
         actions,

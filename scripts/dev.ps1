@@ -4736,6 +4736,8 @@ function Assert-VscodeExtensionContract {
         "Use confidence band option: confidence_band =",
         "Set process cwd",
         "Set process env",
+        "E-SOLVE-SOLVER-UNSUPPORTED",
+        "Set solve solver",
         "Set sample count",
         "Set sample seed",
         "optionQuickFix",
@@ -4999,7 +5001,9 @@ function Assert-VscodeExtensionContract {
         "Wrap golden expected path with file(...)",
         "Set uncertainty policy",
         "Set uncertainty seed",
-        "E-PROCESS-ALLOW-FAILURE"
+        "E-PROCESS-ALLOW-FAILURE",
+        "E-SOLVE-SOLVER-UNSUPPORTED",
+        "Set solve solver"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspCodeActionToken)) {
             throw "eng-lsp CLI missing code action protocol token $RequiredLspCodeActionToken"

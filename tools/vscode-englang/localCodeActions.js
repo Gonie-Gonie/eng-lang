@@ -755,6 +755,8 @@ function optionQuickFix(code) {
       return { optionNames: ["tolerance"], value: "0.0001", label: "Set solver tolerance" };
     case "E-SIM-SOLVER-UNSUPPORTED":
       return { optionNames: ["solver"], value: "fixed_step", label: "Set simulation solver" };
+    case "E-SOLVE-SOLVER-UNSUPPORTED":
+      return { optionNames: ["solver"], value: "fixed_point", label: "Set solve solver" };
     case "E-SOLVE-RELAXATION-INVALID":
       return { optionNames: ["relaxation"], value: "0.5", label: "Set solver relaxation" };
     case "E-SOLVE-FD-STEP-INVALID":

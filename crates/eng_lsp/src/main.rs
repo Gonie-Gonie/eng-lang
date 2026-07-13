@@ -1888,6 +1888,11 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "fixed_step",
             label: "Set simulation solver",
         }),
+        "E-SOLVE-SOLVER-UNSUPPORTED" => Some(OptionQuickFix {
+            option_names: &["solver"],
+            value: "fixed_point",
+            label: "Set solve solver",
+        }),
         "E-SOLVE-RELAXATION-INVALID" => Some(OptionQuickFix {
             option_names: &["relaxation"],
             value: "0.5",
