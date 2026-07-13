@@ -1,5 +1,7 @@
 # Usability Improvement Backlog
 
+- Batch 755: Added VS Code TextMate first-paint unit highlighting inside function parameter and return type annotations such as `Conductance [W/K]` and `HeatRate [W]`.
+- Batch 754: Extended VS Code TextMate unit highlighting from ASCII-only labels to all compiler-owned unit labels, including degree-C aliases, with fixture/golden coverage.
 - Batch 753: Restored the Celsius `degree-C` alias text in compiler tests and public syntax docs, and added a docs-check guard against recurring Celsius mojibake.
 - Batch 752: Added LSP and VS Code local quick fixes for `E-WRITE-002`, replacing unsupported `write <format>` tokens with `text`, `json`, or `standard_text` without touching export-to-CSV syntax.
 - Batch 751: Added LSP and VS Code local quick fixes for `E-WRITE-STANDARD-TEXT-001`, changing scalar `write standard_text` statements to `write text` when the writer target is not a typed table.
@@ -87,5 +89,3 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Runtime artifact changes update the artifact reference and schemas when their shape changes.
 - Historical implementation logs belong in `docs/archive`; internal unstable design work belongs in `docs/internal` or focused `docs/current/*_plan.md` files.
 - `docs/README.md` remains the navigation entry point; avoid adding parallel indexes unless they serve a specific reader path.
-
-- Batch 754: Extend VS Code TextMate unit highlighting from ASCII-only labels to all compiler-owned unit labels, including degree-C aliases, with fixture/golden coverage.

@@ -1532,6 +1532,30 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.parameter.englang",
+    "text": "(m_dot: MassFlowRate [kg/s]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.parameter.englang",
+    "text": ", dT: TemperatureDelta [K]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "meta.declaration.return-type-unit.englang",
+    "text": "-> HeatRate [W]",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "kg/s",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.function.englang",
     "text": "dT",
     "fullMatch": true

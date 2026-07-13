@@ -16,7 +16,7 @@ class Zone {
     method label() -> String = self.name
 }
 
-fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
+fn coil_heat(m_dot: MassFlowRate [kg/s], dT: TemperatureDelta [K]) -> HeatRate [W] {
     Q = m_dot * cp_water * dT
     return Q
 }
