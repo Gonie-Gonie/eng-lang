@@ -134,6 +134,8 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 675: Added a TextMate grammar regression guard requiring workflow property fallback scopes to include `#members`, with only fixed `status` key/literal scopes allowed as exceptions.
 - Batch 676: Aligned VS Code local args/schema field completions with quick-fix parsing so `#` and `//` inside strings are not mistaken for comments.
 - Batch 677: Added executable model and prediction public member fields such as `model.rmse` and `predictions.output_column` across compiler typing, runtime interpolation, LSP hover/completion/semantic tokens, generated VS Code metadata, and local completion fallback.
+- Batch 678: Documented compiler-owned model and prediction public member catalogs in LSP/VS Code references and added a package guard so executable public member fields are not described as seed-only editor suggestions.
+- Batch 679: Made TextMate `print` and `log` workflow phrase scopes member-aware so public fields such as `model.rmse` and `predictions.output_column` stay colorful in runtime message statements before semantic tokens arrive.
 
 ## Documentation Policy
 

@@ -4262,5 +4262,29 @@
     "scope": "constant.language.englang",
     "text": "source_linear_terms",
     "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.print-message.englang",
+    "text": "print model.rmse",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "rmse",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "meta.workflow.log-message.englang",
+    "text": "log info predictions.output_column",
+    "fullMatch": true
+  },
+  {
+    "fixture": "03_side_effects.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "output_column",
+    "fullMatch": true
   }
 ]

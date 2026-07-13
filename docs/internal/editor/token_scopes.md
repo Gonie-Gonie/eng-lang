@@ -198,7 +198,7 @@ Current workflow phrase scopes:
 | `meta.workflow.integrate-call.englang` | `integrate(<series>, over=<axis>)` |
 | `meta.workflow.integrate-series.englang` | `integrate <series> over <axis>` |
 | `meta.workflow.join-table.englang` | `join <left> with <right>` |
-| `meta.workflow.log-message.englang` | `log <level> "..."` structured runtime message lines. |
+| `meta.workflow.log-message.englang` | `log <level> ...` structured runtime message lines; includes member-aware first-paint fallbacks for dotted message operands. |
 | `meta.workflow.materialize-cases.englang` | `materialize cases <table>` |
 | `meta.workflow.model-summary-call.englang` | `evaluate(<model>[, split=...])`, `model_card(<model>)`, and related model summary calls. |
 | `meta.workflow.model-train-call.englang` | `train_test_split(...)`, legacy-compatible `train_regression(...)`, `regression(...)`, `mlp(...)`, and `ann(...)` model-training calls. |
@@ -207,7 +207,7 @@ Current workflow phrase scopes:
 | `meta.workflow.option-map.englang` | `query = { ... }`, `headers = { ... }`, and `values = { ... }` option maps. |
 | `meta.workflow.with-block.englang` | `with { ... }` option blocks scoped separately from top-level bindings. |
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
-| `meta.workflow.print-message.englang` | `print "..."` runtime message lines. |
+| `meta.workflow.print-message.englang` | `print ...` runtime message lines; includes member-aware first-paint fallbacks for dotted message operands. |
 | `meta.workflow.plot-distribution.englang` | `plot distribution(<distribution>)`; includes member-aware first-paint fallbacks for dotted distribution operands. |
 | `meta.workflow.plot-command.englang` | Fallback for multi-series `plot <a> and <b> over <axis>` and named plot functions such as `plot histogram(...)`, `plot parity(...)`, and `plot residuals(...)`; includes member-aware first-paint fallbacks for dotted report operands. |
 | `meta.workflow.plot-series.englang` | `plot <series> over <axis>`; includes member-aware first-paint fallbacks for dotted series and axis operands. |
