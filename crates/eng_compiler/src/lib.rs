@@ -6176,7 +6176,9 @@ fn push_review_schemas_json(json: &mut String, report: &CheckReport) {
             ));
         }
         json.push_str("],\n");
-        json.push_str(&format!("        \"line\": {}\n", schema.line));
+        json.push_str(&format!("        \"line\": {},\n", schema.line));
+        write_source_span_json(json, "        ", schema.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -12986,6 +12988,14 @@ schema SensorData {
             .expect("schema input row");
         assert_eq!(schema["source_span"]["line"].as_u64(), Some(5));
         assert_eq!(schema["source_span"]["column"].as_u64(), Some(1));
+        assert_eq!(
+            value["review_document"]["schemas"][0]["source_span"]["line"].as_u64(),
+            Some(5)
+        );
+        assert_eq!(
+            value["review_document"]["schemas"][0]["source_span"]["column"].as_u64(),
+            Some(1)
+        );
     }
 
     #[test]

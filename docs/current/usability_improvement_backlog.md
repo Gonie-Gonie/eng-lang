@@ -60,6 +60,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 731: Added normalized review-document `source_span` metadata for Symbols and Units rows so IDE review tables can jump to precise source columns.
 - Batch 732: Added normalized review-document `source_span` metadata for derived-value and binding-calculation rows, extending precise IDE review-table source jumps.
 - Batch 733: Added normalized review-document `source_span` metadata for Inputs rows, including args, schemas, and environment dependency inputs.
+- Batch 734: Added normalized review-document `source_span` metadata for Schemas rows so the VS Code review table opens schema declarations at precise columns.
 
 ## Documentation Policy
 
