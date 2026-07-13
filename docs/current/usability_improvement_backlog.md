@@ -60,6 +60,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 601: Promoted `unit x` and `unit y` into the generated workflow-option catalog and routed that catalog into VS Code/LSP alias quick fixes so plot option repairs cannot drift from public metadata.
 - Batch 602: Routed VS Code and LSP option-value quick fixes through the generated workflow-option catalog so stale hardcoded option names are filtered before repair actions are shown.
 - Batch 603: Clarified the workflow 01/02/03 native-only contract in public workflow docs, including the `workflows-test` guard against Python/notebook markers, `run command`, process-run artifacts, and process counts.
+- Batch 604: Extended the VS Code language word pattern to select the compiler-owned `latin-hypercube` workflow builtin as a whole word while preserving dotted EngLang symbol selection.
 
 ## Documentation Policy
 
