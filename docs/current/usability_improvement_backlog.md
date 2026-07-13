@@ -80,6 +80,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 621: Removed `response.status` from generated HTTP response member completion catalogs and package guards while preserving it as a typed compatibility alias with warning/code-action guidance toward `response.response_source`.
 - Batch 622: Broadened VS Code `keyword.solver` semantic fallback scopes so solver command words, clause words such as `over`, and solver method literals such as `fixed_step` keep consistent keyword/operator/constant coloring across themes.
 - Batch 623: Broadened VS Code `keyword.db` and `keyword.cache` semantic fallback scopes so DB/cache command words, clause words, and status literals keep consistent keyword/operator/constant coloring across themes.
+- Batch 624: Added explicit package-contract guards for `keyword.defaultLibrary` semantic fallback scopes so compiler-owned builtin command words keep workflow/operator/validation/report/solver/constant coloring if the VS Code package map drifts.
 
 ## Documentation Policy
 

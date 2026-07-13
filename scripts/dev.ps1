@@ -3428,6 +3428,14 @@ function Assert-VscodeExtensionContract {
             "storage.type.block.englang",
             "keyword.control.workflow.englang"
         )
+        "keyword.defaultLibrary" = @(
+            "keyword.control.workflow.englang",
+            "keyword.operator.word.englang",
+            "keyword.control.validation.englang",
+            "keyword.control.report.englang",
+            "keyword.control.solver.englang",
+            "constant.language.englang"
+        )
         "keyword.workflowStep" = @(
             "keyword.control.workflow.englang",
             "keyword.operator.word.englang",

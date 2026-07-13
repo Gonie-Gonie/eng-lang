@@ -9265,6 +9265,17 @@ mod tests {
         );
         let required: &[(&str, &[&str])] = &[
             (
+                "keyword.defaultLibrary",
+                &[
+                    "keyword.control.workflow.englang",
+                    "keyword.operator.word.englang",
+                    "keyword.control.validation.englang",
+                    "keyword.control.report.englang",
+                    "keyword.control.solver.englang",
+                    "constant.language.englang",
+                ],
+            ),
+            (
                 "keyword.workflowStep",
                 &[
                     "keyword.control.workflow.englang",
