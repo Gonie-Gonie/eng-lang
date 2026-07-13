@@ -541,6 +541,8 @@ function Invoke-WorkflowsTest {
             }
         }
     }
+    Write-Host "Native workflow Python/process guard passed. Checked $(@($NativeWorkflowSourceAuditPaths).Count) source file(s) and $(@($WorkflowPublicDocPaths).Count) public doc file(s) for Python/notebook/run-command markers."
+
     foreach ($WorkflowSourcePath in $WorkflowSourcePaths) {
         $Workflow = $WorkflowSourcePath.Substring($RepoRoot.Length).TrimStart('\')
         $WorkflowSource = Get-Content -LiteralPath $WorkflowSourcePath -Raw
