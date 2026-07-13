@@ -1186,7 +1186,10 @@ function Test-ModuleRegistryDocs {
         [string] $ReadmePath,
 
         [Parameter(Mandatory = $true)]
-        [string] $WorkflowDocsPath
+        [string] $WorkflowDocsPath,
+
+        [Parameter(Mandatory = $true)]
+        [string] $CliSpecPath
     )
 
     if (-not (Test-Path -LiteralPath $RegistryPath -PathType Leaf)) {
@@ -1198,10 +1201,18 @@ function Test-ModuleRegistryDocs {
     if (-not (Test-Path -LiteralPath $WorkflowDocsPath -PathType Leaf)) {
         throw "missing workflow module docs at $WorkflowDocsPath"
     }
+    if (-not (Test-Path -LiteralPath $CliSpecPath -PathType Leaf)) {
+        throw "missing CLI spec docs at $CliSpecPath"
+    }
 
     $RegistryText = Get-Content -LiteralPath $RegistryPath -Raw -Encoding UTF8
     $ReadmeText = Get-Content -LiteralPath $ReadmePath -Raw -Encoding UTF8
     $WorkflowDocsText = Get-Content -LiteralPath $WorkflowDocsPath -Raw -Encoding UTF8
+    $CliSpecText = Get-Content -LiteralPath $CliSpecPath -Raw -Encoding UTF8
+    $CliDiagnosticCodes = [System.Collections.Generic.HashSet[string]]::new()
+    foreach ($match in [regex]::Matches($CliSpecText, '\b[EW]-[A-Z0-9][A-Z0-9_-]*\b')) {
+        [void]$CliDiagnosticCodes.Add($match.Value)
+    }
     $RegistryModules = [System.Collections.Generic.HashSet[string]]::new()
     $RegistryEntries = New-Object System.Collections.Generic.List[object]
     $CurrentEntry = $null
@@ -1241,6 +1252,7 @@ function Test-ModuleRegistryDocs {
     if ($RegistryModules.Count -eq 0) {
         throw "module registry has no [module.`"eng.name`"] entries"
     }
+    $MissingCliDiagnostics = New-Object System.Collections.Generic.List[string]
     foreach ($entry in $RegistryEntries) {
         foreach ($field in @("status", "backing", "purpose", "artifacts", "diagnostics", "examples", "tests")) {
             if (-not $entry.Contains($field)) {
@@ -1251,7 +1263,15 @@ function Test-ModuleRegistryDocs {
             if ($diagnostic -notmatch '^[EW]-[A-Z0-9][A-Z0-9_-]*$') {
                 throw "module registry entry $($entry.name) has non-diagnostic diagnostics value '$diagnostic'"
             }
+            if (-not $CliDiagnosticCodes.Contains($diagnostic)) {
+                $MissingCliDiagnostics.Add("$diagnostic ($($entry.name))") | Out-Null
+            }
         }
+    }
+    if ($MissingCliDiagnostics.Count -gt 0) {
+        Write-Host "Module registry diagnostics missing from docs/reference/cli/spec.md:"
+        $MissingCliDiagnostics | Sort-Object | ForEach-Object { Write-Host "  $_" }
+        throw "Module registry CLI diagnostic coverage check failed."
     }
 
     $ReadmeModules = [System.Collections.Generic.HashSet[string]]::new()
@@ -1661,7 +1681,8 @@ function Invoke-DocsCheck {
     Test-ModuleRegistryDocs `
         -RegistryPath (Join-Path $RepoRoot "stdlib\eng\modules.toml") `
         -ReadmePath (Join-Path $RepoRoot "stdlib\README.md") `
-        -WorkflowDocsPath (Join-Path $RepoRoot "docs\current\workflow_modules.md")
+        -WorkflowDocsPath (Join-Path $RepoRoot "docs\current\workflow_modules.md") `
+        -CliSpecPath (Join-Path $RepoRoot "docs\reference\cli\spec.md")
     Test-StdlibReferenceDocs `
         -ReferencePath (Join-Path $RepoRoot "docs\reference\stdlib\index.md")
     Test-StdlibModuleBoundaryNotes `

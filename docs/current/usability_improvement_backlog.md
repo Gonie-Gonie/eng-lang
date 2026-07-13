@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 764: Added CLI reference coverage for every module-registry diagnostic and a docs-check guard so future registry diagnostics cannot lack public CLI wording.
 - Batch 763: Removed placeholder/status words from module-registry diagnostic lists and added registry/docs-check guards so diagnostics must be real `E-`/`W-` codes.
 - Batch 762: Added `E-GOLDEN-001` LSP/VS Code quick fixes and exposed the full `eng.test` assertion/golden diagnostic set in registry and public diagnostics docs.
 - Batch 761: Added `E-PROCESS-BINDING-002` to the `eng.process` module registry and generated workflow-module table so process binding collision diagnostics are visible in docs and IDE module metadata.

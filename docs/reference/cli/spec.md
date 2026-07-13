@@ -100,6 +100,7 @@ E-CACHE-KEY-NONDETERMINISTIC cache_key contains nondeterministic or secret-depen
 E-CACHE-TTL           cache_ttl is not a positive finite duration
 E-CACHE-UNHASHED-REPRO repro profile cache record has no observed hash
 W-CACHE-STALE         cache directory contains an entry outside the current cache manifest
+E-TEMPLATE-MISSING-VALUE template rendering referenced a missing value
 E-ARGS-UNKNOWN-001     CLI Args flag does not match `args { ... }`
 E-ARGS-REQUIRED-001    required Args field was not provided for run
 E-ARGS-TYPE-001        Args value cannot be converted to the declared type
@@ -122,6 +123,8 @@ E-UNC-SOURCE-002      referenced binding is not an uncertainty source
 E-UNC-ARGS-001        missing or malformed required uncertainty argument
 E-UNC-ARGS-002        invalid numeric/range/count/transform uncertainty argument
 E-UNC-ARGS-003        unsupported uncertainty option
+W-UNC-INDEPENDENCE-ASSUMED uncertainty propagation assumed independent inputs
+W-WITH-UNCERTAINTY-SEED-001 reproducible uncertainty sampling needs an explicit seed
 E-DOMAIN-CONTRACT-001  domain has no across variable
 E-DOMAIN-CONTRACT-002  domain has no through variable
 E-DOMAIN-CONTRACT-003  domain has no conservation contract
@@ -146,6 +149,7 @@ E-PROCESS-CWD-001      process cwd option must be a path expression
 E-PROCESS-TIMEOUT      process timeout option must be a positive duration
 E-PROCESS-RETRY-POLICY process retry option must be an integer from 0 to 5
 E-PROCESS-ALLOW-FAILURE process allow_failure option must be true or false
+E-PROFILE-SAFE-PROCESS safe profile rejects external process side effects
 E-SAMPLING-COUNT-INVALID sample count must be a positive integer
 E-SAMPLING-RANGE-UNIT generated sample ranges must use compatible units
 E-SAMPLING-SEED-INVALID sample seed option must be a non-negative integer
@@ -157,6 +161,7 @@ E-CASE-STEP-FAILED case step reported a failed status
 W-CASE-SKIPPED-CACHE case was skipped from case cache
 E-DB-CONNECT          SQLite connection or table target cannot be resolved
 E-DB-SCHEMA-MISMATCH DB write source/table schema does not match
+E-DB-READ-001        SQLite read source cannot be lowered or resolved
 E-DB-KEY-MISSING     DB upsert key is missing or outside the source table schema
 E-DB-TRANSACTION-FAILED SQLite write transaction failed
 E-DB-SAFE-PROFILE    safe profile rejects native DB write side effects
@@ -168,10 +173,15 @@ W-MODEL-EXTRAPOLATION prediction manifest reported schema/extrapolation warning
 E-PATH-INVALID         generated output path is empty
 E-PATH-TRAVERSAL       generated output path contains a parent-directory segment
 E-PATH-OUTSIDE-OUTPUT-ROOT generated output path is absolute/rooted
+E-FS-CONFIRM-001      generated-output move/delete requires confirm = true
+E-FS-DELETE-001       directory delete requires recursive = true and confirm = true
+E-PROFILE-SAFE-FS     safe profile rejects generated-output filesystem side effects
 E-IO-JSON-PARSE        read json source is not valid JSON
 E-IO-TOML-PARSE        read toml source is not valid TOML
 E-IO-JSON-FIELD-ACCESS-001 read json values do not support direct field access
 W-TABLE-LEGACY-SELECT-FIRST-ROW select_first_row is compatibility-only; use filter + require_one
+E-TIMESERIES-COVERAGE-GAP TimeSeries coverage has gaps after alignment or fill
+W-FALLBACK-USED       native workflow used a documented fallback path
 E-TEST-001             test block syntax is invalid
 E-TEST-NAME-001        test block name is missing or invalid
 E-ASSERT-001           assert is outside a test block
