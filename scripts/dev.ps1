@@ -4747,6 +4747,8 @@ function Assert-VscodeExtensionContract {
         "Set process env",
         "E-SOLVE-SOLVER-UNSUPPORTED",
         "Set solve solver",
+        "E-WRITE-STANDARD-TEXT-001",
+        "Change writer to text",
         "E-WRITE-STANDARD-TEXT-OUTPUT",
         "standardTextOutputAction",
         "Add standard_text output path",
@@ -4880,6 +4882,8 @@ function Assert-VscodeExtensionContract {
         "Set model hidden layers",
         "Set model epochs",
         "lsp_write_standard_text_output_code_action",
+        "E-WRITE-STANDARD-TEXT-001",
+        "Change writer to text",
         "Add standard_text output path"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspQuickFixToken)) {

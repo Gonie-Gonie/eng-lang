@@ -787,6 +787,14 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-UNIT-001" => optional_code_action(
             lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
         ),
+        "E-WRITE-STANDARD-TEXT-001" => optional_code_action(lsp_replacement_code_action(
+            uri,
+            text,
+            diagnostic,
+            "write standard_text",
+            "write text",
+            "Change writer to text",
+        )),
         "E-WRITE-STANDARD-TEXT-OUTPUT" => optional_code_action(
             lsp_write_standard_text_output_code_action(uri, text, diagnostic),
         ),

@@ -859,6 +859,11 @@ where {
 print "escape={Q_escape: .2 kW}"
 log trace "too noisy"
 log "missing level"
+bad_standard_text_value: HeatRate [kW] = 1 kW
+write standard_text bad_standard_text_value
+with {
+    output = "outputs/bad_standard_text_value.txt"
+}
 legacy_station_id = select_first_row(stations, return_column="station_id", region=args.region)
 
 schema SensorData {
@@ -1139,6 +1144,7 @@ report {
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-COUNT-INVALID",
         "E-SAMPLING-SEED-INVALID",
+        "E-WRITE-STANDARD-TEXT-001",
         "E-WRITE-STANDARD-TEXT-OUTPUT",
         "E-SIM-TIMESTEP-INVALID",
         "E-SIM-DURATION-INVALID",
@@ -1302,6 +1308,7 @@ report {
         "Convert m_dot to schema column annotation",
         "    m_dot: MassFlowRate [kg/s]",
     );
+    assert_action_edit(actions, &uri, "Change writer to text", "write text");
     assert_action_edit_contains(actions, &uri, "Add confirm = true", "confirm = true");
     assert_action_edit_contains(
         actions,
@@ -1741,6 +1748,11 @@ where {
 print "escape={Q_escape: .2 kW}"
 log trace "too noisy"
 log "missing level"
+bad_standard_text_value: HeatRate [kW] = 1 kW
+write standard_text bad_standard_text_value
+with {
+    output = "outputs/bad_standard_text_value.txt"
+}
 legacy_station_id = select_first_row(stations, return_column="station_id", region=args.region)
 
 schema SensorData {
@@ -1931,6 +1943,7 @@ report {
         "Convert m_dot to schema column annotation",
         "    m_dot: MassFlowRate [kg/s]",
     );
+    assert_action_edit(actions, &uri, "Change writer to text", "write text");
     assert_action_edit(
         actions,
         &uri,

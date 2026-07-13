@@ -181,6 +181,19 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-WRITE-STANDARD-TEXT-001") {
+      const action = replacementAction(
+        document,
+        diagnostic,
+        "write standard_text",
+        "write text",
+        "Change writer to text"
+      );
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-WRITE-STANDARD-TEXT-OUTPUT") {
       const action = standardTextOutputAction(document, diagnostic);
       if (action) {
