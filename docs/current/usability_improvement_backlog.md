@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 779: Expanded Native IDE lexical completion fallback coloring for property, method, variable, constant/value, operator, and module completion kinds so options and public fields stay colored before semantic tokens arrive.
 - Batch 778: Split Native IDE semantic highlight colors for axis vs TimeSeries, validation vs report, and side-effect vs external roles, with a guard against regrouping those role colors.
 - Batch 777: Clarified network replay wording so workflow args use pinned response files, language syntax uses `offline_response`, and legacy `fixture` is described only as a migration alias.
 - Batch 776: Archived current backlog batches 701-745 into the historical log so active docs stay focused on recent workflow/API/IDE cleanup.

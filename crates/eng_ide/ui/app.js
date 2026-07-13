@@ -5553,12 +5553,25 @@ function lexicalCompletionClass(word) {
         return "hl-type";
       case "function":
         return "hl-function";
+      case "method":
+        return "hl-method";
+      case "property":
+      case "field":
+        return "hl-property";
+      case "variable":
+        return "hl-variable";
+      case "constant":
+      case "value":
+        return "hl-constant";
+      case "operator":
+        return "hl-operator";
       case "keyword":
       case "snippet":
         return "hl-keyword";
       case "unit":
         return "hl-mod-unit";
       case "stdlib":
+      case "module":
         return "hl-namespace";
       default:
         return "";
