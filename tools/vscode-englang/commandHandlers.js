@@ -756,6 +756,7 @@ function createCommandHandlers(options = {}) {
       features: {
         problems: {
           source: problemsSource,
+          source_label: diagnosticsProblemsSource(mode),
           mode: problemsSource === "live" ? "live buffer" : "saved file",
           summary: diagnosticsSummary,
           updates_while_typing: problemsSource === "live" && lintOnChange,
@@ -796,6 +797,9 @@ function createCommandHandlers(options = {}) {
     };
   }
 
+  function diagnosticsProblemsSource(mode) {
+    return mode === "live" ? "eng/live" : "eng/file";
+  }
   function diagnosticsModeChangeSummary(mode, lintOnChange) {
     if (mode !== "live") {
       return "VS Code Problems will use saved-file diagnostics on open, save, and manual check.";

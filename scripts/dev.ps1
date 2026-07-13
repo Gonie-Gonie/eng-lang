@@ -3764,6 +3764,8 @@ function Assert-VscodeExtensionContract {
         "const problemsSource = mode",
         "updates_while_typing",
         "source_label",
+        "diagnosticsProblemsSource",
+        "source_label: diagnosticsProblemsSource(mode)",
         "configured_path_status",
         "availability",
         "role_aware_colors",

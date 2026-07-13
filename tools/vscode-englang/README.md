@@ -65,7 +65,8 @@ embedding compiler logic in JavaScript.
   or live unsaved-buffer checks from the Command Palette
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
-  diagnostics mode, Problems diagnostics toggles, role-aware highlighting, and extension version
+  diagnostics mode, the `eng/file` or `eng/live` Problems source label,
+  Problems diagnostics toggles, role-aware highlighting, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -120,8 +121,9 @@ Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the summary, bundled check/run tool and live editor tool
-paths, fallback/source labels, the current diagnostics mode, and per-feature live
-editor routing. If you run directly from source without packaging,
+paths, fallback/source labels, the current diagnostics mode, the `eng/file` or
+`eng/live` Problems source label, and per-feature live editor routing. If you run
+directly from source without packaging,
 set:
 
 ```text
