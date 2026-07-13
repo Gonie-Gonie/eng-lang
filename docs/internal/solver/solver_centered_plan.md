@@ -5,7 +5,7 @@ tracking terms. It is an internal planning map, not a public release contract.
 It is not product identity and not public package scope unless a current status
 document says so.
 The `v1.1` through `v2.0` labels below are checklist ladder names only; public
-release naming still follows [version_plan.md](version_plan.md).
+release naming still follows [version_plan.md](../../current/version_plan.md).
 For the work needed to turn the remaining narrow solver paths into generic
 solver capability, see
 [generic_solver_completion_plan.md](generic_solver_completion_plan.md).

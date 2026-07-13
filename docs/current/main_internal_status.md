@@ -24,8 +24,8 @@ implemented and tested without being part of the published release assets.
 For solver implementation detail, read:
 
 - [Solver track docs](../internal/solver/README.md)
-- [Solver-centered implementation plan](solver_centered_plan.md)
-- [Generic solver completion plan](generic_solver_completion_plan.md)
+- [Solver-centered implementation plan](../internal/solver/solver_centered_plan.md)
+- [Generic solver completion plan](../internal/solver/generic_solver_completion_plan.md)
 
 Those documents are implementation ledgers. They should not be copied into the
 README, user guide, or first-user examples as product claims.

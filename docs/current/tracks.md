@@ -155,8 +155,8 @@ Detailed implementation ledgers live outside this overview:
 
 - [Main internal status](main_internal_status.md)
 - [Solver docs](../internal/solver/README.md)
-- [Solver-centered plan](solver_centered_plan.md)
-- [Generic solver completion plan](generic_solver_completion_plan.md)
+- [Solver-centered plan](../internal/solver/solver_centered_plan.md)
+- [Generic solver completion plan](../internal/solver/generic_solver_completion_plan.md)
 - [Uncertainty track](uncertainty.md)
 - [Reviewability track](reviewability.md)
 - [Composite workflow modules](workflow_modules.md)

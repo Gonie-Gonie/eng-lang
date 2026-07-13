@@ -13,8 +13,8 @@ artifacts that support engineering validation.
 1. [Current project status](../../current/status.md)
 2. [Feature maturity matrix](../../current/feature_maturity_matrix.md)
 3. [Development tracks](../../current/tracks.md)
-4. [Solver-centered implementation plan](../../current/solver_centered_plan.md)
-5. [Generic solver completion plan](../../current/generic_solver_completion_plan.md)
+4. [Solver-centered implementation plan](solver_centered_plan.md)
+5. [Generic solver completion plan](generic_solver_completion_plan.md)
 
 ## Scope Boundary
 

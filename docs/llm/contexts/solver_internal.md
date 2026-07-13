@@ -18,6 +18,6 @@ Primary docs:
 
 - `docs/internal/solver/README.md`
 - `docs/current/main_internal_status.md`
-- `docs/current/solver_centered_plan.md`
-- `docs/current/generic_solver_completion_plan.md`
+- `docs/internal/solver/solver_centered_plan.md`
+- `docs/internal/solver/generic_solver_completion_plan.md`
 - `docs/current/feature_maturity_matrix.md`

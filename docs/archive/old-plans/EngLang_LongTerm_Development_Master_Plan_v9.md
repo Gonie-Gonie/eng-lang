@@ -13,7 +13,7 @@ Use these current documents for day-to-day implementation and release claims:
 - [Repository current status](../../current/status.md)
 - [Feature maturity matrix](../../current/feature_maturity_matrix.md)
 - [Development tracks](../../current/tracks.md)
-- [Solver-centered plan](../../current/solver_centered_plan.md)
+- [Solver-centered plan](../../internal/solver/solver_centered_plan.md)
 
 If the old long-form rationale is needed, retrieve this file from git history
 before the cleanup commit that replaced it with this pointer.
