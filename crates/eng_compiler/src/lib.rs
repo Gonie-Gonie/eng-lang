@@ -7026,7 +7026,9 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
             json_escape(&export.path)
         ));
         json.push_str("        \"status\": \"declared\",\n");
-        json.push_str(&format!("        \"line\": {}\n", export.line));
+        json.push_str(&format!("        \"line\": {},\n", export.line));
+        write_source_span_json(json, "        ", export.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for write in &report.semantic_program.writes {
@@ -7038,7 +7040,9 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
             json_escape(&write.path)
         ));
         json.push_str("        \"status\": \"declared\",\n");
-        json.push_str(&format!("        \"line\": {}\n", write.line));
+        json.push_str(&format!("        \"line\": {},\n", write.line));
+        write_source_span_json(json, "        ", write.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for operation in &report.semantic_program.file_operations {
@@ -7058,7 +7062,15 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
             )
         ));
         json.push_str("        \"status\": \"declared\",\n");
-        json.push_str(&format!("        \"line\": {}\n", operation.line));
+        json.push_str(&format!("        \"line\": {},\n", operation.line));
+        write_source_span_json(
+            json,
+            "        ",
+            operation.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for download in &report.semantic_program.net_downloads {
@@ -7077,7 +7089,9 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
             "        \"status\": \"{}\",\n",
             json_escape(&download.response_source)
         ));
-        json.push_str(&format!("        \"line\": {}\n", download.line));
+        json.push_str(&format!("        \"line\": {},\n", download.line));
+        write_source_span_json(json, "        ", download.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -10272,6 +10286,39 @@ system Envelope {
         assert!(review.contains("\"overwrite\""));
         assert!(review.contains("\"confirm\""));
         let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let side_effects = value["review_document"]["side_effects"]
+            .as_array()
+            .expect("side effect review rows");
+        let csv_side_effect = side_effects
+            .iter()
+            .find(|effect| effect["kind"] == "csv_export")
+            .expect("csv export side effect row");
+        assert_eq!(
+            csv_side_effect["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.csv_exports[0].line as u64)
+        );
+        assert_eq!(csv_side_effect["source_span"]["column"].as_u64(), Some(1));
+        let write_line = report.semantic_program.writes[1].line as u64;
+        let write_side_effect = side_effects
+            .iter()
+            .find(|effect| {
+                effect["kind"] == "write_output" && effect["line"].as_u64() == Some(write_line)
+            })
+            .expect("json write side effect row");
+        assert_eq!(
+            write_side_effect["source_span"]["line"].as_u64(),
+            Some(write_line)
+        );
+        assert_eq!(write_side_effect["source_span"]["column"].as_u64(), Some(1));
+        let file_side_effect = side_effects
+            .iter()
+            .find(|effect| effect["kind"] == "file_mkdir")
+            .expect("mkdir side effect row");
+        assert_eq!(
+            file_side_effect["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.file_operations[1].line as u64)
+        );
+        assert_eq!(file_side_effect["source_span"]["column"].as_u64(), Some(1));
         let risks = value
             .pointer("/review_document/risks")
             .and_then(serde_json::Value::as_array)
@@ -14950,6 +14997,21 @@ schema SensorData {
             Some(download.line as u64)
         );
         assert_eq!(download_boundary["source_span"]["column"].as_u64(), Some(1));
+        let side_effects = value["review_document"]["side_effects"]
+            .as_array()
+            .expect("side effect review rows");
+        let download_side_effect = side_effects
+            .iter()
+            .find(|effect| effect["kind"] == "network_download")
+            .expect("download side effect row");
+        assert_eq!(
+            download_side_effect["source_span"]["line"].as_u64(),
+            Some(download.line as u64)
+        );
+        assert_eq!(
+            download_side_effect["source_span"]["column"].as_u64(),
+            Some(1)
+        );
         let risks = value
             .pointer("/review_document/risks")
             .and_then(serde_json::Value::as_array)
