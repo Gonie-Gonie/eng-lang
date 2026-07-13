@@ -90,6 +90,8 @@ Editor
   the current caret line, column, bracket match location, highlight category,
   and quantity/unit detail when the caret is on a checked token; when the caret
   is between checked tokens, it names the nearest highlight on the same line.
+  Checked-token actions can jump directly to related sidebar panels such as
+  Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
 
 Right Sidebar
   Variables, Checks, Schema, Time, Tables, Reads, Plot, Review, Quality, Effects,

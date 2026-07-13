@@ -704,6 +704,7 @@ function bind() {
   bindSourceTokenRangeButtons(document);
   bindSourceTokenCopyButtons(document);
   bindHighlightTokenFilterButtons(document);
+  bindInspectorTabButtons(document);
   document.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
     button.onclick = () => {
       state.sideTab = "highlight";
@@ -1560,7 +1561,8 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
   ].filter(Boolean).join(" ");
   const actionButtons = [
     sourceTokenCopyButton(token, "text", "Copy Text"),
-    sourceTokenCopyButton(token, "range", "Copy Range")
+    sourceTokenCopyButton(token, "range", "Copy Range"),
+    renderInspectorTabButtons(inspectorTabsForSemanticToken(token, caret.hover))
   ].filter(Boolean).join(" ");
   const modifierCells = semanticTokenModifierChips(modifiers);
   return `
@@ -5090,6 +5092,18 @@ function bindCursorInsightActions() {
       render();
     };
   });
+  bindInspectorTabButtons(target);
+}
+
+function bindInspectorTabButtons(root) {
+  root.querySelectorAll("[data-open-inspector-tab]").forEach((button) => {
+    button.onclick = () => {
+      const tab = button.dataset.openInspectorTab;
+      if (!SIDE_TABS.some((item) => item.key === tab)) return;
+      state.sideTab = tab;
+      render();
+    };
+  });
 }
 
 function updateCaretHighlightSummary() {
@@ -5102,6 +5116,7 @@ function updateCaretHighlightSummary() {
   bindSourceTokenRangeButtons(nextTarget);
   bindSourceTokenCopyButtons(nextTarget);
   bindHighlightTokenFilterButtons(nextTarget);
+  bindInspectorTabButtons(nextTarget);
 }
 
 function currentCaretSemanticToken() {
@@ -5152,16 +5167,62 @@ function renderCursorInsight() {
   const title = hover ? hoverTitle(hover) : parts.join(" / ");
   return `
     <span title="${escapeAttr(title)}">${escapeHtml(parts.join(" / "))}</span>
-    ${token ? renderCursorInsightActions(token) : nearestToken ? renderCursorInsightActions(nearestToken, "Select Nearby") : ""}
+    ${token ? renderCursorInsightActions(token, "Select", hover) : nearestToken ? renderCursorInsightActions(nearestToken, "Select Nearby") : ""}
   `;
 }
 
-function renderCursorInsightActions(token, selectLabel = "Select") {
+function renderCursorInsightActions(token, selectLabel = "Select", hover = null) {
   return `
     ${sourceTokenButton(token, selectLabel)}
     ${sourceTokenCopyButton(token, "text", "Copy")}
     <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel">Highlight</button>
+    ${renderInspectorTabButtons(inspectorTabsForSemanticToken(token, hover))}
   `;
+}
+
+function renderInspectorTabButtons(tabs) {
+  return arrayOrEmpty(tabs).map((tab) => {
+    const item = SIDE_TABS.find((candidate) => candidate.key === tab);
+    if (!item) return "";
+    return `<button class="link-button token-range-button" data-open-inspector-tab="${escapeAttr(item.key)}" title="Open ${escapeAttr(item.label)} panel">${escapeHtml(item.label)}</button>`;
+  }).filter(Boolean).join(" ");
+}
+
+function inspectorTabsForSemanticToken(token, hover = null) {
+  const modifiers = arrayOrEmpty(token?.modifiers).map((modifier) => String(modifier));
+  const modifierText = modifiers.join(" ").toLowerCase();
+  const kind = String(hover?.kind || "").toLowerCase();
+  const quantity = String(hover?.quantity_kind || hover?.quantityKind || "").toLowerCase();
+  const detailText = [
+    kind,
+    quantity,
+    hover?.name,
+    hover?.detail,
+    token?.type,
+    modifierText,
+    semanticTokenSelectors(token).join(" ")
+  ].map((value) => String(value || "").toLowerCase()).join(" ");
+  const tabs = [];
+  const add = (tab) => {
+    if (!tabs.includes(tab)) tabs.push(tab);
+  };
+
+  if (detailText.includes("schema") || kind === "schema_field") add("schema");
+  if (modifiers.includes("timeseries") || modifiers.includes("axis") || detailText.includes("timeseries") || detailText.includes("time axis")) add("time");
+  if (modifiers.includes("validation") || kind.includes("validation")) add("checks");
+  if (modifiers.includes("sideEffect")) add("effects");
+  if (modifiers.includes("external")) {
+    add("effects");
+    if (/http|network|cache|response|download|url/.test(detailText)) add("network");
+  }
+  if (modifiers.includes("db") || quantity.includes("dbconnection") || /sqlite|database|db_/.test(detailText)) add("db");
+  if (modifiers.includes("model") || kind.includes("model") || kind.includes("prediction")) add("model");
+  if (modifiers.includes("report") || /report|plot|artifact/.test(detailText)) add("review");
+  if (modifiers.includes("unit") || kind === "unit") add("units");
+  if (modifiers.includes("quantity") || (quantity && quantity !== "-" && quantity !== "local")) add("units");
+  if (["variable", "parameter", "property"].includes(String(token?.type || ""))) add("variables");
+
+  return tabs.slice(0, 4);
 }
 
 function editorCursorPosition(source, offset) {
