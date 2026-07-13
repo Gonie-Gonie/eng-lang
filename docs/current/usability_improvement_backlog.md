@@ -58,6 +58,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 599: Removed the native IDE hardcoded keyword fallback list so keyword coloring uses generated `syntax_catalog.keywords`, keyword groups, and workflow builtin catalogs.
 - Batch 600: Archived compact summaries for batches 529-570 from the current usability backlog so the active file stays task-oriented.
 - Batch 601: Promoted `unit x` and `unit y` into the generated workflow-option catalog and routed that catalog into VS Code/LSP alias quick fixes so plot option repairs cannot drift from public metadata.
+- Batch 602: Routed VS Code and LSP option-value quick fixes through the generated workflow-option catalog so stale hardcoded option names are filtered before repair actions are shown.
 
 ## Documentation Policy
 

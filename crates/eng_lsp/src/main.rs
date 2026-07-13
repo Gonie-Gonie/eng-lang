@@ -1931,13 +1931,22 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
     }
 }
 
-fn option_quick_fix_option_names(code: &str) -> Option<&'static [&'static str]> {
-    option_quick_fix(code)
+fn option_quick_fix_option_names(code: &str) -> Option<Vec<&'static str>> {
+    let option_names = option_quick_fix(code)
         .map(|fix| fix.option_names)
-        .or_else(|| model_option_quick_fix_option_names(code))
+        .or_else(|| model_option_quick_fix_option_names(code))?;
+    let known_names = option_names
+        .iter()
+        .copied()
+        .filter(|option_name| workflow_option_label_exists(option_name))
+        .collect::<Vec<_>>();
+    (!known_names.is_empty()).then_some(known_names)
 }
 
 fn option_quick_fix_for_option(code: &str, option_name: &str) -> Option<OptionValueQuickFix> {
+    if !workflow_option_label_exists(option_name) {
+        return None;
+    }
     if let Some(fix) = option_quick_fix(code) {
         if fix.option_names.contains(&option_name) {
             return Some(OptionValueQuickFix {
@@ -1997,7 +2006,7 @@ fn lsp_option_value_replacement_code_action(
     let option_names = option_quick_fix_option_names(code)?;
     let line_number = diagnostic_line(diagnostic)?;
     let line = text.lines().nth(line_number)?;
-    let assignment = option_assignment_range(line, option_names)?;
+    let assignment = option_assignment_range(line, &option_names)?;
     let fix = option_quick_fix_for_option(code, &assignment.option_name)?;
     Some(json!({
         "title": format!("{}: {} = {}", fix.label, assignment.option_name, fix.value),

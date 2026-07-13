@@ -279,12 +279,17 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
-    const modelOptionAction = modelOptionValueAction(document, diagnostic, code);
+    const modelOptionAction = modelOptionValueAction(document, diagnostic, code, options.workflowOptionLabels);
     if (modelOptionAction) {
       modelOptionAction.isPreferred = true;
       actions.push(modelOptionAction);
     }
-    const optionAction = optionValueReplacementAction(document, diagnostic, optionQuickFix(code));
+    const optionAction = optionValueReplacementAction(
+      document,
+      diagnostic,
+      optionQuickFix(code),
+      options.workflowOptionLabels
+    );
     if (optionAction) {
       optionAction.isPreferred = true;
       actions.push(optionAction);
@@ -761,21 +766,27 @@ function optionQuickFix(code) {
   }
 }
 
-function optionValueReplacementAction(document, diagnostic, fix) {
+function optionValueReplacementAction(document, diagnostic, fix, workflowOptionLabels) {
   if (!fix) {
     return undefined;
   }
+  const optionNames = knownWorkflowOptionNames(fix.optionNames, workflowOptionLabels);
+  if (optionNames.length === 0) {
+    return undefined;
+  }
   const line = document.lineAt(diagnostic.range.start.line);
-  const assignment = optionAssignmentRange(line.text, fix.optionNames);
+  const assignment = optionAssignmentRange(line.text, optionNames);
   if (!assignment) {
     return undefined;
   }
-  const optionLabel = fix.optionNames.length === 1 ? fix.optionNames[0] : assignment.optionName;
+  const optionLabel = optionNames.length === 1 ? optionNames[0] : assignment.optionName;
   return optionValueAction(document, diagnostic, line, assignment, fix.label, fix.value, optionLabel);
 }
 
-function modelOptionValueAction(document, diagnostic, code) {
-  const fixes = modelOptionFixes(code);
+function modelOptionValueAction(document, diagnostic, code, workflowOptionLabels) {
+  const fixes = modelOptionFixes(code).filter((fix) =>
+    knownWorkflowOptionLabel(fix.optionName, workflowOptionLabels)
+  );
   if (fixes.length === 0) {
     return undefined;
   }
@@ -1231,6 +1242,15 @@ function withOptionAliasFix(optionName, workflowOptionLabels) {
 function knownWorkflowOptionLabel(label, workflowOptionLabels) {
   const labels = workflowOptionLabelSet(workflowOptionLabels);
   return labels.size === 0 || labels.has(label);
+}
+
+function knownWorkflowOptionNames(optionNames, workflowOptionLabels) {
+  const names = Array.isArray(optionNames) ? optionNames : [];
+  const labels = workflowOptionLabelSet(workflowOptionLabels);
+  if (labels.size === 0) {
+    return names;
+  }
+  return names.filter((name) => labels.has(name));
 }
 
 function workflowOptionLabelSet(workflowOptionLabels) {
