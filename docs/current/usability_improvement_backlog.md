@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 788: Split VS Code EngLang theme colors inside model, DB, and cache semantic role families so keywords, helpers, bindings, and public members remain visually distinct after semantic tokens arrive.
 - Batch 787: Routed direct VS Code diagnostics setting changes through the same active-editor refresh/clear path as `EngLang: Switch Diagnostics Mode...`, keeping Problems aligned with `diagnosticsMode`, `lintOnSave`, and `lintOnChange`.
 - Batch 786: Cleared cached live review data when switching dirty editors back to file diagnostics mode so stale risk or semantic decorations cannot reappear from `reviewCache`.
 - Batch 785: Cleared stale `eng/live` Problems and semantic/risk decorations when switching an unsaved active editor back to file diagnostics mode, so VS Code linter state matches the selected mode.

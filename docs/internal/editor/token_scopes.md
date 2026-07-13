@@ -394,8 +394,13 @@ The extension also contributes optional `EngLang Dark` and `EngLang Light`
 color themes. Those themes define both TextMate fallback colors and direct
 `semanticTokenColors` for every EngLang selector contributed in `package.json`,
 including base selectors, standard modifiers, domain roles, and review-risk
-roles. Keep theme selectors aligned with this fallback map; package validation rejects theme-only semantic selectors without fallback mappings so users can choose
-between their normal VS Code theme and a more colorful EngLang-specific theme.
+roles. Model, DB, and cache semantic role families keep a recognizable domain
+hue while varying keyword, function/method, variable, and property selectors so
+semantic highlighting does not collapse an entire workflow role into one flat
+color. Keep theme selectors aligned with this fallback map; package validation
+rejects theme-only semantic selectors without fallback mappings so users can
+choose between their normal VS Code theme and a more colorful
+EngLang-specific theme.
 
 The fallback map currently references these TextMate scopes directly:
 

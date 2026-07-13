@@ -3896,6 +3896,24 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $Properties."englang.runEntry") {
         throw "VS Code extension must not expose deprecated englang.runEntry configuration"
     }
+    function Get-SemanticThemeColorKey {
+        param($SemanticColorValue)
+        if ($null -eq $SemanticColorValue) {
+            return ""
+        }
+        if ($SemanticColorValue -is [string]) {
+            return [string]$SemanticColorValue
+        }
+        if ($null -ne $SemanticColorValue.foreground) {
+            return [string]$SemanticColorValue.foreground
+        }
+        return ($SemanticColorValue | ConvertTo-Json -Compress)
+    }
+    $RoleColorFamilies = @(
+        @{ Label = "model"; Selectors = @("keyword.model", "function.model", "variable.model", "property.model") },
+        @{ Label = "db"; Selectors = @("keyword.db", "function.db", "method.db", "variable.db", "property.db") },
+        @{ Label = "cache"; Selectors = @("keyword.cache", "function.cache", "method.cache", "variable.cache", "property.cache") }
+    )
     $ContributedThemes = @($Package.contributes.themes)
     foreach ($RequiredTheme in @(
         @{ Label = "EngLang Dark"; UiTheme = "vs-dark"; Path = "./themes/englang-dark-color-theme.json"; File = $VscodeDarkThemePath; Theme = $VscodeDarkTheme },
@@ -3923,6 +3941,18 @@ function Assert-VscodeExtensionContract {
         $ThemeOnlySelectors = @($RequiredTheme.Theme.semanticTokenColors.PSObject.Properties.Name | Where-Object { $RequiredThemeSelectors -notcontains [string]$_ } | Sort-Object -Unique)
         if ($ThemeOnlySelectors.Count -gt 0) {
             throw "VS Code extension theme $($RequiredTheme.Label) has semantic token colors without fallback scope mappings: $($ThemeOnlySelectors -join ', ')"
+        }
+        foreach ($RoleColorFamily in $RoleColorFamilies) {
+            $MissingRoleSelectors = @($RoleColorFamily.Selectors | Where-Object { $null -eq $RequiredTheme.Theme.semanticTokenColors.PSObject.Properties[[string]$_] })
+            if ($MissingRoleSelectors.Count -gt 0) {
+                throw "VS Code extension theme $($RequiredTheme.Label) missing semantic role color selector(s) for $($RoleColorFamily.Label): $($MissingRoleSelectors -join ', ')"
+            }
+            $RoleColorKeys = @($RoleColorFamily.Selectors | ForEach-Object {
+                Get-SemanticThemeColorKey $RequiredTheme.Theme.semanticTokenColors.PSObject.Properties[[string]$_].Value
+            } | Sort-Object -Unique)
+            if ($RoleColorKeys.Count -lt 3) {
+                throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) keyword/function/member semantic colors visually distinct"
+            }
         }
     }
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {
