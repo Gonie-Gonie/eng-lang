@@ -195,7 +195,8 @@ saved-file/live Problems diagnostics toggles, and semantic-highlighting setting.
 The VS Code extension defaults to quieter file checks for the Problems panel.
 Run `EngLang: Switch Diagnostics Mode...` and choose `live`, or set
 `"englang.diagnosticsMode": "live"`, to update Problems while typing from the
-current unsaved buffer.
+current unsaved buffer. The mode switch command refreshes the active EngLang
+editor immediately.
 
 The extension shares the same compiler-backed diagnostics, hover, completion,
 and semantic highlighting data as the native IDE. It is useful when you prefer

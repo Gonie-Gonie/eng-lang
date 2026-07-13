@@ -147,7 +147,8 @@ the long-running editor protocol continues to evolve. The default diagnostics
 mode runs stable file checks on open/save and manual check. Set
 `englang.diagnosticsMode` to `live` to update Problems from the current unsaved
 buffer while typing, or run `EngLang: Switch Diagnostics Mode...` and choose
-`live`. If an older workspace already has `englang.problemsSource` or
+`live`; the command refreshes the active EngLang editor immediately. If an
+older workspace already has `englang.problemsSource` or
 `englang.diagnosticsBackend`, the extension still accepts it as a compatibility
 alias. New workspaces should use `englang.diagnosticsMode`.
 `EngLang: Run Current File`

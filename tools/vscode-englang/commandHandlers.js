@@ -172,6 +172,7 @@ function createCommandHandlers(options = {}) {
     const lintOnChange = engConfig(document).get("lintOnChange", true);
     const suffix = diagnosticsModeChangeSummary(picked.mode, lintOnChange);
     vscode.window.showInformationMessage(`EngLang diagnostics mode set to ${picked.mode}. ${suffix}`);
+    return picked.mode;
   }
 
   async function showToolingStatus(context) {

@@ -5071,10 +5071,13 @@ function Assert-VscodeExtensionContract {
     if ($ExtensionSource.Contains("function vscodeRangeFromLsp") -or $LspCodeActionsSource.Contains("function vscodeRangeFromLsp")) {
         throw "VS Code extension must keep LSP range conversion in lspRanges.js"
     }
-    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)")) {
+    foreach ($RequiredDiagnosticsModeToken in @("function diagnosticsMode(document)", "function diagnosticsRuntime(document)", 'explicitlyConfiguredEngValue(config, "diagnosticsMode")', 'explicitlyConfiguredEngValue(config, "problemsSource")', 'return mode === "live" ? "lsp-snapshot" : "eng-cli"', "diagnosticsRuntimeLabel(runtimeMode)", "async function refreshAfterDiagnosticsModeCommand", "diagnosticController.checkActiveFile()", "diagnosticController.checkDocument(document)")) {
         if (-not $ExtensionSource.Contains($RequiredDiagnosticsModeToken)) {
             throw "VS Code extension missing diagnostics mode compatibility token $RequiredDiagnosticsModeToken"
         }
+    }
+    if (-not $CommandHandlersSource.Contains("return picked.mode")) {
+        throw "VS Code diagnostics mode command must return the selected mode so the active editor can refresh immediately"
     }
     $DiagnosticsModeEnum = @($Properties."englang.diagnosticsMode".enum)
     foreach ($RequiredDiagnosticsMode in @("file", "live")) {

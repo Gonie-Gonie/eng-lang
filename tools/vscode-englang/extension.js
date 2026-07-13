@@ -100,6 +100,18 @@ function activate(context) {
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS
   });
+  async function refreshAfterDiagnosticsModeCommand() {
+    const mode = await commandHandlers.switchDiagnosticsMode();
+    const document = vscode.window.activeTextEditor?.document;
+    if (!mode || !document || !isEngDocument(document)) {
+      return;
+    }
+    if (mode === "live") {
+      diagnosticController.checkActiveFile();
+    } else if (!document.isDirty) {
+      diagnosticController.checkDocument(document);
+    }
+  }
   context.subscriptions.push(output, diagnostics, semanticTokensProvider);
   context.subscriptions.push(...decorationController.disposables);
 
@@ -134,8 +146,8 @@ function activate(context) {
     vscode.commands.registerCommand("englang.runFile", () => commandHandlers.runActiveFile(context)),
     vscode.commands.registerCommand("englang.runExample", () => commandHandlers.runExample(context)),
     vscode.commands.registerCommand("englang.switchProfile", () => commandHandlers.switchExecutionProfile()),
-    vscode.commands.registerCommand("englang.switchDiagnosticsMode", () => commandHandlers.switchDiagnosticsMode()),
-    vscode.commands.registerCommand("englang.switchProblemsSource", () => commandHandlers.switchDiagnosticsMode()),
+    vscode.commands.registerCommand("englang.switchDiagnosticsMode", refreshAfterDiagnosticsModeCommand),
+    vscode.commands.registerCommand("englang.switchProblemsSource", refreshAfterDiagnosticsModeCommand),
     vscode.commands.registerCommand("englang.showToolingStatus", () => commandHandlers.showToolingStatus(context)),
     vscode.commands.registerCommand("englang.reviewFile", () => commandHandlers.reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => commandHandlers.openReviewPanel(context)),
