@@ -787,6 +787,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-WITH-UNIT-001" => optional_code_action(
             lsp_remove_incompatible_display_unit_code_action(uri, text, diagnostic),
         ),
+        "E-WRITE-STANDARD-TEXT-OUTPUT" => optional_code_action(
+            lsp_write_standard_text_output_code_action(uri, text, diagnostic),
+        ),
         "E-PRINT-FMT-001" | "E-WRITE-FMT-001" => optional_code_action(
             lsp_close_unterminated_interpolation_code_action(uri, text, diagnostic),
         ),
@@ -1614,6 +1617,58 @@ fn lsp_boolean_with_options_code_action(
         "diagnostics": [diagnostic.clone()],
         "edit": single_change_workspace_edit(uri, range, &new_text)
     }))
+}
+
+fn lsp_write_standard_text_output_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let lines = split_lines_preserve_logical(text);
+    let owner_line = lines.get(line_number).copied().unwrap_or("");
+    if !is_write_standard_text_owner_line(owner_line) {
+        return None;
+    }
+    let attached_block = attached_with_block(&lines, line_number);
+    if attached_block
+        .as_ref()
+        .is_some_and(|block| with_block_contains_option(&lines, block, "output"))
+    {
+        return None;
+    }
+
+    let newline = document_newline(text);
+    let option_text = r#"output = join(args.output, "standard_weather_file.txt")"#;
+    let (range, new_text) = if let Some(block) = attached_block {
+        (
+            zero_width_range(block.end_line, 0),
+            format!("{}    {}{}", block.indent, option_text, newline),
+        )
+    } else {
+        let indent = line_indent(owner_line);
+        let character = utf16_len(owner_line);
+        (
+            zero_width_range(line_number, character),
+            format!(
+                "{newline}{indent}with {{{newline}{indent}    {option_text}{newline}{indent}}}"
+            ),
+        )
+    };
+
+    Some(json!({
+        "title": "Add standard_text output path",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, range, &new_text)
+    }))
+}
+
+fn is_write_standard_text_owner_line(line: &str) -> bool {
+    strip_line_comment(line)
+        .trim_start()
+        .starts_with("write standard_text")
 }
 
 fn lsp_sampling_seed_missing_code_action(

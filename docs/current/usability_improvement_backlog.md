@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 750: Added LSP and VS Code local quick fixes for `E-WRITE-STANDARD-TEXT-OUTPUT`, inserting the native `output = join(args.output, "standard_weather_file.txt")` option when `write standard_text` lacks an output path.
 - Batch 749: Expanded `dev.bat vscode-status` with built-VSIX version, size, update time, and installed extension package version summaries.
 - Batch 748: Added `dev.bat vscode-status` so local VS Code extension install/package readiness can be checked without triggering a reinstall or failing on open VS Code windows.
 - Batch 747: Added LSP and VS Code local quick fixes for `E-SOLVE-SOLVER-UNSUPPORTED`, using `solver = fixed_point` so solve-block solver diagnostics are actionable like simulation solver diagnostics.

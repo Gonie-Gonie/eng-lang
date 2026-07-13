@@ -934,6 +934,14 @@ with {
     x = uniform(0, 1)
 }
 
+standard_text_samples = sample lhs
+with {
+    count = 1
+    seed = 9
+    value = uniform(0, 1)
+}
+write standard_text standard_text_samples
+
 Q_bad_normal = normal()
 Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
 Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
@@ -1131,6 +1139,7 @@ report {
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-COUNT-INVALID",
         "E-SAMPLING-SEED-INVALID",
+        "E-WRITE-STANDARD-TEXT-OUTPUT",
         "E-SIM-TIMESTEP-INVALID",
         "E-SIM-DURATION-INVALID",
         "E-SIM-TOLERANCE-INVALID",
@@ -1396,6 +1405,12 @@ report {
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Add standard_text output path",
+        "output = join(args.output, \"standard_weather_file.txt\")",
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1770,6 +1785,14 @@ with {
     x = uniform(0, 1)
 }
 
+standard_text_samples = sample lhs
+with {
+    count = 1
+    seed = 9
+    value = uniform(0, 1)
+}
+write standard_text standard_text_samples
+
 Q_bad_normal = normal()
 Q_bad_kind = distribution(kind=triangular, mean=5 kW, std=0.8 kW)
 Q_bad_samples = normal(mean=5 kW, std=0.8 kW, samples=many)
@@ -1943,6 +1966,12 @@ report {
     );
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
+    assert_action_edit_contains(
+        actions,
+        &uri,
+        "Add standard_text output path",
+        "output = join(args.output, \"standard_weather_file.txt\")",
+    );
     assert_action_edit(
         actions,
         &uri,

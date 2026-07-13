@@ -4747,6 +4747,9 @@ function Assert-VscodeExtensionContract {
         "Set process env",
         "E-SOLVE-SOLVER-UNSUPPORTED",
         "Set solve solver",
+        "E-WRITE-STANDARD-TEXT-OUTPUT",
+        "standardTextOutputAction",
+        "Add standard_text output path",
         "Set sample count",
         "Set sample seed",
         "optionQuickFix",
@@ -4875,7 +4878,9 @@ function Assert-VscodeExtensionContract {
         "Set model test split",
         "Set model seed",
         "Set model hidden layers",
-        "Set model epochs"
+        "Set model epochs",
+        "lsp_write_standard_text_output_code_action",
+        "Add standard_text output path"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspQuickFixToken)) {
             throw "eng-lsp code action source missing quick fix token $RequiredLspQuickFixToken"

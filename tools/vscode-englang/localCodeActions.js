@@ -181,6 +181,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-WRITE-STANDARD-TEXT-OUTPUT") {
+      const action = standardTextOutputAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-PRINT-FMT-001" || code === "E-WRITE-FMT-001") {
       const action = closeUnterminatedInterpolationAction(document, diagnostic);
       if (action) {
@@ -2655,6 +2662,45 @@ function booleanWithOptionsAction(document, diagnostic, optionNames) {
     );
   }
   return action;
+}
+
+function standardTextOutputAction(document, diagnostic) {
+  const lineNumber = diagnostic.range.start.line;
+  if (lineNumber < 0 || lineNumber >= document.lineCount) {
+    return undefined;
+  }
+  const ownerLine = document.lineAt(lineNumber);
+  if (!isWriteStandardTextOwnerLine(ownerLine.text)) {
+    return undefined;
+  }
+  const attachedBlock = attachedWithBlock(document, lineNumber);
+  if (attachedBlock && withBlockContainsOption(document, attachedBlock, "output")) {
+    return undefined;
+  }
+
+  const optionText = "output = join(args.output, \"standard_weather_file.txt\")";
+  const action = new vscode.CodeAction("Add standard_text output path", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  if (attachedBlock) {
+    action.edit.insert(
+      document.uri,
+      new vscode.Position(attachedBlock.endLine, 0),
+      `${attachedBlock.indent}    ${optionText}${documentNewline(document)}`
+    );
+  } else {
+    const indent = lineIndent(ownerLine.text);
+    action.edit.insert(
+      document.uri,
+      ownerLine.range.end,
+      `${documentNewline(document)}${indent}with {${documentNewline(document)}${indent}    ${optionText}${documentNewline(document)}${indent}}`
+    );
+  }
+  return action;
+}
+
+function isWriteStandardTextOwnerLine(text) {
+  return stripLineComment(text).trimStart().startsWith("write standard_text");
 }
 
 function sampleSeedMissingAction(document, diagnostic) {
