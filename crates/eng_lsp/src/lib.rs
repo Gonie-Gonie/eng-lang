@@ -920,10 +920,6 @@ const CASE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
 const CASE_OUTPUT_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("case_count", "case output row count"),
     ("expected_count", "expected case output row count"),
-    (
-        "planned_count",
-        "compatibility count for case outputs still waiting to render",
-    ),
     ("rendered_count", "rendered case output count"),
     ("blocked_count", "blocked case output count"),
     ("output_count", "rendered output path count"),
@@ -8817,13 +8813,20 @@ mod tests {
                     .any(|field| field["label"] == "expected_count")),
             "syntax catalog should expose expected case output table field labels"
         );
+        let case_output_fields = syntax_catalog["case_output_table_fields"]
+            .as_array()
+            .expect("syntax catalog should expose case output table fields");
         assert!(
-            syntax_catalog["case_output_table_fields"]
-                .as_array()
-                .is_some_and(|fields| fields
-                    .iter()
-                    .any(|field| field["label"] == "rendered_count")),
+            case_output_fields
+                .iter()
+                .any(|field| field["label"] == "rendered_count"),
             "syntax catalog should expose case output table field labels"
+        );
+        assert!(
+            !case_output_fields
+                .iter()
+                .any(|field| field["label"] == "planned_count"),
+            "syntax catalog should hide compatibility alias planned_count from editor suggestions"
         );
         assert!(
             syntax_catalog["case_result_collection_table_fields"]
@@ -11746,6 +11749,10 @@ weather = promote json records payload.records as WeatherApiRecord
             .completions
             .iter()
             .any(|completion| completion.label == "case_inputs.rendered_count"));
+        assert!(!snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "case_inputs.planned_count"));
         assert!(snapshot
             .completions
             .iter()
@@ -11789,6 +11796,9 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(output_completions
             .iter()
             .any(|completion| completion.label == "rendered_count"));
+        assert!(!output_completions
+            .iter()
+            .any(|completion| completion.label == "planned_count"));
         let collection_line = source
             .lines()
             .position(|line| line.contains("collected ="))

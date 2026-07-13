@@ -5346,10 +5346,6 @@
                                                                 "label":  "expected_count"
                                                             },
                                                             {
-                                                                "detail":  "compatibility count for case outputs still waiting to render",
-                                                                "label":  "planned_count"
-                                                            },
-                                                            {
                                                                 "detail":  "rendered case output count",
                                                                 "label":  "rendered_count"
                                                             },

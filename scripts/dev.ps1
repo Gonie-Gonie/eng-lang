@@ -4892,6 +4892,10 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata case output table field $RequiredCaseOutputTableField missing detail"
         }
     }
+    $PlannedCaseOutputTableField = @($EditorMetadata.syntax_catalog.case_output_table_fields | Where-Object { $_.label -eq "planned_count" }) | Select-Object -First 1
+    if ($null -ne $PlannedCaseOutputTableField) {
+        throw "generated VS Code editor metadata must not suggest compatibility-only case_inputs.planned_count; use expected_count"
+    }
     foreach ($RequiredCaseResultCollectionTableField in @("collected_count", "missing_count", "blocked_count", "status")) {
         $CaseResultCollectionTableField = @($EditorMetadata.syntax_catalog.case_result_collection_table_fields | Where-Object { $_.label -eq $RequiredCaseResultCollectionTableField }) | Select-Object -First 1
         if ($null -eq $CaseResultCollectionTableField) {

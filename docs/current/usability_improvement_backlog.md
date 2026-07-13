@@ -83,6 +83,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 624: Added explicit package-contract guards for `keyword.defaultLibrary` semantic fallback scopes so compiler-owned builtin command words keep workflow/operator/validation/report/solver/constant coloring if the VS Code package map drifts.
 - Batch 625: Added copy-ready text/range/selector fields to the VS Code cursor highlight inspection payload so users can report or compare the exact semantic token under the caret without manually reconstructing source ranges.
 - Batch 626: Added role-aware semantic modifiers and VS Code fallback scopes for `state`, `input`, and `output` declaration keywords so semantic highlighting preserves the same modifier-style coloring as TextMate first paint.
+- Batch 627: Hid the compatibility-only `case_inputs.planned_count` alias from generated editor case-output field suggestions while keeping `expected_count` and rendered/blocked/manifest fields visible.
 
 ## Documentation Policy
 
