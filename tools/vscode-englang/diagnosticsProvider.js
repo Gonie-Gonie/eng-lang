@@ -232,19 +232,7 @@ function toDiagnostics(document, review, options = {}) {
     ? options.source
     : "eng";
   return (review.diagnostics ?? []).map((item) => {
-    const sourceLine = item.range?.start?.line ?? Math.max(0, (item.line ?? 1) - 1);
-    const line = Math.max(0, Math.min(sourceLine, document.lineCount - 1));
-    const textLine = document.lineAt(line);
-    const maxCharacter = Math.max(1, textLine.text.length);
-    const startCharacter = Math.max(
-      0,
-      Math.min(item.range?.start?.character ?? 0, maxCharacter - 1)
-    );
-    const endCharacter = Math.max(
-      startCharacter + 1,
-      Math.min(item.range?.end?.character ?? maxCharacter, maxCharacter)
-    );
-    const range = new vscode.Range(line, startCharacter, line, endCharacter);
+    const range = diagnosticRange(document, item);
     const severity = toVscodeSeverity(item.severity);
     const diagnostic = new vscode.Diagnostic(range, item.message, severity);
     const code = diagnosticCode(item);
@@ -261,6 +249,100 @@ function toDiagnostics(document, review, options = {}) {
     }
     return diagnostic;
   });
+}
+
+function diagnosticRange(document, item) {
+  const sourceLine = integerOrUndefined(item?.range?.start?.line)
+    ?? Math.max(0, (sourceLineNumber(item) ?? 1) - 1);
+  const line = Math.max(0, Math.min(sourceLine, document.lineCount - 1));
+  const textLine = document.lineAt(line);
+  const lineText = String(textLine.text || "");
+  const maxCharacter = Math.max(1, lineText.length);
+  const rangeStartCharacter = integerOrUndefined(item?.range?.start?.character);
+  const rangeEndCharacter = integerOrUndefined(item?.range?.end?.character);
+  const sourceColumn = sourceColumnNumber(item);
+  const hasSourceColumn = sourceColumn !== undefined;
+  const fallbackStartCharacter = hasSourceColumn
+    ? sourceColumnCharacter(lineText, sourceColumn)
+    : 0;
+  const startCharacter = Math.max(
+    0,
+    Math.min(rangeStartCharacter ?? fallbackStartCharacter, maxCharacter - 1)
+  );
+  const fallbackEndCharacter = hasSourceColumn
+    ? diagnosticTokenEndCharacter(lineText, startCharacter, maxCharacter)
+    : maxCharacter;
+  const endCharacter = Math.max(
+    startCharacter + 1,
+    Math.min(rangeEndCharacter ?? fallbackEndCharacter, maxCharacter)
+  );
+  return new vscode.Range(line, startCharacter, line, endCharacter);
+}
+
+function sourceLineNumber(item) {
+  return positiveIntegerOrUndefined(item?.source_span?.line)
+    ?? positiveIntegerOrUndefined(item?.sourceSpan?.line)
+    ?? positiveIntegerOrUndefined(item?.source_line)
+    ?? positiveIntegerOrUndefined(item?.sourceLine)
+    ?? positiveIntegerOrUndefined(item?.line);
+}
+
+function sourceColumnNumber(item) {
+  return positiveIntegerOrUndefined(item?.source_span?.column)
+    ?? positiveIntegerOrUndefined(item?.sourceSpan?.column)
+    ?? positiveIntegerOrUndefined(item?.source_column)
+    ?? positiveIntegerOrUndefined(item?.sourceColumn)
+    ?? positiveIntegerOrUndefined(item?.column);
+}
+
+function sourceColumnCharacter(lineText, column) {
+  const columnNumber = Number(column);
+  if (!Number.isFinite(columnNumber) || columnNumber <= 1) {
+    return 0;
+  }
+  const targetByte = Math.max(0, Math.trunc(columnNumber) - 1);
+  const text = String(lineText || "");
+  let byteOffset = 0;
+  let characterOffset = 0;
+  for (const character of text) {
+    const characterBytes = Buffer.byteLength(character, "utf8");
+    if (byteOffset + characterBytes > targetByte) {
+      break;
+    }
+    byteOffset += characterBytes;
+    characterOffset += character.length;
+  }
+  return Math.min(characterOffset, text.length);
+}
+
+function diagnosticTokenEndCharacter(lineText, startCharacter, maxCharacter) {
+  const text = String(lineText || "");
+  let cursor = Math.max(0, Math.min(startCharacter, text.length));
+  while (cursor < text.length && /\s/.test(text[cursor])) {
+    cursor += 1;
+  }
+  const tokenStart = cursor;
+  for (const character of text.slice(cursor)) {
+    if (/\s/.test(character) || /[()[\]{},;:]/.test(character)) {
+      break;
+    }
+    cursor += character.length;
+  }
+  if (cursor === tokenStart && cursor < text.length) {
+    const firstCharacter = Array.from(text.slice(cursor))[0];
+    cursor += firstCharacter?.length ?? 1;
+  }
+  return Math.max(startCharacter + 1, Math.min(cursor, maxCharacter));
+}
+
+function integerOrUndefined(value) {
+  const number = Number(value);
+  return Number.isInteger(number) ? number : undefined;
+}
+
+function positiveIntegerOrUndefined(value) {
+  const number = integerOrUndefined(value);
+  return number !== undefined && number > 0 ? number : undefined;
 }
 
 function diagnosticCode(item) {
@@ -393,10 +475,12 @@ module.exports = {
   EngDiagnosticsController,
   diagnosticCode,
   diagnosticCodeTarget,
+  diagnosticRange,
   diagnosticSource,
   diagnosticTags,
   diagnosticsFailureDetail,
   diagnosticsSettingHint,
   severityName,
+  sourceColumnCharacter,
   toDiagnostics
 };

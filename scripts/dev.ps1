@@ -3960,6 +3960,18 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension review panel missing normalized source-line token $RequiredSourceLineToken"
         }
     }
+    foreach ($RequiredDiagnosticsSourceColumnToken in @(
+        "function diagnosticRange(document, item)",
+        "function sourceColumnNumber(item)",
+        "source_span?.column",
+        "sourceColumnCharacter(lineText, sourceColumn)",
+        "Buffer.byteLength(character, `"utf8`")",
+        "diagnosticTokenEndCharacter"
+    )) {
+        if (-not $DiagnosticsProviderSource.Contains($RequiredDiagnosticsSourceColumnToken)) {
+            throw "VS Code diagnostics provider missing source-column range token $RequiredDiagnosticsSourceColumnToken"
+        }
+    }
     if (-not $ReviewPanelSourceCombined.Contains("reviewPanelArtifacts") -or -not $ReviewPanelSourceCombined.Contains("data-artifact-id") -or -not $CommandHandlersSource.Contains("openArtifact")) {
         throw "VS Code extension review panel must expose clickable last-run artifacts"
     }

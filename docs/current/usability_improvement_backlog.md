@@ -55,6 +55,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 726: Archived compact summaries for batches 651-700 from the current usability backlog so the active file stays focused on recent IDE/workflow work.
 - Batch 727: Made Native IDE source-column jumps interpret compiler/LSP columns as UTF-8 byte offsets, preserving precise `L:C` selection on non-ASCII source lines.
 - Batch 728: Aligned VS Code review-panel source-column conversion with Native IDE byte-offset semantics for consistent non-ASCII source navigation.
+- Batch 729: Made VS Code Problems diagnostics consume review `source_span`/source-column metadata and convert UTF-8 byte columns into precise editor ranges.
 
 ## Documentation Policy
 
