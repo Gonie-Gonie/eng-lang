@@ -7,7 +7,7 @@ use eng_lsp::{
     completion_items_for_path_position, completion_items_for_source_position, completion_json,
     diagnostic_json, document_symbols_lsp_json, editor_metadata_json, folding_ranges_lsp_json,
     hover_json, semantic_legend, semantic_tokens_lsp_json, snapshot_for_path, snapshot_for_source,
-    LSP_SNAPSHOT_FORMAT,
+    workflow_option_label_exists, LSP_SNAPSHOT_FORMAT,
 };
 use serde_json::{json, Value};
 
@@ -2117,29 +2117,30 @@ fn lsp_option_key_replacement_code_action(
 }
 
 fn with_option_alias_fix(option_name: &str) -> Option<WithOptionAliasFix> {
-    match option_name {
-        "unit" => Some(WithOptionAliasFix {
+    let fix = match option_name {
+        "unit" => WithOptionAliasFix {
             from: "unit",
             to: "unit y",
             title: "Use plot y-axis option: unit y =",
-        }),
-        "y_unit" => Some(WithOptionAliasFix {
+        },
+        "y_unit" => WithOptionAliasFix {
             from: "y_unit",
             to: "unit y",
             title: "Use plot y-axis option: unit y =",
-        }),
-        "x_unit" => Some(WithOptionAliasFix {
+        },
+        "x_unit" => WithOptionAliasFix {
             from: "x_unit",
             to: "unit x",
             title: "Use plot x-axis option: unit x =",
-        }),
-        "confidence" => Some(WithOptionAliasFix {
+        },
+        "confidence" => WithOptionAliasFix {
             from: "confidence",
             to: "confidence_band",
             title: "Use confidence band option: confidence_band =",
-        }),
-        _ => None,
-    }
+        },
+        _ => return None,
+    };
+    workflow_option_label_exists(fix.to).then_some(fix)
 }
 
 fn unknown_with_option_name(message: &str) -> Option<&str> {

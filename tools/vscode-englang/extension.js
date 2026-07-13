@@ -39,6 +39,7 @@ const SEMANTIC_TOKEN_TYPES = editorMetadata.semanticTokenTypes;
 const SEMANTIC_TOKEN_MODIFIERS = editorMetadata.semanticTokenModifiers;
 const COMPLETION_ITEMS = editorMetadata.completionItems;
 const UNIT_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.units);
+const WORKFLOW_OPTION_LABELS = catalogItemLabels(editorMetadata.syntaxCatalog.workflow_options);
 const HTTP_RESPONSE_FIELDS = editorMetadata.syntaxCatalog.http_response_fields;
 const SAMPLE_TABLE_FIELDS = editorMetadata.syntaxCatalog.sample_table_fields;
 const CASE_TABLE_FIELDS = editorMetadata.syntaxCatalog.case_table_fields;
@@ -237,7 +238,8 @@ function activate(context) {
       new EngCodeActionProvider(context, {
         codeActionsForDocumentSource: lspRequests.codeActionsForDocumentSource,
         completionItems: COMPLETION_ITEMS,
-        unitLabels: UNIT_LABELS
+        unitLabels: UNIT_LABELS,
+        workflowOptionLabels: WORKFLOW_OPTION_LABELS
       }),
       {
         providedCodeActionKinds: [vscode.CodeActionKind.QuickFix]

@@ -1482,6 +1482,14 @@
                                                         "label":  "title"
                                                     },
                                                     {
+                                                        "detail":  "plot x-axis display unit option",
+                                                        "label":  "unit x"
+                                                    },
+                                                    {
+                                                        "detail":  "plot y-axis display unit option",
+                                                        "label":  "unit y"
+                                                    },
+                                                    {
                                                         "detail":  "external tool version",
                                                         "label":  "tool_version"
                                                     },

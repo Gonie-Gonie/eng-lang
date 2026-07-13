@@ -1806,6 +1806,18 @@
                                  "lsp_kind":  10
                              },
                              {
+                                 "detail":  "plot x-axis display unit option",
+                                 "kind":  "property",
+                                 "label":  "unit x",
+                                 "lsp_kind":  10
+                             },
+                             {
+                                 "detail":  "plot y-axis display unit option",
+                                 "kind":  "property",
+                                 "label":  "unit y",
+                                 "lsp_kind":  10
+                             },
+                             {
                                  "detail":  "external tool version",
                                  "kind":  "property",
                                  "label":  "tool_version",
@@ -2628,7 +2640,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  423,
+    "completion_items_count":  425,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -4436,6 +4448,18 @@
                                 "lsp_kind":  10
                             },
                             {
+                                "detail":  "plot x-axis display unit option",
+                                "kind":  "property",
+                                "label":  "unit x",
+                                "lsp_kind":  10
+                            },
+                            {
+                                "detail":  "plot y-axis display unit option",
+                                "kind":  "property",
+                                "label":  "unit y",
+                                "lsp_kind":  10
+                            },
+                            {
                                 "detail":  "external tool version",
                                 "kind":  "property",
                                 "label":  "tool_version",
@@ -5258,7 +5282,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  423,
+    "completion_seed_count":  425,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -6791,6 +6815,14 @@
                                                     {
                                                         "detail":  "plot or report title",
                                                         "label":  "title"
+                                                    },
+                                                    {
+                                                        "detail":  "plot x-axis display unit option",
+                                                        "label":  "unit x"
+                                                    },
+                                                    {
+                                                        "detail":  "plot y-axis display unit option",
+                                                        "label":  "unit y"
                                                     },
                                                     {
                                                         "detail":  "external tool version",

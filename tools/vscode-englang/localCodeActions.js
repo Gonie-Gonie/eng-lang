@@ -147,7 +147,7 @@ function localCodeActions(document, context, options = {}) {
       }
     }
     if (code === "E-WITH-OPTION-001") {
-      const action = withOptionAliasAction(document, diagnostic);
+      const action = withOptionAliasAction(document, diagnostic, options.workflowOptionLabels);
       if (action) {
         action.isPreferred = true;
         actions.push(action);
@@ -1162,8 +1162,8 @@ function schemaNameFromBinding(binding) {
   return `${base || "JsonPayload"}Schema`;
 }
 
-function withOptionAliasAction(document, diagnostic) {
-  const fix = withOptionAliasFix(unknownWithOptionName(diagnostic.message));
+function withOptionAliasAction(document, diagnostic, workflowOptionLabels) {
+  const fix = withOptionAliasFix(unknownWithOptionName(diagnostic.message), workflowOptionLabels);
   if (!fix) {
     return undefined;
   }
@@ -1197,30 +1197,51 @@ function optionKeyReplacementAction(document, diagnostic, from, to, title) {
   return action;
 }
 
-function withOptionAliasFix(optionName) {
+function withOptionAliasFix(optionName, workflowOptionLabels) {
+  let fix;
   switch (optionName) {
     case "unit":
     case "y_unit":
-      return {
+      fix = {
         from: optionName,
         to: "unit y",
         title: "Use plot y-axis option: unit y ="
       };
+      break;
     case "x_unit":
-      return {
+      fix = {
         from: optionName,
         to: "unit x",
         title: "Use plot x-axis option: unit x ="
       };
+      break;
     case "confidence":
-      return {
+      fix = {
         from: optionName,
         to: "confidence_band",
         title: "Use confidence band option: confidence_band ="
       };
+      break;
     default:
       return undefined;
   }
+  return knownWorkflowOptionLabel(fix.to, workflowOptionLabels) ? fix : undefined;
+}
+
+function knownWorkflowOptionLabel(label, workflowOptionLabels) {
+  const labels = workflowOptionLabelSet(workflowOptionLabels);
+  return labels.size === 0 || labels.has(label);
+}
+
+function workflowOptionLabelSet(workflowOptionLabels) {
+  if (workflowOptionLabels instanceof Set) {
+    return workflowOptionLabels;
+  }
+  return new Set(
+    (Array.isArray(workflowOptionLabels) ? workflowOptionLabels : []).filter(
+      (label) => typeof label === "string" && label.length > 0
+    )
+  );
 }
 
 function unknownWithOptionName(message) {

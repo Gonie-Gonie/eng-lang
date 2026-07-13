@@ -207,7 +207,7 @@ function Read-GrammarWorkflowOptionLabels {
         $body = $matchText.Substring($start + 3, $end - ($start + 3))
         foreach ($label in @($body -split '\|')) {
             if (-not [string]::IsNullOrWhiteSpace($label)) {
-                $labels.Add($label) | Out-Null
+                $labels.Add([regex]::Unescape($label)) | Out-Null
             }
         }
     }

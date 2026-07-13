@@ -820,6 +820,8 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("timeout", "external command timeout"),
     ("timestep", "solver or simulation time step"),
     ("title", "plot or report title"),
+    ("unit x", "plot x-axis display unit option"),
+    ("unit y", "plot y-axis display unit option"),
     ("tool_version", "external tool version"),
     ("tolerance", "solver convergence tolerance"),
     ("transaction", "SQLite transaction policy"),
@@ -7185,6 +7187,12 @@ fn is_http_request_owner_text(owner: &str) -> bool {
     )
 }
 
+pub fn workflow_option_label_exists(label: &str) -> bool {
+    WORKFLOW_OPTION_COMPLETIONS
+        .iter()
+        .any(|(candidate, _detail)| *candidate == label)
+}
+
 fn workflow_option_completion_detail(label: &str) -> Option<&'static str> {
     WORKFLOW_OPTION_COMPLETIONS
         .iter()
@@ -7193,11 +7201,7 @@ fn workflow_option_completion_detail(label: &str) -> Option<&'static str> {
 }
 
 fn contextual_workflow_option_completion_detail(label: &str) -> Option<&'static str> {
-    workflow_option_completion_detail(label).or_else(|| match label {
-        "unit x" => Some("plot x-axis display unit option"),
-        "unit y" => Some("plot y-axis display unit option"),
-        _ => None,
-    })
+    workflow_option_completion_detail(label)
 }
 
 struct FunctionArgumentCompletionContext {
@@ -8691,6 +8695,12 @@ mod tests {
                     .iter()
                     .any(|option| option["label"] == "offline_response")),
             "syntax catalog should expose with-block option labels"
+        );
+        assert!(
+            syntax_catalog["workflow_options"]
+                .as_array()
+                .is_some_and(|options| options.iter().any(|option| option["label"] == "unit y")),
+            "syntax catalog should expose plot axis with-option labels"
         );
         assert!(
             syntax_catalog["http_response_fields"]

@@ -8,6 +8,7 @@ class EngCodeActionProvider {
     this.codeActionsForDocumentSource = options.codeActionsForDocumentSource;
     this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
     this.unitLabels = Array.isArray(options.unitLabels) ? options.unitLabels : [];
+    this.workflowOptionLabels = Array.isArray(options.workflowOptionLabels) ? options.workflowOptionLabels : [];
   }
 
   async provideCodeActions(document, _range, context, cancellationToken) {
@@ -17,7 +18,8 @@ class EngCodeActionProvider {
 
     const localActions = () => localCodeActions(document, context, {
       completionItems: this.completionItems,
-      unitLabels: this.unitLabels
+      unitLabels: this.unitLabels,
+      workflowOptionLabels: this.workflowOptionLabels
     });
     if (cancellationToken?.isCancellationRequested) {
       return [];
