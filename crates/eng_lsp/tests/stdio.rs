@@ -2759,7 +2759,7 @@ fn editor_metadata_cli_exports_editor_contract() {
     );
     let metadata: Value =
         serde_json::from_slice(&output.stdout).expect("editor metadata stdout should be JSON");
-    assert_eq!(metadata["format"], "eng-lsp-editor-metadata-v1");
+    assert_eq!(metadata["format"], "eng-lsp-editor-metadata-v2");
     assert!(metadata["semantic_token_legend"]["token_types"]
         .as_array()
         .expect("token types should be an array")
@@ -2791,11 +2791,8 @@ fn editor_metadata_cli_exports_editor_contract() {
         metadata["completion_items_count"].as_u64(),
         Some(completions.len() as u64)
     );
-    assert_eq!(metadata["completion_seed"], metadata["completion_items"]);
-    assert_eq!(
-        metadata["completion_seed_count"],
-        metadata["completion_items_count"]
-    );
+    assert!(metadata.get("completion_seed").is_none());
+    assert!(metadata.get("completion_seed_count").is_none());
     for label in ["records", "promote json records", "read json", "eng.table"] {
         assert!(
             completions

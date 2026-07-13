@@ -96,6 +96,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 717: Added VS Code string escape first-paint coverage so `\\n`, `\\"`, and `\\\\` escape sequences receive `constant.character.escape.englang` theme colors and grammar smoke protection.
 - Batch 718: Added VS Code grammar smoke and theme coverage for `punctuation.separator.parameter.englang` so function/method parameter-list separators stay colored on first paint.
 - Batch 719: Added a VS Code grammar-smoke guard requiring every non-meta TextMate leaf scope to appear in expected-token coverage, preventing future untested first-paint scopes.
+- Batch 720: Removed the duplicated `completion_seed` alias from the editor metadata API, bumped the metadata format to v2, and kept VS Code/package guards on the single `completion_items` catalog.
 
 ## Documentation Policy
 

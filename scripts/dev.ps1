@@ -3038,8 +3038,8 @@ function Assert-VscodeExtensionContract {
     $MainInternalStatusSource = Get-Content -LiteralPath $MainInternalStatusPath -Raw
     $CurrentStatusSource = Get-Content -LiteralPath $CurrentStatusPath -Raw
     $CurrentTracksSource = Get-Content -LiteralPath $CurrentTracksPath -Raw
-    if (-not $VscodeReadmeSource.Contains("completion_items") -or -not $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("legacy alias") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
-        throw "VS Code README must document completion_items as the preferred editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata"
+    if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
+        throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
@@ -4143,11 +4143,11 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
         throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, model field, prediction table field, and completion item metadata"
     }
-    if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ?? metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("const legacyCompletionItems = metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("completion_seed must remain an exact legacy alias of completion_items")) {
-        throw "VS Code editor metadata loader must require completion_items as the runtime catalog and validate completion_seed only as a legacy alias"
+    if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ??") -or $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("metadata.completion_items_count !== completionItems.length")) {
+        throw "VS Code editor metadata loader must require completion_items as the only runtime completion catalog"
     }
     if ($ExtensionSource.Contains("const SEMANTIC_TOKEN_TYPES = [") -or $ExtensionSource.Contains("const SEMANTIC_TOKEN_MODIFIERS = [")) {
         throw "VS Code extension must not hardcode semantic token legend arrays"
@@ -4992,21 +4992,17 @@ function Assert-VscodeExtensionContract {
     }
     $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw | ConvertFrom-Json
     $GeneratedCompletions = Get-Content -LiteralPath $CompletionsPath -Raw | ConvertFrom-Json
-    if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
+    if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v2") {
         throw "generated VS Code editor metadata returned unexpected format $($EditorMetadata.format)"
     }
-    if ($GeneratedCompletions.format -ne "eng-lsp-editor-metadata-v1") {
+    if ($GeneratedCompletions.format -ne "eng-lsp-editor-metadata-v2") {
         throw "generated VS Code completions returned unexpected format $($GeneratedCompletions.format)"
     }
     $MetadataCompletionLabels = @($EditorMetadata.completion_items | ForEach-Object { $_.label })
     $GeneratedCompletionLabels = @($GeneratedCompletions.completion_items | ForEach-Object { $_.label })
     Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $GeneratedCompletionLabels -Description "VS Code generated completion item labels"
-    $MetadataLegacyCompletionLabels = @($EditorMetadata.completion_seed | ForEach-Object { $_.label })
-    $GeneratedLegacyCompletionLabels = @($GeneratedCompletions.completion_seed | ForEach-Object { $_.label })
-    Assert-SameStringSequence -Left $MetadataCompletionLabels -Right $MetadataLegacyCompletionLabels -Description "VS Code completion_items/completion_seed legacy alias labels"
-    Assert-SameStringSequence -Left $GeneratedCompletionLabels -Right $GeneratedLegacyCompletionLabels -Description "VS Code generated completion_items/completion_seed legacy alias labels"
-    if ($EditorMetadata.completion_items_count -ne $EditorMetadata.completion_seed_count -or $GeneratedCompletions.completion_items_count -ne $GeneratedCompletions.completion_seed_count) {
-        throw "generated VS Code completion_items and completion_seed counts must match while the legacy alias is retained"
+    if ($null -ne $EditorMetadata.PSObject.Properties["completion_seed"] -or $null -ne $EditorMetadata.PSObject.Properties["completion_seed_count"] -or $null -ne $GeneratedCompletions.PSObject.Properties["completion_seed"] -or $null -ne $GeneratedCompletions.PSObject.Properties["completion_seed_count"]) {
+        throw "generated VS Code editor metadata must expose completion_items only; completion_seed was removed from the public editor metadata contract"
     }
     if ($MetadataCompletionLabels.Count -lt 100) {
         throw "generated VS Code completion item catalog is unexpectedly small: $($MetadataCompletionLabels.Count)"
@@ -5875,7 +5871,7 @@ function Invoke-LspCheck {
         throw "eng-lsp --editor-metadata failed with exit code $LASTEXITCODE"
     }
     $EditorMetadata = ($EditorMetadataOutput | Out-String).Trim() | ConvertFrom-Json
-    if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v1") {
+    if ($EditorMetadata.format -ne "eng-lsp-editor-metadata-v2") {
         throw "eng-lsp --editor-metadata returned unexpected format $($EditorMetadata.format)"
     }
     foreach ($RequiredCompletion in @("records", "promote json records", "sample uniform", "sample latin-hypercube", "read json", "eng.table", "split")) {

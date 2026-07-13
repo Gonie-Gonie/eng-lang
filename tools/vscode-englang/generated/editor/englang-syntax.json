@@ -1,5 +1,5 @@
 {
-    "format":  "eng-lsp-editor-metadata-v1",
+    "format":  "eng-lsp-editor-metadata-v2",
     "syntax_catalog":  {
                            "case_output_table_fields":  [
                                                             {

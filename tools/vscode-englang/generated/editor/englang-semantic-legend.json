@@ -1,5 +1,5 @@
 {
-    "format":  "eng-lsp-editor-metadata-v1",
+    "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
                                                           "declaration",

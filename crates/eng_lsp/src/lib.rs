@@ -11,7 +11,7 @@ use eng_compiler::{
 use serde_json::{json, Value};
 
 pub const LSP_SNAPSHOT_FORMAT: &str = "eng-lsp-snapshot-v1";
-pub const LSP_EDITOR_METADATA_FORMAT: &str = "eng-lsp-editor-metadata-v1";
+pub const LSP_EDITOR_METADATA_FORMAT: &str = "eng-lsp-editor-metadata-v2";
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct LspSnapshot {
@@ -1803,9 +1803,7 @@ pub fn editor_metadata_json() -> Value {
         "semantic_token_legend": semantic_legend_json(&semantic_legend()),
         "syntax_catalog": editor_syntax_catalog_json(),
         "completion_items_count": completions.len(),
-        "completion_items": completion_values.clone(),
-        "completion_seed_count": completions.len(),
-        "completion_seed": completion_values,
+        "completion_items": completion_values,
     })
 }
 
@@ -1941,13 +1939,6 @@ pub fn editor_completion_items() -> Vec<LspCompletion> {
         &CheckOptions::default(),
     );
     completion_items(&report)
-}
-
-#[deprecated(
-    note = "use editor_completion_items(); completion_seed is a generated metadata compatibility alias only"
-)]
-pub fn editor_completion_seed() -> Vec<LspCompletion> {
-    editor_completion_items()
 }
 
 pub fn semantic_legend_json(legend: &LspSemanticLegend) -> Value {
@@ -9245,11 +9236,8 @@ mod tests {
             metadata["completion_items_count"].as_u64(),
             Some(completions.len() as u64)
         );
-        assert_eq!(metadata["completion_seed"], metadata["completion_items"]);
-        assert_eq!(
-            metadata["completion_seed_count"],
-            metadata["completion_items_count"]
-        );
+        assert!(metadata.get("completion_seed").is_none());
+        assert!(metadata.get("completion_seed_count").is_none());
         for (label, kind) in [
             ("records", "keyword"),
             ("top workflow", "snippet"),
@@ -9418,12 +9406,6 @@ mod tests {
             "eng.cache completion detail should hide planned-scope tail, got {}",
             cache_completion["detail"]
         );
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn editor_completion_seed_is_legacy_alias_for_completion_items() {
-        assert_eq!(editor_completion_seed(), editor_completion_items());
     }
 
     #[test]

@@ -295,10 +295,8 @@ generated from `eng-lsp --editor-metadata`. Split generated files are also
 written for review: `englang-semantic-legend.json`,
 `englang-completions.json`, and `englang-syntax.json`. The same metadata file
 provides the static completion fallback used when live completion is
-unavailable. New tooling should read the `completion_items` catalog;
-`completion_seed` remains a legacy alias for older consumers. The VS Code
-extension requires `completion_items` at runtime and validates that
-`completion_seed` is only an exact compatibility alias.
+unavailable. Tooling reads the `completion_items` catalog directly; the editor
+metadata contract no longer publishes a duplicate completion seed alias.
 `syntax_catalog.legacy_workflow_builtin_aliases` and
 `syntax_catalog.legacy_workflow_option_aliases` contain highlight-only compatibility
 spellings that are not added back to completions. `syntax_catalog.units` contains

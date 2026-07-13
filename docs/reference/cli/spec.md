@@ -424,7 +424,7 @@ eng-lsp.exe --editor-metadata
 `--smoke` verifies editor metadata extraction for the official CSV workflow and
 the official domain/component track metadata. `--snapshot` emits
 `eng-lsp-snapshot-v1` JSON with diagnostics, completion items, and hover items.
-`--editor-metadata` emits `eng-lsp-editor-metadata-v1` JSON with the static
+`--editor-metadata` emits `eng-lsp-editor-metadata-v2` JSON with the static
 semantic-token legend, syntax catalog, and completion fallback catalog consumed
 by editor tooling. Domain/component files include hover `kind`/`status` metadata
 and completion labels such as `Thermal`, `RoomBoundary`, `RoomBoundary.heat`,

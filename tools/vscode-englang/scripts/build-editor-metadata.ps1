@@ -28,7 +28,7 @@ try {
 
 $MetadataText = ($MetadataOutput | Out-String).Trim()
 $Metadata = $MetadataText | ConvertFrom-Json
-if ($Metadata.format -ne "eng-lsp-editor-metadata-v1") {
+if ($Metadata.format -ne "eng-lsp-editor-metadata-v2") {
     throw "eng-lsp --editor-metadata returned unexpected format $($Metadata.format)"
 }
 
@@ -46,8 +46,6 @@ $Completions = [ordered]@{
     format = $Metadata.format
     completion_items_count = $Metadata.completion_items_count
     completion_items = $Metadata.completion_items
-    completion_seed_count = $Metadata.completion_seed_count
-    completion_seed = $Metadata.completion_seed
 }
 $SyntaxCatalog = [ordered]@{
     format = $Metadata.format

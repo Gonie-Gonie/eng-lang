@@ -68,7 +68,7 @@ diagnostics or no semantic metadata.
 
 ```json
 {
-  "format": "eng-lsp-editor-metadata-v1"
+  "format": "eng-lsp-editor-metadata-v2"
 }
 ```
 
@@ -82,9 +82,6 @@ It contains:
   completion fallback, and highlight checks.
 - `completion_items`: fallback completions used when live completion is
   unavailable. Rust callers should use `editor_completion_items()`.
-- `completion_seed`: legacy alias for `completion_items`; new tooling should
-  read `completion_items`. The Rust `editor_completion_seed()` helper is
-  deprecated and kept only for compatibility.
 
 ## Diagnostics
 
