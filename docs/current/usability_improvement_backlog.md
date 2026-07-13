@@ -69,6 +69,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 740: Added normalized review-document `source_span` metadata for TimeSeries calculation and Report Outputs rows covering summaries, integrations, and plot candidates.
 - Batch 741: Added normalized review-document `source_span` metadata for Validation rows covering top-level validate commands and class validations.
 - Batch 742: Added normalized review-document `source_span` metadata for remaining Calculation rows: uncertainty, modeling, and system equations.
+- Batch 743: Tightened LSP semantic highlighting for process and network with-block options so process policy keys carry side-effect/external modifiers and network cache keys carry cache/external modifiers.
 
 ## Documentation Policy
 

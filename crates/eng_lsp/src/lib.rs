@@ -2801,6 +2801,22 @@ fn with_option_semantic_modifiers(
     if key == "display_unit" || key.starts_with("unit ") {
         return &["report"];
     }
+    if is_process_with_block(program, block.owner_line) {
+        match key {
+            "args" | "cwd" | "env" | "expected_outputs" | "tool_version" | "timeout" | "retry"
+            | "allow_failure" => return &["sideEffect", "external"],
+            "cache" | "cache_key" | "cache_dir" | "cache_ttl" => {
+                return &["cache", "sideEffect", "external"]
+            }
+            _ => {}
+        }
+    }
+    if is_net_with_block(program, block.owner_line) {
+        match key {
+            "cache" | "cache_key" | "cache_dir" | "cache_ttl" => return &["cache", "external"],
+            _ => {}
+        }
+    }
     match key {
         "cache" | "cache_key" | "cache_dir" | "cache_ttl" => &["cache"],
         "key" | "transaction" => &["db"],
@@ -2921,6 +2937,10 @@ fn with_option_path_helper_semantic_modifiers(
     key: &str,
 ) -> Option<&'static [&'static str]> {
     match key {
+        "cache_dir" if is_process_with_block(program, block.owner_line) => {
+            Some(&["cache", "sideEffect", "external"])
+        }
+        "cache_dir" if is_net_with_block(program, block.owner_line) => Some(&["cache", "external"]),
         "cache_dir" => Some(&["cache"]),
         "expected_outputs" => Some(&["sideEffect", "external"]),
         "offline_response" | "fixture" if is_net_with_block(program, block.owner_line) => {
@@ -10289,6 +10309,16 @@ with {
     epochs = 20
 }
 
+process_result = run command "cmd"
+with {
+    args = ["/C", "echo", "ok"]
+    expected_outputs = [file("outputs/result.csv")]
+    tool_version = "demo 1.0"
+    retry = 1
+    timeout = 10 s
+    allow_failure = false
+}
+
 db = open sqlite file("outputs/results.sqlite")
 write sensor to db.table("sensor")
 with {
@@ -10395,6 +10425,10 @@ with {
     expected_sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
     status_code = 200
     body_size_limit = 2 MB
+    cache = true
+    cache_key = ["weather", "demo"]
+    cache_dir = dir("build/cache")
+    cache_ttl = 30 min
 }
 
 write text file("outputs/out.txt"), "ok"
@@ -10628,6 +10662,69 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "expected_sha256", "external");
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
         assert_semantic_token_modifier(&snapshot, source, "body_size_limit", "external");
+        for label in ["cache", "cache_key", "cache_dir", "cache_ttl"] {
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"upload = http get url("https://example.org/weather")"#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "cache",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"upload = http get url("https://example.org/weather")"#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "external",
+            );
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    cache_dir = dir("build/cache")"#,
+            "dir",
+            "function",
+            "cache",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    cache_dir = dir("build/cache")"#,
+            "dir",
+            "function",
+            "external",
+        );
+        for label in [
+            "args",
+            "expected_outputs",
+            "tool_version",
+            "retry",
+            "timeout",
+            "allow_failure",
+        ] {
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "sideEffect",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "external",
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "overwrite", "sideEffect");
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
