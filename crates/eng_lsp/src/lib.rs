@@ -5687,7 +5687,7 @@ fn add_command_style_semantic_tokens(
         }
         "align" | "resample" => {
             let modifiers = &["validation", "workflowStep", "timeseries"];
-            push_command_clause_keywords(builder, command, &["with", "to"], modifiers);
+            push_command_clause_keywords(builder, command, &["with", "to", "by"], modifiers);
             push_command_style_identifier_paths(
                 builder,
                 command.line,
@@ -5696,6 +5696,9 @@ fn add_command_style_semantic_tokens(
                 modifiers,
             );
             for clause in &command.clauses {
+                if clause.name == "by" {
+                    continue;
+                }
                 push_command_style_identifier_paths(
                     builder,
                     command.line,
@@ -11619,6 +11622,7 @@ with {
 filled = fill missing designs.cooling_cop
 aligned = align designs.cooling_cop with predictions.cooling_cop
 resampled = resample designs.cooling_cop to predictions.cooling_cop
+resampled_by = resample designs.cooling_cop by 30 min
 legacy_station = select_first_row(stations, return_column="station_id")
 "#;
         let snapshot = snapshot_for_source(Path::new("native_workflow_builtins.eng"), source);
@@ -11764,6 +11768,46 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "keyword",
             "workflowStep",
         );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "resampled_by = resample designs.cooling_cop by 30 min",
+            "by",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "resampled_by = resample designs.cooling_cop by 30 min",
+            "by",
+            "keyword",
+            "timeseries",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "resampled_by = resample designs.cooling_cop by 30 min",
+            "by",
+            "keyword",
+            "validation",
+        );
+        let resampled_by_line = source
+            .lines()
+            .position(|line| line.contains("resampled_by = resample designs.cooling_cop by 30 min"))
+            .expect("resampled_by source line should be present");
+        for modifier in ["validation", "workflowStep", "timeseries"] {
+            assert!(
+                !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                    token.line == resampled_by_line
+                        && source.lines().nth(token.line).is_some_and(|line| {
+                            line.get(token.start..token.start + token.length) == Some("min")
+                                && token.modifiers.iter().any(|item| item == modifier)
+                        })
+                }),
+                "duration unit `min` should not inherit command modifier `{modifier}`"
+            );
+        }
         assert_eq!(
             semantic_token_modifier_count(&snapshot, source, "surrogate", "variable", "model"),
             4,
@@ -11850,6 +11894,7 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "filled = fill missing designs.cooling_cop",
             "aligned = align designs.cooling_cop with predictions.cooling_cop",
             "resampled = resample designs.cooling_cop to predictions.cooling_cop",
+            "resampled_by = resample designs.cooling_cop by 30 min",
         ] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,

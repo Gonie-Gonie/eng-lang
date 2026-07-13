@@ -144,6 +144,8 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 685: Standardized VS Code tooling status wording on `live editor checks` instead of `live editor requests`, keeping live Problems, hover, completion, and highlight wording aligned.
 - Batch 686: Implemented `resample <series> by <duration>` as a native TimeSeries resampling hook, with runtime artifact coverage and VS Code TextMate first-paint highlighting aligned to the new step-only form.
 
+- Batch 687: Aligned LSP semantic highlighting for `resample <series> by <duration>` so the `by` clause keeps workflowStep/timeseries/validation role coloring after semantic overlay, while duration units are not treated as workflow identifiers.
+
 ## Documentation Policy
 
 - Public behavior changes update user docs, reference docs, examples, and release notes when applicable.
