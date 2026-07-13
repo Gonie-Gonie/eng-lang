@@ -12631,6 +12631,24 @@ system Envelope {
     }
 
     #[test]
+    fn ignores_legacy_select_first_row_mentions_in_comments_and_strings() {
+        let report = check_source(
+            "legacy-selection-comments.eng",
+            "# select_first_row(stations)\n// select_first_row(stations)\nnote = \"select_first_row(stations)\"\nvalue = 1\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(
+            report
+                .diagnostics
+                .iter()
+                .all(|diagnostic| diagnostic.code != "W-TABLE-LEGACY-SELECT-FIRST-ROW"),
+            "commented or quoted select_first_row mentions should not warn: {:?}",
+            report.diagnostics
+        );
+    }
+
+    #[test]
     fn records_table_filter_require_one_transforms() {
         let root =
             env::temp_dir().join(format!("englang-table-transform-ok-{}", std::process::id()));

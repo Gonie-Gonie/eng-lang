@@ -114,6 +114,10 @@ pub fn lex_line(line_number: usize, line_start: usize, text: &str) -> Vec<Token>
             break;
         }
 
+        if character == '#' {
+            break;
+        }
+
         if character.is_ascii_alphabetic() || character == '_' {
             let start = cursor;
             cursor += 1;

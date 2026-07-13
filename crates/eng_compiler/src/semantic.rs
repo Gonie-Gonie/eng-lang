@@ -10,6 +10,7 @@ use crate::ast::{
 use crate::cache::CacheRecordInfo;
 use crate::expected::{expected_type_from_explicit_decl, ExpectedType, ExpectedTypeSource};
 use crate::hover::HoverHint;
+use crate::lexer::{Symbol, TokenKind};
 use crate::ml::MlInfo;
 use crate::net::{NetDownloadInfo, NetRequestInfo};
 use crate::parser::{ParseContext, ParsedProgram};
@@ -11845,8 +11846,11 @@ fn warn_http_response_status_field_usage(
 }
 fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut Vec<Diagnostic>) {
     for line in &program.lines {
-        let code = line.text.split('#').next().unwrap_or("");
-        if !code.contains("select_first_row(") {
+        let has_call = line.tokens.windows(2).any(|tokens| {
+            matches!(&tokens[0].kind, TokenKind::Identifier(name) if name == "select_first_row")
+                && matches!(tokens[1].kind, TokenKind::Symbol(Symbol::LParen))
+        });
+        if !has_call {
             continue;
         }
         diagnostics.push(Diagnostic::warning(

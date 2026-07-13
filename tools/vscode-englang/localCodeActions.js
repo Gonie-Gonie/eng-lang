@@ -2764,8 +2764,30 @@ function findMatchingBlockEnd(document, startLineNumber) {
 }
 
 function stripLineComment(text) {
-  const index = text.indexOf("#");
+  const index = lineCommentStart(text);
   return index >= 0 ? text.slice(0, index) : text;
+}
+
+function lineCommentStart(text) {
+  let inString = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (character === "\\" && inString) {
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString && character === "#") {
+      return index;
+    }
+    if (!inString && character === "/" && text[index + 1] === "/") {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function fullLineRange(document, lineNumber) {

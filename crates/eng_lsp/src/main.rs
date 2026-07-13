@@ -4005,9 +4005,34 @@ fn matching_block_end_line(lines: &[&str], start_line: usize) -> Option<usize> {
 }
 
 fn strip_line_comment(line: &str) -> &str {
-    line.split_once('#')
-        .map(|(head, _comment)| head)
+    line_comment_start(line)
+        .map(|comment_start| &line[..comment_start])
         .unwrap_or(line)
+}
+
+fn line_comment_start(line: &str) -> Option<usize> {
+    let mut in_string = false;
+    let bytes = line.as_bytes();
+    let mut index = 0usize;
+    while index < bytes.len() {
+        if bytes[index] == b'\\' && in_string {
+            index += 2;
+            continue;
+        }
+        if bytes[index] == b'"' {
+            in_string = !in_string;
+            index += 1;
+            continue;
+        }
+        if !in_string && bytes[index..].starts_with(b"//") {
+            return Some(index);
+        }
+        if !in_string && bytes[index] == b'#' {
+            return Some(index);
+        }
+        index += 1;
+    }
+    None
 }
 
 fn full_line_range(text: &str, line_number: usize) -> Value {

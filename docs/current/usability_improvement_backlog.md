@@ -85,6 +85,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 626: Added role-aware semantic modifiers and VS Code fallback scopes for `state`, `input`, and `output` declaration keywords so semantic highlighting preserves the same modifier-style coloring as TextMate first paint.
 - Batch 627: Hid the compatibility-only `case_inputs.planned_count` alias from generated editor case-output field suggestions while keeping `expected_count` and rendered/blocked/manifest fields visible.
 - Batch 628: Hid compatibility-only model option aliases `x`, `y`, `test_fraction`, and `layers` from generated editor workflow-option suggestions while keeping canonical `features`, `target`, `test`, and `hidden` visible and preserving the aliases as highlight-only compatibility scopes.
+- Batch 629: Aligned compiler, LSP, and VS Code local quick-fix comment stripping for `#` and `//` comments so legacy helper mentions inside comments or strings no longer produce row-selection warnings or migration actions.
 
 ## Documentation Policy
 
