@@ -1565,6 +1565,14 @@ function Invoke-DocsCheck {
     Test-UserDocsExecutionWording `
         -UserDocsRoot (Join-Path $RepoRoot "docs\user")
 
+    $ReportReferencePath = Join-Path $RepoRoot "docs\reference\language\report.md"
+    $ReportReferenceSource = Get-Content -LiteralPath $ReportReferencePath -Raw
+    foreach ($ForbiddenReportReferenceExample in @("show summary", "plot heat over Time")) {
+        if ($ReportReferenceSource.Contains($ForbiddenReportReferenceExample)) {
+            throw "Report language reference must use concrete supported bindings instead of '$ForbiddenReportReferenceExample'"
+        }
+    }
+
     $checked = 0
     $skipped = 0
     $snippetIndex = 0

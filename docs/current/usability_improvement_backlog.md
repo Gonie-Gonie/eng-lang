@@ -146,6 +146,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 687: Aligned LSP semantic highlighting for `resample <series> by <duration>` so the `by` clause keeps workflowStep/timeseries/validation role coloring after semantic overlay, while duration units are not treated as workflow identifiers.
 - Batch 688: Tightened LSP semantic highlighting for supported report `summarize <series> by [...]` statements so the source series keeps report/timeseries role coloring and statistics such as `duration_above(5 kW)` color only the statistic function, not the unit argument.
 - Batch 689: Stopped VS Code TextMate report phrase scopes from highlighting unsupported bound report commands such as `arg_summary = summarize ...`, added compiler diagnostic `E-REPORT-BINDING-001`, and guarded grammar tests against those seed-only RHS forms.
+- Batch 690: Replaced the report language reference placeholder example (`show summary`, `plot heat over Time`) with concrete supported `Q_coil` bindings and added a docs-check guard so abstract report examples do not return.
 
 ## Documentation Policy
 

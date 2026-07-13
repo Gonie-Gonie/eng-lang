@@ -6,16 +6,21 @@ reviewable report output.
 ## Supported Commands
 
 ```englang
+Time: Time = 0 h
+Q_coil: TimeSeries[Time] of HeatRate [kW] = 5 kW
+
 report {
-    show summary
-    plot heat over Time
+    summarize Q_coil by [mean, max, p95]
+    show Q_coil
+    plot Q_coil over Time
     with {
         unit y = kW
-        title = "Heat rate"
+        title = "Coil heat rate"
     }
 }
 ```
 
+- `summarize <series> by [...]` records supported statistics for a TimeSeries.
 - `show <value>` adds a value, table summary, or artifact reference to the
   report.
 - `plot <series> over Time` creates a plot spec, SVG, plot manifest, and report
