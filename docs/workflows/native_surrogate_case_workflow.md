@@ -38,6 +38,7 @@ What it proves:
 - native table-based `train regression <table>` model training with explicit `with` options
 - native `predict surrogate_model using designs` prediction table materialization
 - native SQLite writes to `simulation_results` and `predictions`
+- `db.summary` plus detailed DB fields for readable SQLite write/readback status
 - typed `args.output` routing for the sampling summary and workflow summary CSV
 - `process_results.json` has `process_count = 0`
 
@@ -51,12 +52,12 @@ Expected review surfaces:
 - `typed_payload.model_specs[]`
 - `typed_payload.model_cards[]`
 - `typed_payload.prediction_manifests[]`
-- `typed_payload.db_manifests[]`
+- `typed_payload.db_manifests[]` plus report bindings for `db.summary`, table count, row count, and status
 - `static_run_plan.json`, `run_plan.json`, and `run_lock.json`
 - `output_manifest.json` records for case_input artifacts, sampling summary,
   summary export, DB, model artifacts, and report artifacts
 
 This is not an EnergyPlus, CFD, FEM, Modelica, or vendor ML framework adapter
 in core. Real simulator or trainer adapters should layer above the same typed
-table, model-card, prediction-manifest, DB-manifest, workflow, and artifact
+table, model-card, prediction-manifest, DB-manifest, DB summary, workflow, and artifact
 contracts.
