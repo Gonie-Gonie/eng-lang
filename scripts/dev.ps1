@@ -3619,6 +3619,9 @@ function Assert-VscodeExtensionContract {
             throw "VS Code workflow module panel missing wording token $RequiredModuleWordingToken"
         }
     }
+    if ($ModuleStatusSource.Contains('return "Native workflow support";')) {
+        throw "VS Code workflow module fallback label should stay short; use compiler status_label for full registry wording"
+    }
     if ($ExtensionSource.Contains("function moduleStatusDisplay") -or $ExtensionSource.Contains("function moduleBackingLabel")) {
         throw "VS Code extension must keep workflow module wording helpers in moduleStatus.js"
     }
@@ -5316,13 +5319,16 @@ function Invoke-IdeCheck {
     if (-not $IdeUiSource.Contains("Review Fingerprint")) {
         throw "Native IDE review panel must label semantic_hash as Review Fingerprint"
     }
-    foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
+    foreach ($RequiredModuleWordingToken in @("moduleStatusDisplay", "moduleStatusDetail", "module.status_label", "module.status_detail", "moduleBackingLabel", "Compiler/runtime", "No executable backing")) {
         if (-not $IdeUiSource.Contains($RequiredModuleWordingToken)) {
             throw "Native IDE module wording missing token $RequiredModuleWordingToken"
         }
     }
     if ($IdeUiSource.Contains('${escapeHtml(module.status || "-")} / ${escapeHtml(module.backing || "-")}')) {
         throw "Native IDE Modules view must not display raw registry status/backing keys"
+    }
+    if ($IdeUiSource.Contains('return "Native workflow support";')) {
+        throw "Native IDE module fallback label should stay short; use compiler status_label for full registry wording"
     }
     foreach ($RequiredBehaviorStatusToken in @(
         "delay_call_runtime_buffer_pending_integration",

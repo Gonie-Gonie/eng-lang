@@ -2075,13 +2075,14 @@ function moduleStatusCategory(module) {
 
 function moduleStatusLabel(module) {
   if (module.statusLabel) return module.statusLabel;
+  if (module.status_label) return module.status_label;
   switch (module.status) {
     case "supported":
       return "Supported";
     case "supported_narrow":
       return "Supported narrow";
     case "native_preview":
-      return "Native workflow support";
+      return "Native";
     case "planned":
       return "Planned";
     case "internal_planned":
@@ -2095,6 +2096,7 @@ function moduleStatusLabel(module) {
 
 function moduleStatusDetail(module) {
   if (module.statusDetail) return module.statusDetail;
+  if (module.status_detail) return module.status_detail;
   switch (module.status) {
     case "supported":
       return "Public built-in surface supported by compiler/runtime.";
@@ -2114,7 +2116,7 @@ function moduleStatusDetail(module) {
 }
 
 function moduleStatusDisplay(module) {
-  return module.statusLabel || moduleStatusLabel(module) || "-";
+  return module.statusLabel || module.status_label || moduleStatusLabel(module) || "-";
 }
 
 function moduleBackingLabel(module) {

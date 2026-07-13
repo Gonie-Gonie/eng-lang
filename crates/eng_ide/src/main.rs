@@ -3818,6 +3818,8 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
     )?;
     for required in [
         "function statusLabel(status)",
+        "if (module.status_label) return module.status_label;",
+        "if (module.status_detail) return module.status_detail;",
         "delay runtime buffer not connected to this language-level solve",
         "Predictor contract not connected to this language-level solve",
         "safe/repro profile policy metadata",
@@ -3879,6 +3881,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
     if app_js.contains("FALLBACK_LEXICAL_UNITS") {
         return Err(
             "native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a JS fallback list"
+                .to_owned(),
+        );
+    }
+    if app_js.contains("return \"Native workflow support\";") {
+        return Err(
+            "native IDE module fallback label should stay short; use compiler status_label for full registry wording"
                 .to_owned(),
         );
     }

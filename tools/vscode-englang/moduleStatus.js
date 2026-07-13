@@ -13,7 +13,7 @@ function moduleStatusLabelForStatus(status) {
     case "supported_narrow":
       return "Supported narrow";
     case "native_preview":
-      return "Native workflow support";
+      return "Native";
     case "planned":
       return "Planned";
     case "internal_planned":
