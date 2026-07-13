@@ -149,8 +149,4 @@ arg_E_series_command = integrate args.Q_series over args.Time
 arg_mean_series = mean(args.Q_series, axis=args.Time)
 property_mean_series = mean(sensor.Q_series, axis=axis.Time)
 arg_mean_command = mean args.Q_series over args.Time
-arg_summary = summarize args.Q_total_unc by [mean, p95]
-arg_show = show args.Q_total_unc
-arg_plot_series = plot args.Q_series over args.Time
 rmse_value = rmse measured_data.T_zone vs sim.T_zone
-arg_plot_dist = plot distribution(args.Q_dist)

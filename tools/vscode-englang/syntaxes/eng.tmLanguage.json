@@ -2283,7 +2283,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.summarize-series.englang",
-                                                                    "begin":  "\\b(summarize)\\b",
+                                                                    "begin":  "^\\s*(summarize)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
@@ -2338,7 +2338,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.plot-distribution.englang",
-                                                                    "begin":  "\\b(plot)\\s+(distribution)\\b(?=\\s*\\()",
+                                                                    "begin":  "^\\s*(plot)\\s+(distribution)\\b(?=\\s*\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
@@ -2392,7 +2392,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.plot-series.englang",
-                                                                    "begin":  "\\b(plot)\\b(?=\\s+(?!distribution\\b)(?:(?:args\\.[A-Za-z_][A-Za-z0-9_]*)|(?:[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|(?:[A-Za-z_][A-Za-z0-9_]*))\\s+over\\s+(?:(?:args\\.[A-Za-z_][A-Za-z0-9_]*)|(?:[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|(?:[A-Za-z_][A-Za-z0-9_]*))\\b)",
+                                                                    "begin":  "^\\s*(plot)\\b(?=\\s+(?!distribution\\b)(?:(?:args\\.[A-Za-z_][A-Za-z0-9_]*)|(?:[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|(?:[A-Za-z_][A-Za-z0-9_]*))\\s+over\\s+(?:(?:args\\.[A-Za-z_][A-Za-z0-9_]*)|(?:[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|(?:[A-Za-z_][A-Za-z0-9_]*))\\b)",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
@@ -2451,7 +2451,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.plot-command.englang",
-                                                                    "begin":  "\\b(plot)\\b",
+                                                                    "begin":  "^\\s*(plot)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
@@ -2510,7 +2510,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.show-report.englang",
-                                                                    "begin":  "\\b(show)\\b",
+                                                                    "begin":  "^\\s*(show)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"

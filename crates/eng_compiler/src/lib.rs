@@ -10692,6 +10692,36 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_bound_report_statement_commands() {
+        for expression in [
+            "arg_summary = summarize Q_series by [mean]",
+            "arg_show = show Q_series",
+            "arg_plot = plot Q_series over Time",
+            "arg_plot_dist = plot distribution(Q_series)",
+        ] {
+            let source =
+                format!("Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW\n{expression}\n");
+            let report = check_source("bad.eng", &source, &CheckOptions::default());
+
+            assert!(report.has_errors(), "{expression} should be rejected");
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .any(|diagnostic| diagnostic.code == "E-REPORT-BINDING-001"),
+                "{expression} should emit E-REPORT-BINDING-001"
+            );
+            assert!(
+                report
+                    .diagnostics
+                    .iter()
+                    .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"),
+                "{expression} should not fall through to E-FN-CALL-001"
+            );
+        }
+    }
+
+    #[test]
     fn rejects_unknown_command_style_verb() {
         let report = check_source(
             "bad.eng",

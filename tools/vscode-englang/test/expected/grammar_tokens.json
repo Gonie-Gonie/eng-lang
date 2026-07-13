@@ -3548,30 +3548,6 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "meta.workflow.summarize-series.englang",
-    "text": "summarize args.Q_total_unc by [mean, p95]",
-    "fullMatch": true
-  },
-  {
-    "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "meta.workflow.show-report.englang",
-    "text": "show args.Q_total_unc",
-    "fullMatch": true
-  },
-  {
-    "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "meta.workflow.plot-series.englang",
-    "text": "plot args.Q_series over args.Time",
-    "fullMatch": true
-  },
-  {
-    "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "meta.workflow.plot-distribution.englang",
-    "text": "plot distribution(args.Q_dist)",
-    "fullMatch": true
-  },
-  {
-    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "args.measured_zone",
     "fullMatch": true
@@ -3592,18 +3568,6 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "variable.parameter.property.englang",
     "text": "args.Time",
-    "fullMatch": true
-  },
-  {
-    "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
-    "text": "args.Q_total_unc",
-    "fullMatch": true
-  },
-  {
-    "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "variable.parameter.property.englang",
-    "text": "args.Q_dist",
     "fullMatch": true
   },
   {

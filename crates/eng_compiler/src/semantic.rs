@@ -11935,6 +11935,30 @@ fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut
     }
 }
 
+fn bound_report_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let command = leading_report_statement_command(&binding.expression)?;
+    Some(Diagnostic::error(
+        "E-REPORT-BINDING-001",
+        binding.line,
+        &format!("Report command `{command}` cannot be used as a bound value."),
+        Some("Write report commands inside `report { ... }`, or bind a supported value expression such as `mean(series, axis=Time)` first."),
+    ))
+}
+
+fn leading_report_statement_command(expression: &str) -> Option<&'static str> {
+    let trimmed = expression.trim_start();
+    for command in ["summarize", "summary", "show", "plot"] {
+        if trimmed.strip_prefix(command).is_some_and(|rest| {
+            rest.chars()
+                .next()
+                .is_some_and(|character| character.is_whitespace() || character == '(')
+        }) {
+            return Some(command);
+        }
+    }
+    None
+}
+
 fn derivative_states(left: &str, right: &str, variables: &[SystemVariableInfo]) -> Vec<String> {
     let expression = format!("{left} {right}");
     variables
@@ -11964,6 +11988,11 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
             "Schema columns require explicit quantity type and source unit.",
             Some(&help),
         ));
+        return;
+    }
+
+    if let Some(diagnostic) = bound_report_command_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
         return;
     }
 
