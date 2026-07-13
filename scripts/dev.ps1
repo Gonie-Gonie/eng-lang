@@ -5481,9 +5481,14 @@ function Invoke-IdeCheck {
         "selectSourceTokenRange",
         "data-source-token-line",
         "sourceLineRange",
+        "sourceColumnStart",
         "sourceLineValue",
+        "sourceColumnValue",
+        "data-source-column",
         "source_line",
         "sourceLine",
+        "source_column",
+        "sourceColumn",
         "variableSourceCell",
         "variable-source-line",
         "codeUnitToByteOffset",
@@ -5518,6 +5523,28 @@ function Invoke-IdeCheck {
         $FunctionDeclarationCount = [regex]::Matches($IdeUiSource, "function\s+$UniqueNativeCompletionFunction\s*\(").Count
         if ($FunctionDeclarationCount -ne 1) {
             throw "Native IDE completion UI must declare $UniqueNativeCompletionFunction exactly once"
+        }
+    }
+    foreach ($RequiredNativeMemberCompletionToken in @(
+        "dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields)",
+        "modelFields: catalogFieldItems(source.modelFields ?? source.model_fields)",
+        "predictionTableFields: catalogFieldItems(source.predictionTableFields ?? source.prediction_table_fields)",
+        "function receiverLookupCandidates(receiver)",
+        "function firstMappedFieldsForReceiver(fieldMap, receiverCandidates)",
+        "context.receiverCandidates",
+        'normalized.split(".").filter(Boolean).pop()',
+        "workflowCatalog.dbConnectionFields",
+        "workflowCatalog.modelFields",
+        "workflowCatalog.predictionTableFields",
+        "normalizedCatalog.dbConnectionFields",
+        "normalizedCatalog.modelFields",
+        "normalizedCatalog.predictionTableFields",
+        "function isDbConnectionLikeReceiver(receiver)",
+        "function isModelLikeReceiver(receiver)",
+        "function isPredictionTableLikeReceiver(receiver)"
+    )) {
+        if (-not $IdeUiSource.Contains($RequiredNativeMemberCompletionToken)) {
+            throw "Native IDE member completions must consume generated public field catalogs and dotted receiver fallbacks: $RequiredNativeMemberCompletionToken"
         }
     }
     if (-not $IdeUiSource.Contains("latin[_-]hypercube|grid|random|uniform")) {

@@ -696,7 +696,10 @@ function bind() {
     button.onclick = () => openWorkspacePath(button.dataset.openPath);
   });
   document.querySelectorAll("[data-source-line]").forEach((button) => {
-    button.onclick = () => selectSourceLine(Number(button.dataset.sourceLine || 0));
+    button.onclick = () => selectSourceLine(
+      Number(button.dataset.sourceLine || 0),
+      Number(button.dataset.sourceColumn || 1)
+    );
   });
   bindSourceTokenRangeButtons(document);
   bindSourceTokenCopyButtons(document);
@@ -1061,15 +1064,22 @@ function runtimeRowKey(row) {
   return `${row?.name ?? ""}:${row?.line ?? ""}`;
 }
 
-function selectSourceLine(line) {
+function selectSourceLine(line, column = 1) {
   const editor = byId("editor");
   if (!editor || !Number.isFinite(line) || line <= 0) return;
   const lineRange = sourceLineRange(editor.value, line - 1);
+  const columnStart = sourceColumnStart(lineRange.text, column);
   editor.focus();
-  editor.selectionStart = lineRange.start;
+  editor.selectionStart = lineRange.start + (columnStart ?? 0);
   editor.selectionEnd = lineRange.end;
   editor.scrollTop = Math.max(0, (lineRange.lineIndex - 3) * 20);
   updateCursorInsight();
+}
+
+function sourceColumnStart(lineText, column) {
+  const columnNumber = Number(column);
+  if (!Number.isFinite(columnNumber) || columnNumber <= 1) return null;
+  return Math.min(Math.max(Math.trunc(columnNumber) - 1, 0), String(lineText || "").length);
 }
 
 function selectSourceTokenRange(line, startByte, lengthBytes) {
@@ -5834,7 +5844,13 @@ function sourceLineButton(item) {
     return line ? escapeHtml(line) : "-";
   }
   const safeLine = Math.trunc(lineNumber);
-  return `<button class="link-button" data-source-line="${escapeAttr(safeLine)}">L${escapeHtml(safeLine)}</button>`;
+  const column = sourceColumnValue(item);
+  const columnNumber = Number(column);
+  const hasColumn = Number.isFinite(columnNumber) && columnNumber > 1;
+  const safeColumn = hasColumn ? Math.trunc(columnNumber) : null;
+  const columnAttr = hasColumn ? ` data-source-column="${escapeAttr(safeColumn)}"` : "";
+  const label = hasColumn ? `L${safeLine}:C${safeColumn}` : `L${safeLine}`;
+  return `<button class="link-button" data-source-line="${escapeAttr(safeLine)}"${columnAttr}>${escapeHtml(label)}</button>`;
 }
 
 function sourceLineValue(item) {
@@ -5843,6 +5859,14 @@ function sourceLineValue(item) {
     ?? item?.source_line
     ?? item?.sourceLine
     ?? item?.line;
+}
+
+function sourceColumnValue(item) {
+  return item?.source_span?.column
+    ?? item?.sourceSpan?.column
+    ?? item?.source_column
+    ?? item?.sourceColumn
+    ?? item?.column;
 }
 
 function sourceTokenButton(token, label = null) {

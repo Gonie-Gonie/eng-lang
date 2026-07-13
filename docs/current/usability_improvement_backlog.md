@@ -98,6 +98,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 719: Added a VS Code grammar-smoke guard requiring every non-meta TextMate leaf scope to appear in expected-token coverage, preventing future untested first-paint scopes.
 - Batch 720: Removed the duplicated `completion_seed` alias from the editor metadata API, bumped the metadata format to v2, and kept VS Code/package guards on the single `completion_items` catalog.
 - Batch 721: Aligned native IDE local member completions with generated DB/model/prediction public field catalogs and dotted-receiver fallback lookup.
+- Batch 722: Added Native IDE source-column jumps for source-span buttons and extended docs-check guards for generated public field member completions.
 
 ## Documentation Policy
 
