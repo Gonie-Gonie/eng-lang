@@ -116,6 +116,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 657: Aligned VS Code fallback and LSP option-value quick fixes to strip full EngLang line comments before computing replacement ranges, preserving trailing `#` and `//` notes while still allowing comment markers inside strings.
 - Batch 658: Made `vscode-install` run the VS Code CLI with an ignored temporary user-data directory while explicitly targeting the normal user extension directory, reducing local install failures from VS Code AppData log permissions and keeping reinstall guidance accurate.
 - Batch 659: Aligned raw `read json`/`read toml`/`read text` highlighting so TextMate first paint and LSP semantic tokens mark the phrase keywords as external boundaries while preserving workflow-step role metadata.
+- Batch 660: Added LSP external-boundary semantic tokens for `promote csv/json/toml` source operands, including file helpers and dotted raw-source bindings, so typed promotions show where external workflow data enters the schema layer.
 
 ## Documentation Policy
 

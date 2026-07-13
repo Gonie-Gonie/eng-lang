@@ -2133,6 +2133,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             promotion_source_format_keywords(&promotion.source_format),
             &["workflowStep"],
         );
+        add_promotion_source_semantic_tokens(
+            &mut builder,
+            promotion.line,
+            &promotion.source_literal,
+        );
     }
 
     for promotion in &program.config_promotions {
@@ -2152,6 +2157,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             promotion.line,
             config_promotion_format_keywords(&promotion.format),
             &["workflowStep"],
+        );
+        add_promotion_source_semantic_tokens(
+            &mut builder,
+            promotion.line,
+            &promotion.source_literal,
         );
     }
 
@@ -5461,6 +5471,30 @@ fn add_read_only_io_semantic_tokens(
         builder.push_identifier_path_on_line(line, source_expression, modifiers);
     }
     true
+}
+
+fn add_promotion_source_semantic_tokens(
+    builder: &mut SemanticTokenBuilder<'_>,
+    line: usize,
+    source_literal: &str,
+) {
+    let source_literal = source_literal.trim();
+    if source_literal.is_empty() {
+        return;
+    }
+    let modifiers = &["workflowStep", "external"];
+    let Some(line_index) = line.checked_sub(1) else {
+        return;
+    };
+    builder.push_identifiers_on_line(
+        line_index,
+        &["file", "dir", "join", "url"],
+        "function",
+        modifiers,
+    );
+    if is_simple_identifier_path(source_literal) {
+        builder.push_identifier_path_on_line(line, source_literal, modifiers);
+    }
 }
 
 fn add_write_target_semantic_tokens(
@@ -11830,6 +11864,7 @@ schema WeatherApiPayload {
 payload = read json file("data/weather.json")
 api_contract = promote json payload as WeatherApiPayload
 weather = promote json records payload.records as WeatherApiRecord
+rows = promote csv file("data/weather.csv") as WeatherApiRecord
 "#;
         let snapshot = snapshot_for_source(Path::new("json_records.eng"), source);
 
@@ -11854,10 +11889,42 @@ weather = promote json records payload.records as WeatherApiRecord
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
+            "api_contract = promote json payload as WeatherApiPayload",
+            "payload",
+            "variable",
+            "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
             "weather = promote json records payload.records as WeatherApiRecord",
             "as",
             "keyword",
             "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "weather = promote json records payload.records as WeatherApiRecord",
+            "payload",
+            "variable",
+            "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "weather = promote json records payload.records as WeatherApiRecord",
+            "records",
+            "property",
+            "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "rows = promote csv file(\"data/weather.csv\") as WeatherApiRecord",
+            "file",
+            "function",
+            "external",
         );
         assert_semantic_token_type(&snapshot, source, "weather", "variable");
         let weather_symbol = snapshot
