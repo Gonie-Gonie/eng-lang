@@ -70,6 +70,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 611: Tightened workflow 01/02/03 native-only guards for `python2`/`python3`, `.ipynb`, and `jupyterlab` markers in CLI smoke and dev workflow checks, with a unit test for notebook/process marker detection.
 - Batch 612: Expanded bundled VS Code theme TextMate first-paint colors for EngLang leaf scopes such as imports, deprecated keywords, operators, punctuation, interpolation markers, namespace/type declarations, and role variables, with a grammar smoke guard that keeps both bundled themes covering every non-meta expected scope.
 - Batch 613: Reworded public release-note repository-only fixture bullets so implementation-track solver/model fixtures are not described as seeds, and extended docs-check wording guards to keep those stale seed phrases out of public workflow/release docs.
+- Batch 614: Extended the VS Code language word pattern so slash/exponent engineering units such as `kg/s`, `J/kg/K`, `W/m^2`, and `people/m2` are selected as whole tokens alongside dotted EngLang symbols.
 
 ## Documentation Policy
 
