@@ -122,6 +122,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 663: Reworked TimeSeries quality TextMate phrase scopes for `check coverage`, `fill missing`, `align`, and `resample` to use member-aware source-path fallbacks so dotted series operands stay colorful before semantic tokens arrive.
 - Batch 664: Added member-aware TextMate fallbacks for command-style `integrate <series> over <axis>` and `mean/max/min <series> over <axis>` phrases while keeping call-style integrate/stat patterns separate.
 - Batch 665: Reworked TextMate `plot distribution(...)` and `plot <series> over <axis>` phrase scopes to use member-aware report operand fallbacks, with grammar guards so dotted report paths stay colorful before LSP semantic tokens arrive.
+- Batch 666: Extended the TextMate `plot` command fallback for multi-series and named plot functions with member-aware report operand fallbacks, guarded so dotted report paths do not collapse into broad property scopes.
 
 ## Documentation Policy
 

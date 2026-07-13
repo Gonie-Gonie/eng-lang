@@ -2360,6 +2360,9 @@
                                                                                          "include":  "#punctuation"
                                                                                      },
                                                                                      {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
                                                                                          "name":  "variable.parameter.property.englang",
                                                                                          "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      },

@@ -1055,6 +1055,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.promote-toml.englang" -Inclu
 Assert-WorkflowPatternIncludes -Name "meta.workflow.promote-json-records.englang" -Include "#members" -Description "promote json records"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.plot-distribution.englang" -Include "#members" -Description "plot distribution"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.plot-series.englang" -Include "#members" -Description "plot series"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.plot-command.englang" -Include "#members" -Description "plot command"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.print-message.englang" -Include "#operators" -Description "print message"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.log-message.englang" -Include "#operators" -Description "log message"

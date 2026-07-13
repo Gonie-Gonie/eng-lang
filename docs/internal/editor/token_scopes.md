@@ -170,7 +170,7 @@ Current workflow phrase scopes:
 | `meta.workflow.predict-model.englang` | `predict <model> using <table>` |
 | `meta.workflow.print-message.englang` | `print "..."` runtime message lines. |
 | `meta.workflow.plot-distribution.englang` | `plot distribution(<distribution>)`; includes member-aware first-paint fallbacks for dotted distribution operands. |
-| `meta.workflow.plot-command.englang` | Fallback for multi-series `plot <a> and <b> over <axis>` and named plot functions such as `plot histogram(...)`, `plot parity(...)`, and `plot residuals(...)`. |
+| `meta.workflow.plot-command.englang` | Fallback for multi-series `plot <a> and <b> over <axis>` and named plot functions such as `plot histogram(...)`, `plot parity(...)`, and `plot residuals(...)`; includes member-aware first-paint fallbacks for dotted report operands. |
 | `meta.workflow.plot-series.englang` | `plot <series> over <axis>`; includes member-aware first-paint fallbacks for dotted series and axis operands. |
 | `meta.workflow.promote-csv.englang` | `promote csv <source> as <schema>` |
 | `meta.workflow.promote-json.englang` | `promote json <source> as <schema>` |
