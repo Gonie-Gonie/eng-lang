@@ -239,6 +239,29 @@
   },
   {
     "fixture": "01_core_workflow.eng",
+    "scope": "string.quoted.double.englang",
+    "text": "\"Path \\\"outputs\\\\summary.txt\\\"\\nRows = {weather_rows}\""
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "constant.character.escape.englang",
+    "text": "\\\"",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "constant.character.escape.englang",
+    "text": "\\\\",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "constant.character.escape.englang",
+    "text": "\\n",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
     "scope": "punctuation.definition.string.begin.englang",
     "text": "\"",
     "fullMatch": true

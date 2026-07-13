@@ -25,6 +25,7 @@ notes_text = read text args.notes
 toml_text = read toml args.config_toml
 api_payload = read json api_response.body
 message = "Q = {sensor.T_supply: .2 degC}"
+escaped_message = "Path \"outputs\\summary.txt\"\nRows = {weather_rows}"
 message_with_expr = "Mean = {mean(sensor.T_supply + 1 K, axis=Time): .2 degC}"
 message_with_binding = "Rows = {weather_rows}"
 custom_value = calibrate(args.input, sensor.T_supply, message, 1 kW + 2 kW, axis=Time)

@@ -3186,7 +3186,7 @@ function Assert-VscodeExtensionContract {
         "fixture",
         "variable.parameter.function.englang", "storage.type.function.englang",
         "storage.type.test.englang", "storage.type.interface-member.englang", "storage.modifier.englang",
-        "variable.other.interpolation.englang", "punctuation.separator.format.englang",
+        "constant.character.escape.englang", "variable.other.interpolation.englang", "punctuation.separator.format.englang",
         "constant.numeric.format.englang", "constant.other.unit.format.englang", "entity.name.function.call.englang",
         "storage.modifier.state.englang", "storage.modifier.input.englang", "storage.modifier.parameter.englang",
         "storage.modifier.output.englang", "storage.modifier.operator.englang",

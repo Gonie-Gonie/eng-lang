@@ -46,6 +46,8 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | Scope family | Use |
 | --- | --- |
 | `comment.line.*.englang` | Line comments (`#`, `//`) and documentation comments (`///`). |
+| `string.quoted.double.englang` | Double-quoted string literals. |
+| `constant.character.escape.englang` | Escape sequences such as `\n`, `\"`, and `\\` inside strings. |
 | `keyword.control.*.englang` | Workflow, report, validation, solver, deprecated, side-effect, and external-boundary words, including `check coverage` clause words for validation-like review operations. |
 | `keyword.operator*.englang` | Word and symbolic operators. |
 | `punctuation.section.*.englang` | Block, bracket, and parenthesis delimiters. |

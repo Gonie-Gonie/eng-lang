@@ -93,6 +93,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 714: Aligned VS Code diagnostics output-panel source wording with the Problems source labels, so saved-file and live-buffer checks report `eng/file` and `eng/live` consistently.
 - Batch 715: Added the `eng/file` and `eng/live` Problems source labels to VS Code diagnostics mode change messages and Tooling Status summaries so users see the active linter source without opening raw JSON fields.
 - Batch 716: Split VS Code first-paint TextMate scopes for system/interface member keywords so `state`, `input`, `output`, `parameter`, `operator`, `port`, `across`, and `through` receive role-specific colors before semantic tokens arrive.
+- Batch 717: Added VS Code string escape first-paint coverage so `\\n`, `\\"`, and `\\\\` escape sequences receive `constant.character.escape.englang` theme colors and grammar smoke protection.
 
 ## Documentation Policy
 

@@ -25,6 +25,10 @@
       "settings": { "foreground": "#22863A" }
     },
     {
+      "scope": ["constant.character.escape.englang"],
+      "settings": { "foreground": "#9A6700", "fontStyle": "bold" }
+    },
+    {
       "scope": ["constant.numeric.englang", "constant.numeric.format.englang"],
       "settings": { "foreground": "#B35C00" }
     },
