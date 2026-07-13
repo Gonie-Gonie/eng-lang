@@ -53,6 +53,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 724: Made the VS Code review panel source-line buttons column-aware, matching Native IDE `L:C` navigation for `source_span.column` metadata.
 - Batch 725: Added `source_span.column` metadata to normalized review-document fallback and risk rows so IDE review panels can jump to precise source columns.
 - Batch 726: Archived compact summaries for batches 651-700 from the current usability backlog so the active file stays focused on recent IDE/workflow work.
+- Batch 727: Made Native IDE source-column jumps interpret compiler/LSP columns as UTF-8 byte offsets, preserving precise `L:C` selection on non-ASCII source lines.
 
 ## Documentation Policy
 

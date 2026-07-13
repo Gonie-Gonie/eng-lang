@@ -1079,7 +1079,8 @@ function selectSourceLine(line, column = 1) {
 function sourceColumnStart(lineText, column) {
   const columnNumber = Number(column);
   if (!Number.isFinite(columnNumber) || columnNumber <= 1) return null;
-  return Math.min(Math.max(Math.trunc(columnNumber) - 1, 0), String(lineText || "").length);
+  const targetByte = Math.max(0, Math.trunc(columnNumber) - 1);
+  return byteOffsetToCodeUnit(String(lineText || ""), targetByte);
 }
 
 function selectSourceTokenRange(line, startByte, lengthBytes) {

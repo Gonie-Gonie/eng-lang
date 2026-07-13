@@ -5494,6 +5494,8 @@ function Invoke-IdeCheck {
         "data-source-token-line",
         "sourceLineRange",
         "sourceColumnStart",
+        "const targetByte = Math.max(0, Math.trunc(columnNumber) - 1)",
+        "byteOffsetToCodeUnit(String(lineText ||",
         "sourceLineValue",
         "sourceColumnValue",
         "data-source-column",

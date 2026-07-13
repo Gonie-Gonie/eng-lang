@@ -3852,6 +3852,8 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "Selector ${selector}",
         "selectors=${selectors}",
         "function sourceColumnStart(lineText, column)",
+        "const targetByte = Math.max(0, Math.trunc(columnNumber) - 1)",
+        r#"byteOffsetToCodeUnit(String(lineText || ""), targetByte)"#,
         "data-source-column",
         "function sourceColumnValue(item)",
         "source_column",
