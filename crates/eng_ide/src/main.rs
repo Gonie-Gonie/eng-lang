@@ -3829,6 +3829,11 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function highlightTokenCopyText(tokens)",
         "function semanticTokenSelectors(token)",
         "function inspectorTabsForSemanticToken(token, hover = null)",
+        "const HOVER_KIND_LABELS = Object.freeze",
+        "function hoverKindLabel(kind)",
+        "hoverKindLabel(hover.kind)",
+        r#"model_field: "Model field""#,
+        r#"db_connection_field: "DB connection field""#,
         "function renderInspectorTabButtons(tabs)",
         "function bindInspectorTabButtons(root)",
         "data-open-inspector-tab",
@@ -3891,6 +3896,12 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
                 "native IDE app.js should include UI behavior contract `{required}`"
             ));
         }
+    }
+    if app_js.contains("hover.name,\n    hover.kind") {
+        return Err(
+            "native IDE hover title should show user-facing kind labels instead of raw payload ids"
+                .to_owned(),
+        );
     }
     if app_js.contains("FALLBACK_LEXICAL_KEYWORDS") {
         return Err(

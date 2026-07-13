@@ -92,6 +92,8 @@ Editor
   is between checked tokens, it names the nearest highlight on the same line.
   Checked-token actions can jump directly to related sidebar panels such as
   Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
+  Hover titles and the Highlight panel use role labels such as Model field
+  or DB connection field instead of raw payload names.
 
 Right Sidebar
   Variables, Checks, Schema, Time, Tables, Reads, Plot, Review, Quality, Effects,
