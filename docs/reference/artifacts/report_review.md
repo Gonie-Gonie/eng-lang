@@ -458,9 +458,12 @@ system_ir
   solver_plan.solve_order
   solver_plan.ode_runner.status = deferred
   solver_plan.jacobian_sparsity
-  solver_plan.jacobian_seed (compatibility alias for jacobian_sparsity)
+  solver_plan.jacobian_seed (optional compatibility alias for jacobian_sparsity)
   equations: relation, normalized residual, dependency list, derivative states
 ```
+
+Current artifact schemas require the preferred `solver_plan.jacobian_sparsity`
+field and allow `solver_plan.jacobian_seed` only as a compatibility alias.
 
 For `eng run`, `report_spec.json` and `result.engres` can upgrade that runtime
 boundary to `computed` when a supported one-state thermal ODE pattern or

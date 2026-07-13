@@ -2580,7 +2580,7 @@
         },
         "jacobian_sparsity": {
           "type": "array",
-          "items": { "$ref": "#/$defs/assemblyJacobianSeed" }
+          "items": { "$ref": "#/$defs/assemblyJacobianSparsityEntry" }
         }
       }
     },
@@ -2592,7 +2592,7 @@
         "variable": { "type": "string" }
       }
     },
-    "assemblyJacobianSeed": {
+    "assemblyJacobianSparsityEntry": {
       "type": "object",
       "required": ["residual", "status", "with_respect_to"],
       "properties": {
@@ -2603,6 +2603,9 @@
           "items": { "type": "string" }
         }
       }
+    },
+    "assemblyJacobianSeed": {
+      "$ref": "#/$defs/assemblyJacobianSparsityEntry"
     },
     "componentGraph": {
       "type": "object",
@@ -2915,7 +2918,7 @@
     },
     "solverPlan": {
       "type": "object",
-      "required": ["status", "method", "solve_order", "ode_runner", "jacobian_seed"],
+      "required": ["status", "method", "solve_order", "ode_runner", "jacobian_sparsity"],
       "properties": {
         "status": { "const": "metadata_only" },
         "method": { "type": "string" },
@@ -2924,9 +2927,13 @@
           "items": { "type": "string" }
         },
         "ode_runner": { "$ref": "#/$defs/odeRunner" },
+        "jacobian_sparsity": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/jacobianSparsityEntry" }
+        },
         "jacobian_seed": {
           "type": "array",
-          "items": { "$ref": "#/$defs/jacobianSeed" }
+          "items": { "$ref": "#/$defs/jacobianSparsityEntry" }
         }
       }
     },
@@ -2938,7 +2945,7 @@
         "reason": { "type": "string" }
       }
     },
-    "jacobianSeed": {
+    "jacobianSparsityEntry": {
       "type": "object",
       "required": ["residual", "with_respect_to", "derivative_states", "status"],
       "properties": {
@@ -2953,6 +2960,9 @@
         },
         "status": { "const": "symbolic_seed" }
       }
+    },
+    "jacobianSeed": {
+      "$ref": "#/$defs/jacobianSparsityEntry"
     },
     "equationIr": {
       "type": "object",

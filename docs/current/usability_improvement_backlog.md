@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 773: Promoted `solver_plan.jacobian_sparsity` to the required artifact-schema field, kept `jacobian_seed` as an optional compatibility alias, and taught artifact golden checks to validate both names separately.
 - Batch 772: Aligned LSP semantic highlighting with the generated VS Code syntax catalog, added `index` as a schema modifier completion, and guarded keyword/operator/constant catalog labels against semantic-token gaps.
 - Batch 771: Expanded VS Code TextMate grammar smoke coverage so generated keyword, operator, and constant catalogs must have exact scoped token expectations, reducing first-paint highlighting gaps.
 - Batch 770: Extended the preferred `jacobian_sparsity` solver-plan name into compiler/report Rust structs while retaining `jacobian_seed` as a compatibility field.
