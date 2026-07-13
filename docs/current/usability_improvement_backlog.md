@@ -84,6 +84,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 625: Added copy-ready text/range/selector fields to the VS Code cursor highlight inspection payload so users can report or compare the exact semantic token under the caret without manually reconstructing source ranges.
 - Batch 626: Added role-aware semantic modifiers and VS Code fallback scopes for `state`, `input`, and `output` declaration keywords so semantic highlighting preserves the same modifier-style coloring as TextMate first paint.
 - Batch 627: Hid the compatibility-only `case_inputs.planned_count` alias from generated editor case-output field suggestions while keeping `expected_count` and rendered/blocked/manifest fields visible.
+- Batch 628: Hid compatibility-only model option aliases `x`, `y`, `test_fraction`, and `layers` from generated editor workflow-option suggestions while keeping canonical `features`, `target`, `test`, and `hidden` visible and preserving the aliases as highlight-only compatibility scopes.
 
 ## Documentation Policy
 

@@ -1572,12 +1572,6 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "MLP hidden layer option alias",
-                                 "kind":  "property",
-                                 "label":  "layers",
-                                 "lsp_kind":  10
-                             },
-                             {
                                  "detail":  "solver line-search step limit",
                                  "kind":  "property",
                                  "label":  "line_search_steps",
@@ -1776,12 +1770,6 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "model train/test split option alias",
-                                 "kind":  "property",
-                                 "label":  "test_fraction",
-                                 "lsp_kind":  10
-                             },
-                             {
                                  "detail":  "model target column",
                                  "kind":  "property",
                                  "label":  "target",
@@ -1869,18 +1857,6 @@
                                  "detail":  "solver variable scale list",
                                  "kind":  "property",
                                  "label":  "variable_scales",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "model feature column alias",
-                                 "kind":  "property",
-                                 "label":  "x",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "model target column alias",
-                                 "kind":  "property",
-                                 "label":  "y",
                                  "lsp_kind":  10
                              },
                              {
@@ -2640,7 +2616,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  425,
+    "completion_items_count":  421,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -4214,12 +4190,6 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "MLP hidden layer option alias",
-                                "kind":  "property",
-                                "label":  "layers",
-                                "lsp_kind":  10
-                            },
-                            {
                                 "detail":  "solver line-search step limit",
                                 "kind":  "property",
                                 "label":  "line_search_steps",
@@ -4418,12 +4388,6 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "model train/test split option alias",
-                                "kind":  "property",
-                                "label":  "test_fraction",
-                                "lsp_kind":  10
-                            },
-                            {
                                 "detail":  "model target column",
                                 "kind":  "property",
                                 "label":  "target",
@@ -4511,18 +4475,6 @@
                                 "detail":  "solver variable scale list",
                                 "kind":  "property",
                                 "label":  "variable_scales",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "model feature column alias",
-                                "kind":  "property",
-                                "label":  "x",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "model target column alias",
-                                "kind":  "property",
-                                "label":  "y",
                                 "lsp_kind":  10
                             },
                             {
@@ -5282,7 +5234,7 @@
                                 "lsp_kind":  11
                             }
                         ],
-    "completion_seed_count":  425,
+    "completion_seed_count":  421,
     "format":  "eng-lsp-editor-metadata-v1",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -5917,7 +5869,11 @@
                                                                    "train_regression"
                                                                ],
                            "legacy_workflow_option_aliases":  [
-                                                                  "fixture"
+                                                                  "fixture",
+                                                                  "layers",
+                                                                  "test_fraction",
+                                                                  "x",
+                                                                  "y"
                                                               ],
                            "operator_words":  [
                                                   "eq",
@@ -6667,10 +6623,6 @@
                                                         "label":  "key"
                                                     },
                                                     {
-                                                        "detail":  "MLP hidden layer option alias",
-                                                        "label":  "layers"
-                                                    },
-                                                    {
                                                         "detail":  "solver line-search step limit",
                                                         "label":  "line_search_steps"
                                                     },
@@ -6823,10 +6775,6 @@
                                                         "label":  "test"
                                                     },
                                                     {
-                                                        "detail":  "model train/test split option alias",
-                                                        "label":  "test_fraction"
-                                                    },
-                                                    {
                                                         "detail":  "model target column",
                                                         "label":  "target"
                                                     },
@@ -6889,14 +6837,6 @@
                                                     {
                                                         "detail":  "solver variable scale list",
                                                         "label":  "variable_scales"
-                                                    },
-                                                    {
-                                                        "detail":  "model feature column alias",
-                                                        "label":  "x"
-                                                    },
-                                                    {
-                                                        "detail":  "model target column alias",
-                                                        "label":  "y"
                                                     },
                                                     {
                                                         "detail":  "calendar year option",

@@ -582,7 +582,11 @@
                                                                    "train_regression"
                                                                ],
                            "legacy_workflow_option_aliases":  [
-                                                                  "fixture"
+                                                                  "fixture",
+                                                                  "layers",
+                                                                  "test_fraction",
+                                                                  "x",
+                                                                  "y"
                                                               ],
                            "operator_words":  [
                                                   "eq",
@@ -1332,10 +1336,6 @@
                                                         "label":  "key"
                                                     },
                                                     {
-                                                        "detail":  "MLP hidden layer option alias",
-                                                        "label":  "layers"
-                                                    },
-                                                    {
                                                         "detail":  "solver line-search step limit",
                                                         "label":  "line_search_steps"
                                                     },
@@ -1488,10 +1488,6 @@
                                                         "label":  "test"
                                                     },
                                                     {
-                                                        "detail":  "model train/test split option alias",
-                                                        "label":  "test_fraction"
-                                                    },
-                                                    {
                                                         "detail":  "model target column",
                                                         "label":  "target"
                                                     },
@@ -1554,14 +1550,6 @@
                                                     {
                                                         "detail":  "solver variable scale list",
                                                         "label":  "variable_scales"
-                                                    },
-                                                    {
-                                                        "detail":  "model feature column alias",
-                                                        "label":  "x"
-                                                    },
-                                                    {
-                                                        "detail":  "model target column alias",
-                                                        "label":  "y"
                                                     },
                                                     {
                                                         "detail":  "calendar year option",

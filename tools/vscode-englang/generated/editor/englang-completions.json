@@ -1,6 +1,6 @@
 {
     "format":  "eng-lsp-editor-metadata-v1",
-    "completion_items_count":  425,
+    "completion_items_count":  421,
     "completion_items":  [
                              {
                                  "detail":  "Schema array value",
@@ -1574,12 +1574,6 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "MLP hidden layer option alias",
-                                 "kind":  "property",
-                                 "label":  "layers",
-                                 "lsp_kind":  10
-                             },
-                             {
                                  "detail":  "solver line-search step limit",
                                  "kind":  "property",
                                  "label":  "line_search_steps",
@@ -1778,12 +1772,6 @@
                                  "lsp_kind":  10
                              },
                              {
-                                 "detail":  "model train/test split option alias",
-                                 "kind":  "property",
-                                 "label":  "test_fraction",
-                                 "lsp_kind":  10
-                             },
-                             {
                                  "detail":  "model target column",
                                  "kind":  "property",
                                  "label":  "target",
@@ -1871,18 +1859,6 @@
                                  "detail":  "solver variable scale list",
                                  "kind":  "property",
                                  "label":  "variable_scales",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "model feature column alias",
-                                 "kind":  "property",
-                                 "label":  "x",
-                                 "lsp_kind":  10
-                             },
-                             {
-                                 "detail":  "model target column alias",
-                                 "kind":  "property",
-                                 "label":  "y",
                                  "lsp_kind":  10
                              },
                              {
@@ -2642,7 +2618,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_seed_count":  425,
+    "completion_seed_count":  421,
     "completion_seed":  [
                             {
                                 "detail":  "Schema array value",
@@ -4216,12 +4192,6 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "MLP hidden layer option alias",
-                                "kind":  "property",
-                                "label":  "layers",
-                                "lsp_kind":  10
-                            },
-                            {
                                 "detail":  "solver line-search step limit",
                                 "kind":  "property",
                                 "label":  "line_search_steps",
@@ -4420,12 +4390,6 @@
                                 "lsp_kind":  10
                             },
                             {
-                                "detail":  "model train/test split option alias",
-                                "kind":  "property",
-                                "label":  "test_fraction",
-                                "lsp_kind":  10
-                            },
-                            {
                                 "detail":  "model target column",
                                 "kind":  "property",
                                 "label":  "target",
@@ -4513,18 +4477,6 @@
                                 "detail":  "solver variable scale list",
                                 "kind":  "property",
                                 "label":  "variable_scales",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "model feature column alias",
-                                "kind":  "property",
-                                "label":  "x",
-                                "lsp_kind":  10
-                            },
-                            {
-                                "detail":  "model target column alias",
-                                "kind":  "property",
-                                "label":  "y",
                                 "lsp_kind":  10
                             },
                             {

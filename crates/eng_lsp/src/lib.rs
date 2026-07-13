@@ -656,7 +656,8 @@ const PUBLIC_TYPE_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 const EDITOR_LEGACY_WORKFLOW_BUILTIN_ALIASES: &[&str] = &["regression_table", "train_regression"];
-const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] = &["fixture"];
+const EDITOR_LEGACY_WORKFLOW_OPTION_ALIASES: &[&str] =
+    &["fixture", "layers", "test_fraction", "x", "y"];
 
 const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
     ("date", "calendar date constructor"),
@@ -803,7 +804,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("jacobian", "solver Jacobian policy"),
     ("kind", "distribution kind option"),
     ("key", "database upsert key"),
-    ("layers", "MLP hidden layer option alias"),
     ("line_search_steps", "solver line-search step limit"),
     ("lower", "lower uncertainty or range bound"),
     ("mass_matrix", "solver mass-matrix policy"),
@@ -845,7 +845,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("status_code", "expected HTTP status code"),
     ("step", "case workflow step"),
     ("test", "model train/test split option"),
-    ("test_fraction", "model train/test split option alias"),
     ("target", "model target column"),
     ("template", "template source file"),
     ("timeout", "external command timeout"),
@@ -862,8 +861,6 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
     ("values", "template value map"),
     ("variable_scale", "solver variable scale"),
     ("variable_scales", "solver variable scale list"),
-    ("x", "model feature column alias"),
-    ("y", "model target column alias"),
     ("year", "calendar year option"),
 ];
 
@@ -7200,13 +7197,9 @@ fn with_block_option_labels(owner_text: &str) -> Option<&'static [&'static str]>
         return Some(&[
             "algorithm",
             "features",
-            "x",
             "target",
-            "y",
             "test",
-            "test_fraction",
             "hidden",
-            "layers",
             "epochs",
             "cache",
             "cache_key",
@@ -7299,25 +7292,15 @@ fn source_prefix_at_position(source: &str, line: usize, character: usize) -> Opt
 
 fn function_argument_option_labels(function_name: &str) -> Option<&'static [&'static str]> {
     match function_name {
-        "train_test_split" => Some(&["target", "features", "x", "test", "test_fraction", "seed"]),
-        "regression" | "regression_table" | "train_regression" => Some(&[
-            "target",
-            "y",
-            "features",
-            "x",
-            "algorithm",
-            "test",
-            "test_fraction",
-            "seed",
-        ]),
+        "train_test_split" => Some(&["target", "features", "test", "seed"]),
+        "regression" | "regression_table" | "train_regression" => {
+            Some(&["target", "features", "algorithm", "test", "seed"])
+        }
         "mlp" | "ann" => Some(&[
             "target",
-            "y",
             "features",
-            "x",
             "algorithm",
             "hidden",
-            "layers",
             "epochs",
             "seed",
         ]),
@@ -12127,6 +12110,30 @@ with {
             .iter()
             .any(|completion| completion.label == "cache_key"));
 
+        let source = "model = regression(split, ";
+        let completions = completion_items_for_source_position(
+            Path::new("model_arg_completion.eng"),
+            source,
+            0,
+            source.len(),
+        );
+        for label in ["features", "target", "test"] {
+            assert!(
+                completions
+                    .iter()
+                    .any(|completion| completion.label == label),
+                "regression argument completion should include canonical option {label}"
+            );
+        }
+        for alias in ["x", "y", "test_fraction", "layers"] {
+            assert!(
+                !completions
+                    .iter()
+                    .any(|completion| completion.label == alias),
+                "regression argument completion should hide alias {alias}"
+            );
+        }
+
         let source = r#"model = regression(
     split,
     fe"#;
@@ -12541,12 +12548,28 @@ with {
         );
         let completions = completion_items_at(&report, source, line, character);
 
-        for label in ["algorithm", "hidden", "epochs", "cache_key"] {
+        for label in [
+            "algorithm",
+            "features",
+            "target",
+            "test",
+            "hidden",
+            "epochs",
+            "cache_key",
+        ] {
             assert!(
                 completions
                     .iter()
                     .any(|completion| completion.label == label),
                 "model training with-block completion should include {label}"
+            );
+        }
+        for alias in ["x", "y", "test_fraction", "layers"] {
+            assert!(
+                !completions
+                    .iter()
+                    .any(|completion| completion.label == alias),
+                "model training with-block completion should hide alias {alias}"
             );
         }
         assert!(!completions

@@ -4853,6 +4853,20 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata missing syntax keyword $RequiredSyntaxKeyword"
         }
     }
+    foreach ($HiddenModelOptionAlias in @("x", "y", "test_fraction", "layers")) {
+        $ModelOptionAlias = @($EditorMetadata.syntax_catalog.workflow_options | Where-Object { $_.label -eq $HiddenModelOptionAlias }) | Select-Object -First 1
+        if ($null -ne $ModelOptionAlias) {
+            throw "generated VS Code editor metadata must not suggest compatibility-only model option alias $HiddenModelOptionAlias"
+        }
+        $CompletionAlias = @($EditorMetadata.completion_items | Where-Object { $_.label -eq $HiddenModelOptionAlias }) | Select-Object -First 1
+        if ($null -ne $CompletionAlias) {
+            throw "generated VS Code editor metadata completion_items must not suggest compatibility-only model option alias $HiddenModelOptionAlias"
+        }
+        $LegacyWorkflowOptionAlias = @($EditorMetadata.syntax_catalog.legacy_workflow_option_aliases | Where-Object { $_ -eq $HiddenModelOptionAlias }) | Select-Object -First 1
+        if ($null -eq $LegacyWorkflowOptionAlias) {
+            throw "generated VS Code editor metadata must keep compatibility-only model option alias $HiddenModelOptionAlias as a highlight-only legacy workflow option alias"
+        }
+    }
     foreach ($RequiredHttpResponseField in @("body", "response_source", "status_code", "query_string", "url_with_query")) {
         $HttpResponseField = @($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq $RequiredHttpResponseField }) | Select-Object -First 1
         if ($null -eq $HttpResponseField) {
