@@ -9861,17 +9861,37 @@ with {
     output_root = dir("outputs/cases")
     case_id = time
     resume = true
+    status = pending
     status = planned
+    status = partial
+    status = running
+    status = passed
+    status = failed
+    status = succeeded
+    status = skipped
+    status = blocked
+    status = completed
     status = rendered
     status = collected
-    status = partial
     status = missing
     status = empty
 }
 
 on {
+    status == pending
+    status == planned
+    status == passed
     status == partial
+    status == running
+    status == failed
+    status == succeeded
+    status == skipped
+    status == blocked
+    status == completed
     status != empty
+    status != rendered
+    status != collected
+    status != missing
 }
 
 upload = http get url("https://example.org/weather")
@@ -9981,10 +10001,18 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "case_id", "workflowStep");
         assert_semantic_token_modifier(&snapshot, source, "resume", "workflowStep");
         for status in [
+            "pending",
             "planned",
+            "partial",
+            "running",
+            "passed",
+            "failed",
+            "succeeded",
+            "skipped",
+            "blocked",
+            "completed",
             "rendered",
             "collected",
-            "partial",
             "missing",
             "empty",
         ] {
@@ -10008,8 +10036,20 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         }
         assert_semantic_token_modifier(&snapshot, source, "on_none", "validation");
         for (line, status) in [
+            ("    status == pending", "pending"),
+            ("    status == planned", "planned"),
+            ("    status == passed", "passed"),
             ("    status == partial", "partial"),
+            ("    status == running", "running"),
+            ("    status == failed", "failed"),
+            ("    status == succeeded", "succeeded"),
+            ("    status == skipped", "skipped"),
+            ("    status == blocked", "blocked"),
+            ("    status == completed", "completed"),
             ("    status != empty", "empty"),
+            ("    status != rendered", "rendered"),
+            ("    status != collected", "collected"),
+            ("    status != missing", "missing"),
         ] {
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,

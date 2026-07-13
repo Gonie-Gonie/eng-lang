@@ -61,6 +61,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 602: Routed VS Code and LSP option-value quick fixes through the generated workflow-option catalog so stale hardcoded option names are filtered before repair actions are shown.
 - Batch 603: Clarified the workflow 01/02/03 native-only contract in public workflow docs, including the `workflows-test` guard against Python/notebook markers, `run command`, process-run artifacts, and process counts.
 - Batch 604: Extended the VS Code language word pattern to select the compiler-owned `latin-hypercube` workflow builtin as a whole word while preserving dotted EngLang symbol selection.
+- Batch 605: Added a generated TextMate `status = <workflow-status>` pattern and expanded grammar fixtures plus LSP semantic-token snapshots so the full workflow status catalog colors consistently in `status =` and `status ==/!=` contexts.
 
 ## Documentation Policy
 

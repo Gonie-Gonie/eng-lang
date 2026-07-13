@@ -2468,6 +2468,90 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = pending",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = planned",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = passed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = partial",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = running",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = failed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = succeeded",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = skipped",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = blocked",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = completed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = rendered",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = collected",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = missing",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-option.englang",
+    "text": "status = empty",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.block.header.englang",
     "text": "on {",
     "fullMatch": true
@@ -2476,6 +2560,30 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "storage.type.block.englang",
     "text": "on",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == pending",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "pending",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == planned",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "planned",
     "fullMatch": true
   },
   {
@@ -2505,6 +2613,78 @@
   {
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.status-condition.englang",
+    "text": "status == running",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "running",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == failed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "failed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == succeeded",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "succeeded",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == skipped",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "skipped",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == blocked",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "blocked",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status == completed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "completed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
     "text": "status != rendered",
     "fullMatch": true
   },
@@ -2512,6 +2692,30 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "constant.language.englang",
     "text": "rendered",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status != collected",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "collected",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.status-condition.englang",
+    "text": "status != missing",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "constant.language.englang",
+    "text": "missing",
     "fullMatch": true
   },
   {
@@ -3905,7 +4109,61 @@
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "constant.language.englang",
+    "text": "pending",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
     "text": "planned",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "partial",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "running",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "passed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "failed",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "succeeded",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "skipped",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "blocked",
+    "fullMatch": true
+  },
+  {
+    "fixture": "06_declarations_native_workflow.eng",
+    "scope": "constant.language.englang",
+    "text": "completed",
     "fullMatch": true
   },
   {
@@ -3920,12 +4178,7 @@
     "text": "collected",
     "fullMatch": true
   },
-  {
-    "fixture": "06_declarations_native_workflow.eng",
-    "scope": "constant.language.englang",
-    "text": "partial",
-    "fullMatch": true
-  },
+
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "constant.language.englang",

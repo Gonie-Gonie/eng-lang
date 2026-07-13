@@ -84,10 +84,38 @@ with {
 
 validate Q_probability > 0.95
 
+status_cases = materialize cases measured
+with {
+    status = pending
+    status = planned
+    status = passed
+    status = partial
+    status = running
+    status = failed
+    status = succeeded
+    status = skipped
+    status = blocked
+    status = completed
+    status = rendered
+    status = collected
+    status = missing
+    status = empty
+}
+
 on {
+    status == pending
+    status == planned
     status == passed
     status == partial
+    status == running
+    status == failed
+    status == succeeded
+    status == skipped
+    status == blocked
+    status == completed
     status != rendered
+    status != collected
+    status != missing
     status != empty
 }
 
