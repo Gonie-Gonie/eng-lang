@@ -284,8 +284,10 @@ an `eng.process` adapter with matching expected outputs. Current native
 `materialize cases`, `apply ... over cases`, and `collect results <CaseOutput>`
 make the supported table/case/template path explicit by materializing CaseTable,
 CaseOutput rows with expected, rendered, blocked, output, and manifest counts, and
-CaseResultCollection rows; broader run-case scheduler policy
-should extend the same record shape:
+CaseResultCollection rows. A collection row is `collected` only when the source
+CaseOutput row has render evidence; planned output paths remain `missing` until
+the native render step has materialized the input and render manifest. Broader
+run-case scheduler policy should extend the same record shape:
 
 ```text
 case_id

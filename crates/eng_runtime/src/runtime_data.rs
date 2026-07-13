@@ -7634,9 +7634,13 @@ fn case_result_collection_row_status(
     output_path: &str,
     manifest_path: &str,
 ) -> String {
-    if input_status.trim() == "blocked" {
+    let input_status = input_status.trim();
+    if input_status == "blocked" {
         "blocked".to_owned()
-    } else if output_path.trim().is_empty() || manifest_path.trim().is_empty() {
+    } else if input_status != "rendered"
+        || output_path.trim().is_empty()
+        || manifest_path.trim().is_empty()
+    {
         "missing".to_owned()
     } else {
         "collected".to_owned()
@@ -21313,6 +21317,42 @@ mod tests {
         );
         assert_eq!(case_apply_cases_binding("apply run_case over cases"), None);
         assert_eq!(case_apply_cases_binding("apply custom over cases"), None);
+    }
+
+    #[test]
+    fn case_result_collection_requires_rendered_case_output() {
+        assert_eq!(
+            case_result_collection_row_status(
+                "blocked",
+                "outputs/case_001/input.txt",
+                "outputs/case_001/input.txt.render_manifest.json"
+            ),
+            "blocked"
+        );
+        assert_eq!(
+            case_result_collection_row_status(
+                "planned",
+                "outputs/case_001/input.txt",
+                "outputs/case_001/input.txt.render_manifest.json"
+            ),
+            "missing"
+        );
+        assert_eq!(
+            case_result_collection_row_status(
+                "rendered",
+                "",
+                "outputs/case_001/input.txt.render_manifest.json"
+            ),
+            "missing"
+        );
+        assert_eq!(
+            case_result_collection_row_status(
+                "rendered",
+                "outputs/case_001/input.txt",
+                "outputs/case_001/input.txt.render_manifest.json"
+            ),
+            "collected"
+        );
     }
 
     #[test]
