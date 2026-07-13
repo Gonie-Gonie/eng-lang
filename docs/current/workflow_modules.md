@@ -51,7 +51,11 @@ solver integration, surrogate training, database writes, and report generation.
 
 The core language should not become a weather, EPW, KMA, EnergyPlus, CFD, FEM,
 or database-specific product. It should provide the generic workflow modules
-that make those adapters typed, explicit, reproducible, and reviewable.
+that make those adapters typed, explicit, reproducible, and reviewable. The
+workflow 01/02/03 smoke contract is native-only: no language-external
+interpreter marker, interactive script artifact marker, or command-process
+workflow step may appear in source/docs/run graph artifacts, and
+`process_results.json` must report zero processes.
 
 ## Module Map
 

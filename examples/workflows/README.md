@@ -19,9 +19,12 @@ Current examples:
   CSV/text artifacts -> uncertainty metadata -> confidence-band report artifact.
 ```
 
-All three workflows stay inside EngLang native workflow modules. Saved runs still
-write `process_results.json`, but its `process_count` is expected to be zero
-for these native workflows.
+All three workflows stay inside EngLang native workflow modules. They do not
+call language-external interpreters, interactive script artifacts, or
+command-process workflow steps; `dev.bat workflows-test` enforces that contract
+across source files, public workflow docs, run graph artifacts, and
+`process_results.json`. Saved runs still write `process_results.json`, but its
+`process_count` is expected to be zero for these native workflows.
 
 Run them from the repository root:
 
