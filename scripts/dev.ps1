@@ -586,6 +586,30 @@ function Invoke-WorkflowsTest {
         if ($ProcessCount -ne 0 -or $ProcessListCount -ne 0) {
             throw "Native workflow smoke must not execute external processes: $Workflow"
         }
+        foreach ($NativeWorkflowArtifactTextPath in @(
+            (Join-Path $RepoRoot "build\result\result.engres"),
+            (Join-Path $RepoRoot "build\result\review.json"),
+            (Join-Path $RepoRoot "build\result\output_manifest.json"),
+            (Join-Path $RepoRoot "build\result\run_log.json"),
+            (Join-Path $RepoRoot "build\result\run_lock.json"),
+            (Join-Path $RepoRoot "build\result\static_run_plan.json"),
+            (Join-Path $RepoRoot "build\result\run_plan.json"),
+            (Join-Path $RepoRoot "build\result\cache_manifest.json"),
+            (Join-Path $RepoRoot "build\result\report_spec.json")
+        )) {
+            if (-not (Test-Path -LiteralPath $NativeWorkflowArtifactTextPath -PathType Leaf)) {
+                continue
+            }
+            $NativeWorkflowArtifactText = Get-Content -LiteralPath $NativeWorkflowArtifactTextPath -Raw
+            if ($NativeWorkflowArtifactText -match "(?im)\brun\s+command\b") {
+                throw "Native workflow artifact must not contain run-command wording: $Workflow -> $NativeWorkflowArtifactTextPath"
+            }
+            foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
+                if ($NativeWorkflowArtifactText -match "(?i)$PythonMarker") {
+                    throw "Native workflow artifact must not contain Python/notebook marker $PythonMarker`: $Workflow -> $NativeWorkflowArtifactTextPath"
+                }
+            }
+        }
         foreach ($NativeWorkflowRunGraphPath in @(
             (Join-Path $RepoRoot "build\result\static_run_plan.json"),
             (Join-Path $RepoRoot "build\result\run_plan.json")
