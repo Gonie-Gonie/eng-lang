@@ -181,8 +181,10 @@ Use `.\dev.bat vscode-package` to only write
 VS Code's `Extensions: Install from VSIX...` command. Close all VS Code windows before reinstalling EngLang;
 an open VS Code window can keep the existing extension folder locked, and
 `.\dev.bat vscode-install` checks for that before starting the release build.
-The wrapper runs the VS Code CLI with an ignored temporary user-data
-directory for CLI logs while installing into the normal user extension directory.
+When a built VSIX already exists, the preflight error includes its path for
+manual installation after closing or reloading VS Code. The wrapper runs the VS
+Code CLI with an ignored temporary user-data directory for CLI logs while
+installing into the normal user extension directory.
 
 After installing, run `EngLang: Show Tooling Status` in VS Code to open a
 summary-first JSON status view with the extension version, selected `eng.exe`

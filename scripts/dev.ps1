@@ -3109,6 +3109,7 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredVscodeInstallPreflightToken in @(
         "Assert-VscodeInstallPreflight",
         "Get-VscodeUserExtensionsDirectory",
+        "Get-LocalVscodeVsixPath",
         "Get-InstalledVscodeEnglangExtensionPaths",
         "Get-RunningVscodeProcessSummaries",
         "Invoke-NativeInDirectory",
@@ -3116,6 +3117,7 @@ function Assert-VscodeExtensionContract {
         "--extensions-dir",
         "vscode-install",
         "Close all VS Code windows before reinstalling EngLang",
+        "Existing built VSIX",
         "vscode-package"
     )) {
         if (-not $DevScriptSource.Contains($RequiredVscodeInstallPreflightToken)) {
@@ -6080,6 +6082,11 @@ function Get-VscodeUserExtensionsDirectory {
     return Join-Path $env:USERPROFILE ".vscode\extensions"
 }
 
+function Get-LocalVscodeVsixPath {
+    $PackageRoot = Join-Path $RepoRoot "dist\local-vscode"
+    return Join-Path (Join-Path $PackageRoot "tools") (Get-VsixFileName)
+}
+
 function Get-InstalledVscodeEnglangExtensionPaths {
     $ExtensionRoot = Get-VscodeUserExtensionsDirectory
     if (-not (Test-Path -LiteralPath $ExtensionRoot -PathType Container)) {
@@ -6103,7 +6110,12 @@ function Assert-VscodeInstallPreflight {
     }
     $InstalledList = $InstalledExtensions -join ", "
     $ProcessList = $RunningVscode -join ", "
-    throw "Close all VS Code windows before reinstalling EngLang. Existing extension folder(s): $InstalledList. Running VS Code process(es): $ProcessList. To only build the VSIX, run .\dev.bat vscode-package."
+    $ExistingVsixPath = Get-LocalVscodeVsixPath
+    $VsixHint = ""
+    if (Test-Path -LiteralPath $ExistingVsixPath -PathType Leaf) {
+        $VsixHint = " Existing built VSIX: $ExistingVsixPath."
+    }
+    throw "Close all VS Code windows before reinstalling EngLang. Existing extension folder(s): $InstalledList. Running VS Code process(es): $ProcessList. To only build the VSIX, run .\dev.bat vscode-package.$VsixHint"
 }
 
 function Invoke-VscodePackage {
@@ -6117,7 +6129,7 @@ function Invoke-VscodePackage {
     $PackageRoot = Join-Path $RepoRoot "dist\local-vscode"
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Invoke-IdePackage -PackageRoot $PackageRoot
-    $VsixPath = Join-Path (Join-Path $PackageRoot "tools") (Get-VsixFileName)
+    $VsixPath = Get-LocalVscodeVsixPath
     Write-Host "Local VS Code VSIX ready: $VsixPath"
     return $VsixPath
 }

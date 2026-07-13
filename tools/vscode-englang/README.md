@@ -102,10 +102,12 @@ This builds a release `eng.exe` and `eng-lsp.exe`, packages
 `dist\local-vscode\tools\englang-vscode-<version>.vsix`, and installs it with
 the VS Code `code` CLI. Close all VS Code windows before reinstalling EngLang;
 VS Code can lock the existing extension folder while it is running, so
-`vscode-install` checks for that before starting the release build. The wrapper
-runs the CLI with an ignored temporary user-data directory for VS Code CLI logs
-while installing into the normal user extension directory. Reload VS Code after installation. The VSIX remains available at
-the generated `dist\local-vscode\tools` path.
+`vscode-install` checks for that before starting the release build. If a built
+VSIX already exists, the preflight error includes its path so you can install it
+manually after closing or reloading VS Code. The wrapper runs the CLI with an
+ignored temporary user-data directory for VS Code CLI logs while installing into
+the normal user extension directory. Reload VS Code after installation. The VSIX
+remains available at the generated `dist\local-vscode\tools` path.
 
 To build the VSIX without installing it:
 
