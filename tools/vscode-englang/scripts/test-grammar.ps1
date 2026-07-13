@@ -659,6 +659,30 @@ function Assert-MemberPathFallbackOrder {
     $withPattern = Get-RequiredPatternByName -Patterns @($Grammar.repository.withOptions.patterns) -Name "meta.workflow.with-block.englang" -Description "with-block"
     Assert-PatternOrderBefore -Patterns @($withPattern.patterns) -BeforeLabel "include:#members" -AfterLabels $dottedFallbacks -Description "with-block member paths"
 }
+
+function Assert-WorkflowStatusOptionPattern {
+    $withPattern = Get-RequiredPatternByName -Patterns @($GrammarSource.grammar.repository.withOptions.patterns) -Name "meta.workflow.with-block.englang" -Description "source with-block"
+    $statusPattern = Get-RequiredPatternByName -Patterns @($withPattern.patterns) -Name "meta.workflow.status-option.englang" -Description "workflow status option"
+    if ([string]$statusPattern.match -notmatch "\\b\(status\)\\b\\s\*\(=\)\\s\*\(\{\{WORKFLOW_STATUS_LITERALS\}\}\)\\b") {
+        throw "workflow status option pattern must use generated WORKFLOW_STATUS_LITERALS"
+    }
+    foreach ($capture in @(
+        @{ Index = "1"; Scope = "variable.parameter.property.englang" },
+        @{ Index = "2"; Scope = "keyword.operator.englang" },
+        @{ Index = "3"; Scope = "constant.language.englang" }
+    )) {
+        $captureNode = $statusPattern.captures.PSObject.Properties[$capture.Index].Value
+        if ($null -eq $captureNode -or [string]$captureNode.name -ne $capture.Scope) {
+            throw "workflow status option capture $($capture.Index) must be $($capture.Scope)"
+        }
+    }
+    Assert-PatternOrderBefore -Patterns @($withPattern.patterns) -BeforeLabel "scope:meta.workflow.status-option.englang" -AfterLabels @(
+        "scope:variable.parameter.property.englang",
+        "scope:variable.other.property.englang",
+        "scope:variable.other.local.englang",
+        "include:#constants"
+    ) -Description "workflow status option values"
+}
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
@@ -933,6 +957,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -In
 Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Include "#operators" -Description "download"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
+Assert-WorkflowStatusOptionPattern
 
 function Resolve-GrammarFixturePath {
     param([Parameter(Mandatory = $true)][string] $Fixture)
