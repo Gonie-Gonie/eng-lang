@@ -4030,8 +4030,8 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
-        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_builtin_aliases") -or -not $EditorMetadataLoaderSource.Contains("legacy_workflow_option_aliases") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("db_connection_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields") -or -not $EditorMetadataLoaderSource.Contains("model_fields") -or -not $EditorMetadataLoaderSource.Contains("prediction_table_fields")) {
+        throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, legacy workflow aliases, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, model field, prediction table field, and completion item metadata"
     }
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ?? metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("const legacyCompletionItems = metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("completion_seed must remain an exact legacy alias of completion_items")) {
         throw "VS Code editor metadata loader must require completion_items as the runtime catalog and validate completion_seed only as a legacy alias"
@@ -4074,7 +4074,13 @@ function Assert-VscodeExtensionContract {
         "normalized.includes(""rendered"")",
         "normalized.includes(""blocked"")",
         "caseResultCollectionTableFields",
+        "modelFields",
+        "predictionTableFields",
+        "train\s+regression",
+        "predict\s+",
         "isCaseResultCollectionLikeReceiver",
+        "isModelLikeReceiver",
+        "isPredictionTableLikeReceiver",
         "httpResponseFieldCompletionsForContext",
         "localMemberCompletionsForContext",
         "memberAccessCompletionContext",
@@ -4095,7 +4101,9 @@ function Assert-VscodeExtensionContract {
         "receiverLookupCandidates",
         "httpResponseFieldCompletionsForContext",
         "localMemberCompletionsForContext",
-        "isCaseResultCollectionLikeReceiver"
+        "isCaseResultCollectionLikeReceiver",
+        "isModelLikeReceiver",
+        "isPredictionTableLikeReceiver"
     )) {
         $FunctionDeclarationCount = [regex]::Matches($CompletionProviderSource, "function\s+$UniqueCompletionFunction\s*\(").Count
         if ($FunctionDeclarationCount -ne 1) {
@@ -5055,6 +5063,24 @@ function Assert-VscodeExtensionContract {
         }
         if ([string]::IsNullOrWhiteSpace($CaseResultCollectionTableField.detail)) {
             throw "generated VS Code editor metadata case result collection table field $RequiredCaseResultCollectionTableField missing detail"
+        }
+    }
+    foreach ($RequiredModelField in @("status", "train_count", "rmse", "model_artifact_hash")) {
+        $ModelField = @($EditorMetadata.syntax_catalog.model_fields | Where-Object { $_.label -eq $RequiredModelField }) | Select-Object -First 1
+        if ($null -eq $ModelField) {
+            throw "generated VS Code editor metadata missing model field $RequiredModelField"
+        }
+        if ([string]::IsNullOrWhiteSpace($ModelField.detail)) {
+            throw "generated VS Code editor metadata model field $RequiredModelField missing detail"
+        }
+    }
+    foreach ($RequiredPredictionTableField in @("case_count", "status", "output_column", "confidence_column")) {
+        $PredictionTableField = @($EditorMetadata.syntax_catalog.prediction_table_fields | Where-Object { $_.label -eq $RequiredPredictionTableField }) | Select-Object -First 1
+        if ($null -eq $PredictionTableField) {
+            throw "generated VS Code editor metadata missing prediction table field $RequiredPredictionTableField"
+        }
+        if ([string]::IsNullOrWhiteSpace($PredictionTableField.detail)) {
+            throw "generated VS Code editor metadata prediction table field $RequiredPredictionTableField missing detail"
         }
     }
     $GeneratedSemanticTypes = @($EditorMetadata.semantic_token_legend.token_types)

@@ -56,7 +56,9 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.db_connection_fields) ||
     !Array.isArray(syntaxCatalog.case_table_fields) ||
     !Array.isArray(syntaxCatalog.case_output_table_fields) ||
-    !Array.isArray(syntaxCatalog.case_result_collection_table_fields)
+    !Array.isArray(syntaxCatalog.case_result_collection_table_fields) ||
+    !Array.isArray(syntaxCatalog.model_fields) ||
+    !Array.isArray(syntaxCatalog.prediction_table_fields)
   ) {
     throw new Error(`Invalid EngLang editor metadata at ${metadataPath}`);
   }

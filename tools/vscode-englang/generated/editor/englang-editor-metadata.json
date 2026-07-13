@@ -5921,6 +5921,76 @@
                                                                   "x",
                                                                   "y"
                                                               ],
+                           "model_fields":  [
+                                                {
+                                                    "detail":  "model training or prediction readiness status",
+                                                    "label":  "status"
+                                                },
+                                                {
+                                                    "detail":  "model target column",
+                                                    "label":  "target"
+                                                },
+                                                {
+                                                    "detail":  "model target quantity kind",
+                                                    "label":  "target_quantity"
+                                                },
+                                                {
+                                                    "detail":  "model target display unit",
+                                                    "label":  "target_unit"
+                                                },
+                                                {
+                                                    "detail":  "comma-separated model feature columns",
+                                                    "label":  "features"
+                                                },
+                                                {
+                                                    "detail":  "model feature column count",
+                                                    "label":  "feature_count"
+                                                },
+                                                {
+                                                    "detail":  "model training algorithm",
+                                                    "label":  "algorithm"
+                                                },
+                                                {
+                                                    "detail":  "model holdout test fraction",
+                                                    "label":  "test_fraction"
+                                                },
+                                                {
+                                                    "detail":  "model training row count",
+                                                    "label":  "train_count"
+                                                },
+                                                {
+                                                    "detail":  "model test or prediction row count",
+                                                    "label":  "test_count"
+                                                },
+                                                {
+                                                    "detail":  "model root-mean-square error",
+                                                    "label":  "rmse"
+                                                },
+                                                {
+                                                    "detail":  "model mean absolute error",
+                                                    "label":  "mae"
+                                                },
+                                                {
+                                                    "detail":  "model coefficient of determination",
+                                                    "label":  "r2"
+                                                },
+                                                {
+                                                    "detail":  "model-card text generated for the trained model",
+                                                    "label":  "model_card"
+                                                },
+                                                {
+                                                    "detail":  "model training data hash",
+                                                    "label":  "training_data_hash"
+                                                },
+                                                {
+                                                    "detail":  "model artifact hash",
+                                                    "label":  "model_artifact_hash"
+                                                },
+                                                {
+                                                    "detail":  "model residual point count",
+                                                    "label":  "residual_point_count"
+                                                }
+                                            ],
                            "operator_words":  [
                                                   "eq",
                                                   "is",
@@ -5939,6 +6009,68 @@
                                                   "within",
                                                   "matches"
                                               ],
+                           "prediction_table_fields":  [
+                                                           {
+                                                               "detail":  "prediction row count",
+                                                               "label":  "case_count"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction table row count",
+                                                               "label":  "row_count"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction table column count",
+                                                               "label":  "column_count"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction table schema name",
+                                                               "label":  "schema_name"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction table source hash",
+                                                               "label":  "source_hash"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction artifact status",
+                                                               "label":  "status"
+                                                           },
+                                                           {
+                                                               "detail":  "model binding used for prediction",
+                                                               "label":  "model"
+                                                           },
+                                                           {
+                                                               "detail":  "input table binding used for prediction",
+                                                               "label":  "prediction_input"
+                                                           },
+                                                           {
+                                                               "detail":  "predicted target column",
+                                                               "label":  "target"
+                                                           },
+                                                           {
+                                                               "detail":  "predicted target quantity kind",
+                                                               "label":  "target_quantity"
+                                                           },
+                                                           {
+                                                               "detail":  "predicted target display unit",
+                                                               "label":  "target_unit"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction output column name",
+                                                               "label":  "output_column"
+                                                           },
+                                                           {
+                                                               "detail":  "prediction confidence column name",
+                                                               "label":  "confidence_column"
+                                                           },
+                                                           {
+                                                               "detail":  "non-missing prediction confidence count",
+                                                               "label":  "confidence_count"
+                                                           },
+                                                           {
+                                                               "detail":  "missing prediction output count",
+                                                               "label":  "missing_count"
+                                                           }
+                                                       ],
                            "public_types":  [
                                                 {
                                                     "base":  "Array",

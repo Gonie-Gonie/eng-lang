@@ -36,6 +36,10 @@ split_metrics = evaluate(model, split=split)
 card = model_card(model)
 leakage = leakage_lint(split)
 predictions = predict model using designs
+model_error = model.rmse
+model_train_count = model.train_count
+prediction_output = predictions.output_column
+prediction_confidence = predictions.confidence_column
 surrogate_predictions = predict surrogate_model using designs
 filtered_designs = filter designs
 where {

@@ -9020,6 +9020,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_db_connection_field_expression(expression, runtime_data) {
         return Some(value);
     }
+    if let Some(value) = evaluate_model_artifact_field_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_table_metadata_field_expression(expression, runtime_data) {
         return Some(value);
     }
@@ -9402,6 +9405,63 @@ fn evaluate_db_connection_field_expression(
     }
 }
 
+fn evaluate_model_artifact_field_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let artifact = runtime_data.ml_artifacts.iter().find(|artifact| {
+        artifact.binding == binding.trim()
+            && matches!(artifact.kind.as_str(), "RegressionModel" | "MlpModel")
+    })?;
+    match field.trim() {
+        "status" => Some(RuntimeFormatValue::Text(artifact.status.clone())),
+        "target" => Some(RuntimeFormatValue::Text(
+            artifact.target.clone().unwrap_or_default(),
+        )),
+        "target_quantity" => Some(RuntimeFormatValue::Text(
+            artifact.target_quantity.clone().unwrap_or_default(),
+        )),
+        "target_unit" => Some(RuntimeFormatValue::Text(artifact.display_unit.clone())),
+        "features" => Some(RuntimeFormatValue::Text(artifact.features.join(","))),
+        "feature_count" => Some(count_value(artifact.features.len())),
+        "algorithm" => Some(RuntimeFormatValue::Text(
+            artifact.algorithm.clone().unwrap_or_default(),
+        )),
+        "test_fraction" => Some(RuntimeFormatValue::Text(
+            artifact.test_fraction.clone().unwrap_or_default(),
+        )),
+        "train_count" => artifact.train_count.map(count_value),
+        "test_count" => artifact.test_count.map(count_value),
+        "rmse" => artifact.rmse.map(|value| RuntimeFormatValue::Number {
+            value,
+            quantity_kind: "DimensionlessNumber".to_owned(),
+            unit: "1".to_owned(),
+        }),
+        "mae" => artifact.mae.map(|value| RuntimeFormatValue::Number {
+            value,
+            quantity_kind: "DimensionlessNumber".to_owned(),
+            unit: "1".to_owned(),
+        }),
+        "r2" => artifact.r2.map(|value| RuntimeFormatValue::Number {
+            value,
+            quantity_kind: "Ratio".to_owned(),
+            unit: "1".to_owned(),
+        }),
+        "model_card" => Some(RuntimeFormatValue::Text(
+            artifact.model_card.clone().unwrap_or_default(),
+        )),
+        "training_data_hash" => Some(RuntimeFormatValue::Text(
+            artifact.training_data_hash.clone().unwrap_or_default(),
+        )),
+        "model_artifact_hash" => Some(RuntimeFormatValue::Text(
+            artifact.model_artifact_hash.clone().unwrap_or_default(),
+        )),
+        "residual_point_count" => Some(count_value(artifact.residual_points.len())),
+        _ => None,
+    }
+}
+
 fn db_connection_summary(connection: &runtime_data::RuntimeDbConnection) -> String {
     format!(
         "{}: {} table(s), {} row(s); {}",
@@ -9483,6 +9543,16 @@ fn evaluate_table_metadata_field_expression(
         "missing_count" if table.schema_name == "CaseResultCollection" => {
             Some(count_value(table_status_count(table, "missing")))
         }
+        "case_count" if table.schema_name == "PredictionResult" => {
+            Some(count_value(table.row_count))
+        }
+        "confidence_count" if table.schema_name == "PredictionResult" => {
+            prediction_table_confidence_column(table)
+                .map(|column| count_value(table.row_count.saturating_sub(column.missing_count)))
+        }
+        "missing_count" if table.schema_name == "PredictionResult" => {
+            prediction_table_output_column(table).map(|column| count_value(column.missing_count))
+        }
         "output_count"
             if matches!(
                 table.schema_name.as_str(),
@@ -9525,8 +9595,72 @@ fn evaluate_table_metadata_field_expression(
                 table_status_count(table, "missing"),
             )))
         }
+        "status" if table.schema_name == "PredictionResult" => {
+            prediction_artifact_for_table(runtime_data, binding.trim())
+                .map(|artifact| RuntimeFormatValue::Text(artifact.status.clone()))
+        }
+        "model" if table.schema_name == "PredictionResult" => {
+            prediction_artifact_for_table(runtime_data, binding.trim()).map(|artifact| {
+                RuntimeFormatValue::Text(artifact.source.clone().unwrap_or_default())
+            })
+        }
+        "prediction_input" if table.schema_name == "PredictionResult" => {
+            prediction_artifact_for_table(runtime_data, binding.trim()).map(|artifact| {
+                RuntimeFormatValue::Text(artifact.prediction_input.clone().unwrap_or_default())
+            })
+        }
+        "target" if table.schema_name == "PredictionResult" => {
+            prediction_artifact_for_table(runtime_data, binding.trim()).map(|artifact| {
+                RuntimeFormatValue::Text(artifact.target.clone().unwrap_or_default())
+            })
+        }
+        "target_quantity" if table.schema_name == "PredictionResult" => {
+            prediction_artifact_for_table(runtime_data, binding.trim()).map(|artifact| {
+                RuntimeFormatValue::Text(artifact.target_quantity.clone().unwrap_or_default())
+            })
+        }
+        "target_unit" if table.schema_name == "PredictionResult" => {
+            prediction_artifact_for_table(runtime_data, binding.trim())
+                .map(|artifact| RuntimeFormatValue::Text(artifact.display_unit.clone()))
+        }
+        "output_column" if table.schema_name == "PredictionResult" => {
+            prediction_table_output_column(table)
+                .map(|column| RuntimeFormatValue::Text(column.name.clone()))
+        }
+        "confidence_column" if table.schema_name == "PredictionResult" => {
+            prediction_table_confidence_column(table)
+                .map(|column| RuntimeFormatValue::Text(column.name.clone()))
+        }
         _ => None,
     }
+}
+
+fn prediction_artifact_for_table<'a>(
+    runtime_data: &'a RuntimeData,
+    binding: &str,
+) -> Option<&'a runtime_data::RuntimeMlArtifact> {
+    runtime_data
+        .ml_artifacts
+        .iter()
+        .find(|artifact| artifact.binding == binding && artifact.kind == "PredictionResult")
+}
+
+fn prediction_table_output_column(
+    table: &runtime_data::RuntimeTable,
+) -> Option<&runtime_data::RuntimeColumn> {
+    table.columns.iter().find(|column| {
+        !column.name.eq_ignore_ascii_case("case_id")
+            && !column.name.eq_ignore_ascii_case("confidence")
+    })
+}
+
+fn prediction_table_confidence_column(
+    table: &runtime_data::RuntimeTable,
+) -> Option<&runtime_data::RuntimeColumn> {
+    table
+        .columns
+        .iter()
+        .find(|column| column.name.eq_ignore_ascii_case("confidence"))
 }
 
 fn count_value(value: usize) -> RuntimeFormatValue {
@@ -21912,6 +22046,11 @@ mod tests {
                 "    m_dot = uniform(0.2 kg/s, 0.3 kg/s)\n",
                 "}\n",
                 "predictions = predict reg_model using new_samples\n",
+                "model_status = reg_model.status\n",
+                "model_train_count = reg_model.train_count\n",
+                "prediction_status = predictions.status\n",
+                "prediction_output = predictions.output_column\n",
+                "print \"model={model_status} train={model_train_count} prediction={prediction_status} output={prediction_output} rows={predictions.case_count}\"\n",
                 "db = open sqlite file(\"outputs/predictions.sqlite\")\n",
                 "write predictions to db.table(\"predictions\")\n",
                 "with {\n",
@@ -22007,6 +22146,10 @@ mod tests {
             prediction_ml.get("status").and_then(Value::as_str),
             Some("predicted")
         );
+        assert!(output.stdout.contains("model=trained"));
+        assert!(output.stdout.contains("prediction=predicted"));
+        assert!(output.stdout.contains("output=predicted_q_coil"));
+        assert!(output.stdout.contains("rows=3"));
 
         let db_path = build_root
             .join("result")

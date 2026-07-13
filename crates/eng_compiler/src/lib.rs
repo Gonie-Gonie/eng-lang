@@ -13278,6 +13278,57 @@ system Envelope {
     }
 
     #[test]
+    fn model_prediction_metadata_fields_are_typed() {
+        let report = check_source(
+            "model_prediction_metadata.eng",
+            concat!(
+                "designs = sample lhs\n",
+                "with {\n",
+                "    count = 4\n",
+                "    seed = 5\n",
+                "    cooling_cop = uniform(2.5, 5.0)\n",
+                "}\n",
+                "results = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\n",
+                "model = train regression results\n",
+                "with {\n",
+                "    target = annual_electricity\n",
+                "    features = [cooling_cop]\n",
+                "    test = 0.25\n",
+                "    seed = 7\n",
+                "}\n",
+                "predictions = predict model using designs\n",
+                "model_status = model.status\n",
+                "model_features = model.features\n",
+                "model_train_count = model.train_count\n",
+                "model_rmse = model.rmse\n",
+                "prediction_status = predictions.status\n",
+                "prediction_model = predictions.model\n",
+                "prediction_cases = predictions.case_count\n",
+                "prediction_output = predictions.output_column\n",
+            ),
+            &CheckOptions::default(),
+        );
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        let binding_type = |name: &str| {
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .map(|binding| binding.semantic_type.quantity_kind.as_str())
+        };
+        assert_eq!(binding_type("model_status"), Some("String"));
+        assert_eq!(binding_type("model_features"), Some("String"));
+        assert_eq!(binding_type("model_train_count"), Some("Count"));
+        assert_eq!(binding_type("model_rmse"), Some("DimensionlessNumber"));
+        assert_eq!(binding_type("prediction_status"), Some("String"));
+        assert_eq!(binding_type("prediction_model"), Some("String"));
+        assert_eq!(binding_type("prediction_cases"), Some("Count"));
+        assert_eq!(binding_type("prediction_output"), Some("String"));
+    }
+
+    #[test]
     fn lowers_native_db_write_records() {
         let root = env::temp_dir().join(format!("englang-db-write-{}", std::process::id()));
         let _ = fs::remove_dir_all(&root);

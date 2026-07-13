@@ -859,7 +859,9 @@ $PublicWorkflowMemberFields = @(
     $SyntaxCatalog.db_connection_fields +
     $SyntaxCatalog.case_table_fields +
     $SyntaxCatalog.case_output_table_fields +
-    $SyntaxCatalog.case_result_collection_table_fields
+    $SyntaxCatalog.case_result_collection_table_fields +
+    $SyntaxCatalog.model_fields +
+    $SyntaxCatalog.prediction_table_fields
 ) | ForEach-Object { [string]$_.label } | Sort-Object -Unique
 if ($PublicWorkflowMemberFields.Count -eq 0) {
     throw "generated editor metadata public workflow member field catalog is empty"

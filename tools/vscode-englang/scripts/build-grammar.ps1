@@ -123,6 +123,8 @@ $DbConnectionFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Nam
 $CaseTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_table_fields"
 $CaseOutputTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_output_table_fields"
 $CaseResultCollectionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_result_collection_table_fields"
+$ModelFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "model_fields"
+$PredictionTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "prediction_table_fields"
 Assert-CatalogItemsHaveProperty -Items $WorkflowOptionItems -CatalogName "workflow_options" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $PublicTypeItems -CatalogName "public_types" -PropertyName "base"
 Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" -PropertyName "label"
@@ -133,6 +135,8 @@ Assert-CatalogItemsHaveProperty -Items $DbConnectionFieldItems -CatalogName "db_
 Assert-CatalogItemsHaveProperty -Items $CaseTableFieldItems -CatalogName "case_table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $CaseOutputTableFieldItems -CatalogName "case_output_table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $CaseResultCollectionTableFieldItems -CatalogName "case_result_collection_table_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $ModelFieldItems -CatalogName "model_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $PredictionTableFieldItems -CatalogName "prediction_table_fields" -PropertyName "label"
 $WorkflowBuiltins = @($WorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($HyphenatedWorkflowBuiltinItems | ForEach-Object { [string]$_ })
 $LegacyWorkflowBuiltinAliases = @($LegacyWorkflowBuiltinAliasItems | ForEach-Object { [string]$_ })
@@ -148,7 +152,9 @@ $PublicMemberFields = @(
     $DbConnectionFieldItems +
     $CaseTableFieldItems +
     $CaseOutputTableFieldItems +
-    $CaseResultCollectionTableFieldItems
+    $CaseResultCollectionTableFieldItems +
+    $ModelFieldItems +
+    $PredictionTableFieldItems
 ) | ForEach-Object { [string]$_.label } | Sort-Object -Unique
 
 $GrammarOnlyFunctionArgumentAliases = @(

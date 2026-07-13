@@ -958,6 +958,53 @@ const CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("source_hash", "runtime table source hash"),
 ];
 
+const MODEL_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("status", "model training or prediction readiness status"),
+    ("target", "model target column"),
+    ("target_quantity", "model target quantity kind"),
+    ("target_unit", "model target display unit"),
+    ("features", "comma-separated model feature columns"),
+    ("feature_count", "model feature column count"),
+    ("algorithm", "model training algorithm"),
+    ("test_fraction", "model holdout test fraction"),
+    ("train_count", "model training row count"),
+    ("test_count", "model test or prediction row count"),
+    ("rmse", "model root-mean-square error"),
+    ("mae", "model mean absolute error"),
+    ("r2", "model coefficient of determination"),
+    (
+        "model_card",
+        "model-card text generated for the trained model",
+    ),
+    ("training_data_hash", "model training data hash"),
+    ("model_artifact_hash", "model artifact hash"),
+    ("residual_point_count", "model residual point count"),
+];
+
+const PREDICTION_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("case_count", "prediction row count"),
+    ("row_count", "prediction table row count"),
+    ("column_count", "prediction table column count"),
+    ("schema_name", "prediction table schema name"),
+    ("source_hash", "prediction table source hash"),
+    ("status", "prediction artifact status"),
+    ("model", "model binding used for prediction"),
+    (
+        "prediction_input",
+        "input table binding used for prediction",
+    ),
+    ("target", "predicted target column"),
+    ("target_quantity", "predicted target quantity kind"),
+    ("target_unit", "predicted target display unit"),
+    ("output_column", "prediction output column name"),
+    ("confidence_column", "prediction confidence column name"),
+    (
+        "confidence_count",
+        "non-missing prediction confidence count",
+    ),
+    ("missing_count", "missing prediction output count"),
+];
+
 pub fn snapshot_for_path(path: &Path) -> std::io::Result<LspSnapshot> {
     let source = std::fs::read_to_string(path)?;
     let report = check_source(path, &source, &CheckOptions::default());
@@ -1835,6 +1882,20 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "detail": detail,
             }))
             .collect::<Vec<_>>(),
+        "model_fields": MODEL_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
+        "prediction_table_fields": PREDICTION_TABLE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
         "public_types": PUBLIC_TYPE_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -2204,6 +2265,16 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &binding.name,
                 CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS,
                 &["workflowStep"],
+            ),
+            "Table[Prediction]" => builder.push_member_fields(
+                &binding.name,
+                PREDICTION_TABLE_FIELD_COMPLETIONS,
+                &["model", "workflowStep"],
+            ),
+            value if value.starts_with("Model[") => builder.push_member_fields(
+                &binding.name,
+                MODEL_FIELD_COMPLETIONS,
+                &["model", "workflowStep"],
             ),
             "DbConnection" => builder.push_member_fields(
                 &binding.name,
@@ -6136,6 +6207,8 @@ fn public_member_hover_fields(
             CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS,
             "case_result_collection_table_field",
         )),
+        "Table[Prediction]" => Some((PREDICTION_TABLE_FIELD_COMPLETIONS, "prediction_table_field")),
+        value if value.starts_with("Model[") => Some((MODEL_FIELD_COMPLETIONS, "model_field")),
         _ => None,
     }
 }
@@ -6221,6 +6294,8 @@ fn member_access_path_start(line: &str, receiver_start: usize) -> usize {
 fn public_member_field_quantity_kind(field: &str) -> &'static str {
     match field {
         "status_code" | "seed" => "Int",
+        "rmse" | "mae" => "DimensionlessNumber",
+        "r2" => "Ratio",
         value if value.ends_with("_count") => "Int",
         _ => "String",
     }
@@ -6728,6 +6803,28 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "Table[Prediction]" {
+            for (field, detail) in PREDICTION_TABLE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
+        if binding.semantic_type.quantity_kind.starts_with("Model[") {
+            for (field, detail) in MODEL_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
         if binding.semantic_type.quantity_kind == "TableRow" {
             if let Some(schema_name) = table_row_schema_name(report, &binding.name) {
                 if let Some(schema) = report
@@ -7095,6 +7192,8 @@ pub fn completion_items_at(
                     "Table[CaseResultCollection]" => {
                         Some(CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS)
                     }
+                    "Table[Prediction]" => Some(PREDICTION_TABLE_FIELD_COMPLETIONS),
+                    value if value.starts_with("Model[") => Some(MODEL_FIELD_COMPLETIONS),
                     _ => None,
                 }
             })
@@ -9089,6 +9188,18 @@ mod tests {
                     .iter()
                     .any(|field| field["label"] == "collected_count")),
             "syntax catalog should expose case result collection table field labels"
+        );
+        assert!(
+            syntax_catalog["model_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "rmse")),
+            "syntax catalog should expose model field labels"
+        );
+        assert!(
+            syntax_catalog["prediction_table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "output_column")),
+            "syntax catalog should expose prediction table field labels"
         );
         assert!(
             syntax_catalog["units"]
@@ -12511,6 +12622,106 @@ with {
         assert!(!completions
             .iter()
             .any(|completion| completion.label == "kind"));
+    }
+
+    #[test]
+    fn snapshot_exposes_model_and_prediction_member_fields() {
+        let source = concat!(
+            "designs = sample lhs\n",
+            "with {\n",
+            "    count = 4\n",
+            "    seed = 5\n",
+            "    cooling_cop = uniform(2.5, 5.0)\n",
+            "}\n",
+            "results = derive designs column annual_electricity = 10000 kWh - cooling_cop * 500 kWh\n",
+            "model = train regression results\n",
+            "with {\n",
+            "    target = annual_electricity\n",
+            "    features = [cooling_cop]\n",
+            "    test = 0.25\n",
+            "    seed = 7\n",
+            "}\n",
+            "predictions = predict model using designs\n",
+            "model_status = model.status\n",
+            "model_error = model.rmse\n",
+            "prediction_cases = predictions.case_count\n",
+            "prediction_output = predictions.output_column\n",
+        );
+        let snapshot = snapshot_for_source(Path::new("model_prediction_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "model.rmse"));
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "predictions.output_column"));
+        let model_line = source
+            .lines()
+            .position(|line| line.contains("model_status ="))
+            .expect("model status line");
+        let model_member_completions = completion_items_for_source_position(
+            Path::new("model_prediction_members.eng"),
+            source,
+            model_line,
+            "model_status = model.".len(),
+        );
+        let rmse_completion = model_member_completions
+            .iter()
+            .find(|completion| completion.label == "rmse")
+            .expect("model member completion should include rmse");
+        assert_eq!(rmse_completion.detail, "model root-mean-square error");
+        assert!(model_member_completions
+            .iter()
+            .any(|completion| completion.label == "train_count"));
+        let prediction_line = source
+            .lines()
+            .position(|line| line.contains("prediction_output ="))
+            .expect("prediction output line");
+        let prediction_member_completions = completion_items_for_source_position(
+            Path::new("model_prediction_members.eng"),
+            source,
+            prediction_line,
+            "prediction_output = predictions.".len(),
+        );
+        let output_completion = prediction_member_completions
+            .iter()
+            .find(|completion| completion.label == "output_column")
+            .expect("prediction member completion should include output_column");
+        assert_eq!(output_completion.detail, "prediction output column name");
+        assert!(prediction_member_completions
+            .iter()
+            .any(|completion| completion.label == "confidence_column"));
+        let rmse_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "model.rmse")
+            .expect("model member field should expose hover metadata");
+        assert_eq!(rmse_hover.kind, "model_field");
+        assert_eq!(rmse_hover.quantity_kind, "DimensionlessNumber");
+        let output_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "predictions.output_column")
+            .expect("prediction member field should expose hover metadata");
+        assert_eq!(output_hover.kind, "prediction_table_field");
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "model_error =",
+            "rmse",
+            "property",
+            "model",
+        );
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "prediction_output =",
+            "output_column",
+            "property",
+            "model",
+        );
     }
 
     #[test]

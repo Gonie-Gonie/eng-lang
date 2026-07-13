@@ -13,6 +13,8 @@ class EngCompletionProvider {
     this.caseResultCollectionTableFields = Array.isArray(options.caseResultCollectionTableFields)
       ? options.caseResultCollectionTableFields
       : [];
+    this.modelFields = Array.isArray(options.modelFields) ? options.modelFields : [];
+    this.predictionTableFields = Array.isArray(options.predictionTableFields) ? options.predictionTableFields : [];
     this.completionSnapshotForPosition = options.completionSnapshotForPosition;
     this.cachedSnapshotForDocument = options.cachedSnapshotForDocument ?? (() => undefined);
   }
@@ -39,14 +41,18 @@ class EngCompletionProvider {
         dbConnectionFields: this.dbConnectionFields,
         caseTableFields: this.caseTableFields,
         caseOutputTableFields: this.caseOutputTableFields,
-        caseResultCollectionTableFields: this.caseResultCollectionTableFields
+        caseResultCollectionTableFields: this.caseResultCollectionTableFields,
+        modelFields: this.modelFields,
+        predictionTableFields: this.predictionTableFields
       }),
       httpResponseFields: this.httpResponseFields,
       sampleTableFields: this.sampleTableFields,
       dbConnectionFields: this.dbConnectionFields,
       caseTableFields: this.caseTableFields,
       caseOutputTableFields: this.caseOutputTableFields,
-      caseResultCollectionTableFields: this.caseResultCollectionTableFields
+      caseResultCollectionTableFields: this.caseResultCollectionTableFields,
+      modelFields: this.modelFields,
+      predictionTableFields: this.predictionTableFields
     });
     return completionItemsFromPayload(completionPayload, this.completionItems, { localCompletions });
   }
@@ -143,6 +149,16 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
       fields: catalogs?.sampleTableFields,
       detail: "Sample table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:train\s+regression\b|regression\s*\(|regression_table\s*\(|mlp\s*\(|ann\s*\()/gm,
+      fields: catalogs?.modelFields,
+      detail: "Model field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*predict\s+[A-Za-z_][A-Za-z0-9_.-]*\s+using\s+[A-Za-z_][A-Za-z0-9_.-]*\b/gm,
+      fields: catalogs?.predictionTableFields,
+      detail: "Prediction table field"
     },
     {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*open\s+sqlite\b/gm,
@@ -370,6 +386,16 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: isCaseResultCollectionLikeReceiver
     },
     {
+      fields: catalogs?.predictionTableFields,
+      detail: "Prediction table field",
+      matchesReceiver: isPredictionTableLikeReceiver
+    },
+    {
+      fields: catalogs?.modelFields,
+      detail: "Model field",
+      matchesReceiver: isModelLikeReceiver
+    },
+    {
       fields: catalogs?.caseTableFields,
       detail: "Case table field",
       matchesReceiver: isCaseTableLikeReceiver
@@ -478,6 +504,27 @@ function isDbConnectionLikeReceiver(receiver) {
     normalized.includes("sqlite") ||
     normalized.includes("database") ||
     normalized.endsWith("_db")
+  );
+}
+
+function isModelLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return (
+    normalized === "model" ||
+    normalized.endsWith("_model") ||
+    normalized.includes("model") ||
+    normalized.includes("regression") ||
+    normalized.includes("surrogate")
+  );
+}
+
+function isPredictionTableLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return (
+    normalized === "prediction" ||
+    normalized === "predictions" ||
+    normalized.includes("prediction") ||
+    normalized.includes("predictions")
   );
 }
 
