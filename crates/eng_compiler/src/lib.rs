@@ -6343,7 +6343,9 @@ fn push_review_time_axes_json(json: &mut String, report: &CheckReport) {
             "        \"source\": \"{}\",\n",
             json_escape(&axis.source)
         ));
-        json.push_str(&format!("        \"line\": {}\n", axis.line));
+        json.push_str(&format!("        \"line\": {},\n", axis.line));
+        write_source_span_json(json, "        ", axis.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -12955,6 +12957,29 @@ system Envelope {
             .pointer("/review_document/section_hashes/workflow_modules")
             .and_then(serde_json::Value::as_str)
             .is_some());
+    }
+
+    #[test]
+    fn review_json_time_axes_include_source_spans() {
+        let report = check_source(
+            "time_axis.eng",
+            "Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+",
+            &CheckOptions::default(),
+        );
+        assert!(report
+            .semantic_program
+            .axis_infos
+            .iter()
+            .any(|axis| axis.binding == "Q_series" && axis.axis == "Time"));
+        let review = review_json(&report);
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review json");
+        let axis = value["review_document"]["time_axes"]
+            .as_array()
+            .and_then(|axes| axes.iter().find(|axis| axis["binding"] == "Q_series"))
+            .expect("Q_series time axis row");
+        assert_eq!(axis["source_span"]["line"].as_u64(), Some(1));
+        assert_eq!(axis["source_span"]["column"].as_u64(), Some(1));
     }
 
     #[test]
