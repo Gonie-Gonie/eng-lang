@@ -690,70 +690,111 @@ function Invoke-WorkflowsTest {
             $OutputManifestJson = Get-Content -LiteralPath $OutputManifestPath -Raw
             $CacheManifestJson = Get-Content -LiteralPath $CacheManifestPath -Raw
             $RunLogJson = Get-Content -LiteralPath $RunLogPath -Raw
+            $ResultData = $ResultJson | ConvertFrom-Json
+            $ReviewData = $ReviewJson | ConvertFrom-Json
+            $OutputManifestData = $OutputManifestJson | ConvertFrom-Json
+            $CacheManifestData = $CacheManifestJson | ConvertFrom-Json
+            $RunLogData = $RunLogJson | ConvertFrom-Json
+            $WeatherResponseHash = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"
+            $AllowedCacheStatuses = @("hit", "miss_offline_response_available")
             if (-not $WorkflowSource.Contains("pinned_response_file") -or $WorkflowSource.Contains("offline_response_file")) {
                 throw "Workflow 01 native API args must expose pinned_response_file and not offline_response_file"
             }
-            foreach ($RequiredWeatherResultToken in @(
-                '"network_boundaries"',
-                '"network_boundary_count": 1',
-                '"binding": "api_response"',
-                '"status": "offline_response"',
-                '"expected_sha256"',
-                '"schema_name": "WeatherApiRecord"',
-                '"schema_name": "WeatherApiPayload"',
-                '"source_value": "api_response.body"',
-                '"timeseries_coverage"'
-            )) {
-                if (-not $ResultJson.Contains($RequiredWeatherResultToken)) {
-                    throw "Workflow 01 native result missing token $RequiredWeatherResultToken"
-                }
-            }
-            foreach ($RequiredWeatherReviewToken in @(
-                '"owner_kind": "network_request"',
-                '"owner_name": "api_response"',
-                '"expression": "promote json api_response.body as WeatherApiPayload"',
-                '"expression": "promote json records api_contract.records as WeatherApiRecord"',
-                '"kind": "uses_cache"',
-                '"offline_response": "data/offline_weather_response.json"',
-                '"expected_sha256"'
-            )) {
-                if (-not $ReviewJson.Contains($RequiredWeatherReviewToken)) {
-                    throw "Workflow 01 native review missing token $RequiredWeatherReviewToken"
-                }
-            }
-            foreach ($RequiredWeatherOutputToken in @(
-                '"kind": "standard_file"',
-                '"path": "outputs/standard_weather_file.txt"',
-                '"network_requests"',
-                '"caches"',
-                '"binding": "api_response"',
-                '"status": "offline_response"'
-            )) {
-                if (-not $OutputManifestJson.Contains($RequiredWeatherOutputToken)) {
-                    throw "Workflow 01 native output manifest missing token $RequiredWeatherOutputToken"
-                }
-            }
-            foreach ($RequiredWeatherCacheToken in @(
-                '"cache_record_count": 1',
-                '"owner_kind": "network_request"',
-                '"owner_name": "api_response"',
-                '"expected_hash"',
-                '"observed_hash"'
-            )) {
-                if (-not $CacheManifestJson.Contains($RequiredWeatherCacheToken)) {
-                    throw "Workflow 01 native cache manifest missing token $RequiredWeatherCacheToken"
-                }
-            }
-            foreach ($RequiredWeatherRunLogToken in @(
-                '"network_event_count": 1',
-                '"cache_event_count": 1',
-                '"binding": "api_response"',
-                '"status": "offline_response"'
-            )) {
-                if (-not $RunLogJson.Contains($RequiredWeatherRunLogToken)) {
-                    throw "Workflow 01 native run log missing token $RequiredWeatherRunLogToken"
-                }
-            }
+            Assert-ArtifactNumber $ResultData.provenance.network_boundary_count 1 "Workflow 01 result network boundary count"
+            $NetworkBoundary = @($ResultData.typed_payload.network_boundaries | Where-Object { [string]$_.binding -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $NetworkBoundary) "Workflow 01 result missing api_response network boundary"
+            Assert-ArtifactValue $NetworkBoundary.kind "http_get" "Workflow 01 network boundary kind"
+            Assert-ArtifactValue $NetworkBoundary.method "GET" "Workflow 01 network boundary method"
+            Assert-ArtifactValue $NetworkBoundary.url "https://api.example.org/weather/hourly" "Workflow 01 network boundary URL"
+            Assert-ArtifactValue $NetworkBoundary.response_source "offline_response" "Workflow 01 network response source"
+            Assert-ArtifactValue $NetworkBoundary.status "offline_response" "Workflow 01 network boundary status"
+            Assert-ArtifactValue $NetworkBoundary.status_code 200 "Workflow 01 network HTTP status code"
+            Assert-ArtifactValue $NetworkBoundary.status_class "success" "Workflow 01 network HTTP status class"
+            Assert-ArtifactValue $NetworkBoundary.retry 2 "Workflow 01 network retry count"
+            Assert-ArtifactValue $NetworkBoundary.timeout "30 s" "Workflow 01 network timeout"
+            Assert-ArtifactValue $NetworkBoundary.body_size_limit_bytes 2000000 "Workflow 01 network body limit"
+            Assert-ArtifactValue $NetworkBoundary.expected_sha256 $WeatherResponseHash "Workflow 01 network expected hash"
+            Assert-ArtifactValue $NetworkBoundary.response_hash $WeatherResponseHash "Workflow 01 network response hash"
+            $NetworkQuery = @($NetworkBoundary.query)
+            Assert-ArtifactNumber $NetworkQuery.Count 2 "Workflow 01 network query count"
+            $StationQuery = @($NetworkQuery | Where-Object { [string]$_.key -eq "station" }) | Select-Object -First 1
+            $YearQuery = @($NetworkQuery | Where-Object { [string]$_.key -eq "year" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $StationQuery) "Workflow 01 network query missing station"
+            Assert-Artifact ($null -ne $YearQuery) "Workflow 01 network query missing year"
+            Assert-ArtifactValue $StationQuery.value "STN001" "Workflow 01 network station query value"
+            Assert-ArtifactValue $YearQuery.value "2024" "Workflow 01 network year query value"
+            Assert-Artifact (-not [bool]$StationQuery.redacted) "Workflow 01 station query should not be redacted"
+            Assert-Artifact (-not [bool]$YearQuery.redacted) "Workflow 01 year query should not be redacted"
+
+            $ConfigPromotion = @($ResultData.typed_payload.config_promotions | Where-Object { [string]$_.binding -eq "api_contract" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $ConfigPromotion) "Workflow 01 result missing api_contract config promotion"
+            Assert-ArtifactValue $ConfigPromotion.schema_name "WeatherApiPayload" "Workflow 01 config promotion schema"
+            Assert-ArtifactValue $ConfigPromotion.source_value "api_response.body" "Workflow 01 config promotion source value"
+            Assert-ArtifactValue $ConfigPromotion.status "validated" "Workflow 01 config promotion status"
+            $WeatherHashRecord = @($ResultData.provenance.data_hashes | Where-Object { [string]$_.binding -eq "weather" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $WeatherHashRecord) "Workflow 01 result missing weather data hash"
+            Assert-ArtifactValue $WeatherHashRecord.source_format "json_records" "Workflow 01 weather data source format"
+            Assert-ArtifactValue $WeatherHashRecord.source_value "api_response.body" "Workflow 01 weather data source value"
+            $CoverageRecord = @($ResultData.typed_payload.timeseries_coverage | Where-Object { [string]$_.binding -eq "coverage" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $CoverageRecord) "Workflow 01 result missing coverage record"
+            Assert-ArtifactValue $CoverageRecord.source_table "weather" "Workflow 01 coverage source table"
+            Assert-ArtifactValue $CoverageRecord.source_column "time" "Workflow 01 coverage source column"
+            Assert-ArtifactValue $CoverageRecord.expected_count 8784 "Workflow 01 coverage expected leap-year count"
+            Assert-ArtifactValue $CoverageRecord.actual_count 2 "Workflow 01 coverage actual fixture count"
+            Assert-ArtifactValue $CoverageRecord.status "gapped" "Workflow 01 coverage status"
+
+            $ReviewBoundary = @($ReviewData.review_document.external_boundaries | Where-Object { [string]$_.kind -eq "network_request" -and [string]$_.name -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $ReviewBoundary) "Workflow 01 review missing api_response network boundary"
+            Assert-ArtifactValue $ReviewBoundary.method "GET" "Workflow 01 review network method"
+            Assert-ArtifactValue $ReviewBoundary.target "https://api.example.org/weather/hourly" "Workflow 01 review network target"
+            Assert-ArtifactValue $ReviewBoundary.response_source "offline_response" "Workflow 01 review network response source"
+            Assert-ArtifactValue $ReviewBoundary.expected_sha256 $WeatherResponseHash "Workflow 01 review network expected hash"
+            $ReviewCache = @($ReviewData.review_document.caches | Where-Object { [string]$_.owner_kind -eq "network_request" -and [string]$_.owner_name -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $ReviewCache) "Workflow 01 review missing api_response cache row"
+            Assert-ArtifactValue $ReviewCache.expected_hash $WeatherResponseHash "Workflow 01 review cache expected hash"
+            Assert-ArtifactValue $ReviewCache.observed_hash $WeatherResponseHash "Workflow 01 review cache observed hash"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$ReviewCache.status) "Workflow 01 review cache status should be hit or offline-response miss, got $($ReviewCache.status)"
+            $ReviewWeatherPromotion = @($ReviewData.csv_promotions | Where-Object { [string]$_.binding -eq "weather" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $ReviewWeatherPromotion) "Workflow 01 review missing weather JSON records promotion"
+            Assert-ArtifactValue $ReviewWeatherPromotion.schema_name "WeatherApiRecord" "Workflow 01 review weather schema"
+            Assert-ArtifactValue $ReviewWeatherPromotion.source_format "json_records" "Workflow 01 review weather source format"
+            Assert-ArtifactValue $ReviewWeatherPromotion.source_value "api_response.body" "Workflow 01 review weather source value"
+
+            $StandardWeatherArtifact = @($OutputManifestData.artifact_registry.generated_files | Where-Object { [string]$_.kind -eq "standard_file" -and [string]$_.path -eq "outputs/standard_weather_file.txt" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $StandardWeatherArtifact) "Workflow 01 output manifest missing standard weather artifact"
+            Assert-ArtifactValue $StandardWeatherArtifact.status "generated" "Workflow 01 standard weather artifact status"
+            $OutputNetworkRequest = @($OutputManifestData.artifact_registry.network_requests | Where-Object { [string]$_.binding -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $OutputNetworkRequest) "Workflow 01 output manifest missing api_response network request"
+            Assert-ArtifactValue $OutputNetworkRequest.kind "http_get" "Workflow 01 output manifest network kind"
+            Assert-ArtifactValue $OutputNetworkRequest.url "https://api.example.org/weather/hourly" "Workflow 01 output manifest network URL"
+            Assert-ArtifactValue $OutputNetworkRequest.expected_sha256 $WeatherResponseHash "Workflow 01 output manifest expected hash"
+            Assert-ArtifactValue $OutputNetworkRequest.response_hash $WeatherResponseHash "Workflow 01 output manifest response hash"
+            Assert-ArtifactValue $OutputNetworkRequest.status "offline_response" "Workflow 01 output manifest network status"
+            $OutputCache = @($OutputManifestData.artifact_registry.caches | Where-Object { [string]$_.binding -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $OutputCache) "Workflow 01 output manifest missing api_response cache"
+            Assert-ArtifactValue $OutputCache.kind "network_request" "Workflow 01 output manifest cache kind"
+            Assert-ArtifactValue $OutputCache.hash $WeatherResponseHash "Workflow 01 output manifest cache hash"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$OutputCache.status) "Workflow 01 output cache status should be hit or offline-response miss, got $($OutputCache.status)"
+
+            Assert-ArtifactNumber $CacheManifestData.cache_record_count 1 "Workflow 01 cache manifest record count"
+            $CacheRecord = @($CacheManifestData.cache_records | Where-Object { [string]$_.owner_kind -eq "network_request" -and [string]$_.owner_name -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $CacheRecord) "Workflow 01 cache manifest missing api_response record"
+            Assert-ArtifactValue $CacheRecord.expected_hash $WeatherResponseHash "Workflow 01 cache manifest expected hash"
+            Assert-ArtifactValue $CacheRecord.observed_hash $WeatherResponseHash "Workflow 01 cache manifest observed hash"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$CacheRecord.status) "Workflow 01 cache manifest status should be hit or offline-response miss, got $($CacheRecord.status)"
+            Assert-Artifact ([string]$CacheRecord.cache_key -like "weather|demo|2024|source_hash=*") "Workflow 01 cache key should include weather/demo/2024/source_hash, got $($CacheRecord.cache_key)"
+
+            Assert-ArtifactNumber $RunLogData.network_event_count 1 "Workflow 01 run log network event count"
+            Assert-ArtifactNumber $RunLogData.cache_event_count 1 "Workflow 01 run log cache event count"
+            $RunLogNetwork = @($RunLogData.network_events | Where-Object { [string]$_.binding -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $RunLogNetwork) "Workflow 01 run log missing api_response network event"
+            Assert-ArtifactValue $RunLogNetwork.kind "http_get" "Workflow 01 run log network kind"
+            Assert-ArtifactValue $RunLogNetwork.url "https://api.example.org/weather/hourly" "Workflow 01 run log network URL"
+            Assert-ArtifactValue $RunLogNetwork.response_hash $WeatherResponseHash "Workflow 01 run log response hash"
+            Assert-ArtifactValue $RunLogNetwork.status "offline_response" "Workflow 01 run log network status"
+            $RunLogCache = @($RunLogData.cache_events | Where-Object { [string]$_.owner_kind -eq "network_request" -and [string]$_.owner_name -eq "api_response" }) | Select-Object -First 1
+            Assert-Artifact ($null -ne $RunLogCache) "Workflow 01 run log missing api_response cache event"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$RunLogCache.status) "Workflow 01 run log cache status should be hit or offline-response miss, got $($RunLogCache.status)"
         }
         if ($Workflow -like "*02_native_surrogate_case_workflow*") {
             $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
