@@ -10722,6 +10722,29 @@ system Envelope {
     }
 
     #[test]
+    fn rejects_bound_validate_statement_command() {
+        let report = check_source(
+            "bad.eng",
+            "Q: HeatRate [kW] = 5 kW\nbad_validate = validate Q > 0 kW\n",
+            &CheckOptions::default(),
+        );
+
+        assert!(report.has_errors());
+        assert!(report
+            .diagnostics
+            .iter()
+            .any(|diagnostic| diagnostic.code == "E-VALIDATE-BINDING-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "E-FN-CALL-001"));
+        assert!(report
+            .diagnostics
+            .iter()
+            .all(|diagnostic| diagnostic.code != "W-QTY-AMBIG-001"));
+    }
+
+    #[test]
     fn rejects_unknown_command_style_verb() {
         let report = check_source(
             "bad.eng",

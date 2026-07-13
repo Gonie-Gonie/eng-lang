@@ -11936,7 +11936,10 @@ fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut
 }
 
 fn bound_report_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
-    let command = leading_report_statement_command(&binding.expression)?;
+    let command = leading_statement_command(
+        &binding.expression,
+        &["summarize", "summary", "show", "plot"],
+    )?;
     Some(Diagnostic::error(
         "E-REPORT-BINDING-001",
         binding.line,
@@ -11945,9 +11948,22 @@ fn bound_report_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> 
     ))
 }
 
-fn leading_report_statement_command(expression: &str) -> Option<&'static str> {
+fn bound_validate_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
+    let command = leading_statement_command(&binding.expression, &["validate"])?;
+    Some(Diagnostic::error(
+        "E-VALIDATE-BINDING-001",
+        binding.line,
+        &format!("Validation command `{command}` cannot be used as a bound value."),
+        Some("Write `validate value < threshold` as a statement, or bind a supported Bool expression first."),
+    ))
+}
+
+fn leading_statement_command(
+    expression: &str,
+    commands: &'static [&'static str],
+) -> Option<&'static str> {
     let trimmed = expression.trim_start();
-    for command in ["summarize", "summary", "show", "plot"] {
+    for command in commands {
         if trimmed.strip_prefix(command).is_some_and(|rest| {
             rest.chars()
                 .next()
@@ -11992,6 +12008,10 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
     }
 
     if let Some(diagnostic) = bound_report_command_diagnostic(binding) {
+        accum.diagnostics.push(diagnostic);
+        return;
+    }
+    if let Some(diagnostic) = bound_validate_command_diagnostic(binding) {
         accum.diagnostics.push(diagnostic);
         return;
     }
