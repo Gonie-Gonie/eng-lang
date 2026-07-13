@@ -6579,7 +6579,15 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             &statistic.quantity_kind,
             statistic.line,
         );
-        json.push_str(&format!("        \"line\": {}\n", statistic.line));
+        json.push_str(&format!("        \"line\": {},\n", statistic.line));
+        write_source_span_json(
+            json,
+            "        ",
+            statistic.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for integration in &report.semantic_program.integrations {
@@ -6611,7 +6619,15 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             &integration.result_quantity,
             integration.line,
         );
-        json.push_str(&format!("        \"line\": {}\n", integration.line));
+        json.push_str(&format!("        \"line\": {},\n", integration.line));
+        write_source_span_json(
+            json,
+            "        ",
+            integration.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for kernel in &report.semantic_program.timeseries_kernels {
@@ -6638,7 +6654,9 @@ fn push_review_calculations_json(json: &mut String, report: &CheckReport) {
             &kernel.quantity_kind,
             kernel.line,
         );
-        json.push_str(&format!("        \"line\": {}\n", kernel.line));
+        json.push_str(&format!("        \"line\": {},\n", kernel.line));
+        write_source_span_json(json, "        ", kernel.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     for uncertainty in &report.semantic_program.uncertainty_infos {
@@ -6933,7 +6951,15 @@ fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
             json_escape(&statistic.quantity_kind)
         ));
         json.push_str("        \"status\": \"declared\",\n");
-        json.push_str(&format!("        \"line\": {}\n", statistic.line));
+        json.push_str(&format!("        \"line\": {},\n", statistic.line));
+        write_source_span_json(
+            json,
+            "        ",
+            statistic.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for integration in &report.semantic_program.integrations {
@@ -6953,7 +6979,15 @@ fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
             json_escape(&integration.result_quantity)
         ));
         json.push_str("        \"status\": \"declared\",\n");
-        json.push_str(&format!("        \"line\": {}\n", integration.line));
+        json.push_str(&format!("        \"line\": {},\n", integration.line));
+        write_source_span_json(
+            json,
+            "        ",
+            integration.line,
+            &report.source_lines,
+            false,
+        );
+        json.push('\n');
         json.push_str("      }");
     }
     for kernel in &report.semantic_program.timeseries_kernels {
@@ -6973,7 +7007,9 @@ fn push_review_report_outputs_json(json: &mut String, report: &CheckReport) {
             json_escape(&kernel.quantity_kind)
         ));
         json.push_str("        \"status\": \"metadata_only\",\n");
-        json.push_str(&format!("        \"line\": {}\n", kernel.line));
+        json.push_str(&format!("        \"line\": {},\n", kernel.line));
+        write_source_span_json(json, "        ", kernel.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -10146,6 +10182,85 @@ system Envelope {
         let review = review_json(&report);
         assert!(review.contains("\"timeseries_kernels\""));
         assert!(review.contains("\"table_heat_rate_from_mass_flow_cp_delta_t\""));
+        let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let calculations = value["review_document"]["calculations"]
+            .as_array()
+            .expect("calculation review rows");
+        let statistics_calculation = calculations
+            .iter()
+            .find(|calculation| {
+                calculation["kind"] == "timeseries_statistics" && calculation["name"] == "Q_coil"
+            })
+            .expect("statistics calculation row");
+        assert_eq!(
+            statistics_calculation["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.stats_infos[0].line as u64)
+        );
+        assert_eq!(
+            statistics_calculation["source_span"]["column"].as_u64(),
+            Some(5)
+        );
+        let integration_calculation = calculations
+            .iter()
+            .find(|calculation| {
+                calculation["kind"] == "timeseries_integration" && calculation["name"] == "E_coil"
+            })
+            .expect("integration calculation row");
+        assert_eq!(
+            integration_calculation["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.integrations[0].line as u64)
+        );
+        assert_eq!(
+            integration_calculation["source_span"]["column"].as_u64(),
+            Some(1)
+        );
+        let kernel_calculation = calculations
+            .iter()
+            .find(|calculation| {
+                calculation["kind"] == "timeseries_kernel" && calculation["name"] == "Q_coil"
+            })
+            .expect("kernel calculation row");
+        assert_eq!(
+            kernel_calculation["source_span"]["line"].as_u64(),
+            Some(kernel.line as u64)
+        );
+        assert_eq!(
+            kernel_calculation["source_span"]["column"].as_u64(),
+            Some(1)
+        );
+        let report_outputs = value["review_document"]["report_outputs"]
+            .as_array()
+            .expect("report output review rows");
+        let summary_output = report_outputs
+            .iter()
+            .find(|output| output["kind"] == "summary" && output["source"] == "Q_coil")
+            .expect("summary report output row");
+        assert_eq!(
+            summary_output["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.stats_infos[0].line as u64)
+        );
+        assert_eq!(summary_output["source_span"]["column"].as_u64(), Some(5));
+        let integration_output = report_outputs
+            .iter()
+            .find(|output| output["kind"] == "derived_quantity" && output["binding"] == "E_coil")
+            .expect("integration report output row");
+        assert_eq!(
+            integration_output["source_span"]["line"].as_u64(),
+            Some(report.semantic_program.integrations[0].line as u64)
+        );
+        assert_eq!(
+            integration_output["source_span"]["column"].as_u64(),
+            Some(1)
+        );
+        let kernel_output = report_outputs
+            .iter()
+            .find(|output| output["kind"] == "plot_candidate" && output["source"] == "Q_coil")
+            .expect("kernel report output row");
+        assert_eq!(
+            kernel_output["source_span"]["line"].as_u64(),
+            Some(kernel.line as u64)
+        );
+        assert_eq!(kernel_output["source_span"]["column"].as_u64(), Some(1));
     }
 
     #[test]
