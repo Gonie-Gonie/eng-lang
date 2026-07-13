@@ -493,7 +493,9 @@
             "entity.name.function.solver.englang"
           ],
           "keyword.solver": [
-            "keyword.control.solver.englang"
+            "keyword.control.solver.englang",
+            "keyword.operator.word.englang",
+            "constant.language.englang"
           ],
           "variable.solver": [
             "keyword.control.solver.englang",

@@ -78,6 +78,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 619: Added `api_response.response_source` as the preferred HttpResponse field for live/cached/offline response origin, kept `status` as a compatibility alias, and updated workflow 01 plus editor metadata so HTTP status code/class are no longer mixed with response-origin wording.
 - Batch 620: Added a compiler/LSP warning and rename action for `response.status` so users are guided toward `response.response_source` while `status_code` and `status_class` stay reserved for HTTP status semantics.
 - Batch 621: Removed `response.status` from generated HTTP response member completion catalogs and package guards while preserving it as a typed compatibility alias with warning/code-action guidance toward `response.response_source`.
+- Batch 622: Broadened VS Code `keyword.solver` semantic fallback scopes so solver command words, clause words such as `over`, and solver method literals such as `fixed_step` keep consistent keyword/operator/constant coloring across themes.
 
 ## Documentation Policy
 

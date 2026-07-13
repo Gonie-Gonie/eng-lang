@@ -3451,6 +3451,15 @@ function Assert-VscodeExtensionContract {
             "keyword.operator.word.englang",
             "constant.language.englang"
         )
+        "keyword.report" = @(
+            "keyword.control.report.englang",
+            "keyword.operator.word.englang"
+        )
+        "keyword.solver" = @(
+            "keyword.control.solver.englang",
+            "keyword.operator.word.englang",
+            "constant.language.englang"
+        )
         "keyword.external" = @(
             "keyword.control.external-boundary.englang",
             "keyword.operator.word.englang"
