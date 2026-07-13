@@ -10771,6 +10771,16 @@ system Envelope {
             "bad_on = on {",
             "bad_constraints = constraints {",
             "bad_missing = missing {",
+            "bad_state = state T: AbsoluteTemperature [K]",
+            "bad_input = input load: HeatRate [kW]",
+            "bad_parameter = parameter C: HeatCapacity [J/K]",
+            "bad_output = output Q_out: HeatRate [kW]",
+            "bad_operator = operator A:",
+            "bad_equation = equation balance: Q eq load",
+            "bad_port = port heat: Thermal",
+            "bad_across = across T: AbsoluteTemperature [K]",
+            "bad_through = through q: HeatRate [W]",
+            "bad_conservation = conservation sum(q) = 0 W",
         ] {
             let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
             let report = check_source("bad.eng", &source, &CheckOptions::default());

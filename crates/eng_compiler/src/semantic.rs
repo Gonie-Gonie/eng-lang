@@ -6677,7 +6677,7 @@ fn analyze_class_object_decl(
                     "Block or declaration header `{}` cannot be used as a bound value.",
                     object.class_name
                 ),
-                Some("Write block and declaration headers at the start of a statement, such as `schema Name { ... }` or `args { ... }`; attach `where` and `with` blocks after a supported owner statement."),
+                Some("Write block, declaration, and member headers at the start of their own statement, such as `schema Name { ... }`, `state T: ...`, or `port heat: ...`; attach `where` and `with` blocks after a supported owner statement."),
             ));
             return;
         }
@@ -11990,8 +11990,8 @@ fn bound_block_header_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
     Some(Diagnostic::error(
         "E-BLOCK-BINDING-001",
         binding.line,
-        &format!("Block or declaration header `{command}` cannot be used as a bound value."),
-        Some("Write block and declaration headers at the start of a statement, such as `schema Name { ... }` or `args { ... }`; attach `where` and `with` blocks after a supported owner statement."),
+        &format!("Block, declaration, or member header `{command}` cannot be used as a bound value."),
+        Some("Write block, declaration, and member headers at the start of their own statement, such as `schema Name { ... }`, `state T: ...`, or `port heat: ...`; attach `where` and `with` blocks after a supported owner statement."),
     ))
 }
 fn bound_statement_only_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
@@ -12024,6 +12024,16 @@ const BLOCK_HEADER_COMMANDS: &[&str] = &[
     "on",
     "constraints",
     "missing",
+    "state",
+    "input",
+    "parameter",
+    "output",
+    "operator",
+    "equation",
+    "port",
+    "across",
+    "through",
+    "conservation",
 ];
 
 fn is_block_header_command(value: &str) -> bool {

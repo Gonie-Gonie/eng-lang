@@ -198,7 +198,7 @@
           },
           {
             "name": "meta.declaration.system-member.englang",
-            "match": "\\b(state)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(state)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "variable.other.state.englang" }
@@ -206,7 +206,7 @@
           },
           {
             "name": "meta.declaration.system-member.englang",
-            "match": "\\b(input)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(input)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "variable.other.input.englang" }
@@ -214,7 +214,7 @@
           },
           {
             "name": "meta.declaration.system-member.englang",
-            "match": "\\b(parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "variable.other.parameter.englang" }
@@ -222,7 +222,7 @@
           },
           {
             "name": "meta.declaration.system-member.englang",
-            "match": "\\b(output)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(output)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "variable.other.output.englang" }
@@ -230,7 +230,7 @@
           },
           {
             "name": "meta.declaration.system-member.englang",
-            "match": "\\b(operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.modifier.englang" },
               "2": { "name": "entity.name.function.solver.englang" }
@@ -238,7 +238,7 @@
           },
           {
             "name": "meta.declaration.equation.englang",
-            "match": "\\b(equation)\\s+([A-Za-z_][A-Za-z0-9_]*)(\\s*:)",
+            "match": "^\\s*(equation)\\s+([A-Za-z_][A-Za-z0-9_]*)(\\s*:)",
             "captures": {
               "1": { "name": "keyword.control.solver.englang" },
               "2": { "name": "entity.name.function.solver.englang" },
@@ -247,7 +247,7 @@
           },
           {
             "name": "meta.declaration.interface-member.englang",
-            "match": "\\b(port|across|through)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+            "match": "^\\s*(port|across|through)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
               "1": { "name": "storage.type.declaration.englang" },
               "2": { "name": "variable.other.property.englang" }
