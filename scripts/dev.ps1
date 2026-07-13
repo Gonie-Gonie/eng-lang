@@ -3159,6 +3159,12 @@ function Assert-VscodeExtensionContract {
         "Get-LocalVscodeVsixPath",
         "Get-InstalledVscodeEnglangExtensionPaths",
         "Get-RunningVscodeProcessSummaries",
+        "Get-LocalVscodeVsixSummary",
+        "Get-VscodeExtensionInstallSummary",
+        "Format-ByteSize",
+        'version $(Get-WorkspaceVersion)',
+        'updated $Updated',
+        "package.json unreadable",
         "Invoke-NativeInDirectory",
         "--user-data-dir",
         "--extensions-dir",
@@ -6345,6 +6351,50 @@ function Get-RunningVscodeProcessSummaries {
     return @(Get-Process -Name "Code" -ErrorAction SilentlyContinue | ForEach-Object { "$($_.ProcessName)#$($_.Id)" })
 }
 
+function Format-ByteSize {
+    param([Parameter(Mandatory = $true)][long] $Bytes)
+
+    if ($Bytes -ge 1GB) {
+        return "{0:N1} GB" -f ($Bytes / 1GB)
+    }
+    if ($Bytes -ge 1MB) {
+        return "{0:N1} MB" -f ($Bytes / 1MB)
+    }
+    if ($Bytes -ge 1KB) {
+        return "{0:N1} KB" -f ($Bytes / 1KB)
+    }
+    return "$Bytes B"
+}
+
+function Get-VscodeExtensionInstallSummary {
+    param([Parameter(Mandatory = $true)][string] $Path)
+
+    $PackageJsonPath = Join-Path $Path "package.json"
+    if (Test-Path -LiteralPath $PackageJsonPath -PathType Leaf) {
+        try {
+            $Package = Get-Content -LiteralPath $PackageJsonPath -Raw | ConvertFrom-Json
+            if ($null -ne $Package.version -and [string]$Package.version -ne "") {
+                return "$Path (version $($Package.version))"
+            }
+        } catch {
+            return "$Path (package.json unreadable)"
+        }
+    }
+    return $Path
+}
+
+function Get-LocalVscodeVsixSummary {
+    param([Parameter(Mandatory = $true)][string] $Path)
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $null
+    }
+    $Item = Get-Item -LiteralPath $Path
+    $Size = Format-ByteSize -Bytes $Item.Length
+    $Updated = $Item.LastWriteTime.ToString("yyyy-MM-dd HH:mm:ss")
+    return "$Path (version $(Get-WorkspaceVersion), $Size, updated $Updated)"
+}
+
 function Invoke-VscodeStatus {
     $Code = Get-VscodeCli
     $VsixPath = Get-LocalVscodeVsixPath
@@ -6357,8 +6407,9 @@ function Invoke-VscodeStatus {
         Write-Host "VS Code CLI: $Code"
     }
 
-    if (Test-Path -LiteralPath $VsixPath -PathType Leaf) {
-        Write-Host "Built VSIX: $VsixPath"
+    $VsixSummary = Get-LocalVscodeVsixSummary -Path $VsixPath
+    if ($null -ne $VsixSummary) {
+        Write-Host "Built VSIX: $VsixSummary"
     } else {
         Write-Host "Built VSIX: missing - run .\dev.bat vscode-package"
     }
@@ -6366,7 +6417,8 @@ function Invoke-VscodeStatus {
     if ($InstalledExtensions.Count -eq 0) {
         Write-Host "Installed EngLang extension(s): none"
     } else {
-        Write-Host "Installed EngLang extension(s): $($InstalledExtensions -join ', ')"
+        $InstalledSummaries = @($InstalledExtensions | ForEach-Object { Get-VscodeExtensionInstallSummary -Path $_ })
+        Write-Host "Installed EngLang extension(s): $($InstalledSummaries -join ', ')"
     }
 
     if ($RunningVscode.Count -eq 0) {
