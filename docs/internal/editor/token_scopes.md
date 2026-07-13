@@ -57,9 +57,15 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `storage.type.function.englang` | `fn` and `method` keyword fallback coloring while declarations are incomplete. |
 | `storage.type.test.englang` | `test` keyword fallback coloring while test declarations are incomplete. |
 | `storage.type.block.englang` | `args`, `where`, `with`, and `on` block-opener fallback coloring while block headers are incomplete. |
-| `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
+| `storage.type.interface-member.englang` | `port`, `across`, and `through` interface-member keyword fallback coloring. |
+| `storage.modifier.*.englang` | Modifiers such as schema indexes, constants, and system member roles. |
 | `storage.modifier.schema.englang` | Schema `index` modifier fallback coloring from TextMate and semantic token mappings. |
-| `storage.modifier.englang` | State, input, port, and constant keyword fallback coloring from semantic token mappings. |
+| `storage.modifier.state.englang` | `state` member keyword fallback coloring aligned with state semantic colors. |
+| `storage.modifier.input.englang` | `input` member keyword fallback coloring aligned with input semantic colors. |
+| `storage.modifier.parameter.englang` | `parameter` member keyword fallback coloring aligned with parameter semantic colors. |
+| `storage.modifier.output.englang` | `output` member keyword fallback coloring aligned with output semantic colors. |
+| `storage.modifier.operator.englang` | `operator` member keyword fallback coloring aligned with solver semantic colors. |
+| `storage.modifier.englang` | Generic modifier and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
 | `meta.declaration.function.englang` | Full `fn` and `method` declaration phrases. |
@@ -417,6 +423,12 @@ storage.type.declaration.englang
 storage.type.function.englang
 storage.type.test.englang
 storage.type.block.englang
+storage.type.interface-member.englang
+storage.modifier.state.englang
+storage.modifier.input.englang
+storage.modifier.parameter.englang
+storage.modifier.output.englang
+storage.modifier.operator.englang
 storage.modifier.englang
 storage.modifier.schema.englang
 string.quoted.double.englang

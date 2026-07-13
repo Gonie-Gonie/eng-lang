@@ -523,6 +523,60 @@
   },
   {
     "fixture": "04_system_component.eng",
+    "scope": "storage.type.declaration.englang",
+    "text": "system",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.modifier.state.englang",
+    "text": "state",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.modifier.parameter.englang",
+    "text": "parameter",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.modifier.input.englang",
+    "text": "input",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.modifier.output.englang",
+    "text": "output",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.type.interface-member.englang",
+    "text": "across",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.type.interface-member.englang",
+    "text": "through",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.type.interface-member.englang",
+    "text": "port",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
+    "scope": "storage.modifier.operator.englang",
+    "text": "operator",
+    "fullMatch": true
+  },
+  {
+    "fixture": "04_system_component.eng",
     "scope": "keyword.operator.word.englang",
     "text": "eq"
   },
@@ -3893,13 +3947,13 @@
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "storage.type.declaration.englang",
+    "scope": "storage.type.interface-member.englang",
     "text": "across",
     "fullMatch": true
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "storage.type.declaration.englang",
+    "scope": "storage.type.interface-member.englang",
     "text": "through",
     "fullMatch": true
   },

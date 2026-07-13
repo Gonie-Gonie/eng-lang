@@ -3185,9 +3185,11 @@ function Assert-VscodeExtensionContract {
         "variable_scale", "consistency_tolerance", "meta.workflow.with-block.englang",
         "fixture",
         "variable.parameter.function.englang", "storage.type.function.englang",
-        "storage.type.test.englang", "storage.modifier.englang",
+        "storage.type.test.englang", "storage.type.interface-member.englang", "storage.modifier.englang",
         "variable.other.interpolation.englang", "punctuation.separator.format.englang",
         "constant.numeric.format.englang", "constant.other.unit.format.englang", "entity.name.function.call.englang",
+        "storage.modifier.state.englang", "storage.modifier.input.englang", "storage.modifier.parameter.englang",
+        "storage.modifier.output.englang", "storage.modifier.operator.englang",
         "variable.other.state.englang", "variable.other.input.englang", "variable.other.output.englang",
         "variable.other.parameter.englang", "entity.name.function.solver.englang", "meta.declaration.equation.englang",
         "keyword.control.import.englang", "keyword.control.validation.englang", "keyword.control.workflow.englang",
@@ -3539,19 +3541,46 @@ function Assert-VscodeExtensionContract {
             "storage.type.function.englang",
             "storage.type.test.englang",
             "storage.type.block.englang",
+            "storage.type.interface-member.englang",
+            "storage.modifier.state.englang",
+            "storage.modifier.input.englang",
+            "storage.modifier.parameter.englang",
+            "storage.modifier.output.englang",
+            "storage.modifier.operator.englang",
             "storage.modifier.englang"
         )
         "keyword.state" = @(
+            "storage.modifier.state.englang",
             "storage.modifier.englang",
             "variable.other.state.englang"
         )
         "keyword.input" = @(
+            "storage.modifier.input.englang",
             "storage.modifier.englang",
             "variable.other.input.englang"
         )
         "keyword.output" = @(
+            "storage.modifier.output.englang",
             "storage.modifier.englang",
             "variable.other.output.englang"
+        )
+        "modifier" = @(
+            "storage.modifier.englang",
+            "storage.modifier.state.englang",
+            "storage.modifier.input.englang",
+            "storage.modifier.parameter.englang",
+            "storage.modifier.output.englang",
+            "storage.modifier.operator.englang",
+            "storage.modifier.schema.englang"
+        )
+        "modifier.static" = @(
+            "storage.modifier.englang",
+            "storage.modifier.state.englang",
+            "storage.modifier.input.englang",
+            "storage.modifier.parameter.englang",
+            "storage.modifier.output.englang",
+            "storage.modifier.operator.englang",
+            "storage.modifier.schema.englang"
         )
         "keyword.local" = @(
             "storage.type.block.englang",

@@ -223,19 +223,28 @@
             "storage.type.function.englang",
             "storage.type.test.englang",
             "storage.type.block.englang",
+            "storage.type.interface-member.englang",
+            "storage.modifier.state.englang",
+            "storage.modifier.input.englang",
+            "storage.modifier.parameter.englang",
+            "storage.modifier.output.englang",
+            "storage.modifier.operator.englang",
             "storage.modifier.englang",
             "storage.modifier.schema.englang",
             "keyword.control.workflow.englang"
           ],
           "keyword.state": [
+            "storage.modifier.state.englang",
             "storage.modifier.englang",
             "variable.other.state.englang"
           ],
           "keyword.input": [
+            "storage.modifier.input.englang",
             "storage.modifier.englang",
             "variable.other.input.englang"
           ],
           "keyword.output": [
+            "storage.modifier.output.englang",
             "storage.modifier.englang",
             "variable.other.output.englang"
           ],
@@ -249,10 +258,20 @@
           ],
           "modifier": [
             "storage.modifier.englang",
+            "storage.modifier.state.englang",
+            "storage.modifier.input.englang",
+            "storage.modifier.parameter.englang",
+            "storage.modifier.output.englang",
+            "storage.modifier.operator.englang",
             "storage.modifier.schema.englang"
           ],
           "modifier.static": [
             "storage.modifier.englang",
+            "storage.modifier.state.englang",
+            "storage.modifier.input.englang",
+            "storage.modifier.parameter.englang",
+            "storage.modifier.output.englang",
+            "storage.modifier.operator.englang",
             "storage.modifier.schema.englang"
           ],
           "method": [
@@ -548,17 +567,20 @@
             "entity.name.type.englang"
           ],
           "variable.state": [
+            "storage.modifier.state.englang",
             "storage.modifier.englang",
             "variable.other.definition.englang",
             "variable.other.property.englang",
             "variable.other.state.englang"
           ],
           "property.state": [
+            "storage.modifier.state.englang",
             "storage.modifier.englang",
             "variable.other.property.englang",
             "variable.other.state.englang"
           ],
           "variable.input": [
+            "storage.modifier.input.englang",
             "storage.modifier.englang",
             "variable.other.definition.englang",
             "variable.other.property.englang",
@@ -566,10 +588,12 @@
           ],
           "parameter.input": [
             "variable.parameter.property.englang",
+            "storage.modifier.input.englang",
             "storage.modifier.englang",
             "variable.other.input.englang"
           ],
           "variable.output": [
+            "storage.modifier.output.englang",
             "storage.modifier.englang",
             "variable.other.definition.englang",
             "variable.other.property.englang",

@@ -200,7 +200,7 @@
             "name": "meta.declaration.system-member.englang",
             "match": "^\\s*(state)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.modifier.englang" },
+              "1": { "name": "storage.modifier.state.englang" },
               "2": { "name": "variable.other.state.englang" }
             }
           },
@@ -208,7 +208,7 @@
             "name": "meta.declaration.system-member.englang",
             "match": "^\\s*(input)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.modifier.englang" },
+              "1": { "name": "storage.modifier.input.englang" },
               "2": { "name": "variable.other.input.englang" }
             }
           },
@@ -216,7 +216,7 @@
             "name": "meta.declaration.system-member.englang",
             "match": "^\\s*(parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.modifier.englang" },
+              "1": { "name": "storage.modifier.parameter.englang" },
               "2": { "name": "variable.other.parameter.englang" }
             }
           },
@@ -224,7 +224,7 @@
             "name": "meta.declaration.system-member.englang",
             "match": "^\\s*(output)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.modifier.englang" },
+              "1": { "name": "storage.modifier.output.englang" },
               "2": { "name": "variable.other.output.englang" }
             }
           },
@@ -232,7 +232,7 @@
             "name": "meta.declaration.system-member.englang",
             "match": "^\\s*(operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.modifier.englang" },
+              "1": { "name": "storage.modifier.operator.englang" },
               "2": { "name": "entity.name.function.solver.englang" }
             }
           },
@@ -249,7 +249,7 @@
             "name": "meta.declaration.interface-member.englang",
             "match": "^\\s*(port|across|through)\\s+([A-Za-z_][A-Za-z0-9_]*)",
             "captures": {
-              "1": { "name": "storage.type.declaration.englang" },
+              "1": { "name": "storage.type.interface-member.englang" },
               "2": { "name": "variable.other.property.englang" }
             }
           },

@@ -105,6 +105,22 @@
       "settings": { "foreground": "#B9F27C" }
     },
     {
+      "scope": ["storage.modifier.state.englang"],
+      "settings": { "foreground": "#B9F27C" }
+    },
+    {
+      "scope": ["storage.modifier.input.englang"],
+      "settings": { "foreground": "#9CDCFE" }
+    },
+    {
+      "scope": ["storage.modifier.output.englang", "storage.modifier.parameter.englang"],
+      "settings": { "foreground": "#F4D35E" }
+    },
+    {
+      "scope": ["storage.modifier.operator.englang", "storage.type.interface-member.englang"],
+      "settings": { "foreground": "#80CBC4" }
+    },
+    {
       "scope": ["variable.other.definition.englang", "variable.other.local.englang", "variable.other.property.englang", "variable.parameter.property.englang", "variable.parameter.argument.englang", "variable.parameter.function.englang", "variable.other.parameter.englang", "variable.other.interpolation.englang"],
       "settings": { "foreground": "#D7E0EA" }
     },

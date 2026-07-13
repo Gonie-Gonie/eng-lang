@@ -303,7 +303,7 @@
                                                                  "match":  "^\\s*(state)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
-                                                                                            "name":  "storage.modifier.englang"
+                                                                                            "name":  "storage.modifier.state.englang"
                                                                                         },
                                                                                   "2":  {
                                                                                             "name":  "variable.other.state.englang"
@@ -315,7 +315,7 @@
                                                                  "match":  "^\\s*(input)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
-                                                                                            "name":  "storage.modifier.englang"
+                                                                                            "name":  "storage.modifier.input.englang"
                                                                                         },
                                                                                   "2":  {
                                                                                             "name":  "variable.other.input.englang"
@@ -327,7 +327,7 @@
                                                                  "match":  "^\\s*(parameter)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
-                                                                                            "name":  "storage.modifier.englang"
+                                                                                            "name":  "storage.modifier.parameter.englang"
                                                                                         },
                                                                                   "2":  {
                                                                                             "name":  "variable.other.parameter.englang"
@@ -339,7 +339,7 @@
                                                                  "match":  "^\\s*(output)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
-                                                                                            "name":  "storage.modifier.englang"
+                                                                                            "name":  "storage.modifier.output.englang"
                                                                                         },
                                                                                   "2":  {
                                                                                             "name":  "variable.other.output.englang"
@@ -351,7 +351,7 @@
                                                                  "match":  "^\\s*(operator)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
-                                                                                            "name":  "storage.modifier.englang"
+                                                                                            "name":  "storage.modifier.operator.englang"
                                                                                         },
                                                                                   "2":  {
                                                                                             "name":  "entity.name.function.solver.englang"
@@ -378,7 +378,7 @@
                                                                  "match":  "^\\s*(port|across|through)\\s+([A-Za-z_][A-Za-z0-9_]*)",
                                                                  "captures":  {
                                                                                   "1":  {
-                                                                                            "name":  "storage.type.declaration.englang"
+                                                                                            "name":  "storage.type.interface-member.englang"
                                                                                         },
                                                                                   "2":  {
                                                                                             "name":  "variable.other.property.englang"
