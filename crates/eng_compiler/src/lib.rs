@@ -300,6 +300,7 @@ pub struct InferredDeclaration {
 pub struct CheckReport {
     pub source_path: PathBuf,
     pub source_hash: String,
+    pub source_lines: Vec<String>,
     pub diagnostics: Vec<Diagnostic>,
     pub inferred_declarations: Vec<InferredDeclaration>,
     pub syntax_summary: SyntaxSummary,
@@ -414,6 +415,7 @@ pub fn check_source(path: impl AsRef<Path>, source: &str, options: &CheckOptions
     CheckReport {
         source_path: source_path.to_path_buf(),
         source_hash,
+        source_lines: source.lines().map(str::to_owned).collect(),
         diagnostics: semantic_output.diagnostics,
         inferred_declarations: semantic_output.inferred_declarations,
         syntax_summary: parsed.summary(),
@@ -3847,7 +3849,7 @@ pub fn review_json(report: &CheckReport) -> String {
         json.push_str("    }");
     }
     json.push_str("\n  ],\n");
-    write_component_graph_json(&mut json, &report.semantic_program);
+    write_component_graph_json(&mut json, &report.semantic_program, &report.source_lines);
     json.push_str(",\n");
     json.push_str("  \"class_summary\": [\n");
     for (index, class_info) in report.semantic_program.classes.iter().enumerate() {
@@ -7642,7 +7644,11 @@ fn review_duration_seconds(value: &str) -> Option<f64> {
     }
 }
 
-fn write_component_graph_json(json: &mut String, program: &semantic::SemanticProgram) {
+fn write_component_graph_json(
+    json: &mut String,
+    program: &semantic::SemanticProgram,
+    source_lines: &[String],
+) {
     let port_count = program
         .components
         .iter()
@@ -7708,7 +7714,7 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
         }
         json.push_str("],\n");
         json.push_str(&format!("        \"line\": {},\n", component.line));
-        write_source_span_json(json, "        ", component.line, false);
+        write_source_span_json(json, "        ", component.line, source_lines, false);
         json.push_str("\n      }");
     }
     json.push_str("\n    ],\n");
@@ -7757,7 +7763,7 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
                 json_escape(&port.status)
             ));
             json.push_str(&format!("        \"line\": {},\n", port.line));
-            write_source_span_json(json, "        ", port.line, false);
+            write_source_span_json(json, "        ", port.line, source_lines, false);
             json.push_str("\n      }");
         }
     }
@@ -7819,7 +7825,7 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
             json_escape(&connection.status)
         ));
         json.push_str(&format!("        \"line\": {},\n", connection.line));
-        write_source_span_json(json, "        ", connection.line, false);
+        write_source_span_json(json, "        ", connection.line, source_lines, false);
         json.push_str("\n      }");
     }
     json.push_str("\n    ],\n");
@@ -7857,7 +7863,7 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
             push_json_string_array(json, &connection_set.ports);
             json.push_str("],\n");
             json.push_str(&format!("        \"line\": {},\n", connection_set.line));
-            write_source_span_json(json, "        ", connection_set.line, false);
+            write_source_span_json(json, "        ", connection_set.line, source_lines, false);
             json.push_str("\n      }");
         }
     }
@@ -7903,7 +7909,7 @@ fn write_component_graph_json(json: &mut String, program: &semantic::SemanticPro
         push_optional_json_string(json, "jacobian_policy", node.jacobian_policy.as_deref(), 8);
         push_optional_json_string(json, "profile_policy", node.profile_policy.as_deref(), 8);
         json.push_str(&format!("        \"line\": {},\n", node.line));
-        write_source_span_json(json, "        ", node.line, false);
+        write_source_span_json(json, "        ", node.line, source_lines, false);
         json.push_str("\n      }");
     }
     json.push_str("\n    ]\n");
@@ -8087,13 +8093,31 @@ fn domain_argument_labels(
     (medium_label, frame_label, axis_label)
 }
 
-fn write_source_span_json(json: &mut String, indent: &str, line: usize, trailing_comma: bool) {
+fn write_source_span_json(
+    json: &mut String,
+    indent: &str,
+    line: usize,
+    source_lines: &[String],
+    trailing_comma: bool,
+) {
     json.push_str(&format!(
-        "{}\"source_span\": {{ \"line\": {}, \"column\": 1 }}{}",
+        "{}\"source_span\": {{ \"line\": {}, \"column\": {} }}{}",
         indent,
         line,
+        source_span_column(source_lines, line),
         if trailing_comma { "," } else { "" }
     ));
+}
+
+fn source_span_column(source_lines: &[String], line: usize) -> usize {
+    source_lines
+        .get(line.saturating_sub(1))
+        .and_then(|text| {
+            text.char_indices()
+                .find(|(_, character)| !character.is_whitespace())
+                .map(|(index, _)| index + 1)
+        })
+        .unwrap_or(1)
 }
 
 fn json_escape(value: &str) -> String {
@@ -8784,6 +8808,19 @@ mod tests {
         assert!(review.contains("\"Fluid[Water]\""));
         assert!(review.contains("\"medium_label\": \"Water\""));
         assert!(review.contains("\"source_span\""));
+        let review_value: serde_json::Value = serde_json::from_str(&review).expect("review json");
+        assert_eq!(
+            review_value
+                .pointer("/component_graph/ports/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(5)
+        );
+        assert_eq!(
+            review_value
+                .pointer("/component_graph/behavior_nodes/0/source_span/column")
+                .and_then(serde_json::Value::as_u64),
+            Some(5)
+        );
         assert!(review.contains("\"domain_count\": 1"));
         assert!(review.contains("\"single_domain_preview\""));
         assert!(review.contains("\"not_production_multi_domain\""));
