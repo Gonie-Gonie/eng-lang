@@ -660,6 +660,28 @@ function Assert-MemberPathFallbackOrder {
     Assert-PatternOrderBefore -Patterns @($withPattern.patterns) -BeforeLabel "include:#members" -AfterLabels $dottedFallbacks -Description "with-block member paths"
 }
 
+function Assert-WithBlockExpressionFallbacks {
+    $withPattern = Get-RequiredPatternByName -Patterns @($Grammar.repository.withOptions.patterns) -Name "meta.workflow.with-block.englang" -Description "with-block"
+    $optionMapPattern = Get-RequiredPatternByName -Patterns @($withPattern.patterns) -Name "meta.workflow.option-map.englang" -Description "with-block option map"
+
+    foreach ($include in @("#operators", "#constants", "#types", "#numbers", "#punctuation")) {
+        $withIncludes = @($withPattern.patterns | Where-Object { $null -ne $_.include } | ForEach-Object { [string]$_.include })
+        if ($withIncludes -notcontains $include) {
+            throw "TextMate with-block expression fallback must include $include"
+        }
+        $mapIncludes = @($optionMapPattern.patterns | Where-Object { $null -ne $_.include } | ForEach-Object { [string]$_.include })
+        if ($mapIncludes -notcontains $include) {
+            throw "TextMate with-block option-map expression fallback must include $include"
+        }
+    }
+
+    Assert-PatternOrderBefore -Patterns @($withPattern.patterns) -BeforeLabel "include:#constants" -AfterLabels @(
+        "scope:variable.other.local.englang"
+    ) -Description "with-block constants before local fallback"
+    Assert-PatternOrderBefore -Patterns @($withPattern.patterns) -BeforeLabel "include:#operators" -AfterLabels @(
+        "scope:variable.other.local.englang"
+    ) -Description "with-block operators before local fallback"
+}
 function Assert-WorkflowStatusOptionPattern {
     $withPattern = Get-RequiredPatternByName -Patterns @($GrammarSource.grammar.repository.withOptions.patterns) -Name "meta.workflow.with-block.englang" -Description "source with-block"
     $statusPattern = Get-RequiredPatternByName -Patterns @($withPattern.patterns) -Name "meta.workflow.status-option.englang" -Description "workflow status option"
@@ -1007,6 +1029,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.download-to.englang" -Includ
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern
+Assert-WithBlockExpressionFallbacks
 
 function Resolve-GrammarFixturePath {
     param([Parameter(Mandatory = $true)][string] $Fixture)

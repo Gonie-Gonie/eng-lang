@@ -1746,6 +1746,7 @@
                   { "include": "#constants" },
                   { "include": "#types" },
                   { "include": "#numbers" },
+                  { "include": "#operators" },
                   { "include": "#punctuation" }
                 ]
               },
@@ -1786,16 +1787,17 @@
                 "name": "variable.other.property.englang",
                 "match": "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
               },
-              {
-                "name": "variable.other.local.englang",
-                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
-              },
               { "include": "#functionCalls" },
               { "include": "#units" },
               { "include": "#builtins" },
               { "include": "#constants" },
               { "include": "#types" },
               { "include": "#numbers" },
+              { "include": "#operators" },
+              {
+                "name": "variable.other.local.englang",
+                "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+              },
               { "include": "#punctuation" }
             ]
           }

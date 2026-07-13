@@ -91,6 +91,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 632: Routed native IDE module status helpers through compiler-owned `status_label`/`status_detail` fields and shortened VS Code/native fallback-only `native_preview` labels to `Native` so UI fallback wording does not drift from completion wording.
 - Batch 633: Removed compatibility-only model option aliases from VS Code and LSP model quick-fix candidate tables so repairs keep using canonical `test` and `hidden` option names even if legacy aliases remain highlight-only metadata.
 - Batch 634: Added the missing VS Code local rename action for `response.status` diagnostics so fallback quick fixes now match LSP guidance and rewrite the compatibility alias to `response.response_source`.
+- Batch 635: Fixed VS Code TextMate `with { ... }` fallback ordering so option-block constants/operators keep their expected colors before generic local identifiers, including nested option maps.
 
 ## Documentation Policy
 
