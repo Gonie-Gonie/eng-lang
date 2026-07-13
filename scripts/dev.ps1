@@ -571,11 +571,15 @@ function Invoke-WorkflowsTest {
                     "network/cache fixture",
                     "HTTP fixture",
                     "offline_response_file",
-                    "schema StationMap with two fixture rows"
+                    "schema StationMap with two fixture rows",
+                    'This checked workflow keeps `offline_response` enabled'
                 )) {
                     if ($WorkflowPublicText.Contains($ForbiddenWorkflowWording)) {
                         throw "Workflow 01 public wording should describe pinned offline responses instead of '$ForbiddenWorkflowWording': $WorkflowPublicTextPath"
                     }
+                }
+                if ($WorkflowPublicTextPath -like "*01_weather_api_to_standard_file*README.md" -and -not $WorkflowPublicText.Contains('`args.pinned_response_file` feeds the language-level `offline_response`')) {
+                    throw "Workflow 01 README must distinguish the public pinned_response_file arg from the language-level offline_response option: $WorkflowPublicTextPath"
                 }
             }
         }

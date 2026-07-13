@@ -35,10 +35,12 @@ review.json records json_records table promotion, table transforms, network/cach
 typed args.output controls the fetched payload, standard weather file, and quality summary output paths
 ```
 
-This checked workflow keeps `offline_response` enabled so CI and local smoke
-runs do not depend on a live weather service. The same native `http get` path
-also supports live HTTP(S) execution and cached replay when the pinned response
-option is removed and a reachable URL is supplied.
+`args.pinned_response_file` feeds the language-level `offline_response`
+option so CI and local smoke runs execute deterministically from a checked
+response body. That does not turn the workflow into a separate file-reader
+path: the boundary is still the native `http get args.api_url` request, and
+removing `offline_response = args.pinned_response_file` lets the same request
+use live HTTP(S) execution or cache replay.
 
 Run:
 
