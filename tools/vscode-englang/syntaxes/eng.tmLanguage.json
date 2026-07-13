@@ -2158,26 +2158,18 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.summarize-series.englang",
-                                                                    "begin":  "\\b(summarize)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(by)\\b",
+                                                                    "begin":  "\\b(summarize)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
-                                                                                                },
-                                                                                          "2":  {
-                                                                                                    "name":  "variable.parameter.property.englang"
-                                                                                                },
-                                                                                          "3":  {
-                                                                                                    "name":  "variable.other.property.englang"
-                                                                                                },
-                                                                                          "4":  {
-                                                                                                    "name":  "variable.other.local.englang"
-                                                                                                },
-                                                                                          "5":  {
-                                                                                                    "name":  "keyword.operator.word.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
                                                                     "patterns":  [
+                                                                                     {
+                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "match":  "\\bby\\b"
+                                                                                     },
                                                                                      {
                                                                                          "include":  "#strings"
                                                                                      },
@@ -2201,6 +2193,21 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      }
                                                                                  ]
                                                                 },
@@ -2378,19 +2385,10 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.show-report.englang",
-                                                                    "begin":  "\\b(show)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
+                                                                    "begin":  "\\b(show)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.report.englang"
-                                                                                                },
-                                                                                          "2":  {
-                                                                                                    "name":  "variable.parameter.property.englang"
-                                                                                                },
-                                                                                          "3":  {
-                                                                                                    "name":  "variable.other.property.englang"
-                                                                                                },
-                                                                                          "4":  {
-                                                                                                    "name":  "variable.other.local.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
@@ -2418,6 +2416,21 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#punctuation"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
                                                                                      }
                                                                                  ]
                                                                 },

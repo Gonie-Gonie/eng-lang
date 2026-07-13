@@ -185,14 +185,14 @@ Current workflow phrase scopes:
 | `meta.workflow.run-command.englang` | `run command ...` |
 | `meta.workflow.sample-method.englang` | `sample lhs`, `sample grid`, `sample random`, and related sample methods. |
 | `meta.workflow.select-columns.englang` | `select <table> column <column>` or `select <table> columns <columns>` |
-| `meta.workflow.show-report.englang` | `show <value>` and optional report display suffixes. |
+| `meta.workflow.show-report.englang` | `show <value>` and optional report display suffixes; includes member-aware first-paint fallbacks for dotted report values. |
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |
 | `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |
 | `meta.workflow.status-condition.englang` | `status == passed` and related `on { ... }` status checks; the literal list is generated from `syntax_catalog.workflow_status_literals`. |
 | `meta.workflow.status-option.englang` | `status = planned` and related workflow status option values inside `with { ... }`; the literal list is generated from `syntax_catalog.workflow_status_literals`. |
 | `meta.workflow.summary-field.englang` | `<value> as <unit> with "<format>"` summary CSV fields. |
-| `meta.workflow.summarize-series.englang` | `summarize <series> by [...]` |
+| `meta.workflow.summarize-series.englang` | `summarize <series> by [...]`; includes member-aware first-paint fallbacks for dotted series operands. |
 | `meta.workflow.validation.englang` | `validate ...`, `assert ...`, and `golden ... matches ...` validation lines. |
 | `meta.workflow.write-json.englang` | `write json <target>, <value>` |
 | `meta.workflow.write-standard-text.englang` | `write standard_text <table>` with an output option or `to <target>`. |
