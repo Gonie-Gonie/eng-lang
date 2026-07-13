@@ -147,6 +147,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 688: Tightened LSP semantic highlighting for supported report `summarize <series> by [...]` statements so the source series keeps report/timeseries role coloring and statistics such as `duration_above(5 kW)` color only the statistic function, not the unit argument.
 - Batch 689: Stopped VS Code TextMate report phrase scopes from highlighting unsupported bound report commands such as `arg_summary = summarize ...`, added compiler diagnostic `E-REPORT-BINDING-001`, and guarded grammar tests against those seed-only RHS forms.
 - Batch 690: Replaced the report language reference placeholder example (`show summary`, `plot heat over Time`) with concrete supported `Q_coil` bindings and added a docs-check guard so abstract report examples do not return.
+- Batch 691: Reworded the VS Code editor-metadata README so compiler-owned public member catalogs promise executable API fields, not `seed-only suggestions`, and added a package guard against that wording returning.
 
 ## Documentation Policy
 
