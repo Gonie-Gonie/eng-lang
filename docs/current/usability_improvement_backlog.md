@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 782: Added `dev.bat vscode-status` package freshness reporting so source or release-binary changes that require rebuilding the local VSIX are visible separately from install freshness.
 - Batch 781: Added `dev.bat vscode-status` install freshness reporting so local VS Code users can see whether the built VSIX is newer than the installed EngLang extension before closing editor windows.
 - Batch 780: Added a Native IDE per-token Copy Selector action in the Highlight panel so users can report or compare exact semantic selector mappings without copying the full highlight table.
 - Batch 779: Expanded Native IDE lexical completion fallback coloring for property, method, variable, constant/value, operator, and module completion kinds so options and public fields stay colored before semantic tokens arrive.

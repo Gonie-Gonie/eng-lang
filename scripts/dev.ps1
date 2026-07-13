@@ -3309,7 +3309,8 @@ function Assert-VscodeExtensionContract {
         "dist\local-vscode\tools\englang-vscode-<version>.vsix",
         "Extensions: Install from VSIX...",
         "Close all VS Code windows before reinstalling EngLang",
-        "Install freshness"
+        "Install freshness",
+        "Package freshness"
     )) {
         if (-not $VscodeReadmeSource.Contains($RequiredVscodeInstallDocToken)) {
             throw "VS Code README missing local install token $RequiredVscodeInstallDocToken"
@@ -3328,7 +3329,11 @@ function Assert-VscodeExtensionContract {
         "Get-VscodeExtensionInstallSummary",
         "Get-VscodeExtensionInstallUpdatedTime",
         "Get-VscodeExtensionFreshnessSummary",
+        "Get-LatestVscodePackageInputTime",
+        "Get-VscodePackageFreshnessSummary",
         "Format-VscodeTimestamp",
+        "Package freshness",
+        "rebuild available",
         "Install freshness",
         "update available",
         "Format-ByteSize",
@@ -6723,6 +6728,52 @@ function Get-VscodeExtensionFreshnessSummary {
     return "Install freshness: current - installed EngLang extension is at least as new as the built VSIX."
 }
 
+function Get-LatestVscodePackageInputTime {
+    $InputPaths = @(
+        (Join-Path $RepoRoot "tools\vscode-englang"),
+        (Join-Path $RepoRoot "target\release\eng.exe"),
+        (Join-Path $RepoRoot "target\release\eng-lsp.exe")
+    )
+    $Latest = $null
+
+    foreach ($InputPath in $InputPaths) {
+        if (Test-Path -LiteralPath $InputPath -PathType Leaf) {
+            $Item = Get-Item -LiteralPath $InputPath
+            if ($null -eq $Latest -or $Item.LastWriteTimeUtc -gt $Latest) {
+                $Latest = $Item.LastWriteTimeUtc
+            }
+        } elseif (Test-Path -LiteralPath $InputPath -PathType Container) {
+            foreach ($Item in @(Get-ChildItem -LiteralPath $InputPath -Recurse -File -ErrorAction SilentlyContinue)) {
+                if ($null -eq $Latest -or $Item.LastWriteTimeUtc -gt $Latest) {
+                    $Latest = $Item.LastWriteTimeUtc
+                }
+            }
+        }
+    }
+
+    return $Latest
+}
+
+function Get-VscodePackageFreshnessSummary {
+    param([Parameter(Mandatory = $true)][string] $VsixPath)
+
+    if (-not (Test-Path -LiteralPath $VsixPath -PathType Leaf)) {
+        return "Package freshness: missing - run .\dev.bat vscode-package."
+    }
+    $LatestInput = Get-LatestVscodePackageInputTime
+    if ($null -eq $LatestInput) {
+        return "Package freshness: unknown - VS Code package input timestamps could not be read."
+    }
+
+    $VsixItem = Get-Item -LiteralPath $VsixPath
+    if ($LatestInput -gt $VsixItem.LastWriteTimeUtc.AddSeconds(1)) {
+        $InputUpdated = Format-VscodeTimestamp -Timestamp $LatestInput
+        $VsixUpdated = Format-VscodeTimestamp -Timestamp $VsixItem.LastWriteTimeUtc
+        return "Package freshness: rebuild available - VS Code extension source or release binaries are newer than the built VSIX (inputs $InputUpdated, VSIX $VsixUpdated); run .\dev.bat vscode-package."
+    }
+    return "Package freshness: current - built VSIX is at least as new as VS Code extension source and release binaries."
+}
+
 function Get-LocalVscodeVsixSummary {
     param([Parameter(Mandatory = $true)][string] $Path)
 
@@ -6767,6 +6818,7 @@ function Invoke-VscodeStatus {
         Write-Host "Running VS Code process(es): $($RunningVscode -join ', ')"
     }
 
+    Write-Host (Get-VscodePackageFreshnessSummary -VsixPath $VsixPath)
     Write-Host (Get-VscodeExtensionFreshnessSummary -VsixPath $VsixPath -InstalledExtensions $InstalledExtensions)
 
     if ($InstalledExtensions.Count -gt 0 -and $RunningVscode.Count -gt 0) {
