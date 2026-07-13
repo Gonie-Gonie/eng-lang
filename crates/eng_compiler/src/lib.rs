@@ -13303,6 +13303,9 @@ system Envelope {
                 "    key = case_id\n",
                 "    transaction = commit\n",
                 "}\n",
+                "db_tables = db.tables_written\n",
+                "db_table_count = db.table_count\n",
+                "db_rows = db.row_count\n",
             ),
         )
         .expect("source");
@@ -13317,6 +13320,17 @@ system Envelope {
             .expect("db binding");
         assert_eq!(db_binding.semantic_type.quantity_kind, "DbConnection");
         assert_eq!(db_binding.semantic_type.display_unit, "sqlite");
+        let binding_type = |name: &str| {
+            report
+                .semantic_program
+                .typed_bindings
+                .iter()
+                .find(|binding| binding.name == name)
+                .map(|binding| binding.semantic_type.quantity_kind.as_str())
+        };
+        assert_eq!(binding_type("db_tables"), Some("String"));
+        assert_eq!(binding_type("db_table_count"), Some("Count"));
+        assert_eq!(binding_type("db_rows"), Some("Count"));
         let write = report
             .semantic_program
             .writes

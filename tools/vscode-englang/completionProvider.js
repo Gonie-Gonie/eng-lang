@@ -7,6 +7,7 @@ class EngCompletionProvider {
     this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
     this.httpResponseFields = Array.isArray(options.httpResponseFields) ? options.httpResponseFields : [];
     this.sampleTableFields = Array.isArray(options.sampleTableFields) ? options.sampleTableFields : [];
+    this.dbConnectionFields = Array.isArray(options.dbConnectionFields) ? options.dbConnectionFields : [];
     this.caseTableFields = Array.isArray(options.caseTableFields) ? options.caseTableFields : [];
     this.caseOutputTableFields = Array.isArray(options.caseOutputTableFields) ? options.caseOutputTableFields : [];
     this.caseResultCollectionTableFields = Array.isArray(options.caseResultCollectionTableFields)
@@ -35,12 +36,14 @@ class EngCompletionProvider {
       workflowBindingFields: workflowBindingFieldCompletionsFromDocument(document, {
         httpResponseFields: this.httpResponseFields,
         sampleTableFields: this.sampleTableFields,
+        dbConnectionFields: this.dbConnectionFields,
         caseTableFields: this.caseTableFields,
         caseOutputTableFields: this.caseOutputTableFields,
         caseResultCollectionTableFields: this.caseResultCollectionTableFields
       }),
       httpResponseFields: this.httpResponseFields,
       sampleTableFields: this.sampleTableFields,
+      dbConnectionFields: this.dbConnectionFields,
       caseTableFields: this.caseTableFields,
       caseOutputTableFields: this.caseOutputTableFields,
       caseResultCollectionTableFields: this.caseResultCollectionTableFields
@@ -140,6 +143,11 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
       fields: catalogs?.sampleTableFields,
       detail: "Sample table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*open\s+sqlite\b/gm,
+      fields: catalogs?.dbConnectionFields,
+      detail: "SQLite connection field"
     },
     {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*materialize\s+cases\b/gm,
@@ -320,6 +328,11 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: isSampleTableLikeReceiver
     },
     {
+      fields: catalogs?.dbConnectionFields,
+      detail: "SQLite connection field",
+      matchesReceiver: isDbConnectionLikeReceiver
+    },
+    {
       fields: catalogs?.caseOutputTableFields,
       detail: "Case output table field",
       matchesReceiver: isCaseOutputTableLikeReceiver
@@ -412,6 +425,16 @@ function isSampleTableLikeReceiver(receiver) {
     normalized.includes("sample") ||
     normalized.includes("design") ||
     normalized.includes("lhs")
+  );
+}
+
+function isDbConnectionLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return (
+    normalized === "db" ||
+    normalized.includes("sqlite") ||
+    normalized.includes("database") ||
+    normalized.endsWith("_db")
   );
 }
 

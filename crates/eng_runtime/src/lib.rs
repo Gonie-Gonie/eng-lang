@@ -9017,6 +9017,9 @@ fn evaluate_runtime_expression(
     if let Some(value) = evaluate_sample_table_field_expression(expression, runtime_data) {
         return Some(value);
     }
+    if let Some(value) = evaluate_db_connection_field_expression(expression, runtime_data) {
+        return Some(value);
+    }
     if let Some(value) = evaluate_table_metadata_field_expression(expression, runtime_data) {
         return Some(value);
     }
@@ -9361,6 +9364,54 @@ fn sample_row_preview_summary(sample_table: &RuntimeSampleTable) -> String {
         .join("; ")
 }
 
+fn evaluate_db_connection_field_expression(
+    expression: &str,
+    runtime_data: &RuntimeData,
+) -> Option<RuntimeFormatValue> {
+    let (binding, field) = expression.trim().split_once('.')?;
+    let connection = runtime_data
+        .db_connections
+        .iter()
+        .find(|connection| connection.binding == binding.trim())?;
+    match field.trim() {
+        "tables" | "tables_written" => {
+            Some(RuntimeFormatValue::Text(db_tables_summary(connection)))
+        }
+        "table_names" => Some(RuntimeFormatValue::Text(
+            connection
+                .tables
+                .iter()
+                .map(|table| table.name.as_str())
+                .collect::<Vec<_>>()
+                .join(","),
+        )),
+        "table_count" | "write_count" => Some(RuntimeFormatValue::Number {
+            value: connection.table_count as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "row_count" | "rows_written" => Some(RuntimeFormatValue::Number {
+            value: connection.row_count as f64,
+            quantity_kind: "Count".to_owned(),
+            unit: String::new(),
+        }),
+        "status" => Some(RuntimeFormatValue::Text(connection.status.clone())),
+        "path" | "database" => Some(RuntimeFormatValue::Text(connection.path.clone())),
+        _ => None,
+    }
+}
+
+fn db_tables_summary(connection: &runtime_data::RuntimeDbConnection) -> String {
+    if connection.tables.is_empty() {
+        return "none".to_owned();
+    }
+    connection
+        .tables
+        .iter()
+        .map(|table| format!("{}({} rows)", table.name, table.row_count))
+        .collect::<Vec<_>>()
+        .join(", ")
+}
 fn evaluate_table_metadata_field_expression(
     expression: &str,
     runtime_data: &RuntimeData,
@@ -9578,7 +9629,9 @@ fn evaluate_network_response_field_expression(
             fs::read_to_string(path).ok().map(RuntimeFormatValue::Text)
         }
         "method" => Some(RuntimeFormatValue::Text(request.method.clone())),
-        "response_source" | "status" => Some(RuntimeFormatValue::Text(request.response_source.clone())),
+        "response_source" | "status" => {
+            Some(RuntimeFormatValue::Text(request.response_source.clone()))
+        }
         "status_class" => Some(RuntimeFormatValue::Text(request.status_class.clone())),
         "status_code" => request
             .status_code
@@ -21004,6 +21057,11 @@ mod tests {
                 "with {\n",
                 "    mode = append\n",
                 "}\n",
+                "db_tables = db.tables_written\n",
+                "db_table_count = db.table_count\n",
+                "db_rows = db.row_count\n",
+                "db_status = db.status\n",
+                "print \"DB tables = {db_tables} count={db_table_count} rows={db_rows} status={db_status}\"\n",
             ),
         )
         .expect("source");
@@ -21053,6 +21111,9 @@ mod tests {
                 .and_then(Value::as_u64),
             Some(2)
         );
+        assert!(output
+            .stdout
+            .contains("DB tables = simulation_results(2 rows) count=1 rows=2 status=loaded"));
 
         let output_manifest: Value =
             serde_json::from_str(&output.output_manifest_json).expect("output manifest json");

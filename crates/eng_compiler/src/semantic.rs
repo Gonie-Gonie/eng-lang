@@ -2261,6 +2261,7 @@ fn infer_scoped_binding_semantic_type(
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
         .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
+        .or_else(|| db_connection_field_semantic_type(expression, typed_bindings))
         .or_else(|| table_metadata_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
         .or_else(|| infer_quantity(name, expression))
@@ -5833,6 +5834,9 @@ fn resolve_format_expression_type(
     if let Some(semantic_type) = sample_table_field_semantic_type(expression, typed_bindings) {
         return Some(semantic_type);
     }
+    if let Some(semantic_type) = db_connection_field_semantic_type(expression, typed_bindings) {
+        return Some(semantic_type);
+    }
     if let Some(semantic_type) = table_metadata_field_semantic_type(expression, typed_bindings) {
         return Some(semantic_type);
     }
@@ -5886,6 +5890,27 @@ fn sample_table_field_semantic_type(
     }
 }
 
+fn db_connection_field_semantic_type(
+    expression: &str,
+    typed_bindings: &[TypedBinding],
+) -> Option<SemanticType> {
+    let (binding_name, field) = expression.trim().split_once('.')?;
+    let has_db_connection = typed_bindings.iter().any(|binding| {
+        binding.name == binding_name.trim() && binding.semantic_type.quantity_kind == "DbConnection"
+    });
+    if !has_db_connection {
+        return None;
+    }
+    match field.trim() {
+        "table_count" | "write_count" | "row_count" | "rows_written" => {
+            semantic_type("Count", "count")
+        }
+        "tables" | "tables_written" | "table_names" | "status" | "path" | "database" => {
+            semantic_type("String", "")
+        }
+        _ => None,
+    }
+}
 fn table_metadata_field_semantic_type(
     expression: &str,
     typed_bindings: &[TypedBinding],
@@ -7191,6 +7216,7 @@ fn class_field_expression_semantic_type(
         .or_else(|| statistic_expression_semantic_type(expression, typed_bindings))
         .or_else(|| function_call_semantic_type(expression, typed_bindings, functions))
         .or_else(|| sample_table_field_semantic_type(expression, typed_bindings))
+        .or_else(|| db_connection_field_semantic_type(expression, typed_bindings))
         .or_else(|| table_metadata_field_semantic_type(expression, typed_bindings))
         .or_else(|| binding_alias_semantic_type(expression, typed_bindings))
         .or_else(|| infer_quantity(field_name, expression))
@@ -11971,6 +11997,7 @@ fn analyze_fast_binding(binding: &FastBinding, accum: &mut SemanticAccum<'_>) {
         .or(function_call_type)
         .or_else(|| net_response_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| sample_table_field_semantic_type(&binding.expression, &available_bindings))
+        .or_else(|| db_connection_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| table_metadata_field_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| binding_alias_semantic_type(&binding.expression, &available_bindings))
         .or_else(|| infer_quantity(&binding.name, &binding.expression));

@@ -53,6 +53,7 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.units) ||
     !Array.isArray(syntaxCatalog.http_response_fields) ||
     !Array.isArray(syntaxCatalog.sample_table_fields) ||
+    !Array.isArray(syntaxCatalog.db_connection_fields) ||
     !Array.isArray(syntaxCatalog.case_table_fields) ||
     !Array.isArray(syntaxCatalog.case_output_table_fields) ||
     !Array.isArray(syntaxCatalog.case_result_collection_table_fields)

@@ -887,6 +887,18 @@ const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("url_with_query", "resolved request URL with query string"),
 ];
 
+const DB_CONNECTION_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("tables_written", "written SQLite tables with row counts"),
+    ("tables", "alias for written SQLite tables with row counts"),
+    ("table_names", "written SQLite table names"),
+    ("table_count", "written SQLite table count"),
+    ("write_count", "alias for written SQLite table count"),
+    ("row_count", "total written SQLite row count"),
+    ("rows_written", "alias for total written SQLite row count"),
+    ("status", "SQLite connection summary status"),
+    ("path", "SQLite database path"),
+    ("database", "alias for SQLite database path"),
+];
 const SAMPLE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("sample_count", "generated sample row count"),
     ("method", "sample generation method"),
@@ -1791,6 +1803,13 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "detail": detail,
             }))
             .collect::<Vec<_>>(),
+        "db_connection_fields": DB_CONNECTION_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
         "case_table_fields": CASE_TABLE_FIELD_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -2170,6 +2189,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "Table[CaseResultCollection]" => builder.push_member_fields(
                 &binding.name,
                 CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS,
+                &["workflowStep"],
+            ),
+            "DbConnection" => builder.push_member_fields(
+                &binding.name,
+                DB_CONNECTION_FIELD_COMPLETIONS,
                 &["workflowStep"],
             ),
             _ => {}
@@ -6496,6 +6520,17 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "DbConnection" {
+            for (field, detail) in DB_CONNECTION_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
         if binding.semantic_type.quantity_kind == "Table[Case]" {
             for (field, detail) in CASE_TABLE_FIELD_COMPLETIONS {
                 push_completion(
@@ -6853,6 +6888,23 @@ pub fn completion_items_at(
             let mut seen = BTreeMap::new();
             let mut items = Vec::new();
             for (field, detail) in SAMPLE_TABLE_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            return items;
+        }
+        if report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                binding.name == receiver && binding.semantic_type.quantity_kind == "DbConnection"
+            })
+        {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for (field, detail) in DB_CONNECTION_FIELD_COMPLETIONS {
                 if prefix.is_empty() || field.starts_with(&prefix) {
                     push_completion(&mut items, &mut seen, field, "property", detail);
                 }
@@ -11745,6 +11797,46 @@ weather = promote json records payload.records as WeatherApiRecord
         }));
     }
 
+    #[test]
+    fn snapshot_exposes_db_connection_member_fields() {
+        let source = "db = open sqlite file(\"outputs/results.sqlite\")\ndb_tables = db.tables_written\ndb_count = db.table_count\n";
+        let snapshot = snapshot_for_source(Path::new("db_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "db.tables_written"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("db_tables ="))
+            .expect("db_tables line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("db_members.eng"),
+            source,
+            line,
+            "db_tables = db.".len(),
+        );
+        let tables_completion = member_completions
+            .iter()
+            .find(|completion| completion.label == "tables_written")
+            .expect("DB connection member completion should include tables_written");
+        assert_eq!(
+            tables_completion.detail,
+            "written SQLite tables with row counts"
+        );
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "table_count"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "row_count"));
+        assert!(snapshot.semantic_tokens.tokens.iter().any(|token| {
+            token.token_type == "property"
+                && source.lines().nth(token.line).is_some_and(|line| {
+                    &line[token.start..token.start + token.length] == "tables_written"
+                })
+        }));
+    }
     #[test]
     fn snapshot_exposes_case_table_member_fields() {
         let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\ncase_results = collect results case_inputs\n\npending = cases.pending_count\nexpected = case_inputs.expected_count\nrendered = case_inputs.rendered_count\ncollected = case_results.collected_count\n";

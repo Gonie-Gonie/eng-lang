@@ -74,6 +74,7 @@ pub struct RuntimeData {
     pub timeseries_quality: Vec<RuntimeTimeSeriesQuality>,
     pub time_series: Vec<RuntimeTimeSeries>,
     pub structured_reads: Vec<RuntimeStructuredRead>,
+    pub db_connections: Vec<RuntimeDbConnection>,
     pub numeric_values: Vec<RuntimeNumericValue>,
     pub statistics: Vec<RuntimeStatistics>,
     pub integrations: Vec<RuntimeIntegration>,
@@ -89,6 +90,23 @@ pub struct RuntimeData {
     pub quality_results: Vec<RuntimeQualityResult>,
     pub time_alignments: Vec<RuntimeTimeAlignment>,
     pub plot_options: PlotOptions,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RuntimeDbConnection {
+    pub binding: String,
+    pub path: String,
+    pub table_count: usize,
+    pub row_count: usize,
+    pub tables: Vec<RuntimeDbTableSummary>,
+    pub status: String,
+    pub line: usize,
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct RuntimeDbTableSummary {
+    pub name: String,
+    pub row_count: usize,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -3131,6 +3149,7 @@ pub(crate) fn materialize_runtime_data_with_result_dir(
             &data.component_solutions,
         ));
     data.structured_reads = materialize_structured_reads(report, result_dir, &data.tables);
+    data.db_connections = materialize_db_connections(report, result_dir);
     data.time_alignments = materialize_time_alignments(report, &data.time_series);
     data.statistics = materialize_statistics(report, &data.time_series);
     data.integrations = materialize_integrations(report, &data.time_series);
@@ -3275,6 +3294,92 @@ fn runtime_db_connection_path_text(report: &CheckReport, connection: &str) -> Op
     crate::evaluate_runtime_path_expression(path_expression, report)
 }
 
+fn materialize_db_connections(
+    report: &CheckReport,
+    result_dir: Option<&Path>,
+) -> Vec<RuntimeDbConnection> {
+    report
+        .inferred_declarations
+        .iter()
+        .filter_map(|declaration| {
+            let path_expression = declaration
+                .expression
+                .trim()
+                .strip_prefix("open sqlite ")?
+                .trim();
+            let path = crate::evaluate_runtime_path_expression(path_expression, report)?;
+            let db_path = runtime_db_read_path(report, result_dir, &declaration.name)?;
+            if !db_path.exists() {
+                return Some(RuntimeDbConnection {
+                    binding: declaration.name.clone(),
+                    path,
+                    table_count: 0,
+                    row_count: 0,
+                    tables: Vec::new(),
+                    status: "missing".to_owned(),
+                    line: declaration.line,
+                });
+            }
+            let Some(tables) = sqlite_user_table_summaries(&db_path) else {
+                return Some(RuntimeDbConnection {
+                    binding: declaration.name.clone(),
+                    path,
+                    table_count: 0,
+                    row_count: 0,
+                    tables: Vec::new(),
+                    status: "unreadable".to_owned(),
+                    line: declaration.line,
+                });
+            };
+            let row_count = tables.iter().map(|table| table.row_count).sum();
+            Some(RuntimeDbConnection {
+                binding: declaration.name.clone(),
+                path,
+                table_count: tables.len(),
+                row_count,
+                tables,
+                status: "loaded".to_owned(),
+                line: declaration.line,
+            })
+        })
+        .collect()
+}
+
+fn sqlite_user_table_summaries(db_path: &Path) -> Option<Vec<RuntimeDbTableSummary>> {
+    let connection = crate::sqlite_open_existing(db_path).ok()?;
+    let result = connection
+        .query("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name")
+        .ok()?;
+    let mut tables = Vec::new();
+    for row in result.rows {
+        let Some(GraphiteSqlValue::Text(name)) = row.first() else {
+            continue;
+        };
+        if name.starts_with("_eng_") {
+            continue;
+        }
+        tables.push(RuntimeDbTableSummary {
+            name: name.clone(),
+            row_count: sqlite_table_row_count(&connection, name).unwrap_or(0),
+        });
+    }
+    Some(tables)
+}
+
+fn sqlite_table_row_count(connection: &graphitesql::Connection, table_name: &str) -> Option<usize> {
+    let sql = format!(
+        "SELECT COUNT(*) FROM {}",
+        crate::sqlite_quote_identifier(table_name)
+    );
+    let result = connection.query(&sql).ok()?;
+    let value = result.rows.first()?.first()?;
+    match value {
+        GraphiteSqlValue::Integer(value) if *value >= 0 => Some(*value as usize),
+        GraphiteSqlValue::Real(value) if *value >= 0.0 => Some(*value as usize),
+        GraphiteSqlValue::Text(value) => value.parse::<usize>().ok(),
+        _ => None,
+    }
+}
 fn sqlite_value_to_cell(value: Option<&GraphiteSqlValue>) -> String {
     match value {
         Some(GraphiteSqlValue::Null) | None => String::new(),

@@ -207,6 +207,48 @@
                                              "random",
                                              "uniform"
                                          ],
+                           "db_connection_fields":  [
+                                                        {
+                                                            "detail":  "written SQLite tables with row counts",
+                                                            "label":  "tables_written"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for written SQLite tables with row counts",
+                                                            "label":  "tables"
+                                                        },
+                                                        {
+                                                            "detail":  "written SQLite table names",
+                                                            "label":  "table_names"
+                                                        },
+                                                        {
+                                                            "detail":  "written SQLite table count",
+                                                            "label":  "table_count"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for written SQLite table count",
+                                                            "label":  "write_count"
+                                                        },
+                                                        {
+                                                            "detail":  "total written SQLite row count",
+                                                            "label":  "row_count"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for total written SQLite row count",
+                                                            "label":  "rows_written"
+                                                        },
+                                                        {
+                                                            "detail":  "SQLite connection summary status",
+                                                            "label":  "status"
+                                                        },
+                                                        {
+                                                            "detail":  "SQLite database path",
+                                                            "label":  "path"
+                                                        },
+                                                        {
+                                                            "detail":  "alias for SQLite database path",
+                                                            "label":  "database"
+                                                        }
+                                                    ],
                            "http_response_fields":  [
                                                         {
                                                             "detail":  "HTTP response body text from live, cached, or pinned response",

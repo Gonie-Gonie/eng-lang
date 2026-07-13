@@ -105,7 +105,10 @@ with {
     transaction = commit
 }
 
-db_tables_written = "simulation_results,predictions"
+db_tables_written = db.tables_written
+db_table_count = db.table_count
+db_rows_written = db.row_count
+db_status = db.status
 persisted_predictions = read sqlite db.table("predictions") as PersistedPredictionResult
 
 write text join(args.output, "sampling_summary.txt"), "training={training_sample_method} seed={training_sample_seed} count={training_sample_count} parameters={training_sample_parameters} preview={training_sample_preview} prediction={prediction_sample_method} prediction_seed={prediction_sample_seed} prediction_count={prediction_sample_count} prediction_parameters={prediction_sample_parameters} prediction_preview={prediction_sample_preview}"
@@ -124,6 +127,7 @@ print "Case inputs = {case_inputs.rows} expected={case_input_expected_count} ren
 print "Case result collection = {case_result_collection.rows} collected={case_result_collected_count} missing={case_result_missing_count} blocked={case_result_blocked_count} status={case_result_collection_status}"
 print "Predictions = {predictions.rows}"
 print "Persisted predictions readback = {persisted_predictions.rows}"
+print "DB summary = {db_tables_written} tables={db_table_count} rows={db_rows_written} status={db_status}"
 log info "surrogate workflow uses native sampling/derive/template/model/predict/db records"
 
 export summary to csv join(args.output, "workflow_summary.csv") {
@@ -170,6 +174,9 @@ report {
     show model_card_summary
     show model_metrics
     show db_tables_written
+    show db_table_count
+    show db_rows_written
+    show db_status
     show persisted_predictions.rows
     show summary_case_id
     show annual_electricity
