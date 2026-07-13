@@ -310,8 +310,10 @@ source-visible stdlib module imports plus bundled stdlib namespace tokens. The
 native IDE lexical fallback consumes `syntax_catalog.workflow_status_literals` without
 a separate status-literal list, so `status =`, `status ==`, and `status !=`
 literals keep workflow-step coloring before semantic tokens arrive. The native IDE
-lexical fallback also consumes `syntax_catalog.units` without a separate unit list,
-so numeric/unit coloring uses the compiler-owned unit catalog before semantic tokens arrive.
+lexical fallback also consumes `syntax_catalog.units` plus generated
+`syntax_catalog.legacy_unit_aliases` without a separate JavaScript unit list, so
+numeric/unit coloring uses the compiler-owned unit catalog and editor-only
+compatibility unit aliases before semantic tokens arrive.
 Native IDE keyword coloring uses `syntax_catalog.keywords`,
 `syntax_catalog.keyword_groups`, and workflow builtin catalogs directly. Native
 IDE constant coloring uses `syntax_catalog.constants` directly, so status,

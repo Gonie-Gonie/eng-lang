@@ -3330,6 +3330,7 @@ function Assert-VscodeExtensionContract {
         "syntax_catalog.constants",
         "syntax_catalog.operator_words",
         "syntax_catalog.units",
+        "syntax_catalog.legacy_unit_aliases",
         "compiler-owned unit catalog",
         "native IDE lexical fallback consumes",
         "status ==",
@@ -3917,7 +3918,7 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains('require("./editorMetadata")') -or -not $ExtensionSource.Contains("loadEditorMetadata(__dirname)")) {
         throw "VS Code extension must load editor metadata through editorMetadata.js"
     }
-    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
+    if (-not $EditorMetadataLoaderSource.Contains("englang-editor-metadata.json") -or -not $EditorMetadataLoaderSource.Contains("semantic_token_legend") -or -not $EditorMetadataLoaderSource.Contains("completion_items") -or -not $EditorMetadataLoaderSource.Contains("completion_seed") -or -not $EditorMetadataLoaderSource.Contains("syntax_catalog") -or -not $EditorMetadataLoaderSource.Contains("constants") -or -not $EditorMetadataLoaderSource.Contains("workflow_status_literals") -or -not $EditorMetadataLoaderSource.Contains("operator_words") -or -not $EditorMetadataLoaderSource.Contains("legacy_unit_aliases") -or -not $EditorMetadataLoaderSource.Contains("keyword_groups") -or -not $EditorMetadataLoaderSource.Contains("hyphenated_workflow_builtins") -or -not $EditorMetadataLoaderSource.Contains("public_types") -or -not $EditorMetadataLoaderSource.Contains("quantities") -or -not $EditorMetadataLoaderSource.Contains("units") -or -not $EditorMetadataLoaderSource.Contains("http_response_fields") -or -not $EditorMetadataLoaderSource.Contains("sample_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_output_table_fields") -or -not $EditorMetadataLoaderSource.Contains("case_result_collection_table_fields")) {
         throw "VS Code editor metadata loader must read generated semantic legend, syntax catalog, workflow status literal, workflow builtin, hyphenated workflow builtin, public type, quantity, unit, HTTP response field, sample table field, case table field, case result collection field, and completion item metadata"
     }
     if ($EditorMetadataLoaderSource.Contains("metadata.completion_items ?? metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("const completionItems = metadata.completion_items") -or -not $EditorMetadataLoaderSource.Contains("const legacyCompletionItems = metadata.completion_seed") -or -not $EditorMetadataLoaderSource.Contains("completion_seed must remain an exact legacy alias of completion_items")) {
@@ -5000,7 +5001,11 @@ function Invoke-IdeCheck {
         "normalized.operatorWords",
         "operatorWords: new Set(normalized.operatorWords)",
         "normalized.units",
-        "const unitLabels = uniqueStrings(normalized.units)",
+        "legacyUnitAliases",
+        "legacy_unit_aliases",
+        "normalized.legacyUnitAliases",
+        "const unitLabels = uniqueStrings([",
+        "...normalized.legacyUnitAliases",
         "hyphenatedWorkflowBuiltins",
         "hyphenated_workflow_builtins",
         "lexicalUnitPattern",
@@ -5291,7 +5296,7 @@ function Invoke-IdeCheck {
         throw "Native IDE operator fallback must use syntax_catalog.operator_words instead of a hardcoded JS list"
     }
     if ($IdeUiSource.Contains("FALLBACK_LEXICAL_UNITS")) {
-        throw "Native IDE unit fallback must use syntax_catalog.units instead of a hardcoded JS list"
+        throw "Native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a hardcoded JS list"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
     foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-riskHigh", "semantic-token-table", ".semantic-token-table th:last-child", "token-chip", "token-filter-chip", "token-range-button", "cursor-insight", "variable-source-line")) {

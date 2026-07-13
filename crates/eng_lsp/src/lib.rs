@@ -490,6 +490,34 @@ const EDITOR_OPERATOR_WORD_KEYWORDS: &[&str] = &[
     "to", "within", "matches",
 ];
 
+const EDITOR_LEGACY_UNIT_ALIASES: &[&str] = &[
+    "B",
+    "byte",
+    "bytes",
+    "KB",
+    "kilobyte",
+    "kilobytes",
+    "MB",
+    "megabyte",
+    "megabytes",
+    "GB",
+    "gigabyte",
+    "gigabytes",
+    "KiB",
+    "kibibyte",
+    "kibibytes",
+    "MiB",
+    "mebibyte",
+    "mebibytes",
+    "GiB",
+    "gibibyte",
+    "gibibytes",
+    "m2",
+    "m3",
+    "kJ",
+    "%",
+];
+
 const EDITOR_IMPORT_KEYWORDS: &[&str] = &["use", "import", "from", "as"];
 const EDITOR_DEPRECATED_KEYWORDS: &[&str] = &["script", "struct"];
 const EDITOR_DECLARATION_KEYWORDS: &[&str] = &["schema", "class", "system", "domain", "component"];
@@ -1715,6 +1743,7 @@ pub fn editor_syntax_catalog_json() -> Value {
         "constants": constants,
         "workflow_status_literals": WORKFLOW_STATUS_LITERAL_KEYWORDS,
         "operator_words": EDITOR_OPERATOR_WORD_KEYWORDS,
+        "legacy_unit_aliases": EDITOR_LEGACY_UNIT_ALIASES,
         "keyword_groups": {
             "import": EDITOR_IMPORT_KEYWORDS,
             "deprecated": EDITOR_DEPRECATED_KEYWORDS,
@@ -8763,6 +8792,12 @@ mod tests {
                 .as_array()
                 .is_some_and(|units| units.iter().any(|unit| unit["label"] == "kW")),
             "syntax catalog should expose compiler unit labels"
+        );
+        assert!(
+            syntax_catalog["legacy_unit_aliases"]
+                .as_array()
+                .is_some_and(|units| units.iter().any(|unit| unit.as_str() == Some("%"))),
+            "syntax catalog should expose editor legacy unit aliases"
         );
 
         let completions = metadata["completion_items"]

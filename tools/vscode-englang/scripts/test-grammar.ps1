@@ -781,6 +781,9 @@ $PublicTypes = @($PublicTypeLabels | ForEach-Object {
 $CompilerUnitSymbols = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Where-Object {
     $_ -cmatch '^[\x20-\x7E]+$'
 } | Select-Object -Unique)
+$LegacyUnitAliases = @($SyntaxCatalog.legacy_unit_aliases | ForEach-Object { [string]$_ } | Where-Object {
+    $_ -cmatch '^[\x20-\x7E]+$'
+} | Select-Object -Unique)
 $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
 
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"
@@ -797,6 +800,7 @@ foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
 }
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $PublicTypes -Description "LSP public type"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $LegacyUnitAliases -Description "legacy unit alias"
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-UnitsPrecedeBuiltinsInIncludeGroups -Node $GrammarSource.grammar
 Assert-WorkflowOptionsAreScopedToWithBlocks
@@ -993,6 +997,8 @@ Assert-ScopeMatchesLabels -Scope "meta.type.array-suffix.englang" -Labels @("Boo
 Assert-ScopeMatchesLabels -Scope "support.type.englang" -Labels $CompilerQuantityKinds -Description "compiler quantity"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
 Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $CompilerUnitSymbols -Description "compiler unit"
+Assert-ScopeMatchesLabels -Scope "constant.other.unit.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
+Assert-ScopeMatchesLabels -Scope "constant.other.unit.format.englang" -Labels $LegacyUnitAliases -Description "legacy unit alias"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min(Q_series)" -Description "function-call"
 Assert-ScopeDoesNotMatchLabelInFixture -Scope "constant.other.unit.englang" -Label "min" -FixtureText "min (Q_series)" -Description "function-call"
 Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $WorkflowOptions -Description "LSP workflow option" -Suffix " ="

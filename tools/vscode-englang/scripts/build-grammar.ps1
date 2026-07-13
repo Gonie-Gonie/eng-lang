@@ -114,6 +114,7 @@ $OperatorWordItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "op
 $PublicTypeItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "public_types"
 $QuantityItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "quantities"
 $UnitItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "units"
+$LegacyUnitAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_unit_aliases"
 Assert-CatalogItemsHaveProperty -Items $WorkflowOptionItems -CatalogName "workflow_options" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $PublicTypeItems -CatalogName "public_types" -PropertyName "base"
 Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" -PropertyName "label"
@@ -124,6 +125,7 @@ $WorkflowOptions = @($WorkflowOptionItems | ForEach-Object { [string]$_.label })
 $LanguageConstants = @($LanguageConstantItems | ForEach-Object { [string]$_ })
 $WorkflowStatusLiterals = @($WorkflowStatusLiteralItems | ForEach-Object { [string]$_ })
 $OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
+$LegacyUnitAliases = @($LegacyUnitAliasItems | ForEach-Object { [string]$_ })
 # Keep legacy workflow helper spellings colored for existing files without
 # suggesting them through the generated completion catalog.
 $GrammarOnlyWorkflowBuiltinAliases = @(
@@ -178,38 +180,12 @@ $GrammarOnlyTypeAliases = @(
     "Volume",
     "Mass"
 )
-$GrammarOnlyUnitAliases = @(
-    "B",
-    "byte",
-    "bytes",
-    "KB",
-    "kilobyte",
-    "kilobytes",
-    "MB",
-    "megabyte",
-    "megabytes",
-    "GB",
-    "gigabyte",
-    "gigabytes",
-    "KiB",
-    "kibibyte",
-    "kibibytes",
-    "MiB",
-    "mebibyte",
-    "mebibytes",
-    "GiB",
-    "gibibyte",
-    "gibibytes",
-    "m2",
-    "m3",
-    "kJ",
-    "%"
-)
+
 $PublicTypeBases = @($PublicTypeItems | ForEach-Object { [string]$_.base }) + $GrammarOnlyTypeAliases
 $QuantityLabels = @($QuantityItems | ForEach-Object { [string]$_.label })
 $AsciiUnits = @($UnitItems | ForEach-Object { [string]$_.label } | Where-Object {
     $_ -cmatch '^[\x20-\x7E]+$'
-}) + $GrammarOnlyUnitAliases
+}) + $LegacyUnitAliases
 $TemplateValues = @{
     "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants

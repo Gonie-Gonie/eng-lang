@@ -121,6 +121,7 @@ function emptySyntaxCatalog() {
     publicTypes: [],
     quantities: [],
     units: [],
+    legacyUnitAliases: [],
     httpResponseFields: [],
     sampleTableFields: [],
     caseTableFields: [],
@@ -145,6 +146,7 @@ function normalizeSyntaxCatalog(catalog) {
     publicTypes: catalogPublicTypeLabels(source.publicTypes ?? source.public_types),
     quantities: catalogItemLabels(source.quantities),
     units: catalogItemLabels(source.units),
+    legacyUnitAliases: stringArray(source.legacyUnitAliases ?? source.legacy_unit_aliases),
     httpResponseFields: catalogFieldItems(source.httpResponseFields ?? source.http_response_fields),
     sampleTableFields: catalogFieldItems(source.sampleTableFields ?? source.sample_table_fields),
     caseTableFields: catalogFieldItems(source.caseTableFields ?? source.case_table_fields),
@@ -165,7 +167,10 @@ function buildLexicalCatalog(catalog) {
     ...normalized.keywords,
     ...workflowBuiltinSet
   ]);
-  const unitLabels = uniqueStrings(normalized.units);
+  const unitLabels = uniqueStrings([
+    ...normalized.units,
+    ...normalized.legacyUnitAliases
+  ]);
   return {
     keywords: keywordSet,
     keywordGroups: keywordGroupSets(normalized.keywordGroups),

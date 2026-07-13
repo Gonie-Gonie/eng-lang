@@ -3835,7 +3835,9 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "operatorWords: new Set(normalized.operatorWords)",
         "constants: new Set(normalized.constants)",
         "units: catalogItemLabels(source.units)",
-        "const unitLabels = uniqueStrings(normalized.units)",
+        "legacyUnitAliases: stringArray(source.legacyUnitAliases ?? source.legacy_unit_aliases)",
+        "const unitLabels = uniqueStrings([",
+        "...normalized.legacyUnitAliases",
         "lexical.workflowStatusLiterals?.has(word)",
         "function isWorkflowStatusLiteralContext(line, index)",
         "function lexicalKeywordGroupClass(word, lexical)",
@@ -3876,7 +3878,7 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
     }
     if app_js.contains("FALLBACK_LEXICAL_UNITS") {
         return Err(
-            "native IDE unit fallback must use syntax_catalog.units instead of a JS fallback list"
+            "native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a JS fallback list"
                 .to_owned(),
         );
     }

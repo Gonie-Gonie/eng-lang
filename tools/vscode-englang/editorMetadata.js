@@ -40,6 +40,7 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.constants) ||
     !Array.isArray(syntaxCatalog.workflow_status_literals) ||
     !Array.isArray(syntaxCatalog.operator_words) ||
+    !Array.isArray(syntaxCatalog.legacy_unit_aliases) ||
     typeof keywordGroups !== "object" ||
     requiredKeywordGroups.some((group) => !Array.isArray(keywordGroups[group])) ||
     !Array.isArray(syntaxCatalog.workflow_builtins) ||
