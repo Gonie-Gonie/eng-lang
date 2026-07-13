@@ -1706,7 +1706,7 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("\"largest_residual_source_line\": 9")
                 || !output.result_json.contains(
-                    "\"largest_residual_source_reason\": \"component-local equation seed\"",
+                    "\"largest_residual_source_reason\": \"component-local equation source\"",
                 )
                 || !output.report_spec_json.contains("\"source_expression\"")
                 || !output.report_spec_json.contains("\"source_line\":")

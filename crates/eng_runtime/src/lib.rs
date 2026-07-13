@@ -13430,18 +13430,42 @@ fn push_solver_plan_json(
         json_escape(ode_reason)
     ));
     json.push_str(&format!("{indent}  }},\n"));
-    json.push_str(&format!("{indent}  \"jacobian_seed\": [\n"));
-    for (seed_index, seed) in plan.jacobian_seed.iter().enumerate() {
-        if seed_index > 0 {
+    push_solver_plan_jacobian_entries_json(
+        json,
+        "jacobian_sparsity",
+        &plan.jacobian_seed,
+        indent,
+        true,
+    );
+    push_solver_plan_jacobian_entries_json(
+        json,
+        "jacobian_seed",
+        &plan.jacobian_seed,
+        indent,
+        false,
+    );
+    json.push_str(&format!("{indent}}}"));
+}
+
+fn push_solver_plan_jacobian_entries_json(
+    json: &mut String,
+    field_name: &str,
+    entries: &[eng_compiler::JacobianSeedInfo],
+    indent: &str,
+    trailing_comma: bool,
+) {
+    json.push_str(&format!("{indent}  \"{field_name}\": [\n"));
+    for (entry_index, entry) in entries.iter().enumerate() {
+        if entry_index > 0 {
             json.push_str(",\n");
         }
         json.push_str(&format!("{indent}    {{\n"));
         json.push_str(&format!(
             "{indent}      \"residual\": \"{}\",\n",
-            json_escape(&seed.residual)
+            json_escape(&entry.residual)
         ));
         json.push_str(&format!("{indent}      \"with_respect_to\": ["));
-        for (variable_index, variable) in seed.with_respect_to.iter().enumerate() {
+        for (variable_index, variable) in entry.with_respect_to.iter().enumerate() {
             if variable_index > 0 {
                 json.push_str(", ");
             }
@@ -13449,7 +13473,7 @@ fn push_solver_plan_json(
         }
         json.push_str("],\n");
         json.push_str(&format!("{indent}      \"derivative_states\": ["));
-        for (state_index, state) in seed.derivative_states.iter().enumerate() {
+        for (state_index, state) in entry.derivative_states.iter().enumerate() {
             if state_index > 0 {
                 json.push_str(", ");
             }
@@ -13458,12 +13482,15 @@ fn push_solver_plan_json(
         json.push_str("],\n");
         json.push_str(&format!(
             "{indent}      \"status\": \"{}\"\n",
-            json_escape(&seed.status)
+            json_escape(&entry.status)
         ));
         json.push_str(&format!("{indent}    }}"));
     }
-    json.push_str(&format!("\n{indent}  ]\n"));
-    json.push_str(&format!("{indent}}}"));
+    json.push_str(&format!("\n{indent}  ]"));
+    if trailing_comma {
+        json.push(',');
+    }
+    json.push('\n');
 }
 
 fn role_count(system: &eng_compiler::SystemInfo, role: &str) -> usize {

@@ -457,7 +457,8 @@ system_ir
   solver_plan.status = metadata_only
   solver_plan.solve_order
   solver_plan.ode_runner.status = deferred
-  solver_plan.jacobian_seed
+  solver_plan.jacobian_sparsity
+  solver_plan.jacobian_seed (compatibility alias for jacobian_sparsity)
   equations: relation, normalized residual, dependency list, derivative states
 ```
 

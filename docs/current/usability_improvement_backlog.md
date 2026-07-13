@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 769: Added `solver_plan.jacobian_sparsity` as the preferred solver-plan artifact field while keeping `jacobian_seed` as a compatibility alias, and reworded component residual source reasons away from seed-only terminology.
 - Batch 768: Added LSP and VS Code local quick fixes for simple `E-CMD-UNKNOWN-VERB` diagnostics, converting clause-bearing command-style calls such as `median Q_plot over Time` into `median(Q_plot, over=Time)`.
 - Batch 767: Exposed the legacy `select_first_row` compatibility warning through `eng.table` module metadata and public syntax diagnostics docs.
 - Batch 766: Exposed write/export diagnostics through `eng.io` module metadata and filled the missing public syntax/CLI wording for those codes.
