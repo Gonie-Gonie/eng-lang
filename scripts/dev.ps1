@@ -4719,6 +4719,7 @@ function Assert-VscodeExtensionContract {
         "E-PROCESS-ENV-001",
         "E-SAMPLING-COUNT-INVALID",
         "E-SAMPLING-SEED-INVALID",
+        "E-SAMPLING-RANGE-UNIT",
         "E-WITH-UNCERTAINTY-POLICY-001",
         "E-WITH-UNCERTAINTY-SAMPLES-001",
         "E-WITH-UNCERTAINTY-SEED-001",
@@ -4862,7 +4863,9 @@ function Assert-VscodeExtensionContract {
         "Remove empty interpolation",
         "convertUnresolvedInterpolationAction",
         "unresolvedInterpolationLiteralEdit",
-        "Convert unresolved interpolation to literal text"
+        "Convert unresolved interpolation to literal text",
+        "samplingRangeUnitAction",
+        'Add unit ${fix.unit} to sample ${fix.endpoint} endpoint'
     )) {
         if (-not $QuickFixSource.Contains($RequiredQuickFixToken)) {
             throw "VS Code extension missing quick fix token $RequiredQuickFixToken"
@@ -4989,7 +4992,9 @@ function Assert-VscodeExtensionContract {
         "lsp_write_standard_text_output_code_action",
         "E-WRITE-STANDARD-TEXT-001",
         "Change writer to text",
-        "Add standard_text output path"
+        "Add standard_text output path",
+        "lsp_sampling_range_unit_code_action",
+        "Add unit {} to sample {} endpoint"
     )) {
         if (-not $LspCliSource.Contains($RequiredLspQuickFixToken)) {
             throw "eng-lsp code action source missing quick fix token $RequiredLspQuickFixToken"

@@ -88,6 +88,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-SAMPLING-RANGE-UNIT") {
+      const action = samplingRangeUnitAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "W-WITH-UNCERTAINTY-SEED-001") {
       const action = uncertaintySeedMissingAction(document, diagnostic);
       if (action) {
@@ -3048,6 +3055,100 @@ function standardTextOutputAction(document, diagnostic) {
 
 function isWriteStandardTextOwnerLine(text) {
   return stripLineComment(text).trimStart().startsWith("write standard_text");
+}
+
+function samplingRangeUnitAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const fix = sampleUniformEndpointUnitFix(line.text);
+  if (!fix) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction(
+    `Add unit ${fix.unit} to sample ${fix.endpoint} endpoint`,
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.insert(document.uri, new vscode.Position(line.lineNumber, fix.insert), ` ${fix.unit}`);
+  return action;
+}
+
+function sampleUniformEndpointUnitFix(lineText) {
+  const code = stripLineComment(lineText);
+  const uniformStart = code.indexOf("uniform(");
+  if (uniformStart < 0) {
+    return undefined;
+  }
+  const open = uniformStart + "uniform".length;
+  const close = matchingCloseParenIndex(code, open);
+  if (close === undefined) {
+    return undefined;
+  }
+  const innerStart = open + 1;
+  const inner = code.slice(innerStart, close);
+  const comma = topLevelCommaIndex(inner);
+  if (comma === undefined) {
+    return undefined;
+  }
+  const lower = sampleEndpointLiteral(inner.slice(0, comma), innerStart);
+  const upper = sampleEndpointLiteral(inner.slice(comma + 1), innerStart + comma + 1);
+  if (!lower || !upper) {
+    return undefined;
+  }
+  if (!lower.unit && upper.unit) {
+    return { endpoint: "lower", unit: upper.unit, insert: lower.literalEnd };
+  }
+  if (lower.unit && !upper.unit) {
+    return { endpoint: "upper", unit: lower.unit, insert: upper.literalEnd };
+  }
+  return undefined;
+}
+
+function sampleEndpointLiteral(segment, absoluteStart) {
+  const leading = /^\s*/.exec(segment)?.[0].length ?? 0;
+  const trimmedEnd = segment.trimEnd().length;
+  const text = segment.slice(leading, trimmedEnd);
+  const match = /^([+-]?\d+(?:\.\d+)?)(?:\s+([A-Za-z%][A-Za-z0-9/%_^()*]*))?$/.exec(text);
+  if (!match) {
+    return undefined;
+  }
+  const unit = isUnitHint(match[2]) ? match[2] : undefined;
+  if (match[2] && !unit) {
+    return undefined;
+  }
+  return {
+    literalEnd: absoluteStart + leading + match[1].length,
+    unit
+  };
+}
+
+function topLevelCommaIndex(text) {
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let index = 0; index < text.length; index += 1) {
+    const character = text[index];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (character === "\\") {
+        escaped = true;
+      } else if (character === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (character === '"') {
+      inString = true;
+    } else if (character === "(" || character === "[" || character === "{") {
+      depth += 1;
+    } else if (character === ")" || character === "]" || character === "}") {
+      depth = Math.max(0, depth - 1);
+    } else if (character === "," && depth === 0) {
+      return index;
+    }
+  }
+  return undefined;
 }
 
 function sampleSeedMissingAction(document, diagnostic) {

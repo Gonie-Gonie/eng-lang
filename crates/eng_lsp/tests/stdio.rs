@@ -934,6 +934,13 @@ with {
     x = uniform(0, 1)
 }
 
+range_unit_samples = sample lhs
+with {
+    count = 2
+    seed = 11
+    load = uniform(1, 2 kW)
+}
+
 missing_seed_samples = sample random
 with {
     count = 2
@@ -1147,6 +1154,7 @@ report {
         "E-PROCESS-ALLOW-FAILURE",
         "E-SAMPLING-COUNT-INVALID",
         "E-SAMPLING-SEED-INVALID",
+        "E-SAMPLING-RANGE-UNIT",
         "E-WRITE-002",
         "E-WRITE-STANDARD-TEXT-001",
         "E-WRITE-STANDARD-TEXT-OUTPUT",
@@ -1420,6 +1428,7 @@ report {
     assert_action_edit(actions, &uri, "Set sample count: count = 1", "1");
     assert_action_edit(actions, &uri, "Set sample seed: seed = 42", "42");
     assert_action_edit_contains(actions, &uri, "Add sample seed: seed = 42", "seed = 42");
+    assert_action_edit(actions, &uri, "Add unit kW to sample lower endpoint", " kW");
     assert_action_edit_contains(
         actions,
         &uri,

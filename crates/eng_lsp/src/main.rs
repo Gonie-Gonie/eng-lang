@@ -739,6 +739,9 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-SAMPLING-SEED-MISSING" => {
             optional_code_action(lsp_sampling_seed_missing_code_action(uri, text, diagnostic))
         }
+        "E-SAMPLING-RANGE-UNIT" => {
+            optional_code_action(lsp_sampling_range_unit_code_action(uri, text, diagnostic))
+        }
         "W-WITH-UNCERTAINTY-SEED-001" => optional_code_action(
             lsp_uncertainty_seed_missing_code_action(uri, text, diagnostic),
         ),
@@ -1742,6 +1745,148 @@ fn is_write_standard_text_owner_line(line: &str) -> bool {
     strip_line_comment(line)
         .trim_start()
         .starts_with("write standard_text")
+}
+
+fn lsp_sampling_range_unit_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let fix = sample_uniform_endpoint_unit_fix(line)?;
+    Some(json!({
+        "title": format!("Add unit {} to sample {} endpoint", fix.unit, fix.endpoint),
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            zero_width_range(line_number, utf16_len(&line[..fix.insert_byte])),
+            &format!(" {}", fix.unit)
+        )
+    }))
+}
+
+struct SampleEndpointUnitFix {
+    endpoint: &'static str,
+    unit: String,
+    insert_byte: usize,
+}
+
+fn sample_uniform_endpoint_unit_fix(line: &str) -> Option<SampleEndpointUnitFix> {
+    let code = strip_line_comment(line);
+    let uniform_start = code.find("uniform(")?;
+    let open = uniform_start + "uniform".len();
+    let close = matching_close_paren_byte(code, open)?;
+    let inner_start = open + 1;
+    let inner = &code[inner_start..close];
+    let comma = top_level_comma_byte(inner)?;
+    let lower = sample_endpoint_literal(&inner[..comma], inner_start)?;
+    let upper = sample_endpoint_literal(&inner[comma + 1..], inner_start + comma + 1)?;
+    match (lower.unit, upper.unit) {
+        (None, Some(unit)) => Some(SampleEndpointUnitFix {
+            endpoint: "lower",
+            unit,
+            insert_byte: lower.literal_end,
+        }),
+        (Some(unit), None) => Some(SampleEndpointUnitFix {
+            endpoint: "upper",
+            unit,
+            insert_byte: upper.literal_end,
+        }),
+        _ => None,
+    }
+}
+
+struct SampleEndpointLiteral {
+    literal_end: usize,
+    unit: Option<String>,
+}
+
+fn sample_endpoint_literal(segment: &str, absolute_start: usize) -> Option<SampleEndpointLiteral> {
+    let leading = segment
+        .chars()
+        .take_while(|character| character.is_whitespace())
+        .map(char::len_utf8)
+        .sum::<usize>();
+    let trimmed_end = segment.trim_end().len();
+    if leading > trimmed_end {
+        return None;
+    }
+    let text = &segment[leading..trimmed_end];
+    let bytes = text.as_bytes();
+    let mut index = 0usize;
+    if matches!(bytes.get(index), Some(b'+') | Some(b'-')) {
+        index += 1;
+    }
+    let digit_start = index;
+    while index < bytes.len() && bytes[index].is_ascii_digit() {
+        index += 1;
+    }
+    if index < bytes.len() && bytes[index] == b'.' {
+        let decimal = index + 1;
+        if decimal < bytes.len() && bytes[decimal].is_ascii_digit() {
+            index += 1;
+            while index < bytes.len() && bytes[index].is_ascii_digit() {
+                index += 1;
+            }
+        }
+    }
+    if index == digit_start {
+        return None;
+    }
+    let literal_end = absolute_start + leading + index;
+    let mut unit_start = index;
+    while unit_start < bytes.len() && bytes[unit_start].is_ascii_whitespace() {
+        unit_start += 1;
+    }
+    if unit_start == bytes.len() {
+        return Some(SampleEndpointLiteral {
+            literal_end,
+            unit: None,
+        });
+    }
+    let mut unit_end = unit_start;
+    while unit_end < bytes.len()
+        && (bytes[unit_end].is_ascii_alphanumeric()
+            || matches!(
+                bytes[unit_end],
+                b'%' | b'/' | b'_' | b'^' | b'(' | b')' | b'*'
+            ))
+    {
+        unit_end += 1;
+    }
+    if unit_end == unit_start || !text[unit_end..].trim().is_empty() {
+        return None;
+    }
+    let unit = &text[unit_start..unit_end];
+    is_unit_hint(unit).then(|| SampleEndpointLiteral {
+        literal_end,
+        unit: Some(unit.to_owned()),
+    })
+}
+
+fn top_level_comma_byte(text: &str) -> Option<usize> {
+    let mut depth = 0usize;
+    let mut in_string = false;
+    let mut escaped = false;
+    for (index, character) in text.char_indices() {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if character == '\\' {
+                escaped = true;
+            } else if character == '"' {
+                in_string = false;
+            }
+            continue;
+        }
+        match character {
+            '"' => in_string = true,
+            '(' | '[' | '{' => depth += 1,
+            ')' | ']' | '}' => depth = depth.saturating_sub(1),
+            ',' if depth == 0 => return Some(index),
+            _ => {}
+        }
+    }
+    None
 }
 
 fn lsp_sampling_seed_missing_code_action(
