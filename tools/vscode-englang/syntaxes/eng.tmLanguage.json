@@ -391,7 +391,7 @@
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.args-block.englang",
-                                                                 "begin":  "\\b(args)\\s*(\\{)",
+                                                                 "begin":  "^\\s*(args)\\s*(\\{)",
                                                                  "beginCaptures":  {
                                                                                        "1":  {
                                                                                                  "name":  "storage.type.block.englang"
