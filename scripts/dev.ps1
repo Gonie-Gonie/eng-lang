@@ -1,4 +1,4 @@
-param(
+﻿param(
     [Parameter(Position = 0)]
     [string] $Command = "help",
 
@@ -4814,7 +4814,7 @@ function Assert-VscodeExtensionContract {
             throw "generated VS Code editor metadata missing syntax keyword $RequiredSyntaxKeyword"
         }
     }
-    foreach ($RequiredHttpResponseField in @("body", "status_code", "query_string", "url_with_query")) {
+    foreach ($RequiredHttpResponseField in @("body", "response_source", "status_code", "query_string", "url_with_query")) {
         $HttpResponseField = @($EditorMetadata.syntax_catalog.http_response_fields | Where-Object { $_.label -eq $RequiredHttpResponseField }) | Select-Object -First 1
         if ($null -eq $HttpResponseField) {
             throw "generated VS Code editor metadata missing HTTP response field $RequiredHttpResponseField"

@@ -4879,6 +4879,10 @@ fn push_net_requests_json(json: &mut String, report: &CheckReport, indent: usize
             json_escape(&request.status_class)
         ));
         json.push_str(&format!(
+            "{spaces}    \"response_source\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!(
             "{spaces}    \"status\": \"{}\",\n",
             json_escape(&request.status)
         ));
@@ -4941,6 +4945,10 @@ fn push_net_downloads_json(json: &mut String, report: &CheckReport, indent: usiz
         json.push_str(&format!(
             "{spaces}    \"status_class\": \"{}\",\n",
             json_escape(&download.status_class)
+        ));
+        json.push_str(&format!(
+            "{spaces}    \"response_source\": \"{}\",\n",
+            json_escape(&download.status)
         ));
         json.push_str(&format!(
             "{spaces}    \"status\": \"{}\",\n",
@@ -7008,6 +7016,10 @@ fn push_review_side_effects_json(json: &mut String, report: &CheckReport) {
             json_escape(&download.target_value)
         ));
         json.push_str(&format!(
+            "        \"response_source\": \"{}\",\n",
+            json_escape(&download.status)
+        ));
+        json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&download.status)
         ));
@@ -7135,6 +7147,10 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
             json_escape(&request.status_class)
         ));
         json.push_str(&format!(
+            "        \"response_source\": \"{}\",\n",
+            json_escape(&request.status)
+        ));
+        json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&request.status)
         ));
@@ -7171,6 +7187,10 @@ fn push_review_external_boundaries_json(json: &mut String, report: &CheckReport)
         json.push_str(&format!(
             "        \"status_class\": \"{}\",\n",
             json_escape(&download.status_class)
+        ));
+        json.push_str(&format!(
+            "        \"response_source\": \"{}\",\n",
+            json_escape(&download.status)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
@@ -12366,7 +12386,7 @@ system Envelope {
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(
             "ok.eng",
-            "schema SensorData {\n    T_supply: AbsoluteTemperature [°C]\n}\n\nT_room = 24 °C\n}\n",
+            "schema SensorData {\n    T_supply: AbsoluteTemperature [째C]\n}\n\nT_room = 24 째C\n}\n",
             &CheckOptions::default(),
         );
 
@@ -12375,7 +12395,7 @@ system Envelope {
             report.semantic_program.schemas[0].columns[0]
                 .unit
                 .as_deref(),
-            Some("°C")
+            Some("째C")
         );
         assert_eq!(
             report.inferred_declarations[0].quantity_kind,
@@ -12388,7 +12408,7 @@ system Envelope {
             .iter()
             .find(|derivation| derivation.name == "T_room")
             .expect("T_room derivation");
-        assert_eq!(room_derivation.source_unit.as_deref(), Some("°C"));
+        assert_eq!(room_derivation.source_unit.as_deref(), Some("째C"));
     }
 
     #[test]

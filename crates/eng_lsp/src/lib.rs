@@ -868,10 +868,17 @@ const WORKFLOW_OPTION_COMPLETIONS: &[(&str, &str)] = &[
 ];
 
 const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
-    ("body", "pinned offline HTTP response body text"),
-    ("text", "alias for pinned offline HTTP response body text"),
+    (
+        "body",
+        "HTTP response body text from live, cached, or pinned response",
+    ),
+    ("text", "alias for HTTP response body text"),
     ("method", "HTTP request method"),
-    ("status", "network boundary status"),
+    (
+        "response_source",
+        "response source such as live, cached, or offline_response",
+    ),
+    ("status", "compatibility alias for response_source"),
     ("status_code", "HTTP status code"),
     ("status_class", "HTTP status class"),
     ("response_hash", "response SHA-256 hash"),
@@ -8759,6 +8766,14 @@ mod tests {
                 .as_array()
                 .is_some_and(|fields| fields
                     .iter()
+                    .any(|field| field["label"] == "response_source")),
+            "syntax catalog should expose HTTP response source field label"
+        );
+        assert!(
+            syntax_catalog["http_response_fields"]
+                .as_array()
+                .is_some_and(|fields| fields
+                    .iter()
                     .any(|field| field["label"] == "url_with_query")),
             "syntax catalog should expose HTTP response field labels"
         );
@@ -11579,8 +11594,11 @@ weather = promote json records payload.records as WeatherApiRecord
             .expect("HTTP response member completion should include body");
         assert_eq!(
             body_completion.detail,
-            "pinned offline HTTP response body text"
+            "HTTP response body text from live, cached, or pinned response"
         );
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "response_source"));
         assert!(member_completions
             .iter()
             .any(|completion| completion.label == "status_code"));

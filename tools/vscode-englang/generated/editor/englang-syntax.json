@@ -213,11 +213,11 @@
                                          ],
                            "http_response_fields":  [
                                                         {
-                                                            "detail":  "pinned offline HTTP response body text",
+                                                            "detail":  "HTTP response body text from live, cached, or pinned response",
                                                             "label":  "body"
                                                         },
                                                         {
-                                                            "detail":  "alias for pinned offline HTTP response body text",
+                                                            "detail":  "alias for HTTP response body text",
                                                             "label":  "text"
                                                         },
                                                         {
@@ -225,7 +225,11 @@
                                                             "label":  "method"
                                                         },
                                                         {
-                                                            "detail":  "network boundary status",
+                                                            "detail":  "response source such as live, cached, or offline_response",
+                                                            "label":  "response_source"
+                                                        },
+                                                        {
+                                                            "detail":  "compatibility alias for response_source",
                                                             "label":  "status"
                                                         },
                                                         {

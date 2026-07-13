@@ -1,4 +1,4 @@
-schema StationMap {
+﻿schema StationMap {
     region: String
     station_id: String
     valid_from: DateTime
@@ -76,7 +76,7 @@ with {
 api_payload_text = api_response.body
 api_request_method = api_response.method
 api_request_url = api_response.url_with_query
-api_request_status = api_response.status
+api_response_source = api_response.response_source
 api_request_status_code = api_response.status_code
 api_request_status_class = api_response.status_class
 api_response_hash = api_response.response_hash
@@ -103,7 +103,7 @@ with {
     overwrite = true
 }
 
-write text join(args.output, "weather_quality_summary.txt"), "request={api_request_method} {api_request_url} network_status={api_request_status} status_code={api_request_status_code} status_class={api_request_status_class} response_sha256={api_response_hash} station_id={selected_station_id} hourly_records={coverage.actual_count} missing={coverage.missing_count} max_gap_hours={coverage.max_gap_hours: .1 h} coverage_status={coverage.status}"
+write text join(args.output, "weather_quality_summary.txt"), "request={api_request_method} {api_request_url} response_source={api_response_source} status_code={api_request_status_code} status_class={api_request_status_class} response_sha256={api_response_hash} station_id={selected_station_id} hourly_records={coverage.actual_count} missing={coverage.missing_count} max_gap_hours={coverage.max_gap_hours: .1 h} coverage_status={coverage.status}"
 with {
     overwrite = true
 }
@@ -111,7 +111,7 @@ with {
 print "Weather API region = {args.region}"
 print "Selected station = {selected_station_id}"
 print "API request = {api_request_method} {api_request_url}"
-print "API network status = {api_request_status} {api_request_status_code} {api_request_status_class}"
+print "API response source = {api_response_source} status_code={api_request_status_code} status_class={api_request_status_class}"
 print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
 print "API payload contract = WeatherApiPayload"
@@ -122,7 +122,7 @@ report {
     show selected_station_id
     show api_request_method
     show api_request_url
-    show api_request_status
+    show api_response_source
     show api_request_status_code
     show api_request_status_class
     show api_response_hash

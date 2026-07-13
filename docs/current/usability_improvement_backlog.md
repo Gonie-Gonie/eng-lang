@@ -1,4 +1,4 @@
-# Usability Improvement Backlog
+﻿# Usability Improvement Backlog
 
 This file is the short current backlog for API clarity, native workflow usability,
 editor/linter behavior, and documentation cleanup. The historical batch log was
@@ -75,6 +75,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 616: Moved TextMate-only unit aliases into generated `syntax_catalog.legacy_unit_aliases` and routed both VS Code grammar and native IDE lexical fallback through that catalog so `%`, byte-size, and compatibility unit colors do not drift.
 - Batch 617: Clarified the VS Code README editor-metadata contract so `syntax_catalog.legacy_unit_aliases` is documented as highlight-only compatibility metadata, with a package guard to keep that wording from drifting.
 - Batch 618: Moved legacy workflow builtin and option highlight aliases into generated `syntax_catalog.legacy_workflow_builtin_aliases` and `syntax_catalog.legacy_workflow_option_aliases`, then routed VS Code grammar and native IDE lexical fallback through those catalogs without re-adding the aliases to completions.
+- Batch 619: Added `api_response.response_source` as the preferred HttpResponse field for live/cached/offline response origin, kept `status` as a compatibility alias, and updated workflow 01 plus editor metadata so HTTP status code/class are no longer mixed with response-origin wording.
 
 ## Documentation Policy
 

@@ -1,4 +1,4 @@
-# EngLang Language Grammar Guide
+﻿# EngLang Language Grammar Guide
 
 This guide is the practical grammar reference for the current EngLang package scope.
 It is written for someone who wants to open an `.eng` file, understand the
@@ -163,7 +163,7 @@ m_dot = 0.22 kg/s
 T = 21.4 degC
 ```
 
-`degC` is the canonical ASCII spelling. `°C` is accepted as a user-facing alias
+`degC` is the canonical ASCII spelling. `째C` is accepted as a user-facing alias
 for absolute temperature and display formatting.
 
 ## Top-Level Forms
@@ -1096,7 +1096,8 @@ type/unit metadata for each exported source column.
 
 Use `http ...` and `download ...` when a workflow needs an explicit HTTP(S)
 boundary. Network boundaries are reviewable side effects: URLs, query/header
-keys, response hashes, cache records, and source lines are recorded. Raw request
+keys, response source (`live`, `cached`, or `offline_response`), status code,
+response hashes, cache records, and source lines are recorded. Raw request
 bodies are not written to review artifacts; `body_sha256` is recorded instead.
 
 ```eng partial

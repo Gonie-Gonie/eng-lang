@@ -1454,6 +1454,7 @@ fn push_cache_events_json(json: &mut String, records: &[CacheManifestRecord], in
             "{indent}  \"lookup_status\": \"{}\",\n",
             json_escape(&record.lookup_status)
         ));
+
         json.push_str(&format!(
             "{indent}  \"status\": \"{}\",\n",
             json_escape(&record.status)
@@ -1517,6 +1518,7 @@ fn push_external_boundary_events_json(
             record.expected_hash.as_deref(),
             indent.len() + 2,
         );
+
         json.push_str(&format!(
             "{indent}  \"status\": \"{}\",\n",
             json_escape(&record.status)
@@ -1577,6 +1579,7 @@ fn push_network_events_json(json: &mut String, records: &[ExternalBoundaryRecord
             record.response_hash.as_deref(),
             indent.len() + 2,
         );
+
         json.push_str(&format!(
             "{indent}  \"status\": \"{}\",\n",
             json_escape(&record.status)
@@ -3131,6 +3134,7 @@ fn push_cache_manifest_records_json(
             "{indent}  \"lookup_status\": \"{}\",\n",
             json_escape(&record.lookup_status)
         ));
+
         json.push_str(&format!(
             "{indent}  \"status\": \"{}\",\n",
             json_escape(&record.status)
@@ -9574,7 +9578,7 @@ fn evaluate_network_response_field_expression(
             fs::read_to_string(path).ok().map(RuntimeFormatValue::Text)
         }
         "method" => Some(RuntimeFormatValue::Text(request.method.clone())),
-        "status" => Some(RuntimeFormatValue::Text(request.status.clone())),
+        "response_source" | "status" => Some(RuntimeFormatValue::Text(request.status.clone())),
         "status_class" => Some(RuntimeFormatValue::Text(request.status_class.clone())),
         "status_code" => request
             .status_code
@@ -16517,6 +16521,10 @@ fn network_boundaries_json(
             json_escape(status_class)
         ));
         json.push_str(&format!(
+            "        \"response_source\": \"{}\",\n",
+            json_escape(&status)
+        ));
+        json.push_str(&format!(
             "        \"status\": \"{}\",\n",
             json_escape(&status)
         ));
@@ -16577,6 +16585,10 @@ fn network_boundaries_json(
         json.push_str(&format!(
             "        \"status_class\": \"{}\",\n",
             json_escape(status_class)
+        ));
+        json.push_str(&format!(
+            "        \"response_source\": \"{}\",\n",
+            json_escape(&status)
         ));
         json.push_str(&format!(
             "        \"status\": \"{}\",\n",
@@ -22644,7 +22656,7 @@ mod tests {
         let source_path = source_dir.join("main.eng");
         fs::write(
             &source_path,
-            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    offline_response = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\nprint \"body={response_text}\"\nprint \"status={response_status} code={response_code} hash={response.hash}\"\n",
+            "response = http get url(\"https://api.example.org/hourly\")\nwith {\n    query = {\n    station = \"108\"\n    serviceKey = secret env(\"API_KEY\")\n    }\n    offline_response = file(\"data/response.json\")\n    expected_sha256 = \"e5f1eb4d806641698a35efe20e098efd20d7d57a9b90ee69079d5bb650920726\"\n    retry = 2\n    timeout = 30 s\n    body_size_limit = 2 MB\n    cache = true\n    cache_key = [\"weather\", \"108\", \"2026\"]\n}\n\nresponse_text = response.body\nresponse_source = response.response_source\nresponse_code = response.status_code\n\ndownload url(\"https://example.org/file.csv\") to file(\"build/raw/file.csv\")\nwith {\n    offline_response = file(\"data/download.csv\")\n    expected_sha256 = \"1c70e49dbdaf827d23f5bca1f5c2ec22cc98f102a09ddd4262af97893f101cc7\"\n    retry = 1\n    timeout = 1 min\n    response_body_limit = 512 KiB\n    cache = true\n    cache_key = [\"download\", \"v1\"]\n}\n\nx = 1\nprint \"x={x}\"\nprint \"body={response_text}\"\nprint \"source={response_source} code={response_code} hash={response.hash}\"\n",
         )
         .expect("write source");
 
@@ -22653,10 +22665,16 @@ mod tests {
 
         assert!(output.stdout.contains("x=1"));
         assert!(output.stdout.contains("body={\"ok\":true}"));
-        assert!(output.stdout.contains("status=offline_response code=200"));
+        assert!(output.stdout.contains("source=offline_response code=200"));
         assert_eq!(
             result_json
                 .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("offline_response")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/response_source")
                 .and_then(Value::as_str),
             Some("offline_response")
         );
@@ -22800,7 +22818,19 @@ mod tests {
         );
         assert_eq!(
             cached_result_json
+                .pointer("/typed_payload/network_boundaries/0/response_source")
+                .and_then(Value::as_str),
+            Some("cached")
+        );
+        assert_eq!(
+            cached_result_json
                 .pointer("/typed_payload/network_boundaries/1/status")
+                .and_then(Value::as_str),
+            Some("cached")
+        );
+        assert_eq!(
+            cached_result_json
+                .pointer("/typed_payload/network_boundaries/1/response_source")
                 .and_then(Value::as_str),
             Some("cached")
         );
@@ -22837,7 +22867,7 @@ mod tests {
         fs::write(
             &source_path,
             format!(
-                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\ncontract = promote json response.body as WeatherPayload\nweather = promote json records contract.records as WeatherRecord\nresponse_text = response.body\nresponse_status = response.status\nresponse_code = response.status_code\nresponse_status_class = response.status_class\nresponse_method = response.method\nresponse_query = response.query_string\nresponse_request_url = response.url_with_query\nprint \"status={{response_status}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\nprint \"method={{response_method}} status_class={{response_status_class}} query={{response_query}} url={{response_request_url}}\"\n"
+                "schema WeatherRecord {{\n    time: DateTime index\n    value: Float\n}}\n\nschema WeatherPayload {{\n    station_id: String\n    records: Array[WeatherRecord]\n}}\n\nresponse = http get url(\"{url}\")\nwith {{\n    query = {{\n    station = \"108\"\n    year = \"2024\"\n    }}\n    expected_sha256 = \"{expected_hash}\"\n    retry = 0\n    timeout = 5 s\n    body_size_limit = 16 KB\n    cache = true\n    cache_key = [\"live-weather\", \"108\", \"2024\"]\n}}\n\ncontract = promote json response.body as WeatherPayload\nweather = promote json records contract.records as WeatherRecord\nresponse_text = response.body\nresponse_source = response.response_source\nresponse_code = response.status_code\nresponse_status_class = response.status_class\nresponse_method = response.method\nresponse_query = response.query_string\nresponse_request_url = response.url_with_query\nprint \"source={{response_source}} code={{response_code}} rows={{weather.rows}} body={{response_text}}\"\nprint \"method={{response_method}} status_class={{response_status_class}} query={{response_query}} url={{response_request_url}}\"\n"
             ),
         )
         .expect("write source");
@@ -22848,7 +22878,7 @@ mod tests {
 
         assert!(request_line.contains("station=108"), "{request_line}");
         assert!(request_line.contains("year=2024"), "{request_line}");
-        assert!(output.stdout.contains("status=live code=200 rows=1"));
+        assert!(output.stdout.contains("source=live code=200 rows=1"));
         assert!(output
             .stdout
             .contains("method=GET status_class=success query=station=108&year=2024"));
@@ -22859,6 +22889,12 @@ mod tests {
         assert_eq!(
             result_json
                 .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("live")
+        );
+        assert_eq!(
+            result_json
+                .pointer("/typed_payload/network_boundaries/0/response_source")
                 .and_then(Value::as_str),
             Some("live")
         );
@@ -22898,7 +22934,7 @@ mod tests {
             serde_json::from_str::<Value>(&cached_output.result_json).expect("cached result json");
         assert!(cached_output
             .stdout
-            .contains("status=cached code=200 rows=1"));
+            .contains("source=cached code=200 rows=1"));
         assert!(cached_output
             .stdout
             .contains("method=GET status_class=success query=station=108&year=2024"));
@@ -22908,6 +22944,12 @@ mod tests {
         assert_eq!(
             cached_result_json
                 .pointer("/typed_payload/network_boundaries/0/status")
+                .and_then(Value::as_str),
+            Some("cached")
+        );
+        assert_eq!(
+            cached_result_json
+                .pointer("/typed_payload/network_boundaries/0/response_source")
                 .and_then(Value::as_str),
             Some("cached")
         );
