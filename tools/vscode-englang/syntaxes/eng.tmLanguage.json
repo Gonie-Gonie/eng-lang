@@ -635,7 +635,7 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.validation.englang",
-                                                                    "begin":  "\\b(validate|assert|golden)\\b",
+                                                                    "begin":  "^\\s*(validate|assert|golden)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
                                                                                                     "name":  "keyword.control.validation.englang"

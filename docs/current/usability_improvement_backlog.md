@@ -149,6 +149,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 690: Replaced the report language reference placeholder example (`show summary`, `plot heat over Time`) with concrete supported `Q_coil` bindings and added a docs-check guard so abstract report examples do not return.
 - Batch 691: Reworded the VS Code editor-metadata README so compiler-owned public member catalogs promise executable API fields, not `seed-only suggestions`, and added a package guard against that wording returning.
 - Batch 692: Added `E-VALIDATE-BINDING-001` so `bad = validate ...` no longer falls through to unknown-function or ambiguous-quantity diagnostics when validation is used as a bound value.
+- Batch 693: Anchored VS Code TextMate validation phrase scopes so `bad_validate = validate ...` no longer receives first-paint validation highlighting before the compiler reports `E-VALIDATE-BINDING-001`.
 
 ## Documentation Policy
 

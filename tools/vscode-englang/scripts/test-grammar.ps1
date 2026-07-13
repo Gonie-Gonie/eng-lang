@@ -1097,6 +1097,7 @@ Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $Wor
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
 Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins) -Description "LSP workflow builtin call" -Suffix "("
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
+Assert-ScopeDoesNotMatchText -Scope "meta.workflow.validation.englang" -Text 'bad_validate = validate args.Q > 0 kW' -Description "unsupported bound validate command"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.summarize-series.englang" -Text 'arg_summary = summarize args.Q_total_unc by [mean, p95]' -Description "unsupported bound report summarize"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.show-report.englang" -Text 'arg_show = show args.Q_total_unc' -Description "unsupported bound report show"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.plot-series.englang" -Text 'arg_plot_series = plot args.Q_series over args.Time' -Description "unsupported bound report plot"
