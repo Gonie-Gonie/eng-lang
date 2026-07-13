@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 762: Added `E-GOLDEN-001` LSP/VS Code quick fixes and exposed the full `eng.test` assertion/golden diagnostic set in registry and public diagnostics docs.
 - Batch 761: Added `E-PROCESS-BINDING-002` to the `eng.process` module registry and generated workflow-module table so process binding collision diagnostics are visible in docs and IDE module metadata.
 - Batch 760: Exposed `E-LOG-LEVEL-001` through the `eng.log` module registry, current workflow-module table, and CLI diagnostics reference instead of hiding it as `none_current`.
 - Batch 759: Added stdio, VS Code contract, and module-registry coverage for `W-NET-RESPONSE-STATUS-ALIAS` so `response.status` consistently quick-fixes to `response.response_source`.

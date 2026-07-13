@@ -281,6 +281,13 @@ function localCodeActions(document, context, options = {}) {
         actions.push(action);
       }
     }
+    if (code === "E-GOLDEN-001") {
+      const action = wrapGoldenAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
     if (code === "E-GOLDEN-002") {
       const action = goldenExpectedFileAction(document, diagnostic);
       if (action) {
@@ -1766,6 +1773,27 @@ function wrapAssertionAction(document, diagnostic) {
     `${indent}test "assertion" {${newline}${indent}    ${assertion}${newline}${indent}}${newline}`;
   const action = new vscode.CodeAction(
     "Wrap assertion in test block",
+    vscode.CodeActionKind.QuickFix
+  );
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.replace(document.uri, fullLineRange(document, line.lineNumber), replacement);
+  return action;
+}
+
+function wrapGoldenAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const code = stripLineComment(line.text);
+  const indent = lineIndent(code);
+  const golden = code.slice(indent.length).trimEnd();
+  if (!golden.startsWith("golden ")) {
+    return undefined;
+  }
+  const newline = documentNewline(document);
+  const replacement =
+    `${indent}test "golden" {${newline}${indent}    ${golden}${newline}${indent}}${newline}`;
+  const action = new vscode.CodeAction(
+    "Wrap golden check in test block",
     vscode.CodeActionKind.QuickFix
   );
   action.diagnostics = [diagnostic];

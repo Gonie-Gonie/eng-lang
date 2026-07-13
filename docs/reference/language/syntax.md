@@ -1843,8 +1843,11 @@ generation.
 | `E-PROCESS-CMD-001` | `run command` has no command string | Provide the command string and use `args` for arguments |
 | `E-TEST-001` | Invalid test block syntax | Use `test "name" { ... }` |
 | `E-ASSERT-001` | `assert` is outside a test block | Move it inside `test { ... }` |
+| `E-ASSERT-002` | Invalid assert expression syntax | Use `assert left operator right` |
+| `E-ASSERT-EXPR-001` | Assert expression or tolerance cannot be resolved | Bind the referenced values or fix the tolerance expression |
 | `E-ASSERT-UNIT-001` | Assert operands use incompatible units | Compare compatible quantities |
 | `E-ASSERT-TOL-001` | Tolerance used with an unsupported operator | Use `within` with `==` or `!=` |
+| `E-ASSERT-TOL-002` | Assert tolerance unit is incompatible with compared operands | Use a tolerance with the asserted value's dimension |
 | `E-GOLDEN-001` | Invalid golden check syntax | Use `golden "artifact" matches file("expected")` |
 | `E-GOLDEN-002` | Golden expected path does not use `file("...")` | Wrap the expected path with `file(...)` |
 | `E-UNC-DIRECT-COMPARE` | Uncertain value compared directly | Use `mean(Q)`, `p95(Q)`, or `probability(Q < threshold)` |

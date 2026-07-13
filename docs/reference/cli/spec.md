@@ -176,8 +176,10 @@ E-TEST-001             test block syntax is invalid
 E-TEST-NAME-001        test block name is missing or invalid
 E-ASSERT-001           assert is outside a test block
 E-ASSERT-002           assert expression syntax is invalid
+E-ASSERT-EXPR-001      assert expression or tolerance cannot be resolved
 E-ASSERT-UNIT-001      assert operands use incompatible units
 E-ASSERT-TOL-001       tolerance is only valid with equality-style checks
+E-ASSERT-TOL-002       assert tolerance unit is incompatible with compared operands
 E-GOLDEN-001           golden check syntax is invalid
 E-GOLDEN-002           golden check expected path must use file("...")
 E-STDLIB-MODULE-UNKNOWN use/import names an unknown `eng.*` stdlib module

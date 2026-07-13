@@ -54,7 +54,7 @@ status = "supported_narrow"
 backing = "compiler_runtime_builtin"
 purpose = "Local assertions, golden checks, and test-result artifacts."
 artifacts = ["test_results", "review.tests", "output_manifest"]
-diagnostics = ["E-ASSERT-001", "E-ASSERT-002", "E-ASSERT-UNIT-001", "E-GOLDEN-002"]
+diagnostics = ["E-ASSERT-001", "E-ASSERT-002", "E-ASSERT-EXPR-001", "E-ASSERT-UNIT-001", "E-ASSERT-TOL-001", "E-ASSERT-TOL-002", "E-GOLDEN-001", "E-GOLDEN-002"]
 examples = ["examples/official/13_file_operations"]
 tests = ["cargo test -p eng_compiler records_test_assert_and_golden_metadata", "cargo test -p eng_runtime run_file_executes_test_assert_and_golden_checks"]
 

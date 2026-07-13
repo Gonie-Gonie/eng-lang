@@ -837,6 +837,7 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-ASSERT-001" => {
             optional_code_action(lsp_wrap_assertion_code_action(uri, text, diagnostic))
         }
+        "E-GOLDEN-001" => optional_code_action(lsp_wrap_golden_code_action(uri, text, diagnostic)),
         "E-GOLDEN-002" => {
             optional_code_action(lsp_golden_expected_file_code_action(uri, text, diagnostic))
         }
@@ -2949,6 +2950,28 @@ fn lsp_wrap_assertion_code_action(uri: &str, text: &str, diagnostic: &Value) -> 
     );
     Some(json!({
         "title": "Wrap assertion in test block",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(uri, full_line_range(text, line_number), &replacement)
+    }))
+}
+
+fn lsp_wrap_golden_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let code = strip_line_comment(line);
+    let indent = line_indent(code);
+    let golden = code[indent.len()..].trim_end();
+    if !golden.starts_with("golden ") {
+        return None;
+    }
+    let newline = document_newline(text);
+    let replacement = format!(
+        "{indent}test \"golden\" {{{newline}{indent}    {golden}{newline}{indent}}}{newline}"
+    );
+    Some(json!({
+        "title": "Wrap golden check in test block",
         "kind": "quickfix",
         "isPreferred": true,
         "diagnostics": [diagnostic.clone()],

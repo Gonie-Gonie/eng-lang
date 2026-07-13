@@ -49,7 +49,7 @@ embedding compiler logic in JavaScript.
   unsupported regression algorithm repairs, legacy `select_first_row` migration edits,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,
   uncertainty propagation option/seed repairs, uncertainty source
-  definition/conversion repairs, and golden expected path wrappers. Live
+  definition/conversion repairs, and golden test-block/expected path wrappers. Live
   editor quick fixes are shown first
   and merged with local fallback repairs so partial live editor responses do
   not hide available fixes.

@@ -839,6 +839,7 @@ use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
 assert Q_total == 12 kW
+golden "top.csv" matches file("golden/top.csv")
 test "golden path" {
     golden "summary.csv" matches "golden/summary.csv"
 }
@@ -1123,6 +1124,7 @@ report {
         "E-DIM-ADD-002",
         "E-CMD-AMBIG-001",
         "E-ASSERT-001",
+        "E-GOLDEN-001",
         "E-GOLDEN-002",
         "W-STATS-SUM-001",
         "W-STDLIB-MODULE-PLANNED",
@@ -1633,6 +1635,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("assert Q_total"))
         .expect("source should include top-level assert");
+    let top_level_golden_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("golden \"top.csv\""))
+        .expect("source should include top-level golden check");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1731,6 +1737,13 @@ report {
         "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
         top_level_assert_line,
     );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Wrap golden check in test block",
+        "test \"golden\" {\n    golden \"top.csv\" matches file(\"golden/top.csv\")\n}\n",
+        top_level_golden_line,
+    );
     assert_action_edit(
         actions,
         &uri,
@@ -1772,6 +1785,7 @@ use eng.system
 power = 10 kW
 Q_total = 10 + 2 kW
 assert Q_total == 12 kW
+golden "top.csv" matches file("golden/top.csv")
 test "golden path" {
     golden "summary.csv" matches "golden/summary.csv"
 }
@@ -2145,6 +2159,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("assert Q_total"))
         .expect("source should include top-level assert");
+    let top_level_golden_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("golden \"top.csv\""))
+        .expect("source should include top-level golden check");
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -2228,6 +2246,13 @@ report {
         "Wrap assertion in test block",
         "test \"assertion\" {\n    assert Q_total == 12 kW\n}\n",
         top_level_assert_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Wrap golden check in test block",
+        "test \"golden\" {\n    golden \"top.csv\" matches file(\"golden/top.csv\")\n}\n",
+        top_level_golden_line,
     );
     assert_action_edit(
         actions,
