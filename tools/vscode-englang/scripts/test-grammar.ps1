@@ -1082,6 +1082,13 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.model-train-call.englang" -I
 Assert-WorkflowPatternIncludes -Name "meta.workflow.regression-table.englang" -Include "#members" -Description "regression table"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.model-summary-call.englang" -Include "#members" -Description "model summary call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.distribution-call.englang" -Include "#members" -Description "distribution call"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.filter-table.englang" -Include "#members" -Description "filter table"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.derive-column.englang" -Include "#members" -Description "derive column"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.sort-table.englang" -Include "#members" -Description "sort table"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.join-table.englang" -Include "#members" -Description "join table"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.materialize-cases.englang" -Include "#members" -Description "materialize cases"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.collect-results.englang" -Include "#members" -Description "collect results"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.require-one.englang" -Include "#members" -Description "require one"
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern

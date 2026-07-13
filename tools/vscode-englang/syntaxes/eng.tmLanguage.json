@@ -1350,21 +1350,30 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.filter-table.englang",
-                                                                    "match":  "\\b(filter)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(filter)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.select-columns.englang",
@@ -1402,129 +1411,163 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.derive-column.englang",
-                                                                    "match":  "\\b(derive)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(columns?)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "6":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "7":  {
-                                                                                               "name":  "keyword.operator.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(derive)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "keyword.control.workflow.englang",
+                                                                                         "match":  "\\bcolumns?\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#operators"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.sort-table.englang",
-                                                                    "match":  "\\b(sort)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(by)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(asc|desc))?\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "keyword.operator.word.englang"
-                                                                                           },
-                                                                                     "6":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "7":  {
-                                                                                               "name":  "constant.language.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(sort)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "match":  "\\bby\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "constant.language.englang",
+                                                                                         "match":  "\\b(asc|desc)\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.join-table.englang",
-                                                                    "match":  "\\b(join)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\s+(with)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "keyword.operator.word.englang"
-                                                                                           },
-                                                                                     "6":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "7":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "8":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(join)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "match":  "\\bwith\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.materialize-cases.englang",
-                                                                    "match":  "\\b(materialize)\\s+(cases)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(materialize)\\s+(cases)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.collect-results.englang",
-                                                                    "match":  "\\b(collect)\\s+(results)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "5":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(collect)\\s+(results)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                },
+                                                                                          "2":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.predict-model.englang",
@@ -1804,21 +1847,30 @@
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.require-one.englang",
-                                                                    "match":  "\\b(require_one)\\s+(?:(args\\.[A-Za-z_][A-Za-z0-9_]*)|([A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+)|([A-Za-z_][A-Za-z0-9_]*))\\b",
-                                                                    "captures":  {
-                                                                                     "1":  {
-                                                                                               "name":  "keyword.control.workflow.englang"
-                                                                                           },
-                                                                                     "2":  {
-                                                                                               "name":  "variable.parameter.property.englang"
-                                                                                           },
-                                                                                     "3":  {
-                                                                                               "name":  "variable.other.property.englang"
-                                                                                           },
-                                                                                     "4":  {
-                                                                                               "name":  "variable.other.local.englang"
-                                                                                           }
-                                                                                 }
+                                                                    "begin":  "\\b(require_one)\\b",
+                                                                    "beginCaptures":  {
+                                                                                          "1":  {
+                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                }
+                                                                                      },
+                                                                    "end":  "(?=#|$)",
+                                                                    "patterns":  [
+                                                                                     {
+                                                                                         "include":  "#members"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.parameter.property.englang",
+                                                                                         "match":  "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.property.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*(?:\\.[A-Za-z_][A-Za-z0-9_]*)+\\b"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "variable.other.local.englang",
+                                                                                         "match":  "\\b[A-Za-z_][A-Za-z0-9_]*\\b"
+                                                                                     }
+                                                                                 ]
                                                                 },
                                                                 {
                                                                     "name":  "meta.workflow.apply-call.englang",

@@ -139,6 +139,11 @@ DB/table phrases such as `open sqlite`, `read sqlite <db>.table(...)`,
 same member-aware fallback ordering so nested DB/table receivers and selected
 source tables split before broad property scopes.
 
+Table and case operation phrases such as `filter`, `derive`, `sort`, `join`,
+`require_one`, `materialize cases`, and `collect results` use phrase-level
+member-aware fallbacks so dotted table and case operands stay split on first
+paint.
+
 Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
 `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` also include
 member-aware fallbacks so nested model, split, table, and feature operands stay
