@@ -5418,8 +5418,15 @@ function hoverStatusLabel(status) {
   return text
     .split(/[_-]+/)
     .filter((part) => part.length > 0)
-    .map((part) => hoverKindWordLabel(part))
+    .map((part, index) => hoverStatusWordLabel(part, index))
     .join(" ");
+}
+
+function hoverStatusWordLabel(part, index) {
+  if (["api", "db", "http", "jit", "lsp", "sha", "ttl"].includes(part)) {
+    return part.toUpperCase();
+  }
+  return index === 0 ? hoverKindWordLabel(part) : part;
 }
 
 function hoverKindWordLabel(part) {

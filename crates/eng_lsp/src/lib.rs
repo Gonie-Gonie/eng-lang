@@ -6231,14 +6231,17 @@ fn completion_json_with_kind(completion: &LspCompletion, kind: Value) -> Value {
 
 pub fn hover_json(hover: &LspHover) -> Value {
     let mut value = format!(
-        "**{}**\n\nKind: `{}`\n\n{}\n\nQuantity: `{}`",
-        hover.name, hover.kind, hover.detail, hover.quantity_kind
+        "**{}**\n\nKind: {}\n\n{}\n\nQuantity: `{}`",
+        hover.name,
+        hover_kind_label(&hover.kind),
+        hover.detail,
+        hover.quantity_kind
     );
     if let Some(display_unit) = hover_display_unit(&hover.display_unit) {
         value.push_str(&format!("\n\nDisplay unit: `{display_unit}`"));
     }
     if let Some(status) = &hover.status {
-        value.push_str(&format!("\n\nStatus: `{status}`"));
+        value.push_str(&format!("\n\nStatus: {}", hover_status_label(status)));
     }
     json!({
         "name": hover.name,
@@ -6252,6 +6255,83 @@ pub fn hover_json(hover: &LspHover) -> Value {
             "value": value
         }
     })
+}
+
+fn hover_kind_label(kind: &str) -> String {
+    match kind.trim() {
+        "variable" => "Variable".to_owned(),
+        "domain" => "Domain".to_owned(),
+        "domain_variable" => "Domain variable".to_owned(),
+        "domain_conservation" => "Domain conservation".to_owned(),
+        "component" => "Component".to_owned(),
+        "component_port" => "Component port".to_owned(),
+        "connection" => "Connection".to_owned(),
+        "component_assembly" => "Component assembly".to_owned(),
+        "connection_set" => "Connection set".to_owned(),
+        "assembly_equation" => "Assembly equation".to_owned(),
+        "function" => "Function".to_owned(),
+        "function_local" => "Function local".to_owned(),
+        "where_local" => "where local".to_owned(),
+        "class" => "Class".to_owned(),
+        "class_field" => "Class field".to_owned(),
+        "class_validation" => "Class validation".to_owned(),
+        "class_method" => "Class method".to_owned(),
+        "class_object" => "Class object".to_owned(),
+        "object_field" => "Object field".to_owned(),
+        "object_validation" => "Object validation".to_owned(),
+        "http_response_field" => "HTTP response field".to_owned(),
+        "sample_table_field" => "Sample table field".to_owned(),
+        "db_connection_field" => "DB connection field".to_owned(),
+        "case_table_field" => "Case table field".to_owned(),
+        "case_output_table_field" => "Case output field".to_owned(),
+        "case_result_collection_table_field" => "Case result collection field".to_owned(),
+        "model_field" => "Model field".to_owned(),
+        "prediction_table_field" => "Prediction table field".to_owned(),
+        value => hover_label_text(value),
+    }
+}
+
+fn hover_status_label(status: &str) -> String {
+    status
+        .trim()
+        .split(['_', '-'])
+        .filter(|part| !part.is_empty())
+        .enumerate()
+        .map(|(index, part)| hover_status_word(part, index))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn hover_status_word(word: &str, index: usize) -> String {
+    match word {
+        "api" | "db" | "http" | "jit" | "lsp" | "sha" | "ttl" => word.to_uppercase(),
+        value if index == 0 => hover_label_word(value),
+        value => value.to_owned(),
+    }
+}
+
+fn hover_label_text(value: &str) -> String {
+    value
+        .trim()
+        .split(['_', '-'])
+        .filter(|part| !part.is_empty())
+        .map(hover_label_word)
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
+fn hover_label_word(word: &str) -> String {
+    match word {
+        "db" => "DB".to_owned(),
+        "http" => "HTTP".to_owned(),
+        value => {
+            let mut chars = value.chars();
+            match chars.next() {
+                Some(first) => format!("{}{}", first.to_uppercase(), chars.as_str()),
+                None => String::new(),
+            }
+        }
+    }
 }
 
 fn hover_display_unit(display_unit: &str) -> Option<&str> {
@@ -12808,9 +12888,16 @@ rows = promote csv file("data/weather.csv") as WeatherApiRecord
 
         let json = snapshot_json(&snapshot);
         let hovers = json["hovers"].as_array().unwrap();
-        assert!(hovers
+        let connection_hover = hovers
             .iter()
-            .any(|hover| hover["kind"] == "connection" && hover["status"] == "domain_compatible"));
+            .find(|hover| hover["kind"] == "connection" && hover["status"] == "domain_compatible")
+            .expect("connection hover should retain raw kind/status metadata");
+        let connection_markdown = connection_hover["contents"]["value"]
+            .as_str()
+            .expect("connection hover should render markdown");
+        assert!(connection_markdown.contains("Kind: Connection"));
+        assert!(connection_markdown.contains("Status: Domain compatible"));
+        assert!(!connection_markdown.contains("Status: `domain_compatible`"));
         assert!(snapshot.document_symbols.iter().any(|symbol| {
             symbol.name == "Thermal"
                 && symbol.children.iter().any(|child| {
@@ -13090,6 +13177,12 @@ with {
             .expect("model member field should expose hover metadata");
         assert_eq!(rmse_hover.kind, "model_field");
         assert_eq!(rmse_hover.quantity_kind, "DimensionlessNumber");
+        let rmse_markdown = hover_json(rmse_hover)["contents"]["value"]
+            .as_str()
+            .expect("model member hover should render markdown")
+            .to_owned();
+        assert!(rmse_markdown.contains("Kind: Model field"));
+        assert!(!rmse_markdown.contains("Kind: `model_field`"));
         let output_hover = snapshot
             .hovers
             .iter()

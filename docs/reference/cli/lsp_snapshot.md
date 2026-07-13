@@ -173,6 +173,8 @@ render compact metadata without parsing the markdown body.
 
 `kind` and `status` are optional metadata extensions inside
 `eng-lsp-snapshot-v1`; consumers should continue to ignore unknown keys.
+The Markdown body renders user-facing kind/status labels while these JSON
+fields keep their stable raw ids for clients that match on them.
 Current hover kinds include:
 
 ```text
