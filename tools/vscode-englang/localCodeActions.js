@@ -1,5 +1,14 @@
 const vscode = require("vscode");
 
+const STATEMENT_ONLY_BINDING_CODES = new Set([
+  "E-REPORT-BINDING-001",
+  "E-VALIDATE-BINDING-001",
+  "E-SIDE-EFFECT-BINDING-001",
+  "E-BLOCK-BINDING-001",
+  "E-STATEMENT-BINDING-001",
+  "E-OPTION-BINDING-001"
+]);
+
 function localCodeActions(document, context, options = {}) {
   const actions = [];
   for (const diagnostic of context.diagnostics) {
@@ -202,6 +211,13 @@ function localCodeActions(document, context, options = {}) {
     }
     if (code === "E-LOG-LEVEL-001") {
       const action = logLevelInfoAction(document, diagnostic);
+      if (action) {
+        action.isPreferred = true;
+        actions.push(action);
+      }
+    }
+    if (STATEMENT_ONLY_BINDING_CODES.has(code)) {
+      const action = statementOnlyUnbindAction(document, diagnostic);
       if (action) {
         action.isPreferred = true;
         actions.push(action);
@@ -1559,6 +1575,31 @@ function logLevelInfoEdit(lineText) {
     return undefined;
   }
   return { start: tokenStart, end: tokenStart + level.length, newText: "info" };
+}
+
+function statementOnlyUnbindAction(document, diagnostic) {
+  const line = document.lineAt(diagnostic.range.start.line);
+  const range = statementBindingPrefixRange(line.text);
+  if (!range) {
+    return undefined;
+  }
+  const action = new vscode.CodeAction("Remove invalid binding prefix", vscode.CodeActionKind.QuickFix);
+  action.diagnostics = [diagnostic];
+  action.edit = new vscode.WorkspaceEdit();
+  action.edit.delete(
+    document.uri,
+    new vscode.Range(line.lineNumber, range.start, line.lineNumber, range.end)
+  );
+  return action;
+}
+
+function statementBindingPrefixRange(lineText) {
+  const code = stripLineComment(lineText);
+  const match = /^(\s*)[A-Za-z_][A-Za-z0-9_]*(?:\s*:\s*[^=]+)?\s*=\s*/.exec(code);
+  if (!match || code.slice(match[0].length).trim() === "") {
+    return undefined;
+  }
+  return { start: match[1].length, end: match[0].length };
 }
 
 function bindProcessResultAction(document, diagnostic) {

@@ -40,6 +40,8 @@ embedding compiler logic in JavaScript.
   legacy network `fixture` aliases, legacy response `.hash` aliases,
   raw `read json` field-access promotion edits,
   HeatRate TimeSeries sum-to-integrate repairs,
+  statement-only binding prefix removals for report, validation, side-effect,
+  block/header, import/use/connect/return, and workflow-option diagnostics,
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed values, missing repro-profile
   sampling seeds, simulation/solver option repairs, model option fallback
