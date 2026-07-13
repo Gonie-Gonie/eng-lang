@@ -4,5 +4,7 @@ cp: SpecificHeat [J/kg/K] = 4.18 kJ/K
 irradiance: Irradiance [W/m2] = 300 W/m2
 density: PeopleDensity [person/m2] = 0.08 person/m2
 elapsed: Duration [h] = 2 h
+T_out: AbsoluteTemperature [°C] = 24 °C
 irradiance_label = "irradiance={irradiance: .1 W/m^2}"
 density_label = "density={density: .2 people/m2}"
+celsius_label = "temperature={T_out: .1 °C}"

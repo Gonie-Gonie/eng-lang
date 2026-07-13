@@ -203,11 +203,9 @@ $GrammarOnlyTypeAliases = @(
 
 $PublicTypeBases = @($PublicTypeItems | ForEach-Object { [string]$_.base }) + $GrammarOnlyTypeAliases
 $QuantityLabels = @($QuantityItems | ForEach-Object { [string]$_.label })
-$AsciiUnits = @($UnitItems | ForEach-Object { [string]$_.label } | Where-Object {
-    $_ -cmatch '^[\x20-\x7E]+$'
-}) + $LegacyUnitAliases
+$UnitLabels = @($UnitItems | ForEach-Object { [string]$_.label }) + $LegacyUnitAliases
 $TemplateValues = @{
-    "{{ASCII_UNITS}}" = ConvertTo-RegexAlternation $AsciiUnits
+    "{{UNIT_LABELS}}" = ConvertTo-RegexAlternation $UnitLabels
     "{{LANGUAGE_CONSTANTS}}" = ConvertTo-RegexAlternation $LanguageConstants
     "{{WORKFLOW_STATUS_LITERALS}}" = ConvertTo-RegexAlternation $WorkflowStatusLiterals
     "{{OPERATOR_WORDS}}" = ConvertTo-RegexAlternation ($OperatorWords + $GrammarOnlyOperatorWordAliases)

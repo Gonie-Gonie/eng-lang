@@ -1322,6 +1322,24 @@
     "fullMatch": true
   },
   {
+    "fixture": "02_units_quantities.eng",
+    "scope": "meta.quantity.literal.englang",
+    "text": "24 °C",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.englang",
+    "text": "°C",
+    "fullMatch": true
+  },
+  {
+    "fixture": "02_units_quantities.eng",
+    "scope": "constant.other.unit.format.englang",
+    "text": "°C",
+    "fullMatch": true
+  },
+  {
     "fixture": "04_system_component.eng",
     "scope": "meta.declaration.system-member.englang",
     "text": "state T",
@@ -1505,7 +1523,8 @@
     "scope": "punctuation.separator.parameter.englang",
     "text": ",",
     "fullMatch": true
-  },  {
+  },
+  {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "variable.parameter.function.englang",
     "text": "m_dot",
@@ -3741,8 +3760,7 @@
     "scope": "variable.other.property.englang",
     "text": "api.payload",
     "fullMatch": true
-  }
-,
+  },
   {
     "fixture": "03_side_effects.eng",
     "scope": "meta.workflow.summary-field.englang",
@@ -3778,8 +3796,7 @@
     "scope": "variable.other.property.englang",
     "text": "report.peak_Q",
     "fullMatch": true
-  }
-,
+  },
   {
     "fixture": "05_sampling_model.eng",
     "scope": "meta.workflow.distribution-call.englang",
@@ -4296,7 +4313,6 @@
     "text": "collected",
     "fullMatch": true
   },
-
   {
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "constant.language.englang",

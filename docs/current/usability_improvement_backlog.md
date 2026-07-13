@@ -87,3 +87,5 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Runtime artifact changes update the artifact reference and schemas when their shape changes.
 - Historical implementation logs belong in `docs/archive`; internal unstable design work belongs in `docs/internal` or focused `docs/current/*_plan.md` files.
 - `docs/README.md` remains the navigation entry point; avoid adding parallel indexes unless they serve a specific reader path.
+
+- Batch 754: Extend VS Code TextMate unit highlighting from ASCII-only labels to all compiler-owned unit labels, including degree-C aliases, with fixture/golden coverage.

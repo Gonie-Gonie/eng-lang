@@ -82,7 +82,7 @@
                   },
                   {
                     "name": "constant.other.unit.format.englang",
-                    "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
+                    "match": "(?<![A-Za-z0-9_])({{UNIT_LABELS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
                   },
                   {
                     "name": "variable.parameter.function.englang",
@@ -2332,18 +2332,18 @@
         "patterns": [
           {
             "name": "meta.quantity.literal.englang",
-            "match": "\\b[0-9]+(?:\\.[0-9]+)?\\s+({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()",
+            "match": "\\b[0-9]+(?:\\.[0-9]+)?\\s+({{UNIT_LABELS}})(?![A-Za-z0-9_/])(?!\\s*\\()",
             "captures": {
               "1": { "name": "constant.other.unit.englang" }
             }
           },
           {
             "name": "constant.other.unit.englang",
-            "match": "(?<=\\[)({{ASCII_UNITS}})(?=\\])"
+            "match": "(?<=\\[)({{UNIT_LABELS}})(?=\\])"
           },
           {
             "name": "constant.other.unit.englang",
-            "match": "(?<![A-Za-z0-9_])({{ASCII_UNITS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
+            "match": "(?<![A-Za-z0-9_])({{UNIT_LABELS}})(?![A-Za-z0-9_/])(?!\\s*\\()"
           }
         ]
       },

@@ -917,12 +917,8 @@ $PublicGenericTypes = @($PublicTypeLabels | Where-Object {
 $PublicTypes = @($PublicTypeLabels | ForEach-Object {
     ($_ -replace "\[.*$", "")
 } | Select-Object -Unique)
-$CompilerUnitSymbols = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Where-Object {
-    $_ -cmatch '^[\x20-\x7E]+$'
-} | Select-Object -Unique)
-$LegacyUnitAliases = @($SyntaxCatalog.legacy_unit_aliases | ForEach-Object { [string]$_ } | Where-Object {
-    $_ -cmatch '^[\x20-\x7E]+$'
-} | Select-Object -Unique)
+$CompilerUnitSymbols = @($SyntaxCatalog.units | ForEach-Object { [string]$_.label } | Select-Object -Unique)
+$LegacyUnitAliases = @($SyntaxCatalog.legacy_unit_aliases | ForEach-Object { [string]$_ } | Select-Object -Unique)
 $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
 $PublicWorkflowMemberFields = @(
     $SyntaxCatalog.http_response_fields +
