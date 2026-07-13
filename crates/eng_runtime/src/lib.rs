@@ -13433,7 +13433,7 @@ fn push_solver_plan_json(
     push_solver_plan_jacobian_entries_json(
         json,
         "jacobian_sparsity",
-        &plan.jacobian_seed,
+        &plan.jacobian_sparsity,
         indent,
         true,
     );

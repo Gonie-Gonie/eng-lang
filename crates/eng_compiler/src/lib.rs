@@ -4673,7 +4673,7 @@ fn push_solver_plan_json(json: &mut String, plan: &SolverPlanInfo, indent: &str)
     push_solver_plan_jacobian_entries_json(
         json,
         "jacobian_sparsity",
-        &plan.jacobian_seed,
+        &plan.jacobian_sparsity,
         indent,
         true,
     );
@@ -12038,6 +12038,10 @@ write csv "outputs/q.csv", Q
         assert_eq!(
             system.solver_plan.solve_order,
             vec!["RoomThermal.residual_1".to_owned()]
+        );
+        assert_eq!(
+            system.solver_plan.jacobian_sparsity[0].with_respect_to,
+            vec!["T".to_owned()]
         );
         assert_eq!(
             system.solver_plan.jacobian_seed[0].with_respect_to,

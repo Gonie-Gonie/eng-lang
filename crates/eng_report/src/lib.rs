@@ -1071,6 +1071,7 @@ pub struct ReportSolverPlan {
     pub method: String,
     pub solve_order: Vec<String>,
     pub ode_runner: ReportOdeRunner,
+    pub jacobian_sparsity: Vec<ReportJacobianSeed>,
     pub jacobian_seed: Vec<ReportJacobianSeed>,
 }
 
@@ -1861,6 +1862,17 @@ pub fn report_spec_from_report(
                     status: system.solver_plan.ode_runner.status.clone(),
                     reason: system.solver_plan.ode_runner.reason.clone(),
                 },
+                jacobian_sparsity: system
+                    .solver_plan
+                    .jacobian_sparsity
+                    .iter()
+                    .map(|seed| ReportJacobianSeed {
+                        residual: seed.residual.clone(),
+                        with_respect_to: seed.with_respect_to.clone(),
+                        derivative_states: seed.derivative_states.clone(),
+                        status: seed.status.clone(),
+                    })
+                    .collect(),
                 jacobian_seed: system
                     .solver_plan
                     .jacobian_seed
@@ -5297,7 +5309,7 @@ fn push_report_solver_plan_json(json: &mut String, plan: &ReportSolverPlan, inde
     push_solver_plan_jacobian_entries_json(
         json,
         "jacobian_sparsity",
-        &plan.jacobian_seed,
+        &plan.jacobian_sparsity,
         indent,
         true,
     );
@@ -8960,6 +8972,10 @@ mod tests {
         assert_eq!(
             spec.system_ir[0].solver_plan.solve_order,
             vec!["RoomThermal.residual_1".to_owned()]
+        );
+        assert_eq!(
+            spec.system_ir[0].solver_plan.jacobian_sparsity[0].with_respect_to,
+            vec!["T".to_owned()]
         );
         assert_eq!(
             spec.system_ir[0].solver_plan.jacobian_seed[0].with_respect_to,

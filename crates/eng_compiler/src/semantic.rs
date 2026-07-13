@@ -151,6 +151,7 @@ pub struct SolverPlanInfo {
     pub method: String,
     pub solve_order: Vec<String>,
     pub ode_runner: OdeRunnerInfo,
+    pub jacobian_sparsity: Vec<JacobianSeedInfo>,
     pub jacobian_seed: Vec<JacobianSeedInfo>,
 }
 
@@ -954,6 +955,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
                             reason: "numeric ODE runner deferred until the solver milestone"
                                 .to_owned(),
                         },
+                        jacobian_sparsity: Vec::new(),
                         jacobian_seed: Vec::new(),
                     },
                     line: system.span.line,
@@ -11740,12 +11742,17 @@ fn analyze_equation(
         line: equation.line,
     });
     system.solver_plan.solve_order.push(residual_name.clone());
-    system.solver_plan.jacobian_seed.push(JacobianSeedInfo {
+    let jacobian_entry = JacobianSeedInfo {
         residual: residual_name.clone(),
         with_respect_to: jacobian_variables,
         derivative_states: derivative_states.clone(),
         status: "symbolic_seed".to_owned(),
-    });
+    };
+    system
+        .solver_plan
+        .jacobian_sparsity
+        .push(jacobian_entry.clone());
+    system.solver_plan.jacobian_seed.push(jacobian_entry);
     system.equation_ir.push(EquationIrInfo {
         system: system.name.clone(),
         residual: residual_name,
