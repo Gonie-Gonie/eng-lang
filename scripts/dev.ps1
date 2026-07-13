@@ -5078,8 +5078,11 @@ function Assert-VscodeExtensionContract {
             throw "VS Code extension missing diagnostics mode compatibility token $RequiredDiagnosticsModeToken"
         }
     }
-    if (-not $DiagnosticsProviderSource.Contains("clearDocumentDiagnostics(document") -or -not $DiagnosticsProviderSource.Contains("Problems cleared for")) {
-        throw "VS Code diagnostics provider must clear stale live Problems when switching dirty editors back to file mode"
+    if (-not $DiagnosticsProviderSource.Contains("clearDocumentDiagnostics(document") -or -not $DiagnosticsProviderSource.Contains("Problems cleared for") -or -not $DiagnosticsProviderSource.Contains("this.clearCachedReview(document)")) {
+        throw "VS Code diagnostics provider must clear stale live Problems and cached review data when switching dirty editors back to file mode"
+    }
+    if (-not $ExtensionSource.Contains("clearCachedReview: (document) => reviewCache.delete(document.uri.fsPath)")) {
+        throw "VS Code extension must clear cached live review data when switching dirty editors back to file mode"
     }
     if (-not $CommandHandlersSource.Contains("return picked.mode")) {
         throw "VS Code diagnostics mode command must return the selected mode so the active editor can refresh immediately"

@@ -27,6 +27,7 @@ class EngDiagnosticsController {
     this.snapshotDocumentSource = options.snapshotDocumentSource;
     this.workspaceRoot = options.workspaceRoot;
     this.cacheReview = options.cacheReview ?? (() => undefined);
+    this.clearCachedReview = options.clearCachedReview ?? (() => undefined);
     this.updateReviewRiskDecorations = options.updateReviewRiskDecorations ?? (() => undefined);
     this.updateSemanticSymbolDecorations = options.updateSemanticSymbolDecorations ?? (() => undefined);
     this.changeTimers = new Map();
@@ -79,6 +80,7 @@ class EngDiagnosticsController {
       return;
     }
     this.clearPendingCheck(document);
+    this.clearCachedReview(document);
     this.diagnostics.delete(document.uri);
     this.updateReviewRiskDecorations(document, undefined);
     this.updateSemanticSymbolDecorations(document, undefined);

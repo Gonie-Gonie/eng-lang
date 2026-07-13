@@ -88,6 +88,7 @@ function activate(context) {
     snapshotDocumentSource: lspRequests.snapshotDocumentSource,
     workspaceRoot,
     cacheReview: (document, review) => reviewCache.set(document.uri.fsPath, review),
+    clearCachedReview: (document) => reviewCache.delete(document.uri.fsPath),
     updateReviewRiskDecorations: decorationController.updateReviewRiskDecorations,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
   });
