@@ -4053,6 +4053,9 @@ function Assert-VscodeExtensionContract {
         "promotedSchemaBindingsFromDocument",
         "fieldsForSchemaBinding",
         "fieldsForWorkflowBinding",
+        "firstMappedFieldsForReceiver",
+        "receiverLookupCandidates",
+        "receiver.split(""."").filter(Boolean).pop()",
         "workflowBindingFields",
         "schema field",
         "argsFields",
@@ -4083,6 +4086,8 @@ function Assert-VscodeExtensionContract {
         "workflowBindingFieldCompletionsFromDocument",
         "workflowBindingFieldCompletionsFromSource",
         "fieldsForWorkflowBinding",
+        "firstMappedFieldsForReceiver",
+        "receiverLookupCandidates",
         "httpResponseFieldCompletionsForContext",
         "localMemberCompletionsForContext",
         "isCaseResultCollectionLikeReceiver"
@@ -4093,6 +4098,9 @@ function Assert-VscodeExtensionContract {
         }
     }
 
+    if (-not $CompletionProviderSource.Contains("((?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*)\.") -or -not $CompletionProviderSource.Contains("[receiver, lastSegment]")) {
+        throw "VS Code member completions must preserve dotted receivers and fall back to the terminal receiver segment for generated field maps"
+    }
     $SemanticProviderSource = $ExtensionSource + "`n" + $CommandHandlersSource + "`n" + $SemanticTokensProviderSource + "`n" + $LspSemanticTokensSource
     foreach ($RequiredSemanticDebugToken in @(
         "showSemanticTokensDebug",

@@ -368,16 +368,32 @@ function fieldsForSchemaBinding(schemaBindingFields, receiver) {
   if (!schemaBindingFields || typeof schemaBindingFields !== "object") {
     return [];
   }
-  const fields = schemaBindingFields[receiver];
-  return Array.isArray(fields) ? fields : [];
+  return firstMappedFieldsForReceiver(schemaBindingFields, receiver);
 }
 
 function fieldsForWorkflowBinding(workflowBindingFields, receiver) {
   if (!workflowBindingFields || typeof workflowBindingFields !== "object") {
     return [];
   }
-  const fields = workflowBindingFields[receiver];
-  return Array.isArray(fields) ? fields : [];
+  return firstMappedFieldsForReceiver(workflowBindingFields, receiver);
+}
+
+function firstMappedFieldsForReceiver(fieldMap, receiver) {
+  for (const candidate of receiverLookupCandidates(receiver)) {
+    const fields = fieldMap[candidate];
+    if (Array.isArray(fields)) {
+      return fields;
+    }
+  }
+  return [];
+}
+
+function receiverLookupCandidates(receiver) {
+  if (typeof receiver !== "string" || receiver.length === 0) {
+    return [];
+  }
+  const lastSegment = receiver.split(".").filter(Boolean).pop();
+  return lastSegment && lastSegment !== receiver ? [receiver, lastSegment] : [receiver];
 }
 
 function fieldCompletionsForMemberContext(memberContext, fields, fallbackDetail) {
@@ -395,7 +411,7 @@ function fieldCompletionsForMemberContext(memberContext, fields, fallbackDetail)
 
 function memberAccessCompletionContext(document, position) {
   const linePrefix = document.lineAt(position.line).text.slice(0, position.character);
-  const match = /([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(linePrefix);
+  const match = /((?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(linePrefix);
   if (!match) {
     return undefined;
   }
@@ -521,5 +537,6 @@ module.exports = {
   workflowBindingFieldCompletionsFromSource,
   httpResponseFieldCompletionsForContext,
   localMemberCompletionsForContext,
-  memberAccessCompletionContext
+  memberAccessCompletionContext,
+  receiverLookupCandidates
 };
