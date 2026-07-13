@@ -1002,7 +1002,7 @@ pub fn snapshot_from_report_with_source(report: &CheckReport, source: Option<&st
             .map(|diagnostic| lsp_diagnostic(diagnostic, source))
             .collect(),
         completions: completion_items(report),
-        hovers: hover_items(report),
+        hovers: hover_items(report, source),
         semantic_tokens: source
             .map(|source| semantic_tokens(report, source))
             .unwrap_or_default(),
@@ -6069,8 +6069,130 @@ fn hover_display_unit(display_unit: &str) -> Option<&str> {
         Some(trimmed)
     }
 }
+fn push_public_member_field_hovers(hovers: &mut Vec<LspHover>, report: &CheckReport, source: &str) {
+    for binding in &report.semantic_program.typed_bindings {
+        let Some((fields, kind)) = public_member_hover_fields(&binding.semantic_type.quantity_kind)
+        else {
+            continue;
+        };
+        push_member_field_hovers(
+            hovers,
+            source,
+            &binding.name,
+            &binding.semantic_type.quantity_kind,
+            fields,
+            kind,
+        );
+    }
+}
 
-pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
+fn public_member_hover_fields(
+    quantity_kind: &str,
+) -> Option<(&'static [(&'static str, &'static str)], &'static str)> {
+    match quantity_kind {
+        "HttpResponse" => Some((HTTP_RESPONSE_FIELD_COMPLETIONS, "http_response_field")),
+        "Table[Sample]" => Some((SAMPLE_TABLE_FIELD_COMPLETIONS, "sample_table_field")),
+        "DbConnection" => Some((DB_CONNECTION_FIELD_COMPLETIONS, "db_connection_field")),
+        "Table[Case]" => Some((CASE_TABLE_FIELD_COMPLETIONS, "case_table_field")),
+        "Table[CaseOutput]" => Some((
+            CASE_OUTPUT_TABLE_FIELD_COMPLETIONS,
+            "case_output_table_field",
+        )),
+        "Table[CaseResultCollection]" => Some((
+            CASE_RESULT_COLLECTION_TABLE_FIELD_COMPLETIONS,
+            "case_result_collection_table_field",
+        )),
+        _ => None,
+    }
+}
+
+fn push_member_field_hovers(
+    hovers: &mut Vec<LspHover>,
+    source: &str,
+    receiver: &str,
+    receiver_quantity_kind: &str,
+    fields: &[(&str, &str)],
+    kind: &str,
+) {
+    if receiver.trim().is_empty() {
+        return;
+    }
+    let needle = format!("{receiver}.");
+    for (line_index, line) in source.lines().enumerate() {
+        for (range_start, range_end) in code_ranges(line) {
+            let mut search_start = range_start;
+            while search_start < range_end {
+                let Some(relative) = line[search_start..range_end].find(&needle) else {
+                    break;
+                };
+                let receiver_start = search_start + relative;
+                let receiver_end = receiver_start + receiver.len();
+                let field_start = receiver_end + 1;
+                search_start = field_start;
+                if !member_receiver_boundary(line, receiver_start) {
+                    continue;
+                }
+                let bytes = line.as_bytes();
+                if field_start >= range_end
+                    || field_start >= bytes.len()
+                    || !is_ident_start(bytes[field_start])
+                {
+                    continue;
+                }
+                let mut field_end = field_start + 1;
+                while field_end < range_end
+                    && field_end < bytes.len()
+                    && is_ident_byte(bytes[field_end])
+                {
+                    field_end += 1;
+                }
+                let field = &line[field_start..field_end];
+                let Some((_, detail)) = fields.iter().find(|(candidate, _)| *candidate == field)
+                else {
+                    continue;
+                };
+                let access_start = member_access_path_start(line, receiver_start);
+                hovers.push(LspHover {
+                    name: line[access_start..field_end].to_owned(),
+                    kind: kind.to_owned(),
+                    line: line_index + 1,
+                    detail: format!("{detail}; member of {receiver_quantity_kind}"),
+                    quantity_kind: public_member_field_quantity_kind(field).to_owned(),
+                    display_unit: "-".to_owned(),
+                    status: Some("metadata".to_owned()),
+                });
+                search_start = field_end;
+            }
+        }
+    }
+}
+
+fn member_access_path_start(line: &str, receiver_start: usize) -> usize {
+    let bytes = line.as_bytes();
+    let mut start = receiver_start;
+    while start > 0 && bytes[start - 1] == b'.' {
+        let dot = start - 1;
+        let mut segment_start = dot;
+        while segment_start > 0 && is_ident_byte(bytes[segment_start - 1]) {
+            segment_start -= 1;
+        }
+        if segment_start == dot {
+            break;
+        }
+        start = segment_start;
+    }
+    start
+}
+
+fn public_member_field_quantity_kind(field: &str) -> &'static str {
+    match field {
+        "status_code" | "seed" => "Int",
+        value if value.ends_with("_count") => "Int",
+        _ => "String",
+    }
+}
+
+pub fn hover_items(report: &CheckReport, source: Option<&str>) -> Vec<LspHover> {
     let mut hovers = report
         .semantic_program
         .hover_hints
@@ -6359,6 +6481,10 @@ pub fn hover_items(report: &CheckReport) -> Vec<LspHover> {
                 status: Some(validation.status.clone()),
             });
         }
+    }
+
+    if let Some(source) = source {
+        push_public_member_field_hovers(&mut hovers, report, source);
     }
 
     hovers.sort_by(|left, right| {
@@ -11844,6 +11970,14 @@ weather = promote json records payload.records as WeatherApiRecord
         assert!(nested_member_completions
             .iter()
             .any(|completion| completion.label == "row_preview"));
+        let nested_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "study.samples.row_preview")
+            .expect("nested sample member field should expose exact hover metadata");
+        assert_eq!(nested_hover.kind, "sample_table_field");
+        assert_eq!(nested_hover.quantity_kind, "String");
+        assert!(nested_hover.detail.contains("sample row preview summary"));
         assert_semantic_token_on_line(
             &snapshot,
             source,
