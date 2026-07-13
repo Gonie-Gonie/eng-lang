@@ -1368,6 +1368,69 @@ function Test-PublicWorkflowDocs {
     Write-Host "Public workflow docs wording check passed."
 }
 
+
+function Test-ContainsByteSequence {
+    param(
+        [Parameter(Mandatory = $true)]
+        [byte[]] $Bytes,
+        [Parameter(Mandatory = $true)]
+        [byte[]] $Pattern
+    )
+
+    if ($Pattern.Count -eq 0 -or $Bytes.Count -lt $Pattern.Count) {
+        return $false
+    }
+    for ($index = 0; $index -le $Bytes.Count - $Pattern.Count; $index++) {
+        $matched = $true
+        for ($offset = 0; $offset -lt $Pattern.Count; $offset++) {
+            if ($Bytes[$index + $offset] -ne $Pattern[$offset]) {
+                $matched = $false
+                break
+            }
+        }
+        if ($matched) {
+            return $true
+        }
+    }
+    return $false
+}
+
+function Test-NoCelsiusMojibake {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]] $Paths
+    )
+
+    $badTokens = @(
+        "$([char]0xC9F8)C",
+        "$([char]0xF9DE)$([char]0xD1D2)",
+        "$([char]0x7B4C)$([char]0xC68F)$([char]0xB1ED)"
+    )
+    $badBytePatterns = @(
+        [byte[]](0xA1, 0xC6, 0x43),
+        [byte[]](0xEC, 0xA7, 0xB8, 0x43),
+        [byte[]](0xEF, 0xA7, 0x9E, 0xED, 0x87, 0x92),
+        [byte[]](0xE7, 0xAD, 0x8C, 0xEC, 0x9A, 0x8F, 0xEB, 0x87, 0xAD)
+    )
+    foreach ($path in $Paths) {
+        if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+            continue
+        }
+        $text = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+        foreach ($badToken in $badTokens) {
+            if ($text.Contains($badToken)) {
+                throw "Celsius alias text is mojibake at $path; use degC or `$([char]0x00B0)C instead."
+            }
+        }
+        $bytes = [System.IO.File]::ReadAllBytes($path)
+        foreach ($badPattern in $badBytePatterns) {
+            if (Test-ContainsByteSequence -Bytes $bytes -Pattern $badPattern) {
+                throw "Celsius alias bytes are mojibake at $path; use UTF-8 degC or `$([char]0x00B0)C instead."
+            }
+        }
+    }
+}
+
 function Test-CurrentDocsImplementationWording {
     param(
         [Parameter(Mandatory = $true)]
@@ -1558,6 +1621,12 @@ function Invoke-DocsCheck {
             }
         }
     }
+    $CelsiusMojibakeCheckFiles = @($markdownFiles.ToArray()) + @(
+        (Join-Path $RepoRoot "crates\eng_compiler\src\lib.rs"),
+        (Join-Path $RepoRoot "crates\eng_compiler\src\units.rs"),
+        (Join-Path $RepoRoot "stdlib\units.eng")
+    )
+    Test-NoCelsiusMojibake -Paths $CelsiusMojibakeCheckFiles
     Test-MarkdownLinks -Files $linkFiles.ToArray()
     Test-ModuleRegistryDocs `
         -RegistryPath (Join-Path $RepoRoot "stdlib\eng\modules.toml") `

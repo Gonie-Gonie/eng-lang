@@ -163,7 +163,7 @@ m_dot = 0.22 kg/s
 T = 21.4 degC
 ```
 
-`degC` is the canonical ASCII spelling. `째C` is accepted as a user-facing alias
+`degC` is the canonical ASCII spelling. `°C` is accepted as a user-facing alias
 for absolute temperature and display formatting.
 
 ## Top-Level Forms

@@ -13064,7 +13064,7 @@ write csv "outputs/q.csv", Q
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(
             "ok.eng",
-            "schema SensorData {\n    T_supply: AbsoluteTemperature [吏퇒]\n}\n\nT_room = 24 吏퇒\n}\n",
+            "schema SensorData {\n    T_supply: AbsoluteTemperature [°C]\n}\n\nT_room = 24 °C\n}\n",
             &CheckOptions::default(),
         );
 
@@ -13073,7 +13073,7 @@ write csv "outputs/q.csv", Q
             report.semantic_program.schemas[0].columns[0]
                 .unit
                 .as_deref(),
-            Some("吏퇒")
+            Some("°C")
         );
         assert_eq!(
             report.inferred_declarations[0].quantity_kind,
@@ -13086,7 +13086,7 @@ write csv "outputs/q.csv", Q
             .iter()
             .find(|derivation| derivation.name == "T_room")
             .expect("T_room derivation");
-        assert_eq!(room_derivation.source_unit.as_deref(), Some("吏퇒"));
+        assert_eq!(room_derivation.source_unit.as_deref(), Some("°C"));
     }
 
     #[test]
