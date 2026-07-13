@@ -62,6 +62,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 733: Added normalized review-document `source_span` metadata for Inputs rows, including args, schemas, and environment dependency inputs.
 - Batch 734: Added normalized review-document `source_span` metadata for Schemas rows so the VS Code review table opens schema declarations at precise columns.
 - Batch 735: Added normalized review-document `source_span` metadata for Time Axes rows so review panels jump to TimeSeries declarations precisely.
+- Batch 736: Added normalized review-document `source_span` metadata for Caches rows so review panels jump to cached boundary declarations precisely.
 
 ## Documentation Policy
 

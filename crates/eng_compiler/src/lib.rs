@@ -7302,7 +7302,9 @@ fn push_review_caches_json(json: &mut String, report: &CheckReport) {
             "        \"status\": \"{}\",\n",
             json_escape(&record.status)
         ));
-        json.push_str(&format!("        \"line\": {}\n", record.line));
+        json.push_str(&format!("        \"line\": {},\n", record.line));
+        write_source_span_json(json, "        ", record.line, &report.source_lines, false);
+        json.push('\n');
         json.push_str("      }");
     }
     json.push_str("\n    ],\n");
@@ -14898,6 +14900,19 @@ schema SensorData {
         assert!(review.contains("\"kind\": \"network_request\""));
         assert!(review.contains("\"kind\": \"network_download\""));
         let value: serde_json::Value = serde_json::from_str(&review).expect("review document json");
+        let review_cache = value["review_document"]["caches"]
+            .as_array()
+            .and_then(|caches| {
+                caches
+                    .iter()
+                    .find(|cache| cache["owner_name"] == "response")
+            })
+            .expect("response cache review row");
+        assert_eq!(
+            review_cache["source_span"]["line"].as_u64(),
+            Some(cache_record.line as u64)
+        );
+        assert_eq!(review_cache["source_span"]["column"].as_u64(), Some(1));
         let risks = value
             .pointer("/review_document/risks")
             .and_then(serde_json::Value::as_array)
