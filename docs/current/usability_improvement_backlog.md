@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 746: Added LSP and VS Code local quick fixes for `E-NET-BODY-POLICY` so unsupported secret request bodies can be replaced with an explicit string-literal body from either editor backend.
 This file is the short current backlog for API clarity, native workflow usability,
 editor/linter behavior, and documentation cleanup. The historical batch log was
 archived to [usability_improvement_backlog_history.md](../archive/usability_improvement_backlog_history.md).

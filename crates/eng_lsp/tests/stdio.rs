@@ -892,6 +892,11 @@ with {
     body = "submitted=true"
 }
 
+post_with_secret_body = http post url("https://example.org/submit")
+with {
+    body = secret env("API_KEY")
+}
+
 download url("https://example.org/file.csv") to file("build/raw/file.csv")
 with {
     response_body_limit = 0 B
@@ -1103,6 +1108,7 @@ report {
         "E-NET-BODY-SIZE-LIMIT",
         "E-NET-INVALID-URL",
         "E-NET-BODY-METHOD",
+        "E-NET-BODY-POLICY",
         "E-NET-HASH-MISMATCH",
         "W-NET-FIXTURE-ALIAS",
         "W-NET-RESPONSE-HASH-ALIAS",
@@ -1519,6 +1525,10 @@ report {
         .lines()
         .position(|line| line.trim_start().starts_with("get_with_body"))
         .expect("source should include GET with request body");
+    let secret_body_line = source
+        .lines()
+        .position(|line| line.trim_start().starts_with("body = secret env"))
+        .expect("source should include secret request body option");
     let missing_log_level_line = source
         .lines()
         .position(|line| line.trim_start().starts_with("log \"missing level\""))
@@ -1607,6 +1617,13 @@ report {
         "Change HTTP method to post",
         "post",
         get_with_body_line,
+    );
+    assert_action_edit_at_line(
+        actions,
+        &uri,
+        "Replace request body with string literal: body = \"{}\"",
+        "\"{}\"",
+        secret_body_line,
     );
     assert_action_edit_at_line(
         actions,
@@ -1708,6 +1725,11 @@ bad_url_response = http get url("ftp://example.org/data.json")
 get_with_body = http get url("https://example.org/submit")
 with {
     body = "submitted=true"
+}
+
+post_with_secret_body = http post url("https://example.org/submit")
+with {
+    body = secret env("API_KEY")
 }
 
 run command "unbound"
@@ -1881,6 +1903,12 @@ report {
         "\"https://example.org\"",
     );
     assert_action_edit(actions, &uri, "Change HTTP method to post", "post");
+    assert_action_edit(
+        actions,
+        &uri,
+        "Replace request body with string literal: body = \"{}\"",
+        "\"{}\"",
+    );
     assert_action_edit(actions, &uri, "Set timeout to 10 s: timeout = 10 s", "10 s");
     assert_action_edit(actions, &uri, "Disable retries: retry = 0", "0");
     assert_action_edit(

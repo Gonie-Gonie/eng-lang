@@ -709,6 +709,12 @@ function optionQuickFix(code) {
         value: "10 MB",
         label: "Set response body limit to 10 MB"
       };
+    case "E-NET-BODY-POLICY":
+      return {
+        optionNames: ["body"],
+        value: "\"{}\"",
+        label: "Replace request body with string literal"
+      };
     case "E-PROCESS-ALLOW-FAILURE":
       return {
         optionNames: ["allow_failure"],

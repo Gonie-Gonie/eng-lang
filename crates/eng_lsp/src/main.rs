@@ -1793,6 +1793,11 @@ fn option_quick_fix(code: &str) -> Option<OptionQuickFix> {
             value: "10 MB",
             label: "Set response body limit to 10 MB",
         }),
+        "E-NET-BODY-POLICY" => Some(OptionQuickFix {
+            option_names: &["body"],
+            value: "\"{}\"",
+            label: "Replace request body with string literal",
+        }),
         "E-PROCESS-ALLOW-FAILURE" => Some(OptionQuickFix {
             option_names: &["allow_failure"],
             value: "true",
