@@ -386,8 +386,15 @@
                                                                               }
                                                              },
                                                              {
-                                                                 "name":  "storage.modifier.schema.englang",
-                                                                 "match":  "\\b(index)\\b"
+                                                                 "match":  "(^\\s*)(index)\\b|(?\u003c=\\s)(index)\\b(?=\\s*(?:#|$))",
+                                                                 "captures":  {
+                                                                                  "2":  {
+                                                                                            "name":  "storage.modifier.schema.englang"
+                                                                                        },
+                                                                                  "3":  {
+                                                                                            "name":  "storage.modifier.schema.englang"
+                                                                                        }
+                                                                              }
                                                              },
                                                              {
                                                                  "name":  "meta.declaration.args-block.englang",

@@ -10781,6 +10781,12 @@ system Envelope {
             "bad_across = across T: AbsoluteTemperature [K]",
             "bad_through = through q: HeatRate [W]",
             "bad_conservation = conservation sum(q) = 0 W",
+            "bad_index = index time",
+            "bad_package = package \"eng.std.domains.guard\"",
+            "bad_version = version \"0.1.0\"",
+            "bad_across_word = across",
+            "bad_through_word = through",
+            "bad_operator_word = operator",
         ] {
             let source = format!("Q: HeatRate [kW] = 5 kW\n{expression}\n");
             let report = check_source("bad.eng", &source, &CheckOptions::default());

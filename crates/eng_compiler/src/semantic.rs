@@ -6674,10 +6674,10 @@ fn analyze_class_object_decl(
                 "E-BLOCK-BINDING-001",
                 object.line,
                 &format!(
-                    "Block or declaration header `{}` cannot be used as a bound value.",
+                    "Block, declaration, member, or metadata header `{}` cannot be used as a bound value.",
                     object.class_name
                 ),
-                Some("Write block, declaration, and member headers at the start of their own statement, such as `schema Name { ... }`, `state T: ...`, or `port heat: ...`; attach `where` and `with` blocks after a supported owner statement."),
+                Some("Write block, declaration, member, and metadata headers at the start of their own statement, such as `schema Name { ... }`, `state T: ...`, `port heat: ...`, or `time: DateTime index`; attach `where` and `with` blocks after a supported owner statement."),
             ));
             return;
         }
@@ -11990,8 +11990,8 @@ fn bound_block_header_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
     Some(Diagnostic::error(
         "E-BLOCK-BINDING-001",
         binding.line,
-        &format!("Block, declaration, or member header `{command}` cannot be used as a bound value."),
-        Some("Write block, declaration, and member headers at the start of their own statement, such as `schema Name { ... }`, `state T: ...`, or `port heat: ...`; attach `where` and `with` blocks after a supported owner statement."),
+        &format!("Block, declaration, member, or metadata header `{command}` cannot be used as a bound value."),
+        Some("Write block, declaration, member, and metadata headers at the start of their own statement, such as `schema Name { ... }`, `state T: ...`, `port heat: ...`, or `time: DateTime index`; attach `where` and `with` blocks after a supported owner statement."),
     ))
 }
 fn bound_statement_only_command_diagnostic(binding: &FastBinding) -> Option<Diagnostic> {
@@ -12034,6 +12034,9 @@ const BLOCK_HEADER_COMMANDS: &[&str] = &[
     "across",
     "through",
     "conservation",
+    "index",
+    "package",
+    "version",
 ];
 
 fn is_block_header_command(value: &str) -> bool {
@@ -12063,10 +12066,9 @@ fn leading_statement_word(
 ) -> Option<&'static str> {
     let trimmed = expression.trim_start();
     for command in commands {
-        if trimmed
-            .strip_prefix(command)
-            .is_some_and(|rest| rest.chars().next().is_some_and(char::is_whitespace))
-        {
+        if trimmed.strip_prefix(command).is_some_and(|rest| {
+            rest.is_empty() || rest.chars().next().is_some_and(char::is_whitespace)
+        }) {
             return Some(command);
         }
     }
