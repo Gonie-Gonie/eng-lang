@@ -1690,7 +1690,8 @@ function renderSemanticTokenRows(tokens, filtered = false) {
 function sourceTokenActions(token) {
   const actions = [
     sourceTokenCopyButton(token, "text", "Copy Text"),
-    sourceTokenCopyButton(token, "range", "Copy Range")
+    sourceTokenCopyButton(token, "range", "Copy Range"),
+    sourceTokenCopyButton(token, "selector", "Copy Selector")
   ].filter(Boolean);
   return actions.length ? actions.join(" ") : "-";
 }
@@ -5901,7 +5902,11 @@ function sourceTokenCopyButton(token, mode, label) {
   if (!validSourceTokenRange(line, start, length)) {
     return "";
   }
-  const title = mode === "range" ? "Copy token source range" : "Copy token text";
+  const title = mode === "range"
+    ? "Copy token source range"
+    : mode === "selector"
+      ? "Copy token selector"
+      : "Copy token text";
   return `<button class="link-button token-range-button" data-copy-source-token="${escapeAttr(mode)}" data-source-token-line="${escapeAttr(line)}" data-source-token-start="${escapeAttr(start)}" data-source-token-length="${escapeAttr(length)}" title="${escapeAttr(title)}">${escapeHtml(label)}</button>`;
 }
 
@@ -5968,10 +5973,28 @@ async function copySourceTokenRange(line, startByte, lengthBytes, mode = "text")
   const endColumn = byteOffsetToCodeUnit(lineRange.text, startByte + lengthBytes);
   const tokenText = lineRange.text.slice(startColumn, Math.max(startColumn, endColumn));
   const rangeText = `L${line}:${startByte}:${lengthBytes}`;
-  const copied = await copyTextToClipboard(mode === "range" ? rangeText : tokenText);
+  const selectorText = mode === "selector" ? semanticTokenPrimarySelector(line, startByte, lengthBytes) : "";
+  const copyText = mode === "range" ? rangeText : mode === "selector" ? selectorText : tokenText;
+  const copied = await copyTextToClipboard(copyText);
+  const copiedKind = mode === "range" ? "range" : mode === "selector" ? "selector" : "text";
   setStatus(copied
-    ? `Copied token ${mode === "range" ? "range" : "text"} ${rangeText}`
+    ? `Copied token ${copiedKind} ${rangeText}`
     : "Copy failed");
+}
+
+function semanticTokenPrimarySelector(line, startByte, lengthBytes) {
+  const token = semanticTokenForRange(line, startByte, lengthBytes);
+  return semanticTokenSelectors(token)[0] || "";
+}
+
+function semanticTokenForRange(line, startByte, lengthBytes) {
+  const lineIndex = Number(line) - 1;
+  const tokens = Array.isArray(semanticTokenPayload().tokens) ? semanticTokenPayload().tokens : [];
+  return tokens.find((token) =>
+    Number(token?.line) === lineIndex
+    && Number(token?.start) === Number(startByte)
+    && Number(token?.length) === Number(lengthBytes)
+  ) || null;
 }
 
 async function copyTextToClipboard(text) {
