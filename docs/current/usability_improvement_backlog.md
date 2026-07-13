@@ -98,6 +98,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 639: Reworded current/internal docs that still described implemented tracks as implementation seeds, and added a docs-check guard so those stale implementation-seed phrases do not return outside archives.
 - Batch 640: Renamed the compiler internal net request/download response-origin field from `status` to `response_source` while keeping emitted artifact `status` as a compatibility alias.
 - Batch 641: Kept the VS Code last-run artifact picker in registry workflow order instead of resorting available artifacts alphabetically, so report, review, result, and run-graph artifacts stay in predictable positions.
+- Batch 642: Reordered native IDE side tabs around the review workflow and added a dedicated Units tab that surfaces review unit records and unit conversions before Schema.
 
 ## Documentation Policy
 

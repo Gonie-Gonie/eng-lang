@@ -6,6 +6,32 @@ const EDITOR_INDENT = "    ";
 const EDITOR_PAIR_CLOSE = { "{": "}", "[": "]", "(": ")", "\"": "\"" };
 const EDITOR_PAIR_OPEN = { "}": "{", "]": "[", ")": "(", "\"": "\"" };
 
+const SIDE_TABS = [
+  { key: "variables", label: "Variables" },
+  { key: "units", label: "Units" },
+  { key: "schema", label: "Schema" },
+  { key: "time", label: "Time" },
+  { key: "tables", label: "Tables" },
+  { key: "reads", label: "Reads" },
+  { key: "plot", label: "Plot" },
+  { key: "review", label: "Review" },
+  { key: "quality", label: "Quality" },
+  { key: "checks", label: "Checks" },
+  { key: "effects", label: "Effects" },
+  { key: "network", label: "Network" },
+  { key: "artifacts", label: "Artifacts" },
+  { key: "workflow", label: "Workflow" },
+  { key: "case", label: "Case" },
+  { key: "model", label: "Model" },
+  { key: "db", label: "DB" },
+  { key: "run", label: "Run" },
+  { key: "modules", label: "Modules" },
+  { key: "objects", label: "Objects" },
+  { key: "assembly", label: "Assembly" },
+  { key: "kernels", label: "Kernel" },
+  { key: "highlight", label: "Highlight" }
+];
+
 const LEXICAL_KEYWORD_GROUP_ORDER = [
   "deprecated", "import", "declaration", "function", "test", "block", "modifier",
   "side_effect", "external_boundary", "validation", "report", "solver", "workflow"
@@ -1198,28 +1224,7 @@ function renderSidePanel() {
   return `
     <aside class="variables inspector">
       <div class="side-tabs">
-        ${sideTabButton("variables", "Variables")}
-        ${sideTabButton("checks", "Checks")}
-        ${sideTabButton("schema", "Schema")}
-        ${sideTabButton("time", "Time")}
-        ${sideTabButton("tables", "Tables")}
-        ${sideTabButton("reads", "Reads")}
-        ${sideTabButton("plot", "Plot")}
-        ${sideTabButton("review", "Review")}
-        ${sideTabButton("quality", "Quality")}
-        ${sideTabButton("highlight", "Highlight")}
-        ${sideTabButton("effects", "Effects")}
-        ${sideTabButton("network", "Network")}
-        ${sideTabButton("artifacts", "Artifacts")}
-        ${sideTabButton("run", "Run")}
-        ${sideTabButton("modules", "Modules")}
-        ${sideTabButton("workflow", "Workflow")}
-        ${sideTabButton("objects", "Objects")}
-        ${sideTabButton("assembly", "Assembly")}
-        ${sideTabButton("kernels", "Kernel")}
-        ${sideTabButton("case", "Case")}
-        ${sideTabButton("model", "Model")}
-        ${sideTabButton("db", "DB")}
+        ${SIDE_TABS.map((tab) => sideTabButton(tab.key, tab.label)).join("")}
       </div>
       <div class="side-body">${renderSideBody()}</div>
     </aside>
@@ -1231,6 +1236,7 @@ function sideTabButton(key, label) {
 }
 
 function renderSideBody() {
+  if (state.sideTab === "units") return renderUnitsPanel();
   if (state.sideTab === "plot") return renderPlotPanel();
   if (state.sideTab === "schema") return renderSchemaPanel();
   if (state.sideTab === "time") return renderTimePanel();
@@ -1345,17 +1351,32 @@ function renderRunHistory() {
   `;
 }
 
+function renderUnitsPanel() {
+  const units = reviewArray(inspectorObject("reviewDocument"), "units_quantities", "unitsQuantities");
+  const conversions = inspectorRows("unitConversions");
+  return `
+    <div class="panel-title compact">Units</div>
+    <div class="badges">
+      <span class="badge">Review ${units.length}</span>
+      <span class="badge">Conversions ${conversions.length}</span>
+    </div>
+    <div class="scroll">
+      <div class="panel-title compact">Review Units</div>
+      ${renderReviewUnits(units)}
+      <div class="panel-title compact">Unit Conversions</div>
+      ${renderUnitConversions()}
+    </div>
+  `;
+}
+
 function renderSchemaPanel() {
   return `
     <div class="panel-title compact">Schema</div>
     <div class="badges">
       <span class="badge">Schemas ${inspectorRows("schemas").length}</span>
-      <span class="badge">Conversions ${inspectorRows("unitConversions").length}</span>
     </div>
     <div class="scroll">
       ${renderSchemas()}
-      <div class="panel-title compact">Unit Conversions</div>
-      ${renderUnitConversions()}
     </div>
   `;
 }

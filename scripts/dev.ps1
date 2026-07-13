@@ -5308,23 +5308,33 @@ function Invoke-IdeCheck {
     if (-not $IdeUiSource.Contains("latin[_-]hypercube|grid|random|uniform")) {
         throw "Native IDE sample table completions must recognize sample uniform fallback bindings"
     }
+    if (-not $IdeUiSource.Contains("const SIDE_TABS = [") -or -not $IdeUiSource.Contains('SIDE_TABS.map((tab) => sideTabButton(tab.key, tab.label)).join(""')) {
+        throw "Native IDE side tabs must be driven by the ordered SIDE_TABS registry"
+    }
     $ExpectedNativeIdeSideTabOrder = @(
-        'sideTabButton("variables", "Variables")',
-        'sideTabButton("checks", "Checks")',
-        'sideTabButton("schema", "Schema")',
-        'sideTabButton("time", "Time")',
-        'sideTabButton("plot", "Plot")',
-        'sideTabButton("review", "Review")',
-        'sideTabButton("quality", "Quality")',
-        'sideTabButton("effects", "Effects")',
-        'sideTabButton("network", "Network")',
-        'sideTabButton("artifacts", "Artifacts")',
-        'sideTabButton("run", "Run")',
-        'sideTabButton("modules", "Modules")',
-        'sideTabButton("workflow", "Workflow")',
-        'sideTabButton("objects", "Objects")',
-        'sideTabButton("assembly", "Assembly")',
-        'sideTabButton("kernels", "Kernel")'
+        '{ key: "variables", label: "Variables" }',
+        '{ key: "units", label: "Units" }',
+        '{ key: "schema", label: "Schema" }',
+        '{ key: "time", label: "Time" }',
+        '{ key: "tables", label: "Tables" }',
+        '{ key: "reads", label: "Reads" }',
+        '{ key: "plot", label: "Plot" }',
+        '{ key: "review", label: "Review" }',
+        '{ key: "quality", label: "Quality" }',
+        '{ key: "checks", label: "Checks" }',
+        '{ key: "effects", label: "Effects" }',
+        '{ key: "network", label: "Network" }',
+        '{ key: "artifacts", label: "Artifacts" }',
+        '{ key: "workflow", label: "Workflow" }',
+        '{ key: "case", label: "Case" }',
+        '{ key: "model", label: "Model" }',
+        '{ key: "db", label: "DB" }',
+        '{ key: "run", label: "Run" }',
+        '{ key: "modules", label: "Modules" }',
+        '{ key: "objects", label: "Objects" }',
+        '{ key: "assembly", label: "Assembly" }',
+        '{ key: "kernels", label: "Kernel" }',
+        '{ key: "highlight", label: "Highlight" }'
     )
     $PreviousNativeIdeSideTabIndex = -1
     foreach ($ExpectedNativeIdeSideTab in $ExpectedNativeIdeSideTabOrder) {
@@ -5333,9 +5343,12 @@ function Invoke-IdeCheck {
             throw "Native IDE side tab order missing $ExpectedNativeIdeSideTab"
         }
         if ($NativeIdeSideTabIndex -lt $PreviousNativeIdeSideTabIndex) {
-            throw "Native IDE side tab order should keep review panels before advanced panels"
+            throw "Native IDE side tab order should keep units, review, workflow, and artifact panels before advanced panels"
         }
         $PreviousNativeIdeSideTabIndex = $NativeIdeSideTabIndex
+    }
+    if (-not $IdeUiSource.Contains("function renderUnitsPanel()") -or -not $IdeUiSource.Contains("Review Units") -or -not $IdeUiSource.Contains("Unit Conversions")) {
+        throw "Native IDE side tabs must expose a dedicated Units panel before Schema"
     }
     foreach ($ForbiddenNativeIdeSideTabLabel in @(
         'sideTabButton("variables", "Vars")',
