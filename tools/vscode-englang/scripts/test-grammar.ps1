@@ -558,6 +558,51 @@ function Assert-WorkflowPatternIncludes {
     }
 }
 
+function Assert-WorkflowPropertyFallbacksAreMemberAware {
+    $allowedWithoutMembers = @(
+        "meta.workflow.status-condition.englang",
+        "meta.workflow.status-option.englang"
+    )
+    $offenders = New-Object System.Collections.Generic.List[string]
+
+    function Visit-WorkflowPatternForMemberFallbacks {
+        param([object] $Node)
+
+        if ($null -eq $Node) {
+            return
+        }
+        if ($Node -is [System.Array]) {
+            foreach ($item in $Node) {
+                Visit-WorkflowPatternForMemberFallbacks -Node $item
+            }
+            return
+        }
+        if ($Node -isnot [pscustomobject]) {
+            return
+        }
+
+        $name = [string]$Node.name
+        if ($name -like "meta.workflow.*") {
+            $serialized = $Node | ConvertTo-Json -Depth 30 -Compress
+            $usesPropertyFallback = $serialized.Contains("variable.parameter.property.englang") -or $serialized.Contains("variable.other.property.englang")
+            $hasMembers = $serialized.Contains('"include":"#members"')
+            if ($usesPropertyFallback -and -not $hasMembers -and $allowedWithoutMembers -notcontains $name) {
+                $offenders.Add($name) | Out-Null
+            }
+        }
+
+        foreach ($property in $Node.PSObject.Properties) {
+            Visit-WorkflowPatternForMemberFallbacks -Node $property.Value
+        }
+    }
+
+    Visit-WorkflowPatternForMemberFallbacks -Node $GrammarSource.grammar.repository.workflowPhrases
+    $uniqueOffenders = @($offenders | Sort-Object -Unique)
+    if ($uniqueOffenders.Count -gt 0) {
+        throw "TextMate workflow property fallback patterns must include #members before broad dotted fallbacks: $($uniqueOffenders -join ', ')"
+    }
+}
+
 function Assert-FunctionCallFallbacks {
     $patterns = @($Grammar.repository.functionCalls.patterns | Where-Object {
         [string]$_.name -eq "meta.function-call.englang"
@@ -1102,6 +1147,7 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.apply-step.englang" -Include
 Assert-WorkflowPatternIncludes -Name "meta.workflow.integrate-call.englang" -Include "#members" -Description "integrate call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.stat-axis-call.englang" -Include "#members" -Description "stat axis call"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.summary-field.englang" -Include "#members" -Description "summary field"
+Assert-WorkflowPropertyFallbacksAreMemberAware
 Assert-FunctionCallFallbacks
 Assert-MemberPathFallbackOrder
 Assert-WorkflowStatusOptionPattern

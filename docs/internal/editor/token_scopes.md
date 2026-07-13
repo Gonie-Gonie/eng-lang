@@ -154,6 +154,10 @@ Integrate/statistical calls such as `integrate(<series>, over=<axis>)` and
 <unit> with <format>`, use member-aware fallbacks so dotted series, axis, and
 summary operands split before broad property scopes.
 
+Grammar smoke tests now enforce that workflow scopes using property fallback
+coloring include `#members` first; `status` option/condition scopes are the
+only allowed exception because they color fixed workflow-state keys and literals.
+
 Model call phrases such as `train_test_split(...)`, `regression_table(...)`,
 `evaluate(...)`, `model_card(...)`, and `leakage_lint(...)` also include
 member-aware fallbacks so nested model, split, table, and feature operands stay
