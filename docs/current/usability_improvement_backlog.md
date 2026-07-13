@@ -165,6 +165,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 - Batch 706: Aligned bundled VS Code semantic theme selectors with package fallback mappings by adding readonly/deprecated property and variable selectors plus a package guard against theme-only selectors.
 - Batch 707: Clarified VS Code highlight-inspection status text so fallback-scope gaps and direct-selector mapping gaps are both named in the first summary line.
 - Batch 708: Added VS Code local quick fixes for statement-only binding diagnostics so bound report, validation, side-effect, block/header, statement, and workflow-option forms can remove the invalid `name =` prefix directly from Problems.
+- Batch 709: Added matching eng-lsp code actions and stdio coverage for statement-only binding diagnostics so native/LSP clients can remove invalid binding prefixes without relying on VS Code local fallbacks.
 
 ## Documentation Policy
 

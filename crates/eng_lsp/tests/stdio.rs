@@ -1016,6 +1016,12 @@ with {
 print "empty {} interpolation"
 print "unknown {missing_value} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
+bad_show = show Q_plot
+bad_validate = validate Q_plot > 0 kW
+bad_print_binding = print "bound"
+bad_state_header = state T_bad: AbsoluteTemperature [K]
+bad_return = return Q_plot
+bad_unit_binding = unit y = kW
 print "unterminated {Q_plot interpolation"
 print "bad unit {Q_plot: .2 m} interpolation"
 report {
@@ -1131,6 +1137,12 @@ report {
         "E-PRINT-FMT-003",
         "E-PRINT-FMT-004",
         "E-LOG-LEVEL-001",
+        "E-REPORT-BINDING-001",
+        "E-VALIDATE-BINDING-001",
+        "E-SIDE-EFFECT-BINDING-001",
+        "E-BLOCK-BINDING-001",
+        "E-STATEMENT-BINDING-001",
+        "E-OPTION-BINDING-001",
         "W-TABLE-LEGACY-SELECT-FIRST-ROW",
         "E-UNC-ARGS-001",
         "E-UNC-ARGS-002",
@@ -1581,6 +1593,7 @@ report {
         "info ",
         missing_log_level_line,
     );
+    assert_statement_unbind_actions(actions, &uri, source);
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -1751,6 +1764,12 @@ with {
 print "empty {} interpolation"
 print "unknown {missing_value} interpolation"
 Q_plot: HeatRate [kW] = 1 kW
+bad_show = show Q_plot
+bad_validate = validate Q_plot > 0 kW
+bad_print_binding = print "bound"
+bad_state_header = state T_bad: AbsoluteTemperature [K]
+bad_return = return Q_plot
+bad_unit_binding = unit y = kW
 print "unterminated {Q_plot interpolation"
 print "bad unit {Q_plot: .2 m} interpolation"
 report {
@@ -2036,6 +2055,7 @@ report {
         "info ",
         missing_log_level_line,
     );
+    assert_statement_unbind_actions(actions, &uri, source);
     assert_action_edit_at_line(
         actions,
         &uri,
@@ -2939,6 +2959,23 @@ fn assert_action_edit(actions: &[Value], uri: &str, title: &str, new_text: &str)
         })
         .unwrap_or_else(|| panic!("code actions should include {title} editing to {new_text}"));
     assert_eq!(action["kind"], "quickfix");
+}
+
+fn assert_statement_unbind_actions(actions: &[Value], uri: &str, source: &str) {
+    for prefix in [
+        "bad_show =",
+        "bad_validate =",
+        "bad_print_binding =",
+        "bad_state_header =",
+        "bad_return =",
+        "bad_unit_binding =",
+    ] {
+        let line = source
+            .lines()
+            .position(|line| line.trim_start().starts_with(prefix))
+            .unwrap_or_else(|| panic!("source should include {prefix}"));
+        assert_action_edit_at_line(actions, uri, "Remove invalid binding prefix", "", line);
+    }
 }
 
 fn assert_action_edit_at_line(

@@ -802,6 +802,14 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
         "E-LOG-LEVEL-001" => {
             optional_code_action(lsp_log_level_info_code_action(uri, text, diagnostic))
         }
+        "E-REPORT-BINDING-001"
+        | "E-VALIDATE-BINDING-001"
+        | "E-SIDE-EFFECT-BINDING-001"
+        | "E-BLOCK-BINDING-001"
+        | "E-STATEMENT-BINDING-001"
+        | "E-OPTION-BINDING-001" => {
+            optional_code_action(lsp_statement_only_unbind_code_action(uri, text, diagnostic))
+        }
         "E-PROCESS-BINDING-001" => {
             optional_code_action(lsp_bind_process_result_code_action(uri, text, diagnostic))
         }
@@ -2232,6 +2240,79 @@ fn log_level_info_edit(line_number: usize, line: &str) -> Option<LogLevelEdit> {
         range: line_byte_range(line_number, line, token_start, token_end),
         new_text: "info",
     })
+}
+
+fn lsp_statement_only_unbind_code_action(
+    uri: &str,
+    text: &str,
+    diagnostic: &Value,
+) -> Option<Value> {
+    let line_number = diagnostic_line(diagnostic)?;
+    let line = text.lines().nth(line_number)?;
+    let (start_byte, end_byte) = statement_binding_prefix_range(line)?;
+    Some(json!({
+        "title": "Remove invalid binding prefix",
+        "kind": "quickfix",
+        "isPreferred": true,
+        "diagnostics": [diagnostic.clone()],
+        "edit": single_change_workspace_edit(
+            uri,
+            line_byte_range(line_number, line, start_byte, end_byte),
+            ""
+        )
+    }))
+}
+
+fn statement_binding_prefix_range(line: &str) -> Option<(usize, usize)> {
+    let code = strip_line_comment(line);
+    let start = line_indent(code).len();
+    let rest = &code[start..];
+    let name_len = statement_identifier_prefix_len(rest)?;
+    let mut cursor = skip_binding_prefix_whitespace(code, start + name_len);
+    if code[cursor..].starts_with(':') {
+        let annotation_start = cursor + ':'.len_utf8();
+        let equals_byte = annotation_start + code[annotation_start..].find('=')?;
+        if code[annotation_start..equals_byte].trim().is_empty() {
+            return None;
+        }
+        cursor = equals_byte;
+    }
+    cursor = skip_binding_prefix_whitespace(code, cursor);
+    if !code[cursor..].starts_with('=') {
+        return None;
+    }
+    cursor += '='.len_utf8();
+    cursor = skip_binding_prefix_whitespace(code, cursor);
+    if code[cursor..].trim().is_empty() {
+        return None;
+    }
+    Some((start, cursor))
+}
+
+fn statement_identifier_prefix_len(value: &str) -> Option<usize> {
+    let bytes = value.as_bytes();
+    let first = *bytes.first()?;
+    if first != b'_' && !first.is_ascii_alphabetic() {
+        return None;
+    }
+    let mut end = 1usize;
+    while end < bytes.len() && is_identifier_byte(bytes[end]) {
+        end += 1;
+    }
+    Some(end)
+}
+
+fn skip_binding_prefix_whitespace(text: &str, mut cursor: usize) -> usize {
+    while cursor < text.len() {
+        let Some(character) = text[cursor..].chars().next() else {
+            break;
+        };
+        if !character.is_whitespace() {
+            break;
+        }
+        cursor += character.len_utf8();
+    }
+    cursor
 }
 
 fn lsp_bind_process_result_code_action(uri: &str, text: &str, diagnostic: &Value) -> Option<Value> {
