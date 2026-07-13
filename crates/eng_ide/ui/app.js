@@ -152,9 +152,12 @@ function emptySyntaxCatalog() {
     legacyUnitAliases: [],
     httpResponseFields: [],
     sampleTableFields: [],
+    dbConnectionFields: [],
     caseTableFields: [],
     caseOutputTableFields: [],
-    caseResultCollectionTableFields: []
+    caseResultCollectionTableFields: [],
+    modelFields: [],
+    predictionTableFields: []
   };
 }
 
@@ -183,11 +186,14 @@ function normalizeSyntaxCatalog(catalog) {
     legacyUnitAliases: stringArray(source.legacyUnitAliases ?? source.legacy_unit_aliases),
     httpResponseFields: catalogFieldItems(source.httpResponseFields ?? source.http_response_fields),
     sampleTableFields: catalogFieldItems(source.sampleTableFields ?? source.sample_table_fields),
+    dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields),
     caseTableFields: catalogFieldItems(source.caseTableFields ?? source.case_table_fields),
     caseOutputTableFields: catalogFieldItems(source.caseOutputTableFields ?? source.case_output_table_fields),
     caseResultCollectionTableFields: catalogFieldItems(
       source.caseResultCollectionTableFields ?? source.case_result_collection_table_fields
-    )
+    ),
+    modelFields: catalogFieldItems(source.modelFields ?? source.model_fields),
+    predictionTableFields: catalogFieldItems(source.predictionTableFields ?? source.prediction_table_fields)
   };
 }
 
@@ -4573,14 +4579,14 @@ function localMemberCompletionCandidates(prefix) {
       matchesReceiver: (receiver) => receiver === "args"
     },
     {
-      fields: schemaFieldsForBinding(schemaBindingFieldCompletionsFromSource(state.source), context.receiver),
+      fields: schemaFieldsForBinding(schemaBindingFieldCompletionsFromSource(state.source), context.receiverCandidates),
       detail: "schema field",
       matchesReceiver: () => true
     },
     {
       fields: workflowFieldsForBinding(
         workflowBindingFieldCompletionsFromSource(state.source, workflowCatalog),
-        context.receiver
+        context.receiverCandidates
       ),
       detail: "workflow field",
       matchesReceiver: () => true
@@ -4596,6 +4602,11 @@ function localMemberCompletionCandidates(prefix) {
       matchesReceiver: isSampleTableLikeReceiver
     },
     {
+      fields: workflowCatalog.dbConnectionFields,
+      detail: "DB connection field",
+      matchesReceiver: isDbConnectionLikeReceiver
+    },
+    {
       fields: workflowCatalog.caseOutputTableFields,
       detail: "Case output table field",
       matchesReceiver: isCaseOutputTableLikeReceiver
@@ -4609,12 +4620,22 @@ function localMemberCompletionCandidates(prefix) {
       fields: workflowCatalog.caseTableFields,
       detail: "Case table field",
       matchesReceiver: isCaseTableLikeReceiver
+    },
+    {
+      fields: workflowCatalog.modelFields,
+      detail: "Model field",
+      matchesReceiver: isModelLikeReceiver
+    },
+    {
+      fields: workflowCatalog.predictionTableFields,
+      detail: "Prediction table field",
+      matchesReceiver: isPredictionTableLikeReceiver
     }
   ];
   const items = [];
   const seen = new Set();
   for (const group of groups) {
-    if (!Array.isArray(group.fields) || !group.matchesReceiver(context.receiver)) continue;
+    if (!Array.isArray(group.fields) || !receiverMatchesContext(context, group.matchesReceiver)) continue;
     for (const item of memberCompletionItemsForFields(context, group.fields, group.detail)) {
       const key = `${item.kind}:${item.insert}`;
       if (seen.has(key)) continue;
@@ -4626,12 +4647,29 @@ function localMemberCompletionCandidates(prefix) {
 }
 
 function memberCompletionContextFromPrefix(prefix) {
-  const match = /^([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(prefix || "");
+  const match = /^((?:[A-Za-z_][A-Za-z0-9_]*\.)*[A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)?$/.exec(prefix || "");
   if (!match) return null;
+  const receiver = match[1];
   return {
-    receiver: match[1],
+    receiver,
+    receiverCandidates: receiverLookupCandidates(receiver),
     prefix: match[2] || ""
   };
+}
+
+function receiverLookupCandidates(receiver) {
+  const normalized = String(receiver || "").trim();
+  if (!normalized) return [];
+  const candidates = [normalized];
+  const lastSegment = normalized.split(".").filter(Boolean).pop();
+  if (lastSegment && lastSegment !== normalized) {
+    candidates.push(lastSegment);
+  }
+  return candidates;
+}
+
+function receiverMatchesContext(context, predicate) {
+  return (context.receiverCandidates || [context.receiver]).some((receiver) => predicate(receiver));
 }
 
 function memberCompletionItemsForFields(context, fields, fallbackDetail) {
@@ -4671,16 +4709,21 @@ function schemaBindingFieldCompletionsFromSource(source) {
   return result;
 }
 
-function schemaFieldsForBinding(schemaBindingFields, receiver) {
-  if (!schemaBindingFields || typeof schemaBindingFields !== "object") return [];
-  const fields = schemaBindingFields[receiver];
-  return Array.isArray(fields) ? fields : [];
+function schemaFieldsForBinding(schemaBindingFields, receiverCandidates) {
+  return firstMappedFieldsForReceiver(schemaBindingFields, receiverCandidates);
 }
 
-function workflowFieldsForBinding(workflowBindingFields, receiver) {
-  if (!workflowBindingFields || typeof workflowBindingFields !== "object") return [];
-  const fields = workflowBindingFields[receiver];
-  return Array.isArray(fields) ? fields : [];
+function workflowFieldsForBinding(workflowBindingFields, receiverCandidates) {
+  return firstMappedFieldsForReceiver(workflowBindingFields, receiverCandidates);
+}
+
+function firstMappedFieldsForReceiver(fieldMap, receiverCandidates) {
+  if (!fieldMap || typeof fieldMap !== "object") return [];
+  for (const receiver of receiverCandidates || []) {
+    const fields = fieldMap[receiver];
+    if (Array.isArray(fields)) return fields;
+  }
+  return [];
 }
 
 function workflowBindingFieldCompletionsFromSource(source, catalog) {
@@ -4697,6 +4740,11 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
       fields: normalizedCatalog.sampleTableFields,
       detail: "Sample table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*open\s+sqlite\b/gm,
+      fields: normalizedCatalog.dbConnectionFields,
+      detail: "DB connection field"
     },
     {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*materialize\s+cases\b/gm,
@@ -4717,6 +4765,16 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*collect\s+results\s+[A-Za-z_][A-Za-z0-9_.]*\b/gm,
       fields: normalizedCatalog.caseResultCollectionTableFields,
       detail: "Case result collection field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:train\s+regression|regression_table|train_test_split|evaluate|model_card)\b/gm,
+      fields: normalizedCatalog.modelFields,
+      detail: "Model field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*predict\b/gm,
+      fields: normalizedCatalog.predictionTableFields,
+      detail: "Prediction table field"
     }
   ];
   for (const group of groups) {
@@ -4795,6 +4853,21 @@ function isCaseTableLikeReceiver(receiver) {
       normalized.endsWith("_cases")
     )
   );
+}
+
+function isDbConnectionLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return normalized.includes("db") || normalized.includes("database") || normalized.includes("sqlite");
+}
+
+function isModelLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return normalized.includes("model") || normalized.includes("regression") || normalized.includes("training");
+}
+
+function isPredictionTableLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return normalized.includes("prediction") || normalized.includes("predictions") || normalized.includes("forecast");
 }
 
 function schemaFieldsFromSource(source) {
