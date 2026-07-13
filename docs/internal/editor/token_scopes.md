@@ -58,6 +58,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `storage.type.test.englang` | `test` keyword fallback coloring while test declarations are incomplete. |
 | `storage.type.block.englang` | `args`, `where`, `with`, and `on` block-opener fallback coloring while block headers are incomplete. |
 | `storage.modifier.*.englang` | Modifiers such as schema indexes or system member roles. |
+| `storage.modifier.schema.englang` | Schema `index` modifier fallback coloring from TextMate and semantic token mappings. |
 | `storage.modifier.englang` | State, input, port, and constant keyword fallback coloring from semantic token mappings. |
 | `entity.name.type.declaration.englang` | Full type-like declaration phrases such as `schema SensorData`. |
 | `entity.name.type.englang` | Captured declaration names after `schema`, `system`, `domain`, `component`, and `class`. |
@@ -328,8 +329,8 @@ from generic fallback colors. Important pairings:
 | `comment.documentation` | Documentation comments (`///`) when semantic highlighting is available. |
 | `function`, `function.declaration`, `function.definition`, `method`, `method.declaration` | User-defined function and method calls plus declaration names. |
 | `function.report` | Report helper functions when emitted as semantic function tokens. |
-| `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, local keyword-like roles, and block-opener semantic fallbacks. |
-| `modifier`, `modifier.static` | Modifier-like role tokens and static modifier fallbacks. |
+| `keyword`, `keyword.declaration`, `keyword.local` | General workflow keywords, declaration keywords, schema-index modifier fallbacks, local keyword-like roles, and block-opener semantic fallbacks. |
+| `modifier`, `modifier.static` | Modifier-like role tokens, schema indexes, and static modifier fallbacks. |
 | `namespace`, `namespace.declaration` | Imported or declared module namespaces. |
 | `number` | Numeric literals. |
 | `parameter`, `parameter.readonly` | Function parameters, args-like parameters, and read-only parameter roles. |
@@ -417,6 +418,7 @@ storage.type.function.englang
 storage.type.test.englang
 storage.type.block.englang
 storage.modifier.englang
+storage.modifier.schema.englang
 string.quoted.double.englang
 support.function.builtin.englang
 support.namespace.module.englang

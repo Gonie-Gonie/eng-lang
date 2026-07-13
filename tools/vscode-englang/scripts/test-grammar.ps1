@@ -17,7 +17,8 @@ $GrammarPath = Join-Path $ExtensionRoot "syntaxes\eng.tmLanguage.json"
 $ExpectedPath = Join-Path $ExtensionRoot "test\expected\grammar_tokens.json"
 $FixtureRoot = Join-Path $ExtensionRoot "test\grammar-fixtures"
 $EditorMetadataPath = Join-Path $ExtensionRoot "generated\editor\englang-editor-metadata.json"
-foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $FixtureRoot, $EditorMetadataPath)) {
+$PackagePath = Join-Path $ExtensionRoot "package.json"
+foreach ($RequiredPath in @($GrammarSourcePath, $GrammarPath, $ExpectedPath, $FixtureRoot, $EditorMetadataPath, $PackagePath)) {
     if (-not (Test-Path -LiteralPath $RequiredPath)) {
         throw "missing grammar test input at $RequiredPath"
     }
@@ -29,6 +30,7 @@ $GrammarGeneratedRaw = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8
 $Grammar = Get-Content -LiteralPath $GrammarPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $ExpectedJson = Get-Content -LiteralPath $ExpectedPath -Raw -Encoding UTF8 | ConvertFrom-Json
 $EditorMetadata = Get-Content -LiteralPath $EditorMetadataPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$PackageJson = Get-Content -LiteralPath $PackagePath -Raw -Encoding UTF8 | ConvertFrom-Json
 $SyntaxCatalog = $EditorMetadata.syntax_catalog
 if ($null -eq $SyntaxCatalog) {
     throw "generated editor metadata is missing syntax_catalog. Run .\dev.bat vscode-build-editor-metadata"
@@ -828,6 +830,28 @@ function Assert-BundledThemeLeafScopeCoverage {
         }
     }
 }
+function Assert-SemanticTokenScopeIncludes {
+    param(
+        [Parameter(Mandatory = $true)][object] $Package,
+        [Parameter(Mandatory = $true)][string] $Selector,
+        [Parameter(Mandatory = $true)][string[]] $Scopes,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $entries = @($Package.contributes.semanticTokenScopes | Where-Object { [string]$_.language -eq "englang" })
+    if ($entries.Count -ne 1) {
+        throw "package.json must define exactly one englang semanticTokenScopes contribution"
+    }
+    $selectorProperty = $entries[0].scopes.PSObject.Properties[$Selector]
+    if ($null -eq $selectorProperty) {
+        throw "package.json semanticTokenScopes is missing $Description selector $Selector"
+    }
+    $actualScopes = @($selectorProperty.Value | ForEach-Object { [string]$_ })
+    $missingScopes = @($Scopes | Where-Object { $actualScopes -notcontains $_ })
+    if ($missingScopes.Count -gt 0) {
+        throw "package.json semantic selector $Selector is missing $Description fallback scopes: $($missingScopes -join ', ')"
+    }
+}
 $CompletionKeywords = @($SyntaxCatalog.keywords | ForEach-Object { [string]$_ })
 $WorkflowBuiltins = @($SyntaxCatalog.workflow_builtins | ForEach-Object { [string]$_ })
 $HyphenatedWorkflowBuiltins = @($SyntaxCatalog.hyphenated_workflow_builtins | ForEach-Object { [string]$_ })
@@ -890,6 +914,10 @@ $PublicWorkflowMemberFields = @(
 ) | ForEach-Object { [string]$_.label } | Sort-Object -Unique
 if ($PublicWorkflowMemberFields.Count -eq 0) {
     throw "generated editor metadata public workflow member field catalog is empty"
+}
+
+foreach ($selector in @("keyword.declaration", "modifier", "modifier.static")) {
+    Assert-SemanticTokenScopeIncludes -Package $PackageJson -Selector $selector -Scopes @("storage.modifier.schema.englang") -Description "schema index modifier"
 }
 
 Assert-GeneratedGrammarContainsLabels -Source $GrammarGeneratedRaw -Labels $CompletionKeywords -Description "LSP completion keyword"

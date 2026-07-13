@@ -224,6 +224,7 @@
             "storage.type.test.englang",
             "storage.type.block.englang",
             "storage.modifier.englang",
+            "storage.modifier.schema.englang",
             "keyword.control.workflow.englang"
           ],
           "keyword.state": [
@@ -247,10 +248,12 @@
             "storage.modifier.englang"
           ],
           "modifier": [
-            "storage.modifier.englang"
+            "storage.modifier.englang",
+            "storage.modifier.schema.englang"
           ],
           "modifier.static": [
-            "storage.modifier.englang"
+            "storage.modifier.englang",
+            "storage.modifier.schema.englang"
           ],
           "method": [
             "entity.name.function.call.englang",
