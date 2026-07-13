@@ -9160,7 +9160,6 @@ fn materialize_explicit_time_alignment_command(
     command: &eng_compiler::CommandStyleInfo,
 ) -> RuntimeTimeAlignment {
     let left_name = command.target.trim();
-    let right_name = time_alignment_command_right(command).unwrap_or_default();
     let binding = command
         .owner
         .clone()
@@ -9181,16 +9180,23 @@ fn materialize_explicit_time_alignment_command(
                 "metadata_only".to_owned()
             }
         });
-    let resample_step = option_value(options, "target_step")
-        .or_else(|| option_value(options, "step"))
-        .and_then(parse_duration_seconds);
+    let resample_step = time_alignment_command_resample_step(command, options);
     let tolerance = option_value(options, "tolerance").and_then(parse_duration_seconds);
+    let right_name = time_alignment_command_right(command)
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            if command.verb == "resample" && resample_step.is_some() {
+                left_name.to_owned()
+            } else {
+                String::new()
+            }
+        });
 
     let Some(left) = find_runtime_series(series, left_name) else {
         return missing_time_alignment_record(
             &binding,
             left_name,
-            right_name,
+            &right_name,
             &command.verb,
             &method,
             resample_step,
@@ -9198,11 +9204,11 @@ fn materialize_explicit_time_alignment_command(
             command.line,
         );
     };
-    let Some(right) = find_runtime_series(series, right_name) else {
+    let Some(right) = find_runtime_series(series, &right_name) else {
         return missing_time_alignment_record(
             &binding,
             left_name,
-            right_name,
+            &right_name,
             &command.verb,
             &method,
             resample_step,
@@ -9238,6 +9244,32 @@ fn time_alignment_command_right(command: &eng_compiler::CommandStyleInfo) -> Opt
                 .iter()
                 .find(|clause| matches!(clause.name.as_str(), "with" | "to"))
         })
+        .map(|clause| clause.value.trim())
+        .filter(|value| !value.is_empty())
+}
+
+fn time_alignment_command_resample_step(
+    command: &eng_compiler::CommandStyleInfo,
+    options: &[eng_compiler::WithOptionInfo],
+) -> Option<f64> {
+    if command.verb == "resample" {
+        if let Some(value) = command_clause_value(command, "by").and_then(parse_duration_seconds) {
+            return Some(value);
+        }
+    }
+    option_value(options, "target_step")
+        .or_else(|| option_value(options, "step"))
+        .and_then(parse_duration_seconds)
+}
+
+fn command_clause_value<'a>(
+    command: &'a eng_compiler::CommandStyleInfo,
+    name: &str,
+) -> Option<&'a str> {
+    command
+        .clauses
+        .iter()
+        .find(|clause| clause.name == name)
         .map(|clause| clause.value.trim())
         .filter(|value| !value.is_empty())
 }
@@ -26061,7 +26093,7 @@ with {
     fn materializes_explicit_time_alignment_and_resampling_hooks() {
         let report = check_source(
             "ok.eng",
-            "aligned = align left with right\nresampled = resample left to right\nwith {\n    method = linear\n    target_step = 1 min\n    tolerance = 5 s\n}\n",
+            "aligned = align left with right\nresampled = resample left to right\nwith {\n    method = linear\n    target_step = 1 min\n    tolerance = 5 s\n}\nresampled_by = resample left by 2 min\n",
             &CheckOptions::default(),
         );
         assert!(!report.has_errors(), "{:?}", report.diagnostics);
@@ -26091,6 +26123,18 @@ with {
         assert_eq!(resampled.tolerance, Some(5.0));
         assert_eq!(resampled.status, "matched");
         assert_eq!(resampled.line, 2);
+
+        let resampled_by = alignments
+            .iter()
+            .find(|alignment| alignment.binding == "resampled_by")
+            .expect("explicit resample-by hook");
+        assert_eq!(resampled_by.strategy, "resample");
+        assert_eq!(resampled_by.left, "left");
+        assert_eq!(resampled_by.right, "left");
+        assert_eq!(resampled_by.method, "linear");
+        assert_eq!(resampled_by.resample_step, Some(120.0));
+        assert_eq!(resampled_by.status, "matched");
+        assert_eq!(resampled_by.line, 8);
     }
 
     #[test]

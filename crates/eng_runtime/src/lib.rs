@@ -19036,6 +19036,7 @@ mod tests {
                 "    tolerance = 5 min\n",
                 "}\n",
                 "resampled_with = resample measured.T_zone with simulated.T_zone\n",
+                "resampled_by = resample measured.T_zone by 30 min\n",
             ),
         )
         .expect("write source");
@@ -19093,6 +19094,21 @@ mod tests {
             json_array_item_by_binding(&result, "/typed_payload/time_alignments", "resampled_with")
                 .is_some(),
             "resample-with alias should materialize a time alignment record"
+        );
+        let resampled_by =
+            json_array_item_by_binding(&result, "/typed_payload/time_alignments", "resampled_by")
+                .expect("resample-by hook");
+        assert_eq!(
+            resampled_by.get("strategy").and_then(Value::as_str),
+            Some("resample")
+        );
+        assert_eq!(
+            resampled_by.get("right").and_then(Value::as_str),
+            Some("measured.T_zone")
+        );
+        assert_eq!(
+            resampled_by.get("resample_step").and_then(Value::as_f64),
+            Some(1800.0)
         );
     }
 

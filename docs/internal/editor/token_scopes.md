@@ -218,7 +218,7 @@ Current workflow phrase scopes:
 | `meta.workflow.read-structured.englang` | `read json <source>`, `read toml <source>`, and `read text <source>` raw string reads; phrase keywords use external-boundary coloring because the source can be a file, response body, or other boundary value. Use `promote csv <source> as <schema>` for CSV tables. |
 | `meta.workflow.regression-table.englang` | Legacy-compatible `regression_table(<table>, target=..., features=..., ...)` table-model training calls. |
 | `meta.workflow.require-one.englang` | `require_one <table>` |
-| `meta.workflow.resample-series.englang` | `resample <series> to <series>` or `resample <series> with <series>` |
+| `meta.workflow.resample-series.englang` | `resample <series> to <series>`, `resample <series> with <series>`, or `resample <series> by <duration>` |
 | `meta.workflow.render-template.englang` | `render template <source>` and `render template <source> to <output>` |
 | `meta.workflow.return-statement.englang` | `return <value>` function return lines. |
 | `meta.workflow.run-command.englang` | `run command ...`; includes member-aware first-paint fallbacks for command operands such as `args.simulator`. |

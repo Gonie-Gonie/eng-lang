@@ -10,8 +10,9 @@
 #   records in typed_payload.timeseries_fill[], interpolation into filled
 #   TimeSeries outputs, typed_payload.timeseries_quality[] coverage/fill
 #   summaries, typed_payload.quality_results[] bridge records, explicit
-#   `align <series> with <series>` and `resample <series> to <series>` hooks in
-#   typed_payload.time_alignments[], and selected alignment metadata are
+#   `align <series> with <series>`, `resample <series> to <series>`, and
+#   `resample <series> by <duration>` hooks in typed_payload.time_alignments[],
+#   and selected alignment metadata are
 #   supported for documented public workflows.
 #   Uncertainty confidence-band metadata is internal/preview.
 #

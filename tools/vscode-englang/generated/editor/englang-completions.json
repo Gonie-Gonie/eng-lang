@@ -367,7 +367,7 @@
                                  "lsp_kind":  3
                              },
                              {
-                                 "detail":  "Resample a TimeSeries onto a new step",
+                                 "detail":  "Record TimeSeries resampling against a target series or explicit step",
                                  "kind":  "function",
                                  "label":  "resample",
                                  "lsp_kind":  3
@@ -2985,7 +2985,7 @@
                                 "lsp_kind":  3
                             },
                             {
-                                "detail":  "Resample a TimeSeries onto a new step",
+                                "detail":  "Record TimeSeries resampling against a target series or explicit step",
                                 "kind":  "function",
                                 "label":  "resample",
                                 "lsp_kind":  3

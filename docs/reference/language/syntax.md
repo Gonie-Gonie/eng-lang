@@ -1521,10 +1521,11 @@ three-state non-thermal source-equation workflow. The RMSE result appears in
 TimeSeries overlap/match status appears in `time_alignments`. Alignment artifacts
 also include nominal left/right time steps, irregular-axis flags, and a
 `step_status` of `matched`, `mismatch`, or `unavailable`. Explicit
-`align <series> with <series>` and `resample <series> to <series>` hooks add
-binding, strategy, method, optional resample step, tolerance, and source line to
-the same artifact collection. `align` also accepts `to`, and `resample` also
-accepts `with`; the examples above are the preferred spellings. Runtime report
+`align <series> with <series>`, `resample <series> to <series>`, and
+`resample <series> by <duration>` hooks add binding, strategy, method, optional
+resample step, tolerance, and source line to the same artifact collection.
+`align` also accepts `to`, and `resample` also accepts `with`; the target-series
+examples above are the preferred spellings. Runtime report
 specs also include `time_axes` entries with source column, range, count, nominal
 step, missing count, and irregular-axis status per promoted table. RMSE metrics
 record their

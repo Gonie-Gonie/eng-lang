@@ -10575,7 +10575,7 @@ system Envelope {
     fn lowers_timeseries_alignment_and_resampling_commands() {
         let report = check_source(
             "ok.eng",
-            "aligned = align measured.T_zone with simulated.T_zone\naligned_to = align measured.T_zone to simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nresampled_with = resample measured.T_zone with simulated.T_zone\nwith {\n    method = linear\n    target_step = 1 h\n}\n",
+            "aligned = align measured.T_zone with simulated.T_zone\naligned_to = align measured.T_zone to simulated.T_zone\nresampled = resample measured.T_zone to simulated.T_zone\nresampled_with = resample measured.T_zone with simulated.T_zone\nresampled_by = resample measured.T_zone by 1 h\nwith {\n    method = linear\n    target_step = 1 h\n}\n",
             &CheckOptions::default(),
         );
 
@@ -10624,6 +10624,14 @@ system Envelope {
             resample_with.canonical,
             "resample(measured.T_zone, with=simulated.T_zone)"
         );
+        let resample_by = report
+            .semantic_program
+            .command_styles
+            .iter()
+            .find(|command| command.owner.as_deref() == Some("resampled_by"))
+            .expect("resample by command");
+        assert_eq!(resample_by.verb, "resample");
+        assert_eq!(resample_by.canonical, "resample(measured.T_zone, by=1 h)");
         assert_eq!(
             report
                 .inferred_declarations

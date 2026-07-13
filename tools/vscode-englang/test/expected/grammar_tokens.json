@@ -2252,6 +2252,12 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.resample-series.englang",
+    "text": "resample measured.T_zone by 30 min",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.operator.word.englang",
     "text": "to",
     "fullMatch": true
@@ -3496,6 +3502,12 @@
     "fixture": "07_report_uncertainty_solver.eng",
     "scope": "meta.workflow.resample-series.englang",
     "text": "resample args.measured_zone to args.simulated_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.resample-series.englang",
+    "text": "resample args.measured_zone by 30 min",
     "fullMatch": true
   },
   {

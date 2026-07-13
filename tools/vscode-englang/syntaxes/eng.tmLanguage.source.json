@@ -1444,7 +1444,7 @@
             "patterns": [
               {
                 "name": "keyword.operator.word.englang",
-                "match": "\\b(to|with)\\b"
+                "match": "\\b(to|with|by)\\b"
               },
               { "include": "#members" },
               {

@@ -54,6 +54,7 @@ aligned_series = align measured.T_zone with simulated.T_zone
 aligned_to_series = align measured.T_zone to simulated.T_zone
 resampled_series = resample measured.T_zone to simulated.T_zone
 resampled_with_series = resample measured.T_zone with simulated.T_zone
+resampled_by_series = resample measured.T_zone by 30 min
 
 sim = simulate RoomThermal
 with {
@@ -141,6 +142,7 @@ arg_coverage = check coverage args.measured_zone
 arg_filled_zone = fill missing args.measured_zone
 arg_aligned_series = align args.measured_zone with args.simulated_zone
 arg_resampled_series = resample args.measured_zone to args.simulated_zone
+arg_resampled_by_series = resample args.measured_zone by 30 min
 arg_E_series_call = integrate(args.Q_series, over=args.Time)
 property_E_series_call = integrate(sensor.Q_series, over=axis.Time)
 arg_E_series_command = integrate args.Q_series over args.Time

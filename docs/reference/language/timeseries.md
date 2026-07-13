@@ -190,8 +190,10 @@ inspector summarize those common quality results for report consumers.
 
 `align <series> with <series>` and `resample <series> to <series>` record
 reviewable TimeSeries alignment intent without silently mutating source data.
-The compiler also accepts `to` for `align` and `with` for `resample`; the forms
-above are the preferred spellings in docs and generated canonical examples:
+`resample <series> by <duration>` records a step-only resampling intent in the
+same artifact stream. The compiler also accepts `to` for `align` and `with` for
+`resample`; the target-series forms above are the preferred spellings in docs
+and generated canonical examples:
 
 ```eng partial
 aligned = align measured.T_zone with simulated.T_zone
@@ -201,6 +203,7 @@ with {
     target_step = 1 h
     tolerance = 5 min
 }
+resampled_hourly = resample measured.T_zone by 1 h
 ```
 
 Runtime artifacts include `typed_payload.time_alignments[]` records with binding,

@@ -694,7 +694,10 @@ const WORKFLOW_BUILTIN_COMPLETIONS: &[(&str, &str)] = &[
         "Record an explicit TimeSeries fill policy with `fill missing`",
     ),
     ("align", "Align TimeSeries values onto a shared axis"),
-    ("resample", "Resample a TimeSeries onto a new step"),
+    (
+        "resample",
+        "Record TimeSeries resampling against a target series or explicit step",
+    ),
     ("sample", "eng.sampling sample set helper"),
     ("uniform", "eng.sampling uniform distribution helper"),
     ("normal", "eng.sampling normal distribution helper"),
