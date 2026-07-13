@@ -1065,6 +1065,11 @@ fn diagnostic_byte_range(line: &str, diagnostic: &Diagnostic) -> Option<(usize, 
                 return Some(range);
             }
         }
+        "W-NET-RESPONSE-STATUS-ALIAS" => {
+            if let Some(range) = member_field_byte_range(line, "status") {
+                return Some(range);
+            }
+        }
         "W-STATS-SUM-001" => {
             if let Some(range) = sum_function_name_byte_range(line) {
                 return Some(range);
@@ -9640,6 +9645,11 @@ with {
                 "W-NET-RESPONSE-HASH-ALIAS",
                 "response = http get url(\"https://api.example.org/data.json\")\nlegacy_hash = response.hash\n",
                 "hash",
+            ),
+            (
+                "W-NET-RESPONSE-STATUS-ALIAS",
+                "response = http get url(\"https://api.example.org/data.json\")\nsource = response.status\ncode = response.status_code\n",
+                "status",
             ),
             (
                 "W-STATS-SUM-001",

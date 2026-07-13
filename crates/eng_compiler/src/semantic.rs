@@ -1488,6 +1488,7 @@ pub fn analyze(program: &ParsedProgram) -> SemanticOutput {
     );
     validate_json_read_field_access_policy(program, &mut diagnostics);
     warn_legacy_http_response_hash_field_usage(program, &typed_bindings, &mut diagnostics);
+    warn_http_response_status_field_usage(program, &typed_bindings, &mut diagnostics);
     warn_legacy_select_first_row_usage(program, &mut diagnostics);
 
     let mut assembly_components = if component_instances.is_empty() {
@@ -11797,6 +11798,51 @@ fn warn_legacy_http_response_hash_field_usage(
     }
 }
 
+fn warn_http_response_status_field_usage(
+    program: &ParsedProgram,
+    typed_bindings: &[TypedBinding],
+    diagnostics: &mut Vec<Diagnostic>,
+) {
+    let response_bindings = typed_bindings
+        .iter()
+        .filter(|binding| binding.semantic_type.quantity_kind == "HttpResponse")
+        .map(|binding| binding.name.clone())
+        .collect::<HashSet<_>>();
+    if response_bindings.is_empty() {
+        return;
+    }
+
+    let mut reported = HashSet::new();
+    for line in &program.lines {
+        for window in line.tokens.windows(3) {
+            let [crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Identifier(binding),
+                ..
+            }, crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Symbol(crate::lexer::Symbol::Dot),
+                ..
+            }, crate::lexer::Token {
+                kind: crate::lexer::TokenKind::Identifier(field),
+                ..
+            }] = window
+            else {
+                continue;
+            };
+            if field != "status" || !response_bindings.contains(binding) {
+                continue;
+            }
+            if !reported.insert((line.line, binding.clone())) {
+                continue;
+            }
+            diagnostics.push(Diagnostic::warning(
+                "W-NET-RESPONSE-STATUS-ALIAS",
+                line.line,
+                &format!("`{binding}.status` is a compatibility alias for `{binding}.response_source`."),
+                Some("Use `.response_source` for live/cached/offline origin; keep `.status_code` and `.status_class` for HTTP status."),
+            ));
+        }
+    }
+}
 fn warn_legacy_select_first_row_usage(program: &ParsedProgram, diagnostics: &mut Vec<Diagnostic>) {
     for line in &program.lines {
         let code = line.text.split('#').next().unwrap_or("");

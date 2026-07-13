@@ -12386,7 +12386,7 @@ system Envelope {
     fn accepts_celsius_symbol_alias_for_absolute_temperature() {
         let report = check_source(
             "ok.eng",
-            "schema SensorData {\n    T_supply: AbsoluteTemperature [째C]\n}\n\nT_room = 24 째C\n}\n",
+            "schema SensorData {\n    T_supply: AbsoluteTemperature [吏퇒]\n}\n\nT_room = 24 吏퇒\n}\n",
             &CheckOptions::default(),
         );
 
@@ -12395,7 +12395,7 @@ system Envelope {
             report.semantic_program.schemas[0].columns[0]
                 .unit
                 .as_deref(),
-            Some("째C")
+            Some("吏퇒")
         );
         assert_eq!(
             report.inferred_declarations[0].quantity_kind,
@@ -12408,7 +12408,7 @@ system Envelope {
             .iter()
             .find(|derivation| derivation.name == "T_room")
             .expect("T_room derivation");
-        assert_eq!(room_derivation.source_unit.as_deref(), Some("째C"));
+        assert_eq!(room_derivation.source_unit.as_deref(), Some("吏퇒"));
     }
 
     #[test]
@@ -13863,6 +13863,42 @@ system Envelope {
                 && binding.semantic_type.quantity_kind == "String"));
     }
 
+    #[test]
+    fn warns_on_http_response_status_alias() {
+        let root = env::temp_dir().join(format!(
+            "englang-http-response-status-alias-{}",
+            std::process::id()
+        ));
+        let _ = fs::remove_dir_all(&root);
+        fs::create_dir_all(root.join("data")).expect("data dir");
+        fs::write(root.join("data").join("response.json"), "{\"ok\":true}\n").expect("response");
+        let source_path = root.join("main.eng");
+        fs::write(
+            &source_path,
+            "response = http get url(\"https://api.example.org/weather\")\nwith {\n    offline_response = file(\"data/response.json\")\n}\n\nlegacy_source = response.status\npreferred_source = response.response_source\nhttp_status = response.status_code\n",
+        )
+        .expect("source");
+
+        let report = check_file(&source_path, &CheckOptions::default()).expect("check file");
+
+        assert!(!report.has_errors(), "{:?}", report.diagnostics);
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.code == "W-NET-RESPONSE-STATUS-ALIAS"
+                && diagnostic.severity == Severity::Warning
+                && diagnostic.line == 6
+                && diagnostic.message.contains("response.status")
+                && diagnostic
+                    .help
+                    .as_deref()
+                    .is_some_and(|help| help.contains(".response_source"))
+        }));
+        assert!(report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| binding.name == "legacy_source"
+                && binding.semantic_type.quantity_kind == "String"));
+    }
     #[test]
     fn accepts_runtime_http_response_body_as_json_source() {
         let root = env::temp_dir().join(format!(

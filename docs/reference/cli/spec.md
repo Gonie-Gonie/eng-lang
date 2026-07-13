@@ -1,4 +1,4 @@
-# CLI Specification
+﻿# CLI Specification
 
 The core user-facing CLI is `eng.exe`. Portable native IDE releases also ship
 `eng-ide.exe` as a native GUI companion.
@@ -93,6 +93,7 @@ E-NET-UNPINNED-REPRO  repro profile network boundary lacks a pinned response fil
 E-NET-SECRET-LIVE    live network request needs a redacted secret query/header value
 W-NET-FIXTURE-ALIAS   fixture is a legacy alias for offline_response
 W-NET-RESPONSE-HASH-ALIAS response.hash is a legacy alias for response.response_hash
+W-NET-RESPONSE-STATUS-ALIAS response.status is a compatibility alias for response.response_source
 E-CACHE-HASH-MISMATCH cache record observed hash does not match expected hash
 E-CACHE-DIR           cache_dir is not a safe relative directory
 E-CACHE-KEY-NONDETERMINISTIC cache_key contains nondeterministic or secret-dependent input

@@ -767,6 +767,14 @@ fn code_actions_for_diagnostic(uri: &str, text: &str, diagnostic: &Value) -> Vec
                 "Rename hash to response_hash",
             ))
         }
+        "W-NET-RESPONSE-STATUS-ALIAS" => {
+            optional_code_action(lsp_diagnostic_range_replacement_code_action(
+                uri,
+                diagnostic,
+                "response_source",
+                "Rename status to response_source",
+            ))
+        }
         "W-TABLE-LEGACY-SELECT-FIRST-ROW" => optional_code_action(
             lsp_select_first_row_migration_code_action(uri, text, diagnostic),
         ),
