@@ -1,3 +1,4 @@
+- Batch 914: Renamed VS Code highlight inspector advanced payload fields from `raw` to `advanced_highlight_data` and guarded against the raw payload label returning.
 - Batch 913: Added local VSIX package/install freshness and install preflight guidance to VS Code Tooling Status when the active workspace is an EngLang source checkout.
 - Batch 912: Split the remaining workflow-step, solver, and path helper TextMate scopes so `apply(...)`, `run_case`, `der(...)`, and `join(...)` no longer use generic builtin first-pass colors.
 - Batch 911: Added an external-boundary helper TextMate scope so `file(...)`, `url(...)`, `env(...)`, and `secret env(...)` use external-boundary first-pass colors instead of generic builtin colors.

@@ -545,7 +545,7 @@ function createCommandHandlers(options = {}) {
       highlight_coverage_status: coverageStatus,
       highlight_coverage: coverageSummary,
       highlight_coverage_summary: coverageSummary,
-      raw: {
+      advanced_highlight_data: {
         semantic_tokens: semanticTokens
       },
       highlight_count: tokenCount,
@@ -684,7 +684,7 @@ function createCommandHandlers(options = {}) {
       line_range_overlaps: lineRangeOverlaps,
       semantic_scope_map: scopeMapStatus,
       legend: semanticTokens.legend ?? {},
-      raw: {
+      advanced_highlight_data: {
         semantic_tokens: semanticTokens
       }
     };

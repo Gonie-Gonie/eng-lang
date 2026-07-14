@@ -5345,7 +5345,7 @@ function Assert-VscodeExtensionContract {
         "by_modifier: tokenSamplesByModifier",
         "by_selector: tokenSamplesBySelector",
         "tokens: tokenRows",
-        "raw: {",
+        "advanced_highlight_data: {",
         "highlight_count: tokenCount",
         "highlight_counts_by_category: tokenCounts",
         "highlight_counts_by_detail: modifierCounts",
@@ -5369,6 +5369,9 @@ function Assert-VscodeExtensionContract {
         if (-not $CommandHandlersSource.Contains($RequiredSemanticDebugToken)) {
             throw "VS Code semantic highlight inspection output missing contract token $RequiredSemanticDebugToken"
         }
+    }
+    if ($CommandHandlersSource.Contains("raw: {")) {
+        throw "VS Code highlight inspection output must use advanced_highlight_data instead of raw payload wording"
     }
     if (-not $ExtensionSource.Contains("syntaxCatalog: editorMetadata.syntaxCatalog")) {
         throw "VS Code extension must pass generated syntax catalog metadata into command handlers"
