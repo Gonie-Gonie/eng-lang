@@ -301,6 +301,13 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
   const searchStart = sourceColumn !== undefined
     ? sourceColumnCharacter(lineText, sourceColumn)
     : 0;
+  const optionNames = diagnosticOptionNames(code);
+  if (optionNames) {
+    const optionRange = optionValueRange(lineText, optionNames, searchStart);
+    if (optionRange) {
+      return optionRange;
+    }
+  }
   if (code === "E-SYNTAX-DECL-001") {
     return firstNeedleRange(lineText, [":="], searchStart);
   }
@@ -341,6 +348,153 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
     return netUrlLiteralRange(lineText, searchStart);
   }
   return diagnosticBacktickRange(lineText, item);
+}
+
+function diagnosticOptionNames(code) {
+  switch (code) {
+    case "E-NET-RETRY-POLICY":
+    case "E-PROCESS-RETRY-POLICY":
+      return ["retry"];
+    case "E-NET-TIMEOUT":
+    case "E-PROCESS-TIMEOUT":
+      return ["timeout"];
+    case "E-NET-BODY-SIZE-LIMIT":
+      return ["body_size_limit", "response_body_limit"];
+    case "E-NET-BODY-METHOD":
+    case "E-NET-BODY-POLICY":
+      return ["body"];
+    case "E-PROCESS-ALLOW-FAILURE":
+      return ["allow_failure"];
+    case "E-PROCESS-CWD-001":
+      return ["cwd"];
+    case "E-PROCESS-ENV-001":
+      return ["env"];
+    case "E-SAMPLING-COUNT-INVALID":
+      return ["count"];
+    case "E-SAMPLING-SEED-INVALID":
+      return ["seed"];
+    case "E-ML-ARGS-001":
+      return ["target", "y", "features", "x", "test", "test_fraction", "hidden", "layers", "epochs"];
+    case "E-ML-ARGS-002":
+      return ["test", "test_fraction", "seed", "hidden", "layers", "epochs"];
+    case "E-ML-ARGS-003":
+      return ["algorithm"];
+    case "E-CACHE-KEY-NONDETERMINISTIC":
+      return ["cache_key"];
+    case "E-CACHE-DIR":
+      return ["cache_dir"];
+    case "E-CACHE-TTL":
+      return ["cache_ttl"];
+    case "E-SIM-TIMESTEP-INVALID":
+    case "E-SOLVE-TIMESTEP-INVALID":
+      return ["timestep"];
+    case "E-SIM-DURATION-INVALID":
+    case "E-SOLVE-DURATION-INVALID":
+      return ["duration"];
+    case "E-SIM-TOLERANCE-INVALID":
+    case "E-SOLVE-TOLERANCE-INVALID":
+      return ["tolerance"];
+    case "E-SIM-SOLVER-UNSUPPORTED":
+    case "E-SOLVE-SOLVER-UNSUPPORTED":
+      return ["solver"];
+    case "E-SOLVE-RELAXATION-INVALID":
+      return ["relaxation"];
+    case "E-SOLVE-FD-STEP-INVALID":
+      return ["finite_difference_step"];
+    case "E-SOLVE-DAMPING-INVALID":
+      return ["damping"];
+    case "E-SOLVE-CONSISTENCY-TOLERANCE-INVALID":
+      return ["consistency_tolerance"];
+    case "E-SOLVE-MAX-ITER-INVALID":
+      return ["max_iter"];
+    case "E-SOLVE-LINE-SEARCH-STEPS-INVALID":
+      return ["line_search_steps"];
+    case "E-SOLVE-INITIAL-INVALID":
+      return ["initial", "initial_derivative", "initial_algebraic"];
+    case "E-SOLVE-VARIABLE-SCALE-INVALID":
+      return ["variable_scale", "variable_scales"];
+    case "E-SOLVE-MASS-MATRIX-INVALID":
+      return ["mass_matrix"];
+    case "E-SOLVE-JACOBIAN-UNSUPPORTED":
+      return ["jacobian"];
+    case "E-SOLVE-ALGEBRAIC-INITIALIZATION-UNSUPPORTED":
+      return ["algebraic_initialization"];
+    default:
+      return undefined;
+  }
+}
+
+function optionValueRange(lineText, optionNames, startCharacter = 0) {
+  const code = stripLineComment(lineText);
+  for (const optionName of optionNames) {
+    const range = optionValueRangeFrom(code, optionName, startCharacter)
+      ?? optionValueRangeFrom(code, optionName, 0);
+    if (range) {
+      return range;
+    }
+  }
+  return undefined;
+}
+
+function optionValueRangeFrom(lineText, optionName, startCharacter = 0) {
+  const text = String(lineText || "");
+  let cursor = Math.max(0, Math.min(startCharacter, text.length));
+  while (cursor < text.length) {
+    const nameStart = text.indexOf(optionName, cursor);
+    if (nameStart < 0) {
+      return undefined;
+    }
+    const nameEnd = nameStart + optionName.length;
+    if (!isIdentifierPart(text[nameStart - 1]) && !isIdentifierPart(text[nameEnd])) {
+      let equals = nameEnd;
+      while (equals < text.length && /\s/.test(text[equals])) {
+        equals += 1;
+      }
+      if (text[equals] === "=") {
+        let valueStart = equals + 1;
+        while (valueStart < text.length && /\s/.test(text[valueStart])) {
+          valueStart += 1;
+        }
+        let valueEnd = text.length;
+        while (valueEnd > valueStart && /\s/.test(text[valueEnd - 1])) {
+          valueEnd -= 1;
+        }
+        return valueStart < valueEnd
+          ? { start: valueStart, end: valueEnd }
+          : { start: nameStart, end: nameEnd };
+      }
+    }
+    cursor = nameEnd;
+  }
+  return undefined;
+}
+
+function stripLineComment(text) {
+  const index = lineCommentStart(text);
+  return index >= 0 ? String(text || "").slice(0, index) : String(text || "");
+}
+
+function lineCommentStart(text) {
+  const source = String(text || "");
+  let inString = false;
+  for (let index = 0; index < source.length; index += 1) {
+    const character = source[index];
+    if (character === "\\" && inString) {
+      index += 1;
+      continue;
+    }
+    if (character === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (!inString && character === "#") {
+      return index;
+    }
+    if (!inString && character === "/" && source[index + 1] === "/") {
+      return index;
+    }
+  }
+  return -1;
 }
 
 function firstNeedleRange(lineText, needles, startCharacter = 0) {

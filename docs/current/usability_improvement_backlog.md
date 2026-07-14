@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 835: Aligned VS Code saved-file Problems ranges with the LSP option-value mapper so retry, timeout, process, sampling, cache, model, simulation, and solver option diagnostics underline the offending value instead of a broad fallback token.
 - Batch 834: Made native IDE Problems row clicks select the exact diagnostic character range, falling back to column-aware line selection when range metadata is unavailable.
 - Batch 833: Added precise native IDE Problems ranges from the shared LSP diagnostic range mapper, including range display, column-aware row jumps, filtering, and copy payloads.
 - Batch 832: Added current-file highlight token and overlap probing to VS Code Tooling Status so the first diagnostic status view surfaces color-range conflicts without opening the raw highlight inspector first.
