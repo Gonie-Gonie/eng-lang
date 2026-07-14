@@ -7028,18 +7028,78 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
             );
             return false;
         };
-        let lowered = source.to_ascii_lowercase();
-        for (banned, reason) in NATIVE_WORKFLOW_BANNED_MARKERS {
-            if contains_native_workflow_banned_marker(&lowered, banned) {
-                eprintln!(
-                    "native workflow source {} must not contain `{banned}` ({reason})",
-                    source_path.display()
-                );
-                return false;
-            }
+        if let Some((banned, reason)) = native_workflow_external_process_marker(&source) {
+            eprintln!(
+                "native workflow source {} must not contain `{banned}` ({reason})",
+                source_path.display()
+            );
+            return false;
+        }
+    }
+    native_workflow_support_files_avoid_external_processes()
+}
+
+fn native_workflow_support_files_avoid_external_processes() -> bool {
+    let mut files = Vec::new();
+    for source in REQUIRED_WORKFLOW_MAIN_SOURCES {
+        let Some(root) = Path::new(source).parent() else {
+            eprintln!("native workflow source {source} should have a parent directory");
+            return false;
+        };
+        if let Err(error) = collect_workflow_files(root, &mut files) {
+            eprintln!(
+                "failed to enumerate native workflow support files under {}: {error}",
+                root.display()
+            );
+            return false;
+        }
+    }
+    files.sort();
+    files.dedup();
+
+    for path in files {
+        if let Some((banned, reason)) =
+            native_workflow_external_process_marker(&path.to_string_lossy())
+        {
+            eprintln!(
+                "native workflow file path {} must not contain `{banned}` ({reason})",
+                path.display()
+            );
+            return false;
+        }
+        if !is_native_workflow_support_text_audit_path(&path) {
+            continue;
+        }
+        let Ok(content) = std::fs::read_to_string(&path) else {
+            eprintln!(
+                "failed to read native workflow support file {}",
+                path.display()
+            );
+            return false;
+        };
+        if let Some((banned, reason)) = native_workflow_external_process_marker(&content) {
+            eprintln!(
+                "native workflow support file {} must not contain `{banned}` ({reason})",
+                path.display()
+            );
+            return false;
         }
     }
     true
+}
+
+fn native_workflow_external_process_marker(source: &str) -> Option<(&'static str, &'static str)> {
+    let lowered = source.to_ascii_lowercase();
+    NATIVE_WORKFLOW_BANNED_MARKERS
+        .iter()
+        .copied()
+        .find(|(banned, _)| contains_native_workflow_banned_marker(&lowered, banned))
+}
+
+fn is_native_workflow_support_text_audit_path(path: &Path) -> bool {
+    path.extension()
+        .and_then(|value| value.to_str())
+        .is_some_and(|extension| matches!(extension.to_ascii_lowercase().as_str(), "md" | "txt"))
 }
 
 fn contains_native_workflow_banned_marker(source: &str, marker: &str) -> bool {
@@ -7269,6 +7329,18 @@ fn collect_eng_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), std::i
         if path.is_dir() {
             collect_eng_files(&path, files)?;
         } else if path.extension().and_then(|value| value.to_str()) == Some("eng") {
+            files.push(path);
+        }
+    }
+    Ok(())
+}
+
+fn collect_workflow_files(root: &Path, files: &mut Vec<PathBuf>) -> Result<(), std::io::Error> {
+    for entry in std::fs::read_dir(root)? {
+        let path = entry?.path();
+        if path.is_dir() {
+            collect_workflow_files(&path, files)?;
+        } else {
             files.push(path);
         }
     }
@@ -9033,6 +9105,33 @@ mod tests {
             "numpy_score = 1",
             "numpy"
         ));
+    }
+
+    #[test]
+    fn native_workflow_support_file_guard_rejects_python_paths_and_doc_markers() {
+        assert_eq!(
+            native_workflow_external_process_marker("run command \"tool\"")
+                .map(|(marker, _)| marker),
+            Some("run command")
+        );
+        assert_eq!(
+            native_workflow_external_process_marker("adapter.py").map(|(marker, _)| marker),
+            Some(".py")
+        );
+        assert_eq!(
+            native_workflow_external_process_marker("notes.ipynb").map(|(marker, _)| marker),
+            Some(".ipynb")
+        );
+        assert!(native_workflow_external_process_marker("WeatherApiPayload contract").is_none());
+        assert!(is_native_workflow_support_text_audit_path(Path::new(
+            "README.md"
+        )));
+        assert!(is_native_workflow_support_text_audit_path(Path::new(
+            "notes.TXT"
+        )));
+        assert!(!is_native_workflow_support_text_audit_path(Path::new(
+            "data.json"
+        )));
     }
 
     #[test]

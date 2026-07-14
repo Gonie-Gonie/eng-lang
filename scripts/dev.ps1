@@ -482,6 +482,21 @@ function Invoke-WorkflowsTest {
     } | ForEach-Object {
         $_.FullName
     } | Sort-Object -Unique)
+    $NativeWorkflowFileAuditPaths = @($RequiredWorkflowSourcePaths | ForEach-Object {
+        Split-Path -Parent $_
+    } | Sort-Object -Unique | ForEach-Object {
+        Get-ChildItem -LiteralPath $_ -Recurse -File
+    } | ForEach-Object {
+        $_.FullName
+    } | Sort-Object -Unique)
+    foreach ($NativeWorkflowFileAuditPath in $NativeWorkflowFileAuditPaths) {
+        $Workflow = $NativeWorkflowFileAuditPath.Substring($RepoRoot.Length).TrimStart('\')
+        foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
+            if ($Workflow -match "(?i)$PythonMarker") {
+                throw "Native workflow file path must not contain Python/notebook marker $PythonMarker`: $Workflow"
+            }
+        }
+    }
     foreach ($NativeWorkflowSourceAuditPath in $NativeWorkflowSourceAuditPaths) {
         $Workflow = $NativeWorkflowSourceAuditPath.Substring($RepoRoot.Length).TrimStart('\')
         $WorkflowSource = Get-Content -LiteralPath $NativeWorkflowSourceAuditPath -Raw
@@ -541,7 +556,7 @@ function Invoke-WorkflowsTest {
             }
         }
     }
-    Write-Host "Native workflow Python/process guard passed. Checked $(@($NativeWorkflowSourceAuditPaths).Count) source file(s) and $(@($WorkflowPublicDocPaths).Count) public doc file(s) for Python/notebook/run-command markers."
+    Write-Host "Native workflow Python/process guard passed. Checked $(@($NativeWorkflowSourceAuditPaths).Count) source file(s), $(@($NativeWorkflowFileAuditPaths).Count) workflow file path(s), and $(@($WorkflowPublicDocPaths).Count) public doc file(s) for Python/notebook/run-command markers."
 
     foreach ($WorkflowSourcePath in $WorkflowSourcePaths) {
         $Workflow = $WorkflowSourcePath.Substring($RepoRoot.Length).TrimStart('\')
@@ -1352,6 +1367,21 @@ function Invoke-WorkflowNativeStatus {
     )
 
     $Issues = New-Object System.Collections.Generic.List[string]
+    $NativeWorkflowFileAuditPaths = @($RequiredWorkflowSourcePaths | ForEach-Object {
+        Split-Path -Parent $_
+    } | Sort-Object -Unique | ForEach-Object {
+        Get-ChildItem -LiteralPath $_ -Recurse -File
+    } | ForEach-Object {
+        $_.FullName
+    } | Sort-Object -Unique)
+    foreach ($NativeWorkflowFileAuditPath in $NativeWorkflowFileAuditPaths) {
+        $Workflow = $NativeWorkflowFileAuditPath.Substring($RepoRoot.Length).TrimStart('\')
+        foreach ($PythonMarker in $ForbiddenNativeWorkflowMarkers) {
+            if ($Workflow -match "(?i)$PythonMarker") {
+                $Issues.Add("file path contains Python/notebook marker $PythonMarker`: $Workflow") | Out-Null
+            }
+        }
+    }
     foreach ($NativeWorkflowSourceAuditPath in $NativeWorkflowSourceAuditPaths) {
         $Workflow = $NativeWorkflowSourceAuditPath.Substring($RepoRoot.Length).TrimStart('\')
         $WorkflowSource = Get-Content -LiteralPath $NativeWorkflowSourceAuditPath -Raw
@@ -1466,7 +1496,7 @@ function Invoke-WorkflowNativeStatus {
     }
 
     Write-Host "Native workflow status"
-    Write-Host "  source guard: passed ($(@($NativeWorkflowSourceAuditPaths).Count) source file(s); no Python/.py/notebook/run-command markers)"
+    Write-Host "  source guard: passed ($(@($NativeWorkflowSourceAuditPaths).Count) source file(s), $(@($NativeWorkflowFileAuditPaths).Count) workflow file path(s); no Python/.py/notebook/run-command markers)"
     Write-Host "  public docs guard: passed ($(@($WorkflowPublicDocPaths).Count) doc file(s); no Python/.py/notebook/run-command or stale external-process wording)"
     Write-Host "  latest process artifact: $ProcessArtifactStatus"
     Write-Host "  latest run graph artifact: $RunGraphStatus"
