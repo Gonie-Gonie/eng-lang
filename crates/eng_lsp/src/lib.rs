@@ -2569,7 +2569,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for print in &program.prints {
-        builder.push_keywords_on_line(print.line, &["print", "log"], &["report"]);
+        builder.push_keywords_on_line(print.line, &["print", "log"], &["sideEffect"]);
     }
 
     for export in &program.csv_exports {
@@ -4711,7 +4711,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                         token_start,
                         index - token_start,
                         "keyword",
-                        language_constant_modifiers(token),
+                        language_constant_modifiers_for_line(line, token, token_start),
                     );
                 } else if quantity_names.contains(token) {
                     self.push_byte_range(
@@ -5304,7 +5304,9 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "commit" | "rollback" => &["db"],
         "run" | "command" | "http" | "get" | "post" | "put" | "patch" | "head" | "request"
         | "fetch" | "download" => &["sideEffect", "external"],
-        "write" | "export" | "copy" | "move" | "delete" | "mkdir" => &["sideEffect"],
+        "write" | "export" | "copy" | "move" | "delete" | "mkdir" | "print" | "log" => {
+            &["sideEffect"]
+        }
         "render" | "template" => &["sideEffect", "workflowStep"],
         "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
         | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
@@ -5315,7 +5317,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "const" | "parameter" | "port" | "across" | "through" | "index" => &["declaration"],
         "from" | "on" | "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
-        | "distribution" | "parity" | "residuals" | "print" | "log" => &["report"],
+        | "distribution" | "parity" | "residuals" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within"
         | "constraints" | "missing" | "interpolate" | "monotonic" | "between" => &["validation"],
         "simulate" | "solve" | "connect" | "conservation" | "equation" | "operator" | "states"
@@ -5335,6 +5337,23 @@ fn is_status_or_policy_literal(value: &str) -> bool {
 
 fn is_workflow_status_role_literal(value: &str) -> bool {
     is_workflow_status_literal(value)
+}
+
+fn language_constant_modifiers_for_line(
+    line: &str,
+    keyword: &str,
+    token_start: usize,
+) -> &'static [&'static str] {
+    if is_log_level_literal(line, keyword, token_start) {
+        &["sideEffect"]
+    } else {
+        language_constant_modifiers(keyword)
+    }
+}
+
+fn is_log_level_literal(line: &str, keyword: &str, token_start: usize) -> bool {
+    matches!(keyword, "debug" | "info" | "warn" | "error")
+        && previous_identifier_before(line, token_start) == Some("log")
 }
 
 fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
@@ -11093,6 +11112,8 @@ download url("https://example.org/file.csv") to file("outputs/file.csv")
 log debug "debug details"
 log info "ready"
 log warn "slow"
+log error "failed"
+print "quick status"
 profile_safe = safe
 profile_repro = repro
 cache_status = cached
@@ -11118,6 +11139,46 @@ struct LegacyArgs
         }
         for label in ["summarize", "summary", "distribution", "line", "bar"] {
             assert_semantic_token_modifier(&snapshot, source, label, "report");
+        }
+        for line in [
+            "log debug",
+            "log info",
+            "log warn",
+            "log error",
+            "print \"quick status\"",
+        ] {
+            let label = if line.starts_with("print") { "print" } else { "log" };
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "keyword",
+                "sideEffect",
+            );
+            assert_semantic_token_on_line_without_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "keyword",
+                "report",
+            );
+        }
+        for (line, level) in [
+            ("log debug", "debug"),
+            ("log info", "info"),
+            ("log warn", "warn"),
+            ("log error", "error"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                level,
+                "keyword",
+                "sideEffect",
+            );
         }
         let summary_line =
             "    summarize Q_series by [mean, time_weighted_mean, p90, p95, duration_above(5 kW)]";
