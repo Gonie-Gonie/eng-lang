@@ -405,6 +405,7 @@ function createCommandHandlers(options = {}) {
     }
     const tokenRows = (semanticTokens.tokens ?? [])
       .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
+    const rangeOverlaps = semanticTokenRangeOverlaps(document, tokenRows);
     const tokenCount = semanticTokens.tokens?.length ?? 0;
     const scopeMapStatus = semanticScopeMapStatus(
       semanticTokenScopeMap,
@@ -423,6 +424,7 @@ function createCommandHandlers(options = {}) {
         counts_by_type: tokenCounts,
         counts_by_modifier: modifierCounts,
         counts_by_selector: selectorCounts,
+        range_overlap_count: rangeOverlaps.length,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
         tokens_without_fallback_scope: tokensWithoutFallbackScope,
         tokens_with_unmapped_selectors: tokensWithUnmappedSelectors,
@@ -437,10 +439,13 @@ function createCommandHandlers(options = {}) {
         by_selector: tokenSamplesBySelector
       },
       tokens: tokenRows,
+      range_overlaps: rangeOverlaps,
       raw: {
         semantic_tokens: semanticTokens
       },
       highlight_count: tokenCount,
+      highlight_range_overlap_count: rangeOverlaps.length,
+      highlight_range_overlaps: rangeOverlaps,
       highlight_counts_by_category: tokenCounts,
       highlight_counts_by_detail: modifierCounts,
       highlight_counts_by_selector: selectorCounts,
@@ -503,6 +508,7 @@ function createCommandHandlers(options = {}) {
     const lineTokens = (semanticTokens.tokens ?? [])
       .filter((token) => Number(token.line) === cursor.line)
       .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
+    const lineRangeOverlaps = semanticTokenRangeOverlaps(document, lineTokens);
     const nearestTokens = lineTokens
       .map((token) => ({
         ...token,
@@ -531,6 +537,7 @@ function createCommandHandlers(options = {}) {
         matching_token_count: matchingTokens.length,
         nearest_token_count: nearestTokens.length,
         line_token_count: lineTokens.length,
+        line_range_overlap_count: lineRangeOverlaps.length,
         cursor_token_hint: cursorTokenHint,
         scope_map_status: scopeMapStatus.status,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
@@ -539,6 +546,7 @@ function createCommandHandlers(options = {}) {
       matching_tokens: matchingTokens,
       nearest_tokens: nearestTokens,
       line_tokens: lineTokens,
+      line_range_overlaps: lineRangeOverlaps,
       semantic_scope_map: scopeMapStatus,
       legend: semanticTokens.legend ?? {},
       raw: {
@@ -641,6 +649,86 @@ function createCommandHandlers(options = {}) {
       copy_text: sample.text,
       copy_range: rangeText,
       copy_selector: primarySelector
+    };
+  }
+
+  function semanticTokenRangeOverlaps(document, rows) {
+    const tokensByLine = new Map();
+    for (const row of Array.isArray(rows) ? rows : []) {
+      const line = Number(row?.line);
+      if (!Number.isFinite(line) || line < 1) {
+        continue;
+      }
+      if (!tokensByLine.has(line)) {
+        tokensByLine.set(line, []);
+      }
+      tokensByLine.get(line).push(row);
+    }
+
+    const overlaps = [];
+    for (const [line, lineRows] of tokensByLine.entries()) {
+      const textLine = line <= document.lineCount ? document.lineAt(line - 1).text : "";
+      const ranges = lineRows
+        .map((row) => {
+          const start = Number(row?.start);
+          const length = Number(row?.length);
+          const rowEnd = Number(row?.end);
+          const end = Number.isFinite(rowEnd) ? rowEnd : start + length;
+          if (!Number.isFinite(start) || !Number.isFinite(length) || !Number.isFinite(end) || length <= 0 || end <= start) {
+            return null;
+          }
+          return { row, start, end };
+        })
+        .filter(Boolean)
+        .sort((left, right) => left.start - right.start || left.end - right.end);
+      let previous = null;
+      for (const range of ranges) {
+        if (previous && range.start < previous.end) {
+          const start = Math.max(previous.start, range.start);
+          const end = Math.min(previous.end, range.end);
+          overlaps.push({
+            line,
+            column: start + 1,
+            start,
+            length: end - start,
+            end,
+            range_text: semanticTokenRangeText(line, start + 1, end - start),
+            text: textLine.slice(start, end),
+            left: semanticTokenOverlapSide(previous.row),
+            right: semanticTokenOverlapSide(range.row)
+          });
+          if (range.end > previous.end) {
+            previous = range;
+          }
+          continue;
+        }
+        previous = range;
+      }
+    }
+    return overlaps;
+  }
+
+  function semanticTokenOverlapSide(row) {
+    return {
+      line: row?.line ?? null,
+      column: row?.column ?? null,
+      start: row?.start ?? null,
+      length: row?.length ?? null,
+      end: row?.end ?? null,
+      range_text: row?.range_text ?? null,
+      text: row?.text ?? "",
+      type: row?.type ?? "-",
+      modifiers: row?.modifiers ?? [],
+      primary_selector: row?.primary_selector ?? row?.type ?? "-",
+      semantic_selectors: row?.semantic_selectors ?? [],
+      fallback_status: row?.fallback_status ?? "-",
+      direct_selector_status: row?.direct_selector_status ?? "-",
+      fallback_scope_count: row?.fallback_scope_count ?? 0,
+      inspector_panels: row?.inspector_panels ?? [],
+      panel_hint: row?.panel_hint ?? null,
+      copy_text: row?.copy_text ?? row?.text ?? "",
+      copy_range: row?.copy_range ?? row?.range_text ?? null,
+      copy_selector: row?.copy_selector ?? row?.primary_selector ?? row?.type ?? "-"
     };
   }
 
