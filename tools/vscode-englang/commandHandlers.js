@@ -2428,7 +2428,7 @@ function createCommandHandlers(options = {}) {
     const sourceLabel = configuredSelected
       ? "Configured in settings"
       : configuredFallback
-        ? "Fallback because the configured path was not found"
+        ? (pathLike ? "Configured path not found; using bundled or workspace executable" : "Configured path not found; using PATH command")
         : pathLike
           ? "Bundled or workspace executable"
           : "Resolved from PATH when invoked";
@@ -2438,7 +2438,7 @@ function createCommandHandlers(options = {}) {
       configured_path_status: trimmedConfiguredPath
         ? configuredSelected
           ? "selected"
-          : "not found; using fallback"
+          : "configured_path_not_found_using_discovered_tool"
         : "unset",
       source,
       source_label: sourceLabel,

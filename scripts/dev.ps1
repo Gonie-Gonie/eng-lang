@@ -4685,6 +4685,9 @@ function Assert-VscodeExtensionContract {
         'with source ${sourceLabel}',
         'use source ${sourceLabel}',
         "configured_path_status",
+        "configured_path_not_found_using_discovered_tool",
+        "Configured path not found; using bundled or workspace executable",
+        "Configured path not found; using PATH command",
         "availability",
         "role_aware_colors",
         "role_aware_highlighting",
@@ -4749,7 +4752,9 @@ function Assert-VscodeExtensionContract {
         "live editor requests",
         "Compiler-backed role-aware colors",
         "compiler-backed semantic token refinement",
-        "compiler-backed roles"
+        "compiler-backed roles",
+        "Fallback because the configured path was not found",
+        "not found; using fallback"
     )) {
         if ($CommandHandlersSource.Contains($ForbiddenToolingStatusWording)) {
             throw "VS Code tooling status must describe editor checks in user-facing wording: $ForbiddenToolingStatusWording"

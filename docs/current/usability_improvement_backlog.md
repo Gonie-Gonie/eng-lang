@@ -1,3 +1,4 @@
+- Batch 915: Reworded VS Code Tooling Status configured executable path states away from fallback wording toward explicit discovered-tool labels and guarded against the old fallback phrasing returning.
 - Batch 914: Renamed VS Code highlight inspector advanced payload fields from `raw` to `advanced_highlight_data` and guarded against the raw payload label returning.
 - Batch 913: Added local VSIX package/install freshness and install preflight guidance to VS Code Tooling Status when the active workspace is an EngLang source checkout.
 - Batch 912: Split the remaining workflow-step, solver, and path helper TextMate scopes so `apply(...)`, `run_case`, `der(...)`, and `join(...)` no longer use generic builtin first-pass colors.

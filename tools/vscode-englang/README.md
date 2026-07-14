@@ -79,7 +79,7 @@ embedding compiler logic in JavaScript.
 - `EngLang: Copy Highlight Token at Cursor` for copying the current or nearest
   same-line role-aware highlight token details without opening a separate inspector view
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
-  with the active check/run and live editor tool paths, fallback/source labels,
+  with the active check/run and live editor tool paths, configured-path/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
   current-file Problems counts and range status, cursor diagnostic inspection and
   copy commands, Problems diagnostics toggles, the first-pass plus role-aware
@@ -143,7 +143,7 @@ Code and select the generated VSIX. For extension-host development instead of
 local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the summary, bundled check/run tool and live editor tool
-paths, fallback/source labels, the current diagnostics mode, the `eng/file` or
+paths, configured-path/source labels, the current diagnostics mode, the `eng/file` or
 `eng/live` Problems source label, current-file Problems counts, source counts,
 range status, per-feature live editor routing, current-file highlight token and
 overlap status, fallback scope-map coverage for role-aware highlighting, and the
