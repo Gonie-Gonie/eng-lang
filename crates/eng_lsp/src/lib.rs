@@ -5730,6 +5730,9 @@ fn keyword_modifiers_for_line(
     if is_validation_condition_keyword(line, keyword, token_start) {
         return &["validation"];
     }
+    if is_return_statement_keyword(line, keyword, token_start) {
+        return &["local"];
+    }
     keyword_modifiers(keyword)
 }
 
@@ -6828,6 +6831,13 @@ fn is_validation_condition_keyword(line: &str, keyword: &str, token_start: usize
             .is_some_and(|prefix| prefix.contains(" between ")),
         _ => false,
     }
+}
+
+fn is_return_statement_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    keyword == "return"
+        && line
+            .get(..token_start)
+            .is_some_and(|prefix| prefix.trim().is_empty())
 }
 
 fn is_keyword_after_phrase(line: &str, token_start: usize, phrase: &str) -> bool {
@@ -12887,6 +12897,12 @@ fn coil_heat(m_dot: MassFlowRate, dT: TemperatureDelta) -> HeatRate {
             "Q",
             "variable",
             "declaration",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot, source, "return Q", "return", "keyword", "local",
+        );
+        assert_no_semantic_token_on_line_with_empty_modifiers(
+            &snapshot, source, "return Q", "return", "keyword",
         );
     }
 
