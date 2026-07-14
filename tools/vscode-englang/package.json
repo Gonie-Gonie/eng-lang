@@ -398,6 +398,35 @@
             "variable.parameter.function.englang",
             "variable.parameter.property.englang"
           ],
+          "parameter.timeseries": [
+            "entity.name.function.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.sideEffect": [
+            "keyword.control.side-effect.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.external": [
+            "keyword.control.external-boundary.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.validation": [
+            "keyword.control.validation.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.report": [
+            "keyword.control.report.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.solver": [
+            "keyword.control.solver.englang",
+            "entity.name.function.solver.englang",
+            "variable.parameter.property.englang"
+          ],
+          "parameter.workflowStep": [
+            "entity.name.function.workflow-step.englang",
+            "variable.parameter.property.englang"
+          ],
           "variable.axis": [
             "entity.name.function.workflow-step.englang",
             "variable.other.definition.englang"

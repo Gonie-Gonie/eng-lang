@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 806: Suppressed generic variable and review-risk overlays on structural declarations such as schema columns, system parameters, and component declarations, added VS Code fallback scopes and theme colors for parameter modifiers surfaced by fixture coverage, and reduced mixed-type semantic token overlaps from 27 to 9 while keeping keyword/function conflicts at zero.
 - Batch 805: Removed variable overlays from `export summary to csv`'s `summary` keyword and `plot A and B`'s `and` connector, clearing the remaining fixture-level keyword/variable conflicts.
 - Batch 804: Stopped bare `model` value operands in `evaluate(model)`, `model_card(model)`, and `predict model using ...` from receiving lexical keyword overlays while preserving catalog keyword coverage.
 - Batch 803: Reclassified `write text/json/standard_text` format selectors as side-effect keywords instead of helper functions, removing the last fixture-level function/keyword overlay.

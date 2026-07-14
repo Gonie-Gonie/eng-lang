@@ -2086,11 +2086,17 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for binding in &program.typed_bindings {
+        if is_structural_non_variable_declaration(program, binding.line, &binding.name) {
+            continue;
+        }
         let modifiers = semantic_modifiers_for_quantity(&binding.semantic_type.quantity_kind);
         builder.push_on_line(binding.line, &binding.name, "variable", &modifiers);
     }
 
     for hover in &program.hover_hints {
+        if is_structural_non_variable_declaration(program, hover.line, &hover.name) {
+            continue;
+        }
         let mut modifiers = semantic_modifiers_for_quantity(&hover.quantity_kind);
         if hover.detail.starts_with("importable const") {
             modifiers.push("readonly");
@@ -3291,6 +3297,9 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         .iter()
         .filter(|diagnostic| diagnostic.severity == Severity::Warning)
     {
+        if line_has_structural_declaration(program, diagnostic.line) {
+            continue;
+        }
         let classification = classify_diagnostic_review_risk(&diagnostic.code, "warning");
         if let Some(modifier) = review_risk_modifier(classification.level) {
             builder.push_first_identifier_on_line(diagnostic.line, "variable", &[modifier]);
@@ -4372,6 +4381,116 @@ fn is_model_quantity_kind(quantity_kind: &str) -> bool {
         || quantity_kind.contains("LeakageLint")
 }
 
+fn is_structural_non_variable_declaration(
+    program: &SemanticProgram,
+    line: usize,
+    name: &str,
+) -> bool {
+    program.schemas.iter().any(|schema| {
+        schema
+            .columns
+            .iter()
+            .any(|column| column.line == line && column.name == name)
+    }) || program.systems.iter().any(|system| {
+        system.variables.iter().any(|variable| {
+            variable.line == line && variable.name == name && variable.role == "parameter"
+        })
+    }) || program.domains.iter().any(|domain| {
+        domain
+            .variables
+            .iter()
+            .any(|variable| variable.line == line && variable.name == name)
+    }) || program.components.iter().any(|component| {
+        component
+            .ports
+            .iter()
+            .any(|port| port.line == line && port.name == name)
+            || component
+                .parameters
+                .iter()
+                .any(|parameter| parameter.line == line && parameter.name == name)
+            || component
+                .inputs
+                .iter()
+                .any(|input| input.line == line && input.name == name)
+    }) || program.classes.iter().any(|class_info| {
+        class_info
+            .fields
+            .iter()
+            .any(|field| field.line == line && field.name == name)
+    }) || program.class_objects.iter().any(|object| {
+        object
+            .fields
+            .iter()
+            .any(|field| field.line == line && field.name == name)
+    }) || program.args_blocks.iter().any(|args_block| {
+        args_block
+            .fields
+            .iter()
+            .any(|field| field.line == line && field.name == name)
+    })
+}
+
+fn line_has_structural_declaration(program: &SemanticProgram, line: usize) -> bool {
+    program.schemas.iter().any(|schema| {
+        schema.line == line
+            || schema.columns.iter().any(|column| column.line == line)
+            || schema
+                .constraints
+                .iter()
+                .any(|constraint| constraint.line == line)
+            || schema
+                .missing_policies
+                .iter()
+                .any(|policy| policy.line == line)
+    }) || program.systems.iter().any(|system| {
+        system.line == line
+            || system
+                .variables
+                .iter()
+                .any(|variable| variable.line == line)
+    }) || program.domains.iter().any(|domain| {
+        domain.line == line
+            || domain
+                .variables
+                .iter()
+                .any(|variable| variable.line == line)
+            || domain
+                .conservations
+                .iter()
+                .any(|conservation| conservation.line == line)
+    }) || program.components.iter().any(|component| {
+        component.line == line
+            || component.ports.iter().any(|port| port.line == line)
+            || component
+                .parameters
+                .iter()
+                .any(|parameter| parameter.line == line)
+            || component.inputs.iter().any(|input| input.line == line)
+            || component
+                .local_expressions
+                .iter()
+                .any(|local| local.line == line)
+    }) || program.classes.iter().any(|class_info| {
+        class_info.line == line
+            || class_info.fields.iter().any(|field| field.line == line)
+            || class_info
+                .validations
+                .iter()
+                .any(|validation| validation.line == line)
+            || class_info.methods.iter().any(|method| method.line == line)
+    }) || program.class_objects.iter().any(|object| {
+        object.line == line
+            || object.fields.iter().any(|field| field.line == line)
+            || object
+                .validations
+                .iter()
+                .any(|validation| validation.line == line)
+    }) || program.args_blocks.iter().any(|args_block| {
+        args_block.line == line || args_block.fields.iter().any(|field| field.line == line)
+    })
+}
+
 fn promotion_source_format_keywords(source_format: &str) -> &'static [&'static str] {
     match source_format {
         "json_records" => &["promote", "json", "records", "as"],
@@ -5108,7 +5227,13 @@ impl<'a> SemanticTokenBuilder<'a> {
                 if next_non_whitespace_after(line, token_end) == Some('(') {
                     continue;
                 }
-                self.push_byte_range(line_index, token_start, candidate.len(), token_type, modifiers);
+                self.push_byte_range(
+                    line_index,
+                    token_start,
+                    candidate.len(),
+                    token_type,
+                    modifiers,
+                );
                 return;
             }
         }
@@ -11336,7 +11461,11 @@ struct LegacyArgs
             "log error",
             "print \"quick status\"",
         ] {
-            let label = if line.starts_with("print") { "print" } else { "log" };
+            let label = if line.starts_with("print") {
+                "print"
+            } else {
+                "log"
+            };
             assert_semantic_token_on_line_with_modifier(
                 &snapshot,
                 source,
@@ -11346,12 +11475,7 @@ struct LegacyArgs
                 "sideEffect",
             );
             assert_semantic_token_on_line_without_modifier(
-                &snapshot,
-                source,
-                line,
-                label,
-                "keyword",
-                "report",
+                &snapshot, source, line, label, "keyword", "report",
             );
         }
         for (line, level) in [
@@ -12165,6 +12289,46 @@ comparison = empty == missing
     }
 
     #[test]
+    fn snapshot_keeps_structural_declarations_from_generic_variable_overlays() {
+        let source = r#"schema SensorData {
+    time: DateTime [iso8601]
+    model_card: ModelCard
+}
+system RoomThermal {
+    parameter C: HeatCapacity = 1200 kJ/K
+}
+domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+    across T: AbsoluteTemperature [degC]
+    through Q: HeatRate [kW]
+    conservation sum(Q) = 0
+}
+component RoomBoundary {
+    port heat: Thermal
+}
+component Coil {
+    port heat: Thermal
+    parameter UA: Conductance [W/K] = 500 W/K
+}
+component AmbientBoundary {
+    port heat: Thermal
+}
+connect RoomBoundary.heat -> Coil.heat
+connect Coil.heat -> AmbientBoundary.heat
+"#;
+        let snapshot = snapshot_for_source(Path::new("structural_declarations.eng"), source);
+
+        for (line, label, token_type) in [
+            ("    time: DateTime", "time", "property"),
+            ("    model_card: ModelCard", "model_card", "property"),
+            ("    parameter C:", "C", "parameter"),
+            ("component RoomBoundary", "RoomBoundary", "class"),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, token_type);
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "variable");
+        }
+    }
+
+    #[test]
     fn snapshot_keeps_export_summary_and_plot_and_as_keywords_not_variables() {
         let source = r#"Q: HeatRate [kW] = 1 kW
 export summary to csv "summary.csv" {
@@ -12265,7 +12429,13 @@ report {
             assert_semantic_token_on_line_type(&snapshot, source, line, label, "function");
             assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
         }
-        assert_semantic_token_on_line_type(&snapshot, source, "E_cmd = integrate", "integrate", "keyword");
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "E_cmd = integrate",
+            "integrate",
+            "keyword",
+        );
     }
 
     #[test]
@@ -12304,7 +12474,10 @@ filled_zone = fill missing measured.T_zone
     fn snapshot_marks_check_coverage_keyword_at_command_phrase() {
         let source = "coverage = check coverage measured.T_zone\n";
         let snapshot = snapshot_for_source(Path::new("check_coverage_keyword.eng"), source);
-        let line = source.lines().next().expect("source should contain one line");
+        let line = source
+            .lines()
+            .next()
+            .expect("source should contain one line");
         let first_coverage_start = line.find("coverage").expect("first coverage should exist");
         let second_coverage_start = line[first_coverage_start + 1..]
             .find("coverage")
@@ -12332,7 +12505,10 @@ filled_zone = fill missing measured.T_zone
                 token.line == 0
                     && token.start == second_coverage_start
                     && token.token_type == "keyword"
-                    && token.modifiers.iter().any(|modifier| modifier == "validation")
+                    && token
+                        .modifiers
+                        .iter()
+                        .any(|modifier| modifier == "validation")
             }),
             "check coverage command keyword should be attached to the command phrase"
         );
