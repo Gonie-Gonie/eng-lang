@@ -2589,16 +2589,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
         builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
         builder.push_keywords_on_line(write.line, &["write"], &modifiers);
-        if write.format == "standard_text" {
-            builder.push_on_line(
-                write.line,
-                &write.format,
-                "function",
-                &["defaultLibrary", "workflowStep"],
-            );
-        } else {
-            builder.push_on_line(write.line, &write.format, "function", &["defaultLibrary"]);
-        }
+        builder.push_on_line(write.line, &write.format, "keyword", &modifiers);
         add_write_target_semantic_tokens(&mut builder, write.line, &write.format, &write.path);
     }
 
@@ -12144,6 +12135,32 @@ comparison = empty == missing
             "keyword",
         );
         assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
+    }
+
+    #[test]
+    fn snapshot_keeps_write_formats_as_keywords_not_functions() {
+        let source = r#"Q: HeatRate [kW] = 1 kW
+write text file("outputs/summary.txt"), Q
+"#;
+        let snapshot = snapshot_for_source(Path::new("write_format_keywords.eng"), source);
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "write text",
+            "text",
+            "keyword",
+            "sideEffect",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "write text",
+            "text",
+            "keyword",
+            "workflowStep",
+        );
+        assert_no_semantic_token_on_line_type(&snapshot, source, "write text", "text", "function");
     }
 
     #[test]

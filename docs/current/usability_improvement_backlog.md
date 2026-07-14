@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 803: Reclassified `write text/json/standard_text` format selectors as side-effect keywords instead of helper functions, removing the last fixture-level function/keyword overlay.
 - Batch 802: Stopped keyword overlays on call-style helper functions such as `integrate(...)`, `mlp(...)`, and `plot histogram(...)` while preserving command-style keyword coloring.
 - Batch 801: Removed duplicate `function.defaultLibrary` semantic tokens from command-style verbs, keeping call-style helpers as functions and command phrases as keywords.
 - Batch 800: Anchored `check coverage` command semantic keywords to the command phrase so a same-line `coverage = ...` binding stays colored as a variable.
