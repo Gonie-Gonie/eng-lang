@@ -4682,6 +4682,18 @@ impl<'a> SemanticTokenBuilder<'a> {
                 {
                     continue;
                 }
+                if let Some(token_type) =
+                    dotted_identifier_segment_token_type(line, token_start, index)
+                {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        token_type,
+                        &[],
+                    );
+                    continue;
+                }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
                     let (token_type, modifiers) = workflow_builtin_semantic_class(
                         line,
@@ -5091,7 +5103,13 @@ impl<'a> SemanticTokenBuilder<'a> {
             }
             let mut segment_start = path_start;
             for (index, segment) in path.split('.').enumerate() {
-                let token_type = if index == 0 { "variable" } else { "property" };
+                let token_type = if index == 0 && segment == "args" {
+                    "parameter"
+                } else if index == 0 {
+                    "variable"
+                } else {
+                    "property"
+                };
                 self.push_byte_range(
                     line_index,
                     segment_start,
@@ -6175,6 +6193,29 @@ fn is_identifier_boundary(line: &str, start: usize, end: usize) -> bool {
         .and_then(|index| bytes.get(index).copied());
     let after = bytes.get(end).copied();
     before.is_none_or(|byte| !is_ident_byte(byte)) && after.is_none_or(|byte| !is_ident_byte(byte))
+}
+
+fn dotted_identifier_segment_token_type(
+    line: &str,
+    start: usize,
+    end: usize,
+) -> Option<&'static str> {
+    let bytes = line.as_bytes();
+    let has_previous_segment = start >= 2
+        && bytes.get(start - 1) == Some(&b'.')
+        && bytes.get(start - 2).copied().is_some_and(is_ident_byte);
+    let has_next_segment =
+        bytes.get(end) == Some(&b'.') && bytes.get(end + 1).copied().is_some_and(is_ident_start);
+    if !has_previous_segment && !has_next_segment {
+        return None;
+    }
+    if has_previous_segment {
+        Some("property")
+    } else if line.get(start..end) == Some("args") {
+        Some("parameter")
+    } else {
+        Some("variable")
+    }
 }
 
 fn member_receiver_boundary(line: &str, start: usize) -> bool {
@@ -8827,6 +8868,29 @@ mod tests {
                     })
             }),
             "semantic token `{label}` on `{line_needle}` should have type `{token_type}`"
+        );
+    }
+
+    fn assert_no_semantic_token_on_line_type(
+        snapshot: &LspSnapshot,
+        source: &str,
+        line_needle: &str,
+        label: &str,
+        token_type: &str,
+    ) {
+        let line_index = source
+            .lines()
+            .position(|line| line.contains(line_needle))
+            .unwrap_or_else(|| panic!("source line `{line_needle}` should be present"));
+        assert!(
+            !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == line_index
+                    && token.token_type == token_type
+                    && source.lines().nth(token.line).is_some_and(|line| {
+                        line.get(token.start..token.start + token.length) == Some(label)
+                    })
+            }),
+            "semantic token `{label}` on `{line_needle}` should not have type `{token_type}`"
         );
     }
 
@@ -11889,6 +11953,55 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             }),
             "semantic operator scan should not split slash-delimited unit tokens"
         );
+    }
+
+    #[test]
+    fn snapshot_marks_dotted_args_paths_as_parameter_properties_without_keyword_overlay() {
+        let source = r#"args {
+    input: CsvFile = file("data/sensor.csv")
+    output: Dir = dir("out")
+}
+
+notes_text = read text args.input
+custom = calibrate(args.input, split=args.output)
+"#;
+        let snapshot = snapshot_for_source(Path::new("dotted_args_paths.eng"), source);
+
+        for (line, label, token_type) in [
+            ("notes_text = read text", "args", "parameter"),
+            ("notes_text = read text", "input", "property"),
+            ("custom = calibrate", "args", "parameter"),
+            ("custom = calibrate", "input", "property"),
+            ("custom = calibrate", "output", "property"),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, token_type);
+        }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "notes_text = read text",
+            "args",
+            "parameter",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "notes_text = read text",
+            "input",
+            "property",
+            "workflowStep",
+        );
+
+        for (line, label) in [
+            ("notes_text = read text", "args"),
+            ("notes_text = read text", "input"),
+            ("custom = calibrate", "args"),
+            ("custom = calibrate", "input"),
+            ("custom = calibrate", "output"),
+        ] {
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+        }
     }
 
     #[test]
