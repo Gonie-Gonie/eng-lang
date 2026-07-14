@@ -9523,9 +9523,6 @@ fn evaluate_table_metadata_field_expression(
             Some(count_value(table_status_count(table, "skipped")))
         }
         "expected_count" if table.schema_name == "CaseOutput" => Some(count_value(table.row_count)),
-        "planned_count" if table.schema_name == "CaseOutput" => {
-            Some(count_value(table_status_count(table, "planned")))
-        }
         "rendered_count" if table.schema_name == "CaseOutput" => {
             Some(count_value(table_status_count(table, "rendered")))
         }

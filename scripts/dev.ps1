@@ -6457,6 +6457,11 @@ function Assert-VscodeExtensionContract {
     if ($null -ne $PlannedCaseOutputTableField) {
         throw "generated VS Code editor metadata must not suggest compatibility-only case_inputs.planned_count; use expected_count"
     }
+    $CompilerSemanticSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_compiler\src\semantic.rs") -Raw
+    $RuntimeSource = Get-Content -LiteralPath (Join-Path $RepoRoot "crates\eng_runtime\src\lib.rs") -Raw
+    if ($CompilerSemanticSource.Contains('"expected_count" | "planned_count"') -or $RuntimeSource.Contains('"planned_count" if table.schema_name == "CaseOutput"')) {
+        throw "compiler/runtime must not expose compatibility-only case_inputs.planned_count; use expected_count"
+    }
     foreach ($RequiredCaseResultCollectionTableField in @("collected_count", "missing_count", "blocked_count", "status")) {
         $CaseResultCollectionTableField = @($EditorMetadata.syntax_catalog.case_result_collection_table_fields | Where-Object { $_.label -eq $RequiredCaseResultCollectionTableField }) | Select-Object -First 1
         if ($null -eq $CaseResultCollectionTableField) {
