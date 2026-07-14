@@ -20,6 +20,7 @@ The documentation plans in `EngLang_Documentation_Reorganization_and_User_Guide_
 | Example workflow smoke | `cargo run -p eng_cli -- test examples` | Checks all official, workflow, advanced solver, internal, and compatibility examples, then runs targeted artifact assertions. |
 | Artifact golden check | `dev.bat artifacts-check` | Validates schemas and stable artifact snapshots for official and internal fixtures. |
 | Documentation check | `dev.bat docs-check` | Checks documented snippets and supported documentation examples. |
+| Native workflow status | `dev.bat workflow-native-status` | Quickly reports workflow 01/02/03 native-only source/docs status and latest process/run-graph artifact evidence without rerunning the full smoke gate. |
 | Package smoke | `dev.bat package-smoke` | Validates the portable public package path. Workflow fixtures stay in workflow smoke until promoted. |
 
 ## Checklist 9.1: Uncertainty Tests
@@ -140,5 +141,6 @@ Current coverage:
   evidence, workflow 02 structured sampler/model/prediction/DB/case evidence,
   and workflow 03 propagated uncertainty, report, and confidence-band plot
   evidence so those workflows cannot pass by reading file-backed surrogate data.
+- `dev.bat workflow-native-status` provides the fast read-only status view for those same source/docs guards plus the latest process and run-graph artifacts.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.
