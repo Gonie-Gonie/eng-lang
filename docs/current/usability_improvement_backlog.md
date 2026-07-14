@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 864: Added role-aware highlighting aliases to VS Code highlight inspector payloads and reworded remaining highlight warnings/status summaries away from semantic-highlighting implementation terms.
 - Batch 863: Added native IDE status-label mappings for behavior graph not-connected solver states so advanced solver panels avoid leaking raw `*_not_integrated` artifact keys.
 - Batch 862: Reworded VS Code Tooling Status and current docs away from implementation-detail highlighting internals toward checked-code role-aware color wording, with a package guard against the older phrasing returning.
 - Batch 861: Moved the native IDE Highlight tab into the primary review flow immediately after Review, with side-tab order guards and user-doc wording so color/range debugging is easier to find.
@@ -22,7 +23,7 @@
 - Batch 844: Added `EngLang: Refresh Problems` as a VS Code command and `.eng` editor context-menu action so users can rerun the active-file linter without knowing that `Check Current File` refreshes Problems.
 - Batch 843: Added a VS Code EngLang Problems status bar item that shows the active `.eng` file's diagnostics mode and current Problems counts, with a click-through to Tooling Status and package/doc coverage.
 - Batch 842: Archived current backlog batches 791-820 into the historical log, keeping the active API/IDE/workflow cleanup backlog focused on recent linter, highlighting, workflow, and docs work.
-- Batch 841: Reworded user-facing IDE/VS Code docs from executable/LSP and semantic-highlighting internals toward check/run tool, live editor tool, role-aware highlighting, and editor metadata wording.
+- Batch 841: Reworded user-facing IDE/VS Code docs from executable/LSP and highlighting internals toward check/run tool, live editor tool, role-aware highlighting, and editor metadata wording.
 
 This file is the short current backlog for API clarity, native workflow usability,
 editor/linter behavior, and documentation cleanup. The historical batch log was

@@ -4603,7 +4603,10 @@ function Assert-VscodeExtensionContract {
         "Checked-code role-aware colors are enabled for the current editor.",
         "Checked-code role-aware colors are disabled; VS Code will use first-pass syntax colors only.",
         "First-pass syntax colors plus checked-code role-aware colors",
-        "Immediate syntax colors before checked-code roles arrive."
+        "Immediate syntax colors before checked-code roles arrive.",
+        "Role-aware highlighting is enabled;",
+        "Role-aware highlighting is disabled;",
+        'Role-aware highlighting is ${settingState};'
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredToolingStatusWording)) {
             throw "VS Code tooling status must use checked-code role-aware wording: $RequiredToolingStatusWording"
@@ -5136,6 +5139,7 @@ function Assert-VscodeExtensionContract {
         "semanticTokenRange(document, token)?.contains(cursor)",
         "semanticTokenScopeMapFromPackage",
         "const syntaxCatalog = options.syntaxCatalog ?? {}",
+        "role_aware_highlighting_enabled",
         "semantic_highlighting_enabled",
         "summary: {",
         "status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlaps.length)",

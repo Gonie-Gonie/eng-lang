@@ -511,6 +511,7 @@ function createCommandHandlers(options = {}) {
     );
     const payload = {
       source: document.uri.fsPath,
+      role_aware_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       summary: {
         status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlaps.length),
@@ -577,8 +578,8 @@ function createCommandHandlers(options = {}) {
   async function showHighlightUnavailableWarning(context, document) {
     const semanticHighlighting = engConfig(document).get("semanticHighlighting.enabled", true);
     const settingState = semanticHighlighting ? "enabled" : "disabled";
-    const message = `No highlight data is available. Semantic highlighting is ${settingState}; run EngLang: Show Tooling Status to confirm the live editor tool path.`;
-    output.appendLine(`highlight data unavailable: semanticHighlighting.enabled=${semanticHighlighting}; use EngLang: Show Tooling Status to inspect the live editor tool path.`);
+    const message = `No highlight data is available. Role-aware highlighting is ${settingState}; run EngLang: Show Tooling Status to confirm the live editor tool path.`;
+    output.appendLine(`highlight data unavailable: role-aware highlighting setting=${semanticHighlighting}; use EngLang: Show Tooling Status to inspect the live editor tool path.`);
     const picked = await vscode.window.showWarningMessage(message, "Show Tooling Status");
     if (picked === "Show Tooling Status") {
       await showToolingStatus(context);
@@ -657,6 +658,7 @@ function createCommandHandlers(options = {}) {
         : "no_semantic_tokens_on_line";
     return {
       source: document.uri.fsPath,
+      role_aware_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       cursor: {
         line: cursor.line + 1,
@@ -1990,8 +1992,8 @@ function createCommandHandlers(options = {}) {
       ? "all generated token types and modifiers have fallback scopes"
       : `${scopeMapStatus.missing_token_types.length} token type(s) and ${scopeMapStatus.missing_modifiers.length} modifier(s) need fallback scopes`;
     return semanticHighlighting
-      ? `Role-aware semantic highlighting is enabled; ${mapLabel}.`
-      : `Role-aware semantic highlighting is disabled; ${mapLabel}.`;
+      ? `Role-aware highlighting is enabled; ${mapLabel}.`
+      : `Role-aware highlighting is disabled; ${mapLabel}.`;
   }
 
   function semanticScopeMapStatus(scopeMap, tokenTypes, tokenModifiers) {
