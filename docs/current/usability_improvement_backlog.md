@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 808: Added VS Code highlighting pipeline and fallback scope-map coverage to `EngLang: Show Tooling Status` and the highlight-token inspector, so users can see TextMate first paint, compiler-backed semantic token routing, and missing selector coverage from one status view.
 - Batch 807: Cleared the remaining fixture-level mixed-type semantic token overlaps by treating dotted calls as methods, avoiding lexical type overlays on `as` schema operands, skipping variable overlays for string write literals, preserving nested member field metadata without repainting nested receivers, and ignoring unit symbols in derived-column source fields.
 - Batch 806: Suppressed generic variable and review-risk overlays on structural declarations such as schema columns, system parameters, and component declarations, added VS Code fallback scopes and theme colors for parameter modifiers surfaced by fixture coverage, and reduced mixed-type semantic token overlaps from 27 to 9 while keeping keyword/function conflicts at zero.
 - Batch 805: Removed variable overlays from `export summary to csv`'s `summary` keyword and `plot A and B`'s `and` connector, clearing the remaining fixture-level keyword/variable conflicts.

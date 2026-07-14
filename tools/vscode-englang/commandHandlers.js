@@ -51,6 +51,8 @@ function createCommandHandlers(options = {}) {
   const artifactOpeners = options.artifactOpeners;
   const lspRequests = options.lspRequests;
   const semanticTokenScopeMap = options.semanticTokenScopeMap ?? DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP;
+  const semanticTokenTypes = options.semanticTokenTypes ?? [];
+  const semanticTokenModifiers = options.semanticTokenModifiers ?? [];
   const isEngDocument = options.isEngDocument ?? (() => true);
   const updateSemanticSymbolDecorations =
     options.updateSemanticSymbolDecorations ?? (() => undefined);
@@ -404,6 +406,11 @@ function createCommandHandlers(options = {}) {
     const tokenRows = (semanticTokens.tokens ?? [])
       .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
     const tokenCount = semanticTokens.tokens?.length ?? 0;
+    const scopeMapStatus = semanticScopeMapStatus(
+      semanticTokenScopeMap,
+      semanticTokenTypes,
+      semanticTokenModifiers
+    );
     const payload = {
       source: document.uri.fsPath,
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
@@ -412,6 +419,7 @@ function createCommandHandlers(options = {}) {
         fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
         direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors),
         token_count: tokenCount,
+        scope_map_status: scopeMapStatus.status,
         counts_by_type: tokenCounts,
         counts_by_modifier: modifierCounts,
         counts_by_selector: selectorCounts,
@@ -421,6 +429,7 @@ function createCommandHandlers(options = {}) {
         missing_scope_selectors: missingScopeSelectors,
         unmapped_selector_counts: unmappedSelectorCounts
       },
+      semantic_scope_map: scopeMapStatus,
       legend: semanticTokens.legend ?? {},
       samples: {
         by_type: tokenSamplesByType,
@@ -482,6 +491,11 @@ function createCommandHandlers(options = {}) {
     reviewCache.set(document.uri.fsPath, snapshot);
     updateSemanticSymbolDecorations(document, snapshot);
     const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
+    const scopeMapStatus = semanticScopeMapStatus(
+      semanticTokenScopeMap,
+      semanticTokenTypes,
+      semanticTokenModifiers
+    );
     const cursor = editor.selection.active;
     const matchingTokens = (semanticTokens.tokens ?? [])
       .filter((token) => semanticTokenRange(document, token)?.contains(cursor))
@@ -518,12 +532,14 @@ function createCommandHandlers(options = {}) {
         nearest_token_count: nearestTokens.length,
         line_token_count: lineTokens.length,
         cursor_token_hint: cursorTokenHint,
+        scope_map_status: scopeMapStatus.status,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
         copy_ready: semanticTokenCopyReady(matchingTokens[0] ?? nearestTokens[0] ?? null)
       },
       matching_tokens: matchingTokens,
       nearest_tokens: nearestTokens,
       line_tokens: lineTokens,
+      semantic_scope_map: scopeMapStatus,
       legend: semanticTokens.legend ?? {},
       raw: {
         semantic_tokens: semanticTokens
@@ -754,12 +770,19 @@ function createCommandHandlers(options = {}) {
     const roleAwareColorSummary = semanticHighlighting
       ? "Compiler-backed role-aware colors are enabled for the current editor."
       : "Compiler-backed role-aware colors are disabled; VS Code will use TextMate syntax colors only.";
+    const scopeMapStatus = semanticScopeMapStatus(
+      semanticTokenScopeMap,
+      semanticTokenTypes,
+      semanticTokenModifiers
+    );
+    const highlightingSummary = highlightingStatusSummary(semanticHighlighting, scopeMapStatus);
     return {
       summary: {
         check_and_run_tool: toolStatusSummary(checkAndRunTool, "saved-file checks and program runs"),
         live_editor_tool: toolStatusSummary(liveEditorTool, "live editor checks"),
         diagnostics: diagnosticsSummary,
-        role_aware_colors: roleAwareColorSummary
+        role_aware_colors: roleAwareColorSummary,
+        highlighting: highlightingSummary
       },
       extension: {
         id: "englang.englang",
@@ -783,6 +806,7 @@ function createCommandHandlers(options = {}) {
         long_running_language_server: false,
         live_buffer_tool: "live_editor",
         file_check_tool: "check_and_run",
+        highlighting_model: "TextMate first paint plus compiler-backed semantic token refinement",
         status_note: "Live editor features read the current buffer for hover, completion, symbols, highlights, formatting, quick fixes, and live Problems updates."
       },
       features: {
@@ -806,7 +830,30 @@ function createCommandHandlers(options = {}) {
           enabled: semanticHighlighting,
           summary: roleAwareColorSummary,
           tool: "live_editor",
-          request_model: "on-demand live editor checks"
+          request_model: "on-demand live editor checks",
+          fallback_scope_status: scopeMapStatus.status,
+          scope_map_entry_count: scopeMapStatus.selector_count
+        }
+      },
+      highlighting: {
+        model: "TextMate first paint plus compiler-backed semantic token refinement",
+        summary: highlightingSummary,
+        textmate_first_paint: {
+          enabled: true,
+          source: "generated TextMate grammar",
+          purpose: "Immediate lexical colors before compiler-backed roles arrive."
+        },
+        semantic_tokens: {
+          enabled: semanticHighlighting,
+          source: "live_editor",
+          request_model: "on-demand live editor checks",
+          token_type_count: semanticTokenTypes.length,
+          token_modifier_count: semanticTokenModifiers.length
+        },
+        fallback_scope_map: scopeMapStatus,
+        inspection_commands: {
+          current_file: "EngLang: Inspect Highlight Tokens",
+          cursor: "EngLang: Inspect Highlight Token at Cursor"
         }
       },
       settings: {
@@ -865,6 +912,74 @@ function createCommandHandlers(options = {}) {
       tool,
       request_model: "on-demand live editor checks"
     };
+  }
+
+  function highlightingStatusSummary(semanticHighlighting, scopeMapStatus) {
+    const mapLabel = scopeMapStatus.status === "mapped"
+      ? "all generated token types and modifiers have fallback scopes"
+      : `${scopeMapStatus.missing_token_types.length} token type(s) and ${scopeMapStatus.missing_modifiers.length} modifier(s) need fallback scopes`;
+    return semanticHighlighting
+      ? `Role-aware semantic highlighting is enabled; ${mapLabel}.`
+      : `Role-aware semantic highlighting is disabled; ${mapLabel}.`;
+  }
+
+  function semanticScopeMapStatus(scopeMap, tokenTypes, tokenModifiers) {
+    const selectors = Object.keys(scopeMap ?? {}).sort();
+    const mappedTokenTypes = [];
+    const missingTokenTypes = [];
+    for (const tokenType of tokenTypes ?? []) {
+      if (selectorHasMappedScopes(scopeMap, tokenType)) {
+        mappedTokenTypes.push(tokenType);
+      } else {
+        missingTokenTypes.push(tokenType);
+      }
+    }
+
+    const mappedModifiers = [];
+    const missingModifiers = [];
+    const selectors_by_modifier = {};
+    for (const modifier of tokenModifiers ?? []) {
+      const modifierSelectors = selectors.filter((selector) =>
+        semanticSelectorHasModifier(selector, modifier) && selectorHasMappedScopes(scopeMap, selector)
+      );
+      selectors_by_modifier[modifier] = modifierSelectors;
+      if (modifierSelectors.length > 0) {
+        mappedModifiers.push(modifier);
+      } else {
+        missingModifiers.push(modifier);
+      }
+    }
+
+    const status = selectors.length === 0
+      ? "missing_scope_map"
+      : missingTokenTypes.length > 0 || missingModifiers.length > 0
+        ? "partial"
+        : "mapped";
+    return {
+      status,
+      selector_count: selectors.length,
+      token_type_count: (tokenTypes ?? []).length,
+      mapped_token_type_count: mappedTokenTypes.length,
+      missing_token_types: missingTokenTypes,
+      token_modifier_count: (tokenModifiers ?? []).length,
+      mapped_modifier_count: mappedModifiers.length,
+      missing_modifiers: missingModifiers,
+      selectors_by_modifier
+    };
+  }
+
+  function selectorHasMappedScopes(scopeMap, selector) {
+    const mappedScopes = scopeMap?.[selector];
+    const values = Array.isArray(mappedScopes)
+      ? mappedScopes
+      : typeof mappedScopes === "string"
+        ? [mappedScopes]
+        : [];
+    return values.some((scope) => typeof scope === "string" && scope.length > 0);
+  }
+
+  function semanticSelectorHasModifier(selector, modifier) {
+    return selector.split(".").slice(1).includes(modifier);
   }
 
   function executablePathKey(value) {

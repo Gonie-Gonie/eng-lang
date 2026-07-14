@@ -70,7 +70,8 @@ embedding compiler logic in JavaScript.
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
-  Problems diagnostics toggles, role-aware highlighting, and extension version
+  Problems diagnostics toggles, the TextMate-plus-semantic highlighting model,
+  fallback scope-map coverage, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -128,8 +129,9 @@ local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the summary, bundled check/run tool and live editor tool
 paths, fallback/source labels, the current diagnostics mode, the `eng/file` or
-`eng/live` Problems source label, and per-feature live editor routing. If you run
-directly from source without packaging,
+`eng/live` Problems source label, per-feature live editor routing, and fallback
+scope-map coverage for role-aware highlighting. If you run directly from source
+without packaging,
 set:
 
 ```text
@@ -233,11 +235,12 @@ highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping
 rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with a plain
-status summary, legend, selector/type/detail counts, representative source-text
-samples, normalized highlight rows with primary selector, mapped/missing
-fallback status, direct selector coverage, status text that names both
-fallback-scope and direct-selector mapping gaps, theme fallback scopes, and raw
-highlight payload for debugging theme or scope mismatches. If no highlight data
+status summary, legend, selector/type/detail counts, overall scope-map coverage
+from the generated semantic legend, representative source-text samples,
+normalized highlight rows with primary selector, mapped/missing fallback status,
+direct selector coverage, status text that names both fallback-scope and
+direct-selector mapping gaps, theme fallback scopes, and raw highlight payload
+for debugging theme or scope mismatches. If no highlight data
 is available, the warning can
 open
 `EngLang: Show Tooling Status` so the selected live editor tool path is visible.

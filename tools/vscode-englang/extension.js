@@ -74,6 +74,8 @@ function activate(context) {
     artifactOpeners,
     lspRequests,
     isEngDocument,
+    semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
+    semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
   });
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
