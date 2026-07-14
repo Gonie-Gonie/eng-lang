@@ -4303,6 +4303,17 @@ function Assert-VscodeExtensionContract {
     if (-not $ExtensionSource.Contains("onDidChangeTextDocument") -or -not $DiagnosticsSource.Contains("--snapshot-stdin")) {
         throw "VS Code extension must support debounced unsaved-buffer diagnostics through eng-lsp --snapshot-stdin"
     }
+    foreach ($RequiredEditorChangeCacheToken in @(
+        "function clearCachedEditorSnapshot(document)",
+        "clearCachedEditorSnapshot(event.document)",
+        "reviewCache.delete(document.uri.fsPath)",
+        "updateReviewRiskDecorations(document, undefined)",
+        "updateSemanticSymbolDecorations(document, undefined)"
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredEditorChangeCacheToken)) {
+            throw "VS Code extension must clear stale cached editor review/highlight state on buffer edits: $RequiredEditorChangeCacheToken"
+        }
+    }
     if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsRuntime?.(document) !== "lsp-snapshot"')) {
         throw "VS Code live buffer diagnostics must only run when diagnostics mode is live"
     }

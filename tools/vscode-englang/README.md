@@ -153,7 +153,10 @@ buffer while typing, or run `EngLang: Switch Diagnostics Mode...` and choose
 back to `file` clears stale live Problems for an unsaved active buffer and
 refreshes saved-file Problems after the file is saved. Direct `settings.json`
 changes to diagnostics mode or lint toggles also refresh or clear the active
-EngLang editor so Problems match the selected settings. If an older workspace
+EngLang editor so Problems match the selected settings. Editing an EngLang
+buffer clears cached review/highlight fallback state immediately, so hover,
+completion, and decoration fallbacks cannot reuse an older buffer snapshot while
+live editor data is unavailable. If an older workspace
 already has `englang.problemsSource` or
 `englang.diagnosticsBackend`, the extension still accepts it as a compatibility
 alias. New workspaces should use `englang.diagnosticsMode`.

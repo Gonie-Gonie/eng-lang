@@ -153,12 +153,25 @@ function activate(context) {
     }
     refreshActiveDiagnosticsForSettings("diagnostics mode command");
   }
+
+  function clearCachedEditorSnapshot(document) {
+    if (!document || !isEngDocument(document)) {
+      return;
+    }
+    reviewCache.delete(document.uri.fsPath);
+    decorationController.updateReviewRiskDecorations(document, undefined);
+    decorationController.updateSemanticSymbolDecorations(document, undefined);
+  }
+
   context.subscriptions.push(output, diagnostics, semanticTokensProvider);
   context.subscriptions.push(...decorationController.disposables);
 
   context.subscriptions.push(
     vscode.workspace.onDidOpenTextDocument((document) => diagnosticController.maybeCheck(document)),
-    vscode.workspace.onDidChangeTextDocument((event) => diagnosticController.scheduleChangedCheck(event.document)),
+    vscode.workspace.onDidChangeTextDocument((event) => {
+      clearCachedEditorSnapshot(event.document);
+      diagnosticController.scheduleChangedCheck(event.document);
+    }),
     vscode.workspace.onDidSaveTextDocument((document) => diagnosticController.maybeCheck(document)),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
