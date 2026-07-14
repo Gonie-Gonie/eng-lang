@@ -382,7 +382,7 @@ function diagnosticCode(diagnostic) {
 
 function replacementAction(document, diagnostic, search, replacement, title) {
   const line = document.lineAt(diagnostic.range.start.line);
-  const index = line.text.indexOf(search);
+  const index = replacementIndexForDiagnostic(line.text, diagnostic, search);
   if (index < 0) {
     return undefined;
   }
@@ -395,6 +395,37 @@ function replacementAction(document, diagnostic, search, replacement, title) {
     replacement
   );
   return action;
+}
+
+function replacementIndexForDiagnostic(lineText, diagnostic, search) {
+  const text = String(lineText || "");
+  const range = diagnostic?.range;
+  const startCharacter = integerOrUndefined(range?.start?.character);
+  if (startCharacter === undefined) {
+    return text.indexOf(search);
+  }
+  const boundedStart = Math.max(0, Math.min(startCharacter, text.length));
+  if (text.slice(boundedStart, boundedStart + search.length) === search) {
+    return boundedStart;
+  }
+  const endCharacter = range?.end?.line === range?.start?.line
+    ? integerOrUndefined(range?.end?.character)
+    : undefined;
+  const boundedEnd = Math.max(
+    boundedStart,
+    Math.min(endCharacter ?? text.length, text.length)
+  );
+  const inRange = text.slice(boundedStart, boundedEnd).indexOf(search);
+  if (inRange >= 0) {
+    return boundedStart + inRange;
+  }
+  const afterRangeStart = text.indexOf(search, boundedStart);
+  return afterRangeStart >= 0 ? afterRangeStart : text.indexOf(search);
+}
+
+function integerOrUndefined(value) {
+  const number = Number(value);
+  return Number.isInteger(number) ? number : undefined;
 }
 
 function heatRateSumAction(document, diagnostic) {
@@ -3545,5 +3576,6 @@ function fullLineBlockRange(document, startLine, endLine) {
 
 module.exports = {
   localCodeActions,
-  diagnosticCode
+  diagnosticCode,
+  replacementIndexForDiagnostic
 };

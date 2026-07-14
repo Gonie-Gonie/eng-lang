@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 824: Made VS Code local replacement quick fixes prefer the diagnostic range before falling back to the first same-line token, avoiding wrong edits when a line contains repeated `:=`, `==`, or migration tokens.
 - Batch 823: Added VS Code saved-file diagnostic token-range fallbacks for syntax migration and network alias diagnostics so CLI Problems underline the same `:=`, `==`, `struct Args`, `script`, and `fixture` tokens as live LSP diagnostics.
 - Batch 822: Added native IDE Highlight table row actions that open the matching inspector panels for each semantic token, extending the token-to-context routing beyond caret and hover summaries.
 - Batch 821: Added VS Code highlight inspector panel hints to semantic-token rows and cursor copy-ready payloads so users can connect confusing colors to the matching Schema, Time, Workflow, Network, Case, Model, Modules, Units, Review, or Variables context.

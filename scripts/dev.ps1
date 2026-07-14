@@ -4994,6 +4994,8 @@ function Assert-VscodeExtensionContract {
         "codeActionKindIntersects",
         "isCancellationRequested",
         "return localActions()",
+        "replacementIndexForDiagnostic(line.text, diagnostic, search)",
+        "text.indexOf(search, boundedStart)",
         "edit.entries",
         "E-SYNTAX-DECL-001",
         "E-STRUCT-ARGS-001",
