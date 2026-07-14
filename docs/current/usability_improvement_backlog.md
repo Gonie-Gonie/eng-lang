@@ -1,3 +1,4 @@
+- Batch 918: Reworded VS Code highlight-inspector README coverage wording from mapped/missing fallback status to theme fallback coverage state, with an ide-check guard.
 - Batch 917: Reworded current docs away from raw JSON/source-diff phrasing toward manual JSON artifact and line-by-line source comparison wording, with docs-check guards.
 - Batch 916: Reworded the native IDE how-to Tooling Status summary from the old fallback-status phrase to configured-path/source status and guarded user docs against the old phrase.
 - Batch 915: Reworded VS Code Tooling Status configured executable path states away from fallback wording toward explicit discovered-tool labels and guarded against the old fallback phrasing returning.

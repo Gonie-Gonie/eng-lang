@@ -3625,6 +3625,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows") -or -not $VscodeReadmeSource.Contains("domain coverage summary")) {
         throw "VS Code README must document highlight overlap rows and coverage summary in user-facing terms"
     }
+    if ($VscodeReadmeSource.Contains("fallback status")) {
+        throw "VS Code README should describe theme fallback coverage instead of fallback status"
+    }
     if (-not $VscodeReadmeSource.Contains("status bar") -or -not $VscodeReadmeSource.Contains("EngLang Problems mode") -or -not $VscodeReadmeSource.Contains("error/warning/info/hint counts")) {
         throw "VS Code README must document the EngLang Problems status bar in user-facing terms"
     }

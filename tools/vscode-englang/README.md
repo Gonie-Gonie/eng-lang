@@ -271,8 +271,8 @@ status summary, legend, selector/type/detail counts, domain coverage summary for
 keywords, workflow words, options, units, constants, and operators, overall
 scope-map coverage from the generated semantic legend, representative source-text
 samples,
-normalized highlight rows with primary selector, mapped/missing fallback status,
-direct selector coverage, status text that names both fallback-scope and
+normalized highlight rows with primary selector, theme fallback coverage state,
+direct selector coverage, status text that names both theme fallback-scope and
 direct-selector mapping gaps, inspector panel hints, overlapping highlight ranges,
 theme fallback scopes, and advanced highlight data for debugging theme or scope
 mismatches. If no highlight data is available, the warning can
