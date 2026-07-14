@@ -180,7 +180,8 @@ function createCommandHandlers(options = {}) {
   async function showToolingStatus(context) {
     const document = toolingStatusDocument();
     const config = engConfig(document);
-    const payload = toolingStatusPayload(context, document, config);
+    const currentFileHighlightProbe = await toolingStatusHighlightProbe(context);
+    const payload = toolingStatusPayload(context, document, config, currentFileHighlightProbe);
     const statusDocument = await vscode.workspace.openTextDocument({
       language: "json",
       content: JSON.stringify(payload, null, 2)
@@ -898,7 +899,7 @@ function createCommandHandlers(options = {}) {
     };
   }
 
-  function toolingStatusPayload(context, document, config) {
+  function toolingStatusPayload(context, document, config, currentFileHighlightProbe = null) {
     const runtime = document ? findRuntime(context, document) : "eng.exe";
     const lsp = document ? findLspRuntime(context, document) : "eng-lsp.exe";
     const checkAndRunTool = executableStatus(runtime, config.get("runtimePath", ""));
@@ -923,7 +924,8 @@ function createCommandHandlers(options = {}) {
         live_editor_tool: toolStatusSummary(liveEditorTool, "live editor checks"),
         diagnostics: diagnosticsSummary,
         role_aware_colors: roleAwareColorSummary,
-        highlighting: highlightingSummary
+        highlighting: highlightingSummary,
+        current_file_highlights: currentFileHighlightProbe?.summary ?? "No current EngLang highlight probe was run."
       },
       extension: {
         id: "englang.englang",
@@ -991,6 +993,7 @@ function createCommandHandlers(options = {}) {
           token_type_count: semanticTokenTypes.length,
           token_modifier_count: semanticTokenModifiers.length
         },
+        current_file_probe: currentFileHighlightProbe,
         fallback_scope_map: scopeMapStatus,
         inspection_commands: {
           current_file: "EngLang: Inspect Highlight Tokens",
@@ -1015,6 +1018,79 @@ function createCommandHandlers(options = {}) {
         check_current_file: "EngLang: Check Current File"
       }
     };
+  }
+
+  async function toolingStatusHighlightProbe(context) {
+    const document = vscode.window.activeTextEditor?.document;
+    if (!document || !isEngDocument(document)) {
+      return {
+        status: "no_active_englang_document",
+        summary: "No active EngLang file is open for current-file highlight probing.",
+        token_count: 0,
+        range_overlap_count: 0,
+        range_overlap_status: "no_tokens"
+      };
+    }
+    if (typeof lspRequests?.snapshotDocumentSource !== "function") {
+      return {
+        source: document.uri.fsPath,
+        status: "unavailable",
+        summary: "Current-file highlight probing is unavailable because live editor checks are not configured.",
+        token_count: 0,
+        range_overlap_count: 0,
+        range_overlap_status: "no_tokens"
+      };
+    }
+    try {
+      const snapshot = await lspRequests.snapshotDocumentSource(document, context);
+      if (!snapshot) {
+        return {
+          source: document.uri.fsPath,
+          status: "unavailable",
+          summary: "Current-file highlight data is unavailable; use EngLang: Inspect Highlight Tokens for details.",
+          token_count: 0,
+          range_overlap_count: 0,
+          range_overlap_status: "no_tokens"
+        };
+      }
+      const semanticTokens = snapshot.semantic_tokens ?? { legend: {}, tokens: [] };
+      const tokenRows = (semanticTokens.tokens ?? [])
+        .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
+      const rangeOverlaps = semanticTokenRangeOverlaps(document, tokenRows);
+      return {
+        source: document.uri.fsPath,
+        status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
+        summary: toolingHighlightProbeSummary(tokenRows.length, rangeOverlaps.length),
+        token_count: tokenRows.length,
+        range_overlap_count: rangeOverlaps.length,
+        range_overlap_status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
+        inspection_commands: {
+          current_file: "EngLang: Inspect Highlight Tokens",
+          cursor: "EngLang: Inspect Highlight Token at Cursor"
+        }
+      };
+    } catch (error) {
+      output.appendLine(`Unable to probe current-file highlight status: ${error.message}`);
+      return {
+        source: document.uri.fsPath,
+        status: "error",
+        summary: "Current-file highlight probe failed; see the EngLang output panel.",
+        token_count: 0,
+        range_overlap_count: 0,
+        range_overlap_status: "no_tokens",
+        error: error.message
+      };
+    }
+  }
+
+  function toolingHighlightProbeSummary(tokenCount, rangeOverlapCount) {
+    if (tokenCount === 0) {
+      return "Current file returned no role-aware highlight tokens.";
+    }
+    if (rangeOverlapCount > 0) {
+      return `Current file returned ${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"} with ${rangeOverlapCount} overlapping range${rangeOverlapCount === 1 ? "" : "s"}.`;
+    }
+    return `Current file returned ${tokenCount} role-aware highlight token${tokenCount === 1 ? "" : "s"} with no overlapping ranges.`;
   }
 
   function diagnosticsProblemsSource(mode) {

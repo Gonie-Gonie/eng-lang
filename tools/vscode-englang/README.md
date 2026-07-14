@@ -129,9 +129,9 @@ local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the summary, bundled check/run tool and live editor tool
 paths, fallback/source labels, the current diagnostics mode, the `eng/file` or
-`eng/live` Problems source label, per-feature live editor routing, and fallback
-scope-map coverage for role-aware highlighting. If you run directly from source
-without packaging,
+`eng/live` Problems source label, per-feature live editor routing, current-file
+highlight token and overlap status, and fallback scope-map coverage for
+role-aware highlighting. If you run directly from source without packaging,
 set:
 
 ```text
