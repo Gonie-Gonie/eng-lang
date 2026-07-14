@@ -94,7 +94,7 @@ Editor
   Schema, Time, Checks, Effects, Network, Model, DB, Units, or Variables.
   Hover titles and the Highlight panel use role and status labels such as
   Model field, DB connection field, or Domain compatible instead of raw
-  payload names.
+  internal metadata ids.
 
 Right Sidebar
   Variables, Units, Schema, Time, Tables, Reads, Plot, Review, Highlight,

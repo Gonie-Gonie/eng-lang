@@ -572,6 +572,10 @@ function Invoke-WorkflowsTest {
                     "fixture fetched",
                     "network/cache fixture",
                     "HTTP fixture",
+                    "API payload contract",
+                    "fetched payload",
+                    "pinned HTTP response/cache",
+                    "pinned response materialization path",
                     "offline_response_file",
                     "schema StationMap with two fixture rows",
                     'This checked workflow keeps `offline_response` enabled'
@@ -1789,7 +1793,11 @@ function Test-PublicWorkflowDocs {
             "case_inputs.planned_count",
             "case-input planned/blocked counts",
             "remaining planned counts",
-            "seeded Monte Carlo"
+            "seeded Monte Carlo",
+            "fetched payload",
+            "API payload contract",
+            "pinned HTTP response/cache",
+            "pinned response materialization path"
         )) {
             if ($text.Contains($stalePhrase)) {
                 throw "public workflow doc still contains stale phrase '$stalePhrase' at $path"
@@ -2081,7 +2089,9 @@ function Invoke-DocsCheck {
         (Join-Path $RepoRoot "docs\current\tracks.md"),
         (Join-Path $RepoRoot "docs\current\workflow_modules.md"),
         (Join-Path $RepoRoot "docs\workflows\index.md"),
+        (Join-Path $RepoRoot "docs\workflows\weather_api_to_standard_file.md"),
         (Join-Path $RepoRoot "docs\workflows\native_surrogate_case_workflow.md"),
+        (Join-Path $RepoRoot "examples\workflows\01_weather_api_to_standard_file\README.md"),
         (Join-Path $RepoRoot "docs\release\v0.1.0.md"),
         (Join-Path $RepoRoot "examples\workflows\02_native_surrogate_case_workflow\expected\review_summary.md")
     )
@@ -3962,6 +3972,7 @@ function Assert-VscodeExtensionContract {
         "compiler-backed role-aware colors",
         "compiler-backed diagnostics",
         "token ranges",
+        "payload names",
         "lint toggles"
     )) {
         if ($NativeIdeHowtoSource.Contains($ForbiddenNativeIdeHowtoWording)) {

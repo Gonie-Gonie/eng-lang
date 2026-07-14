@@ -243,7 +243,7 @@ Generic pattern:
 ```text
 API data
 -> typed schema
--> API payload contract validation
+-> API JSON contract validation
 -> quality and coverage check
 -> fallback or imputation policy
 -> standard text artifact

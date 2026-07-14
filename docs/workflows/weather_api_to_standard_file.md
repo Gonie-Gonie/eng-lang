@@ -5,7 +5,7 @@ Source example: `examples/workflows/01_weather_api_to_standard_file/main.eng`
 This workflow demonstrates a native API-to-artifact pattern:
 
 ```text
-station map -> station selection -> args-driven pinned HTTP response/cache -> native response-source metadata -> typed weather table -> coverage -> standard text and quality artifacts
+station map -> station selection -> args-driven native HTTP request with saved response/cache -> native response-source metadata -> typed weather table -> coverage -> standard text and quality artifacts
 ```
 
 The saved smoke run uses `offline_response` to pin response bytes for
@@ -25,11 +25,11 @@ What it proves:
   offline response input, SHA-256, retry, timeout, cache key, response source,
   HTTP status code/class, response hash, and resolved query URL fields
 - station-map CSV promotion and reviewable `filter`/`require_one` row selection
-- typed API JSON-record table promotion and TimeSeries coverage records
+- typed API JSON contract, JSON-record table promotion, and TimeSeries coverage records
 - generated `fetched_weather.json` and `weather_quality_summary.txt` through
   native `write text`, plus `standard_weather_file.txt` through native
   `write standard_text`
-- typed `args.output` routing for the fetched payload, standard weather file,
+- typed `args.output` routing for the fetched response file, standard weather file,
   and weather quality summary
 - workflow bindings can use `api_response.method`, `api_response.response_source`,
   `api_response.status_code`, `api_response.status_class`,

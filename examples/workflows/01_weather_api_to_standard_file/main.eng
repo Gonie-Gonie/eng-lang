@@ -114,7 +114,7 @@ print "API request = {api_request_method} {api_request_url}"
 print "API response source = {api_response_source} status_code={api_request_status_code} status_class={api_request_status_class}"
 print "Station rows = {stations.rows}"
 print "Weather hourly rows = {weather.rows}"
-print "API payload contract = WeatherApiPayload"
+print "API JSON contract = WeatherApiPayload"
 log info "pinned weather API response processed through native network/cache boundary and standard artifact recorded"
 
 
