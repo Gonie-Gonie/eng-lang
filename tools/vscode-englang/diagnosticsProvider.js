@@ -275,21 +275,88 @@ function diagnosticRange(document, item) {
   const rangeEndCharacter = integerOrUndefined(item?.range?.end?.character);
   const sourceColumn = sourceColumnNumber(item);
   const hasSourceColumn = sourceColumn !== undefined;
-  const fallbackStartCharacter = hasSourceColumn
+  const hasExplicitRange = rangeStartCharacter !== undefined && rangeEndCharacter !== undefined;
+  const tokenRange = hasExplicitRange
+    ? undefined
+    : diagnosticFallbackRangeForCode(lineText, item, sourceColumn);
+  const fallbackStartCharacter = tokenRange?.start ?? (hasSourceColumn
     ? sourceColumnCharacter(lineText, sourceColumn)
-    : 0;
+    : 0);
   const startCharacter = Math.max(
     0,
     Math.min(rangeStartCharacter ?? fallbackStartCharacter, maxCharacter - 1)
   );
-  const fallbackEndCharacter = hasSourceColumn
+  const fallbackEndCharacter = tokenRange?.end ?? (hasSourceColumn
     ? diagnosticTokenEndCharacter(lineText, startCharacter, maxCharacter)
-    : maxCharacter;
+    : maxCharacter);
   const endCharacter = Math.max(
     startCharacter + 1,
     Math.min(rangeEndCharacter ?? fallbackEndCharacter, maxCharacter)
   );
   return new vscode.Range(line, startCharacter, line, endCharacter);
+}
+
+function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
+  const code = diagnosticCodeValue(item);
+  const searchStart = sourceColumn !== undefined
+    ? sourceColumnCharacter(lineText, sourceColumn)
+    : 0;
+  if (code === "E-SYNTAX-DECL-001") {
+    return firstNeedleRange(lineText, [":="], searchStart);
+  }
+  if (code === "E-EQ-BOOL-001") {
+    return firstNeedleRange(lineText, ["=="], searchStart);
+  }
+  if (code === "E-STRUCT-ARGS-001") {
+    return firstNeedleRange(lineText, ["struct Args", "struct"], 0);
+  }
+  if (code === "E-SCRIPT-001") {
+    return firstNeedleRange(lineText, ["script"], searchStart);
+  }
+  if (code === "W-NET-FIXTURE-ALIAS") {
+    return optionKeyRange(lineText, "fixture");
+  }
+  return undefined;
+}
+
+function firstNeedleRange(lineText, needles, startCharacter = 0) {
+  const text = String(lineText || "");
+  const searchStart = Math.max(0, Math.min(startCharacter, text.length));
+  for (const needle of needles) {
+    const index = text.indexOf(needle, searchStart);
+    if (index >= 0) {
+      return { start: index, end: index + needle.length };
+    }
+  }
+  for (const needle of needles) {
+    const index = text.indexOf(needle);
+    if (index >= 0) {
+      return { start: index, end: index + needle.length };
+    }
+  }
+  return undefined;
+}
+
+function optionKeyRange(lineText, key) {
+  const text = String(lineText || "");
+  const start = lineIndentLength(text);
+  if (text.slice(start, start + key.length) !== key) {
+    return undefined;
+  }
+  const afterKey = text.slice(start + key.length);
+  if (!afterKey.charAt(0).match(/\s|=/)) {
+    return undefined;
+  }
+  const equalsIndex = afterKey.indexOf("=");
+  if (equalsIndex < 0 || afterKey.slice(0, equalsIndex).trim().length > 0) {
+    return undefined;
+  }
+  return { start, end: start + key.length };
+}
+
+function lineIndentLength(lineText) {
+  const match = String(lineText || "").match(/^\s*/);
+  return match ? match[0].length : 0;
 }
 
 function sourceLineNumber(item) {
@@ -488,6 +555,7 @@ module.exports = {
   EngDiagnosticsController,
   diagnosticCode,
   diagnosticCodeTarget,
+  diagnosticFallbackRangeForCode,
   diagnosticRange,
   diagnosticSource,
   diagnosticTags,

@@ -8,8 +8,8 @@ embedding compiler logic in JavaScript.
 
 - `.eng` language registration and syntax highlighting for workflow keywords,
   schema/types, units, built-in functions, with-block options, and literals
-- stable file diagnostics from the EngLang CLI checker, with code links and
-  legacy/deprecated tags in VS Code Problems
+- stable file diagnostics from the EngLang CLI checker, with code links,
+  token-precise ranges, and legacy/deprecated tags in VS Code Problems
 - optional live editor diagnostics, hover, completion, document/workspace
   symbols, and folding for the current unsaved buffer
 - debounced diagnostics for unsaved buffers after a short typing pause

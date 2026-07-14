@@ -4356,7 +4356,13 @@ function Assert-VscodeExtensionContract {
         "source_span?.column",
         "sourceColumnCharacter(lineText, sourceColumn)",
         "Buffer.byteLength(character, `"utf8`")",
-        "diagnosticTokenEndCharacter"
+        "diagnosticTokenEndCharacter",
+        "diagnosticFallbackRangeForCode(lineText, item, sourceColumn)",
+        "firstNeedleRange(lineText, [`":=`"], searchStart)",
+        "firstNeedleRange(lineText, [`"==`"], searchStart)",
+        "firstNeedleRange(lineText, [`"struct Args`", `"struct`"], 0)",
+        "firstNeedleRange(lineText, [`"script`"], searchStart)",
+        "optionKeyRange(lineText, `"fixture`")"
     )) {
         if (-not $DiagnosticsProviderSource.Contains($RequiredDiagnosticsSourceColumnToken)) {
             throw "VS Code diagnostics provider missing source-column range token $RequiredDiagnosticsSourceColumnToken"
