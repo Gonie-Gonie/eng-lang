@@ -84,9 +84,9 @@ embedding compiler logic in JavaScript.
   current-file Problems counts and range status, cursor diagnostic inspection and
   copy commands, Problems diagnostics toggles, the first-pass plus role-aware
   highlighting model, highlight inspection and copy commands, highlight coverage
-  summary,
-  fallback scope-map coverage, native workflow source/docs, latest zero-process
-  artifact evidence, and extension version
+  summary, fallback scope-map coverage, native workflow source/docs, latest
+  zero-process artifact evidence, local VSIX package freshness, install
+  freshness, install preflight guidance, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -146,9 +146,9 @@ Status` to confirm the summary, bundled check/run tool and live editor tool
 paths, fallback/source labels, the current diagnostics mode, the `eng/file` or
 `eng/live` Problems source label, current-file Problems counts, source counts,
 range status, per-feature live editor routing, current-file highlight token and
-overlap status, and fallback scope-map coverage for role-aware highlighting. If
-you run directly from source without packaging,
-set:
+overlap status, fallback scope-map coverage for role-aware highlighting, and the
+local VSIX package/install freshness block when the active workspace is an
+EngLang source checkout. If you run directly from source without packaging, set:
 
 ```text
 englang.runtimePath = C:\path\to\eng.exe

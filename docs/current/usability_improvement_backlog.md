@@ -1,3 +1,4 @@
+- Batch 913: Added local VSIX package/install freshness and install preflight guidance to VS Code Tooling Status when the active workspace is an EngLang source checkout.
 - Batch 912: Split the remaining workflow-step, solver, and path helper TextMate scopes so `apply(...)`, `run_case`, `der(...)`, and `join(...)` no longer use generic builtin first-pass colors.
 - Batch 911: Added an external-boundary helper TextMate scope so `file(...)`, `url(...)`, `env(...)`, and `secret env(...)` use external-boundary first-pass colors instead of generic builtin colors.
 - Batch 910: Added a TimeSeries/statistic helper TextMate scope so `integrate(...)`, `mean(...)`, `time_weighted_mean`, and `p90` use TimeSeries-specific first-pass colors instead of generic builtin colors.

@@ -4624,6 +4624,12 @@ function Assert-VscodeExtensionContract {
         "const nativeWorkflowProbe = toolingStatusNativeWorkflowProbe(document)",
         "current_file_highlights: currentFileHighlightProbe?.summary",
         "current_file_problems: currentFileProblemsProbe?.summary",
+        "local_extension_package: localPackageStatus.summary",
+        "package_freshness: localPackageStatus.package_freshness.summary",
+        "install_freshness: localPackageStatus.install_freshness.summary",
+        "install_preflight: localPackageStatus.install_preflight.summary",
+        "local_package: localPackageStatus",
+        "local_extension_package: localPackageStatus",
         "current_file_probe: currentFileHighlightProbe",
         "current_file_probe: currentFileProblemsProbe",
         'cursor: "EngLang: Inspect Problem at Cursor"',
@@ -4631,6 +4637,13 @@ function Assert-VscodeExtensionContract {
         'inspect_problem_at_cursor: "EngLang: Inspect Problem at Cursor"',
         'copy_problem_at_cursor: "EngLang: Copy Problem at Cursor"',
         "function toolingStatusProblemsProbe()",
+        "function toolingStatusLocalPackageStatus(context, document)",
+        "function englangSourceCheckoutStatus(root)",
+        "function localVscodeVsixPath(root, version)",
+        "function localVscodeVsixFileName(version)",
+        "function vscodePackageFreshness(builtVsix, latestInput)",
+        "function vscodeInstallFreshness(extensionPath, builtVsix)",
+        "function vscodeInstallPreflight(installFreshness)",
         "function toolingStatusNativeWorkflowProbe(document)",
         "native_workflows: nativeWorkflowProbe",
         "latest_process_artifact",
@@ -4686,7 +4699,15 @@ function Assert-VscodeExtensionContract {
         "saved_file_diagnostics_on_open_save",
         "live_typing_diagnostics_enabled",
         "semantic_highlighting",
-        "review_risk_decorations"
+        "review_risk_decorations",
+        "source_checkout_detected",
+        "expected_vsix_path",
+        "Package freshness: rebuild available",
+        "Install freshness: update available",
+        "Install preflight: blocked while this VS Code window is running",
+        ".\\dev.bat vscode-status",
+        ".\\dev.bat vscode-package",
+        ".\\dev.bat vscode-install"
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredToolingStatusToken)) {
             throw "VS Code command handlers missing tooling status token $RequiredToolingStatusToken"

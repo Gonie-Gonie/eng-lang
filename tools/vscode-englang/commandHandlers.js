@@ -1261,6 +1261,7 @@ function createCommandHandlers(options = {}) {
     );
     const highlightingSummary = highlightingStatusSummary(semanticHighlighting, scopeMapStatus);
     const nativeWorkflowProbe = toolingStatusNativeWorkflowProbe(document);
+    const localPackageStatus = toolingStatusLocalPackageStatus(context, document);
     return {
       summary: {
         check_and_run_tool: toolStatusSummary(checkAndRunTool, "saved-file checks and program runs"),
@@ -1268,6 +1269,10 @@ function createCommandHandlers(options = {}) {
         diagnostics: diagnosticsSummary,
         role_aware_colors: roleAwareColorSummary,
         highlighting: highlightingSummary,
+        local_extension_package: localPackageStatus.summary,
+        package_freshness: localPackageStatus.package_freshness.summary,
+        install_freshness: localPackageStatus.install_freshness.summary,
+        install_preflight: localPackageStatus.install_preflight.summary,
         current_file_highlights: currentFileHighlightProbe?.summary ?? "No current EngLang highlight probe was run.",
         current_file_problems: currentFileProblemsProbe?.summary ?? "No current EngLang Problems probe was run.",
         native_workflows: nativeWorkflowProbe.summary
@@ -1275,7 +1280,8 @@ function createCommandHandlers(options = {}) {
       extension: {
         id: "englang.englang",
         version: context.extension?.packageJSON?.version ?? "unknown",
-        path: context.extensionPath
+        path: context.extensionPath,
+        local_package: localPackageStatus
       },
       workspace: {
         root: document ? workspaceRoot(document) : currentWorkspaceRoot() ?? null,
@@ -1359,6 +1365,7 @@ function createCommandHandlers(options = {}) {
         current_file_probe: currentFileProblemsProbe
       },
       native_workflows: nativeWorkflowProbe,
+      local_extension_package: localPackageStatus,
       settings: {
         diagnostics_mode: mode,
         saved_file_diagnostics_on_open_save: config.get("lintOnSave", true),
@@ -1382,6 +1389,288 @@ function createCommandHandlers(options = {}) {
     };
   }
 
+  function toolingStatusLocalPackageStatus(context, document) {
+    const root = document ? workspaceRoot(document) : currentWorkspaceRoot();
+    const version = context.extension?.packageJSON?.version ?? packageManifest.version ?? "unknown";
+    const checkout = englangSourceCheckoutStatus(root);
+    if (checkout.status !== "source_checkout_detected") {
+      const notChecked = localPackageNotChecked("Source checkout not detected; run .\\dev.bat vscode-status from an EngLang repository checkout for CLI install/package status.");
+      return {
+        status: checkout.status,
+        summary: "Local VSIX freshness is unavailable because the active workspace is not an EngLang source checkout.",
+        workspace_root: root ?? null,
+        expected_files: checkout.expected_files,
+        missing_files: checkout.missing_files,
+        built_vsix: null,
+        package_freshness: notChecked,
+        install_freshness: notChecked,
+        install_preflight: notChecked,
+        commands: localPackageCommands()
+      };
+    }
+
+    const vsixPath = localVscodeVsixPath(root, version);
+    const builtVsix = localPackageFileSummary(vsixPath);
+    const latestInput = latestVscodePackageInput(root);
+    const packageFreshness = vscodePackageFreshness(builtVsix, latestInput);
+    const installFreshness = vscodeInstallFreshness(context.extensionPath, builtVsix);
+    const installPreflight = vscodeInstallPreflight(installFreshness);
+    return {
+      status: "source_checkout_detected",
+      summary: localPackageStatusSummary(packageFreshness, installFreshness, installPreflight),
+      workspace_root: root,
+      expected_vsix_path: vsixPath,
+      built_vsix: builtVsix,
+      package_inputs: latestInput,
+      package_freshness: packageFreshness,
+      install_freshness: installFreshness,
+      install_preflight: installPreflight,
+      commands: localPackageCommands()
+    };
+  }
+
+  function englangSourceCheckoutStatus(root) {
+    const expectedFiles = root
+      ? [
+          path.join(root, "dev.bat"),
+          path.join(root, "scripts", "dev.ps1"),
+          path.join(root, "tools", "vscode-englang", "package.json")
+        ]
+      : [];
+    const missingFiles = expectedFiles.filter((filePath) => !fs.existsSync(filePath));
+    return {
+      status: root && missingFiles.length === 0 ? "source_checkout_detected" : "source_checkout_not_detected",
+      expected_files: expectedFiles,
+      missing_files: missingFiles
+    };
+  }
+
+  function localVscodeVsixPath(root, version) {
+    return path.join(root, "dist", "local-vscode", "tools", localVscodeVsixFileName(version));
+  }
+
+  function localVscodeVsixFileName(version) {
+    const value = String(version || "unknown");
+    return /(?:^|[-.])preview(?:[-.]|$)/i.test(value)
+      ? `englang-vscode-preview-${value}.vsix`
+      : `englang-vscode-${value}.vsix`;
+  }
+
+  function localPackageCommands() {
+    return {
+      status: ".\\dev.bat vscode-status",
+      package: ".\\dev.bat vscode-package",
+      install: ".\\dev.bat vscode-install"
+    };
+  }
+
+  function localPackageNotChecked(summary) {
+    return {
+      status: "not_checked",
+      summary
+    };
+  }
+
+  function localPackageStatusSummary(packageFreshness, installFreshness, installPreflight) {
+    return [
+      packageFreshness.summary,
+      installFreshness.summary,
+      installPreflight.summary
+    ].filter(Boolean).join(" ");
+  }
+
+  function latestVscodePackageInput(root) {
+    const inputPaths = [
+      path.join(root, "tools", "vscode-englang"),
+      path.join(root, "target", "release", "eng.exe"),
+      path.join(root, "target", "release", "eng-lsp.exe")
+    ];
+    const inputs = inputPaths.map((inputPath) => localPackageFileSummary(inputPath));
+    const existingInputs = inputs.filter((input) => input.exists && input.updated_ms !== null);
+    const newest = existingInputs
+      .slice()
+      .sort((left, right) => right.updated_ms - left.updated_ms)[0] ?? null;
+    return {
+      paths: inputs,
+      newest
+    };
+  }
+
+  function vscodePackageFreshness(builtVsix, latestInput) {
+    if (!builtVsix?.exists) {
+      return {
+        status: "missing",
+        summary: "Package freshness: missing - run .\\dev.bat vscode-package."
+      };
+    }
+    const newestInput = latestInput?.newest;
+    if (!newestInput?.updated_ms) {
+      return {
+        status: "unknown",
+        summary: "Package freshness: unknown - VS Code package input timestamps could not be read."
+      };
+    }
+    if (newestInput.updated_ms > builtVsix.updated_ms + 1000) {
+      return {
+        status: "rebuild_available",
+        summary: `Package freshness: rebuild available - VS Code extension source or release binaries are newer than the built VSIX (inputs ${newestInput.updated}, VSIX ${builtVsix.updated}); run .\\dev.bat vscode-package.`
+      };
+    }
+    return {
+      status: "current",
+      summary: "Package freshness: current - built VSIX is at least as new as VS Code extension source and release binaries."
+    };
+  }
+
+  function vscodeInstallFreshness(extensionPath, builtVsix) {
+    if (!builtVsix?.exists) {
+      return {
+        status: "unknown",
+        summary: "Install freshness: unknown - build the VSIX with .\\dev.bat vscode-package."
+      };
+    }
+    const installed = localPackageFileSummary(extensionPath);
+    if (!installed.exists || installed.updated_ms === null) {
+      return {
+        status: "unknown",
+        summary: "Install freshness: unknown - installed EngLang extension timestamp could not be read."
+      };
+    }
+    if (builtVsix.updated_ms > installed.updated_ms + 1000) {
+      return {
+        status: "update_available",
+        summary: `Install freshness: update available - built VSIX is newer than the running EngLang extension (VSIX ${builtVsix.updated}, extension ${installed.updated}); close all VS Code windows and run .\\dev.bat vscode-install.`
+      };
+    }
+    return {
+      status: "current",
+      summary: "Install freshness: current - running EngLang extension is at least as new as the built VSIX."
+    };
+  }
+
+  function vscodeInstallPreflight(installFreshness) {
+    if (installFreshness?.status === "update_available") {
+      return {
+        status: "blocked_while_vscode_is_running",
+        summary: "Install preflight: blocked while this VS Code window is running; close all VS Code windows before reinstalling EngLang."
+      };
+    }
+    return {
+      status: "ready_or_not_needed",
+      summary: "Install preflight: ready or not needed for the running extension."
+    };
+  }
+
+  function localPackageFileSummary(targetPath) {
+    if (!targetPath) {
+      return {
+        path: null,
+        exists: false,
+        kind: "missing",
+        updated: null,
+        updated_ms: null,
+        size: null,
+        size_label: null
+      };
+    }
+    try {
+      if (!fs.existsSync(targetPath)) {
+        return {
+          path: targetPath,
+          exists: false,
+          kind: "missing",
+          updated: null,
+          updated_ms: null,
+          size: null,
+          size_label: null
+        };
+      }
+      const stats = fs.statSync(targetPath);
+      if (stats.isDirectory()) {
+        const newest = newestFileSummary(targetPath);
+        return {
+          path: targetPath,
+          exists: true,
+          kind: "directory",
+          updated: newest ? timestampLabel(newest.updated_ms) : timestampLabel(stats.mtimeMs),
+          updated_ms: newest?.updated_ms ?? stats.mtimeMs,
+          size: null,
+          size_label: null
+        };
+      }
+      return {
+        path: targetPath,
+        exists: true,
+        kind: "file",
+        updated: timestampLabel(stats.mtimeMs),
+        updated_ms: stats.mtimeMs,
+        size: stats.size,
+        size_label: byteSizeLabel(stats.size)
+      };
+    } catch (error) {
+      return {
+        path: targetPath,
+        exists: false,
+        kind: "unreadable",
+        updated: null,
+        updated_ms: null,
+        size: null,
+        size_label: null,
+        error: error.message
+      };
+    }
+  }
+
+  function newestFileSummary(directoryPath) {
+    let newest = null;
+    const pending = [directoryPath];
+    while (pending.length > 0) {
+      const current = pending.pop();
+      let entries = [];
+      try {
+        entries = fs.readdirSync(current, { withFileTypes: true });
+      } catch {
+        continue;
+      }
+      for (const entry of entries) {
+        const entryPath = path.join(current, entry.name);
+        try {
+          const stats = fs.statSync(entryPath);
+          if (entry.isDirectory()) {
+            pending.push(entryPath);
+          } else if (!newest || stats.mtimeMs > newest.updated_ms) {
+            newest = {
+              path: entryPath,
+              updated_ms: stats.mtimeMs
+            };
+          }
+        } catch {
+          // Ignore unreadable files in status reporting; the surrounding summary remains best-effort.
+        }
+      }
+    }
+    return newest;
+  }
+
+  function timestampLabel(ms) {
+    return Number.isFinite(ms) ? new Date(ms).toISOString() : null;
+  }
+
+  function byteSizeLabel(bytes) {
+    if (!Number.isFinite(bytes)) {
+      return null;
+    }
+    if (bytes >= 1024 * 1024 * 1024) {
+      return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+    }
+    if (bytes >= 1024 * 1024) {
+      return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    }
+    if (bytes >= 1024) {
+      return `${(bytes / 1024).toFixed(1)} KB`;
+    }
+    return `${bytes} B`;
+  }
   function toolingStatusProblemsProbe() {
     const document = vscode.window.activeTextEditor?.document;
     if (!document || !isEngDocument(document)) {
