@@ -535,6 +535,39 @@ function Assert-ExpectedLeafScopesCoverGrammar {
     }
 }
 
+function Assert-ActualWorkflowPublicMemberExpectedTokens {
+    $RequiredActualWorkflowTokens = @(
+        @{ Fixture = "examples/workflows/01_weather_api_to_standard_file/main.eng"; Scope = "meta.path.public-member.englang"; Text = "api_response.url_with_query" },
+        @{ Fixture = "examples/workflows/01_weather_api_to_standard_file/main.eng"; Scope = "variable.other.public-member.englang"; Text = "url_with_query" },
+        @{ Fixture = "examples/workflows/01_weather_api_to_standard_file/main.eng"; Scope = "variable.other.public-member.englang"; Text = "response_source" },
+        @{ Fixture = "examples/workflows/01_weather_api_to_standard_file/main.eng"; Scope = "meta.path.public-member.englang"; Text = "coverage.actual_count" },
+        @{ Fixture = "examples/workflows/01_weather_api_to_standard_file/main.eng"; Scope = "variable.other.public-member.englang"; Text = "actual_count" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "meta.path.public-member.englang"; Text = "training_designs.row_preview" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "variable.other.public-member.englang"; Text = "row_preview" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "meta.path.public-member.englang"; Text = "case_inputs.rendered_count" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "variable.other.public-member.englang"; Text = "rendered_count" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "meta.path.public-member.englang"; Text = "db.tables_written" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "variable.other.public-member.englang"; Text = "tables_written" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "meta.path.public-member.englang"; Text = "db.row_count" },
+        @{ Fixture = "examples/workflows/02_native_surrogate_case_workflow/main.eng"; Scope = "variable.other.public-member.englang"; Text = "row_count" },
+        @{ Fixture = "examples/workflows/03_uncertain_sensor_report/main.eng"; Scope = "meta.path.public-member.englang"; Text = "sensor.rows" },
+        @{ Fixture = "examples/workflows/03_uncertain_sensor_report/main.eng"; Scope = "variable.other.public-member.englang"; Text = "rows" },
+        @{ Fixture = "examples/workflows/03_uncertain_sensor_report/main.eng"; Scope = "meta.path.public-member.englang"; Text = "coverage.missing_count" },
+        @{ Fixture = "examples/workflows/03_uncertain_sensor_report/main.eng"; Scope = "variable.other.public-member.englang"; Text = "missing_count" }
+    )
+
+    foreach ($RequiredToken in $RequiredActualWorkflowTokens) {
+        $Matches = @($Expected | Where-Object {
+            [string]$_.fixture -eq [string]$RequiredToken.Fixture -and
+            [string]$_.scope -eq [string]$RequiredToken.Scope -and
+            [string]$_.text -eq [string]$RequiredToken.Text
+        })
+        if ($Matches.Count -lt 1) {
+            throw "grammar smoke expected tokens must cover actual workflow public member $($RequiredToken.Text) with $($RequiredToken.Scope) in $($RequiredToken.Fixture)"
+        }
+    }
+}
+
 function Test-ExpectedTokenTextCoversLabel {
     param([Parameter(Mandatory = $true)][string] $Label)
 
@@ -949,6 +982,8 @@ $LegacyUnitAliases = @($SyntaxCatalog.legacy_unit_aliases | ForEach-Object { [st
 $CompilerQuantityKinds = @($SyntaxCatalog.quantities | ForEach-Object { [string]$_.label } | Select-Object -Unique)
 $PublicWorkflowMemberFields = @(
     $SyntaxCatalog.http_response_fields +
+    $SyntaxCatalog.coverage_result_fields +
+    $SyntaxCatalog.table_fields +
     $SyntaxCatalog.sample_table_fields +
     $SyntaxCatalog.db_connection_fields +
     $SyntaxCatalog.case_table_fields +
@@ -1232,6 +1267,7 @@ foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {
 }
 Assert-ExpectedWorkflowScopesCoverGrammar
 Assert-ExpectedLeafScopesCoverGrammar
+Assert-ActualWorkflowPublicMemberExpectedTokens
 Assert-BundledThemeLeafScopeCoverage
 Assert-WorkflowPatternIncludes -Name "meta.workflow.integrate-series.englang" -Include "#members" -Description "integrate series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.stat-series.englang" -Include "#members" -Description "stat series"

@@ -892,6 +892,18 @@ const HTTP_RESPONSE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("url_with_query", "resolved request URL with query string"),
 ];
 
+const COVERAGE_RESULT_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("status", "TimeSeries coverage status"),
+    ("actual_count", "observed TimeSeries row count"),
+    ("expected_count", "expected TimeSeries row count"),
+    ("missing_count", "missing TimeSeries row count"),
+    ("max_gap_hours", "maximum TimeSeries coverage gap in hours"),
+    ("complete", "whether the TimeSeries coverage is complete"),
+    ("leap_year_policy", "coverage leap-year policy"),
+    ("year", "coverage calendar year"),
+    ("coverage_year", "alias for coverage calendar year"),
+];
+
 const DB_CONNECTION_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     (
         "summary",
@@ -908,6 +920,14 @@ const DB_CONNECTION_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("path", "SQLite database path"),
     ("database", "alias for SQLite database path"),
 ];
+const TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
+    ("rows", "table row count"),
+    ("row_count", "table row count"),
+    ("column_count", "table column count"),
+    ("schema_name", "runtime table schema name"),
+    ("source_hash", "runtime table source hash"),
+];
+
 const SAMPLE_TABLE_FIELD_COMPLETIONS: &[(&str, &str)] = &[
     ("sample_count", "generated sample row count"),
     ("method", "sample generation method"),
@@ -1850,6 +1870,20 @@ pub fn editor_syntax_catalog_json() -> Value {
                 "detail": detail,
             }))
             .collect::<Vec<_>>(),
+        "coverage_result_fields": COVERAGE_RESULT_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
+        "table_fields": TABLE_FIELD_COMPLETIONS
+            .iter()
+            .map(|(label, detail)| json!({
+                "label": label,
+                "detail": detail,
+            }))
+            .collect::<Vec<_>>(),
         "sample_table_fields": SAMPLE_TABLE_FIELD_COMPLETIONS
             .iter()
             .map(|(label, detail)| json!({
@@ -2254,7 +2288,20 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for binding in &program.typed_bindings {
+        if binding.semantic_type.quantity_kind.starts_with("Table[")
+            || binding
+                .semantic_type
+                .quantity_kind
+                .starts_with("TableTransform[")
+        {
+            builder.push_member_fields(&binding.name, TABLE_FIELD_COMPLETIONS, &["workflowStep"]);
+        }
         match binding.semantic_type.quantity_kind.as_str() {
+            "CoverageResult" => builder.push_member_fields(
+                &binding.name,
+                COVERAGE_RESULT_FIELD_COMPLETIONS,
+                &["validation", "workflowStep", "timeseries"],
+            ),
             "Table[Case]" => builder.push_member_fields(
                 &binding.name,
                 CASE_TABLE_FIELD_COMPLETIONS,
@@ -6659,6 +6706,8 @@ fn hover_kind_label(kind: &str) -> String {
         "object_field" => "Object field".to_owned(),
         "object_validation" => "Object validation".to_owned(),
         "http_response_field" => "HTTP response field".to_owned(),
+        "coverage_result_field" => "Coverage result field".to_owned(),
+        "table_field" => "Table field".to_owned(),
         "sample_table_field" => "Sample table field".to_owned(),
         "db_connection_field" => "DB connection field".to_owned(),
         "case_table_field" => "Case table field".to_owned(),
@@ -6743,6 +6792,7 @@ fn public_member_hover_fields(
 ) -> Option<(&'static [(&'static str, &'static str)], &'static str)> {
     match quantity_kind {
         "HttpResponse" => Some((HTTP_RESPONSE_FIELD_COMPLETIONS, "http_response_field")),
+        "CoverageResult" => Some((COVERAGE_RESULT_FIELD_COMPLETIONS, "coverage_result_field")),
         "Table[Sample]" => Some((SAMPLE_TABLE_FIELD_COMPLETIONS, "sample_table_field")),
         "DbConnection" => Some((DB_CONNECTION_FIELD_COMPLETIONS, "db_connection_field")),
         "Table[Case]" => Some((CASE_TABLE_FIELD_COMPLETIONS, "case_table_field")),
@@ -6756,6 +6806,9 @@ fn public_member_hover_fields(
         )),
         "Table[Prediction]" => Some((PREDICTION_TABLE_FIELD_COMPLETIONS, "prediction_table_field")),
         value if value.starts_with("Model[") => Some((MODEL_FIELD_COMPLETIONS, "model_field")),
+        value if value.starts_with("Table[") || value.starts_with("TableTransform[") => {
+            Some((TABLE_FIELD_COMPLETIONS, "table_field"))
+        }
         _ => None,
     }
 }
@@ -6840,9 +6893,12 @@ fn member_access_path_start(line: &str, receiver_start: usize) -> usize {
 
 fn public_member_field_quantity_kind(field: &str) -> &'static str {
     match field {
-        "status_code" | "seed" => "Int",
+        "status_code" | "seed" | "rows" => "Int",
         "rmse" | "mae" => "DimensionlessNumber",
         "r2" => "Ratio",
+        "complete" => "Bool",
+        "max_gap_hours" | "expected_step" => "Duration",
+        "actual_count" | "expected_count" | "missing_count" => "Count",
         value if value.ends_with("_count") => "Int",
         _ => "String",
     }
@@ -7295,6 +7351,33 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
                 );
             }
         }
+        if binding.semantic_type.quantity_kind == "CoverageResult" {
+            for (field, detail) in COVERAGE_RESULT_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
+        if binding.semantic_type.quantity_kind.starts_with("Table[")
+            || binding
+                .semantic_type
+                .quantity_kind
+                .starts_with("TableTransform[")
+        {
+            for (field, detail) in TABLE_FIELD_COMPLETIONS {
+                push_completion(
+                    &mut items,
+                    &mut seen,
+                    &format!("{}.{}", binding.name, field),
+                    "property",
+                    detail,
+                );
+            }
+        }
         if binding.semantic_type.quantity_kind == "Table[Sample]" {
             for (field, detail) in SAMPLE_TABLE_FIELD_COMPLETIONS {
                 push_completion(
@@ -7695,6 +7778,24 @@ pub fn completion_items_at(
             .iter()
             .any(|binding| {
                 receiver_matches_binding_name(&receiver, &binding.name)
+                    && binding.semantic_type.quantity_kind == "CoverageResult"
+            })
+        {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for (field, detail) in COVERAGE_RESULT_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            return items;
+        }
+        if report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                receiver_matches_binding_name(&receiver, &binding.name)
                     && binding.semantic_type.quantity_kind == "Table[Sample]"
             })
         {
@@ -7741,6 +7842,11 @@ pub fn completion_items_at(
                     }
                     "Table[Prediction]" => Some(PREDICTION_TABLE_FIELD_COMPLETIONS),
                     value if value.starts_with("Model[") => Some(MODEL_FIELD_COMPLETIONS),
+                    value
+                        if value.starts_with("Table[") || value.starts_with("TableTransform[") =>
+                    {
+                        Some(TABLE_FIELD_COMPLETIONS)
+                    }
                     _ => None,
                 }
             })
@@ -9705,10 +9811,28 @@ mod tests {
             "syntax catalog should expose HTTP response field labels"
         );
         assert!(
+            syntax_catalog["coverage_result_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "actual_count")),
+            "syntax catalog should expose coverage result field labels"
+        );
+        assert!(
+            syntax_catalog["coverage_result_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "max_gap_hours")),
+            "syntax catalog should expose coverage gap field labels"
+        );
+        assert!(
             syntax_catalog["http_response_fields"]
                 .as_array()
                 .is_some_and(|fields| fields.iter().all(|field| field["label"] != "status")),
             "syntax catalog should not expose response.status as a completion field"
+        );
+        assert!(
+            syntax_catalog["table_fields"]
+                .as_array()
+                .is_some_and(|fields| fields.iter().any(|field| field["label"] == "rows")),
+            "syntax catalog should expose generic table field labels"
         );
         assert!(
             syntax_catalog["sample_table_fields"]
@@ -13465,6 +13589,115 @@ rows = promote csv file("data/weather.csv") as WeatherApiRecord
                     .nth(token.line)
                     .is_some_and(|line| &line[token.start..token.start + token.length] == "body")
         }));
+    }
+
+    #[test]
+    fn snapshot_exposes_generic_table_member_fields() {
+        let source = r#"schema WeatherApiRecord {
+    time: DateTime index
+}
+
+weather = promote csv file("data/weather.csv") as WeatherApiRecord
+weather_rows = weather.rows
+weather_row_count = weather.row_count
+"#;
+        let snapshot = snapshot_for_source(Path::new("table_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "weather.rows"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("weather_rows ="))
+            .expect("weather_rows line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("table_members.eng"),
+            source,
+            line,
+            "weather_rows = weather.".len(),
+        );
+        let rows_completion = member_completions
+            .iter()
+            .find(|completion| completion.label == "rows")
+            .expect("generic table member completion should include rows");
+        assert_eq!(rows_completion.detail, "table row count");
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "row_count"));
+        let rows_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "weather.rows")
+            .expect("generic table field should expose exact hover metadata");
+        assert_eq!(rows_hover.kind, "table_field");
+        assert_eq!(rows_hover.quantity_kind, "Int");
+        assert!(rows_hover.detail.contains("table row count"));
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "weather_rows =",
+            "rows",
+            "property",
+            "workflowStep",
+        );
+    }
+
+    #[test]
+    fn snapshot_exposes_coverage_result_member_fields() {
+        let source = "coverage = check coverage weather.time
+actual = coverage.actual_count
+missing = coverage.missing_count
+gap = coverage.max_gap_hours
+";
+        let snapshot = snapshot_for_source(Path::new("coverage_members.eng"), source);
+
+        assert!(snapshot
+            .completions
+            .iter()
+            .any(|completion| completion.label == "coverage.actual_count"));
+        let line = source
+            .lines()
+            .position(|line| line.contains("actual ="))
+            .expect("actual line");
+        let member_completions = completion_items_for_source_position(
+            Path::new("coverage_members.eng"),
+            source,
+            line,
+            "actual = coverage.".len(),
+        );
+        let actual_count_completion = member_completions
+            .iter()
+            .find(|completion| completion.label == "actual_count")
+            .expect("coverage result member completion should include actual_count");
+        assert_eq!(
+            actual_count_completion.detail,
+            "observed TimeSeries row count"
+        );
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "missing_count"));
+        assert!(member_completions
+            .iter()
+            .any(|completion| completion.label == "max_gap_hours"));
+        let coverage_hover = snapshot
+            .hovers
+            .iter()
+            .find(|hover| hover.name == "coverage.actual_count")
+            .expect("coverage result field should expose exact hover metadata");
+        assert_eq!(coverage_hover.kind, "coverage_result_field");
+        assert_eq!(coverage_hover.quantity_kind, "Count");
+        assert!(coverage_hover
+            .detail
+            .contains("observed TimeSeries row count"));
+        assert_semantic_token_on_line(
+            &snapshot,
+            source,
+            "actual =",
+            "actual_count",
+            "property",
+            "timeseries",
+        );
     }
 
     #[test]

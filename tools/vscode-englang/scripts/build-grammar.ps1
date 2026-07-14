@@ -118,6 +118,8 @@ $QuantityItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "quanti
 $UnitItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "units"
 $LegacyUnitAliasItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "legacy_unit_aliases"
 $HttpResponseFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "http_response_fields"
+$CoverageResultFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "coverage_result_fields"
+$TableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "table_fields"
 $SampleTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "sample_table_fields"
 $DbConnectionFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "db_connection_fields"
 $CaseTableFieldItems = Assert-SyntaxCatalogArray -Catalog $SyntaxCatalog -Name "case_table_fields"
@@ -130,6 +132,8 @@ Assert-CatalogItemsHaveProperty -Items $PublicTypeItems -CatalogName "public_typ
 Assert-CatalogItemsHaveProperty -Items $QuantityItems -CatalogName "quantities" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $UnitItems -CatalogName "units" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $HttpResponseFieldItems -CatalogName "http_response_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $CoverageResultFieldItems -CatalogName "coverage_result_fields" -PropertyName "label"
+Assert-CatalogItemsHaveProperty -Items $TableFieldItems -CatalogName "table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $SampleTableFieldItems -CatalogName "sample_table_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $DbConnectionFieldItems -CatalogName "db_connection_fields" -PropertyName "label"
 Assert-CatalogItemsHaveProperty -Items $CaseTableFieldItems -CatalogName "case_table_fields" -PropertyName "label"
@@ -148,6 +152,8 @@ $OperatorWords = @($OperatorWordItems | ForEach-Object { [string]$_ })
 $LegacyUnitAliases = @($LegacyUnitAliasItems | ForEach-Object { [string]$_ })
 $PublicMemberFields = @(
     $HttpResponseFieldItems +
+    $CoverageResultFieldItems +
+    $TableFieldItems +
     $SampleTableFieldItems +
     $DbConnectionFieldItems +
     $CaseTableFieldItems +

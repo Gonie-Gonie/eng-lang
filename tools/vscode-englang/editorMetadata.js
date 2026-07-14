@@ -50,6 +50,8 @@ function loadEditorMetadata(extensionRoot) {
     !Array.isArray(syntaxCatalog.quantities) ||
     !Array.isArray(syntaxCatalog.units) ||
     !Array.isArray(syntaxCatalog.http_response_fields) ||
+    !Array.isArray(syntaxCatalog.coverage_result_fields) ||
+    !Array.isArray(syntaxCatalog.table_fields) ||
     !Array.isArray(syntaxCatalog.sample_table_fields) ||
     !Array.isArray(syntaxCatalog.db_connection_fields) ||
     !Array.isArray(syntaxCatalog.case_table_fields) ||

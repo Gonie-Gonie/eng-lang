@@ -6,6 +6,8 @@ class EngCompletionProvider {
     this.context = context;
     this.completionItems = Array.isArray(options.completionItems) ? options.completionItems : [];
     this.httpResponseFields = Array.isArray(options.httpResponseFields) ? options.httpResponseFields : [];
+    this.coverageResultFields = Array.isArray(options.coverageResultFields) ? options.coverageResultFields : [];
+    this.tableFields = Array.isArray(options.tableFields) ? options.tableFields : [];
     this.sampleTableFields = Array.isArray(options.sampleTableFields) ? options.sampleTableFields : [];
     this.dbConnectionFields = Array.isArray(options.dbConnectionFields) ? options.dbConnectionFields : [];
     this.caseTableFields = Array.isArray(options.caseTableFields) ? options.caseTableFields : [];
@@ -37,6 +39,8 @@ class EngCompletionProvider {
       schemaBindingFields: schemaBindingFieldCompletionsFromDocument(document),
       workflowBindingFields: workflowBindingFieldCompletionsFromDocument(document, {
         httpResponseFields: this.httpResponseFields,
+        coverageResultFields: this.coverageResultFields,
+        tableFields: this.tableFields,
         sampleTableFields: this.sampleTableFields,
         dbConnectionFields: this.dbConnectionFields,
         caseTableFields: this.caseTableFields,
@@ -46,6 +50,8 @@ class EngCompletionProvider {
         predictionTableFields: this.predictionTableFields
       }),
       httpResponseFields: this.httpResponseFields,
+      coverageResultFields: this.coverageResultFields,
+      tableFields: this.tableFields,
       sampleTableFields: this.sampleTableFields,
       dbConnectionFields: this.dbConnectionFields,
       caseTableFields: this.caseTableFields,
@@ -144,6 +150,21 @@ function workflowBindingFieldCompletionsFromSource(source, catalogs) {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*http\s+(?:get|post|put|patch|head|request|fetch)\b/gm,
       fields: catalogs?.httpResponseFields,
       detail: "HTTP response field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*promote\s+(?:csv|toml|json(?:\s+records)?)\b/gm,
+      fields: catalogs?.tableFields,
+      detail: "Table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:filter|derive|sort|join|select)\b/gm,
+      fields: catalogs?.tableFields,
+      detail: "Table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*check\s+coverage\b/gm,
+      fields: catalogs?.coverageResultFields,
+      detail: "Coverage result field"
     },
     {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
@@ -366,6 +387,16 @@ function localMemberCompletionsForContext(document, position, catalogs) {
       matchesReceiver: isResponseLikeReceiver
     },
     {
+      fields: catalogs?.coverageResultFields,
+      detail: "Coverage result field",
+      matchesReceiver: isCoverageResultLikeReceiver
+    },
+    {
+      fields: catalogs?.tableFields,
+      detail: "Table field",
+      matchesReceiver: isTableLikeReceiver
+    },
+    {
       fields: catalogs?.sampleTableFields,
       detail: "Sample table field",
       matchesReceiver: isSampleTableLikeReceiver
@@ -486,6 +517,16 @@ function isResponseLikeReceiver(receiver) {
     normalized.includes("api") ||
     normalized.includes("network")
   );
+}
+
+function isTableLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return normalized.includes("table") || normalized.includes("rows") || normalized.includes("records");
+}
+
+function isCoverageResultLikeReceiver(receiver) {
+  const normalized = receiver.toLowerCase();
+  return normalized === "coverage" || normalized.includes("coverage");
 }
 
 function isSampleTableLikeReceiver(receiver) {

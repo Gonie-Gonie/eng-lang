@@ -5962,7 +5962,7 @@ fn table_metadata_field_semantic_type(
         return None;
     }
     match field.trim() {
-        "row_count" | "column_count" => semantic_type("Count", "count"),
+        "rows" | "row_count" | "column_count" => semantic_type("Count", "count"),
         "schema_name" | "source_hash" => semantic_type("String", ""),
         "case_count"
             if matches!(

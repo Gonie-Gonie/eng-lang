@@ -317,7 +317,8 @@ metadata contract no longer publishes a duplicate completion seed alias.
 spellings that are not added back to completions. `syntax_catalog.units` contains
 compiler unit labels; `syntax_catalog.legacy_unit_aliases` contains
 highlight-only compatibility aliases such as byte-size units and `%`.
-`syntax_catalog.model_fields` and `syntax_catalog.prediction_table_fields`, along
+`syntax_catalog.model_fields`, `syntax_catalog.prediction_table_fields`,
+`syntax_catalog.coverage_result_fields`, and `syntax_catalog.table_fields`, along
 with the HTTP/sample/DB/case field catalogs, are compiler-owned public member API
 catalogs used by TextMate public-member highlighting and local completion
 fallback. They describe runtime-backed public fields, not editor-only placeholders.

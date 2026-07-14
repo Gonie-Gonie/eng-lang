@@ -182,6 +182,8 @@ function emptySyntaxCatalog() {
     units: [],
     legacyUnitAliases: [],
     httpResponseFields: [],
+    coverageResultFields: [],
+    tableFields: [],
     sampleTableFields: [],
     dbConnectionFields: [],
     caseTableFields: [],
@@ -216,6 +218,8 @@ function normalizeSyntaxCatalog(catalog) {
     units: catalogItemLabels(source.units),
     legacyUnitAliases: stringArray(source.legacyUnitAliases ?? source.legacy_unit_aliases),
     httpResponseFields: catalogFieldItems(source.httpResponseFields ?? source.http_response_fields),
+    coverageResultFields: catalogFieldItems(source.coverageResultFields ?? source.coverage_result_fields),
+    tableFields: catalogFieldItems(source.tableFields ?? source.table_fields),
     sampleTableFields: catalogFieldItems(source.sampleTableFields ?? source.sample_table_fields),
     dbConnectionFields: catalogFieldItems(source.dbConnectionFields ?? source.db_connection_fields),
     caseTableFields: catalogFieldItems(source.caseTableFields ?? source.case_table_fields),
@@ -4642,6 +4646,16 @@ function localMemberCompletionCandidates(prefix) {
       matchesReceiver: isResponseLikeReceiver
     },
     {
+      fields: workflowCatalog.coverageResultFields,
+      detail: "Coverage result field",
+      matchesReceiver: isCoverageResultLikeReceiver
+    },
+    {
+      fields: workflowCatalog.tableFields,
+      detail: "Table field",
+      matchesReceiver: isTableLikeReceiver
+    },
+    {
       fields: workflowCatalog.sampleTableFields,
       detail: "Sample table field",
       matchesReceiver: isSampleTableLikeReceiver
@@ -4782,6 +4796,21 @@ function workflowBindingFieldCompletionsFromSource(source, catalog) {
       detail: "HTTP response field"
     },
     {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*promote\s+(?:csv|toml|json(?:\s+records)?)\b/gm,
+      fields: normalizedCatalog.tableFields,
+      detail: "Table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?:filter|derive|sort|join|select)\b/gm,
+      fields: normalizedCatalog.tableFields,
+      detail: "Table field"
+    },
+    {
+      pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*check\s+coverage\b/gm,
+      fields: normalizedCatalog.coverageResultFields,
+      detail: "Coverage result field"
+    },
+    {
       pattern: /^\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*sample\s+(?:lhs|latin[_-]hypercube|grid|random|uniform)\b/gm,
       fields: normalizedCatalog.sampleTableFields,
       detail: "Sample table field"
@@ -4851,6 +4880,16 @@ function isResponseLikeReceiver(receiver) {
     normalized.includes("api") ||
     normalized.includes("network")
   );
+}
+
+function isTableLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return normalized.includes("table") || normalized.includes("rows") || normalized.includes("records");
+}
+
+function isCoverageResultLikeReceiver(receiver) {
+  const normalized = String(receiver || "").toLowerCase();
+  return normalized === "coverage" || normalized.includes("coverage");
 }
 
 function isSampleTableLikeReceiver(receiver) {

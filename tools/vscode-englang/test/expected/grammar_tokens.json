@@ -3292,6 +3292,108 @@
     "text": "confidence_band ="
   },
   {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "api_response.url_with_query",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "url_with_query",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "response_source",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "coverage.actual_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/01_weather_api_to_standard_file/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "actual_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "training_designs.row_preview",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "row_preview",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "case_inputs.rendered_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "rendered_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "db.tables_written",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "tables_written",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "db.row_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "row_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "sensor.rows",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "rows",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "meta.path.public-member.englang",
+    "text": "coverage.missing_count",
+    "fullMatch": true
+  },
+  {
+    "fixture": "examples/workflows/03_uncertain_sensor_report/main.eng",
+    "scope": "variable.other.public-member.englang",
+    "text": "missing_count",
+    "fullMatch": true
+  },
+  {
     "fixture": "04_system_component.eng",
     "scope": "meta.declaration.equation.englang",
     "text": "equation energy_balance:"

@@ -207,6 +207,44 @@
                                              "random",
                                              "uniform"
                                          ],
+                           "coverage_result_fields":  [
+                                                          {
+                                                              "detail":  "TimeSeries coverage status",
+                                                              "label":  "status"
+                                                          },
+                                                          {
+                                                              "detail":  "observed TimeSeries row count",
+                                                              "label":  "actual_count"
+                                                          },
+                                                          {
+                                                              "detail":  "expected TimeSeries row count",
+                                                              "label":  "expected_count"
+                                                          },
+                                                          {
+                                                              "detail":  "missing TimeSeries row count",
+                                                              "label":  "missing_count"
+                                                          },
+                                                          {
+                                                              "detail":  "maximum TimeSeries coverage gap in hours",
+                                                              "label":  "max_gap_hours"
+                                                          },
+                                                          {
+                                                              "detail":  "whether the TimeSeries coverage is complete",
+                                                              "label":  "complete"
+                                                          },
+                                                          {
+                                                              "detail":  "coverage leap-year policy",
+                                                              "label":  "leap_year_policy"
+                                                          },
+                                                          {
+                                                              "detail":  "coverage calendar year",
+                                                              "label":  "year"
+                                                          },
+                                                          {
+                                                              "detail":  "alias for coverage calendar year",
+                                                              "label":  "coverage_year"
+                                                          }
+                                                      ],
                            "db_connection_fields":  [
                                                         {
                                                             "detail":  "SQLite connection status, table count, row count, and table list",
@@ -1124,6 +1162,28 @@
                                                            "label":  "case_id_column"
                                                        }
                                                    ],
+                           "table_fields":  [
+                                                {
+                                                    "detail":  "table row count",
+                                                    "label":  "rows"
+                                                },
+                                                {
+                                                    "detail":  "table row count",
+                                                    "label":  "row_count"
+                                                },
+                                                {
+                                                    "detail":  "table column count",
+                                                    "label":  "column_count"
+                                                },
+                                                {
+                                                    "detail":  "runtime table schema name",
+                                                    "label":  "schema_name"
+                                                },
+                                                {
+                                                    "detail":  "runtime table source hash",
+                                                    "label":  "source_hash"
+                                                }
+                                            ],
                            "units":  [
                                          {
                                              "canonical_unit":  "m",
