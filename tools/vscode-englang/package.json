@@ -642,6 +642,7 @@
             "variable.other.definition.englang"
           ],
           "function.model": [
+            "support.function.model.englang",
             "support.function.builtin.englang",
             "entity.name.function.englang"
           ],

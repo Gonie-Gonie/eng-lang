@@ -1785,7 +1785,7 @@
                                                                     "begin":  "\\b(train_test_split|regression|train_regression|mlp|ann)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.model.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"
@@ -1852,7 +1852,7 @@
                                                                     "begin":  "\\b(regression_table)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.model.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"
@@ -1919,7 +1919,7 @@
                                                                     "begin":  "\\b(evaluate|model_card|leakage_lint)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.model.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"

@@ -92,6 +92,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `meta.type.array-suffix.englang` | Array suffix type expressions such as `Bool[]` and `String[]`. |
 | `variable.parameter.type.englang` | Generic type arguments inside bracketed type expressions. |
 | `support.function.builtin.englang` | Built-in functions and helpers. |
+| `support.function.model.englang` | Model-training and model-summary helper calls such as `regression(...)`, `train_test_split(...)`, `evaluate(...)`, and `model_card(...)`. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |
 | `constant.numeric*.englang` | Numeric literals and format precision fragments. |
 | `constant.other.unit*.englang` | Unit literals. |
@@ -126,7 +127,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
-Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. Call-style helpers such as `apply(...)`, `integrate(...)`, `mean(...)`, and `regression(...)` stay under `support.function.builtin.englang`.
+Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `evaluate(...)`, and `model_card(...)` use `support.function.model.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. Other call-style helpers such as `apply(...)`, `integrate(...)`, and `mean(...)` stay under `support.function.builtin.englang`.
 
 `#members` must appear before generic `args.*` and dotted-path fallbacks inside expression contexts so TextMate first-paint tokenization can split roots, dots, and member segments before broad property regexes match the whole path. Grammar smoke also requires begin/end workflow phrase scopes to include `#members`, so operand-oriented phrases cannot regress to uncolored dotted paths.
 
@@ -451,6 +452,7 @@ storage.modifier.englang
 storage.modifier.schema.englang
 string.quoted.double.englang
 support.function.builtin.englang
+support.function.model.englang
 support.namespace.module.englang
 support.type.englang
 variable.other.definition.englang

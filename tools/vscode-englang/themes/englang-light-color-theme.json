@@ -61,6 +61,10 @@
       "settings": { "foreground": "#7E57C2" }
     },
     {
+      "scope": ["support.function.model.englang"],
+      "settings": { "foreground": "#7B3FCF" }
+    },
+    {
       "scope": ["entity.name.function.solver.englang"],
       "settings": { "foreground": "#00796B" }
     },
@@ -285,7 +289,7 @@
     "variable.solver": "#00695C",
     "property.solver": "#009688",
     "keyword.model": "#6F42C1",
-    "function.model": "#7E57C2",
+    "function.model": "#7B3FCF",
     "variable.model": "#5E35B1",
     "property.model": "#8E24AA",
     "keyword.db": "#006D75",

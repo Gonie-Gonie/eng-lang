@@ -866,7 +866,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "regression_table",
     "fullMatch": true
   },
@@ -878,7 +878,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "train_test_split",
     "fullMatch": true
   },
@@ -890,7 +890,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "train_regression",
     "fullMatch": true
   },
@@ -902,7 +902,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "regression",
     "fullMatch": true
   },
@@ -914,7 +914,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "mlp",
     "fullMatch": true
   },
@@ -926,7 +926,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "ann",
     "fullMatch": true
   },
@@ -956,7 +956,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "evaluate",
     "fullMatch": true
   },
@@ -968,7 +968,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "model_card",
     "fullMatch": true
   },
@@ -980,7 +980,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.model.englang",
     "text": "leakage_lint",
     "fullMatch": true
   },
