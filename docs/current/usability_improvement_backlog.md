@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 869: Reworded the portable user guide away from raw artifact-file wording toward explicit JSON artifact files, with a user-docs guard against the older phrase returning.
 - Batch 868: Reworded workflow 01 API docs and printed output away from generic payload wording toward native HTTP response and API JSON contract language, with docs guards against the older phrases returning.
 - Batch 867: Archived current backlog batches 841-856 into the historical log so active API/IDE/workflow cleanup docs stay focused on the latest linter, highlighting, and native IDE usability work.
 - Batch 866: Added native IDE Copy at cursor for Problems plus source-line diagnostic copy text so linter reports can be captured from the caret without reconstructing context manually.

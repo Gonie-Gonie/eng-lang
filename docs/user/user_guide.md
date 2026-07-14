@@ -131,7 +131,7 @@ the real core path instead of duplicated editor-only logic.
 The IDE is best understood as an engineering review cockpit: variables, units,
 schemas, TimeSeries, metrics, validations, reports, review JSON, output
 manifests, run logs, process results, and test results are inspectable without
-opening raw artifact files first.
+opening the JSON artifact files first.
 
 ## Command-Line Workflow
 

@@ -1951,6 +1951,9 @@ function Test-UserDocsExecutionWording {
         if ($text.Contains("seeded Monte Carlo")) {
             throw "user docs should describe Monte Carlo scope without seed-centered workflow wording: $($docPath.FullName)"
         }
+        if ($text.Contains("opening raw artifact files first")) {
+            throw "user docs should name JSON artifact files instead of raw artifact files: $($docPath.FullName)"
+        }
     }
 
     Write-Host "User docs execution wording check passed."
