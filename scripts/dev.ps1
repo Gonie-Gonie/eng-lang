@@ -573,6 +573,8 @@ function Invoke-WorkflowsTest {
                     "network/cache fixture",
                     "HTTP fixture",
                     "API payload contract",
+                    "api_payload_text",
+                    "pinned payloads",
                     "fetched payload",
                     "pinned HTTP response/cache",
                     "pinned response materialization path",
@@ -707,6 +709,9 @@ function Invoke-WorkflowsTest {
             if (-not $WorkflowSource.Contains("pinned_response_file") -or $WorkflowSource.Contains("offline_response_file")) {
                 throw "Workflow 01 native API args must expose pinned_response_file and not offline_response_file"
             }
+            if ($WorkflowSource.Contains("api_payload_text") -or -not $WorkflowSource.Contains("api_response_text = api_response.body")) {
+                throw "Workflow 01 source must name response body text api_response_text, not api_payload_text"
+            }
             Assert-ArtifactNumber $ResultData.provenance.network_boundary_count 1 "Workflow 01 result network boundary count"
             $NetworkBoundary = @($ResultData.typed_payload.network_boundaries | Where-Object { [string]$_.binding -eq "api_response" }) | Select-Object -First 1
             Assert-Artifact ($null -ne $NetworkBoundary) "Workflow 01 result missing api_response network boundary"
@@ -747,7 +752,7 @@ function Invoke-WorkflowsTest {
             Assert-ArtifactValue $CoverageRecord.source_table "weather" "Workflow 01 coverage source table"
             Assert-ArtifactValue $CoverageRecord.source_column "time" "Workflow 01 coverage source column"
             Assert-ArtifactValue $CoverageRecord.expected_count 8784 "Workflow 01 coverage expected leap-year count"
-            Assert-ArtifactValue $CoverageRecord.actual_count 2 "Workflow 01 coverage actual fixture count"
+            Assert-ArtifactValue $CoverageRecord.actual_count 2 "Workflow 01 coverage actual response row count"
             Assert-ArtifactValue $CoverageRecord.status "gapped" "Workflow 01 coverage status"
 
             $ReviewBoundary = @($ReviewData.review_document.external_boundaries | Where-Object { [string]$_.kind -eq "network_request" -and [string]$_.name -eq "api_response" }) | Select-Object -First 1
@@ -1808,6 +1813,8 @@ function Test-PublicWorkflowDocs {
             "seeded Monte Carlo",
             "fetched payload",
             "API payload contract",
+            "api_payload_text",
+            "pinned payloads",
             "pinned HTTP response/cache",
             "pinned response materialization path"
         )) {

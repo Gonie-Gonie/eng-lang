@@ -73,7 +73,7 @@ with {
     cache = true
     cache_key = ["weather", args.region, args.year]
 }
-api_payload_text = api_response.body
+api_response_text = api_response.body
 api_request_method = api_response.method
 api_request_url = api_response.url_with_query
 api_response_source = api_response.response_source
@@ -92,7 +92,7 @@ expected_hourly_records = coverage.expected_count
 missing_hourly_records = coverage.missing_count
 max_gap_hours = coverage.max_gap_hours
 
-write text join(args.output, "fetched_weather.json"), api_payload_text
+write text join(args.output, "fetched_weather.json"), api_response_text
 with {
     overwrite = true
 }
