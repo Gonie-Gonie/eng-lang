@@ -4112,7 +4112,7 @@ function Assert-VscodeExtensionContract {
         "variable.input", "parameter.input", "variable.output", "variable.riskHigh", "keyword.riskHigh", "class.riskHigh",
         "property.riskHigh", "variable.riskMedium", "keyword.riskMedium", "class.riskMedium",
         "property.riskMedium", "variable.model", "variable.db", "keyword.db", "function.db", "method.db", "property.db",
-        "function.model", "keyword.model", "function.defaultLibrary", "function.timeseries", "namespace.defaultLibrary",
+        "function.model", "keyword.model", "function.defaultLibrary", "function.timeseries", "function.uncertain", "namespace.defaultLibrary",
         "namespace.imported", "namespace.internal", "namespace.planned", "type.axis",
         "variable.cache", "keyword.cache", "function.cache", "method.cache", "property.cache",
         "keyword.uncertain", "keyword.workflowStep", "function.workflowStep"
@@ -4201,6 +4201,10 @@ function Assert-VscodeExtensionContract {
         )
         "function.model" = @(
             "support.function.model.englang",
+            "support.function.builtin.englang"
+        )
+        "function.uncertain" = @(
+            "support.function.uncertain.englang",
             "support.function.builtin.englang"
         )
     }
@@ -4433,12 +4437,12 @@ function Assert-VscodeExtensionContract {
                 throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) semantic role colors visually distinct"
             }
         }
-        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "support.function.model.englang", "variable.other.member.englang", "variable.other.public-member.englang")
+        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "support.function.model.englang", "support.function.uncertain.englang", "variable.other.member.englang", "variable.other.public-member.englang")
         $FirstPaintColorKeys = @($FirstPaintScopes | ForEach-Object {
             Get-TextMateThemeColorKey $RequiredTheme.Theme $_
         } | Sort-Object -Unique)
-        if ($FirstPaintColorKeys.Count -lt 6 -or $FirstPaintColorKeys -contains "") {
-            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, model-function, member, and public-member colors visually distinct"
+        if ($FirstPaintColorKeys.Count -lt 7 -or $FirstPaintColorKeys -contains "") {
+            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, model-function, uncertain-function, member, and public-member colors visually distinct"
         }
     }
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {

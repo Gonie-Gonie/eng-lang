@@ -795,7 +795,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.uncertain.englang",
     "text": "uniform"
   },
   {
@@ -2310,17 +2310,17 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.uncertain.englang",
     "text": "measured"
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.uncertain.englang",
     "text": "propagate"
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.uncertain.englang",
     "text": "probability"
   },
   {
@@ -3168,7 +3168,7 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.uncertain.englang",
     "text": "distribution"
   },
   {

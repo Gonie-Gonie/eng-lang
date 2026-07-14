@@ -1,3 +1,4 @@
+- Batch 909: Added an uncertainty helper function TextMate scope so `measured(...)`, `uniform(...)`, `propagate(...)`, and `probability(...)` use uncertainty-specific first-pass colors instead of generic builtin colors.
 - Batch 908: Added a model helper function TextMate scope so `train_test_split(...)`, `regression(...)`, `evaluate(...)`, and `model_card(...)` use model-specific first-pass colors instead of generic builtin colors.
 - Batch 907: Colored model workflow phrase keywords such as `predict ... using ...` and `train regression ...` with the model TextMate scope so first-pass VS Code colors match LSP model roles sooner.
 - Batch 906: Added TextMate first-paint coverage for class object construction and copy-with headers so object source names and `with` use model-colored scopes before semantic tokens arrive.

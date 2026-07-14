@@ -1127,7 +1127,7 @@
                                                                     "begin":  "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.uncertain.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"

@@ -65,6 +65,10 @@
       "settings": { "foreground": "#C3A6FF" }
     },
     {
+      "scope": ["support.function.uncertain.englang"],
+      "settings": { "foreground": "#FF9CEE" }
+    },
+    {
       "scope": ["entity.name.function.solver.englang"],
       "settings": { "foreground": "#80CBC4" }
     },
@@ -259,7 +263,7 @@
     "function.timeseries": "#B6F2A1",
     "keyword.timeseries": "#8DD694",
     "variable.uncertain": "#B388FF",
-    "function.uncertain": "#D6A3FF",
+    "function.uncertain": "#FF9CEE",
     "keyword.uncertain": "#C792EA",
     "property.uncertain": "#E0B7FF",
     "keyword.workflowStep": "#82AAFF",

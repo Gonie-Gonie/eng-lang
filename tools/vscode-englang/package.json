@@ -487,6 +487,7 @@
             "variable.other.definition.englang"
           ],
           "function.uncertain": [
+            "support.function.uncertain.englang",
             "support.function.builtin.englang",
             "constant.language.englang"
           ],
