@@ -2049,7 +2049,7 @@ function Convert-ModuleRegistryStatusLabel {
         "supported_narrow" { return "Supported narrow" }
         "native_preview" { return "Native workflow support" }
         "planned" { return "Planned" }
-        "internal_planned" { return "Internal planned" }
+        "internal_planned" { return "Internal target" }
         "internal" { return "Internal" }
         default { return $Status }
     }
@@ -6237,6 +6237,9 @@ function Assert-VscodeExtensionContract {
     }
     if ([string]$ReadJsonCompletion.detail -ne "eng.io direct JSON read") {
         throw "generated VS Code editor metadata read json completion must use direct JSON wording"
+    }
+    if (($EditorMetadata.completion_items | Where-Object { [string]$_.detail -like "Internal planned:*" }).Count -gt 0) {
+        throw "generated VS Code module completion details should say Internal target, not Internal planned"
     }
     foreach ($StaleReadCompletionDetail in @("eng.io raw text read", "eng.io raw JSON read", "eng.io raw TOML read")) {
         if (($EditorMetadata.completion_items | Where-Object { [string]$_.detail -eq $StaleReadCompletionDetail }).Count -gt 0) {

@@ -45,7 +45,7 @@ fn module_completion_status_label(status: &str) -> &'static str {
         "supported" | "supported_narrow" => "Supported",
         "native_preview" => "Native",
         "planned" => "Planned",
-        "internal_planned" => "Internal planned",
+        "internal_planned" => "Internal target",
         "internal" => "Internal",
         _ => "Unknown",
     }
@@ -69,7 +69,7 @@ pub fn module_status_label(status: &str) -> &'static str {
         "supported_narrow" => "Supported narrow",
         "native_preview" => "Native workflow support",
         "planned" => "Planned",
-        "internal_planned" => "Internal planned",
+        "internal_planned" => "Internal target",
         "internal" => "Internal",
         _ => "Unknown",
     }
@@ -82,9 +82,9 @@ pub fn module_status_detail(status: &str) -> &'static str {
         "native_preview" => {
             "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics."
         }
-        "planned" => "Documented target surface; not executable as a public module yet.",
-        "internal_planned" => "Internal design target, not a public stdlib contract.",
-        "internal" => "Internal compiler/runtime vocabulary, not a public stdlib contract.",
+        "planned" => "Documented target module; not yet executable as a public stdlib API.",
+        "internal_planned" => "Internal target, not a public stdlib API.",
+        "internal" => "Internal compiler/runtime vocabulary outside the public stdlib API.",
         _ => "Unrecognized registry status.",
     }
 }

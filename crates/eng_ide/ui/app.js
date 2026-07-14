@@ -2519,7 +2519,7 @@ function moduleStatusLabel(module) {
     case "planned":
       return "Planned";
     case "internal_planned":
-      return "Internal planned";
+      return "Internal target";
     case "internal":
       return "Internal";
     default:
@@ -2538,11 +2538,11 @@ function moduleStatusDetail(module) {
     case "native_preview":
       return "Native runtime path is implemented for the listed workflow commands and artifacts; unsupported combinations report diagnostics.";
     case "planned":
-      return "Documented target surface; not executable as a public module yet.";
+      return "Documented target module; not yet executable as a public stdlib API.";
     case "internal_planned":
-      return "Internal design target, not a public stdlib contract.";
+      return "Internal target, not a public stdlib API.";
     case "internal":
-      return "Internal compiler/runtime vocabulary, not a public stdlib contract.";
+      return "Internal compiler/runtime vocabulary outside the public stdlib API.";
     default:
       return "-";
   }

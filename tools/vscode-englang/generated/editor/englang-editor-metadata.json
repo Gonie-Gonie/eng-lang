@@ -2054,7 +2054,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "Internal planned: Solver-facing adapters and metadata, not the public identity of stdlib.",
+                                 "detail":  "Internal target: Solver-facing adapters and metadata, not the public identity of stdlib.",
                                  "kind":  "stdlib",
                                  "label":  "eng.system",
                                  "lsp_kind":  9

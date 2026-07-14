@@ -95,7 +95,7 @@ below is generated from that registry and checked by `dev.bat docs-check`.
 | `eng.stats` | Planned | No executable backing | `review.statistics` | `W-STATS-SUM-001` | `examples/official/01_csv_plot` | `cargo test -p eng_compiler stats` |
 | `eng.plot` | Native workflow support | eng_report | `plot_spec`<br>`plot_manifest`<br>`plot_svg`<br>`output_manifest` | - | `examples/official/01_csv_plot`<br>`examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_report plot` |
 | `eng.building` | Planned | No executable backing | `review.objects` | - | `planned_building_examples` | `planned_building_tests` |
-| `eng.system` | Internal planned | Internal | `review.systems`<br>`system_ir` | - | `examples/advanced_solver/31_external_behavior_solver` | `cargo test -p eng_runtime system` |
+| `eng.system` | Internal target | Internal | `review.systems`<br>`system_ir` | - | `examples/advanced_solver/31_external_behavior_solver` | `cargo test -p eng_runtime system` |
 | `eng.ml` | Internal | Compiler/runtime | `typed_payload.ml`<br>`typed_payload.model_specs`<br>`typed_payload.model_cards` | `E-MODEL-FEATURE-MISSING`<br>`E-MODEL-TARGET-MISSING`<br>`E-MODEL-CARD-MISSING` | `examples/internal/05_data_driven_modeling` | `cargo test -p eng_runtime model` |
 | `eng.uncertainty` | Native workflow support | Compiler/runtime | `typed_payload.uncertainties`<br>`review.uncertainty`<br>`timeseries_uncertainty`<br>`report_spec.confidence_band`<br>`plot_spec.confidence_band` | `W-UNC-INDEPENDENCE-ASSUMED`<br>`W-WITH-UNCERTAINTY-SEED-001` | `examples/workflows/03_uncertain_sensor_report` | `cargo test -p eng_compiler uncertainty`<br>`cargo test -p eng_runtime uncertainty` |
 <!-- module-registry-table:end -->
