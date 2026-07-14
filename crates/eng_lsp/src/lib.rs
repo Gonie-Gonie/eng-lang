@@ -5721,6 +5721,12 @@ fn keyword_modifiers_for_line(
     if is_connect_to_clause_keyword(line, keyword, token_start) {
         return &["solver"];
     }
+    if is_workflow_table_clause_keyword(line, keyword, token_start) {
+        return &["workflowStep"];
+    }
+    if is_report_clause_keyword(line, keyword, token_start) {
+        return &["report"];
+    }
     keyword_modifiers(keyword)
 }
 
@@ -6703,6 +6709,52 @@ fn is_connect_to_clause_keyword(line: &str, keyword: &str, token_start: usize) -
         && line
             .get(..token_start)
             .is_some_and(|prefix| prefix.contains("connect "))
+}
+
+fn is_workflow_table_clause_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    match keyword {
+        "by" => is_keyword_after_phrase(line, token_start, "sort "),
+        "with" => {
+            is_keyword_after_phrase(line, token_start, "join ")
+                && !is_report_field_with_clause(line, token_start)
+        }
+        _ => false,
+    }
+}
+
+fn is_report_clause_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    match keyword {
+        "by" => is_keyword_after_phrase(line, token_start, "summarize "),
+        "and" => is_keyword_after_phrase(line, token_start, "plot "),
+        "as" => {
+            is_keyword_after_phrase(line, token_start, "show ")
+                || is_report_field_as_clause(line, token_start)
+        }
+        "with" => is_report_field_with_clause(line, token_start),
+        _ => false,
+    }
+}
+
+fn is_keyword_after_phrase(line: &str, token_start: usize, phrase: &str) -> bool {
+    line.get(..token_start)
+        .is_some_and(|prefix| prefix.contains(phrase))
+}
+
+fn is_report_field_as_clause(line: &str, token_start: usize) -> bool {
+    if line
+        .get(..token_start)
+        .is_some_and(|prefix| prefix.contains("read sqlite ") || prefix.contains("promote "))
+    {
+        return false;
+    }
+    line.get(token_start + "as".len()..)
+        .is_some_and(|suffix| suffix.contains(" with ") && suffix.contains('"'))
+}
+
+fn is_report_field_with_clause(line: &str, token_start: usize) -> bool {
+    line.get(..token_start)
+        .is_some_and(|prefix| prefix.contains(" as "))
+        && next_non_whitespace_after(line, token_start + "with".len()) == Some('"')
 }
 
 fn is_db_table_target_segment(line: &str, start: usize, end: usize) -> bool {
@@ -13209,6 +13261,41 @@ connect pump.supply to pipe.inlet
         assert_no_conflicting_semantic_token_types(&snapshot, source, "connect_endpoints.eng");
     }
 
+    #[test]
+    fn snapshot_marks_partial_clause_keywords_role_aware() {
+        let source = r#"sorted = sort args.designs by cooling_cop desc
+joined = join study.designs with model.predictions
+summarize Q_total_unc by [mean, time_weighted_mean, p90, p95]
+plot sim.x and sim.y and sim.z and sim.total over Time
+show rmse_T as K
+Q_total as kWh with ".2"
+"#;
+        let snapshot = snapshot_for_source(Path::new("partial_clause_keywords.eng"), source);
+
+        for (line, label, modifier) in [
+            ("sorted = sort args.designs by", "by", "workflowStep"),
+            ("joined = join study.designs with", "with", "workflowStep"),
+            ("summarize Q_total_unc by", "by", "report"),
+            ("plot sim.x and sim.y", "and", "report"),
+            ("show rmse_T as K", "as", "report"),
+            ("Q_total as kWh with", "as", "report"),
+            ("Q_total as kWh with", "with", "report"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "keyword", modifier,
+            );
+        }
+        assert_eq!(
+            semantic_token_modifier_count(&snapshot, source, "and", "keyword", "report"),
+            3,
+            "every plot `and` connector should keep report coloring"
+        );
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "partial_clause_keywords.eng",
+        );
+    }
     #[test]
     fn snapshot_keeps_export_summary_and_plot_and_as_keywords_not_variables() {
         let source = r#"Q: HeatRate [kW] = 1 kW
