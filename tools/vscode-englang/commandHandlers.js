@@ -516,6 +516,7 @@ function createCommandHandlers(options = {}) {
       summary: {
         status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlaps.length),
         fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
+        theme_fallback_scope_status: themeFallbackScopeStatus(tokenCount, tokensWithoutFallbackScope),
         direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors),
         range_overlap_status: highlightRangeOverlapStatus(tokenCount, rangeOverlaps.length),
         highlight_coverage_status: coverageStatus,
@@ -529,6 +530,7 @@ function createCommandHandlers(options = {}) {
         range_overlap_count: rangeOverlaps.length,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
         tokens_without_fallback_scope: tokensWithoutFallbackScope,
+        tokens_missing_theme_fallback_scope: tokensWithoutFallbackScope,
         tokens_with_unmapped_selectors: tokensWithUnmappedSelectors,
         missing_scope_selectors: missingScopeSelectors,
         unmapped_selector_counts: unmappedSelectorCounts
@@ -722,6 +724,13 @@ function createCommandHandlers(options = {}) {
       return "no_tokens";
     }
     return tokensWithoutFallbackScope > 0 ? "missing_fallback_scopes" : "mapped";
+  }
+
+  function themeFallbackScopeStatus(tokenCount, tokensWithoutFallbackScope) {
+    if (tokenCount === 0) {
+      return "no_tokens";
+    }
+    return tokensWithoutFallbackScope > 0 ? "missing_theme_fallback_scopes" : "covered";
   }
 
   function highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors) {
@@ -2268,6 +2277,7 @@ function createCommandHandlers(options = {}) {
       const rangeOverlaps = semanticTokenRangeOverlaps(document, tokenRows);
       const coverageSummary = highlightCoverageSummary(document, tokenRows);
       const coverageStatus = highlightCoverageStatus(coverageSummary);
+      const tokensMissingThemeFallbackScope = tokenRows.filter((row) => row.theme_coverage_status === "missing_theme_fallback_scope").length;
       return {
         source: document.uri.fsPath,
         status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
@@ -2275,6 +2285,8 @@ function createCommandHandlers(options = {}) {
         token_count: tokenRows.length,
         range_overlap_count: rangeOverlaps.length,
         range_overlap_status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
+        theme_fallback_scope_status: themeFallbackScopeStatus(tokenRows.length, tokensMissingThemeFallbackScope),
+        tokens_missing_theme_fallback_scope: tokensMissingThemeFallbackScope,
         coverage_status: coverageStatus,
         highlight_coverage_status: coverageStatus,
         coverage_summary: coverageSummary,
