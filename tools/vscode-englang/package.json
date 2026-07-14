@@ -840,6 +840,10 @@
         "title": "EngLang: Show Tooling Status"
       },
       {
+        "command": "englang.showProblemAtCursor",
+        "title": "EngLang: Inspect Problem at Cursor"
+      },
+      {
         "command": "englang.reviewFile",
         "title": "EngLang: Open Current File Review Data"
       },

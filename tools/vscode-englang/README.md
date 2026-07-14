@@ -25,6 +25,8 @@ embedding compiler logic in JavaScript.
 - subtle review-risk line and overview-ruler markers for high and medium risks
 - highlight-token inspection command for checking how the current file is
   colored
+- Problems-at-cursor inspection command for checking the diagnostic source,
+  code, severity, and exact range under the caret
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols
@@ -70,9 +72,9 @@ embedding compiler logic in JavaScript.
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
-  current-file Problems counts and range status, Problems diagnostics toggles,
-  the TextMate-plus-semantic highlighting model, fallback scope-map coverage,
-  and extension version
+  current-file Problems counts and range status, the cursor diagnostic inspection
+  command, Problems diagnostics toggles, the TextMate-plus-semantic highlighting
+  model, fallback scope-map coverage, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -193,8 +195,11 @@ diagnostics and which tool path was selected. The VS Code Problems source column
 uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
 Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
-`englang.lintOnChange`. If diagnostics cannot parse editor JSON, run
-`EngLang: Show Tooling Status` to inspect the selected paths. When the selected
+`englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a
+focused JSON view of diagnostics covering the caret, nearest same-line
+diagnostics, source labels, codes, severity, and range text. If diagnostics
+cannot parse editor JSON, run `EngLang: Show Tooling Status` to inspect the
+selected paths. When the selected
 tool exits without editor JSON, the Problems entry includes a short
 `Tool failure:` reason and the EngLang output channel keeps stderr/stdout
 details. Set `englang.lintOnChange = false` to disable live typing checks while

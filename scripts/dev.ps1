@@ -3570,6 +3570,7 @@ function Assert-VscodeExtensionContract {
         "englang.switchProfile",
         "englang.switchDiagnosticsMode",
         "englang.showToolingStatus",
+        "englang.showProblemAtCursor",
         "englang.reviewFile",
         "englang.openReviewPanel",
         "englang.openReport",
@@ -3619,6 +3620,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.switchDiagnosticsMode"; Text = "Switch Diagnostics Mode" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
+        @{ Command = "englang.showProblemAtCursor"; Text = "Inspect Problem at Cursor" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" },
         @{ Command = "englang.showSemanticTokenAtCursor"; Text = "Inspect Highlight Token at Cursor" }
     )) {
@@ -4231,6 +4233,7 @@ function Assert-VscodeExtensionContract {
         "current_file_problems: currentFileProblemsProbe?.summary",
         "current_file_probe: currentFileHighlightProbe",
         "current_file_probe: currentFileProblemsProbe",
+        'cursor: "EngLang: Inspect Problem at Cursor"',
         "function toolingStatusProblemsProbe()",
         "diagnosticsCollection.get(document.uri)",
         "function toolingStatusProblemRow(document, diagnostic, index)",
@@ -4307,6 +4310,19 @@ function Assert-VscodeExtensionContract {
     )) {
         if ($CommandHandlersSource.Contains($ForbiddenToolingStatusWording)) {
             throw "VS Code tooling status must describe editor checks in user-facing wording: $ForbiddenToolingStatusWording"
+        }
+    }
+    foreach ($RequiredProblemCursorInspectorToken in @(
+        "async function showProblemAtCursor()",
+        "diagnosticsCollection.get(document.uri)",
+        "matching_problems: matchingProblems",
+        "nearest_problems: nearestProblems",
+        "line_problems: lineProblems",
+        "function cursorProblemStatus(matchingProblems, nearestProblems, fileProblemCount, diagnosticsAvailable = true)",
+        "function problemCopyReady(problem)"
+    )) {
+        if (-not $CommandHandlersSource.Contains($RequiredProblemCursorInspectorToken)) {
+            throw "VS Code Problems cursor inspector missing contract token $RequiredProblemCursorInspectorToken"
         }
     }
     if (-not $CommandHandlersSource.Contains('require("./executionProfiles")') -or -not $ExecutionProfilesSource.Contains("EXECUTION_PROFILES") -or -not $ExecutionProfilesSource.Contains('"normal"') -or -not $ExecutionProfilesSource.Contains('"safe"') -or -not $ExecutionProfilesSource.Contains('"repro"')) {
@@ -4418,6 +4434,7 @@ function Assert-VscodeExtensionContract {
         "async function switchExecutionProfile",
         "async function switchDiagnosticsMode",
         "async function showToolingStatus",
+        "async function showProblemAtCursor",
         "async function reviewActiveFile",
         "async function openReviewPanel",
         "async function showSemanticTokensDebug",

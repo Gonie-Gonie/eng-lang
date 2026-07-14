@@ -191,6 +191,71 @@ function createCommandHandlers(options = {}) {
     await vscode.window.showTextDocument(statusDocument, { preview: false });
   }
 
+  async function showProblemAtCursor() {
+    const editor = vscode.window.activeTextEditor;
+    const document = editor?.document;
+    if (!editor || !document || !isEngDocument(document)) {
+      vscode.window.showWarningMessage("Open an EngLang .eng file first.");
+      return;
+    }
+    const cursor = editor.selection.active;
+    const diagnosticsAvailable = typeof diagnosticsCollection?.get === "function";
+    const diagnosticRows = diagnosticsAvailable
+      ? Array.from(diagnosticsCollection.get(document.uri) ?? [])
+        .map((diagnostic, index) => ({
+          diagnostic,
+          row: toolingStatusProblemRow(document, diagnostic, index)
+        }))
+      : [];
+    const allProblems = diagnosticRows.map((entry) => entry.row);
+    const matchingProblems = diagnosticRows
+      .filter((entry) => entry.diagnostic?.range?.contains(cursor))
+      .map((entry) => entry.row);
+    const lineProblems = diagnosticRows
+      .filter((entry) => problemRangeTouchesLine(entry.diagnostic?.range, cursor.line))
+      .map((entry) => entry.row);
+    const nearestProblems = lineProblems
+      .map((problem) => ({
+        ...problem,
+        cursor_distance: problemCursorDistance(problem, cursor)
+      }))
+      .sort((left, right) =>
+        left.cursor_distance - right.cursor_distance || Number(left.zero_based_character ?? 0) - Number(right.zero_based_character ?? 0)
+      )
+      .slice(0, 3);
+    const payload = {
+      source: document.uri.fsPath,
+      diagnostics_collection_status: diagnosticsAvailable ? "available" : "unavailable",
+      cursor: {
+        line: cursor.line + 1,
+        column: cursor.character + 1,
+        zero_based_line: cursor.line,
+        zero_based_character: cursor.character
+      },
+      summary: {
+        status: cursorProblemStatus(matchingProblems, nearestProblems, allProblems.length, diagnosticsAvailable),
+        matching_problem_count: matchingProblems.length,
+        nearest_problem_count: nearestProblems.length,
+        line_problem_count: lineProblems.length,
+        file_problem_count: allProblems.length,
+        diagnostic_range_status: toolingStatusProblemsRangeStatus(allProblems),
+        severity_counts: toolingStatusCountBy(allProblems, "severity"),
+        source_counts: toolingStatusCountBy(allProblems, "source"),
+        copy_ready: problemCopyReady(matchingProblems[0] ?? nearestProblems[0] ?? null)
+      },
+      matching_problems: matchingProblems,
+      nearest_problems: nearestProblems,
+      line_problems: lineProblems,
+      all_problems: allProblems.slice(0, 50),
+      omitted_problem_count: Math.max(0, allProblems.length - 50)
+    };
+    const debugDocument = await vscode.workspace.openTextDocument({
+      language: "json",
+      content: JSON.stringify(payload, null, 2)
+    });
+    await vscode.window.showTextDocument(debugDocument, { preview: false });
+  }
+
   async function reviewActiveFile(context) {
     const result = await runReviewForActiveDocument(context);
     if (!result) {
@@ -965,7 +1030,11 @@ function createCommandHandlers(options = {}) {
           tool: problemsSource === "live" ? "live_editor" : "check_and_run",
           current_file_count: currentFileProblemsProbe?.diagnostic_count ?? 0,
           current_file_range_status: currentFileProblemsProbe?.diagnostic_range_status ?? "unknown",
-          current_file_probe: currentFileProblemsProbe
+          current_file_probe: currentFileProblemsProbe,
+          inspection_commands: {
+            cursor: "EngLang: Inspect Problem at Cursor",
+            status: "EngLang: Show Tooling Status"
+          }
         },
         hover: liveEditorFeature("live_editor"),
         completion: liveEditorFeature("live_editor"),
@@ -1075,6 +1144,14 @@ function createCommandHandlers(options = {}) {
     const range = diagnostic?.range;
     return {
       index,
+      line: range ? range.start.line + 1 : null,
+      column: range ? range.start.character + 1 : null,
+      end_line: range ? range.end.line + 1 : null,
+      end_column: range ? range.end.character + 1 : null,
+      zero_based_line: range?.start.line ?? null,
+      zero_based_character: range?.start.character ?? null,
+      zero_based_end_line: range?.end.line ?? null,
+      zero_based_end_character: range?.end.character ?? null,
       severity: toolingStatusProblemSeverity(diagnostic?.severity),
       source: diagnostic?.source || "unknown",
       code: toolingStatusDiagnosticCode(diagnostic?.code),
@@ -1188,6 +1265,67 @@ function createCommandHandlers(options = {}) {
       counts[value] = (counts[value] ?? 0) + 1;
     }
     return counts;
+  }
+
+  function problemRangeTouchesLine(range, zeroBasedLine) {
+    if (!range) {
+      return false;
+    }
+    return range.start.line <= zeroBasedLine && range.end.line >= zeroBasedLine;
+  }
+
+  function problemCursorDistance(problem, cursor) {
+    const startLine = Number(problem?.zero_based_line);
+    const startCharacter = Number(problem?.zero_based_character);
+    const endLine = Number(problem?.zero_based_end_line);
+    const endCharacter = Number(problem?.zero_based_end_character);
+    if (!Number.isFinite(startLine) || !Number.isFinite(startCharacter) || !Number.isFinite(endLine) || !Number.isFinite(endCharacter)) {
+      return Number.MAX_SAFE_INTEGER;
+    }
+    const lineDistance = cursor.line < startLine
+      ? startLine - cursor.line
+      : cursor.line > endLine
+        ? cursor.line - endLine
+        : 0;
+    if (lineDistance > 0) {
+      return lineDistance * 100000 + Math.min(startCharacter, endCharacter);
+    }
+    if (cursor.line === startLine && cursor.character < startCharacter) {
+      return startCharacter - cursor.character;
+    }
+    if (cursor.line === endLine && cursor.character > endCharacter) {
+      return cursor.character - endCharacter;
+    }
+    return 0;
+  }
+
+  function cursorProblemStatus(matchingProblems, nearestProblems, fileProblemCount, diagnosticsAvailable = true) {
+    if (!diagnosticsAvailable) {
+      return "Current Problems data is unavailable because the VS Code diagnostics collection is not configured.";
+    }
+    if (matchingProblems.length > 0) {
+      return `Caret is inside ${matchingProblems.length} VS Code Problems diagnostic${matchingProblems.length === 1 ? "" : "s"}.`;
+    }
+    if (nearestProblems.length > 0) {
+      return "No Problems diagnostic covers the caret; nearest diagnostics on this line are listed.";
+    }
+    if (fileProblemCount > 0) {
+      return `No Problems diagnostics are on this line; current file has ${fileProblemCount} diagnostic${fileProblemCount === 1 ? "" : "s"}.`;
+    }
+    return "Current EngLang file has no VS Code Problems diagnostics.";
+  }
+
+  function problemCopyReady(problem) {
+    if (!problem) {
+      return null;
+    }
+    return {
+      code: problem.code,
+      source: problem.source,
+      severity: problem.severity,
+      range: problem.diagnostic_range_text,
+      message: problem.message
+    };
   }
 
   async function toolingStatusHighlightProbe(context) {
@@ -1422,6 +1560,7 @@ function createCommandHandlers(options = {}) {
     switchDiagnosticsMode,
     switchProblemsSource: switchDiagnosticsMode,
     showToolingStatus,
+    showProblemAtCursor,
     reviewActiveFile,
     openReviewPanel,
     showSemanticTokensDebug,

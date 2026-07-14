@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 837: Added `EngLang: Inspect Problem at Cursor` so VS Code users can inspect the diagnostic source, code, severity, exact range, nearest same-line Problems, and copy-ready payload for the caret position.
 - Batch 836: Added current-file VS Code Problems probing to `EngLang: Show Tooling Status`, including diagnostic counts, source/severity counts, and range precision summaries so linter range behavior is inspectable from one status view.
 - Batch 835: Aligned VS Code saved-file Problems ranges with the LSP option-value mapper so retry, timeout, process, sampling, cache, model, simulation, and solver option diagnostics underline the offending value instead of a broad fallback token.
 - Batch 834: Made native IDE Problems row clicks select the exact diagnostic character range, falling back to column-aware line selection when range metadata is unavailable.
