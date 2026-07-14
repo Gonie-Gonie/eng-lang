@@ -201,7 +201,9 @@ uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
 The status bar shows the active `.eng` file's EngLang Problems mode and current
 error/warning/info/hint counts; click it to open `EngLang: Show Tooling Status`.
 Use `EngLang: Refresh Problems` from the Command Palette or `.eng` editor
-context menu to run the active-file check immediately.
+context menu to run the active-file check immediately. The refresh follows the
+selected diagnostics mode: file mode checks the saved file, while live mode can
+check the current unsaved buffer.
 Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a

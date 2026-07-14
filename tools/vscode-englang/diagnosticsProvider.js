@@ -93,8 +93,19 @@ class EngDiagnosticsController {
       vscode.window.showWarningMessage("Open an EngLang .eng file first.");
       return;
     }
+    const runtimeMode = this.diagnosticsRuntime?.(document);
     if (document.isDirty) {
-      this.checkDocumentSource(document);
+      if (runtimeMode === "lsp-snapshot") {
+        this.checkDocumentSource(document);
+        return;
+      }
+      this.clearDocumentDiagnostics(
+        document,
+        "file mode uses saved-file checks; save the file to refresh Problems"
+      );
+      vscode.window.showInformationMessage(
+        "EngLang file diagnostics use saved files. Save the file, or switch Diagnostics Mode to live for unsaved Problems."
+      );
       return;
     }
     await this.checkDocument(document);

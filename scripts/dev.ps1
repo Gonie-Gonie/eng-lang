@@ -3347,6 +3347,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("status bar") -or -not $VscodeReadmeSource.Contains("EngLang Problems mode") -or -not $VscodeReadmeSource.Contains("error/warning/info/hint counts")) {
         throw "VS Code README must document the EngLang Problems status bar in user-facing terms"
     }
+    if (-not $VscodeReadmeSource.Contains("The refresh follows the") -or -not $VscodeReadmeSource.Contains("file mode checks the saved file") -or -not $VscodeReadmeSource.Contains("live mode can") -or -not $VscodeReadmeSource.Contains("current unsaved buffer")) {
+        throw "VS Code README must document that Refresh Problems follows the selected diagnostics mode"
+    }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
             throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
@@ -4149,7 +4152,9 @@ function Assert-VscodeExtensionContract {
         "updateDiagnosticsStatusBarForDocument(event.document)",
         "updateDiagnosticsStatusBar(editor?.document)",
         'EngLang Problems: ${countText}',
-        "Click to open EngLang: Show Tooling Status."
+        "Click to open EngLang: Show Tooling Status.",
+        "run EngLang: Refresh Problems for an unsaved-buffer check",
+        "File diagnostics use the saved file; save before refreshing"
     )) {
         if (-not $ExtensionSource.Contains($RequiredStatusBarToken)) {
             throw "VS Code extension missing EngLang Problems status bar token $RequiredStatusBarToken"
@@ -4536,6 +4541,16 @@ function Assert-VscodeExtensionContract {
     }
     if (-not $DiagnosticsProviderSource.Contains('this.diagnosticsRuntime?.(document) !== "lsp-snapshot"')) {
         throw "VS Code live buffer diagnostics must only run when diagnostics mode is live"
+    }
+    foreach ($RequiredManualRefreshModeToken in @(
+        'const runtimeMode = this.diagnosticsRuntime?.(document);',
+        'runtimeMode === "lsp-snapshot"',
+        'file mode uses saved-file checks; save the file to refresh Problems',
+        'EngLang file diagnostics use saved files. Save the file, or switch Diagnostics Mode to live for unsaved Problems.'
+    )) {
+        if (-not $DiagnosticsProviderSource.Contains($RequiredManualRefreshModeToken)) {
+            throw "VS Code manual Problems refresh must respect diagnostics mode for dirty buffers: $RequiredManualRefreshModeToken"
+        }
     }
     $LspRequestSourceCombined = $ExtensionSource + "`n" + $LspRequestsSource
     if (-not $ExtensionSource.Contains('require("./lspRequests")') -or -not $LspRequestsSource.Contains("function createLspRequests")) {

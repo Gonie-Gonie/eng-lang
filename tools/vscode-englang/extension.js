@@ -514,20 +514,20 @@ function diagnosticsStatusBarUpdateState(document, mode, config) {
   const lintOnChange = config.get("lintOnChange", true);
   if (mode === "live") {
     if (document.isDirty && !lintOnChange) {
-      return "Live typing diagnostics are off; save or run EngLang: Check Current File.";
+      return "Live typing diagnostics are off; run EngLang: Refresh Problems for an unsaved-buffer check.";
     }
     if (!document.isDirty && !lintOnSave) {
-      return "Saved-file diagnostics are off; run EngLang: Check Current File for a manual refresh.";
+      return "Saved-file diagnostics are off; run EngLang: Refresh Problems for a manual check.";
     }
     return lintOnChange
       ? "Live typing diagnostics update after a short pause."
       : "Live diagnostics are selected; saved files refresh on open, save, or manual check.";
   }
   if (!lintOnSave) {
-    return "Saved-file diagnostics are off; run EngLang: Check Current File for a manual refresh.";
+    return "Saved-file diagnostics are off; run EngLang: Refresh Problems for a manual check.";
   }
   if (document.isDirty) {
-    return "File diagnostics use the last saved file until you save or run EngLang: Check Current File.";
+    return "File diagnostics use the saved file; save before refreshing, or switch Diagnostics Mode to live for unsaved Problems.";
   }
   return "File diagnostics refresh on open, save, or manual check.";
 }
