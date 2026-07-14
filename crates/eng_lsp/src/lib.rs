@@ -5879,11 +5879,29 @@ fn workflow_builtin_token_type_for_line(
     if next_non_whitespace_after(line, token_start + keyword.len()) == Some('(') {
         return "function";
     }
-    if is_workflow_command_keyword(line, keyword, token_start) {
+    if is_workflow_command_keyword(line, keyword, token_start)
+        || is_editor_keyword_group_word(keyword)
+    {
         "keyword"
     } else {
         "function"
     }
+}
+
+fn is_editor_keyword_group_word(keyword: &str) -> bool {
+    EDITOR_IMPORT_KEYWORDS.contains(&keyword)
+        || EDITOR_DEPRECATED_KEYWORDS.contains(&keyword)
+        || EDITOR_DECLARATION_KEYWORDS.contains(&keyword)
+        || EDITOR_FUNCTION_KEYWORDS.contains(&keyword)
+        || EDITOR_TEST_KEYWORDS.contains(&keyword)
+        || EDITOR_BLOCK_KEYWORDS.contains(&keyword)
+        || EDITOR_MODIFIER_KEYWORDS.contains(&keyword)
+        || EDITOR_REPORT_KEYWORDS.contains(&keyword)
+        || EDITOR_VALIDATION_KEYWORDS.contains(&keyword)
+        || EDITOR_SIDE_EFFECT_KEYWORDS.contains(&keyword)
+        || EDITOR_EXTERNAL_BOUNDARY_KEYWORDS.contains(&keyword)
+        || EDITOR_SOLVER_KEYWORDS.contains(&keyword)
+        || EDITOR_WORKFLOW_KEYWORDS.contains(&keyword)
 }
 
 fn is_workflow_command_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
@@ -13026,31 +13044,26 @@ filled_zone = fill missing measured.T_zone
             })
             .collect::<BTreeSet<_>>();
 
-        let mut rows = Vec::<(String, String, bool)>::new();
+        let mut rows = Vec::<(String, String)>::new();
         for label in keyword_labels {
-            rows.push((
-                format!("catalog_keyword_{} = {}", rows.len(), label),
-                label,
-                false,
-            ));
+            rows.push((format!("catalog_keyword_{} = {}", rows.len(), label), label));
         }
         for label in constant_labels {
             rows.push((
                 format!("catalog_constant_{} = {}", rows.len(), label),
                 label,
-                true,
             ));
         }
         let source = rows
             .iter()
-            .map(|(line, _, _)| line.as_str())
+            .map(|(line, _)| line.as_str())
             .collect::<Vec<_>>()
             .join("\n")
             + "\n";
         let snapshot =
             snapshot_for_source(Path::new("syntax_catalog_semantic_tokens.eng"), &source);
 
-        for (line, label, is_constant) in rows {
+        for (line, label) in rows {
             assert!(
                 snapshot.semantic_tokens.tokens.iter().any(|token| {
                     source
@@ -13064,9 +13077,7 @@ filled_zone = fill missing measured.T_zone
                 }),
                 "generated syntax catalog label `{label}` should produce a semantic token on `{line}`"
             );
-            if is_constant {
-                assert_semantic_token_on_line_type(&snapshot, &source, &line, &label, "keyword");
-            }
+            assert_semantic_token_on_line_type(&snapshot, &source, &line, &label, "keyword");
         }
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
