@@ -416,9 +416,10 @@ function createCommandHandlers(options = {}) {
       source: document.uri.fsPath,
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       summary: {
-        status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors),
+        status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlaps.length),
         fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
         direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors),
+        range_overlap_status: highlightRangeOverlapStatus(tokenCount, rangeOverlaps.length),
         token_count: tokenCount,
         scope_map_status: scopeMapStatus.status,
         counts_by_type: tokenCounts,
@@ -538,6 +539,7 @@ function createCommandHandlers(options = {}) {
         nearest_token_count: nearestTokens.length,
         line_token_count: lineTokens.length,
         line_range_overlap_count: lineRangeOverlaps.length,
+        line_range_overlap_status: highlightRangeOverlapStatus(lineTokens.length, lineRangeOverlaps.length),
         cursor_token_hint: cursorTokenHint,
         scope_map_status: scopeMapStatus.status,
         scope_map_entry_count: Object.keys(semanticTokenScopeMap).length,
@@ -560,7 +562,7 @@ function createCommandHandlers(options = {}) {
     await vscode.window.showTextDocument(debugDocument, { preview: false });
   }
 
-  function highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors) {
+  function highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlapCount = 0) {
     if (tokenCount === 0) {
       return "No role-aware highlight tokens were returned for this file.";
     }
@@ -572,10 +574,20 @@ function createCommandHandlers(options = {}) {
     if (tokensWithUnmappedSelectors > 0) {
       issues.push(`${tokensWithUnmappedSelectors} token${tokensWithUnmappedSelectors === 1 ? "" : "s"} need direct selector mapping`);
     }
+    if (rangeOverlapCount > 0) {
+      issues.push(`${rangeOverlapCount} overlapping highlight range${rangeOverlapCount === 1 ? "" : "s"} need source-range review`);
+    }
     if (issues.length > 0) {
       return `${tokenLabel} returned; ${issues.join(" and ")}.`;
     }
-    return `${tokenLabel} returned with theme fallback scope coverage and direct selector mappings.`;
+    return `${tokenLabel} returned with theme fallback scope coverage, direct selector mappings, and no overlapping ranges.`;
+  }
+
+  function highlightRangeOverlapStatus(tokenCount, rangeOverlapCount) {
+    if (tokenCount === 0) {
+      return "no_tokens";
+    }
+    return rangeOverlapCount > 0 ? "overlapping_ranges" : "clear";
   }
 
   function highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope) {

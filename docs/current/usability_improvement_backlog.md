@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 830: Added VS Code highlight overlap status fields and status wording so file and caret inspectors call out overlapping ranges without requiring users to read the raw overlap arrays first.
 - Batch 829: Strengthened LSP syntax-catalog highlight coverage so every generated keyword and constant label must be surfaced as a keyword semantic token, and made workflow builtins fall back to keyword coloring when they are editor keyword-group words rather than call-style helpers.
 - Batch 828: Documented VS Code highlight overlap rows in user-facing README wording and added a packaging gate so the inspector behavior stays discoverable.
 - Batch 827: Exposed VS Code highlight range overlap counts and copy-ready overlap rows in the file and caret inspectors, matching the native IDE conflict visibility for confusing semantic-token colors.
