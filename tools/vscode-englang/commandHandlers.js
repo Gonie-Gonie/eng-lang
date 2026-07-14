@@ -1091,6 +1091,7 @@ function createCommandHandlers(options = {}) {
       },
       commands: {
         switch_diagnostics_mode: "EngLang: Switch Diagnostics Mode...",
+        inspect_problem_at_cursor: "EngLang: Inspect Problem at Cursor",
         inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
         inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor",
         check_current_file: "EngLang: Check Current File"

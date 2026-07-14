@@ -4234,6 +4234,7 @@ function Assert-VscodeExtensionContract {
         "current_file_probe: currentFileHighlightProbe",
         "current_file_probe: currentFileProblemsProbe",
         'cursor: "EngLang: Inspect Problem at Cursor"',
+        'inspect_problem_at_cursor: "EngLang: Inspect Problem at Cursor"',
         "function toolingStatusProblemsProbe()",
         "diagnosticsCollection.get(document.uri)",
         "function toolingStatusProblemRow(document, diagnostic, index)",
