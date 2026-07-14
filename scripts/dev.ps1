@@ -4556,6 +4556,8 @@ function Assert-VscodeExtensionContract {
         "hoverKindLabel",
         "hoverStatusLabel",
         "HOVER_KIND_LABELS",
+        'coverage_result_field: "Coverage result field"',
+        'table_field: "Table field"',
         'model_field: "Model field"',
         'db_connection_field: "DB connection field"',
         'case_result_collection_table_field: "Case result collection field"',

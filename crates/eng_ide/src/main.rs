@@ -3834,6 +3834,8 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         "function hoverStatusLabel(status)",
         "hoverKindLabel(hover.kind)",
         "hoverStatusLabel(hover.status)",
+        r#"coverage_result_field: "Coverage result field""#,
+        r#"table_field: "Table field""#,
         r#"model_field: "Model field""#,
         r#"db_connection_field: "DB connection field""#,
         "function renderInspectorTabButtons(tabs)",
