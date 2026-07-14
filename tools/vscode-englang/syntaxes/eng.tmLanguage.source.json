@@ -94,6 +94,10 @@
                     "match": "\\bargs\\.[A-Za-z_][A-Za-z0-9_]*\\b"
                   },
                   {
+                    "name": "support.function.external-boundary.englang",
+                    "match": "\\b(file|url|env|secret|exists)(?=\\s*\\()"
+                  },
+                  {
                     "name": "support.function.builtin.englang",
                     "match": "\\b({{WORKFLOW_BUILTINS}})(?=\\s*\\()"
                   },
@@ -2208,7 +2212,7 @@
         "patterns": [
           {
             "name": "support.function.external-boundary.englang",
-            "match": "\\b(file|url|env|secret)\\b"
+            "match": "\\b(file|url|env|secret|exists)\\b"
           },
           {
             "name": "support.function.path.englang",

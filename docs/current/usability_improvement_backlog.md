@@ -1,3 +1,4 @@
+- Batch 925: Colored exists(...) as an external-boundary TextMate helper instead of the last generic builtin first-paint helper, with grammar smoke and token-scope docs updated.
 - Batch 924: Reworded VS Code README quick-fix merge and cache invalidation text away from fallback-repair/state wording toward local quick fixes and cached review/highlight data, with a contract guard.
 - Batch 923: Reworded VS Code README model source-chain quick-fix coverage from skeleton repairs to starter-code repairs and guarded against skeleton-repair wording returning.
 - Batch 922: Added theme fallback scope summary aliases to VS Code highlight inspector and Tooling Status probe payloads, keeping legacy fallback_scope_status fields for compatibility.
