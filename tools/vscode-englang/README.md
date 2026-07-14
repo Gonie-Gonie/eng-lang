@@ -258,8 +258,10 @@ literals, module namespaces, model artifacts, DB/cache records, workflow steps,
 string interpolation variables/properties, format precision, format units,
 and review risks, so themes without EngLang-specific rules still receive stable
 color hints. For stronger role separation, choose `EngLang Dark` or `EngLang
-Light` from VS Code's Color Theme picker; the bundled themes define direct
-colors for every EngLang role-aware selector contributed by the extension. Set
+Light` from VS Code's Color Theme picker; the bundled themes split unit,
+quantity, TimeSeries, workflow, validation, report, side-effect, external,
+solver, model, DB, and cache role families across related colors. They define
+direct colors for every EngLang role-aware selector contributed by the extension. Set
 `englang.semanticHighlighting.enabled = false` to fall back to first-pass syntax
 colors only; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping

@@ -4292,9 +4292,20 @@ function Assert-VscodeExtensionContract {
         return ($SemanticColorValue | ConvertTo-Json -Compress)
     }
     $RoleColorFamilies = @(
-        @{ Label = "model"; Selectors = @("keyword.model", "function.model", "variable.model", "property.model") },
-        @{ Label = "db"; Selectors = @("keyword.db", "function.db", "method.db", "variable.db", "property.db") },
-        @{ Label = "cache"; Selectors = @("keyword.cache", "function.cache", "method.cache", "variable.cache", "property.cache") }
+        @{ Label = "unit"; Selectors = @("type.unit", "property.unit"); MinimumDistinct = 2 },
+        @{ Label = "quantity"; Selectors = @("type.quantity", "variable.quantity", "property.quantity", "parameter.quantity"); MinimumDistinct = 3 },
+        @{ Label = "axis"; Selectors = @("variable.axis", "property.axis", "type.axis"); MinimumDistinct = 3 },
+        @{ Label = "timeseries"; Selectors = @("parameter.timeseries", "variable.timeseries", "property.timeseries", "function.timeseries", "keyword.timeseries"); MinimumDistinct = 3 },
+        @{ Label = "uncertain"; Selectors = @("keyword.uncertain", "function.uncertain", "variable.uncertain", "property.uncertain"); MinimumDistinct = 3 },
+        @{ Label = "workflow"; Selectors = @("parameter.workflowStep", "keyword.workflowStep", "function.workflowStep", "variable.workflowStep", "property.workflowStep"); MinimumDistinct = 3 },
+        @{ Label = "validation"; Selectors = @("parameter.validation", "keyword.validation", "function.validation", "variable.validation", "property.validation"); MinimumDistinct = 3 },
+        @{ Label = "report"; Selectors = @("parameter.report", "keyword.report", "function.report", "variable.report", "property.report"); MinimumDistinct = 3 },
+        @{ Label = "side effect"; Selectors = @("parameter.sideEffect", "keyword.sideEffect", "function.sideEffect", "method.sideEffect", "variable.sideEffect", "property.sideEffect"); MinimumDistinct = 3 },
+        @{ Label = "external boundary"; Selectors = @("parameter.external", "keyword.external", "function.external", "method.external", "variable.external", "property.external"); MinimumDistinct = 3 },
+        @{ Label = "solver"; Selectors = @("parameter.solver", "keyword.solver", "function.solver", "variable.solver", "property.solver"); MinimumDistinct = 3 },
+        @{ Label = "model"; Selectors = @("keyword.model", "function.model", "variable.model", "property.model"); MinimumDistinct = 3 },
+        @{ Label = "db"; Selectors = @("keyword.db", "function.db", "method.db", "variable.db", "property.db"); MinimumDistinct = 3 },
+        @{ Label = "cache"; Selectors = @("keyword.cache", "function.cache", "method.cache", "variable.cache", "property.cache"); MinimumDistinct = 3 }
     )
     $ContributedThemes = @($Package.contributes.themes)
     foreach ($RequiredTheme in @(
@@ -4332,8 +4343,9 @@ function Assert-VscodeExtensionContract {
             $RoleColorKeys = @($RoleColorFamily.Selectors | ForEach-Object {
                 Get-SemanticThemeColorKey $RequiredTheme.Theme.semanticTokenColors.PSObject.Properties[[string]$_].Value
             } | Sort-Object -Unique)
-            if ($RoleColorKeys.Count -lt 3) {
-                throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) keyword/function/member semantic colors visually distinct"
+            $MinimumDistinctRoleColors = if ($null -ne $RoleColorFamily.MinimumDistinct) { [int]$RoleColorFamily.MinimumDistinct } else { 3 }
+            if ($RoleColorKeys.Count -lt $MinimumDistinctRoleColors) {
+                throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) semantic role colors visually distinct"
             }
         }
     }
