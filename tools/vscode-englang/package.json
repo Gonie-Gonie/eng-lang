@@ -934,6 +934,10 @@
       {
         "command": "englang.showSemanticTokenAtCursor",
         "title": "EngLang: Inspect Highlight Token at Cursor"
+      },
+      {
+        "command": "englang.copySemanticTokenAtCursor",
+        "title": "EngLang: Copy Highlight Token at Cursor"
       }
     ],
     "menus": {
@@ -957,6 +961,11 @@
           "command": "englang.showSemanticTokenAtCursor",
           "when": "editorLangId == englang",
           "group": "navigation@42"
+        },
+        {
+          "command": "englang.copySemanticTokenAtCursor",
+          "when": "editorLangId == englang",
+          "group": "navigation@43"
         }
       ]
     }

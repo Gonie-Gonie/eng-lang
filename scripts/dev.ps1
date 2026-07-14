@@ -3356,6 +3356,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("EngLang: Copy Problem at Cursor") -or -not $VscodeReadmeSource.Contains("nearest same-line diagnostic payload") -or -not $VscodeReadmeSource.Contains("clipboard")) {
         throw "VS Code README must document the copy-ready problem cursor command"
     }
+    if (-not $VscodeReadmeSource.Contains("EngLang: Copy Highlight Token at Cursor") -or -not $VscodeReadmeSource.Contains("same-line role-aware highlight token payload") -or -not $VscodeReadmeSource.Contains("nearest same-line highlight token payload")) {
+        throw "VS Code README must document the copy-ready highlight cursor command"
+    }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
             throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
@@ -3605,7 +3608,8 @@ function Assert-VscodeExtensionContract {
         "englang.openPlotManifest",
         "englang.openPlotSvg",
         "englang.showSemanticTokensDebug",
-        "englang.showSemanticTokenAtCursor"
+        "englang.showSemanticTokenAtCursor",
+        "englang.copySemanticTokenAtCursor"
     )) {
         if ($Commands -notcontains $Required) {
             throw "VS Code extension missing command $Required"
@@ -3638,7 +3642,8 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.showProblemAtCursor"; Text = "Inspect Problem at Cursor" },
         @{ Command = "englang.copyProblemAtCursor"; Text = "Copy Problem at Cursor" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" },
-        @{ Command = "englang.showSemanticTokenAtCursor"; Text = "Inspect Highlight Token at Cursor" }
+        @{ Command = "englang.showSemanticTokenAtCursor"; Text = "Inspect Highlight Token at Cursor" },
+        @{ Command = "englang.copySemanticTokenAtCursor"; Text = "Copy Highlight Token at Cursor" }
     )) {
         $Title = $CommandTitles[$RequiredTitle.Command]
         if ([string]::IsNullOrWhiteSpace($Title) -or -not $Title.Contains($RequiredTitle.Text)) {
@@ -3646,7 +3651,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $EditorContextMenu = @($Package.contributes.menus."editor/context")
-    foreach ($RequiredEditorContextMenu in @("englang.refreshProblems", "englang.showProblemAtCursor", "englang.copyProblemAtCursor", "englang.showSemanticTokenAtCursor")) {
+    foreach ($RequiredEditorContextMenu in @("englang.refreshProblems", "englang.showProblemAtCursor", "englang.copyProblemAtCursor", "englang.showSemanticTokenAtCursor", "englang.copySemanticTokenAtCursor")) {
         $MenuItem = @($EditorContextMenu | Where-Object { $_.command -eq $RequiredEditorContextMenu }) | Select-Object -First 1
         if ($null -eq $MenuItem -or [string]$MenuItem.when -ne "editorLangId == englang") {
             throw "VS Code editor context menu must expose $RequiredEditorContextMenu only for EngLang editors"
@@ -4497,6 +4502,7 @@ function Assert-VscodeExtensionContract {
         "async function openReviewPanel",
         "async function showSemanticTokensDebug",
         "async function showSemanticTokenAtCursor",
+        "async function copySemanticTokenAtCursor",
         "function runReviewForDocument",
         "function findExampleFiles",
         "function executionProfile",
@@ -4813,6 +4819,10 @@ function Assert-VscodeExtensionContract {
     foreach ($RequiredSemanticDebugToken in @(
         "showSemanticTokensDebug",
         "showSemanticTokenAtCursor",
+        "copySemanticTokenAtCursor",
+        "semanticTokenCursorPayload(context, document, cursor)",
+        "vscode.env.clipboard.writeText(JSON.stringify(copyReady, null, 2))",
+        'showInformationMessage("EngLang highlight token copied to clipboard.")',
         "showHighlightUnavailableWarning",
         "highlight data unavailable:",
         "Show Tooling Status",

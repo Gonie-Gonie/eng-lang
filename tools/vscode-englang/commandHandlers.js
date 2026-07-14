@@ -577,16 +577,45 @@ function createCommandHandlers(options = {}) {
   }
 
   async function showSemanticTokenAtCursor(context) {
-    const editor = vscode.window.activeTextEditor;
-    const document = editor?.document;
-    if (!editor || !document || !isEngDocument(document)) {
-      vscode.window.showWarningMessage("Open an EngLang .eng file first.");
+    const target = activeEngEditorOrWarn();
+    if (!target) {
       return;
     }
+    const payload = await semanticTokenCursorPayload(context, target.document, target.editor.selection.active);
+    if (!payload) {
+      await showHighlightUnavailableWarning(context, target.document);
+      return;
+    }
+    const debugDocument = await vscode.workspace.openTextDocument({
+      language: "json",
+      content: JSON.stringify(payload, null, 2)
+    });
+    await vscode.window.showTextDocument(debugDocument, { preview: false });
+  }
+
+  async function copySemanticTokenAtCursor(context) {
+    const target = activeEngEditorOrWarn();
+    if (!target) {
+      return;
+    }
+    const payload = await semanticTokenCursorPayload(context, target.document, target.editor.selection.active);
+    if (!payload) {
+      await showHighlightUnavailableWarning(context, target.document);
+      return;
+    }
+    const copyReady = payload.summary.copy_ready;
+    if (!copyReady) {
+      vscode.window.showInformationMessage(payload.summary.status);
+      return;
+    }
+    await vscode.env.clipboard.writeText(JSON.stringify(copyReady, null, 2));
+    vscode.window.showInformationMessage("EngLang highlight token copied to clipboard.");
+  }
+
+  async function semanticTokenCursorPayload(context, document, cursor) {
     const snapshot = await lspRequests.snapshotDocumentSource(document, context);
     if (!snapshot) {
-      await showHighlightUnavailableWarning(context, document);
-      return;
+      return undefined;
     }
     reviewCache.set(document.uri.fsPath, snapshot);
     updateSemanticSymbolDecorations(document, snapshot);
@@ -596,7 +625,6 @@ function createCommandHandlers(options = {}) {
       semanticTokenTypes,
       semanticTokenModifiers
     );
-    const cursor = editor.selection.active;
     const matchingTokens = (semanticTokens.tokens ?? [])
       .filter((token) => semanticTokenRange(document, token)?.contains(cursor))
       .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
@@ -618,7 +646,7 @@ function createCommandHandlers(options = {}) {
       : nearestTokens.length > 0
         ? "nearest_token_on_line"
         : "no_semantic_tokens_on_line";
-    const payload = {
+    return {
       source: document.uri.fsPath,
       semantic_highlighting_enabled: engConfig(document).get("semanticHighlighting.enabled", true),
       cursor: {
@@ -649,13 +677,7 @@ function createCommandHandlers(options = {}) {
         semantic_tokens: semanticTokens
       }
     };
-    const debugDocument = await vscode.workspace.openTextDocument({
-      language: "json",
-      content: JSON.stringify(payload, null, 2)
-    });
-    await vscode.window.showTextDocument(debugDocument, { preview: false });
   }
-
   function highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlapCount = 0) {
     if (tokenCount === 0) {
       return "No role-aware highlight tokens were returned for this file.";
@@ -1623,7 +1645,8 @@ function createCommandHandlers(options = {}) {
     reviewActiveFile,
     openReviewPanel,
     showSemanticTokensDebug,
-    showSemanticTokenAtCursor
+    showSemanticTokenAtCursor,
+    copySemanticTokenAtCursor
   };
 }
 

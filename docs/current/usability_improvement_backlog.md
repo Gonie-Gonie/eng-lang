@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 849: Added `EngLang: Copy Highlight Token at Cursor` so VS Code users can copy current or nearest same-line role-aware highlight token payloads directly from the editor context menu.
 - Batch 848: Added `EngLang: Copy Problem at Cursor` so VS Code users can copy the current or nearest same-line Problems payload directly from the editor context menu.
 - Batch 847: Added underlined source text and full source-line fields to VS Code Problems inspector rows and copy-ready payloads so linter reports identify the exact token/range without manual reconstruction.
 - Batch 846: Made manual VS Code Problems refresh respect the selected diagnostics mode for dirty buffers, so file mode no longer switches to live-buffer diagnostics behind the user's back.

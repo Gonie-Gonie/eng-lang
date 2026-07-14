@@ -295,6 +295,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.openPlotSvg", () => artifactOpeners.openLastRunArtifact("plotSvg")),
     vscode.commands.registerCommand("englang.showSemanticTokensDebug", () => commandHandlers.showSemanticTokensDebug(context)),
     vscode.commands.registerCommand("englang.showSemanticTokenAtCursor", () => commandHandlers.showSemanticTokenAtCursor(context)),
+    vscode.commands.registerCommand("englang.copySemanticTokenAtCursor", () => commandHandlers.copySemanticTokenAtCursor(context)),
     vscode.languages.registerHoverProvider(
       LANGUAGE_ID,
       new EngHoverProvider(context, {

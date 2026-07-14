@@ -76,6 +76,8 @@ embedding compiler logic in JavaScript.
   Command Palette or `.eng` editor context menu
 - `EngLang: Copy Problem at Cursor` for copying the current or nearest same-line
   diagnostic payload without opening the inspector JSON
+- `EngLang: Copy Highlight Token at Cursor` for copying the current or nearest
+  same-line role-aware highlight token payload without opening the inspector JSON
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
@@ -272,7 +274,10 @@ open
 `EngLang: Inspect Highlight Token at Cursor` opens a cursor status summary, the
 token under the caret when one exists, the nearest highlight tokens, copy-ready
 text/range/selector fields plus panel hints for the selected token,
-line overlap rows, and the other highlight tokens on the same line.
+line overlap rows, and the other highlight tokens on the same line. `EngLang:
+Copy Highlight Token at Cursor` copies the current or nearest same-line role-aware
+highlight token payload directly to the clipboard; when the caret is between
+tokens, the copied value is the nearest same-line highlight token payload.
 
 Review-risk decorations add a subtle left border and overview-ruler mark for
 high and medium review risks without changing source text. Set
