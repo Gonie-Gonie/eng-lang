@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 805: Removed variable overlays from `export summary to csv`'s `summary` keyword and `plot A and B`'s `and` connector, clearing the remaining fixture-level keyword/variable conflicts.
 - Batch 804: Stopped bare `model` value operands in `evaluate(model)`, `model_card(model)`, and `predict model using ...` from receiving lexical keyword overlays while preserving catalog keyword coverage.
 - Batch 803: Reclassified `write text/json/standard_text` format selectors as side-effect keywords instead of helper functions, removing the last fixture-level function/keyword overlay.
 - Batch 802: Stopped keyword overlays on call-style helper functions such as `integrate(...)`, `mlp(...)`, and `plot histogram(...)` while preserving command-style keyword coloring.

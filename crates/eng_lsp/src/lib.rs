@@ -381,6 +381,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
 
 const PLOT_COMMAND_STYLE_WORDS: &[&str] = &[
+    "and",
     "line",
     "bar",
     "histogram",
@@ -2573,7 +2574,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for export in &program.csv_exports {
-        builder.push_on_line(export.line, &export.source, "variable", &["report"]);
+        if export.source != "summary" {
+            builder.push_on_line(export.line, &export.source, "variable", &["report"]);
+        }
         add_csv_export_target_semantic_tokens(&mut builder, export.line, &export.path);
         for field in &export.fields {
             builder.push_on_line(field.line, &field.name, "property", &["report"]);
@@ -3320,7 +3323,9 @@ fn add_review_risk_semantic_tokens(report: &CheckReport, builder: &mut SemanticT
         if let Some(modifier) =
             review_risk_modifier(classify_review_risk("side_effect", "info").level)
         {
-            builder.push_on_line(export.line, &export.source, "variable", &[modifier]);
+            if export.source != "summary" {
+                builder.push_on_line(export.line, &export.source, "variable", &[modifier]);
+            }
             builder.push_keywords_on_line(export.line, &["export", "csv"], &[modifier]);
         }
     }
@@ -12157,6 +12162,29 @@ comparison = empty == missing
             "keyword",
         );
         assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
+    }
+
+    #[test]
+    fn snapshot_keeps_export_summary_and_plot_and_as_keywords_not_variables() {
+        let source = r#"Q: HeatRate [kW] = 1 kW
+export summary to csv "summary.csv" {
+    Q as kW
+}
+Q_series: TimeSeries[Time] of HeatRate [kW] = 1 kW
+Q_total_unc: TimeSeries[Time] of HeatRate [kW] = 2 kW
+report {
+    plot Q_series and Q_total_unc over Time
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("keyword_connectors.eng"), source);
+
+        for (line, label) in [
+            ("export summary to csv", "summary"),
+            ("    plot Q_series and Q_total_unc over Time", "and"),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "variable");
+        }
     }
 
     #[test]
