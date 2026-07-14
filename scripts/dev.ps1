@@ -3972,6 +3972,8 @@ function Assert-VscodeExtensionContract {
     foreach ($ForbiddenVscodeReadmeWording in @(
         "semantic token modifier and TextMate fallback scope metadata",
         "semantic token modifiers and TextMate fallback scopes",
+        "TextMate-plus-semantic highlighting",
+        "TextMate-only",
         "raw semantic-token payload",
         "semantic-token mapping rules"
     )) {

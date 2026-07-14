@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 857: Reworded VS Code highlighting docs away from TextMate/semantic implementation phrasing toward first-pass syntax colors and role-aware colors, with a guard against the older wording returning.
 - Batch 856: Archived current backlog batches 821-840 into the historical log, keeping the active API/IDE/workflow cleanup backlog focused on the latest linter, highlighting, workflow, and docs work.
 - Batch 855: Added VS Code highlight coverage summaries to Inspect Highlight Tokens and Tooling Status so keyword/workflow/option/unit/operator color gaps are visible from the editor JSON reports.
 - Batch 854: Added a native IDE Highlight coverage summary with domain counts, unmatched source-word visibility, and copy-ready summary output so inconsistent keyword/workflow/unit coloring is easier to diagnose from the IDE.

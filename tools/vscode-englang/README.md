@@ -82,8 +82,9 @@ embedding compiler logic in JavaScript.
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
   current-file Problems counts and range status, cursor diagnostic inspection and
-  copy commands, Problems diagnostics toggles, the TextMate-plus-semantic highlighting
-  model, highlight inspection and copy commands, highlight coverage summary,
+  copy commands, Problems diagnostics toggles, the first-pass plus role-aware
+  highlighting model, highlight inspection and copy commands, highlight coverage
+  summary,
   fallback scope-map coverage, native workflow source/docs, latest zero-process
   artifact evidence, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
@@ -258,9 +259,9 @@ string interpolation variables/properties, format precision, format units,
 and review risks, so themes without EngLang-specific rules still receive stable
 color hints. For stronger role separation, choose `EngLang Dark` or `EngLang
 Light` from VS Code's Color Theme picker; the bundled themes define direct
-colors for every EngLang semantic selector contributed by the extension. Set
-`englang.semanticHighlighting.enabled = false` to fall back to TextMate-only
-highlighting; changing this setting refreshes the current editor colors and
+colors for every EngLang role-aware selector contributed by the extension. Set
+`englang.semanticHighlighting.enabled = false` to fall back to first-pass syntax
+colors only; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping
 rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with a plain
