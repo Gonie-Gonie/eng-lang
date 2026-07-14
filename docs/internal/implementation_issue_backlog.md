@@ -604,8 +604,8 @@ Definition of Done:
 - Preserve component-local boundary equation records with RHS literals for
   internal square algebraic fixtures.
 - Record state/algebraic/input/output classification, equation count, unknown
-  count, residual list, dependency graph, algebraic-loop metadata, sparsity
-  placeholder, solver-plan placeholder, and runtime parameter references with
+  count, residual list, dependency graph, algebraic-loop metadata,
+  `jacobian_sparsity` metadata, solver-plan status, and runtime parameter references with
   stable indices separate from solved variables.
 - Report and IDE show generated equations, source-line links, generated
   reasons, residual values, normalized residuals, scale policy, and residual
@@ -636,7 +636,7 @@ Current coverage:
 - Compiler semantic assembly records component instances, ports, connection
   sets, generated connection equations, boundary RHS equation records, equation
   and unknown counts, residual lists, dependency rows, algebraic-loop metadata,
-  jacobian-sparsity placeholders, solver-plan placeholders, and domain plans.
+  `jacobian_sparsity` metadata, solver-plan status fields, and domain plans.
 - `assembly_summary` and `component_graph` review/report artifacts preserve
   generated reasons, source-line navigation data, residual graph status,
   dependency rows, scale policy, and limitation metadata for report and IDE

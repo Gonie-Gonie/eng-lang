@@ -8985,6 +8985,11 @@ mod tests {
         );
         assert_eq!(assembly.residual_graph.status, "metadata_only");
         assert_eq!(assembly.residual_graph.jacobian_sparsity.len(), 2);
+        assert!(assembly
+            .residual_graph
+            .jacobian_sparsity
+            .iter()
+            .all(|entry| entry.status == "sparsity_metadata"));
         assert_eq!(
             assembly.residual_graph.residual_metadata.len(),
             assembly.equations.len()

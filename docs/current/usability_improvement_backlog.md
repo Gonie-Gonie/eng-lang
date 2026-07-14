@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 817: Replaced the component residual graph Jacobian status placeholder with sparsity_metadata and cleaned internal component/domain docs so current structured artifact fields are not described as placeholders or seed-only paths.
 - Batch 816: Archived current backlog batches 746-790 into the historical log, keeping active API/IDE/workflow cleanup docs focused on the latest implementation and open candidates.
 - Batch 815: Promoted observed semantic-token fallback coverage into VS Code packaging, so every selector emitted by real examples and grammar fixtures must have at least one fallback scope before a local VSIX is built.
 - Batch 814: Added explicit user-facing hover labels for compiler-owned coverage-result and generic table public-member fields in both VS Code and the native IDE, with dev gates preventing those new hover kinds from falling back to raw payload ids.

@@ -8991,6 +8991,7 @@ mod tests {
         assert!(json.contains("\"solver_boundary\""));
         assert!(json.contains("\"solver_plan\""));
         assert!(json.contains("\"jacobian_sparsity\""));
+        assert!(json.contains("\"status\": \"sparsity_metadata\""));
         assert!(json.contains("\"jacobian_seed\""));
         assert!(json.contains("\"RoomThermal.residual_1\""));
         assert!(html.contains("System Equations"));

@@ -4,7 +4,7 @@ This guide documents the current domain/component surface. The supported
 release-facing slice is a constrained component boundary assembly: the
 compiler records domains, component templates, system-local instances, ports,
 and connections; it generates connection equations; and `eng run` solves a
-square dense linear residual graph when literal boundary seeds make the graph
+square dense linear residual graph when literal boundary constraints make the graph
 balanced. Official examples cover constrained Thermal graphs and a constrained
 Thermal/Fluid[Water] pressure/flow graph. Broader component behavior equations,
 broad args/object/non-arithmetic constructor bindings, dynamic components, nonlinear/DAE coupling, pressure
@@ -86,13 +86,13 @@ component SupplyPipe {
 Each `port` names a component boundary and references a declared domain. If the
 domain is missing, checking reports `E-PORT-DOMAIN-001`. A `name = expr` line
 inside a component is recorded as component-local expression metadata; it is not
-a top-level workflow binding. The supported numeric boundary seed shape is
+a top-level workflow binding. The supported numeric boundary constraint shape is
 `name = port.signal = literal`, for example `boundary_T = heat.T = 22 degC`.
 Direct component equations can use `port.signal eq literal` or a simple linear
 port-signal expression such as `inlet.Q eq -1 * outlet.Q`. Unitful numeric
 constants in simple linear component equations are checked against the referenced
 port signal quantity. Other component-local expressions remain metadata or
-behavior-node seeds until the broader component equation language is implemented.
+behavior-node contracts until the broader component equation language is implemented.
 
 Generic domain ports must provide the expected number of type arguments. For
 example, `Fluid[Medium M]` expects `Fluid[Water]`, `Fluid[Air]`, or another
@@ -158,20 +158,20 @@ domain.
 Connection summaries are emitted in source order. They are not sorted by graph
 topology because production physical graph solving is still deferred.
 
-## Assembly Seed
+## Assembly Residual Metadata
 
 Compatible connections are grouped into connection sets. For each set, the
-compiler records generated equation seeds:
+compiler records generated equations and residual metadata:
 
 - across variables generate equality equations, such as
   `RoomBoundary.heat.T eq AmbientBoundary.heat.T`;
 - through variables generate conservation equations, such as
   `sum(RoomBoundary.heat.Q, AmbientBoundary.heat.Q) eq 0`;
-- variables are classified as algebraic unknowns for the current seed;
+- variables are classified as algebraic unknowns for the current assembly;
 - equation/unknown counts are recorded with an underdetermined or
-  overdetermined diagnostic-code seed when the metadata is not balanced;
+  overdetermined diagnostic-code metadata when the graph is not balanced;
 - residual graph metadata records residual names, dependencies, algebraic-loop
-  candidates, Jacobian sparsity placeholders, and a solve-plan placeholder;
+  candidates, `jacobian_sparsity` dependency metadata, and a solver-plan status;
 - the runtime residual graph indexes parameter references separately from
   solved variables so future parametric residual evaluators do not pollute the
   unknown vector;
@@ -182,7 +182,7 @@ compiler records generated equation seeds:
 
 The supported official Thermal boundary examples and the official
 Thermal/Fluid[Water] pressure/flow example use these generated equations plus
-literal boundary seeds and simple component-local equations to produce square
+literal boundary constraints and simple component-local equations to produce square
 dense linear residual solves. General physical component graph solving is still
 planned.
 
@@ -206,14 +206,14 @@ official Thermal boundary shape and constrained Thermal/Fluid[Water] pressure/fl
 shape it is a real numeric solve for the constrained linear graph, but it is
 not a production physical multi-domain solve.
 
-The artifact also records explicit future-solver seeds:
+The artifact also records explicit future-solver status fields:
 
 - algebraic-only versus mixed state/algebraic classification;
-- symbolic nonlinear residual seed status;
-- DAE split seed status;
-- delay/history buffer seed status, including whether delay calls are backed by
-  the runtime delay-buffer seed but not yet integrated as a component solve;
-- Predictor behavior contract and external adapter wrapper seed status;
+- symbolic nonlinear residual status;
+- DAE split status;
+- delay/history buffer status, including whether delay calls are backed by
+  runtime delay-buffer metadata but not yet integrated as a broad component solve;
+- Predictor behavior contract and external adapter wrapper status;
 - limitations: `not_full_dae`, `not_general_nonlinear`, `not_adaptive`,
   `not_production_multi_domain`, and `no_jit_speed_claim`.
 
@@ -264,7 +264,7 @@ reference them, port type arguments, and whether each connection is currently
 `domain_compatible` or diagnostic-only.
 The `assembly_summary` section shows connection sets, generated connection
 equations, generated reasons, variable/equation counts, residual graph
-dependencies, and solver plan placeholders. It also includes `domain_count`,
+dependencies, `jacobian_sparsity`, and solver-plan status. It also includes `domain_count`,
 `domain_plans`, and `solver_preview` so report, IDE, and automation consumers can distinguish a
 single-domain graph from a multi-domain metadata graph.
 The `component_graph` section is a normalized graph JSON view with component
@@ -281,7 +281,7 @@ normalized residuals, the top normalized residuals under `largest_residuals`,
 convergence status, nullable `failure_code`/`failure_reason` aliases, solved
 linear variables when a square system is available, explicit fixed-point
 variables for `solve component_graph` requests over pivotable linear ResidualGraphs
-and selected direct expression-mapped residuals, zero-seed variables for skipped
+and selected direct expression-mapped residuals, zero-valued variables for skipped
 non-square graphs, dynamic
 trajectory and timestep diagnostic adapters, an internal simple-linear dynamic
 component assembly bridge used by solver API fixtures, and failure/limitation
@@ -319,7 +319,7 @@ re-parsing source files.
   dynamic_component_semi_implicit_euler`, generated Thermal connection
   equations, a parameterized `C * der(port.T)` component-local equation,
   state/algebraic trajectories, and per-step algebraic diagnostics. The wall heat flow is a
-  fixed simple-linear boundary seed rather than a general conductance model.
+  fixed simple-linear boundary equation rather than a general conductance model.
 - `examples/advanced_solver/27_nonlinear_algebraic/main.eng`
   shows the narrow unitful source Newton path with `solver = newton`, direct
   source-residual expression evaluation, a constructor-provided component parameter, residual scaling, convergence
@@ -333,9 +333,9 @@ re-parsing source files.
   per-step Newton diagnostics.
 - `examples/advanced_solver/32_small_thermal_fluid_loop/main.eng`
   shows the constrained Thermal/Fluid[Water] algebraic residual path with
-  Thermal and Fluid connection equations, pump boundary seeds, pipe pressure/flow
+  Thermal and Fluid connection equations, pump boundary equations, pipe pressure/flow
   component equations, named solved variables, residual norm, and
-  `largest_residuals`. It uses the public `Pressure [Pa]` quantity and a fixed pipe pressure-drop seed.
+  `largest_residuals`. It uses the public `Pressure [Pa]` quantity and a fixed pipe pressure-drop equation.
 - `examples/internal/06_domain_port/main.eng`
   shows compatible Thermal, `Fluid[Water]`, and
   `MechanicalNode[World, X]` domain connections with package/version metadata
@@ -382,10 +382,10 @@ Current:
 - connection-set assembly metadata;
 - generated connection-equation and residual graph artifacts;
 - homogeneous connection-constraint residual evaluation artifact;
-- supported square Thermal boundary residual solve for literal boundary seeds
+- supported square Thermal boundary residual solve for literal boundary constraints
   and simple linear component-local equations;
 - supported constrained Thermal/Fluid[Water] pressure/flow residual solve for
-  literal boundary seeds and simple pipe component-local equations;
+  literal boundary constraints and simple pipe component-local equations;
 - narrow source Newton residual solves for coupled unitful nonlinear
   component equations;
 - narrow source implicit-Euler DAE solves for small scalar component residual
@@ -393,7 +393,7 @@ Current:
 - narrow unitful temperature explicit-Euler source behavior RHS solves with integrated
   delay/Predictor/external behavior-node graph artifacts;
 - multi-domain assembly metadata with domain plans, future nonlinear/
-  DAE/delay/Predictor/adapter seed statuses, and explicit limitations;
+  DAE/delay/Predictor/adapter status fields, and explicit limitations;
 - review JSON output;
 - report spec and HTML report sections;
 - native IDE Domain Graph inspector;

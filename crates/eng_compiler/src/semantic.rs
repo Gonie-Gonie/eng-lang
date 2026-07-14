@@ -9012,7 +9012,7 @@ fn build_component_assembly_graphs(
         .map(|equation| ComponentJacobianSparsityInfo {
             residual: equation.name.clone(),
             with_respect_to: equation.dependencies.clone(),
-            status: "placeholder".to_owned(),
+            status: "sparsity_metadata".to_owned(),
         })
         .collect::<Vec<_>>();
     let (residual_graph_status, residual_solver_plan) = if equations.is_empty() {

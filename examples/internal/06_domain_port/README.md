@@ -20,7 +20,7 @@ This example is intentionally an Internal metadata-track fixture:
 - `connect` records component-port connections and validates domain
   compatibility.
 - Compatible connections are grouped into assembly connection sets and generate
-  Internal across/through equation seeds plus residual graph placeholders.
+  Internal across/through generated equations plus residual graph metadata.
 - The assembled graph contains three domain plans (`Thermal`, `Fluid[Water]`,
   and `MechanicalNode[World, X]`) and records `multi_domain_preview` in the
   legacy-named artifact status field. That field value is an Internal metadata
@@ -40,8 +40,8 @@ Current support boundary:
   connections, and source-line navigation;
 - `assembly_summary` exposes component-local expression counts, generated
   connection equations, equation/unknown counts, domain plans, future
-  nonlinear/DAE/delay/Predictor/adapter seed statuses, Jacobian sparsity
-  placeholders, and a no-solve solver-plan placeholder;
+  nonlinear/DAE/delay/Predictor/adapter status fields, `jacobian_sparsity`
+  dependency metadata, and a no-solve solver-plan status;
 - runtime `component_solutions` assembles generated residuals into the linear
   solver path when square, and for this underdetermined example records
   `linear_residual_satisfied_nonunique` plus the current limitation;
