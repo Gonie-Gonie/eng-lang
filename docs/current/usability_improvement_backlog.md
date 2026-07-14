@@ -1,3 +1,4 @@
+- Batch 930: Made VS Code Tooling Status native workflow summaries explicitly say no external processes alongside process_count=0 so zero-process evidence is readable without interpreting raw counters.
 - Batch 929: Renamed workflow case-table artifact runner status from manifest_seed_runner to native_template_runner and added smoke/runtime guards so native case execution no longer reads as seed-only.
 - Batch 928: Added native primitive evidence summaries to workflow-native-status and VS Code Tooling Status so workflow 01/02/03 show concrete native API, sampling/model/DB, and uncertainty/report primitives instead of only no-Python checks.
 - Batch 927: Mirrored domain helper TextMate scopes inside string interpolation so model, uncertainty, TimeSeries, and solver helper calls color before the generic builtin fallback.

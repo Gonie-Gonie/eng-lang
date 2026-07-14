@@ -2019,7 +2019,7 @@ function createCommandHandlers(options = {}) {
     ];
     const status = issues.length > 0 ? "issues" : "passed";
     const artifactSummary = processArtifact.status === "present"
-      ? `latest process_count=${processArtifact.process_count}; run graphs=${runGraphArtifacts.artifact_count}`
+      ? `latest process_count=${processArtifact.process_count}; ${processArtifact.external_process_summary}; run graphs=${runGraphArtifacts.artifact_count}`
       : "latest process artifact missing";
     return {
       status,
@@ -2206,14 +2206,18 @@ function createCommandHandlers(options = {}) {
       if (processCount !== 0 || processListCount !== 0) {
         issues.push("latest process_results.json records external processes");
       }
+      const externalProcessSummary = processCount === 0 && processListCount === 0
+        ? "no external processes"
+        : `external processes recorded (process_count=${processCount}, processes=${processListCount})`;
       return {
         status: "present",
-        summary: `Latest process_results.json has process_count=${processCount} and processes=${processListCount}.`,
+        summary: `Latest process_results.json has process_count=${processCount} and processes=${processListCount}; ${externalProcessSummary}.`,
         path: toolingStatusRelativePath(root, artifactPath),
         format: processResults.format ?? null,
         execution_profile: processResults.execution_profile ?? null,
         process_count: processCount,
         processes_count: processListCount,
+        external_process_summary: externalProcessSummary,
         issues
       };
     } catch (error) {

@@ -4715,6 +4715,7 @@ function Assert-VscodeExtensionContract {
         "native_workflows: nativeWorkflowProbe",
         "native_primitive_evidence",
         "latest_process_artifact",
+        "no external processes",
         "latest_run_graph_artifacts",
         "full_evidence_gate",
         "diagnosticsCollection.get(document.uri)",
