@@ -50,6 +50,7 @@ function createCommandHandlers(options = {}) {
   const reviewCache = options.reviewCache;
   const artifactOpeners = options.artifactOpeners;
   const lspRequests = options.lspRequests;
+  const diagnosticsCollection = options.diagnosticsCollection;
   const semanticTokenScopeMap = options.semanticTokenScopeMap ?? DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP;
   const semanticTokenTypes = options.semanticTokenTypes ?? [];
   const semanticTokenModifiers = options.semanticTokenModifiers ?? [];
@@ -181,7 +182,8 @@ function createCommandHandlers(options = {}) {
     const document = toolingStatusDocument();
     const config = engConfig(document);
     const currentFileHighlightProbe = await toolingStatusHighlightProbe(context);
-    const payload = toolingStatusPayload(context, document, config, currentFileHighlightProbe);
+    const currentFileProblemsProbe = toolingStatusProblemsProbe();
+    const payload = toolingStatusPayload(context, document, config, currentFileHighlightProbe, currentFileProblemsProbe);
     const statusDocument = await vscode.workspace.openTextDocument({
       language: "json",
       content: JSON.stringify(payload, null, 2)
@@ -899,7 +901,7 @@ function createCommandHandlers(options = {}) {
     };
   }
 
-  function toolingStatusPayload(context, document, config, currentFileHighlightProbe = null) {
+  function toolingStatusPayload(context, document, config, currentFileHighlightProbe = null, currentFileProblemsProbe = null) {
     const runtime = document ? findRuntime(context, document) : "eng.exe";
     const lsp = document ? findLspRuntime(context, document) : "eng-lsp.exe";
     const checkAndRunTool = executableStatus(runtime, config.get("runtimePath", ""));
@@ -925,7 +927,8 @@ function createCommandHandlers(options = {}) {
         diagnostics: diagnosticsSummary,
         role_aware_colors: roleAwareColorSummary,
         highlighting: highlightingSummary,
-        current_file_highlights: currentFileHighlightProbe?.summary ?? "No current EngLang highlight probe was run."
+        current_file_highlights: currentFileHighlightProbe?.summary ?? "No current EngLang highlight probe was run.",
+        current_file_problems: currentFileProblemsProbe?.summary ?? "No current EngLang Problems probe was run."
       },
       extension: {
         id: "englang.englang",
@@ -959,7 +962,10 @@ function createCommandHandlers(options = {}) {
           mode: problemsSource === "live" ? "live buffer" : "saved file",
           summary: diagnosticsSummary,
           updates_while_typing: problemsSource === "live" && lintOnChange,
-          tool: problemsSource === "live" ? "live_editor" : "check_and_run"
+          tool: problemsSource === "live" ? "live_editor" : "check_and_run",
+          current_file_count: currentFileProblemsProbe?.diagnostic_count ?? 0,
+          current_file_range_status: currentFileProblemsProbe?.diagnostic_range_status ?? "unknown",
+          current_file_probe: currentFileProblemsProbe
         },
         hover: liveEditorFeature("live_editor"),
         completion: liveEditorFeature("live_editor"),
@@ -1000,6 +1006,9 @@ function createCommandHandlers(options = {}) {
           cursor: "EngLang: Inspect Highlight Token at Cursor"
         }
       },
+      problems: {
+        current_file_probe: currentFileProblemsProbe
+      },
       settings: {
         diagnostics_mode: mode,
         saved_file_diagnostics_on_open_save: config.get("lintOnSave", true),
@@ -1018,6 +1027,167 @@ function createCommandHandlers(options = {}) {
         check_current_file: "EngLang: Check Current File"
       }
     };
+  }
+
+  function toolingStatusProblemsProbe() {
+    const document = vscode.window.activeTextEditor?.document;
+    if (!document || !isEngDocument(document)) {
+      return {
+        status: "no_active_englang_document",
+        summary: "No active EngLang file is open for current-file Problems probing.",
+        diagnostic_count: 0,
+        diagnostic_range_status: "no_diagnostics",
+        diagnostics: []
+      };
+    }
+    if (typeof diagnosticsCollection?.get !== "function") {
+      return {
+        source: document.uri.fsPath,
+        status: "unavailable",
+        summary: "Current-file Problems probing is unavailable because the VS Code diagnostics collection is not configured.",
+        diagnostic_count: 0,
+        diagnostic_range_status: "no_diagnostics",
+        diagnostics: []
+      };
+    }
+
+    const diagnostics = Array.from(diagnosticsCollection.get(document.uri) ?? []);
+    const rows = diagnostics.map((diagnostic, index) => toolingStatusProblemRow(document, diagnostic, index));
+    const severityCounts = toolingStatusCountBy(rows, "severity");
+    const sourceCounts = toolingStatusCountBy(rows, "source");
+    const rangeCounts = toolingStatusCountBy(rows, "diagnostic_range_status");
+    const diagnosticRangeStatus = toolingStatusProblemsRangeStatus(rows);
+    return {
+      source: document.uri.fsPath,
+      status: rows.length > 0 ? "diagnostics_present" : "clean",
+      summary: toolingStatusProblemsSummary(rows.length, diagnosticRangeStatus, severityCounts),
+      diagnostic_count: rows.length,
+      severity_counts: severityCounts,
+      source_counts: sourceCounts,
+      diagnostic_range_status: diagnosticRangeStatus,
+      range_status_counts: rangeCounts,
+      diagnostics: rows.slice(0, 20),
+      omitted_diagnostic_count: Math.max(0, rows.length - 20)
+    };
+  }
+
+  function toolingStatusProblemRow(document, diagnostic, index) {
+    const range = diagnostic?.range;
+    return {
+      index,
+      severity: toolingStatusProblemSeverity(diagnostic?.severity),
+      source: diagnostic?.source || "unknown",
+      code: toolingStatusDiagnosticCode(diagnostic?.code),
+      message: toolingStatusProblemMessage(diagnostic?.message),
+      diagnostic_range_text: toolingStatusProblemRangeText(range),
+      diagnostic_range_status: toolingStatusProblemRangeStatus(document, range)
+    };
+  }
+
+  function toolingStatusProblemSeverity(severity) {
+    switch (severity) {
+      case vscode.DiagnosticSeverity.Error:
+        return "error";
+      case vscode.DiagnosticSeverity.Warning:
+        return "warning";
+      case vscode.DiagnosticSeverity.Information:
+        return "information";
+      case vscode.DiagnosticSeverity.Hint:
+        return "hint";
+      default:
+        return severity === undefined || severity === null ? "unknown" : String(severity);
+    }
+  }
+
+  function toolingStatusDiagnosticCode(code) {
+    if (code === undefined || code === null) {
+      return null;
+    }
+    if (typeof code === "object") {
+      return code.value === undefined || code.value === null ? JSON.stringify(code) : String(code.value);
+    }
+    return String(code);
+  }
+
+  function toolingStatusProblemMessage(message) {
+    return String(message ?? "").split(/\r?\n/)[0].slice(0, 240);
+  }
+
+  function toolingStatusProblemRangeText(range) {
+    if (!range) {
+      return null;
+    }
+    const startLine = range.start.line + 1;
+    const startColumn = range.start.character + 1;
+    const endLine = range.end.line + 1;
+    const endColumn = range.end.character + 1;
+    return startLine === endLine
+      ? `L${startLine}:C${startColumn}-C${endColumn}`
+      : `L${startLine}:C${startColumn}-L${endLine}:C${endColumn}`;
+  }
+
+  function toolingStatusProblemRangeStatus(document, range) {
+    if (!range) {
+      return "missing";
+    }
+    if (range.start.line !== range.end.line) {
+      return "multi_line";
+    }
+    if (range.end.character <= range.start.character) {
+      return "point";
+    }
+    const lineLength = toolingStatusLineLength(document, range.start.line);
+    if (range.start.character === 0 && lineLength !== undefined && range.end.character >= lineLength) {
+      return "line";
+    }
+    return "precise";
+  }
+
+  function toolingStatusLineLength(document, zeroBasedLine) {
+    try {
+      if (zeroBasedLine < 0 || zeroBasedLine >= document.lineCount) {
+        return undefined;
+      }
+      return document.lineAt(zeroBasedLine).text.length;
+    } catch {
+      return undefined;
+    }
+  }
+
+  function toolingStatusProblemsRangeStatus(rows) {
+    if (rows.length === 0) {
+      return "no_diagnostics";
+    }
+    const statuses = new Set(rows.map((row) => row.diagnostic_range_status));
+    if (statuses.size === 1) {
+      return statuses.values().next().value;
+    }
+    if ([...statuses].every((status) => status === "precise" || status === "multi_line")) {
+      return "precise_or_multi_line";
+    }
+    return "mixed";
+  }
+
+  function toolingStatusProblemsSummary(count, diagnosticRangeStatus, severityCounts) {
+    if (count === 0) {
+      return "Current EngLang file has no VS Code Problems diagnostics.";
+    }
+    const severitySummary = ["error", "warning", "information", "hint"]
+      .filter((severity) => severityCounts[severity] > 0)
+      .map((severity) => `${severityCounts[severity]} ${severity}`)
+      .join(", ");
+    const countLabel = `${count} diagnostic${count === 1 ? "" : "s"}`;
+    const rangeLabel = diagnosticRangeStatus.replace(/_/g, " ");
+    return `Current EngLang file has ${countLabel}${severitySummary ? ` (${severitySummary})` : ""}; Problems ranges are ${rangeLabel}.`;
+  }
+
+  function toolingStatusCountBy(rows, key) {
+    const counts = {};
+    for (const row of rows) {
+      const value = row?.[key] || "unknown";
+      counts[value] = (counts[value] ?? 0) + 1;
+    }
+    return counts;
   }
 
   async function toolingStatusHighlightProbe(context) {

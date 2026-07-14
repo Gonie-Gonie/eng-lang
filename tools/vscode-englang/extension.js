@@ -70,17 +70,18 @@ function activate(context) {
     isEngDocument,
     reviewCache
   });
+  const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   commandHandlers = createCommandHandlers({
     output,
     reviewCache,
     artifactOpeners,
     lspRequests,
+    diagnosticsCollection: diagnostics,
     isEngDocument,
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
   });
-  const diagnostics = vscode.languages.createDiagnosticCollection("englang");
   const diagnosticController = new EngDiagnosticsController(context, diagnostics, {
     output,
     isEngDocument,

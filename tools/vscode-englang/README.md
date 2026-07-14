@@ -70,8 +70,9 @@ embedding compiler logic in JavaScript.
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
-  Problems diagnostics toggles, the TextMate-plus-semantic highlighting model,
-  fallback scope-map coverage, and extension version
+  current-file Problems counts and range status, Problems diagnostics toggles,
+  the TextMate-plus-semantic highlighting model, fallback scope-map coverage,
+  and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -129,9 +130,10 @@ local installation, open `tools\vscode-englang` in VS Code and launch the
 extension development host. After installing, run `EngLang: Show Tooling
 Status` to confirm the summary, bundled check/run tool and live editor tool
 paths, fallback/source labels, the current diagnostics mode, the `eng/file` or
-`eng/live` Problems source label, per-feature live editor routing, current-file
-highlight token and overlap status, and fallback scope-map coverage for
-role-aware highlighting. If you run directly from source without packaging,
+`eng/live` Problems source label, current-file Problems counts, source counts,
+range status, per-feature live editor routing, current-file highlight token and
+overlap status, and fallback scope-map coverage for role-aware highlighting. If
+you run directly from source without packaging,
 set:
 
 ```text
