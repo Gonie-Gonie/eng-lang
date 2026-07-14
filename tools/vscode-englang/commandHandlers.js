@@ -1186,8 +1186,8 @@ function createCommandHandlers(options = {}) {
     const semanticHighlighting = config.get("semanticHighlighting.enabled", true);
     const diagnosticsSummary = diagnosticsStatusSummary(problemsSource, lintOnChange);
     const roleAwareColorSummary = semanticHighlighting
-      ? "Compiler-backed role-aware colors are enabled for the current editor."
-      : "Compiler-backed role-aware colors are disabled; VS Code will use TextMate syntax colors only.";
+      ? "Checked-code role-aware colors are enabled for the current editor."
+      : "Checked-code role-aware colors are disabled; VS Code will use first-pass syntax colors only.";
     const scopeMapStatus = semanticScopeMapStatus(
       semanticTokenScopeMap,
       semanticTokenTypes,
@@ -1228,7 +1228,7 @@ function createCommandHandlers(options = {}) {
         long_running_language_server: false,
         live_buffer_tool: "live_editor",
         file_check_tool: "check_and_run",
-        highlighting_model: "TextMate first paint plus compiler-backed semantic token refinement",
+        highlighting_model: "First-pass syntax colors plus checked-code role-aware colors",
         status_note: "Live editor features read the current buffer for hover, completion, symbols, highlights, formatting, quick fixes, and live Problems updates."
       },
       features: {
@@ -1267,12 +1267,12 @@ function createCommandHandlers(options = {}) {
         native_workflows: nativeWorkflowProbe
       },
       highlighting: {
-        model: "TextMate first paint plus compiler-backed semantic token refinement",
+        model: "First-pass syntax colors plus checked-code role-aware colors",
         summary: highlightingSummary,
         textmate_first_paint: {
           enabled: true,
           source: "generated TextMate grammar",
-          purpose: "Immediate lexical colors before compiler-backed roles arrive."
+          purpose: "Immediate syntax colors before checked-code roles arrive."
         },
         semantic_tokens: {
           enabled: semanticHighlighting,

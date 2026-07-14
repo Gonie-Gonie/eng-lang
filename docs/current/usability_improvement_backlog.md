@@ -1,8 +1,9 @@
 # Usability Improvement Backlog
 
+- Batch 862: Reworded VS Code Tooling Status and current docs away from implementation-detail highlighting internals toward checked-code role-aware color wording, with a package guard against the older phrasing returning.
 - Batch 861: Moved the native IDE Highlight tab into the primary review flow immediately after Review, with side-tab order guards and user-doc wording so color/range debugging is easier to find.
 - Batch 860: Color-coded native IDE Highlight panel chips for token categories, details, selectors, and coverage domains so the inspector mirrors the editor's role colors instead of showing mostly generic chips.
-- Batch 859: Reworded VS Code and native IDE user-facing highlighting settings/docs from compiler-backed implementation phrasing to checked-code and role-aware wording, with guards against the older wording returning.
+- Batch 859: Reworded VS Code and native IDE user-facing highlighting settings/docs from implementation-detail phrasing to checked-code and role-aware wording, with guards against the older wording returning.
 - Batch 858: Split VS Code EngLang theme colors across unit, quantity, TimeSeries, workflow, validation, report, side-effect, external, solver, model, DB, and cache role families so role-aware highlighting is more colorful without collapsing each family into one color.
 - Batch 857: Reworded VS Code highlighting docs away from TextMate/semantic implementation phrasing toward first-pass syntax colors and role-aware colors, with a guard against the older wording returning.
 - Batch 856: Archived current backlog batches 821-840 into the historical log, keeping the active API/IDE/workflow cleanup backlog focused on the latest linter, highlighting, workflow, and docs work.
@@ -30,7 +31,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
 
 1. Keep workflow 01/02/03 native-only: no Python, `.py`, or `run command` path may re-enter those examples.
 2. Replace remaining seed-only implementation paths with executable compiler/runtime behavior where the public docs imply support.
-3. Improve VS Code and native IDE authoring quality: consistent TextMate first-paint highlighting, compiler-backed semantic tokens, precise diagnostics, hover, completion, and quick fixes.
+3. Improve VS Code and native IDE authoring quality: consistent TextMate first-paint highlighting, checked-code role-aware colors, precise diagnostics, hover, completion, and quick fixes.
 4. Reduce API wording ambiguity in public examples, generated metadata, diagnostics, and command names.
 5. Keep current docs compact and task-oriented; move implementation history and long-form plans to `docs/archive` or `docs/internal`.
 
@@ -45,7 +46,7 @@ archived to [usability_improvement_backlog_history.md](../archive/usability_impr
   policy.
 - DB query support: typed SQLite table readback is implemented; arbitrary query APIs, parameter binding, and query transaction policy remain open.
 - Native IDE usability: keep improving token insight, source-range actions, and inspector flows for repeated debugging tasks.
-- VS Code linter/highlighting: continue expanding compiler-backed semantic token coverage as more source spans become first-class metadata.
+- VS Code linter/highlighting: continue expanding checked-code role-aware color coverage as more source spans become first-class metadata.
 
 ## Documentation Policy
 

@@ -113,7 +113,7 @@ review material. It is not a broad solver claim.
   copying, package smoke, curated PDF docs, release zip, and SHA256 checksum.
 - Portable native IDE smoke path for open/check/save/run,
   diagnostics, variable summaries, schema/TimeSeries/metric/validation
-  inspectors, compiler-backed semantic highlight overlay, module registry
+  inspectors, checked-code role-aware highlight overlay, module registry
   browser, table transform inspector rows, PlotSpec viewing, report opening,
   and side-effect artifact panels.
 - Packaged editor-tooling binary for internal smoke checks and metadata JSON.

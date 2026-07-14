@@ -4599,10 +4599,23 @@ function Assert-VscodeExtensionContract {
             throw "VS Code tooling status must expose user-facing tool aliases while keeping executable compatibility keys"
         }
     }
+    foreach ($RequiredToolingStatusWording in @(
+        "Checked-code role-aware colors are enabled for the current editor.",
+        "Checked-code role-aware colors are disabled; VS Code will use first-pass syntax colors only.",
+        "First-pass syntax colors plus checked-code role-aware colors",
+        "Immediate syntax colors before checked-code roles arrive."
+    )) {
+        if (-not $CommandHandlersSource.Contains($RequiredToolingStatusWording)) {
+            throw "VS Code tooling status must use checked-code role-aware wording: $RequiredToolingStatusWording"
+        }
+    }
     foreach ($ForbiddenToolingStatusWording in @(
         "fresh live editor request",
         "short-lived live editor request",
-        "live editor requests"
+        "live editor requests",
+        "Compiler-backed role-aware colors",
+        "compiler-backed semantic token refinement",
+        "compiler-backed roles"
     )) {
         if ($CommandHandlersSource.Contains($ForbiddenToolingStatusWording)) {
             throw "VS Code tooling status must describe editor checks in user-facing wording: $ForbiddenToolingStatusWording"
