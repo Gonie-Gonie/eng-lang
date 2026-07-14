@@ -1242,6 +1242,8 @@ Assert-ScopeDoesNotMatchText -Scope "meta.workflow.validation.englang" -Text 'ba
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.validation.englang" -Text 'bad_assert = assert args.Q > 0 kW' -Description "unsupported bound assert command"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.validation.englang" -Text 'bad_golden = golden "summary.csv" matches file("golden/summary.csv")' -Description "unsupported bound golden command"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.summarize-series.englang" -Text 'arg_summary = summarize args.Q_total_unc by [mean, p95]' -Description "unsupported bound report summarize"
+Assert-ScopeDoesNotMatchText -Scope "meta.workflow.rmse-comparison.englang" -Text 'model_error = model.rmse' -Description "unsupported model rmse member field"
+Assert-ScopeDoesNotMatchText -Scope "meta.workflow.rmse-comparison.englang" -Text 'rmse_value = rmse(measured.T_zone, simulated.T_zone)' -Description "unsupported call-style rmse function"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.show-report.englang" -Text 'arg_show = show args.Q_total_unc' -Description "unsupported bound report show"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.plot-series.englang" -Text 'arg_plot_series = plot args.Q_series over args.Time' -Description "unsupported bound report plot"
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.plot-distribution.englang" -Text 'arg_plot_dist = plot distribution(args.Q_dist)' -Description "unsupported bound report distribution plot"
@@ -1298,6 +1300,7 @@ Assert-ActualWorkflowPublicMemberExpectedTokens
 Assert-BundledThemeLeafScopeCoverage
 Assert-WorkflowPatternIncludes -Name "meta.workflow.integrate-series.englang" -Include "#members" -Description "integrate series"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.stat-series.englang" -Include "#members" -Description "stat series"
+Assert-WorkflowPatternIncludes -Name "meta.workflow.rmse-comparison.englang" -Include "#members" -Description "rmse comparison"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.check-coverage.englang" -Include "#members" -Description "check coverage"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.fill-missing.englang" -Include "#members" -Description "fill missing"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.align-series.englang" -Include "#members" -Description "align series"

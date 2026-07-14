@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 905: Added TextMate first-paint coverage for `rmse measured.T vs simulated.T` comparison phrases so the validation metric, `vs` operator, and dotted measured/simulated operands are colored consistently before semantic tokens arrive.
 - Batch 904: Extended native workflow guards so workflow 01/02/03 audit every support-file path plus README/text docs for Python, `.py`, notebook, and run-command regressions instead of only checking executable `.eng` sources.
 - Batch 903: Added an LSP regression guard that scans every `examples/**/*.eng` source and fails if any keyword semantic token falls back to an empty modifier set, keeping role-aware keyword coloring from regressing.
 - Batch 902: Marked the domain conservation `is shared at connected ports` connector as solver-colored and verified all example keyword semantic tokens now carry a role modifier instead of falling back to generic keyword colors.

@@ -4159,6 +4159,30 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "meta.workflow.rmse-comparison.englang",
+    "text": "rmse measured_data.T_zone vs sim.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "keyword.control.validation.englang",
+    "text": "rmse",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.property.englang",
+    "text": "measured_data.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
+    "scope": "variable.other.property.englang",
+    "text": "sim.T_zone",
+    "fullMatch": true
+  },
+  {
+    "fixture": "07_report_uncertainty_solver.eng",
     "scope": "keyword.operator.word.englang",
     "text": "vs",
     "fullMatch": true

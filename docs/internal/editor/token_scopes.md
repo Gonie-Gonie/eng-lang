@@ -238,6 +238,7 @@ Current workflow phrase scopes:
 | `meta.workflow.sort-table.englang` | `sort <table> by <column> [asc|desc]` |
 | `meta.workflow.stat-axis-call.englang` | `mean(<series>, axis=<axis>)`, `max(<series>, axis=<axis>)`, and related axis statistic calls. |
 | `meta.workflow.stat-series.englang` | `mean <series> over <axis>`, `max <series> over <axis>`, and related command-style statistic phrases. |
+| `meta.workflow.rmse-comparison.englang` | `rmse <measured-series> vs <simulated-series>` command-style comparison phrases; includes member-aware first-paint fallbacks for dotted measured/simulated operands. |
 | `meta.workflow.status-condition.englang` | `status == passed` and related `on { ... }` status checks; the literal list is generated from `syntax_catalog.workflow_status_literals`. |
 | `meta.workflow.status-option.englang` | `status = planned` and related workflow status option values inside `with { ... }`; the literal list is generated from `syntax_catalog.workflow_status_literals`. |
 | `meta.workflow.summary-field.englang` | `<value> as <unit> with "<format>"` summary CSV fields. |
