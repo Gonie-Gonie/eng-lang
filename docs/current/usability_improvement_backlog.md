@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 887: Routed VS Code saved-file `E-WITH-UNIT-001` diagnostics through option-value fallback ranges so incompatible report display units underline the requested unit value.
 - Batch 886: Made VS Code saved-file Problems fallback ranges parse print/write interpolation fields so format unit diagnostics underline the requested unit instead of the expression binding.
 - Batch 885: Added workflow-aware semantic modifiers to network, process, report, and solver with blocks so their options and helper values stay visible in workflow highlight filters.
 - Batch 884: Made VS Code and native IDE highlight coverage phrase-aware so split role-aware tokens still cover multi-word workflow options such as `unit x` and `unit y`.

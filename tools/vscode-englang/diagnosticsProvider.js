@@ -400,6 +400,8 @@ function diagnosticOptionNames(code) {
       return ["cache_dir"];
     case "E-CACHE-TTL":
       return ["cache_ttl"];
+    case "E-WITH-UNIT-001":
+      return ["unit y", "unit x", "display_unit", "unit"];
     case "E-SIM-TIMESTEP-INVALID":
     case "E-SOLVE-TIMESTEP-INVALID":
       return ["timestep"];

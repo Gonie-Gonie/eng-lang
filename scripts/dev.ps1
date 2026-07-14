@@ -4786,6 +4786,8 @@ function Assert-VscodeExtensionContract {
         "E-SAMPLING-COUNT-INVALID",
         "E-ML-ARGS-002",
         "E-CACHE-KEY-NONDETERMINISTIC",
+        "E-WITH-UNIT-001",
+        "return [`"unit y`", `"unit x`", `"display_unit`", `"unit`"];",
         "E-SOLVE-MAX-ITER-INVALID",
         "variable_scale",
         "algebraic_initialization",
