@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 894: Marked declaration keywords such as `schema`, `domain`, `component`, `system`, `class`, `fn`, `method`, `package`, and `version` with declaration semantic modifiers so checked-code highlighting preserves declaration colors instead of generic keyword colors.
 - Batch 893: Added role-aware fallback coloring for partial workflow/report clause keywords so `sort ... by`, `join ... with`, `summarize ... by`, repeated plot `and`, `show ... as`, and summary field `as/with` no longer fall back to generic keyword colors.
 - Batch 892: Colored `connect ... to ...` solver endpoints and `to` clauses in LSP fallback highlighting so component connection lines no longer drop to generic keyword/property colors before richer semantic context.
 - Batch 891: Made partial DB table read/write targets role-aware in LSP fallback highlighting so `write ... to args.database.table(...)`, `read sqlite ... as ...`, and copy/move `to` clauses keep DB/external colors before full type resolution.

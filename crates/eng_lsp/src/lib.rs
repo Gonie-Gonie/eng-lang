@@ -5746,7 +5746,10 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "state" => &["declaration", "state"],
         "input" => &["declaration", "input"],
         "output" => &["declaration", "output"],
-        "const" | "parameter" | "port" | "across" | "through" | "index" => &["declaration"],
+        "schema" | "class" | "system" | "domain" | "component" | "package" | "version" | "fn"
+        | "method" | "const" | "parameter" | "port" | "across" | "through" | "index" => {
+            &["declaration"]
+        }
         "from" | "on" | "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "parity" | "residuals" => &["report"],
@@ -13261,6 +13264,46 @@ connect pump.supply to pipe.inlet
         assert_no_conflicting_semantic_token_types(&snapshot, source, "connect_endpoints.eng");
     }
 
+    #[test]
+    fn snapshot_marks_declaration_keywords_as_declarations() {
+        let source = r#"domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
+}
+schema SensorData {
+}
+class Zone {
+    method label() -> String = self.name
+}
+fn heat() -> HeatRate [kW] {
+    return 1 kW
+}
+component RoomBoundary {
+}
+system RoomThermal {
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("declaration_keywords.eng"), source);
+
+        for (line, label) in [
+            ("domain Thermal package", "domain"),
+            ("domain Thermal package", "package"),
+            ("domain Thermal package", "version"),
+            ("schema SensorData", "schema"),
+            ("class Zone", "class"),
+            ("method label", "method"),
+            ("fn heat", "fn"),
+            ("component RoomBoundary", "component"),
+            ("system RoomThermal", "system"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "keyword",
+                "declaration",
+            );
+        }
+    }
     #[test]
     fn snapshot_marks_partial_clause_keywords_role_aware() {
         let source = r#"sorted = sort args.designs by cooling_cop desc
