@@ -316,7 +316,31 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
   if (code === "W-NET-FIXTURE-ALIAS") {
     return optionKeyRange(lineText, "fixture");
   }
-  return undefined;
+  if (code === "W-NET-RESPONSE-HASH-ALIAS") {
+    return memberFieldRange(lineText, "hash", searchStart);
+  }
+  if (code === "W-NET-RESPONSE-STATUS-ALIAS") {
+    return memberFieldRange(lineText, "status", searchStart);
+  }
+  if (code === "W-STATS-SUM-001") {
+    return functionCallNameRange(lineText, "sum", searchStart);
+  }
+  if (code === "E-PUBLIC-ANNOTATION-001") {
+    return firstNeedleRange(lineText, ["="], searchStart);
+  }
+  if (code === "E-FS-CONFIRM-001") {
+    return firstNeedleRange(lineText, ["delete", "move"], searchStart);
+  }
+  if (code === "E-FS-DELETE-001") {
+    return firstNeedleRange(lineText, ["delete"], searchStart);
+  }
+  if (code === "E-LOG-LEVEL-001") {
+    return logLevelRange(lineText);
+  }
+  if (code === "E-NET-INVALID-URL") {
+    return netUrlLiteralRange(lineText, searchStart);
+  }
+  return diagnosticBacktickRange(lineText, item);
 }
 
 function firstNeedleRange(lineText, needles, startCharacter = 0) {
@@ -352,6 +376,166 @@ function optionKeyRange(lineText, key) {
     return undefined;
   }
   return { start, end: start + key.length };
+}
+
+function memberFieldRange(lineText, field, startCharacter = 0) {
+  const text = String(lineText || "");
+  const searchStart = Math.max(0, Math.min(startCharacter, text.length));
+  const range = memberFieldRangeFrom(text, field, searchStart)
+    ?? memberFieldRangeFrom(text, field, 0);
+  return range;
+}
+
+function memberFieldRangeFrom(text, field, searchStart) {
+  const needle = `.${field}`;
+  let cursor = searchStart;
+  while (cursor < text.length) {
+    const dotStart = text.indexOf(needle, cursor);
+    if (dotStart < 0) {
+      return undefined;
+    }
+    const fieldStart = dotStart + 1;
+    const fieldEnd = fieldStart + field.length;
+    if (dotStart > 0 && isIdentifierPart(text[dotStart - 1]) && !isIdentifierPart(text[fieldEnd])) {
+      return { start: fieldStart, end: fieldEnd };
+    }
+    cursor = fieldEnd;
+  }
+  return undefined;
+}
+
+function functionCallNameRange(lineText, name, startCharacter = 0) {
+  const text = String(lineText || "");
+  const searchStart = Math.max(0, Math.min(startCharacter, text.length));
+  return functionCallNameRangeFrom(text, name, searchStart)
+    ?? functionCallNameRangeFrom(text, name, 0);
+}
+
+function functionCallNameRangeFrom(text, name, searchStart) {
+  let cursor = searchStart;
+  while (cursor < text.length) {
+    const start = text.indexOf(name, cursor);
+    if (start < 0) {
+      return undefined;
+    }
+    const end = start + name.length;
+    let next = end;
+    while (next < text.length && /\s/.test(text[next])) {
+      next += 1;
+    }
+    if (!isIdentifierPart(text[start - 1]) && !isIdentifierPart(text[end]) && text[next] === "(") {
+      return { start, end };
+    }
+    cursor = end;
+  }
+  return undefined;
+}
+
+function logLevelRange(lineText) {
+  const text = String(lineText || "");
+  const logStart = lineIndentLength(text);
+  if (text.slice(logStart, logStart + 3) !== "log" || !/\s/.test(text[logStart + 3] || "")) {
+    return undefined;
+  }
+  let levelStart = logStart + 3;
+  while (levelStart < text.length && /\s/.test(text[levelStart])) {
+    levelStart += 1;
+  }
+  const first = text[levelStart];
+  if (first === '"' || first === "#") {
+    return { start: logStart, end: logStart + 3 };
+  }
+  let levelEnd = levelStart;
+  while (levelEnd < text.length && !/\s|#/.test(text[levelEnd])) {
+    levelEnd += 1;
+  }
+  return levelEnd > levelStart ? { start: levelStart, end: levelEnd } : undefined;
+}
+
+function netUrlLiteralRange(lineText, startCharacter = 0) {
+  const text = String(lineText || "");
+  const searchStart = Math.max(0, Math.min(startCharacter, text.length));
+  return callStringArgumentRange(text, "url", searchStart)
+    ?? callStringArgumentRange(text, "url", 0)
+    ?? stringLiteralRange(text, searchStart)
+    ?? stringLiteralRange(text, 0);
+}
+
+function callStringArgumentRange(text, functionName, startCharacter = 0) {
+  let cursor = startCharacter;
+  while (cursor < text.length) {
+    const start = text.indexOf(functionName, cursor);
+    if (start < 0) {
+      return undefined;
+    }
+    const end = start + functionName.length;
+    let open = end;
+    while (open < text.length && /\s/.test(text[open])) {
+      open += 1;
+    }
+    if (!isIdentifierPart(text[start - 1]) && !isIdentifierPart(text[end]) && text[open] === "(") {
+      let argumentStart = open + 1;
+      while (argumentStart < text.length && /\s/.test(text[argumentStart])) {
+        argumentStart += 1;
+      }
+      const range = stringLiteralRangeAt(text, argumentStart);
+      if (range) {
+        return range;
+      }
+    }
+    cursor = end;
+  }
+  return undefined;
+}
+
+function stringLiteralRange(text, startCharacter = 0) {
+  const quoteStart = text.indexOf('"', Math.max(0, startCharacter));
+  return quoteStart >= 0 ? stringLiteralRangeAt(text, quoteStart) : undefined;
+}
+
+function stringLiteralRangeAt(text, quoteStart) {
+  if (text[quoteStart] !== '"') {
+    return undefined;
+  }
+  let escaped = false;
+  for (let cursor = quoteStart + 1; cursor < text.length; cursor += 1) {
+    const character = text[cursor];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === '"') {
+      return { start: quoteStart, end: cursor + 1 };
+    }
+  }
+  return undefined;
+}
+
+function diagnosticBacktickRange(lineText, item) {
+  return backtickPayloadRange(lineText, item?.message)
+    ?? backtickPayloadRange(lineText, item?.help);
+}
+
+function backtickPayloadRange(lineText, text) {
+  for (const match of String(text || "").matchAll(/`([^`]+)`/g)) {
+    const payload = match[1].trim();
+    if (!payload) {
+      continue;
+    }
+    const range = firstNeedleRange(lineText, [payload], 0);
+    if (range) {
+      return range;
+    }
+  }
+  return undefined;
+}
+
+function isIdentifierPart(character) {
+  return typeof character === "string" && /^[A-Za-z0-9_]$/.test(character);
 }
 
 function lineIndentLength(lineText) {

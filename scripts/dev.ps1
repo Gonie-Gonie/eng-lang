@@ -4362,7 +4362,12 @@ function Assert-VscodeExtensionContract {
         "firstNeedleRange(lineText, [`"==`"], searchStart)",
         "firstNeedleRange(lineText, [`"struct Args`", `"struct`"], 0)",
         "firstNeedleRange(lineText, [`"script`"], searchStart)",
-        "optionKeyRange(lineText, `"fixture`")"
+        "optionKeyRange(lineText, `"fixture`")",
+        "memberFieldRange(lineText, `"hash`", searchStart)",
+        "functionCallNameRange(lineText, `"sum`", searchStart)",
+        "logLevelRange(lineText)",
+        "netUrlLiteralRange(lineText, searchStart)",
+        "diagnosticBacktickRange(lineText, item)"
     )) {
         if (-not $DiagnosticsProviderSource.Contains($RequiredDiagnosticsSourceColumnToken)) {
             throw "VS Code diagnostics provider missing source-column range token $RequiredDiagnosticsSourceColumnToken"

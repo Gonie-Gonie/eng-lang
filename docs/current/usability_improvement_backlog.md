@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 825: Expanded VS Code saved-file diagnostic range parity for more live-LSP mapped warnings and errors, including sum calls, schema assignment markers, file mutation verbs, invalid URL literals, response field aliases, invalid log levels, and backtick payload fallback.
 - Batch 824: Made VS Code local replacement quick fixes prefer the diagnostic range before falling back to the first same-line token, avoiding wrong edits when a line contains repeated `:=`, `==`, or migration tokens.
 - Batch 823: Added VS Code saved-file diagnostic token-range fallbacks for syntax migration and network alias diagnostics so CLI Problems underline the same `:=`, `==`, `struct Args`, `script`, and `fixture` tokens as live LSP diagnostics.
 - Batch 822: Added native IDE Highlight table row actions that open the matching inspector panels for each semantic token, extending the token-to-context routing beyond caret and hover summaries.
