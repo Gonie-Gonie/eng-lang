@@ -1,7 +1,8 @@
 # Usability Improvement Backlog
 
-- Batch 794: Reworded LSP hover Markdown kind/status lines to user-facing labels while keeping raw `kind` and `status` JSON fields stable for editor clients.
+- Batch 796: Colored `distribution(kind=normal|uniform)` literals as `uncertain` semantic tokens while preserving `sample uniform` as a workflow-step keyword.
 - Batch 795: Gave the `empty` workflow status literal the same `workflowStep` semantic modifier as the other generated status literals, so VS Code TextMate first paint and LSP semantic coloring do not disagree.
+- Batch 794: Reworded LSP hover Markdown kind/status lines to user-facing labels while keeping raw `kind` and `status` JSON fields stable for editor clients.
 - Batch 793: Reworded hover status display in VS Code and Native IDE from raw ids such as `domain_compatible` into user-facing labels while keeping snapshot payloads unchanged.
 - Batch 792: Aligned Native IDE hover titles and Highlight-panel Hover rows with VS Code by showing user-facing role labels instead of raw hover kind ids.
 - Batch 791: Reworded VS Code hover kind display from raw payload ids such as `model_field` and `db_connection_field` into user-facing role labels while keeping payload matching unchanged.

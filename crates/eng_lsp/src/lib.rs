@@ -5415,6 +5415,9 @@ fn workflow_builtin_semantic_class(
     constant_keywords: &BTreeSet<&str>,
 ) -> (&'static str, &'static [&'static str]) {
     let token_type = workflow_builtin_token_type_for_line(line, keyword, token_start);
+    if is_distribution_kind_literal(line, keyword, token_start) {
+        return ("keyword", &["uncertain"]);
+    }
     if token_type == "function"
         && constant_keywords.contains(keyword)
         && next_non_whitespace_after(line, token_end) != Some('(')
@@ -5426,6 +5429,45 @@ fn workflow_builtin_semantic_class(
             workflow_builtin_modifiers_for_line(line, keyword, token_start),
         )
     }
+}
+
+fn is_distribution_kind_literal(line: &str, keyword: &str, token_start: usize) -> bool {
+    if !matches!(keyword, "normal" | "uniform") {
+        return false;
+    }
+    let bytes = line.as_bytes();
+    let mut cursor = token_start.min(bytes.len());
+    while cursor > 0 && bytes[cursor - 1].is_ascii_whitespace() {
+        cursor -= 1;
+    }
+    if cursor == 0 || bytes[cursor - 1] != b'=' {
+        return false;
+    }
+    cursor -= 1;
+    while cursor > 0 && bytes[cursor - 1].is_ascii_whitespace() {
+        cursor -= 1;
+    }
+    let key_end = cursor;
+    while cursor > 0 && is_ident_byte(bytes[cursor - 1]) {
+        cursor -= 1;
+    }
+    if cursor == key_end || !is_ident_start(bytes[cursor]) || &line[cursor..key_end] != "kind" {
+        return false;
+    }
+    let Some(open_paren) = line[..cursor].rfind('(') else {
+        return false;
+    };
+    let mut name_end = open_paren;
+    while name_end > 0 && bytes[name_end - 1].is_ascii_whitespace() {
+        name_end -= 1;
+    }
+    let mut name_start = name_end;
+    while name_start > 0 && is_ident_byte(bytes[name_start - 1]) {
+        name_start -= 1;
+    }
+    name_start < name_end
+        && is_ident_start(bytes[name_start])
+        && &line[name_start..name_end] == "distribution"
 }
 
 fn workflow_builtin_token_type_for_line(
@@ -11880,6 +11922,62 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
             &source,
             " = empty",
             "empty",
+            "keyword",
+            "workflowStep",
+        );
+    }
+
+    #[test]
+    fn snapshot_marks_distribution_kind_literals_as_uncertain_semantic_tokens() {
+        let source = r#"Q_direct = normal(mean=5 kW, std=0.8 kW, samples=31)
+Q_dist = distribution(kind=normal, mean=5 kW, std=0.8 kW, samples=31)
+Q_range = distribution(kind=uniform, lower=1 kW, upper=8 kW, samples=11)
+designs = sample uniform
+with {
+    count = 2
+    seed = 7
+    load = uniform(1 kW, 2 kW)
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("distribution_kind_literals.eng"), source);
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "Q_direct = normal",
+            "normal",
+            "function",
+            "uncertain",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "kind=normal",
+            "normal",
+            "keyword",
+            "uncertain",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "kind=uniform",
+            "uniform",
+            "keyword",
+            "uncertain",
+        );
+        assert_semantic_token_on_line_without_modifier(
+            &snapshot,
+            source,
+            "kind=uniform",
+            "uniform",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "designs = sample uniform",
+            "uniform",
             "keyword",
             "workflowStep",
         );
