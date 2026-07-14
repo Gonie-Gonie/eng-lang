@@ -102,6 +102,22 @@
                     "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
                   },
                   {
+                    "name": "support.function.model.englang",
+                    "match": "\\b(train_test_split|regression|train_regression|mlp|ann|regression_table|evaluate|model_card|leakage_lint)\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.uncertain.englang",
+                    "match": "\\b(measured|interval|normal|uniform|distribution|propagate|ensemble|probability)\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.timeseries.englang",
+                    "match": "\\b(integrate|mean|min|max|sum|time_weighted_mean|p\\d{1,2})\\b(?=\\s*\\()"
+                  },
+                  {
+                    "name": "support.function.solver.englang",
+                    "match": "\\bder\\b(?=\\s*\\()"
+                  },
+                  {
                     "name": "support.function.builtin.englang",
                     "match": "\\b({{WORKFLOW_BUILTINS}})(?=\\s*\\()"
                   },

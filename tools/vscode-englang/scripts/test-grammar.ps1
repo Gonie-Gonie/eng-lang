@@ -1235,10 +1235,19 @@ $KeywordFallbackScopes = @(
 )
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
 $PathWorkflowBuiltins = @("join", "parent", "stem", "extension")
-$GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $PathWorkflowBuiltins -notcontains $_ -and $_ -ne "exists" })
+$ModelWorkflowBuiltins = @("train_test_split", "regression", "train_regression", "mlp", "ann", "regression_table", "evaluate", "model_card", "leakage_lint")
+$UncertaintyWorkflowBuiltins = @("measured", "interval", "normal", "uniform", "distribution", "propagate", "ensemble", "probability")
+$TimeseriesWorkflowBuiltins = @("integrate", "mean", "min", "max", "sum", "time_weighted_mean", "p90", "p95")
+$SolverWorkflowBuiltins = @("der")
+$DomainScopedWorkflowBuiltins = @($PathWorkflowBuiltins + $ModelWorkflowBuiltins + $UncertaintyWorkflowBuiltins + $TimeseriesWorkflowBuiltins + $SolverWorkflowBuiltins)
+$GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $DomainScopedWorkflowBuiltins -notcontains $_ -and $_ -ne "exists" })
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $GenericWorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeMatchesLabels -Scope "support.function.external-boundary.englang" -Labels @("exists") -Description "LSP path existence builtin"
 Assert-ScopeMatchesLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "LSP path helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.model.englang" -Labels $ModelWorkflowBuiltins -Description "LSP model helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.uncertain.englang" -Labels $UncertaintyWorkflowBuiltins -Description "LSP uncertainty helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.timeseries.englang" -Labels $TimeseriesWorkflowBuiltins -Description "LSP TimeSeries helper builtin" -Suffix "("
+Assert-ScopeMatchesLabels -Scope "support.function.solver.englang" -Labels $SolverWorkflowBuiltins -Description "LSP solver helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
 Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins) -Description "LSP workflow builtin call" -Suffix "("
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
