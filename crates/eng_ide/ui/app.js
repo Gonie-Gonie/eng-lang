@@ -641,10 +641,7 @@ function bind() {
   document.querySelectorAll("[data-problem-line]").forEach((row) => {
     row.onclick = (event) => {
       if (event.target.closest("button")) return;
-      selectSourceLine(
-        Number(row.dataset.problemLine || 0),
-        Number(row.dataset.problemColumn || 1)
-      );
+      selectProblemRange(row);
     };
   });
   document.querySelectorAll("[data-copy-problem-index]").forEach((button) => {
@@ -1113,6 +1110,41 @@ function selectSourceLine(line, column = 1) {
   editor.focus();
   editor.selectionStart = lineRange.start + (columnStart ?? 0);
   editor.selectionEnd = lineRange.end;
+  editor.scrollTop = Math.max(0, (lineRange.lineIndex - 3) * 20);
+  updateCursorInsight();
+}
+
+function selectProblemRange(row) {
+  const line = Number(row?.dataset?.problemLine || 0);
+  const startCharacter = Number(row?.dataset?.problemStartCharacter ?? -1);
+  const endCharacter = Number(row?.dataset?.problemEndCharacter ?? -1);
+  if (Number.isFinite(startCharacter) && Number.isFinite(endCharacter) && endCharacter > startCharacter) {
+    selectSourceCharacterRange(line, startCharacter, endCharacter);
+    return;
+  }
+  selectSourceLine(line, Number(row?.dataset?.problemColumn || 1));
+}
+
+function selectSourceCharacterRange(line, startCharacter, endCharacter) {
+  const editor = byId("editor");
+  if (
+    !editor ||
+    !Number.isFinite(line) ||
+    !Number.isFinite(startCharacter) ||
+    !Number.isFinite(endCharacter) ||
+    line <= 0 ||
+    startCharacter < 0 ||
+    endCharacter <= startCharacter
+  ) {
+    return;
+  }
+  const lineRange = sourceLineRange(editor.value, line - 1);
+  const lineLength = lineRange.text.length;
+  const startColumn = Math.min(lineLength, Math.max(0, Math.trunc(startCharacter)));
+  const endColumn = Math.min(lineLength, Math.max(startColumn + 1, Math.trunc(endCharacter)));
+  editor.focus();
+  editor.selectionStart = lineRange.start + startColumn;
+  editor.selectionEnd = lineRange.start + endColumn;
   editor.scrollTop = Math.max(0, (lineRange.lineIndex - 3) * 20);
   updateCursorInsight();
 }
@@ -6459,7 +6491,7 @@ function renderProblems() {
   const activeCode = activeProblemCode(diagnostics);
   const filtered = filteredProblems(activeCode);
   const rows = filtered.map((diag, index) => `
-    <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" data-problem-column="${escapeAttr(diag.column || 1)}" title="Jump to ${escapeAttr(diag.rangeText || diag.range_text || `line ${diag.line || "-"}`)}">
+    <tr class="problem-row" data-problem-line="${escapeAttr(diag.line || 0)}" data-problem-column="${escapeAttr(diag.column || 1)}" data-problem-start-character="${escapeAttr(diag.startCharacter ?? diag.start_character ?? -1)}" data-problem-end-character="${escapeAttr(diag.endCharacter ?? diag.end_character ?? -1)}" title="Select ${escapeAttr(diag.rangeText || diag.range_text || `line ${diag.line || "-"}`)}">
       <td class="${diag.severity === "error" ? "error" : "warning"}">${escapeHtml(diag.severity)}</td>
       <td>${problemRangeCell(diag)}</td>
       <td><code>${escapeHtml(diag.code)}</code></td>
