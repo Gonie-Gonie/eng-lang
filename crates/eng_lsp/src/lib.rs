@@ -2340,7 +2340,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
                 &["declaration", "workflowStep"],
             );
             for source_column in &column.source_columns {
-                builder.push_on_line(column.line, source_column, "property", &["workflowStep"]);
+                if !is_known_unit_symbol(source_column) {
+                    builder.push_on_line(column.line, source_column, "property", &["workflowStep"]);
+                }
             }
         }
         for predicate in &transform.predicates {
@@ -2596,7 +2598,9 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         } else if write.format == "standard_text" {
             modifiers.push("workflowStep");
         }
-        builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
+        if !is_string_literal_expression(&write.expression) {
+            builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
+        }
         builder.push_keywords_on_line(write.line, &["write"], &modifiers);
         builder.push_on_line(write.line, &write.format, "keyword", &modifiers);
         add_write_target_semantic_tokens(&mut builder, write.line, &write.format, &write.path);
@@ -4856,6 +4860,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                         &["quantity"],
                     );
                 } else if public_types.contains(token) {
+                    if previous_identifier_before(line, token_start) == Some("as") {
+                        continue;
+                    }
                     self.push_byte_range(line_index, token_start, index - token_start, "type", &[]);
                 }
                 continue;
@@ -5389,10 +5396,14 @@ impl<'a> SemanticTokenBuilder<'a> {
                     let receiver_end = receiver_start + receiver.len();
                     let field_start = receiver_end + 1;
                     search_start = field_start;
+                    let bytes = line.as_bytes();
+                    let nested_receiver = receiver_start
+                        .checked_sub(1)
+                        .and_then(|index| bytes.get(index).copied())
+                        == Some(b'.');
                     if !member_receiver_boundary(line, receiver_start) {
                         continue;
                     }
-                    let bytes = line.as_bytes();
                     if field_start >= range_end
                         || field_start >= bytes.len()
                         || !is_ident_start(bytes[field_start])
@@ -5410,13 +5421,15 @@ impl<'a> SemanticTokenBuilder<'a> {
                     if !fields.iter().any(|(candidate, _)| *candidate == field) {
                         continue;
                     }
-                    self.push_byte_range(
-                        line_index,
-                        receiver_start,
-                        receiver.len(),
-                        "variable",
-                        receiver_modifiers,
-                    );
+                    if !nested_receiver {
+                        self.push_byte_range(
+                            line_index,
+                            receiver_start,
+                            receiver.len(),
+                            "variable",
+                            receiver_modifiers,
+                        );
+                    }
                     self.push_byte_range(
                         line_index,
                         field_start,
@@ -6427,7 +6440,11 @@ fn dotted_identifier_segment_token_type(
         return None;
     }
     if has_previous_segment {
-        Some("property")
+        if next_non_whitespace_after(line, end) == Some('(') {
+            Some("method")
+        } else {
+            Some("property")
+        }
     } else if line.get(start..end) == Some("args") {
         Some("parameter")
     } else {
@@ -6474,6 +6491,16 @@ fn member_receiver_boundary(line: &str, start: usize) -> bool {
         .checked_sub(1)
         .and_then(|index| bytes.get(index).copied())
         .is_none_or(|byte| !is_ident_byte(byte))
+}
+
+fn is_string_literal_expression(value: &str) -> bool {
+    let trimmed = value.trim();
+    string_literal_byte_range_at(trimmed, 0)
+        .is_some_and(|(start, end)| start == 0 && end == trimmed.len())
+}
+
+fn is_known_unit_symbol(value: &str) -> bool {
+    all_unit_infos().iter().any(|unit| unit.symbol == value)
 }
 
 fn is_unit_denominator_token(line: &str, start: usize, token: &str, units: &[&str]) -> bool {
@@ -12326,6 +12353,71 @@ connect Coil.heat -> AmbientBoundary.heat
             assert_semantic_token_on_line_type(&snapshot, source, line, label, token_type);
             assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "variable");
         }
+    }
+
+    #[test]
+    fn snapshot_keeps_remaining_fixture_overlap_tokens_single_typed() {
+        let source = r#"args {
+    output: DirectoryPath = dir("outputs")
+}
+db = open sqlite file("outputs/results.sqlite")
+persisted_runs = read sqlite db.table("runs") as ProcessResult
+args_records_payload = promote json records args.records_payload as ProcessResult
+write text join(args.output, "summary.txt"), "done"
+designs = sample lhs
+with {
+    count = 2
+    seed = 7
+    people_density = uniform(0.03 person/m2, 0.12 person/m2)
+    cooling_cop = uniform(2.5, 5.0)
+}
+nested_sample_preview = study.designs.row_preview
+arg_sample_preview = args.designs.row_preview
+derived = derive designs column annual_electricity = cooling_cop * 100 kWh
+"#;
+        let snapshot = snapshot_for_source(Path::new("remaining_overlap_tokens.eng"), source);
+
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "persisted_runs = read sqlite",
+            "table",
+            "method",
+        );
+        assert_no_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "persisted_runs = read sqlite",
+            "table",
+            "property",
+        );
+        for line in [
+            "persisted_runs = read sqlite",
+            "args_records_payload = promote",
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, "ProcessResult", "class");
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, "ProcessResult", "type");
+        }
+        assert_semantic_token_on_line_type(&snapshot, source, "write text", "\"done\"", "string");
+        assert_no_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "write text",
+            "\"done\"",
+            "variable",
+        );
+        for line in ["nested_sample_preview", "arg_sample_preview"] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, "designs", "property");
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, "designs", "variable");
+        }
+        assert_semantic_token_on_line_type(&snapshot, source, "derived = derive", "kWh", "type");
+        assert_no_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "derived = derive",
+            "kWh",
+            "property",
+        );
     }
 
     #[test]
