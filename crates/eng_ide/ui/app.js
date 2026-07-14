@@ -1643,12 +1643,36 @@ function highlightCoverageRows(tokens) {
 function highlightCoverageCatalog() {
   const catalog = state.syntaxCatalog || emptySyntaxCatalog();
   const keywordGroupWords = Object.values(catalog.keywordGroups || {}).flatMap((items) => arrayOrEmpty(items));
+  const publicFieldWords = [
+    ...catalogItemLabels(catalog.tableFields),
+    ...catalogItemLabels(catalog.sampleTableFields),
+    ...catalogItemLabels(catalog.httpResponseFields),
+    ...catalogItemLabels(catalog.coverageResultFields),
+    ...catalogItemLabels(catalog.dbConnectionFields),
+    ...catalogItemLabels(catalog.caseTableFields),
+    ...catalogItemLabels(catalog.caseOutputTableFields),
+    ...catalogItemLabels(catalog.caseResultCollectionTableFields),
+    ...catalogItemLabels(catalog.modelFields),
+    ...catalogItemLabels(catalog.predictionTableFields)
+  ];
   return [
     {
       key: "keyword",
       label: "Keywords",
       filter: "keyword",
       words: [...catalog.keywords, ...keywordGroupWords]
+    },
+    {
+      key: "type",
+      label: "Types",
+      filter: "type",
+      words: catalog.publicTypes
+    },
+    {
+      key: "quantity",
+      label: "Quantities",
+      filter: "quantity",
+      words: catalog.quantities
     },
     {
       key: "workflow",
@@ -1672,6 +1696,12 @@ function highlightCoverageCatalog() {
       label: "Units",
       filter: "unit",
       words: [...catalog.units, ...catalog.legacyUnitAliases]
+    },
+    {
+      key: "field",
+      label: "Public fields",
+      filter: "field",
+      words: publicFieldWords
     },
     {
       key: "constant",
