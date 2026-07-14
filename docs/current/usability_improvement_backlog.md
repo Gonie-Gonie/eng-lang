@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 843: Added a VS Code EngLang Problems status bar item that shows the active `.eng` file's diagnostics mode and current Problems counts, with a click-through to Tooling Status and package/doc coverage.
 - Batch 842: Archived current backlog batches 791-820 into the historical log, keeping the active API/IDE/workflow cleanup backlog focused on recent linter, highlighting, workflow, and docs work.
 - Batch 841: Reworded user-facing IDE/VS Code docs from executable/LSP and semantic-highlighting internals toward check/run tool, live editor tool, role-aware highlighting, and editor metadata wording.
 - Batch 840: Reworded public user diagnostics and standalone bundle docs away from internal snapshot phrasing, using live editor analysis and source file copy wording instead.

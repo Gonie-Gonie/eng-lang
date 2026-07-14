@@ -71,6 +71,12 @@ function activate(context) {
     reviewCache
   });
   const diagnostics = vscode.languages.createDiagnosticCollection("englang");
+  const diagnosticsStatusBar = vscode.window.createStatusBarItem(
+    vscode.StatusBarAlignment.Left,
+    80
+  );
+  diagnosticsStatusBar.name = "EngLang Problems";
+  diagnosticsStatusBar.command = "englang.showToolingStatus";
   commandHandlers = createCommandHandlers({
     output,
     reviewCache,
@@ -166,7 +172,30 @@ function activate(context) {
     decorationController.updateSemanticSymbolDecorations(document, undefined);
   }
 
-  context.subscriptions.push(output, diagnostics, semanticTokensProvider);
+  function updateDiagnosticsStatusBar(document = vscode.window.activeTextEditor?.document) {
+    if (!document || !isEngDocument(document)) {
+      diagnosticsStatusBar.hide();
+      return;
+    }
+    const config = engConfig(document);
+    const mode = diagnosticsMode(document);
+    const source = diagnosticsRuntimeLabel(diagnosticsRuntime(document));
+    const problems = Array.from(diagnostics.get(document.uri) ?? []);
+    const counts = diagnosticSeverityCounts(problems);
+    const countText = diagnosticsStatusBarCountText(counts);
+    const updateState = diagnosticsStatusBarUpdateState(document, mode, config);
+    diagnosticsStatusBar.text = `${diagnosticsStatusBarIcon(counts, updateState)} EngLang ${mode} ${countText}`;
+    diagnosticsStatusBar.tooltip = [
+      `EngLang Problems: ${countText}`,
+      `Source: ${source}`,
+      `Mode: ${mode}`,
+      updateState,
+      "Click to open EngLang: Show Tooling Status."
+    ].filter(Boolean).join("\n");
+    diagnosticsStatusBar.show();
+  }
+
+  context.subscriptions.push(output, diagnostics, diagnosticsStatusBar, semanticTokensProvider);
   context.subscriptions.push(...decorationController.disposables);
 
   context.subscriptions.push(
@@ -174,6 +203,7 @@ function activate(context) {
     vscode.workspace.onDidChangeTextDocument((event) => {
       clearCachedEditorSnapshot(event.document);
       diagnosticController.scheduleChangedCheck(event.document);
+      updateDiagnosticsStatusBar(event.document);
     }),
     vscode.workspace.onDidSaveTextDocument((document) => diagnosticController.maybeCheck(document)),
     vscode.workspace.onDidChangeConfiguration((event) => {
@@ -191,6 +221,7 @@ function activate(context) {
         semanticTokensProvider.refresh();
         decorationController.refreshVisibleSemanticSymbolDecorations();
       }
+      updateDiagnosticsStatusBar();
     }),
     vscode.workspace.onDidCloseTextDocument((document) => {
       diagnosticController.clearPendingCheck(document);
@@ -198,12 +229,24 @@ function activate(context) {
       diagnostics.delete(document.uri);
       decorationController.updateReviewRiskDecorations(document, undefined);
       decorationController.updateSemanticSymbolDecorations(document, undefined);
+      updateDiagnosticsStatusBar();
     }),
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       if (editor && isEngDocument(editor.document)) {
         const cached = reviewCache.get(editor.document.uri.fsPath);
         decorationController.updateReviewRiskDecorations(editor.document, cached);
         decorationController.updateSemanticSymbolDecorations(editor.document, cached);
+      }
+      updateDiagnosticsStatusBar(editor?.document);
+    }),
+    vscode.languages.onDidChangeDiagnostics((event) => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document || !isEngDocument(document)) {
+        updateDiagnosticsStatusBar(document);
+        return;
+      }
+      if (event.uris.some((uri) => uri.toString() === document.uri.toString())) {
+        updateDiagnosticsStatusBar(document);
       }
     }),
     vscode.commands.registerCommand("englang.checkFile", () => diagnosticController.checkActiveFile()),
@@ -335,6 +378,7 @@ function activate(context) {
   for (const document of vscode.workspace.textDocuments) {
     diagnosticController.maybeCheck(document);
   }
+  updateDiagnosticsStatusBar();
 }
 
 function deactivate() {}
@@ -401,6 +445,76 @@ function explicitlyConfiguredEngValue(config, key) {
   return undefined;
 }
 
+function diagnosticSeverityCounts(problems) {
+  const counts = { errors: 0, warnings: 0, infos: 0, hints: 0 };
+  for (const problem of problems) {
+    switch (problem.severity) {
+      case vscode.DiagnosticSeverity.Error:
+        counts.errors += 1;
+        break;
+      case vscode.DiagnosticSeverity.Warning:
+        counts.warnings += 1;
+        break;
+      case vscode.DiagnosticSeverity.Information:
+        counts.infos += 1;
+        break;
+      case vscode.DiagnosticSeverity.Hint:
+        counts.hints += 1;
+        break;
+      default:
+        break;
+    }
+  }
+  return counts;
+}
+
+function diagnosticsStatusBarCountText(counts) {
+  const parts = [];
+  if (counts.errors > 0) parts.push(`${counts.errors}E`);
+  if (counts.warnings > 0) parts.push(`${counts.warnings}W`);
+  if (counts.infos > 0) parts.push(`${counts.infos}I`);
+  if (counts.hints > 0) parts.push(`${counts.hints}H`);
+  return parts.length > 0 ? parts.join(" ") : "clean";
+}
+
+function diagnosticsStatusBarIcon(counts, updateState) {
+  if (/off|disabled/.test(updateState)) {
+    return "$(circle-slash)";
+  }
+  if (/last saved/.test(updateState)) {
+    return "$(circle-large-outline)";
+  }
+  if (counts.errors > 0) {
+    return "$(error)";
+  }
+  if (counts.warnings > 0) {
+    return "$(warning)";
+  }
+  return "$(check)";
+}
+
+function diagnosticsStatusBarUpdateState(document, mode, config) {
+  const lintOnSave = config.get("lintOnSave", true);
+  const lintOnChange = config.get("lintOnChange", true);
+  if (mode === "live") {
+    if (document.isDirty && !lintOnChange) {
+      return "Live typing diagnostics are off; save or run EngLang: Check Current File.";
+    }
+    if (!document.isDirty && !lintOnSave) {
+      return "Saved-file diagnostics are off; run EngLang: Check Current File for a manual refresh.";
+    }
+    return lintOnChange
+      ? "Live typing diagnostics update after a short pause."
+      : "Live diagnostics are selected; saved files refresh on open, save, or manual check.";
+  }
+  if (!lintOnSave) {
+    return "Saved-file diagnostics are off; run EngLang: Check Current File for a manual refresh.";
+  }
+  if (document.isDirty) {
+    return "File diagnostics use the last saved file until you save or run EngLang: Check Current File.";
+  }
+  return "File diagnostics refresh on open, save, or manual check.";
+}
 module.exports = {
   activate,
   deactivate

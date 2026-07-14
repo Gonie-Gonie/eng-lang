@@ -3344,6 +3344,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows")) {
         throw "VS Code README must document highlight overlap rows in user-facing terms"
     }
+    if (-not $VscodeReadmeSource.Contains("status bar") -or -not $VscodeReadmeSource.Contains("EngLang Problems mode") -or -not $VscodeReadmeSource.Contains("error/warning/info/hint counts")) {
+        throw "VS Code README must document the EngLang Problems status bar in user-facing terms"
+    }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
             throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
@@ -4131,6 +4134,24 @@ function Assert-VscodeExtensionContract {
     $RuntimeDiscoverySource = Get-Content -LiteralPath $RuntimeDiscoveryPath -Raw
     $ReviewPanelRendererSource = Get-Content -LiteralPath $ReviewPanelRendererPath -Raw
     $DiagnosticsSource = $ExtensionSource + "`n" + $DiagnosticsProviderSource
+    foreach ($RequiredStatusBarToken in @(
+        "createStatusBarItem",
+        'diagnosticsStatusBar.name = "EngLang Problems"',
+        'diagnosticsStatusBar.command = "englang.showToolingStatus"',
+        "function updateDiagnosticsStatusBar",
+        "diagnosticSeverityCounts",
+        "diagnosticsStatusBarCountText",
+        "diagnosticsStatusBarUpdateState",
+        "vscode.languages.onDidChangeDiagnostics",
+        "updateDiagnosticsStatusBar(event.document)",
+        "updateDiagnosticsStatusBar(editor?.document)",
+        'EngLang Problems: ${countText}',
+        "Click to open EngLang: Show Tooling Status."
+    )) {
+        if (-not $ExtensionSource.Contains($RequiredStatusBarToken)) {
+            throw "VS Code extension missing EngLang Problems status bar token $RequiredStatusBarToken"
+        }
+    }
     foreach ($ForbiddenCommandWording in @(
         "Current File Review JSON",
         "Last Run Review JSON",

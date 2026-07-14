@@ -13,6 +13,8 @@ embedding compiler logic in JavaScript.
 - optional live editor diagnostics, hover, completion, document/workspace
   symbols, and folding for the current unsaved buffer
 - debounced diagnostics for unsaved buffers after a short typing pause
+- a clickable EngLang Problems status bar item showing file/live mode,
+  current error/warning/info/hint counts, and a Tooling Status shortcut
 - role-aware highlighting for unsaved buffers, covering roles such as
   variables, parameters, properties, built-in workflow helpers, module
   namespaces, quantities, units, reports, validations, and side-effect/external
@@ -194,6 +196,8 @@ typing pause, so Problems can update before the file is saved. The EngLang outpu
 panel records whether Problems came from file diagnostics or live-buffer
 diagnostics and which tool path was selected. The VS Code Problems source column
 uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
+The status bar shows the active `.eng` file's EngLang Problems mode and current
+error/warning/info/hint counts; click it to open `EngLang: Show Tooling Status`.
 Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a
