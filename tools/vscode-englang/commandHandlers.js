@@ -618,6 +618,7 @@ function createCommandHandlers(options = {}) {
     const unmappedSelectors = sample.unmapped_semantic_selectors ?? [];
     const rangeText = semanticTokenRangeText(line, column, length);
     const primarySelector = semanticSelectors[0] ?? sample.type;
+    const inspectorPanels = semanticTokenInspectorPanels(sample, semanticSelectors);
     return {
       line: sample.line,
       column,
@@ -635,6 +636,8 @@ function createCommandHandlers(options = {}) {
       semantic_selectors: semanticSelectors,
       unmapped_semantic_selectors: unmappedSelectors,
       fallback_scopes: fallbackScopes,
+      inspector_panels: inspectorPanels,
+      panel_hint: inspectorPanels.length > 0 ? inspectorPanels.join(", ") : null,
       copy_text: sample.text,
       copy_range: rangeText,
       copy_selector: primarySelector
@@ -656,9 +659,47 @@ function createCommandHandlers(options = {}) {
       text: row.copy_text ?? row.text ?? "",
       range: row.copy_range ?? row.range_text ?? null,
       selector: row.copy_selector ?? row.primary_selector ?? row.type ?? "-",
+      inspector_panels: row.inspector_panels ?? [],
+      panel_hint: row.panel_hint ?? null,
       fallback_status: row.fallback_status ?? "-",
       direct_selector_status: row.direct_selector_status ?? "-"
     };
+  }
+
+  function semanticTokenInspectorPanels(row, semanticSelectors = []) {
+    const modifiers = Array.isArray(row?.modifiers) ? row.modifiers.map((modifier) => String(modifier)) : [];
+    const modifierText = modifiers.join(" ").toLowerCase();
+    const tokenType = String(row?.type || "");
+    const detailText = [
+      row?.text,
+      tokenType,
+      modifierText,
+      ...semanticSelectors
+    ].map((value) => String(value || "").toLowerCase()).join(" ");
+    const panels = [];
+    const add = (panel) => {
+      if (!panels.includes(panel)) panels.push(panel);
+    };
+
+    if (detailText.includes("schema")) add("schema");
+    if (modifiers.includes("timeseries") || modifiers.includes("axis") || detailText.includes("timeseries") || detailText.includes("time axis")) add("time");
+    if (modifiers.includes("validation")) add("checks");
+    if (modifiers.includes("workflowStep")) add("workflow");
+    if (modifiers.includes("workflowStep") && /case|materialize|collect|apply/.test(detailText)) add("case");
+    if (modifiers.includes("sideEffect")) add("effects");
+    if (modifiers.includes("external")) {
+      add("effects");
+      if (/http|network|cache|response|download|url/.test(detailText)) add("network");
+    }
+    if (modifiers.includes("cache") || /cache|cache_key|cachekey|offline_response/.test(detailText)) add("network");
+    if (tokenType === "namespace" || modifiers.includes("defaultLibrary") || modifiers.includes("imported") || modifiers.includes("internal") || modifiers.includes("planned") || /\beng\./.test(detailText)) add("modules");
+    if (modifiers.includes("db") || /sqlite|database|db_/.test(detailText)) add("db");
+    if (modifiers.includes("model") || detailText.includes("model") || detailText.includes("prediction")) add("model");
+    if (modifiers.includes("report") || /report|plot|artifact/.test(detailText)) add("review");
+    if (modifiers.includes("unit") || modifiers.includes("quantity")) add("units");
+    if (["variable", "parameter", "property"].includes(tokenType)) add("variables");
+
+    return panels.slice(0, 4);
   }
 
   function findExampleFiles(root) {
