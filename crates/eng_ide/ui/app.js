@@ -15,6 +15,7 @@ const SIDE_TABS = [
   { key: "reads", label: "Reads" },
   { key: "plot", label: "Plot" },
   { key: "review", label: "Review" },
+  { key: "highlight", label: "Highlight" },
   { key: "quality", label: "Quality" },
   { key: "checks", label: "Checks" },
   { key: "effects", label: "Effects" },
@@ -28,8 +29,7 @@ const SIDE_TABS = [
   { key: "modules", label: "Modules" },
   { key: "objects", label: "Objects" },
   { key: "assembly", label: "Assembly" },
-  { key: "kernels", label: "Kernel" },
-  { key: "highlight", label: "Highlight" }
+  { key: "kernels", label: "Kernel" }
 ];
 
 const LEXICAL_KEYWORD_GROUP_ORDER = [

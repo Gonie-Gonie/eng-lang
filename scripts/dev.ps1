@@ -6594,6 +6594,7 @@ function Invoke-IdeCheck {
         '{ key: "reads", label: "Reads" }',
         '{ key: "plot", label: "Plot" }',
         '{ key: "review", label: "Review" }',
+        '{ key: "highlight", label: "Highlight" }',
         '{ key: "quality", label: "Quality" }',
         '{ key: "checks", label: "Checks" }',
         '{ key: "effects", label: "Effects" }',
@@ -6607,8 +6608,7 @@ function Invoke-IdeCheck {
         '{ key: "modules", label: "Modules" }',
         '{ key: "objects", label: "Objects" }',
         '{ key: "assembly", label: "Assembly" }',
-        '{ key: "kernels", label: "Kernel" }',
-        '{ key: "highlight", label: "Highlight" }'
+        '{ key: "kernels", label: "Kernel" }'
     )
     $PreviousNativeIdeSideTabIndex = -1
     foreach ($ExpectedNativeIdeSideTab in $ExpectedNativeIdeSideTabOrder) {
@@ -6617,7 +6617,7 @@ function Invoke-IdeCheck {
             throw "Native IDE side tab order missing $ExpectedNativeIdeSideTab"
         }
         if ($NativeIdeSideTabIndex -lt $PreviousNativeIdeSideTabIndex) {
-            throw "Native IDE side tab order should keep units, review, workflow, and artifact panels before advanced panels"
+            throw "Native IDE side tab order should keep units, review, highlight, workflow, and artifact panels before advanced panels"
         }
         $PreviousNativeIdeSideTabIndex = $NativeIdeSideTabIndex
     }

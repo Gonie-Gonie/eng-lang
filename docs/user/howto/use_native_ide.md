@@ -97,8 +97,8 @@ Editor
   payload names.
 
 Right Sidebar
-  Variables, Checks, Schema, Time, Tables, Reads, Plot, Review, Quality, Effects,
-  Artifacts, and Run tabs are the primary review path. After a successful run,
+  Variables, Units, Schema, Time, Tables, Reads, Plot, Review, Highlight,
+  Quality, Checks, Effects, Artifacts, and Run tabs are the primary review path. After a successful run,
   source symbols, runtime variables, Args values, schema summaries, unit
   conversions, TimeSeries ranges/statistics, metrics, validations, uncertainty
   summaries/propagation metadata, time alignments, artifact paths, and JSON
