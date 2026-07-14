@@ -1574,13 +1574,15 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
   if (!tokenCurrent) {
     return `<div class="empty-state">Check current file to refresh highlight data.</div>`;
   }
+  const lineOverlapNotice = renderCaretLineOverlapNotice(caret?.lineOverlaps);
   if (!caret?.token) {
     const nearestTokens = arrayOrEmpty(caret?.nearestTokens);
     if (!nearestTokens.length) {
-      return `<div class="empty-state">No exact highlight at the caret.</div>`;
+      return `<div class="empty-state">No exact highlight at the caret.</div>${lineOverlapNotice}`;
     }
     return `
       <div class="empty-state">No exact highlight at the caret.</div>
+      ${lineOverlapNotice}
       <div class="panel-title compact">Nearby Highlights</div>
       ${renderNearbySemanticTokenRows(nearestTokens)}
     `;
@@ -1615,11 +1617,24 @@ function renderCaretHighlightSummary(caret, tokenCurrent) {
         <tr><th>Category</th><td>${semanticTokenTypeChip(token.type)}</td></tr>
         <tr><th>Details</th><td>${modifierCells}</td></tr>
         <tr><th>Selectors</th><td>${semanticTokenSelectorCells(token)}</td></tr>
+        <tr><th>Line Overlaps</th><td>${renderCaretLineOverlapCell(caret?.lineOverlaps)}</td></tr>
         <tr><th>Hover</th><td>${escapeHtml(hover)}</td></tr>
         <tr><th>Filter</th><td>${filterButtons || "-"}</td></tr>
       </tbody>
     </table>
   `;
+}
+
+function renderCaretLineOverlapCell(overlaps) {
+  const count = arrayOrEmpty(overlaps).length;
+  if (!count) return "None";
+  return `<span class="badge warn">Overlaps ${escapeHtml(String(count))}</span> <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel range overlaps">Highlight</button>`;
+}
+
+function renderCaretLineOverlapNotice(overlaps) {
+  const count = arrayOrEmpty(overlaps).length;
+  if (!count) return "";
+  return `<div class="empty-state"><span class="badge warn">Line Overlaps ${escapeHtml(String(count))}</span> <button class="link-button token-range-button" data-show-highlight-panel title="Open Highlight panel range overlaps">Highlight</button></div>`;
 }
 
 function renderNearbySemanticTokenRows(tokens) {
@@ -5223,6 +5238,12 @@ function updateCaretHighlightSummary() {
   bindSourceTokenCopyButtons(nextTarget);
   bindHighlightTokenFilterButtons(nextTarget);
   bindInspectorTabButtons(nextTarget);
+  nextTarget.querySelectorAll("[data-show-highlight-panel]").forEach((button) => {
+    button.onclick = () => {
+      state.sideTab = "highlight";
+      render();
+    };
+  });
 }
 
 function currentCaretSemanticToken() {
@@ -5236,6 +5257,7 @@ function currentCaretSemanticToken() {
     position,
     token,
     nearestTokens,
+    lineOverlaps: semanticTokenLineOverlaps(position.line),
     hover: token ? hoverForSemanticToken(token, position.line) : null
   };
 }
@@ -5249,6 +5271,7 @@ function renderCursorInsight() {
     ? semanticTokensNearCaret(editor, position, 1)[0]
     : null;
   const hover = token ? hoverForSemanticToken(token, position.line) : null;
+  const lineOverlaps = editor && state.source === state.highlightSource ? semanticTokenLineOverlaps(position.line) : [];
   const bracket = editor ? editorBracketMatch(source, editor.selectionStart) : null;
   const parts = [`L${position.line + 1}:C${position.column + 1}`];
   if (state.source !== state.highlightSource) {
@@ -5264,6 +5287,9 @@ function renderCursorInsight() {
     parts.push(`near ${tokenLabel(nearestToken)}`);
   } else {
     parts.push("plain");
+  }
+  if (lineOverlaps.length) {
+    parts.push(`overlaps ${lineOverlaps.length}`);
   }
   if (bracket?.matched) {
     parts.push(`${bracket.open}${bracket.close} match L${bracket.line + 1}:C${bracket.column + 1}`);
@@ -5414,6 +5440,12 @@ function scanBracketBackward(source, offset, close, open) {
     if (depth === 0) return index;
   }
   return -1;
+}
+
+function semanticTokenLineOverlaps(lineIndex) {
+  if (state.source !== state.highlightSource) return [];
+  const tokens = semanticTokensByLine(semanticTokenPayload().tokens || []).get(lineIndex) || [];
+  return semanticTokenOverlaps(tokens);
 }
 
 function semanticTokenAtCaret(editor, position) {
