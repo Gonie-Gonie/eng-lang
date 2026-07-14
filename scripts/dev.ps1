@@ -1035,6 +1035,129 @@ function Invoke-WorkflowsTest {
             $ReportSpecJson = Get-Content -LiteralPath $ReportSpecPath -Raw
             $PlotSpecJson = Get-Content -LiteralPath $PlotSpecPath -Raw
             $PlotManifestJson = Get-Content -LiteralPath $PlotManifestPath -Raw
+            $ResultData = $ResultJson | ConvertFrom-Json
+            $ReviewData = $ReviewJson | ConvertFrom-Json
+            $OutputManifestData = $OutputManifestJson | ConvertFrom-Json
+            $ReportSpecData = $ReportSpecJson | ConvertFrom-Json
+            $PlotSpecData = $PlotSpecJson | ConvertFrom-Json
+            $PlotManifestData = $PlotManifestJson | ConvertFrom-Json
+
+            $SensorCoverage = @($ResultData.typed_payload.timeseries_coverage | Where-Object {
+                [string]$_.binding -eq "coverage" -and
+                [string]$_.source_table -eq "sensor" -and
+                [string]$_.source_column -eq "time" -and
+                [int]$_.expected_count -eq 4 -and
+                [int]$_.actual_count -eq 4 -and
+                [int]$_.missing_count -eq 0 -and
+                [string]$_.status -eq "complete"
+            })
+            Assert-ArtifactNumber $SensorCoverage.Count 1 "Workflow 03 native coverage contract count"
+
+            $SensorUncertaintyCalcs = @($ResultData.typed_payload.timeseries_uncertainty_calculations)
+            Assert-ArtifactNumber $SensorUncertaintyCalcs.Count 4 "Workflow 03 runtime uncertainty calculation count"
+            foreach ($RequiredCalc in @(
+                @{ Operation = "statistic"; Statistic = "mean"; Binding = $null; Method = "independent_pointwise_sensor_std_mean"; Unit = "W"; Nominal = 5072.43; Stddev = 100.0 },
+                @{ Operation = "statistic"; Statistic = "duration_above(5 kW)"; Binding = $null; Method = "independent_pointwise_sensor_std_duration_above_finite_difference"; Unit = "s"; Nominal = 299.48325358851724; Stddev = 143.29363610942985 },
+                @{ Operation = "integration"; Statistic = $null; Binding = "E_sensor"; Method = "independent_pointwise_sensor_std_trapezoidal"; Unit = "J"; Nominal = 4543242.0; Stddev = 94868.32980505138 }
+            )) {
+                $RequiredStatistic = $RequiredCalc.Statistic
+                $RequiredBinding = $RequiredCalc.Binding
+                $MatchingCalcs = @($SensorUncertaintyCalcs | Where-Object {
+                    $StatisticMatches = if ($null -eq $RequiredStatistic) { $null -eq $_.statistic } else { [string]$_.statistic -eq [string]$RequiredStatistic }
+                    $BindingMatches = if ($null -eq $RequiredBinding) { $null -eq $_.binding } else { [string]$_.binding -eq [string]$RequiredBinding }
+                    [string]$_.source -eq "Q_sensor" -and
+                    [string]$_.operation -eq [string]$RequiredCalc.Operation -and
+                    $StatisticMatches -and
+                    $BindingMatches -and
+                    [string]$_.method -eq [string]$RequiredCalc.Method -and
+                    [string]$_.status -eq "propagated_sensor_std" -and
+                    [string]$_.unit -eq [string]$RequiredCalc.Unit -and
+                    [double]$_.sensor_std -eq 0.2 -and
+                    [string]$_.sensor_std_unit -eq "kW"
+                })
+                Assert-ArtifactNumber $MatchingCalcs.Count 1 "Workflow 03 propagated uncertainty calculation $($RequiredCalc.Method)"
+                Assert-ArtifactFloat $MatchingCalcs[0].nominal_value ([double]$RequiredCalc.Nominal) "Workflow 03 nominal value for $($RequiredCalc.Method)" 0.000001
+                Assert-ArtifactFloat $MatchingCalcs[0].stddev ([double]$RequiredCalc.Stddev) "Workflow 03 stddev for $($RequiredCalc.Method)" 0.000001
+            }
+            $P95MetadataOnly = @($SensorUncertaintyCalcs | Where-Object {
+                [string]$_.source -eq "Q_sensor" -and
+                [string]$_.operation -eq "statistic" -and
+                [string]$_.statistic -eq "p95" -and
+                [string]$_.method -eq "pointwise_sensor_std_metadata_only" -and
+                [string]$_.status -eq "metadata_only" -and
+                $null -eq $_.stddev
+            })
+            Assert-ArtifactNumber $P95MetadataOnly.Count 1 "Workflow 03 p95 uncertainty should remain explicitly metadata-only"
+
+            $ReviewUncertainty = @($ReviewData.timeseries_uncertainty)
+            Assert-ArtifactNumber $ReviewUncertainty.Count 1 "Workflow 03 review uncertainty row count"
+            Assert-ArtifactValue $ReviewUncertainty[0].binding "Q_sensor" "Workflow 03 review uncertainty binding"
+            Assert-ArtifactValue $ReviewUncertainty[0].sensor_std "0.2 kW" "Workflow 03 review uncertainty sensor_std"
+            Assert-ArtifactValue $ReviewUncertainty[0].method "pointwise_measured_std" "Workflow 03 review uncertainty method"
+            Assert-ArtifactValue $ReviewUncertainty[0].status "accepted" "Workflow 03 review uncertainty status"
+            $ReviewUncertaintyCalcs = @($ReviewData.timeseries_uncertainty_calculations | Where-Object {
+                [string]$_.source -eq "Q_sensor" -and
+                [string]$_.sensor_std -eq "0.2 kW" -and
+                [string]$_.status -eq "metadata_only"
+            })
+            Assert-ArtifactNumber $ReviewUncertaintyCalcs.Count 3 "Workflow 03 review uncertainty metadata row count"
+
+            $ReportStatistics = @($ReportSpecData.computed_statistics | Where-Object {
+                [string]$_.source -eq "Q_sensor" -and
+                [string]$_.quantity_kind -eq "HeatRate" -and
+                [string]$_.axis -eq "Time" -and
+                [string]$_.status -eq "computed"
+            })
+            Assert-ArtifactNumber $ReportStatistics.Count 1 "Workflow 03 report computed statistics count"
+            $ReportStatisticValues = @($ReportStatistics[0].values)
+            Assert-ArtifactNumber $ReportStatisticValues.Count 3 "Workflow 03 report computed statistic value count"
+            foreach ($RequiredReportValue in @(
+                @{ Name = "mean"; Unit = "W" },
+                @{ Name = "p95"; Unit = "W" },
+                @{ Name = "duration_above(5 kW)"; Unit = "s" }
+            )) {
+                $MatchingReportValues = @($ReportStatisticValues | Where-Object {
+                    [string]$_.name -eq [string]$RequiredReportValue.Name -and
+                    [string]$_.unit -eq [string]$RequiredReportValue.Unit -and
+                    $null -ne $_.value
+                })
+                Assert-ArtifactNumber $MatchingReportValues.Count 1 "Workflow 03 report computed statistic $($RequiredReportValue.Name)"
+            }
+            $ReportIntegrations = @($ReportSpecData.computed_integrations | Where-Object {
+                [string]$_.binding -eq "E_sensor" -and
+                [string]$_.source -eq "Q_sensor" -and
+                [string]$_.over_axis -eq "Time" -and
+                [string]$_.method -eq "trapezoidal" -and
+                [string]$_.status -eq "computed"
+            })
+            Assert-ArtifactNumber $ReportIntegrations.Count 1 "Workflow 03 report computed integration count"
+            Assert-ArtifactFloat $ReportIntegrations[0].value 4543242.0 "Workflow 03 report computed integration value" 0.000001
+
+            $GeneratedSensorOutputs = @($OutputManifestData.artifact_registry.generated_files | Where-Object {
+                [string]$_.status -eq "generated" -and
+                [string]$_.validation.status -eq "passed" -and
+                ([string]$_.path -eq "outputs/sensor_summary.csv" -or [string]$_.path -eq "outputs/sensor_quality_summary.txt")
+            })
+            Assert-ArtifactNumber $GeneratedSensorOutputs.Count 2 "Workflow 03 generated sensor output validation count"
+
+            $PlotSeries = @($PlotSpecData.series)
+            Assert-ArtifactNumber $PlotSeries.Count 1 "Workflow 03 plot series count"
+            Assert-ArtifactValue $PlotSeries[0].name "Q_sensor" "Workflow 03 plot series name"
+            Assert-ArtifactValue $PlotSeries[0].display_unit "kW" "Workflow 03 plot series display unit"
+            $PlotBand = $PlotSeries[0].confidence_band
+            Assert-ArtifactValue $PlotBand.method "pointwise_measured_std" "Workflow 03 plot confidence-band method"
+            Assert-ArtifactValue $PlotBand.source "sensor_std" "Workflow 03 plot confidence-band source"
+            Assert-ArtifactFloat $PlotBand.level 0.95 "Workflow 03 plot confidence-band level"
+            Assert-ArtifactNumber @($PlotSeries[0].points).Count 4 "Workflow 03 plot point count"
+            Assert-ArtifactNumber @($PlotBand.lower).Count 4 "Workflow 03 lower confidence-band point count"
+            Assert-ArtifactNumber @($PlotBand.upper).Count 4 "Workflow 03 upper confidence-band point count"
+            Assert-ArtifactFloat $PlotBand.lower[0][1] 4.48188 "Workflow 03 first lower confidence-band value" 0.000001
+            Assert-ArtifactFloat $PlotBand.upper[3][1] 5.80928 "Workflow 03 last upper confidence-band value" 0.000001
+
+            $PlotManifestPlots = @($PlotManifestData.plots)
+            Assert-ArtifactNumber $PlotManifestPlots.Count 1 "Workflow 03 plot manifest plot count"
+            Assert-ArtifactValue $PlotManifestPlots[0].svg "timeseries.svg" "Workflow 03 plot manifest SVG"
+            Assert-Artifact (@($PlotManifestPlots[0].series) -contains "Q_sensor") "Workflow 03 plot manifest must list Q_sensor"
             foreach ($RequiredSensorResultToken in @(
                 '"timeseries_uncertainty_calculations"',
                 '"sensor_std": 0.2',

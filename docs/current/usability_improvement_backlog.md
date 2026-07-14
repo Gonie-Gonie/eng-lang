@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 811: Strengthened workflow 03 smoke coverage from token presence to structured JSON assertions for propagated sensor uncertainty calculations, explicit p95 metadata-only status, report computed statistic/integration values, generated output validation, and PlotSpec confidence-band point arrays.
 - Batch 810: Updated the workflow 01 native cache smoke contract to accept first-run `miss_materialized` cache records alongside cache hits and offline-response availability, restoring `dev.bat workflows-test` for the current native materialization behavior.
 - Batch 809: Cleared cached VS Code review/highlight fallback state as soon as an EngLang buffer changes, preventing hover, completion, risk markers, or semantic symbol decorations from reusing an older snapshot after edits.
 - Batch 808: Added VS Code highlighting pipeline and fallback scope-map coverage to `EngLang: Show Tooling Status` and the highlight-token inspector, so users can see TextMate first paint, compiler-backed semantic token routing, and missing selector coverage from one status view.

@@ -137,7 +137,8 @@ Current coverage:
   under the three native workflow directories and rejects process/run-command/external-scripting nodes in saved run graphs; `workflows-test` also rejects stale public-doc wording,
   malformed process-results artifacts, non-normal workflow smoke profiles, and nonzero process counts.
 - The same gate checks workflow 01 pinned-response cache materialization/replay
-  evidence and workflow 02 structured sampler, model-card, prediction, DB, and
-  case-manifest evidence so it cannot pass by reading file-backed surrogate data.
+  evidence, workflow 02 structured sampler/model/prediction/DB/case evidence,
+  and workflow 03 propagated uncertainty, report, and confidence-band plot
+  evidence so those workflows cannot pass by reading file-backed surrogate data.
 - These examples are intentionally covered by workflow smoke rather than public
   package smoke until their native modules are promoted into package scope.
