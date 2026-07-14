@@ -1730,7 +1730,8 @@ function sourceTokenActions(token) {
   const actions = [
     sourceTokenCopyButton(token, "text", "Copy Text"),
     sourceTokenCopyButton(token, "range", "Copy Range"),
-    sourceTokenCopyButton(token, "selector", "Copy Selector")
+    sourceTokenCopyButton(token, "selector", "Copy Selector"),
+    renderInspectorTabButtons(inspectorTabsForSemanticToken(token))
   ].filter(Boolean);
   return actions.length ? actions.join(" ") : "-";
 }

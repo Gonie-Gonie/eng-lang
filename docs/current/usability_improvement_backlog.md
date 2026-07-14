@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 822: Added native IDE Highlight table row actions that open the matching inspector panels for each semantic token, extending the token-to-context routing beyond caret and hover summaries.
 - Batch 821: Added VS Code highlight inspector panel hints to semantic-token rows and cursor copy-ready payloads so users can connect confusing colors to the matching Schema, Time, Workflow, Network, Case, Model, Modules, Units, Review, or Variables context.
 - Batch 820: Routed native IDE Highlight/Caret action buttons for workflow-step, cache, case, and module/namespace semantic tokens to the matching Workflow, Network, Case, and Modules inspector panels.
 - Batch 819: Fixed model target semantic-token placement so `train_test_split` source operands stay variables while named `target=` values are model properties, clearing conflicting token types across all 126 example sources.

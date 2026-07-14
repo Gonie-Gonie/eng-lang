@@ -3839,6 +3839,7 @@ fn assert_native_ide_ui_behavior_status_labels(root: &Path) -> Result<(), String
         r#"model_field: "Model field""#,
         r#"db_connection_field: "DB connection field""#,
         "function renderInspectorTabButtons(tabs)",
+        "renderInspectorTabButtons(inspectorTabsForSemanticToken(token))",
         "function bindInspectorTabButtons(root)",
         "data-open-inspector-tab",
         "Open ${escapeAttr(item.label)} panel",
