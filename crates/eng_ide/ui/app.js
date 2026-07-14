@@ -1519,6 +1519,7 @@ function renderHighlightPanel() {
   const typeCounts = countSemanticTokens(filteredTokens, (token) => token.type || "-");
   const modifierCounts = countSemanticTokens(filteredTokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
   const selectorCounts = countSemanticTokens(filteredTokens.flatMap((token) => semanticTokenSelectors(token)), (selector) => selector || "-");
+  const overlaps = semanticTokenOverlaps(tokens);
   const tokenCurrent = state.source === state.highlightSource;
   const caretToken = currentCaretSemanticToken();
   return `
@@ -1528,6 +1529,7 @@ function renderHighlightPanel() {
       <span class="badge">Shown ${filteredTokens.length}</span>
       <span class="badge">Categories ${arrayOrEmpty(legend.token_types || legend.tokenTypes).length}</span>
       <span class="badge">Details ${arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers).length}</span>
+      <span class="badge ${overlaps.length ? "warn" : ""}">Overlaps ${overlaps.length}</span>
       <span class="badge ${tokenCurrent ? "" : "warn"}">${tokenCurrent ? "Current" : "Check needed"}</span>
     </div>
     ${renderHighlightPanelStatus(tokens, filteredTokens, tokenCurrent)}
@@ -1546,6 +1548,8 @@ function renderHighlightPanel() {
       ${renderSemanticLegendTable(arrayOrEmpty(legend.token_modifiers || legend.tokenModifiers), modifierCounts, "modifier")}
       <div class="panel-title compact">Selectors</div>
       ${renderSemanticSelectorTable(selectorCounts)}
+      <div class="panel-title compact">Range Overlaps</div>
+      ${renderSemanticOverlapSummary(overlaps)}
       <div class="panel-title compact">Current File Highlights</div>
       ${renderSemanticTokenRows(filteredTokens, Boolean(state.highlightTokenQuery.trim()))}
       ${rawJsonToggle("Raw highlight data", semantic)}
@@ -1696,6 +1700,35 @@ function renderSemanticSelectorTable(counts) {
       <thead><tr><th>Selector</th><th>Count</th></tr></thead>
       <tbody>${rows || `<tr><td colspan="2" class="muted">No highlight selectors for the current check.</td></tr>`}</tbody>
     </table>
+  `;
+}
+
+function renderSemanticOverlapSummary(overlaps) {
+  const rows = overlaps.slice(0, 40).map((item) => {
+    const left = item.left || {};
+    const right = item.right || {};
+    const selectors = [...new Set([
+      ...semanticTokenSelectors(left),
+      ...semanticTokenSelectors(right)
+    ])];
+    return `
+      <tr>
+        <td>${sourceTokenButton(left, `L${String(item.line)}`)}<div class="muted">${escapeHtml(String(item.start))}:${escapeHtml(String(item.end - item.start))}</div></td>
+        <td><code>${escapeHtml(item.text || "-")}</code></td>
+        <td>${semanticTokenTypeChip(left.type)} <span class="muted">vs</span> ${semanticTokenTypeChip(right.type)}</td>
+        <td>${semanticTokenModifierChips(arrayOrEmpty(left.modifiers))}<div class="muted">${semanticTokenModifierChips(arrayOrEmpty(right.modifiers))}</div></td>
+        <td>${selectors.length ? selectors.map((selector) => highlightFilterChip(selector, selector, "selector", `Filter selector ${selector}`)).join(" ") : "-"}</td>
+        <td>${sourceTokenActions(left)}<div class="muted">${sourceTokenActions(right)}</div></td>
+      </tr>
+    `;
+  }).join("");
+  const hidden = overlaps.length > 40 ? `<div class="empty-state">Showing first 40 of ${escapeHtml(String(overlaps.length))} overlapping ranges.</div>` : "";
+  return `
+    <table class="var-table semantic-token-table">
+      <thead><tr><th>Range</th><th>Text</th><th>Categories</th><th>Details</th><th>Selectors</th><th>Actions</th></tr></thead>
+      <tbody>${rows || `<tr><td colspan="6" class="muted">No overlapping semantic highlight ranges for the current check.</td></tr>`}</tbody>
+    </table>
+    ${hidden}
   `;
 }
 
@@ -5764,6 +5797,39 @@ function lexicalCompletionClass(word) {
 
 function lexicalSpan(cssClass, text) {
   return `<span class="hl-token ${escapeAttr(cssClass)}">${escapeHtml(text)}</span>`;
+}
+
+function semanticTokenOverlaps(tokens) {
+  const lines = String(state.highlightSource || "").split(/\r\n|\r|\n/);
+  const overlaps = [];
+  for (const [lineIndex, lineTokens] of semanticTokensByLine(tokens).entries()) {
+    const line = lines[lineIndex] || "";
+    const ranges = lineTokens
+      .map((token) => semanticTokenRange(line, token))
+      .filter((range) => range && range.end > range.start)
+      .sort((left, right) => left.start - right.start || left.end - right.end);
+    let previous = null;
+    for (const range of ranges) {
+      if (previous && range.start < previous.end) {
+        const start = Math.max(previous.start, range.start);
+        const end = Math.min(previous.end, range.end);
+        overlaps.push({
+          line: lineIndex + 1,
+          start,
+          end,
+          text: line.slice(start, end),
+          left: previous.token,
+          right: range.token
+        });
+        if (range.end > previous.end) {
+          previous = range;
+        }
+        continue;
+      }
+      previous = range;
+    }
+  }
+  return overlaps;
 }
 
 function semanticTokensByLine(tokens) {
