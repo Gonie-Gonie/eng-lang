@@ -250,6 +250,7 @@ function activate(context) {
       }
     }),
     vscode.commands.registerCommand("englang.checkFile", () => diagnosticController.checkActiveFile()),
+    vscode.commands.registerCommand("englang.refreshProblems", () => diagnosticController.checkActiveFile()),
     vscode.commands.registerCommand("englang.runFile", () => commandHandlers.runActiveFile(context)),
     vscode.commands.registerCommand("englang.runExample", () => commandHandlers.runExample(context)),
     vscode.commands.registerCommand("englang.switchProfile", () => commandHandlers.switchExecutionProfile()),

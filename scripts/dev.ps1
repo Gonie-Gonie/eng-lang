@@ -3568,6 +3568,7 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($Required in @(
         "englang.checkFile",
+        "englang.refreshProblems",
         "englang.runFile",
         "englang.runExample",
         "englang.switchProfile",
@@ -3622,6 +3623,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.openPlotManifest"; Text = "Last Run Plot Output List" },
         @{ Command = "englang.openPlotSvg"; Text = "Last Run Plot SVG" },
         @{ Command = "englang.switchDiagnosticsMode"; Text = "Switch Diagnostics Mode" },
+        @{ Command = "englang.refreshProblems"; Text = "Refresh Problems" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
         @{ Command = "englang.showProblemAtCursor"; Text = "Inspect Problem at Cursor" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" },
@@ -3633,7 +3635,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $EditorContextMenu = @($Package.contributes.menus."editor/context")
-    foreach ($RequiredEditorContextMenu in @("englang.showProblemAtCursor", "englang.showSemanticTokenAtCursor")) {
+    foreach ($RequiredEditorContextMenu in @("englang.refreshProblems", "englang.showProblemAtCursor", "englang.showSemanticTokenAtCursor")) {
         $MenuItem = @($EditorContextMenu | Where-Object { $_.command -eq $RequiredEditorContextMenu }) | Select-Object -First 1
         if ($null -eq $MenuItem -or [string]$MenuItem.when -ne "editorLangId == englang") {
             throw "VS Code editor context menu must expose $RequiredEditorContextMenu only for EngLang editors"

@@ -72,6 +72,8 @@ embedding compiler logic in JavaScript.
   lists, and plot SVGs
 - `EngLang: Switch Diagnostics Mode...` for choosing quieter saved-file checks
   or live unsaved-buffer checks from the Command Palette
+- `EngLang: Refresh Problems` for rerunning the active-file linter from the
+  Command Palette or `.eng` editor context menu
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
@@ -198,6 +200,8 @@ diagnostics and which tool path was selected. The VS Code Problems source column
 uses `eng/file` for saved-file checks and `eng/live` for live-buffer checks.
 The status bar shows the active `.eng` file's EngLang Problems mode and current
 error/warning/info/hint counts; click it to open `EngLang: Show Tooling Status`.
+Use `EngLang: Refresh Problems` from the Command Palette or `.eng` editor
+context menu to run the active-file check immediately.
 Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a

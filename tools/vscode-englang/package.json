@@ -820,6 +820,10 @@
         "title": "EngLang: Check Current File"
       },
       {
+        "command": "englang.refreshProblems",
+        "title": "EngLang: Refresh Problems"
+      },
+      {
         "command": "englang.runFile",
         "title": "EngLang: Run Current File"
       },
@@ -930,6 +934,11 @@
     ],
     "menus": {
       "editor/context": [
+        {
+          "command": "englang.refreshProblems",
+          "when": "editorLangId == englang",
+          "group": "navigation@39"
+        },
         {
           "command": "englang.showProblemAtCursor",
           "when": "editorLangId == englang",
