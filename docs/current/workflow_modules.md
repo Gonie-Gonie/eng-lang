@@ -39,9 +39,7 @@ under the repro profile, and warn about stale cache entries. Native SQLite
 append/upsert/replace writes now produce DB files,
 DB manifests, schema diagnostics, hash before/after records, and transaction
 status. Native `predict <model> using <table>` now materializes prediction
-tables and manifests. Broader cache invalidation/reuse, case runner, broad DB
-support, and broader model train syntax remain planned or internal until
-concrete language/runtime/artifact slices land.
+tables and manifests. Broader cache invalidation/reuse, general run-case scheduler/resume/cache/failure policy beyond the current materialize/apply/collect case-table path, broad DB support, and broader model train syntax remain planned or internal until concrete language/runtime/artifact slices land.
 
 ## Purpose
 
@@ -296,7 +294,7 @@ an `eng.process` adapter with matching expected outputs. Current native
 make the supported table/case/template path explicit by materializing CaseTable,
 CaseOutput rows with expected, rendered, blocked, output, and manifest counts, and
 CaseResultCollection rows. A collection row is `collected` only when the source
-CaseOutput row has render evidence; planned output paths remain `missing` until
+CaseOutput row has render evidence; declared expected output paths remain `missing` until
 the native render step has materialized the input and render manifest. Broader
 run-case scheduler policy should extend the same record shape:
 

@@ -25989,7 +25989,7 @@ with {
     }
 
     #[test]
-    fn materializes_case_manifest_seeds_from_sample_table_rows() {
+    fn materializes_case_manifest_records_from_sample_table_rows() {
         let table = RuntimeTable {
             binding: "designs".to_owned(),
             schema_name: "DesignSample".to_owned(),

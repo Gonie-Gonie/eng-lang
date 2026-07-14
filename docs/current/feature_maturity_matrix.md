@@ -261,7 +261,7 @@ separate.
   HTTP(S) GET/download execution materializes pinned response/download bodies
   with cache replay; current native `materialize cases`, `apply ... over cases`,
   and `collect results <CaseOutput>` syntax materializes CaseTable, CaseOutput,
-  and CaseResultCollection rows for the supported case-table path; `Planned` for broad run-cases scheduling, broad DB support, and broader
+  and CaseResultCollection rows for the supported case-table path; `Planned` for general run-case scheduler/resume/cache/failure policy beyond that path, broad DB support, and broader
   model train syntax.
 - User-facing scope: generic module boundaries only. Domain-specific KMA, EPW,
   EnergyPlus, CFD, FEM, or database adapters are examples layered above the

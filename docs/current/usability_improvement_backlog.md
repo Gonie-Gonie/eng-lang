@@ -1,3 +1,4 @@
+- Batch 931: Split workflow docs between the implemented native materialize/apply/collect case-table path and the remaining general run-case scheduler work, and renamed internal case-manifest seed test labels to record labels.
 - Batch 930: Made VS Code Tooling Status native workflow summaries explicitly say no external processes alongside process_count=0 so zero-process evidence is readable without interpreting raw counters.
 - Batch 929: Renamed workflow case-table artifact runner status from manifest_seed_runner to native_template_runner and added smoke/runtime guards so native case execution no longer reads as seed-only.
 - Batch 928: Added native primitive evidence summaries to workflow-native-status and VS Code Tooling Status so workflow 01/02/03 show concrete native API, sampling/model/DB, and uncertainty/report primitives instead of only no-Python checks.

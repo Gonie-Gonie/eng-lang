@@ -20190,15 +20190,15 @@ mod tests {
     }
 
     #[test]
-    fn run_source_materializes_case_manifest_seeds() {
+    fn run_source_materializes_case_manifest_records() {
         let repo_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("../..")
             .canonicalize()
             .expect("repo root");
-        let source_dir = repo_root.join("build").join("runtime-case-manifest-seed");
+        let source_dir = repo_root.join("build").join("runtime-case-manifest-record");
         let build_root = repo_root
             .join("build")
-            .join("runtime-case-manifest-seed-result");
+            .join("runtime-case-manifest-record-result");
         let _ = fs::remove_dir_all(&source_dir);
         let _ = fs::remove_dir_all(&build_root);
         fs::create_dir_all(source_dir.join("samples")).expect("sample data dir");

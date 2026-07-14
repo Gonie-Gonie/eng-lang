@@ -2000,7 +2000,10 @@ function Test-CurrentDocsImplementationWording {
             "seeded Monte Carlo workflows",
             "claim stable Monte Carlo semantics before seeded reproducibility is enforced",
             "raw JSON spelunking",
-            "raw source diffs"
+            "raw source diffs",
+            "case runner, broad DB",
+            "broad run-cases scheduling",
+            "planned output paths remain"
         )) {
             if ($text.IndexOf($stalePhrase, [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
                 throw "current docs still contain stale implementation wording '$stalePhrase' at $path"
