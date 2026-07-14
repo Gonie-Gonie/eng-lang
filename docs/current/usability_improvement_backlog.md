@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 810: Updated the workflow 01 native cache smoke contract to accept first-run `miss_materialized` cache records alongside cache hits and offline-response availability, restoring `dev.bat workflows-test` for the current native materialization behavior.
 - Batch 809: Cleared cached VS Code review/highlight fallback state as soon as an EngLang buffer changes, preventing hover, completion, risk markers, or semantic symbol decorations from reusing an older snapshot after edits.
 - Batch 808: Added VS Code highlighting pipeline and fallback scope-map coverage to `EngLang: Show Tooling Status` and the highlight-token inspector, so users can see TextMate first paint, compiler-backed semantic token routing, and missing selector coverage from one status view.
 - Batch 807: Cleared the remaining fixture-level mixed-type semantic token overlaps by treating dotted calls as methods, avoiding lexical type overlays on `as` schema operands, skipping variable overlays for string write literals, preserving nested member field metadata without repainting nested receivers, and ignoring unit symbols in derived-column source fields.

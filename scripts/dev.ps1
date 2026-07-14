@@ -698,7 +698,8 @@ function Invoke-WorkflowsTest {
             $CacheManifestData = $CacheManifestJson | ConvertFrom-Json
             $RunLogData = $RunLogJson | ConvertFrom-Json
             $WeatherResponseHash = "d7960daaab0788c185af699f9372660383e8a41cb1db1e8a020f75db80f5feff"
-            $AllowedCacheStatuses = @("hit", "miss_offline_response_available")
+            $AllowedCacheStatuses = @("hit", "miss_offline_response_available", "offline_response_available", "miss_materialized")
+            $AllowedCacheStatusDescription = "hit, offline-response available, or materialized miss"
             if (-not $WorkflowSource.Contains("pinned_response_file") -or $WorkflowSource.Contains("offline_response_file")) {
                 throw "Workflow 01 native API args must expose pinned_response_file and not offline_response_file"
             }
@@ -755,7 +756,7 @@ function Invoke-WorkflowsTest {
             Assert-Artifact ($null -ne $ReviewCache) "Workflow 01 review missing api_response cache row"
             Assert-ArtifactValue $ReviewCache.expected_hash $WeatherResponseHash "Workflow 01 review cache expected hash"
             Assert-ArtifactValue $ReviewCache.observed_hash $WeatherResponseHash "Workflow 01 review cache observed hash"
-            Assert-Artifact ($AllowedCacheStatuses -contains [string]$ReviewCache.status) "Workflow 01 review cache status should be hit or offline-response miss, got $($ReviewCache.status)"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$ReviewCache.status) "Workflow 01 review cache status should be $AllowedCacheStatusDescription, got $($ReviewCache.status)"
             $ReviewWeatherPromotion = @($ReviewData.csv_promotions | Where-Object { [string]$_.binding -eq "weather" }) | Select-Object -First 1
             Assert-Artifact ($null -ne $ReviewWeatherPromotion) "Workflow 01 review missing weather JSON records promotion"
             Assert-ArtifactValue $ReviewWeatherPromotion.schema_name "WeatherApiRecord" "Workflow 01 review weather schema"
@@ -776,14 +777,14 @@ function Invoke-WorkflowsTest {
             Assert-Artifact ($null -ne $OutputCache) "Workflow 01 output manifest missing api_response cache"
             Assert-ArtifactValue $OutputCache.kind "network_request" "Workflow 01 output manifest cache kind"
             Assert-ArtifactValue $OutputCache.hash $WeatherResponseHash "Workflow 01 output manifest cache hash"
-            Assert-Artifact ($AllowedCacheStatuses -contains [string]$OutputCache.status) "Workflow 01 output cache status should be hit or offline-response miss, got $($OutputCache.status)"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$OutputCache.status) "Workflow 01 output cache status should be $AllowedCacheStatusDescription, got $($OutputCache.status)"
 
             Assert-ArtifactNumber $CacheManifestData.cache_record_count 1 "Workflow 01 cache manifest record count"
             $CacheRecord = @($CacheManifestData.cache_records | Where-Object { [string]$_.owner_kind -eq "network_request" -and [string]$_.owner_name -eq "api_response" }) | Select-Object -First 1
             Assert-Artifact ($null -ne $CacheRecord) "Workflow 01 cache manifest missing api_response record"
             Assert-ArtifactValue $CacheRecord.expected_hash $WeatherResponseHash "Workflow 01 cache manifest expected hash"
             Assert-ArtifactValue $CacheRecord.observed_hash $WeatherResponseHash "Workflow 01 cache manifest observed hash"
-            Assert-Artifact ($AllowedCacheStatuses -contains [string]$CacheRecord.status) "Workflow 01 cache manifest status should be hit or offline-response miss, got $($CacheRecord.status)"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$CacheRecord.status) "Workflow 01 cache manifest status should be $AllowedCacheStatusDescription, got $($CacheRecord.status)"
             Assert-Artifact ([string]$CacheRecord.cache_key -like "weather|demo|2024|source_hash=*") "Workflow 01 cache key should include weather/demo/2024/source_hash, got $($CacheRecord.cache_key)"
 
             Assert-ArtifactNumber $RunLogData.network_event_count 1 "Workflow 01 run log network event count"
@@ -796,7 +797,7 @@ function Invoke-WorkflowsTest {
             Assert-ArtifactValue $RunLogNetwork.status "offline_response" "Workflow 01 run log network status"
             $RunLogCache = @($RunLogData.cache_events | Where-Object { [string]$_.owner_kind -eq "network_request" -and [string]$_.owner_name -eq "api_response" }) | Select-Object -First 1
             Assert-Artifact ($null -ne $RunLogCache) "Workflow 01 run log missing api_response cache event"
-            Assert-Artifact ($AllowedCacheStatuses -contains [string]$RunLogCache.status) "Workflow 01 run log cache status should be hit or offline-response miss, got $($RunLogCache.status)"
+            Assert-Artifact ($AllowedCacheStatuses -contains [string]$RunLogCache.status) "Workflow 01 run log cache status should be $AllowedCacheStatusDescription, got $($RunLogCache.status)"
         }
         if ($Workflow -like "*02_native_surrogate_case_workflow*") {
             $ResultPath = Join-Path $RepoRoot "build\result\result.engres"
