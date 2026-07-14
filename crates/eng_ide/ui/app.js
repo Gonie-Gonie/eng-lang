@@ -1599,7 +1599,7 @@ function renderHighlightPanel() {
       ${renderSemanticOverlapSummary(overlaps)}
       <div class="panel-title compact">Current File Highlights</div>
       ${renderSemanticTokenRows(filteredTokens, Boolean(state.highlightTokenQuery.trim()))}
-      ${rawJsonToggle("Raw highlight data", semantic)}
+      ${advancedDataToggle("Advanced highlight data", semantic)}
     </div>
   `;
 }
@@ -2025,7 +2025,7 @@ function renderQualityPanel() {
     </div>
     <div class="scroll">
       ${renderQualityResults(results)}
-      ${rawJsonToggle("Advanced quality data", quality)}
+      ${advancedDataToggle("Advanced quality data", quality)}
     </div>
   `;
 }
@@ -2082,7 +2082,7 @@ function renderKernelPanel() {
         <thead><tr><th>Candidate</th><th>Kind</th><th>Source</th><th>Executor</th><th>Fallback</th><th>Estimate</th></tr></thead>
         <tbody>${rows || `<tr><td colspan="6" class="muted">No kernel plan candidates.</td></tr>`}</tbody>
       </table>
-      ${rawJsonToggle("Advanced kernel plan data", plan)}
+      ${advancedDataToggle("Advanced kernel plan data", plan)}
     </div>
   `;
 }
@@ -2214,7 +2214,7 @@ function renderWorkflowPanel() {
 }
 
 function workflowProcessEvidence(processResults, processes) {
-  const hasArtifact = hasPayloadData(processResults);
+  const hasArtifact = hasAdvancedData(processResults);
   const count = hasArtifact ? processResultCount(processResults, processes) : null;
   const processListCount = hasArtifact ? processes.length : null;
   const zeroExternal = hasArtifact && count === 0 && processListCount === 0;
@@ -2332,7 +2332,7 @@ function renderReviewPanel() {
       ${renderReviewFallbacks(fallbacks)}
       <div class="panel-title compact">Risks</div>
       ${renderReviewRisks(risks)}
-      ${rawJsonToggle("Advanced review data", doc)}
+      ${advancedDataToggle("Advanced review data", doc)}
     </div>
   `;
 }
@@ -3673,7 +3673,7 @@ function renderWorkflowNodeDetail(node, edges) {
       ${renderWorkflowNodeOutputs(node.outputs)}
       <div class="panel-title compact">Edges</div>
       ${renderWorkflowNodeEdges(incoming, outgoing)}
-      <details class="raw-json-toggle">
+      <details class="advanced-data-toggle">
         <summary>Advanced node data</summary>
         <pre>${escapeHtml(JSON.stringify(node, null, 2))}</pre>
       </details>
@@ -3899,7 +3899,7 @@ function renderEffectsPanel() {
       ${renderExternalBoundaryRecords(boundaries)}
       <div class="panel-title compact">${escapeHtml(processResultsPanelTitle(processCount))}</div>
       ${renderProcessResults(processes, processCount)}
-      ${rawJsonToggle("Advanced effects data", { effects, processResults })}
+      ${advancedDataToggle("Advanced effects data", { effects, processResults })}
     </div>
   `;
 }
@@ -3951,7 +3951,7 @@ function renderNetworkPanel() {
       ${renderNetworkEvents(events, requests)}
       <div class="panel-title compact">Cache Events</div>
       ${renderCacheEvents(cacheEvents, caches)}
-      ${rawJsonToggle("Advanced network/cache data", network)}
+      ${advancedDataToggle("Advanced network/cache data", network)}
     </div>
   `;
 }
@@ -4020,7 +4020,7 @@ function renderDbPanel() {
       ${renderDbManifests(manifests)}
       <div class="panel-title compact">Registry</div>
       ${renderDbRegistry(registry)}
-      ${rawJsonToggle("Advanced DB data", db)}
+      ${advancedDataToggle("Advanced DB data", db)}
     </div>
   `;
 }
@@ -4067,7 +4067,7 @@ function renderModelPanel() {
       ${renderPredictionManifests(predictionManifests)}
       <div class="panel-title compact">Model Diagnostics</div>
       ${renderModelDiagnostics(diagnostics)}
-      ${rawJsonToggle("Advanced model data", model)}
+      ${advancedDataToggle("Advanced model data", model)}
     </div>
   `;
 }
@@ -4105,7 +4105,7 @@ function renderCasePanel() {
       ${renderCaseDiagnostics(diagnostics)}
       <div class="panel-title compact">Failed Cases</div>
       ${renderFailedCases(failed)}
-      ${rawJsonToggle("Advanced case data", caseData)}
+      ${advancedDataToggle("Advanced case data", caseData)}
     </div>
   `;
 }
@@ -6683,19 +6683,19 @@ function sourceBreadcrumbs(label, items) {
   `;
 }
 
-function rawJsonToggle(title, payload) {
-  if (!hasPayloadData(payload)) return "";
+function advancedDataToggle(title, data) {
+  if (!hasAdvancedData(data)) return "";
   return `
-    <details class="raw-json-toggle">
+    <details class="advanced-data-toggle">
       <summary>${escapeHtml(title)}</summary>
-      <pre>${escapeHtml(JSON.stringify(payload, null, 2))}</pre>
+      <pre>${escapeHtml(JSON.stringify(data, null, 2))}</pre>
     </details>
   `;
 }
 
-function hasPayloadData(payload) {
-  if (Array.isArray(payload)) return payload.length > 0;
-  return Boolean(payload && typeof payload === "object" && Object.keys(payload).length);
+function hasAdvancedData(data) {
+  if (Array.isArray(data)) return data.length > 0;
+  return Boolean(data && typeof data === "object" && Object.keys(data).length);
 }
 
 function compactObjectSummary(value) {

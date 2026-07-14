@@ -6332,7 +6332,9 @@ function Invoke-IdeCheck {
         "No network or cache records yet.",
         "sourceBreadcrumbs",
         "source-breadcrumbs",
-        "rawJsonToggle",
+        "advancedDataToggle",
+        "advanced-data-toggle",
+        "function hasAdvancedData(data)",
         "compactObjectSummary",
         "problemQuery",
         "problemQueryInput",
@@ -6728,6 +6730,9 @@ function Invoke-IdeCheck {
         "Semantic Hash",
         "No semantic legend entries.",
         "No semantic tokens match the current filter.",
+        "Raw highlight data",
+        "raw-json-toggle",
+        "rawJsonToggle",
         "No semantic tokens for the current check.",
         "Filter by token text, type, modifier",
         'Showing first 120 of ${escapeHtml(String(tokens.length))} tokens.',
@@ -6738,7 +6743,7 @@ function Invoke-IdeCheck {
             throw "Native IDE UI should use task-oriented wording instead of '$ForbiddenIdeWording'"
         }
     }
-    foreach ($RequiredAdvancedDataLabel in @("Advanced quality data", "Advanced kernel plan data", "Advanced review data", "Advanced node data", "Advanced effects data", "Advanced network/cache data", "Advanced DB data", "Advanced model data", "Advanced case data")) {
+    foreach ($RequiredAdvancedDataLabel in @("Advanced highlight data", "Advanced quality data", "Advanced kernel plan data", "Advanced review data", "Advanced node data", "Advanced effects data", "Advanced network/cache data", "Advanced DB data", "Advanced model data", "Advanced case data")) {
         if (-not $IdeUiSource.Contains($RequiredAdvancedDataLabel)) {
             throw "Native IDE UI missing task-oriented advanced data label $RequiredAdvancedDataLabel"
         }

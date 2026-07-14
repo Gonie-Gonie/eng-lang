@@ -1266,13 +1266,13 @@ button:hover {
   color: var(--muted);
 }
 
-.raw-json-toggle {
+.advanced-data-toggle {
   border: 1px solid var(--border);
   border-radius: 4px;
   background: #fff;
 }
 
-.raw-json-toggle summary {
+.advanced-data-toggle summary {
   cursor: pointer;
   padding: 7px 9px;
   color: var(--muted);
@@ -1280,7 +1280,7 @@ button:hover {
   font-weight: 600;
 }
 
-.raw-json-toggle pre {
+.advanced-data-toggle pre {
   margin: 0;
   padding: 9px;
   border-top: 1px solid var(--border);
