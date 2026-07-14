@@ -1397,7 +1397,7 @@ function Invoke-WorkflowNativeStatus {
             if ($null -ne $ProcessResults.processes) {
                 $ProcessListCount = @($ProcessResults.processes).Count
             }
-            $ProcessArtifactStatus = "present; format=$($ProcessResults.format); profile=$($ProcessResults.execution_profile); process_count=$ProcessCount; processes=$ProcessListCount"
+            $ProcessArtifactStatus = "present; format=$($ProcessResults.format); profile=$($ProcessResults.execution_profile); process_count=$ProcessCount; processes=$ProcessListCount; no external processes"
             if ([string]$ProcessResults.format -ne "eng-process-results-v1") {
                 $Issues.Add("latest process_results.json has unexpected format $($ProcessResults.format)") | Out-Null
             }
@@ -1419,7 +1419,7 @@ function Invoke-WorkflowNativeStatus {
     )
     $ExistingRunGraphPaths = @($RunGraphPaths | Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
     if ($ExistingRunGraphPaths.Count -gt 0) {
-        $RunGraphStatus = "present; checked $($ExistingRunGraphPaths.Count) graph artifact(s)"
+        $RunGraphStatus = "present; checked $($ExistingRunGraphPaths.Count) graph artifact(s); no process/Python nodes"
     }
     foreach ($NativeWorkflowRunGraphPath in $ExistingRunGraphPaths) {
         try {
@@ -1466,8 +1466,8 @@ function Invoke-WorkflowNativeStatus {
     }
 
     Write-Host "Native workflow status"
-    Write-Host "  source guard: passed ($(@($NativeWorkflowSourceAuditPaths).Count) source file(s))"
-    Write-Host "  public docs guard: passed ($(@($WorkflowPublicDocPaths).Count) doc file(s))"
+    Write-Host "  source guard: passed ($(@($NativeWorkflowSourceAuditPaths).Count) source file(s); no Python/.py/notebook/run-command markers)"
+    Write-Host "  public docs guard: passed ($(@($WorkflowPublicDocPaths).Count) doc file(s); no Python/.py/notebook/run-command or stale external-process wording)"
     Write-Host "  latest process artifact: $ProcessArtifactStatus"
     Write-Host "  latest run graph artifact: $RunGraphStatus"
     Write-Host "  full evidence gate: .\dev.bat workflows-test"

@@ -1,5 +1,8 @@
 # Usability Improvement Backlog
 
+- Batch 877: Made `workflow-native-status` explicitly report no Python/.py/notebook/run-command markers, no external processes, and no process/Python run-graph nodes for workflow 01/02/03 evidence.
+- Batch 876: Colored `write text`, `write json`, and `write standard_text` format selectors as side-effect first-paint tokens and added grammar guard coverage for those phrase captures.
+- Batch 875: Added `standard_text` to shared editor workflow keyword metadata so VS Code and native IDE keyword catalogs expose the native standard-file writer consistently.
 - Batch 874: Split VS Code first-paint theme colors for function declarations, calls, built-in helpers, member fields, and public members so code is more readable before role-aware semantic colors arrive.
 - Batch 873: Split base VS Code EngLang theme colors for functions, methods, and properties so generic calls and member fields remain visually distinct before domain-specific role colors apply.
 - Batch 872: Removed the remaining raw internal metadata wording from the native IDE how-to and guarded against that phrase returning in user-facing IDE docs.
