@@ -1700,7 +1700,7 @@ function highlightCoverageCatalog() {
     {
       key: "field",
       label: "Public fields",
-      filter: "field",
+      filter: "property",
       words: publicFieldWords
     },
     {

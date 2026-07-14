@@ -972,7 +972,7 @@ function createCommandHandlers(options = {}) {
       {
         key: "field",
         label: "Public fields",
-        filter: "field",
+        filter: "property",
         words: publicFieldWords
       },
       {
