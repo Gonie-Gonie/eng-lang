@@ -2649,7 +2649,12 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             builder.push_on_line(write.line, &write.expression, "variable", &modifiers);
         }
         builder.push_keywords_on_line(write.line, &["write"], &modifiers);
-        builder.push_on_line(write.line, &write.format, "keyword", &modifiers);
+        if write.quantity_kind == "DbWrite" {
+            builder.push_on_line(write.line, "to", "keyword", &modifiers);
+            builder.push_on_line(write.line, "table", "method", &modifiers);
+        } else {
+            builder.push_on_line(write.line, &write.format, "keyword", &modifiers);
+        }
         add_write_target_semantic_tokens(&mut builder, write.line, &write.format, &write.path);
     }
 
@@ -4646,7 +4651,7 @@ impl<'a> SemanticTokenBuilder<'a> {
                     &constant_keywords,
                 );
                 self.scan_generic_type_tokens(line_index, start, end, &generic_type_bases);
-                self.scan_number_tokens(line_index, start, end);
+                self.scan_number_tokens(line_index, start, end, &unit_ranges);
                 self.scan_symbol_operator_tokens(line_index, start, end, &unit_ranges);
             }
         }
@@ -5130,6 +5135,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                 if !is_unit_boundary(line, unit_start, unit_end) {
                     continue;
                 }
+                if *unit == "1" && !is_dimensionless_unit_annotation(line, unit_start, unit_end) {
+                    continue;
+                }
                 let after_unit = skip_ascii_whitespace(line.as_bytes(), unit_end, end);
                 if after_unit < end
                     && line
@@ -5152,7 +5160,13 @@ impl<'a> SemanticTokenBuilder<'a> {
         occupied
     }
 
-    fn scan_number_tokens(&mut self, line_index: usize, start: usize, end: usize) {
+    fn scan_number_tokens(
+        &mut self,
+        line_index: usize,
+        start: usize,
+        end: usize,
+        excluded_ranges: &[(usize, usize)],
+    ) {
         let line = self.lines[line_index];
         let bytes = line.as_bytes();
         let mut index = start;
@@ -5169,7 +5183,30 @@ impl<'a> SemanticTokenBuilder<'a> {
                         index += 1;
                     }
                 }
-                self.push_byte_range(line_index, token_start, index - token_start, "number", &[]);
+                if line.get(token_start..index) == Some("1")
+                    && is_dimensionless_unit_annotation(line, token_start, index)
+                {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "type",
+                        &["unit"],
+                    );
+                    continue;
+                }
+                if !excluded_ranges
+                    .iter()
+                    .any(|(left, right)| ranges_overlap(token_start, index, *left, *right))
+                {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "number",
+                        &[],
+                    );
+                }
                 continue;
             }
             index += 1;
@@ -6567,6 +6604,12 @@ fn is_unit_boundary(line: &str, start: usize, end: usize) -> bool {
         .and_then(|index| bytes.get(index).copied());
     let after = bytes.get(end).copied();
     before.is_none_or(|byte| !is_unit_byte(byte)) && after.is_none_or(|byte| !is_unit_byte(byte))
+}
+
+fn is_dimensionless_unit_annotation(line: &str, start: usize, end: usize) -> bool {
+    let before = line.get(..start).unwrap_or_default().trim_end();
+    let after = line.get(end..).unwrap_or_default().trim_start();
+    before.ends_with('[') && after.starts_with(']')
 }
 
 fn is_unit_byte(byte: u8) -> bool {
@@ -9317,6 +9360,49 @@ mod tests {
             .count()
     }
 
+    fn assert_no_conflicting_semantic_token_types(
+        snapshot: &LspSnapshot,
+        source: &str,
+        source_label: &str,
+    ) {
+        let lines = source.lines().collect::<Vec<_>>();
+        let mut ranges = std::collections::BTreeMap::<
+            (usize, usize, usize),
+            std::collections::BTreeSet<&str>,
+        >::new();
+        for token in &snapshot.semantic_tokens.tokens {
+            ranges
+                .entry((token.line, token.start, token.length))
+                .or_default()
+                .insert(token.token_type.as_str());
+        }
+
+        let conflicts = ranges
+            .iter()
+            .filter(|(_, token_types)| token_types.len() > 1)
+            .map(|((line, start, length), token_types)| {
+                let token_text = lines
+                    .get(*line)
+                    .and_then(|line_text| line_text.get(*start..start + length))
+                    .unwrap_or("<invalid range>");
+                format!(
+                    "{}:{}:{} `{}` => {}",
+                    source_label,
+                    line + 1,
+                    start + 1,
+                    token_text,
+                    token_types.iter().copied().collect::<Vec<_>>().join(", ")
+                )
+            })
+            .collect::<Vec<_>>();
+
+        assert!(
+            conflicts.is_empty(),
+            "semantic tokens must not emit conflicting types for the same source range:\n{}",
+            conflicts.join("\n")
+        );
+    }
+
     fn assert_semantic_token_on_line_without_modifier(
         snapshot: &LspSnapshot,
         source: &str,
@@ -11157,6 +11243,34 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
             );
         }
         assert_semantic_token_modifier(&snapshot, source, "write", "db");
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            r#"write sensor to db.table("sensor")"#,
+            "to",
+            "keyword",
+        );
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            r#"write sensor to db.table("sensor")"#,
+            "db",
+            "variable",
+        );
+        assert_no_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            r#"write sensor to db.table("sensor")"#,
+            "db",
+            "keyword",
+        );
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            r#"write sensor to db.table("sensor")"#,
+            "table",
+            "method",
+        );
         assert_semantic_token_modifier(&snapshot, source, "mode", "db");
         assert_semantic_token_modifier(&snapshot, source, "upsert", "db");
         assert_semantic_token_modifier(&snapshot, source, "replace", "db");
@@ -12480,6 +12594,53 @@ connect Coil.heat -> AmbientBoundary.heat
     }
 
     #[test]
+    fn snapshot_keeps_dimensionless_unit_annotations_from_repainting_numbers() {
+        let source = r#"x: DimensionlessNumber [1]
+ratio = 1
+"#;
+        let snapshot = snapshot_for_source(Path::new("dimensionless_unit_annotations.eng"), source);
+
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "DimensionlessNumber [1]",
+            "1",
+            "type",
+        );
+        assert_no_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "DimensionlessNumber [1]",
+            "1",
+            "number",
+        );
+        assert_semantic_token_on_line_type(&snapshot, source, "ratio = 1", "1", "number");
+        assert_no_semantic_token_on_line_type(&snapshot, source, "ratio = 1", "1", "type");
+
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "dimensionless_unit_annotations.eng",
+        );
+    }
+
+    #[test]
+    fn workflow_sources_do_not_emit_conflicting_semantic_token_types() {
+        let repo_root = repo_root_for_tests();
+        for relative in [
+            "examples/workflows/01_weather_api_to_standard_file/main.eng",
+            "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+            "examples/workflows/03_uncertain_sensor_report/main.eng",
+        ] {
+            let path = repo_root.join(relative);
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let snapshot = snapshot_for_source(Path::new(relative), &source);
+            assert_no_conflicting_semantic_token_types(&snapshot, &source, relative);
+        }
+    }
+
+    #[test]
     fn snapshot_keeps_remaining_fixture_overlap_tokens_single_typed() {
         let source = r#"args {
     output: DirectoryPath = dir("outputs")
@@ -12500,6 +12661,11 @@ arg_sample_preview = args.designs.row_preview
 derived = derive designs column annual_electricity = cooling_cop * 100 kWh
 "#;
         let snapshot = snapshot_for_source(Path::new("remaining_overlap_tokens.eng"), source);
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "remaining_overlap_tokens.eng",
+        );
 
         assert_semantic_token_on_line_type(
             &snapshot,
