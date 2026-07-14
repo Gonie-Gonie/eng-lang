@@ -486,6 +486,24 @@
     "fullMatch": true
   },
   {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.function.path.englang",
+    "text": "parent",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.function.path.englang",
+    "text": "stem",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.function.path.englang",
+    "text": "extension",
+    "fullMatch": true
+  },
+  {
     "fixture": "03_side_effects.eng",
     "scope": "variable.parameter.property.englang",
     "text": "args.output",

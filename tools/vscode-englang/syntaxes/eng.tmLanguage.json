@@ -142,6 +142,10 @@
                                                                                                       "match":  "\\b(file|url|env|secret|exists)(?=\\s*\\()"
                                                                                                   },
                                                                                                   {
+                                                                                                      "name":  "support.function.path.englang",
+                                                                                                      "match":  "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                                                                                                  },
+                                                                                                  {
                                                                                                       "name":  "support.function.builtin.englang",
                                                                                                       "match":  "\\b(time_weighted_mean|regression_table|select_first_row|train_regression|train_test_split|latin_hypercube|latin-hypercube|duration_above|distribution|fill_missing|leakage_lint|materialize|probability|require_one|model_card|regression|extension|integrate|propagate|coverage|datetime|ensemble|evaluate|interval|measured|resample|run_case|collect|predict|uniform|derive|exists|filter|median|normal|parent|random|sample|secret|select|align|apply|check|delay|train|date|file|fill|grid|join|mean|rmse|sort|stem|ann|der|dir|env|lhs|max|min|mlp|p90|p95|std|sum|url)(?=\\s*\\()"
                                                                                                   },
@@ -3220,7 +3224,7 @@
                                                          },
                                                          {
                                                              "name":  "support.function.path.englang",
-                                                             "match":  "\\bjoin\\b(?=\\s*\\()"
+                                                             "match":  "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
                                                          },
                                                          {
                                                              "name":  "support.function.solver.englang",

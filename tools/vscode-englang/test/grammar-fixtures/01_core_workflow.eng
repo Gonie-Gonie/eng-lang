@@ -31,6 +31,9 @@ message_with_binding = "Rows = {weather_rows}"
 custom_value = calibrate(args.input, sensor.T_supply, message, 1 kW + 2 kW, axis=Time)
 custom_training = custom_train(sensor.T_supply, algorithm="linear", hidden=[8], epochs=20, split=args.split_ref)
 existing_output = exists(args.output)
+input_parent = parent(args.input)
+input_stem = stem(args.input)
+input_ext = extension(args.input)
 
 write text file("outputs/summary.txt"), message
 write standard_text sensor

@@ -1234,9 +1234,11 @@ $KeywordFallbackScopes = @(
     "variable.parameter.property.englang"
 )
 Assert-AnyScopeMatchesLabels -Scopes $KeywordFallbackScopes -Labels $CompletionKeywords -Description "LSP completion keyword" -FixtureText $CompletionKeywordFixture
-$GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $_ -ne "exists" })
+$PathWorkflowBuiltins = @("join", "parent", "stem", "extension")
+$GenericWorkflowBuiltins = @($WorkflowBuiltins | Where-Object { $PathWorkflowBuiltins -notcontains $_ -and $_ -ne "exists" })
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $GenericWorkflowBuiltins -Description "LSP workflow builtin"
 Assert-ScopeMatchesLabels -Scope "support.function.external-boundary.englang" -Labels @("exists") -Description "LSP path existence builtin"
+Assert-ScopeMatchesLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "LSP path helper builtin" -Suffix "("
 Assert-ScopeMatchesLabels -Scope "support.function.builtin.englang" -Labels $HyphenatedWorkflowBuiltins -Description "LSP hyphenated workflow builtin"
 Assert-ScopeDoesNotMatchLabels -Scope "entity.name.function.call.englang" -Labels ($WorkflowBuiltins + $HyphenatedWorkflowBuiltins) -Description "LSP workflow builtin call" -Suffix "("
 Assert-ScopeDoesNotMatchText -Scope "meta.workflow.read-structured.englang" -Text 'read csv file("data/input.csv")' -Description "unsupported raw CSV read"
@@ -1292,6 +1294,7 @@ Assert-ScopeMatchesLabels -Scope "variable.parameter.property.englang" -Labels $
 Assert-ScopeMatchesLabels -Scope "variable.parameter.function.englang" -Labels ($WorkflowOptions + $LegacyWorkflowOptionAliases + $GrammarOnlyFunctionArgumentAliases) -Description "LSP workflow named argument" -Suffix "="
 Assert-ExpectedTokenTextsCoverLabels -Labels $CompletionKeywords -Description "generated keyword"
 Assert-ExpectedTokenTextsCoverLabels -Labels $HyphenatedWorkflowBuiltins -Description "hyphenated workflow builtin"
+Assert-ExpectedScopedTokenTextsCoverLabels -Scope "support.function.path.englang" -Labels $PathWorkflowBuiltins -Description "path workflow builtin"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "constant.language.englang" -Labels $LanguageConstants -Description "language constant"
 Assert-ExpectedScopedTokenTextsCoverLabels -Scope "keyword.operator.word.englang" -Labels $OperatorWords -Description "operator word"
 foreach ($KeywordGroupCheck in $KeywordGroupScopeChecks) {

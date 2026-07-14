@@ -98,6 +98,10 @@
                     "match": "\\b(file|url|env|secret|exists)(?=\\s*\\()"
                   },
                   {
+                    "name": "support.function.path.englang",
+                    "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
+                  },
+                  {
                     "name": "support.function.builtin.englang",
                     "match": "\\b({{WORKFLOW_BUILTINS}})(?=\\s*\\()"
                   },
@@ -2216,7 +2220,7 @@
           },
           {
             "name": "support.function.path.englang",
-            "match": "\\bjoin\\b(?=\\s*\\()"
+            "match": "\\b(join|parent|stem|extension)\\b(?=\\s*\\()"
           },
           {
             "name": "support.function.solver.englang",
