@@ -2781,7 +2781,7 @@ fn with_block_semantic_modifiers(
     block: &WithBlockInfo,
 ) -> &'static [&'static str] {
     if is_model_with_block(program, block.owner_line) {
-        return &["model"];
+        return &["model", "workflowStep"];
     }
     if is_coverage_with_block(program, block.owner_line) {
         return &["validation", "workflowStep"];
@@ -13421,6 +13421,24 @@ legacy_station = select_first_row(stations, return_column="station_id")
             "model = train regression from designs",
             "model",
             "variable",
+            "model",
+        );
+        assert_semantic_token_after_line_with_modifier(
+            &snapshot,
+            source,
+            "model = train regression from designs",
+            "with {",
+            "with",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_after_line_with_modifier(
+            &snapshot,
+            source,
+            "model = train regression from designs",
+            "with {",
+            "with",
+            "keyword",
             "model",
         );
         assert_semantic_token_on_line_with_modifier(
