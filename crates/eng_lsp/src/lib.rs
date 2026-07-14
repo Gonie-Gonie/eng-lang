@@ -2445,7 +2445,13 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         }
         if let Some(target) = &ml.target {
             builder.push_on_line(ml.line, "target", "property", &["model"]);
-            builder.push_on_line(ml.line, target, "property", &["model"]);
+            builder.push_named_argument_value_on_line(
+                ml.line,
+                "target",
+                target,
+                "property",
+                &["model"],
+            );
         }
         if !ml.features.is_empty() {
             builder.push_on_line(ml.line, "features", "property", &["model"]);
@@ -5283,6 +5289,62 @@ impl<'a> SemanticTokenBuilder<'a> {
             if let Some(start) = find_token_in_line(line, &candidate) {
                 self.push_byte_range(line_index, start, candidate.len(), token_type, modifiers);
                 return;
+            }
+        }
+    }
+
+    fn push_named_argument_value_on_line(
+        &mut self,
+        line_one_based: usize,
+        argument: &str,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if argument.trim().is_empty() || label.trim().is_empty() {
+            return;
+        }
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let bytes = line.as_bytes();
+        for argument_candidate in token_candidates(argument) {
+            let mut search_start = 0usize;
+            while search_start <= line.len() {
+                let Some(relative) = line[search_start..].find(&argument_candidate) else {
+                    break;
+                };
+                let argument_start = search_start + relative;
+                let argument_end = argument_start + argument_candidate.len();
+                search_start = argument_end;
+                if !is_identifier_boundary(line, argument_start, argument_end) {
+                    continue;
+                }
+                let mut cursor = skip_ascii_whitespace(bytes, argument_end, line.len());
+                if bytes.get(cursor) != Some(&b'=') {
+                    continue;
+                }
+                cursor = skip_ascii_whitespace(bytes, cursor + 1, line.len());
+                for value_candidate in token_candidates(label) {
+                    if !line[cursor..].starts_with(&value_candidate) {
+                        continue;
+                    }
+                    let value_end = cursor + value_candidate.len();
+                    if !is_identifier_boundary(line, cursor, value_end) {
+                        continue;
+                    }
+                    self.push_byte_range(
+                        line_index,
+                        cursor,
+                        value_candidate.len(),
+                        token_type,
+                        modifiers,
+                    );
+                    return;
+                }
             }
         }
     }
@@ -12591,6 +12653,29 @@ connect Coil.heat -> AmbientBoundary.heat
             assert_semantic_token_on_line_type(&snapshot, source, line, label, token_type);
             assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "variable");
         }
+    }
+
+    #[test]
+    fn snapshot_keeps_train_test_split_source_and_target_single_typed() {
+        let source = r#"split = train_test_split(Q_coil, target=Q_coil, features=[T_supply], test=0.5, seed=7)
+"#;
+        let snapshot = snapshot_for_source(Path::new("train_test_split_target_tokens.eng"), source);
+
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "Q_coil", "variable"),
+            1,
+            "the positional source operand should remain a variable token"
+        );
+        assert_eq!(
+            semantic_token_count(&snapshot, source, "Q_coil", "property"),
+            1,
+            "the named target value should be a model property token"
+        );
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "train_test_split_target_tokens.eng",
+        );
     }
 
     #[test]
