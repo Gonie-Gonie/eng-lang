@@ -186,7 +186,7 @@ risk and fallback entries
 
 The current static review document records `semantic_hash` plus per-section
 hashes. `eng review --against` uses those hashes for a CLI-only meaning-level
-comparison without relying on raw source diffs. The payload includes
+comparison without relying on line-by-line source diffs. The payload includes
 `section_changes[]` with added, removed, and changed array entries for
 ReviewDocument sections such as calculations, validations, units/quantities,
 side effects, external boundaries, fallbacks, and risks. A standalone

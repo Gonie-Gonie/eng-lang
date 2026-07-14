@@ -40,7 +40,7 @@ That means public workflows should surface:
 - metric and validation artifacts
 - provenance for data, files, commands, and generated outputs
 - report/review artifacts that explain what happened
-- IDE panels that expose the same information without raw JSON spelunking
+- IDE panels that expose the same information without manual JSON artifact digging
 
 ## Workflow Integration
 
