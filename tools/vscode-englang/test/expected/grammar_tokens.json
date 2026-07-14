@@ -229,7 +229,7 @@
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.external-boundary.englang",
     "text": "file"
   },
   {
@@ -389,7 +389,7 @@
   },
   {
     "fixture": "03_side_effects.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.external-boundary.englang",
     "text": "file",
     "fullMatch": true
   },
@@ -1699,17 +1699,17 @@
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.external-boundary.englang",
     "text": "url"
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.external-boundary.englang",
     "text": "secret"
   },
   {
     "fixture": "06_declarations_native_workflow.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.external-boundary.englang",
     "text": "env"
   },
   {

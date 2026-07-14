@@ -1,3 +1,4 @@
+- Batch 911: Added an external-boundary helper TextMate scope so `file(...)`, `url(...)`, `env(...)`, and `secret env(...)` use external-boundary first-pass colors instead of generic builtin colors.
 - Batch 910: Added a TimeSeries/statistic helper TextMate scope so `integrate(...)`, `mean(...)`, `time_weighted_mean`, and `p90` use TimeSeries-specific first-pass colors instead of generic builtin colors.
 - Batch 909: Added an uncertainty helper function TextMate scope so `measured(...)`, `uniform(...)`, `propagate(...)`, and `probability(...)` use uncertainty-specific first-pass colors instead of generic builtin colors.
 - Batch 908: Added a model helper function TextMate scope so `train_test_split(...)`, `regression(...)`, `evaluate(...)`, and `model_card(...)` use model-specific first-pass colors instead of generic builtin colors.

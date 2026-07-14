@@ -2207,6 +2207,10 @@
       "builtins": {
         "patterns": [
           {
+            "name": "support.function.external-boundary.englang",
+            "match": "\\b(file|url|env|secret)\\b"
+          },
+          {
             "name": "support.function.builtin.englang",
             "match": "\\b({{WORKFLOW_BUILTINS}})\\b"
           }

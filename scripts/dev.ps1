@@ -4170,6 +4170,10 @@ function Assert-VscodeExtensionContract {
             "keyword.control.external-boundary.englang",
             "support.function.builtin.englang"
         )
+        "function.external" = @(
+            "support.function.external-boundary.englang",
+            "keyword.control.external-boundary.englang"
+        )
         "method.db" = @(
             "keyword.control.external-boundary.englang",
             "entity.name.function.englang"
@@ -4441,12 +4445,12 @@ function Assert-VscodeExtensionContract {
                 throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) semantic role colors visually distinct"
             }
         }
-        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "support.function.model.englang", "support.function.uncertain.englang", "support.function.timeseries.englang", "variable.other.member.englang", "variable.other.public-member.englang")
+        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "support.function.model.englang", "support.function.uncertain.englang", "support.function.timeseries.englang", "support.function.external-boundary.englang", "variable.other.member.englang", "variable.other.public-member.englang")
         $FirstPaintColorKeys = @($FirstPaintScopes | ForEach-Object {
             Get-TextMateThemeColorKey $RequiredTheme.Theme $_
         } | Sort-Object -Unique)
-        if ($FirstPaintColorKeys.Count -lt 8 -or $FirstPaintColorKeys -contains "") {
-            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, model-function, uncertain-function, timeseries-function, member, and public-member colors visually distinct"
+        if ($FirstPaintColorKeys.Count -lt 9 -or $FirstPaintColorKeys -contains "") {
+            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, model-function, uncertain-function, timeseries-function, external-function, member, and public-member colors visually distinct"
         }
     }
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {

@@ -519,6 +519,7 @@
             "variable.other.property.englang"
           ],
           "function.external": [
+            "support.function.external-boundary.englang",
             "keyword.control.external-boundary.englang"
           ],
           "keyword.external": [

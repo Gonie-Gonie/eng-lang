@@ -73,6 +73,10 @@
       "settings": { "foreground": "#B6F2A1" }
     },
     {
+      "scope": ["support.function.external-boundary.englang"],
+      "settings": { "foreground": "#FFC777" }
+    },
+    {
       "scope": ["entity.name.function.solver.englang"],
       "settings": { "foreground": "#80CBC4" }
     },
