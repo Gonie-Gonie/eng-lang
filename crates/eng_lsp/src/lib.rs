@@ -380,6 +380,7 @@ const WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &[
 ];
 
 const HYPHENATED_WORKFLOW_BUILTIN_KEYWORDS: &[&str] = &["latin-hypercube"];
+const RMSE_COMPARISON_MODIFIERS: &[&str] = &["report", "timeseries", "validation"];
 
 const PLOT_COMMAND_STYLE_WORDS: &[&str] = &[
     "and",
@@ -5727,6 +5728,9 @@ fn keyword_modifiers_for_line(
     if is_report_clause_keyword(line, keyword, token_start) {
         return &["report"];
     }
+    if is_rmse_comparison_keyword(line, keyword, token_start) {
+        return RMSE_COMPARISON_MODIFIERS;
+    }
     if is_validation_condition_keyword(line, keyword, token_start) {
         return &["validation"];
     }
@@ -6756,6 +6760,8 @@ fn dotted_identifier_segment_modifiers_for_line(
         &["db", "external"]
     } else if is_connect_endpoint_segment(line, start, end) {
         &["solver"]
+    } else if is_rmse_comparison_operand_segment(line, start, end) {
+        RMSE_COMPARISON_MODIFIERS
     } else {
         &[]
     }
@@ -6838,6 +6844,104 @@ fn is_return_statement_keyword(line: &str, keyword: &str, token_start: usize) ->
         && line
             .get(..token_start)
             .is_some_and(|prefix| prefix.trim().is_empty())
+}
+
+fn is_rmse_comparison_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    keyword == "vs"
+        && rmse_comparison_ranges(line)
+            .is_some_and(|(_, _, vs_start, _, _)| vs_start == token_start)
+}
+
+fn is_rmse_comparison_operand_segment(line: &str, start: usize, end: usize) -> bool {
+    rmse_comparison_ranges(line).is_some_and(|(left_start, left_end, _, right_start, right_end)| {
+        (start >= left_start && end <= left_end) || (start >= right_start && end <= right_end)
+    })
+}
+
+fn rmse_comparison_ranges(line: &str) -> Option<(usize, usize, usize, usize, usize)> {
+    let mut search_start = 0usize;
+    while search_start < line.len() {
+        let Some(relative_start) = line.get(search_start..)?.find("rmse") else {
+            break;
+        };
+        let rmse_start = search_start + relative_start;
+        let rmse_end = rmse_start + "rmse".len();
+        if !is_standalone_identifier_at(line, rmse_start, rmse_end) {
+            search_start = rmse_end;
+            continue;
+        }
+        let Some((left_start, left_end)) = identifier_path_after(line, rmse_end) else {
+            search_start = rmse_end;
+            continue;
+        };
+        let Some((vs_start, vs_end)) = identifier_after(line, left_end) else {
+            search_start = rmse_end;
+            continue;
+        };
+        if line.get(vs_start..vs_end) != Some("vs") {
+            search_start = rmse_end;
+            continue;
+        }
+        let Some((right_start, right_end)) = identifier_path_after(line, vs_end) else {
+            search_start = rmse_end;
+            continue;
+        };
+        return Some((left_start, left_end, vs_start, right_start, right_end));
+    }
+    None
+}
+
+fn identifier_path_after(line: &str, start: usize) -> Option<(usize, usize)> {
+    let bytes = line.as_bytes();
+    let mut index = start.min(bytes.len());
+    while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+        index += 1;
+    }
+    let path_start = index;
+    loop {
+        if index >= bytes.len() || !is_ident_start(bytes[index]) {
+            return None;
+        }
+        index += 1;
+        while index < bytes.len() && is_ident_byte(bytes[index]) {
+            index += 1;
+        }
+        if bytes.get(index).copied() != Some(b'.') {
+            break;
+        }
+        let next_segment_start = index + 1;
+        if next_segment_start >= bytes.len() || !is_ident_start(bytes[next_segment_start]) {
+            break;
+        }
+        index = next_segment_start;
+    }
+    (index > path_start).then_some((path_start, index))
+}
+
+fn identifier_after(line: &str, start: usize) -> Option<(usize, usize)> {
+    let bytes = line.as_bytes();
+    let mut index = start.min(bytes.len());
+    while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+        index += 1;
+    }
+    if index >= bytes.len() || !is_ident_start(bytes[index]) {
+        return None;
+    }
+    let token_start = index;
+    index += 1;
+    while index < bytes.len() && is_ident_byte(bytes[index]) {
+        index += 1;
+    }
+    Some((token_start, index))
+}
+
+fn is_standalone_identifier_at(line: &str, start: usize, end: usize) -> bool {
+    let bytes = line.as_bytes();
+    let before_allows_identifier =
+        start > 0 && (is_ident_byte(bytes[start - 1]) || bytes[start - 1] == b'.');
+    let after_allows_identifier =
+        end < bytes.len() && (is_ident_byte(bytes[end]) || bytes[end] == b'.');
+    !before_allows_identifier && !after_allows_identifier
 }
 
 fn is_keyword_after_phrase(line: &str, token_start: usize, phrase: &str) -> bool {
@@ -12152,6 +12256,61 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         );
     }
 
+    #[test]
+    fn snapshot_marks_rmse_comparison_semantic_modifiers() {
+        let source = r#"rmse_T = rmse measured_data.T_zone vs sim.T_zone
+title = "Measured vs simulated zone temperature"
+"#;
+        let snapshot = snapshot_for_source(Path::new("rmse_comparison_modifiers.eng"), source);
+        let comparison_line = "rmse_T = rmse measured_data.T_zone vs sim.T_zone";
+
+        for modifier in ["report", "timeseries", "validation"] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                comparison_line,
+                "rmse",
+                "function",
+                modifier,
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                comparison_line,
+                "vs",
+                "keyword",
+                modifier,
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                comparison_line,
+                "measured_data",
+                "variable",
+                modifier,
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                comparison_line,
+                "sim",
+                "variable",
+                modifier,
+            );
+            assert_eq!(
+                semantic_token_modifier_count(&snapshot, source, "T_zone", "property", modifier),
+                2,
+                "both measured and simulated T_zone operands should include {modifier}"
+            );
+        }
+        assert_no_semantic_token_on_line_with_empty_modifiers(
+            &snapshot,
+            source,
+            comparison_line,
+            "vs",
+            "keyword",
+        );
+    }
     #[test]
     fn snapshot_marks_richer_keyword_semantic_modifiers() {
         let source = r#"system RoomThermal {
