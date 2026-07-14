@@ -358,6 +358,10 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
   if (code === "E-NET-INVALID-URL") {
     return netUrlLiteralRange(lineText, searchStart);
   }
+  const formatRange = formatInterpolationDiagnosticRange(lineText, item);
+  if (formatRange) {
+    return formatRange;
+  }
   return diagnosticBacktickRange(lineText, item);
 }
 
@@ -683,6 +687,161 @@ function stringLiteralRangeAt(text, quoteStart) {
 function diagnosticBacktickRange(lineText, item) {
   return backtickPayloadRange(lineText, item?.message)
     ?? backtickPayloadRange(lineText, item?.help);
+}
+
+function formatInterpolationDiagnosticRange(lineText, item) {
+  const code = diagnosticCodeValue(item);
+  if (code === "E-PRINT-FMT-003" || code === "E-WRITE-FMT-003") {
+    const payload = lastBacktickPayload(item?.message);
+    return payload ? formatInterpolationPayloadRange(lineText, payload, "unit") : undefined;
+  }
+  if (code === "E-PRINT-FMT-004" || code === "E-WRITE-FMT-004") {
+    const payload = firstBacktickPayload(item?.message);
+    return payload ? formatInterpolationPayloadRange(lineText, payload, "expression") : undefined;
+  }
+  if (code === "E-PRINT-FMT-002" || code === "E-WRITE-FMT-002") {
+    return emptyFormatInterpolationRange(lineText);
+  }
+  if (code === "E-PRINT-FMT-001" || code === "E-WRITE-FMT-001") {
+    return unterminatedFormatInterpolationRange(lineText);
+  }
+  return undefined;
+}
+
+function formatInterpolationPayloadRange(lineText, payload, payloadKind) {
+  const text = String(lineText || "");
+  for (const literal of stringLiteralRanges(text)) {
+    const contentStart = literal.start + 1;
+    const contentEnd = Math.max(contentStart, literal.end - 1);
+    const content = text.slice(contentStart, contentEnd);
+    let cursor = 0;
+    while (cursor < content.length) {
+      const openOffset = content.indexOf("{", cursor);
+      if (openOffset < 0) break;
+      const fieldStart = openOffset + 1;
+      const closeOffset = content.indexOf("}", fieldStart);
+      if (closeOffset < 0) break;
+      const field = content.slice(fieldStart, closeOffset);
+      const fieldOffset = contentStart + fieldStart;
+      const range = payloadKind === "unit"
+        ? formatUnitRangeInField(field, fieldOffset, payload)
+        : formatExpressionRangeInField(field, fieldOffset, payload);
+      if (range) return range;
+      cursor = closeOffset + 1;
+    }
+  }
+  return undefined;
+}
+
+function formatExpressionRangeInField(field, fieldOffset, payload) {
+  const colon = field.indexOf(":");
+  const expression = colon >= 0 ? field.slice(0, colon) : field;
+  const range = trimmedRange(expression, fieldOffset);
+  return range && range.text === payload ? { start: range.start, end: range.end } : undefined;
+}
+
+function formatUnitRangeInField(field, fieldOffset, payload) {
+  const colon = field.indexOf(":");
+  if (colon < 0) return undefined;
+  const specStart = colon + 1;
+  const spec = field.slice(specStart);
+  let cursor = leadingWhitespaceLength(spec);
+  const afterLeading = spec.slice(cursor);
+  if (afterLeading.startsWith(".")) {
+    cursor += 1;
+    while (cursor < spec.length && /[0-9]/.test(spec[cursor])) {
+      cursor += 1;
+    }
+  }
+  const range = trimmedRange(spec.slice(cursor), fieldOffset + specStart + cursor);
+  return range && range.text === payload ? { start: range.start, end: range.end } : undefined;
+}
+
+function emptyFormatInterpolationRange(lineText) {
+  const text = String(lineText || "");
+  for (const literal of stringLiteralRanges(text)) {
+    const contentStart = literal.start + 1;
+    const contentEnd = Math.max(contentStart, literal.end - 1);
+    const content = text.slice(contentStart, contentEnd);
+    let cursor = 0;
+    while (cursor < content.length) {
+      const openOffset = content.indexOf("{", cursor);
+      if (openOffset < 0) break;
+      const fieldStart = openOffset + 1;
+      const closeOffset = content.indexOf("}", fieldStart);
+      if (closeOffset < 0) break;
+      if (content.slice(fieldStart, closeOffset).trim() === "") {
+        return { start: contentStart + openOffset, end: contentStart + closeOffset + 1 };
+      }
+      cursor = closeOffset + 1;
+    }
+  }
+  return undefined;
+}
+
+function unterminatedFormatInterpolationRange(lineText) {
+  const text = String(lineText || "");
+  for (const literal of stringLiteralRanges(text)) {
+    const contentStart = literal.start + 1;
+    const contentEnd = Math.max(contentStart, literal.end - 1);
+    const content = text.slice(contentStart, contentEnd);
+    let cursor = 0;
+    while (cursor < content.length) {
+      const openOffset = content.indexOf("{", cursor);
+      if (openOffset < 0) break;
+      const fieldStart = openOffset + 1;
+      const closeOffset = content.indexOf("}", fieldStart);
+      if (closeOffset < 0) {
+        const start = contentStart + openOffset;
+        return { start, end: start + 1 };
+      }
+      cursor = closeOffset + 1;
+    }
+  }
+  return undefined;
+}
+
+function stringLiteralRanges(lineText) {
+  const text = String(lineText || "");
+  const ranges = [];
+  let cursor = 0;
+  while (cursor < text.length) {
+    const quoteStart = text.indexOf('"', cursor);
+    if (quoteStart < 0) break;
+    const range = stringLiteralRangeAt(text, quoteStart);
+    if (!range) break;
+    ranges.push(range);
+    cursor = range.end;
+  }
+  return ranges;
+}
+
+function trimmedRange(value, offset) {
+  const raw = String(value || "");
+  const leading = leadingWhitespaceLength(raw);
+  const trimmed = raw.trim();
+  if (!trimmed) return undefined;
+  const start = offset + leading;
+  return { start, end: start + trimmed.length, text: trimmed };
+}
+
+function leadingWhitespaceLength(value) {
+  const match = String(value || "").match(/^\s*/);
+  return match ? match[0].length : 0;
+}
+
+function firstBacktickPayload(text) {
+  const match = /`([^`]+)`/.exec(String(text || ""));
+  return match ? match[1].trim() : undefined;
+}
+
+function lastBacktickPayload(text) {
+  let last;
+  for (const match of String(text || "").matchAll(/`([^`]+)`/g)) {
+    const payload = match[1].trim();
+    if (payload) last = payload;
+  }
+  return last;
 }
 
 function backtickPayloadRange(lineText, text) {

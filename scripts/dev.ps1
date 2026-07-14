@@ -4798,6 +4798,12 @@ function Assert-VscodeExtensionContract {
         "functionCallNameRange(lineText, `"sum`", searchStart)",
         "logLevelRange(lineText)",
         "netUrlLiteralRange(lineText, searchStart)",
+        "formatInterpolationDiagnosticRange(lineText, item)",
+        "formatInterpolationPayloadRange(lineText, payload, `"unit`")",
+        "formatInterpolationPayloadRange(lineText, payload, `"expression`")",
+        "emptyFormatInterpolationRange(lineText)",
+        "unterminatedFormatInterpolationRange(lineText)",
+        "lastBacktickPayload(item?.message)",
         "diagnosticBacktickRange(lineText, item)"
     )) {
         if (-not $DiagnosticsProviderSource.Contains($RequiredDiagnosticsSourceColumnToken)) {
