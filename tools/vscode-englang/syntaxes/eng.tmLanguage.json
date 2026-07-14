@@ -3118,7 +3118,7 @@
                                                          },
                                                          {
                                                              "name":  "keyword.control.workflow.englang",
-                                                             "match":  "\\b(materialize|require_one|regression|collect|columns|package|predict|promote|records|results|version|column|derive|filter|policy|return|sample|select|apply|cases|model|train|else|json|read|sort|text|toml|csv|if|to)\\b"
+                                                             "match":  "\\b(standard_text|materialize|require_one|regression|collect|columns|package|predict|promote|records|results|version|column|derive|filter|policy|return|sample|select|apply|cases|model|train|else|json|read|sort|text|toml|csv|if|to)\\b"
                                                          }
                                                      ]
                                     },

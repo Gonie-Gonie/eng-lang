@@ -452,6 +452,7 @@
                                                                    "promote",
                                                                    "read",
                                                                    "text",
+                                                                   "standard_text",
                                                                    "json",
                                                                    "toml",
                                                                    "csv",

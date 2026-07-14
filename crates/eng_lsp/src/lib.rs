@@ -587,6 +587,7 @@ const EDITOR_WORKFLOW_KEYWORDS: &[&str] = &[
     "promote",
     "read",
     "text",
+    "standard_text",
     "json",
     "toml",
     "csv",
@@ -9914,6 +9915,7 @@ mod tests {
             ("external_boundary", "http"),
             ("solver", "solve"),
             ("workflow", "require_one"),
+            ("workflow", "standard_text"),
         ] {
             assert!(
                 keyword_groups[group]
