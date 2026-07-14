@@ -3990,6 +3990,7 @@ function Assert-VscodeExtensionContract {
         "semantic token modifiers and TextMate fallback scopes",
         "TextMate-plus-semantic highlighting",
         "TextMate-only",
+        "raw `read json` field-access promotion edits",
         "raw semantic-token payload",
         "diagnostic payload",
         "highlight token payload",
@@ -6066,6 +6067,14 @@ function Assert-VscodeExtensionContract {
     $ReadJsonCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "read json" }) | Select-Object -First 1
     if ($ReadJsonCompletion.insert -ne "read json args.config" -or $ReadJsonCompletion.insert_snippet -ne 'read json ${1:args.config}') {
         throw "generated VS Code editor metadata read json completion must include insert and insert_snippet"
+    }
+    if ([string]$ReadJsonCompletion.detail -ne "eng.io direct JSON read") {
+        throw "generated VS Code editor metadata read json completion must use direct JSON wording"
+    }
+    foreach ($StaleReadCompletionDetail in @("eng.io raw text read", "eng.io raw JSON read", "eng.io raw TOML read")) {
+        if (($EditorMetadata.completion_items | Where-Object { [string]$_.detail -eq $StaleReadCompletionDetail }).Count -gt 0) {
+            throw "generated VS Code completion details must avoid raw read wording: $StaleReadCompletionDetail"
+        }
     }
     $LinearOperatorCompletion = @($EditorMetadata.completion_items | Where-Object { $_.label -eq "LinearOperator[From -> To]" }) | Select-Object -First 1
     if ($LinearOperatorCompletion.insert_snippet -ne 'LinearOperator[${1:From} -> ${2:To}]') {

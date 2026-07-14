@@ -2162,7 +2162,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "eng.io raw text read",
+                                 "detail":  "eng.io direct text read",
                                  "insert":  "read text args.input",
                                  "insert_snippet":  "read text ${1:args.input}",
                                  "kind":  "stdlib",
@@ -2170,7 +2170,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "eng.io raw JSON read",
+                                 "detail":  "eng.io direct JSON read",
                                  "insert":  "read json args.config",
                                  "insert_snippet":  "read json ${1:args.config}",
                                  "kind":  "stdlib",
@@ -2178,7 +2178,7 @@
                                  "lsp_kind":  9
                              },
                              {
-                                 "detail":  "eng.io raw TOML read",
+                                 "detail":  "eng.io direct TOML read",
                                  "insert":  "read toml args.config",
                                  "insert_snippet":  "read toml ${1:args.config}",
                                  "kind":  "stdlib",

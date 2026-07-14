@@ -7383,9 +7383,9 @@ pub fn completion_items(report: &CheckReport) -> Vec<LspCompletion> {
         ("log info", "Structured run log starter"),
         ("http get", "eng.net HTTP GET boundary"),
         ("http post", "eng.net HTTP POST boundary"),
-        ("read text", "eng.io raw text read"),
-        ("read json", "eng.io raw JSON read"),
-        ("read toml", "eng.io raw TOML read"),
+        ("read text", "eng.io direct text read"),
+        ("read json", "eng.io direct JSON read"),
+        ("read toml", "eng.io direct TOML read"),
         ("write text", "eng.io text output"),
         ("write json", "eng.io JSON output"),
         (

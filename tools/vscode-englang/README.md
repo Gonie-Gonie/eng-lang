@@ -44,7 +44,7 @@ embedding compiler logic in JavaScript.
   `with` options, invalid network URL/body-method/retry/timeout/body-size policies,
   legacy network `fixture` option aliases that should be rewritten to
   `offline_response`, legacy response `.hash`/`.status` aliases,
-  raw `read json` field-access promotion edits,
+  direct `read json` field-access promotion edits,
   HeatRate TimeSeries sum-to-integrate repairs,
   statement-only binding prefix removals for report, validation, side-effect,
   block/header, import/use/connect/return, and workflow-option diagnostics,
