@@ -642,6 +642,33 @@ function Assert-WorkflowPatternIncludes {
     }
 }
 
+function Assert-WorkflowBeginCaptureScope {
+    param(
+        [Parameter(Mandatory = $true)][string] $Name,
+        [Parameter(Mandatory = $true)][string] $Begin,
+        [Parameter(Mandatory = $true)][string] $CaptureIndex,
+        [Parameter(Mandatory = $true)][string] $Scope,
+        [Parameter(Mandatory = $true)][string] $Description
+    )
+
+    $patterns = @($Grammar.repository.workflowPhrases.patterns | Where-Object {
+        [string]$_.name -eq $Name -and [string]$_.begin -eq $Begin
+    })
+    if ($patterns.Count -ne 1) {
+        throw "TextMate grammar must define exactly one $Description workflow begin pattern"
+    }
+
+    $captures = $patterns[0].beginCaptures
+    if ($null -eq $captures -or $captures.PSObject.Properties.Name -notcontains $CaptureIndex) {
+        throw "TextMate grammar $Description workflow pattern must define begin capture $CaptureIndex"
+    }
+
+    $actualScope = [string]$captures.$CaptureIndex.name
+    if ($actualScope -ne $Scope) {
+        throw "TextMate grammar $Description workflow begin capture $CaptureIndex must use $Scope, got $actualScope"
+    }
+}
+
 function Assert-BeginEndWorkflowPhrasesAreMemberAware {
     $offenders = New-Object System.Collections.Generic.List[string]
     foreach ($pattern in @($GrammarSource.grammar.repository.workflowPhrases.patterns)) {
@@ -1299,6 +1326,9 @@ Assert-WorkflowPatternIncludes -Name "meta.workflow.export-summary-csv.englang" 
 Assert-WorkflowPatternIncludes -Name "meta.workflow.write-text.englang" -Include "#members" -Description "write text"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.write-json.englang" -Include "#members" -Description "write json"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.write-standard-text.englang" -Include "#members" -Description "write standard text"
+Assert-WorkflowBeginCaptureScope -Name "meta.workflow.write-text.englang" -Begin "^\s*(write)\s+(text)\b" -CaptureIndex "2" -Scope "keyword.control.side-effect.englang" -Description "write text format"
+Assert-WorkflowBeginCaptureScope -Name "meta.workflow.write-json.englang" -Begin "^\s*(write)\s+(json)\b" -CaptureIndex "2" -Scope "keyword.control.side-effect.englang" -Description "write json format"
+Assert-WorkflowBeginCaptureScope -Name "meta.workflow.write-standard-text.englang" -Begin "^\s*(write)\s+(standard_text)\b" -CaptureIndex "2" -Scope "keyword.control.side-effect.englang" -Description "write standard text format"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.file-operation.englang" -Include "#members" -Description "file operation"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.render-template.englang" -Include "#members" -Description "render template"
 Assert-WorkflowPatternIncludes -Name "meta.workflow.read-structured.englang" -Include "#members" -Description "read structured"

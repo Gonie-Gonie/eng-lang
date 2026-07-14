@@ -569,7 +569,7 @@
             "begin": "^\\s*(write)\\s+(text)\\b",
             "beginCaptures": {
               "1": { "name": "keyword.control.side-effect.englang" },
-              "2": { "name": "keyword.control.workflow.englang" }
+              "2": { "name": "keyword.control.side-effect.englang" }
             },
             "end": "(?=#|$)",
             "patterns": [
@@ -598,7 +598,7 @@
             "begin": "^\\s*(write)\\s+(json)\\b",
             "beginCaptures": {
               "1": { "name": "keyword.control.side-effect.englang" },
-              "2": { "name": "keyword.control.workflow.englang" }
+              "2": { "name": "keyword.control.side-effect.englang" }
             },
             "end": "(?=#|$)",
             "patterns": [
@@ -627,7 +627,7 @@
             "begin": "^\\s*(write)\\s+(standard_text)\\b",
             "beginCaptures": {
               "1": { "name": "keyword.control.side-effect.englang" },
-              "2": { "name": "keyword.control.workflow.englang" }
+              "2": { "name": "keyword.control.side-effect.englang" }
             },
             "end": "(?=#|$)",
             "patterns": [

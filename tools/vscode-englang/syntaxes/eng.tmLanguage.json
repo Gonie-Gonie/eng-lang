@@ -900,7 +900,7 @@
                                                                                                     "name":  "keyword.control.side-effect.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.side-effect.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
@@ -945,7 +945,7 @@
                                                                                                     "name":  "keyword.control.side-effect.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.side-effect.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
@@ -990,7 +990,7 @@
                                                                                                     "name":  "keyword.control.side-effect.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.side-effect.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
