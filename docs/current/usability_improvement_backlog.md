@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 842: Archived current backlog batches 791-820 into the historical log, keeping the active API/IDE/workflow cleanup backlog focused on recent linter, highlighting, workflow, and docs work.
 - Batch 841: Reworded user-facing IDE/VS Code docs from executable/LSP and semantic-highlighting internals toward check/run tool, live editor tool, role-aware highlighting, and editor metadata wording.
 - Batch 840: Reworded public user diagnostics and standalone bundle docs away from internal snapshot phrasing, using live editor analysis and source file copy wording instead.
 - Batch 839: Added `.eng` editor context menu entries for the Problems-at-cursor and Highlight-token-at-cursor inspectors, with package contract coverage so linter/highlight inspection is discoverable outside the Command Palette.
@@ -21,36 +22,6 @@
 - Batch 823: Added VS Code saved-file diagnostic token-range fallbacks for syntax migration and network alias diagnostics so CLI Problems underline the same `:=`, `==`, `struct Args`, `script`, and `fixture` tokens as live LSP diagnostics.
 - Batch 822: Added native IDE Highlight table row actions that open the matching inspector panels for each semantic token, extending the token-to-context routing beyond caret and hover summaries.
 - Batch 821: Added VS Code highlight inspector panel hints to semantic-token rows and cursor copy-ready payloads so users can connect confusing colors to the matching Schema, Time, Workflow, Network, Case, Model, Modules, Units, Review, or Variables context.
-- Batch 820: Routed native IDE Highlight/Caret action buttons for workflow-step, cache, case, and module/namespace semantic tokens to the matching Workflow, Network, Case, and Modules inspector panels.
-- Batch 819: Fixed model target semantic-token placement so `train_test_split` source operands stay variables while named `target=` values are model properties, clearing conflicting token types across all 126 example sources.
-- Batch 818: Added LSP semantic-token guards for workflow 01/02/03 and the previous overlap fixture so editor highlighting cannot emit conflicting token types for the same source range.
-- Batch 817: Replaced the component residual graph Jacobian status placeholder with sparsity_metadata and cleaned internal component/domain docs so current structured artifact fields are not described as placeholders or seed-only paths.
-- Batch 816: Archived current backlog batches 746-790 into the historical log, keeping active API/IDE/workflow cleanup docs focused on the latest implementation and open candidates.
-- Batch 815: Promoted observed semantic-token fallback coverage into VS Code packaging, so every selector emitted by real examples and grammar fixtures must have at least one fallback scope before a local VSIX is built.
-- Batch 814: Added explicit user-facing hover labels for compiler-owned coverage-result and generic table public-member fields in both VS Code and the native IDE, with dev gates preventing those new hover kinds from falling back to raw payload ids.
-- Batch 813: Strengthened CLI native workflow smoke so workflow 01/02/03 must parse both static and executed run graphs and reject process, run-command, Python, notebook, or legacy helper markers in node and edge metadata, in addition to zero-process process_results.json.
-- Batch 812: Added compiler-owned coverage result and generic table public-member editor catalogs, wired them through VS Code/native IDE completion and TextMate grammar fallback, and locked actual workflow examples such as `coverage.actual_count`, `weather.rows`, `db.tables_written`, and `sensor.rows` into grammar smoke.
-- Batch 811: Strengthened workflow 03 smoke coverage from token presence to structured JSON assertions for propagated sensor uncertainty calculations, explicit p95 metadata-only status, report computed statistic/integration values, generated output validation, and PlotSpec confidence-band point arrays.
-- Batch 810: Updated the workflow 01 native cache smoke contract to accept first-run `miss_materialized` cache records alongside cache hits and offline-response availability, restoring `dev.bat workflows-test` for the current native materialization behavior.
-- Batch 809: Cleared cached VS Code review/highlight fallback state as soon as an EngLang buffer changes, preventing hover, completion, risk markers, or semantic symbol decorations from reusing an older snapshot after edits.
-- Batch 808: Added VS Code highlighting pipeline and fallback scope-map coverage to `EngLang: Show Tooling Status` and the highlight-token inspector, so users can see TextMate first paint, compiler-backed semantic token routing, and missing selector coverage from one status view.
-- Batch 807: Cleared the remaining fixture-level mixed-type semantic token overlaps by treating dotted calls as methods, avoiding lexical type overlays on `as` schema operands, skipping variable overlays for string write literals, preserving nested member field metadata without repainting nested receivers, and ignoring unit symbols in derived-column source fields.
-- Batch 806: Suppressed generic variable and review-risk overlays on structural declarations such as schema columns, system parameters, and component declarations, added VS Code fallback scopes and theme colors for parameter modifiers surfaced by fixture coverage, and reduced mixed-type semantic token overlaps from 27 to 9 while keeping keyword/function conflicts at zero.
-- Batch 805: Removed variable overlays from `export summary to csv`'s `summary` keyword and `plot A and B`'s `and` connector, clearing the remaining fixture-level keyword/variable conflicts.
-- Batch 804: Stopped bare `model` value operands in `evaluate(model)`, `model_card(model)`, and `predict model using ...` from receiving lexical keyword overlays while preserving catalog keyword coverage.
-- Batch 803: Reclassified `write text/json/standard_text` format selectors as side-effect keywords instead of helper functions, removing the last fixture-level function/keyword overlay.
-- Batch 802: Stopped keyword overlays on call-style helper functions such as `integrate(...)`, `mlp(...)`, and `plot histogram(...)` while preserving command-style keyword coloring.
-- Batch 801: Removed duplicate `function.defaultLibrary` semantic tokens from command-style verbs, keeping call-style helpers as functions and command phrases as keywords.
-- Batch 800: Anchored `check coverage` command semantic keywords to the command phrase so a same-line `coverage = ...` binding stays colored as a variable.
-- Batch 799: Stopped LSP keyword overlays on declaration, assignment, and named-argument labels such as `input:`, `model =`, `mode =`, and `test=...` while leaving comparison constants highlighted.
-- Batch 798: Treated dotted `args.*` paths as parameter/property semantic tokens and stopped keyword overlays on their segments, aligning LSP coloring with VS Code TextMate first paint.
-- Batch 797: Aligned LSP semantic colors for `print`, `log`, and log-level literals with the VS Code TextMate side-effect scopes instead of repainting them as report tokens.
-- Batch 796: Colored `distribution(kind=normal|uniform)` literals as `uncertain` semantic tokens while preserving `sample uniform` as a workflow-step keyword.
-- Batch 795: Gave the `empty` workflow status literal the same `workflowStep` semantic modifier as the other generated status literals, so VS Code TextMate first paint and LSP semantic coloring do not disagree.
-- Batch 794: Reworded LSP hover Markdown kind/status lines to user-facing labels while keeping raw `kind` and `status` JSON fields stable for editor clients.
-- Batch 793: Reworded hover status display in VS Code and Native IDE from raw ids such as `domain_compatible` into user-facing labels while keeping snapshot payloads unchanged.
-- Batch 792: Aligned Native IDE hover titles and Highlight-panel Hover rows with VS Code by showing user-facing role labels instead of raw hover kind ids.
-- Batch 791: Reworded VS Code hover kind display from raw payload ids such as `model_field` and `db_connection_field` into user-facing role labels while keeping payload matching unchanged.
 
 This file is the short current backlog for API clarity, native workflow usability,
 editor/linter behavior, and documentation cleanup. The historical batch log was
