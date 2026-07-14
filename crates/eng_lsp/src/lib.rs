@@ -2796,16 +2796,16 @@ fn with_block_semantic_modifiers(
         return modifiers;
     }
     if is_net_with_block(program, block.owner_line) {
-        return &["external"];
+        return &["external", "workflowStep"];
     }
     if is_process_with_block(program, block.owner_line) {
-        return &["sideEffect", "external"];
+        return &["sideEffect", "external", "workflowStep"];
     }
     if is_report_with_block(program, block.owner_line) {
-        return &["report"];
+        return &["report", "workflowStep"];
     }
     if is_solver_with_block(program, block.owner_line) {
-        return &["solver"];
+        return &["solver", "workflowStep"];
     }
     if is_workflow_step_with_block(program, block.owner_line) {
         return &["workflowStep"];
@@ -2826,16 +2826,16 @@ fn with_block_option_semantic_modifiers(
             return &["db"];
         }
         if modifiers.iter().any(|modifier| *modifier == "external") {
-            return &["external"];
+            return &["external", "workflowStep"];
         }
         if modifiers.iter().any(|modifier| *modifier == "sideEffect") {
             return &["sideEffect"];
         }
         if modifiers.iter().any(|modifier| *modifier == "solver") {
-            return &["solver"];
+            return &["solver", "workflowStep"];
         }
         if modifiers.iter().any(|modifier| *modifier == "report") {
-            return &["report"];
+            return &["report", "workflowStep"];
         }
         if modifiers.iter().any(|modifier| *modifier == "validation") {
             return &["validation"];
@@ -2868,21 +2868,23 @@ fn with_option_semantic_modifiers(
     key: &str,
 ) -> &'static [&'static str] {
     if key == "display_unit" || key.starts_with("unit ") {
-        return &["report"];
+        return &["report", "workflowStep"];
     }
     if is_process_with_block(program, block.owner_line) {
         match key {
             "args" | "cwd" | "env" | "expected_outputs" | "tool_version" | "timeout" | "retry"
-            | "allow_failure" => return &["sideEffect", "external"],
+            | "allow_failure" => return &["sideEffect", "external", "workflowStep"],
             "cache" | "cache_key" | "cache_dir" | "cache_ttl" => {
-                return &["cache", "sideEffect", "external"]
+                return &["cache", "sideEffect", "external", "workflowStep"]
             }
             _ => {}
         }
     }
     if is_net_with_block(program, block.owner_line) {
         match key {
-            "cache" | "cache_key" | "cache_dir" | "cache_ttl" => return &["cache", "external"],
+            "cache" | "cache_key" | "cache_dir" | "cache_ttl" => {
+                return &["cache", "external", "workflowStep"]
+            }
             _ => {}
         }
     }
@@ -2896,6 +2898,9 @@ fn with_option_semantic_modifiers(
         }
         "status" if is_workflow_status_option_block(program, block) => &["workflowStep"],
         "on_none" | "on_many" | "expected_step" | "max_gap" | "status" => &["validation"],
+        "sensor_std" | "confidence_band" if is_report_with_block(program, block.owner_line) => {
+            &["uncertain", "workflowStep"]
+        }
         "sensor_std" | "confidence_band" => &["uncertain"],
         "bias" | "gain" | "kind" | "lower" | "mu" | "n" | "offset" | "relative_error"
         | "samples" | "scale" | "sigma" | "uncertainty" | "upper" => &["uncertain"],
@@ -2919,7 +2924,7 @@ fn with_option_semantic_modifiers(
         | "residual_scales"
         | "consistency_tolerance"
         | "variable_scale"
-        | "variable_scales" => &["solver"],
+        | "variable_scales" => &["solver", "workflowStep"],
         "mode" if is_db_write_with_block(program, block.owner_line) => &["db"],
         "overwrite" | "mode" | "confirm" | "recursive" | "output" => &["sideEffect"],
         "args"
@@ -2938,7 +2943,7 @@ fn with_option_semantic_modifiers(
         | "timeout"
         | "allow_failure"
         | "cwd"
-        | "env" => &["external"],
+        | "env" => &["external", "workflowStep"],
         "algorithm" | "features" | "x" | "hidden" | "layers" | "target" | "y" | "test"
         | "test_fraction" | "epochs" | "split" | "seed"
             if is_model_with_block(program, block.owner_line) =>
@@ -2952,9 +2957,9 @@ fn with_option_semantic_modifiers(
         }
         "step" | "case_id" | "output_root" | "resume" | "template" | "values" | "artifact_kind"
         | "year" | "return_column" => &["workflowStep"],
-        "title" => &["report"],
+        "title" => &["report", "workflowStep"],
         _ if is_db_write_with_block(program, block.owner_line) => &["db"],
-        _ if is_net_with_block(program, block.owner_line) => &["external"],
+        _ if is_net_with_block(program, block.owner_line) => &["external", "workflowStep"],
         _ => &[],
     }
 }
@@ -3007,15 +3012,19 @@ fn with_option_path_helper_semantic_modifiers(
 ) -> Option<&'static [&'static str]> {
     match key {
         "cache_dir" if is_process_with_block(program, block.owner_line) => {
-            Some(&["cache", "sideEffect", "external"])
+            Some(&["cache", "sideEffect", "external", "workflowStep"])
         }
-        "cache_dir" if is_net_with_block(program, block.owner_line) => Some(&["cache", "external"]),
+        "cache_dir" if is_net_with_block(program, block.owner_line) => {
+            Some(&["cache", "external", "workflowStep"])
+        }
         "cache_dir" => Some(&["cache"]),
-        "expected_outputs" => Some(&["sideEffect", "external"]),
+        "expected_outputs" => Some(&["sideEffect", "external", "workflowStep"]),
         "offline_response" | "fixture" if is_net_with_block(program, block.owner_line) => {
-            Some(&["external"])
+            Some(&["external", "workflowStep"])
         }
-        "cwd" if is_net_with_block(program, block.owner_line) => Some(&["external"]),
+        "cwd" if is_net_with_block(program, block.owner_line) => {
+            Some(&["external", "workflowStep"])
+        }
         "output_root" => Some(&["sideEffect", "workflowStep"]),
         "template" if is_template_workflow_with_block(program, block.owner_line) => {
             Some(&["workflowStep"])
@@ -3115,7 +3124,7 @@ fn with_option_value_semantic_class(
                     | "none"
             ) =>
         {
-            Some(("keyword", &["solver"]))
+            Some(("keyword", &["solver", "workflowStep"]))
         }
         "algorithm" | "split"
             if is_model_with_block(program, block.owner_line)
@@ -11143,6 +11152,14 @@ system RoomThermal {
             "function",
             "sideEffect",
         );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    expected_outputs = [file("outputs/result.txt")]"#,
+            "file",
+            "function",
+            "workflowStep",
+        );
     }
 
     #[test]
@@ -11318,12 +11335,23 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
                 "Q_dist = distribution(kind=normal, mean=5 kW, sigma=0.8 kW, n=31)",
                 "uncertain",
             ),
+            (r#"process_result = run command "cmd""#, "sideEffect"),
+            (r#"process_result = run command "cmd""#, "external"),
+            (r#"process_result = run command "cmd""#, "workflowStep"),
             ("sim = simulate RoomThermal", "solver"),
+            ("sim = simulate RoomThermal", "workflowStep"),
+            ("solve_result = solve component_graph", "solver"),
+            ("solve_result = solve component_graph", "workflowStep"),
             ("    plot distribution(Q_dist)", "report"),
+            ("    plot distribution(Q_dist)", "workflowStep"),
             ("cases = materialize sensor", "workflowStep"),
             (
                 r#"upload = http get url("https://example.org/weather")"#,
                 "external",
+            ),
+            (
+                r#"upload = http get url("https://example.org/weather")"#,
+                "workflowStep",
             ),
             (r#"write text file("outputs/out.txt"), "ok""#, "sideEffect"),
         ] {
@@ -11537,6 +11565,10 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         );
         assert_semantic_token_modifier(&snapshot, source, "unit y", "report");
         assert_semantic_token_modifier(&snapshot, source, "title", "report");
+        assert_semantic_token_modifier(&snapshot, source, "confidence_band", "workflowStep");
+        for label in ["unit y", "title"] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
         assert_semantic_token_modifier(&snapshot, source, "timestep", "solver");
         assert_semantic_token_modifier(&snapshot, source, "duration", "solver");
         assert_semantic_token_modifier(&snapshot, source, "solver", "solver");
@@ -11544,9 +11576,30 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
         assert_semantic_token_modifier(&snapshot, source, "tolerance", "solver");
         assert_semantic_token_modifier(&snapshot, source, "jacobian", "solver");
         assert_semantic_token_modifier(&snapshot, source, "source_linear_terms", "solver");
+        for label in [
+            "timestep",
+            "duration",
+            "solver",
+            "adaptive_heun",
+            "tolerance",
+            "jacobian",
+            "source_linear_terms",
+        ] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
         assert_semantic_token_modifier(&snapshot, source, "query", "external");
         assert_semantic_token_modifier(&snapshot, source, "station", "external");
         assert_semantic_token_modifier(&snapshot, source, "offline_response", "external");
+        for label in [
+            "query",
+            "station",
+            "offline_response",
+            "expected_sha256",
+            "status_code",
+            "body_size_limit",
+        ] {
+            assert_semantic_token_modifier(&snapshot, source, label, "workflowStep");
+        }
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
@@ -11554,6 +11607,14 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
             "file",
             "function",
             "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    offline_response = file("data/weather-response.json")"#,
+            "file",
+            "function",
+            "workflowStep",
         );
         assert_semantic_token_modifier(&snapshot, source, "expected_sha256", "external");
         assert_semantic_token_modifier(&snapshot, source, "status_code", "external");
@@ -11577,6 +11638,15 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
                 "property",
                 "external",
             );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"upload = http get url("https://example.org/weather")"#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "workflowStep",
+            );
         }
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
@@ -11593,6 +11663,14 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
             "dir",
             "function",
             "external",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            r#"    cache_dir = dir("build/cache")"#,
+            "dir",
+            "function",
+            "workflowStep",
         );
         for label in [
             "args",
@@ -11619,6 +11697,15 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
                 label,
                 "property",
                 "external",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "workflowStep",
             );
         }
         for label in ["cache", "cache_key"] {
@@ -11648,6 +11735,15 @@ write standard_text sensor to file("outputs/sensor_copy.txt")
                 label,
                 "property",
                 "external",
+            );
+            assert_semantic_token_after_line_with_modifier(
+                &snapshot,
+                source,
+                r#"process_result = run command "cmd""#,
+                &format!("    {label} ="),
+                label,
+                "property",
+                "workflowStep",
             );
         }
         for (owner_line, expected_modifier) in [
