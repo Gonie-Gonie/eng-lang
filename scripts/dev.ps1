@@ -4314,6 +4314,7 @@ function Assert-VscodeExtensionContract {
         return ($SemanticColorValue | ConvertTo-Json -Compress)
     }
     $RoleColorFamilies = @(
+        @{ Label = "base callable/member"; Selectors = @("function", "method", "property"); MinimumDistinct = 3 },
         @{ Label = "unit"; Selectors = @("type.unit", "property.unit"); MinimumDistinct = 2 },
         @{ Label = "quantity"; Selectors = @("type.quantity", "variable.quantity", "property.quantity", "parameter.quantity"); MinimumDistinct = 3 },
         @{ Label = "axis"; Selectors = @("variable.axis", "property.axis", "type.axis"); MinimumDistinct = 3 },
