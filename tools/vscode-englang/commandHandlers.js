@@ -909,12 +909,36 @@ function createCommandHandlers(options = {}) {
   function highlightCoverageCatalog() {
     const keywordGroups = syntaxCatalog.keyword_groups ?? {};
     const keywordGroupWords = Object.values(keywordGroups).flatMap((items) => Array.isArray(items) ? items : []);
+    const publicFieldWords = [
+      ...catalogItemLabels(syntaxCatalog.table_fields),
+      ...catalogItemLabels(syntaxCatalog.sample_table_fields),
+      ...catalogItemLabels(syntaxCatalog.http_response_fields),
+      ...catalogItemLabels(syntaxCatalog.coverage_result_fields),
+      ...catalogItemLabels(syntaxCatalog.db_connection_fields),
+      ...catalogItemLabels(syntaxCatalog.case_table_fields),
+      ...catalogItemLabels(syntaxCatalog.case_output_table_fields),
+      ...catalogItemLabels(syntaxCatalog.case_result_collection_table_fields),
+      ...catalogItemLabels(syntaxCatalog.model_fields),
+      ...catalogItemLabels(syntaxCatalog.prediction_table_fields)
+    ];
     return [
       {
         key: "keyword",
         label: "Keywords",
         filter: "keyword",
         words: [...arrayOrEmpty(syntaxCatalog.keywords), ...keywordGroupWords]
+      },
+      {
+        key: "type",
+        label: "Types",
+        filter: "type",
+        words: arrayOrEmpty(syntaxCatalog.public_types)
+      },
+      {
+        key: "quantity",
+        label: "Quantities",
+        filter: "quantity",
+        words: catalogItemLabels(syntaxCatalog.quantities)
       },
       {
         key: "workflow",
@@ -944,6 +968,12 @@ function createCommandHandlers(options = {}) {
           ...catalogItemLabels(syntaxCatalog.units),
           ...arrayOrEmpty(syntaxCatalog.legacy_unit_aliases)
         ]
+      },
+      {
+        key: "field",
+        label: "Public fields",
+        filter: "field",
+        words: publicFieldWords
       },
       {
         key: "constant",

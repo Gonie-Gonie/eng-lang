@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 878: Expanded VS Code highlight coverage inspection to report Types, Quantities, and Public fields from shared editor metadata, so color gaps outside keyword/unit scopes are easier to see.
 - Batch 877: Made `workflow-native-status` explicitly report no Python/.py/notebook/run-command markers, no external processes, and no process/Python run-graph nodes for workflow 01/02/03 evidence.
 - Batch 876: Colored `write text`, `write json`, and `write standard_text` format selectors as side-effect first-paint tokens and added grammar guard coverage for those phrase captures.
 - Batch 875: Added `standard_text` to shared editor workflow keyword metadata so VS Code and native IDE keyword catalogs expose the native standard-file writer consistently.
