@@ -208,9 +208,10 @@ Saved-file open/save diagnostics
 are controlled by `englang.lintOnSave`; live typing diagnostics are controlled by
 `englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a
 focused JSON view of diagnostics covering the caret, nearest same-line
-diagnostics, source labels, codes, severity, and range text. If diagnostics
-cannot parse editor JSON, run `EngLang: Show Tooling Status` to inspect the
-selected paths. When the selected
+diagnostics, source labels, codes, severity, range text, the underlined source
+text, and the full source line for copy-ready reports. If diagnostics cannot
+parse editor JSON, run `EngLang: Show Tooling Status` to inspect the selected
+paths. When the selected
 tool exits without editor JSON, the Problems entry includes a short
 `Tool failure:` reason and the EngLang output channel keeps stderr/stdout
 details. Set `englang.lintOnChange = false` to disable live typing checks while

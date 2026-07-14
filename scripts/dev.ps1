@@ -3350,6 +3350,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("The refresh follows the") -or -not $VscodeReadmeSource.Contains("file mode checks the saved file") -or -not $VscodeReadmeSource.Contains("live mode can") -or -not $VscodeReadmeSource.Contains("current unsaved buffer")) {
         throw "VS Code README must document that Refresh Problems follows the selected diagnostics mode"
     }
+    if (-not $VscodeReadmeSource.Contains("the underlined source") -or -not $VscodeReadmeSource.Contains("full source line") -or -not $VscodeReadmeSource.Contains("copy-ready reports")) {
+        throw "VS Code README must document problem inspector source text payloads"
+    }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
             throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
@@ -4355,6 +4358,13 @@ function Assert-VscodeExtensionContract {
         "matching_problems: matchingProblems",
         "nearest_problems: nearestProblems",
         "line_problems: lineProblems",
+        "diagnostic_source_text: toolingStatusProblemSourceText(document, range)",
+        "source_line_text: toolingStatusProblemLineText(document, range)",
+        "function toolingStatusProblemSourceText(document, range)",
+        "function toolingStatusProblemLineText(document, range)",
+        "function toolingStatusProblemTruncatedText(text)",
+        "text: problem.diagnostic_source_text",
+        "line_text: problem.source_line_text",
         "function cursorProblemStatus(matchingProblems, nearestProblems, fileProblemCount, diagnosticsAvailable = true)",
         "function problemCopyReady(problem)"
     )) {

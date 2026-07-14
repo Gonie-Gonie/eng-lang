@@ -1158,6 +1158,8 @@ function createCommandHandlers(options = {}) {
       code: toolingStatusDiagnosticCode(diagnostic?.code),
       message: toolingStatusProblemMessage(diagnostic?.message),
       diagnostic_range_text: toolingStatusProblemRangeText(range),
+      diagnostic_source_text: toolingStatusProblemSourceText(document, range),
+      source_line_text: toolingStatusProblemLineText(document, range),
       diagnostic_range_status: toolingStatusProblemRangeStatus(document, range)
     };
   }
@@ -1202,6 +1204,33 @@ function createCommandHandlers(options = {}) {
     return startLine === endLine
       ? `L${startLine}:C${startColumn}-C${endColumn}`
       : `L${startLine}:C${startColumn}-L${endLine}:C${endColumn}`;
+  }
+
+  function toolingStatusProblemSourceText(document, range) {
+    if (!range) {
+      return null;
+    }
+    try {
+      return toolingStatusProblemTruncatedText(document.getText(range));
+    } catch {
+      return null;
+    }
+  }
+
+  function toolingStatusProblemLineText(document, range) {
+    if (!range) {
+      return null;
+    }
+    try {
+      return toolingStatusProblemTruncatedText(document.lineAt(range.start.line).text);
+    } catch {
+      return null;
+    }
+  }
+
+  function toolingStatusProblemTruncatedText(text) {
+    const value = String(text ?? "");
+    return value.length > 240 ? `${value.slice(0, 240)}...` : value;
   }
 
   function toolingStatusProblemRangeStatus(document, range) {
@@ -1325,6 +1354,8 @@ function createCommandHandlers(options = {}) {
       source: problem.source,
       severity: problem.severity,
       range: problem.diagnostic_range_text,
+      text: problem.diagnostic_source_text,
+      line_text: problem.source_line_text,
       message: problem.message
     };
   }

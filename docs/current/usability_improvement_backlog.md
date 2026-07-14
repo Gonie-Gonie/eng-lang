@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 847: Added underlined source text and full source-line fields to VS Code Problems inspector rows and copy-ready payloads so linter reports identify the exact token/range without manual reconstruction.
 - Batch 846: Made manual VS Code Problems refresh respect the selected diagnostics mode for dirty buffers, so file mode no longer switches to live-buffer diagnostics behind the user's back.
 - Batch 845: Kept the VS Code EngLang Problems status bar scoped to the active editor when background `.eng` documents open, change, or save, so linter mode/counts do not jump to another file.
 - Batch 844: Added `EngLang: Refresh Problems` as a VS Code command and `.eng` editor context-menu action so users can rerun the active-file linter without knowing that `Check Current File` refreshes Problems.
