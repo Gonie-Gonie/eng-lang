@@ -13984,7 +13984,7 @@ fn materialized_case_tables(
                 runner: if has_process {
                     "sequential_process_runner".to_owned()
                 } else {
-                    "manifest_seed_runner".to_owned()
+                    "native_template_runner".to_owned()
                 },
                 scheduler: "sequential".to_owned(),
                 scheduler_hooks: vec![
@@ -18082,6 +18082,8 @@ mod tests {
         assert!(output
             .output_manifest_json
             .contains("outputs/case_002/input.txt.render_manifest.json"));
+        assert!(output.result_json.contains("\"runner\": \"native_template_runner\""));
+        assert!(!output.result_json.contains("manifest_seed_runner"));
         assert!(output.process_results_json.contains("\"process_count\": 0"));
     }
 

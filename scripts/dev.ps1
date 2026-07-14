@@ -650,6 +650,9 @@ function Invoke-WorkflowsTest {
             if ($NativeWorkflowArtifactText -match "(?im)\brun\s+command\b") {
                 throw "Native workflow artifact must not contain run-command wording: $Workflow -> $NativeWorkflowArtifactTextPath"
             }
+            if ($NativeWorkflowArtifactText.Contains("manifest_seed_runner")) {
+                throw "Native workflow artifact must describe native case execution instead of manifest_seed_runner: $Workflow -> $NativeWorkflowArtifactTextPath"
+            }
             foreach ($PythonMarker in $ForbiddenNativeWorkflowSourceMarkers) {
                 if ($NativeWorkflowArtifactText -match "(?i)$PythonMarker") {
                     throw "Native workflow artifact must not contain Python/notebook marker $PythonMarker`: $Workflow -> $NativeWorkflowArtifactTextPath"

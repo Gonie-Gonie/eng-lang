@@ -1,3 +1,4 @@
+- Batch 929: Renamed workflow case-table artifact runner status from manifest_seed_runner to native_template_runner and added smoke/runtime guards so native case execution no longer reads as seed-only.
 - Batch 928: Added native primitive evidence summaries to workflow-native-status and VS Code Tooling Status so workflow 01/02/03 show concrete native API, sampling/model/DB, and uncertainty/report primitives instead of only no-Python checks.
 - Batch 927: Mirrored domain helper TextMate scopes inside string interpolation so model, uncertainty, TimeSeries, and solver helper calls color before the generic builtin fallback.
 - Batch 926: Colored parent(...), stem(...), and extension(...) as path helper TextMate calls alongside join(...), including interpolation coverage, grammar smoke, and token-scope docs.
