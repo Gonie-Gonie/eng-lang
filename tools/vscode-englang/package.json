@@ -233,6 +233,10 @@
             "storage.modifier.schema.englang",
             "keyword.control.workflow.englang"
           ],
+          "keyword.imported": [
+            "keyword.control.import.englang",
+            "storage.type.declaration.englang"
+          ],
           "keyword.state": [
             "storage.modifier.state.englang",
             "storage.modifier.englang",

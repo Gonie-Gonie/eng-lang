@@ -5750,6 +5750,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         | "method" | "const" | "parameter" | "port" | "across" | "through" | "index" => {
             &["declaration"]
         }
+        "use" | "import" => &["declaration", "imported"],
         "from" | "on" | "using" => &["model"],
         "report" | "show" | "plot" | "line" | "bar" | "histogram" | "summarize" | "summary"
         | "distribution" | "parity" | "residuals" => &["report"],
@@ -13393,6 +13394,38 @@ Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
             "equation_timeseries_operator_words.eng",
         );
     }
+    #[test]
+    fn snapshot_marks_import_keywords_as_import_declarations() {
+        let source = r#"use "thermal.eng"
+import eng.table
+use eng.stats
+"#;
+        let snapshot = snapshot_for_source(Path::new("import_keywords.eng"), source);
+
+        for line in ["use \"thermal.eng\"", "import eng.table", "use eng.stats"] {
+            let label = if line.starts_with("import") {
+                "import"
+            } else {
+                "use"
+            };
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "keyword",
+                "declaration",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, "keyword", "imported",
+            );
+            assert_no_semantic_token_on_line_with_empty_modifiers(
+                &snapshot, source, line, label, "keyword",
+            );
+        }
+        assert_no_conflicting_semantic_token_types(&snapshot, source, "import_keywords.eng");
+    }
+
     #[test]
     fn snapshot_marks_contextual_constant_literals_role_aware() {
         let source = r#"Q_dist = distribution(kind=normal, mean=10 kW, std=1 kW)

@@ -197,6 +197,7 @@
     "interface.defaultLibrary": "#80CBC4",
     "interface.static": "#80CBC4",
     "keyword.declaration": "#B9F27C",
+    "keyword.imported": "#66D9E8",
     "keyword.defaultLibrary": "#82AAFF",
     "keyword.deprecated": { "foreground": "#FF5C7A", "fontStyle": "strikethrough" },
     "keyword.local": "#82AAFF",

@@ -296,6 +296,7 @@ Core semantic role expectations:
 
 | Source role | Semantic token |
 | --- | --- |
+| `use`/`import` keyword | `keyword` with `declaration` and `imported`. |
 | `use`/`import` namespace | `namespace` with `declaration` and `imported`. |
 | `const` name | `variable` with `declaration` and `readonly`. |
 | Schema name | `class` with `declaration`. |
@@ -352,7 +353,7 @@ from generic fallback colors. Important pairings:
 | `variable.timeseries`, `property.timeseries`, `function.timeseries` | TimeSeries value and statistic helper emphasis. |
 | `variable.uncertain`, `function.uncertain`, `property.uncertain`, `keyword.uncertain` | Uncertainty values, functions, properties, and block introducers. |
 | `keyword.defaultLibrary`, `function.defaultLibrary`, `namespace.defaultLibrary` | Built-in command-style keywords, helper functions, and modules. |
-| `namespace.imported` | User-imported module namespaces. |
+| `keyword.imported`, `namespace.imported` | Import statement keywords and user-imported module namespaces. |
 | `function.sideEffect`, `keyword.sideEffect`, `variable.sideEffect` | Side-effect operations and bindings. |
 | `function.external`, `keyword.external`, `variable.external` | External boundaries and bindings. |
 | `keyword.validation`, `variable.validation`, `function.validation` | Validation and coverage operations. |
@@ -419,6 +420,7 @@ entity.name.function.solver.englang
 invalid.deprecated.englang
 keyword.control.deprecated.englang
 keyword.control.external-boundary.englang
+keyword.control.import.englang
 keyword.control.report.englang
 keyword.control.side-effect.englang
 keyword.control.solver.englang
