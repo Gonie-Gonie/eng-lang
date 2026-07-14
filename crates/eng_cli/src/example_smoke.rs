@@ -6393,6 +6393,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .contains("\"statistic\": \"duration_above(5 kW)\"")
                 || !output.result_json.contains("\"status\": \"metadata_only\"")
                 || !native_workflow_has_zero_process_results(&output.process_results_json)
+                || !native_workflow_run_graphs_avoid_external_processes(
+                    &output.static_run_plan_json,
+                    &output.run_plan_json,
+                )
                 || !output.result_json.contains("\"timeseries_coverage\"")
                 || !output.result_json.contains("\"binding\": \"coverage\"")
                 || !output.result_json.contains("\"status\": \"complete\"")
@@ -6460,6 +6464,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
                     .result_json
                     .contains("{ \"key\": \"station\", \"value\": \"station.station_id\"")
                 || !native_workflow_has_zero_process_results(&output.process_results_json)
+                || !native_workflow_run_graphs_avoid_external_processes(
+                    &output.static_run_plan_json,
+                    &output.run_plan_json,
+                )
                 || !output
                     .output_manifest_json
                     .contains("outputs/fetched_weather.json")
@@ -6511,6 +6519,10 @@ pub(crate) fn command_test(_args: Vec<String>) -> ExitCode {
         Ok(output) => {
             if !output.review_json.contains("PredictionResult")
                 || !native_workflow_has_zero_process_results(&output.process_results_json)
+                || !native_workflow_run_graphs_avoid_external_processes(
+                    &output.static_run_plan_json,
+                    &output.run_plan_json,
+                )
                 || !output.result_json.contains("\"sample_tables\"")
                 || !native_workflow_has_sample_table(
                     &output.result_json,
@@ -6952,6 +6964,50 @@ report {
     ExitCode::SUCCESS
 }
 
+const NATIVE_WORKFLOW_BANNED_MARKERS: &[(&str, &str)] = &[
+    ("run command", "external process adapter"),
+    ("python", "Python runtime dependency"),
+    ("python2", "Python runtime dependency"),
+    ("python3", "Python runtime dependency"),
+    ("py.exe", "Python launcher dependency"),
+    (".py", "Python script path"),
+    (".pyw", "Python GUI script path"),
+    (".ipynb", "Jupyter notebook path"),
+    ("pip", "Python package manager dependency"),
+    ("conda", "Python environment dependency"),
+    ("poetry", "Python package manager dependency"),
+    ("pyenv", "Python environment dependency"),
+    ("mamba", "Python environment dependency"),
+    ("micromamba", "Python environment dependency"),
+    ("virtualenv", "Python environment dependency"),
+    ("venv", "Python environment dependency"),
+    ("ipython", "Python notebook/runtime dependency"),
+    ("pytest", "Python test dependency"),
+    ("tox", "Python test environment dependency"),
+    ("nox", "Python test environment dependency"),
+    ("mypy", "Python type-check dependency"),
+    ("ruff", "Python lint dependency"),
+    ("subprocess", "Python/process adapter"),
+    ("pandas", "Python data-frame dependency"),
+    ("numpy", "Python numeric dependency"),
+    ("scipy", "Python scientific dependency"),
+    ("sklearn", "Python ML dependency"),
+    ("statsmodels", "Python statistics dependency"),
+    ("polars", "Python data-frame dependency"),
+    ("matplotlib", "Python plotting dependency"),
+    ("requests", "Python HTTP dependency"),
+    ("urllib", "Python HTTP dependency"),
+    ("pyarrow", "Python data-frame dependency"),
+    ("xarray", "Python array dependency"),
+    ("tensorflow", "Python ML dependency"),
+    ("pytorch", "Python ML dependency"),
+    ("torch", "Python ML dependency"),
+    ("jupyter", "notebook workflow dependency"),
+    ("jupyterlab", "notebook workflow dependency"),
+    ("notebook", "notebook workflow dependency"),
+    ("select_first_row", "legacy seeded row selection helper"),
+];
+
 fn native_workflow_sources_avoid_external_processes() -> bool {
     if let Err(error) = ensure_required_workflow_main_sources() {
         eprintln!("{error}");
@@ -6964,49 +7020,6 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
             return false;
         }
     };
-    let banned_fragments = [
-        ("run command", "external process adapter"),
-        ("python", "Python runtime dependency"),
-        ("python2", "Python runtime dependency"),
-        ("python3", "Python runtime dependency"),
-        ("py.exe", "Python launcher dependency"),
-        (".py", "Python script path"),
-        (".pyw", "Python GUI script path"),
-        (".ipynb", "Jupyter notebook path"),
-        ("pip", "Python package manager dependency"),
-        ("conda", "Python environment dependency"),
-        ("poetry", "Python package manager dependency"),
-        ("pyenv", "Python environment dependency"),
-        ("mamba", "Python environment dependency"),
-        ("micromamba", "Python environment dependency"),
-        ("virtualenv", "Python environment dependency"),
-        ("venv", "Python environment dependency"),
-        ("ipython", "Python notebook/runtime dependency"),
-        ("pytest", "Python test dependency"),
-        ("tox", "Python test environment dependency"),
-        ("nox", "Python test environment dependency"),
-        ("mypy", "Python type-check dependency"),
-        ("ruff", "Python lint dependency"),
-        ("subprocess", "Python/process adapter"),
-        ("pandas", "Python data-frame dependency"),
-        ("numpy", "Python numeric dependency"),
-        ("scipy", "Python scientific dependency"),
-        ("sklearn", "Python ML dependency"),
-        ("statsmodels", "Python statistics dependency"),
-        ("polars", "Python data-frame dependency"),
-        ("matplotlib", "Python plotting dependency"),
-        ("requests", "Python HTTP dependency"),
-        ("urllib", "Python HTTP dependency"),
-        ("pyarrow", "Python data-frame dependency"),
-        ("xarray", "Python array dependency"),
-        ("tensorflow", "Python ML dependency"),
-        ("pytorch", "Python ML dependency"),
-        ("torch", "Python ML dependency"),
-        ("jupyter", "notebook workflow dependency"),
-        ("jupyterlab", "notebook workflow dependency"),
-        ("notebook", "notebook workflow dependency"),
-        ("select_first_row", "legacy seeded row selection helper"),
-    ];
     for source_path in workflow_sources {
         let Ok(source) = std::fs::read_to_string(&source_path) else {
             eprintln!(
@@ -7016,7 +7029,7 @@ fn native_workflow_sources_avoid_external_processes() -> bool {
             return false;
         };
         let lowered = source.to_ascii_lowercase();
-        for (banned, reason) in banned_fragments {
+        for (banned, reason) in NATIVE_WORKFLOW_BANNED_MARKERS {
             if contains_native_workflow_banned_marker(&lowered, banned) {
                 eprintln!(
                     "native workflow source {} must not contain `{banned}` ({reason})",
@@ -7117,6 +7130,56 @@ fn native_workflow_has_zero_process_results(process_results_json: &str) -> bool 
         && execution_profile == Some("normal")
         && process_count == Some(0)
         && processes_empty
+}
+
+fn native_workflow_run_graphs_avoid_external_processes(
+    static_run_plan_json: &str,
+    run_plan_json: &str,
+) -> bool {
+    native_workflow_run_graph_avoids_external_processes(static_run_plan_json)
+        && native_workflow_run_graph_avoids_external_processes(run_plan_json)
+}
+
+fn native_workflow_run_graph_avoids_external_processes(run_plan_json: &str) -> bool {
+    let Ok(run_plan) = serde_json::from_str::<Value>(run_plan_json) else {
+        return false;
+    };
+    let Some(graph) = run_plan.get("graph") else {
+        return false;
+    };
+    let Some(nodes) = graph.get("nodes").and_then(Value::as_array) else {
+        return false;
+    };
+    if nodes.is_empty() {
+        return false;
+    }
+    if nodes.iter().any(|node| {
+        ["id", "kind", "label"]
+            .iter()
+            .filter_map(|field| node.get(*field).and_then(Value::as_str))
+            .any(native_workflow_run_graph_field_mentions_external_process)
+    }) {
+        return false;
+    }
+    let Some(edges) = graph.get("edges").and_then(Value::as_array) else {
+        return false;
+    };
+    !edges.iter().any(|edge| {
+        ["from", "to", "kind"]
+            .iter()
+            .filter_map(|field| edge.get(*field).and_then(Value::as_str))
+            .any(native_workflow_run_graph_field_mentions_external_process)
+    })
+}
+
+fn native_workflow_run_graph_field_mentions_external_process(field: &str) -> bool {
+    let lowered = field.to_ascii_lowercase();
+    if lowered == "process" || lowered.starts_with("process:") {
+        return true;
+    }
+    NATIVE_WORKFLOW_BANNED_MARKERS
+        .iter()
+        .any(|(marker, _)| contains_native_workflow_banned_marker(&lowered, marker))
 }
 
 const REQUIRED_WORKFLOW_MAIN_SOURCES: &[&str] = &[
@@ -8969,6 +9032,47 @@ mod tests {
         assert!(!contains_native_workflow_banned_marker(
             "numpy_score = 1",
             "numpy"
+        ));
+    }
+
+    #[test]
+    fn native_workflow_run_graph_guard_rejects_process_and_python_nodes() {
+        let ok = r#"{
+            "graph": {
+                "nodes": [
+                    {"id": "source:json_records:weather", "kind": "source", "label": "weather"}
+                ],
+                "edges": [
+                    {"from": "source:json_records:weather", "to": "artifact:standard_file", "kind": "data"}
+                ]
+            }
+        }"#;
+        assert!(native_workflow_run_graph_avoids_external_processes(ok));
+
+        let process_node = r#"{
+            "graph": {
+                "nodes": [
+                    {"id": "process:adapter", "kind": "process", "label": "run command python"}
+                ],
+                "edges": []
+            }
+        }"#;
+        assert!(!native_workflow_run_graph_avoids_external_processes(
+            process_node
+        ));
+
+        let process_edge = r#"{
+            "graph": {
+                "nodes": [
+                    {"id": "source:designs", "kind": "source", "label": "designs"}
+                ],
+                "edges": [
+                    {"from": "source:designs", "to": "python3 adapter", "kind": "data"}
+                ]
+            }
+        }"#;
+        assert!(!native_workflow_run_graph_avoids_external_processes(
+            process_edge
         ));
     }
 }

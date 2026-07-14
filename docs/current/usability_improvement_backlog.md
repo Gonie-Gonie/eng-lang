@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 813: Strengthened CLI native workflow smoke so workflow 01/02/03 must parse both static and executed run graphs and reject process, run-command, Python, notebook, or legacy helper markers in node and edge metadata, in addition to zero-process process_results.json.
 - Batch 812: Added compiler-owned coverage result and generic table public-member editor catalogs, wired them through VS Code/native IDE completion and TextMate grammar fallback, and locked actual workflow examples such as `coverage.actual_count`, `weather.rows`, `db.tables_written`, and `sensor.rows` into grammar smoke.
 - Batch 811: Strengthened workflow 03 smoke coverage from token presence to structured JSON assertions for propagated sensor uncertainty calculations, explicit p95 metadata-only status, report computed statistic/integration values, generated output validation, and PlotSpec confidence-band point arrays.
 - Batch 810: Updated the workflow 01 native cache smoke contract to accept first-run `miss_materialized` cache records alongside cache hits and offline-response availability, restoring `dev.bat workflows-test` for the current native materialization behavior.
