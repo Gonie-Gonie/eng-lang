@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 872: Removed the remaining raw internal metadata wording from the native IDE how-to and guarded against that phrase returning in user-facing IDE docs.
 - Batch 871: Reworded LSP/VS Code read text/json/toml completion details from raw read wording to direct read wording, regenerated editor metadata, and added guards against the older completion details returning.
 - Batch 870: Reworded the native IDE highlight detail expander from raw JSON wording to Advanced highlight data, renamed the shared expander class/helper accordingly, and added IDE guards against the older raw label returning.
 - Batch 869: Reworded the portable user guide away from raw artifact-file wording toward explicit JSON artifact files, with a user-docs guard against the older phrase returning.

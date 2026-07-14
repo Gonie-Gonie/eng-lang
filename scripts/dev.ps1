@@ -3976,6 +3976,7 @@ function Assert-VscodeExtensionContract {
         "compiler-backed diagnostics",
         "token ranges",
         "payload names",
+        "raw internal metadata ids",
         "lint toggles"
     )) {
         if ($NativeIdeHowtoSource.Contains($ForbiddenNativeIdeHowtoWording)) {
