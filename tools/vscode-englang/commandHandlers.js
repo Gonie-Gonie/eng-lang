@@ -1081,6 +1081,7 @@ function createCommandHandlers(options = {}) {
           current_file_probe: currentFileProblemsProbe,
           inspection_commands: {
             cursor: "EngLang: Inspect Problem at Cursor",
+            copy_cursor: "EngLang: Copy Problem at Cursor",
             status: "EngLang: Show Tooling Status"
           }
         },
@@ -1120,7 +1121,8 @@ function createCommandHandlers(options = {}) {
         fallback_scope_map: scopeMapStatus,
         inspection_commands: {
           current_file: "EngLang: Inspect Highlight Tokens",
-          cursor: "EngLang: Inspect Highlight Token at Cursor"
+          cursor: "EngLang: Inspect Highlight Token at Cursor",
+          copy_cursor: "EngLang: Copy Highlight Token at Cursor"
         }
       },
       problems: {
@@ -1140,8 +1142,10 @@ function createCommandHandlers(options = {}) {
       commands: {
         switch_diagnostics_mode: "EngLang: Switch Diagnostics Mode...",
         inspect_problem_at_cursor: "EngLang: Inspect Problem at Cursor",
+        copy_problem_at_cursor: "EngLang: Copy Problem at Cursor",
         inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens",
         inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor",
+        copy_highlight_token_at_cursor: "EngLang: Copy Highlight Token at Cursor",
         check_current_file: "EngLang: Check Current File"
       }
     };
@@ -1454,7 +1458,8 @@ function createCommandHandlers(options = {}) {
         range_overlap_status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
         inspection_commands: {
           current_file: "EngLang: Inspect Highlight Tokens",
-          cursor: "EngLang: Inspect Highlight Token at Cursor"
+          cursor: "EngLang: Inspect Highlight Token at Cursor",
+          copy_cursor: "EngLang: Copy Highlight Token at Cursor"
         }
       };
     } catch (error) {

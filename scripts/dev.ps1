@@ -3359,6 +3359,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("EngLang: Copy Highlight Token at Cursor") -or -not $VscodeReadmeSource.Contains("same-line role-aware highlight token payload") -or -not $VscodeReadmeSource.Contains("nearest same-line highlight token payload")) {
         throw "VS Code README must document the copy-ready highlight cursor command"
     }
+    if (-not $VscodeReadmeSource.Contains("cursor diagnostic inspection and") -or -not $VscodeReadmeSource.Contains("copy commands") -or -not $VscodeReadmeSource.Contains("highlight inspection and copy commands")) {
+        throw "VS Code README must document copy commands in Tooling Status discoverability wording"
+    }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
             throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
@@ -4283,7 +4286,9 @@ function Assert-VscodeExtensionContract {
         "current_file_probe: currentFileHighlightProbe",
         "current_file_probe: currentFileProblemsProbe",
         'cursor: "EngLang: Inspect Problem at Cursor"',
+        'copy_cursor: "EngLang: Copy Problem at Cursor"',
         'inspect_problem_at_cursor: "EngLang: Inspect Problem at Cursor"',
+        'copy_problem_at_cursor: "EngLang: Copy Problem at Cursor"',
         "function toolingStatusProblemsProbe()",
         "diagnosticsCollection.get(document.uri)",
         "function toolingStatusProblemRow(document, diagnostic, index)",
@@ -4924,7 +4929,9 @@ function Assert-VscodeExtensionContract {
         "highlight_data: semanticTokens",
         "semantic_tokens: semanticTokens",
         'inspect_highlight_tokens: "EngLang: Inspect Highlight Tokens"',
-        'inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor"'
+        'inspect_highlight_token_at_cursor: "EngLang: Inspect Highlight Token at Cursor"',
+        'copy_highlight_token_at_cursor: "EngLang: Copy Highlight Token at Cursor"',
+        'copy_cursor: "EngLang: Copy Highlight Token at Cursor"'
     )) {
         if (-not $CommandHandlersSource.Contains($RequiredSemanticDebugToken)) {
             throw "VS Code semantic highlight inspection output missing contract token $RequiredSemanticDebugToken"

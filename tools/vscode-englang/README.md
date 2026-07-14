@@ -81,9 +81,10 @@ embedding compiler logic in JavaScript.
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
-  current-file Problems counts and range status, the cursor diagnostic inspection
-  command, Problems diagnostics toggles, the TextMate-plus-semantic highlighting
-  model, fallback scope-map coverage, and extension version
+  current-file Problems counts and range status, cursor diagnostic inspection and
+  copy commands, Problems diagnostics toggles, the TextMate-plus-semantic highlighting
+  model, highlight inspection and copy commands, fallback scope-map coverage, and
+  extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
