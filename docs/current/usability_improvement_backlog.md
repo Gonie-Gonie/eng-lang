@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 828: Documented VS Code highlight overlap rows in user-facing README wording and added a packaging gate so the inspector behavior stays discoverable.
 - Batch 827: Exposed VS Code highlight range overlap counts and copy-ready overlap rows in the file and caret inspectors, matching the native IDE conflict visibility for confusing semantic-token colors.
 - Batch 826: Added a native IDE Highlight-panel overlap summary so confusing semantic-token range conflicts are visible with source actions, selectors, and filter chips instead of only being implicit in rendered colors.
 - Batch 825: Expanded VS Code saved-file diagnostic range parity for more live-LSP mapped warnings and errors, including sum calls, schema assignment markers, file mutation verbs, invalid URL literals, response field aliases, invalid log levels, and backtick payload fallback.
