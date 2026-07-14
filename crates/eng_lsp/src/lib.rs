@@ -4694,6 +4694,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                     );
                     continue;
                 }
+                if is_identifier_label_token(line, index) {
+                    continue;
+                }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
                     let (token_type, modifiers) = workflow_builtin_semantic_class(
                         line,
@@ -6215,6 +6218,19 @@ fn dotted_identifier_segment_token_type(
         Some("parameter")
     } else {
         Some("variable")
+    }
+}
+
+fn is_identifier_label_token(line: &str, end: usize) -> bool {
+    let bytes = line.as_bytes();
+    let mut index = end;
+    while index < bytes.len() && bytes[index].is_ascii_whitespace() {
+        index += 1;
+    }
+    match bytes.get(index).copied() {
+        Some(b':') => true,
+        Some(b'=') => bytes.get(index + 1).copied() != Some(b'='),
+        _ => false,
     }
 }
 
@@ -12002,6 +12018,41 @@ custom = calibrate(args.input, split=args.output)
         ] {
             assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
         }
+    }
+
+    #[test]
+    fn snapshot_does_not_repaint_identifier_labels_as_keywords() {
+        let source = r#"args {
+    input: CsvFile = file("data/sensor.csv")
+    output: DirectoryPath = dir("outputs")
+}
+
+model = train regression designs
+records = materialize cases designs
+split = train_test_split(designs, test=0.25)
+mode = replace
+comparison = empty == missing
+"#;
+        let snapshot = snapshot_for_source(Path::new("identifier_labels.eng"), source);
+
+        for (line, label) in [
+            ("input: CsvFile", "input"),
+            ("output: DirectoryPath", "output"),
+            ("model = train", "model"),
+            ("records = materialize", "records"),
+            ("test=0.25", "test"),
+            ("mode = replace", "mode"),
+        ] {
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+        }
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "records = materialize",
+            "cases",
+            "keyword",
+        );
+        assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
     }
 
     #[test]

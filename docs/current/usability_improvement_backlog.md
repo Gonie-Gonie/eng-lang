@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 799: Stopped LSP keyword overlays on declaration, assignment, and named-argument labels such as `input:`, `model =`, `mode =`, and `test=...` while leaving comparison constants highlighted.
 - Batch 798: Treated dotted `args.*` paths as parameter/property semantic tokens and stopped keyword overlays on their segments, aligning LSP coloring with VS Code TextMate first paint.
 - Batch 797: Aligned LSP semantic colors for `print`, `log`, and log-level literals with the VS Code TextMate side-effect scopes instead of repainting them as report tokens.
 - Batch 796: Colored `distribution(kind=normal|uniform)` literals as `uncertain` semantic tokens while preserving `sample uniform` as a workflow-step keyword.
