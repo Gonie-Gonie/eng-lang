@@ -1056,6 +1056,13 @@ button:hover {
   width: 126px;
 }
 
+.highlight-coverage-table th:nth-child(5),
+.highlight-coverage-table td:nth-child(5),
+.highlight-coverage-table th:nth-child(6),
+.highlight-coverage-table td:nth-child(6) {
+  min-width: 132px;
+}
+
 .caret-highlight-table th {
   width: 74px;
 }
@@ -1096,6 +1103,12 @@ button:hover {
   border-color: var(--accent);
   background: #edf6ff;
   color: var(--accent);
+}
+
+.token-missing {
+  border-color: #f1cb85;
+  background: #fff8e8;
+  color: #8a5b00;
 }
 
 .status-pill {

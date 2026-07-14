@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 854: Added a native IDE Highlight coverage summary with domain counts, unmatched source-word visibility, and copy-ready summary output so inconsistent keyword/workflow/unit coloring is easier to diagnose from the IDE.
 - Batch 853: Added native IDE Workflow panel evidence for zero external processes, process-results status, run graph counts, graph hashes, and direct process-results artifact access.
 - Batch 852: Added native workflow source/docs and latest zero-process artifact evidence to VS Code Tooling Status so workflow 01/02/03 native-only status is visible from the editor.
 - Batch 851: Added `dev.bat workflow-native-status` so workflow 01/02/03 native-only source/docs guards and latest zero-process artifact evidence are visible without rerunning the full workflow smoke gate.

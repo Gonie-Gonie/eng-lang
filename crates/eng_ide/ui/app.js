@@ -688,6 +688,10 @@ function bind() {
   if (copyVisibleHighlightsBtn) {
     copyVisibleHighlightsBtn.onclick = copyVisibleHighlights;
   }
+  const copyHighlightSummaryBtn = byId("copyHighlightSummaryBtn");
+  if (copyHighlightSummaryBtn) {
+    copyHighlightSummaryBtn.onclick = copyHighlightSummary;
+  }
   const highlightTokenQueryInput = byId("highlightTokenQueryInput");
   if (highlightTokenQueryInput) {
     highlightTokenQueryInput.oninput = (event) => {
@@ -1554,6 +1558,7 @@ function renderHighlightPanel() {
   const typeCounts = countSemanticTokens(filteredTokens, (token) => token.type || "-");
   const modifierCounts = countSemanticTokens(filteredTokens.flatMap((token) => token.modifiers || []), (modifier) => modifier || "-");
   const selectorCounts = countSemanticTokens(filteredTokens.flatMap((token) => semanticTokenSelectors(token)), (selector) => selector || "-");
+  const coverageRows = highlightCoverageRows(tokens);
   const overlaps = semanticTokenOverlaps(tokens);
   const tokenCurrent = state.source === state.highlightSource;
   const caretToken = currentCaretSemanticToken();
@@ -1573,8 +1578,11 @@ function renderHighlightPanel() {
         <input id="highlightTokenQueryInput" class="module-query" value="${escapeAttr(state.highlightTokenQuery)}" placeholder="Filter highlights" title="Filter by text, category, detail, selector, or source line" />
         <button id="clearHighlightTokenFilter">Clear</button>
         <button id="copyVisibleHighlightsBtn" title="Copy filtered highlights" ${filteredTokens.length ? "" : "disabled"}>Copy visible</button>
+        <button id="copyHighlightSummaryBtn" title="Copy highlight coverage summary">Copy summary</button>
         <span class="muted">${filteredTokens.length} of ${tokens.length}</span>
       </div>
+      <div class="panel-title compact">Coverage Summary</div>
+      ${renderHighlightCoverageTable(coverageRows)}
       <div class="panel-title compact">Caret Highlight</div>
       <div id="caretHighlightSummary">${renderCaretHighlightSummary(caretToken, tokenCurrent)}</div>
       <div class="panel-title compact">Categories</div>
@@ -1605,6 +1613,109 @@ function renderHighlightPanelStatus(tokens, filteredTokens, tokenCurrent) {
   return `<div class="empty-state">Highlight data is current. Showing ${escapeHtml(String(filteredTokens.length))} of ${escapeHtml(String(tokens.length))} checked ranges.</div>`;
 }
 
+function highlightCoverageRows(tokens) {
+  const tokenCounts = semanticTokenTextCounts(tokens);
+  return highlightCoverageCatalog().map((domain) => {
+    const catalogWords = uniqueStrings(domain.words);
+    const sourceWords = sourceCatalogWords(catalogWords, { allowNumericPrefix: domain.key === "unit" });
+    const highlightedWords = sourceWords.filter((word) => (tokenCounts.get(normalizedCatalogWord(word)) || 0) > 0);
+    const missingWords = sourceWords.filter((word) => (tokenCounts.get(normalizedCatalogWord(word)) || 0) === 0);
+    const highlightCount = catalogWords.reduce((total, word) => total + (tokenCounts.get(normalizedCatalogWord(word)) || 0), 0);
+    const status = missingWords.length ? "unmatched" : sourceWords.length ? "covered" : "not used";
+    return {
+      key: domain.key,
+      label: domain.label,
+      filter: domain.filter,
+      status,
+      catalogCount: catalogWords.length,
+      sourceWords,
+      highlightedWords,
+      missingWords,
+      highlightCount
+    };
+  });
+}
+
+function highlightCoverageCatalog() {
+  const catalog = state.syntaxCatalog || emptySyntaxCatalog();
+  const keywordGroupWords = Object.values(catalog.keywordGroups || {}).flatMap((items) => arrayOrEmpty(items));
+  return [
+    {
+      key: "keyword",
+      label: "Keywords",
+      filter: "keyword",
+      words: [...catalog.keywords, ...keywordGroupWords]
+    },
+    {
+      key: "workflow",
+      label: "Workflow",
+      filter: "workflow",
+      words: [
+        ...catalog.workflowBuiltins,
+        ...catalog.hyphenatedWorkflowBuiltins,
+        ...catalog.legacyWorkflowBuiltinAliases,
+        ...catalog.workflowStatusLiterals
+      ]
+    },
+    {
+      key: "option",
+      label: "Options",
+      filter: "option",
+      words: [...catalog.workflowOptions, ...catalog.legacyWorkflowOptionAliases]
+    },
+    {
+      key: "unit",
+      label: "Units",
+      filter: "unit",
+      words: [...catalog.units, ...catalog.legacyUnitAliases]
+    },
+    {
+      key: "constant",
+      label: "Constants",
+      filter: "constant",
+      words: [...catalog.constants, ...catalog.workflowStatusLiterals]
+    },
+    {
+      key: "operator",
+      label: "Operators",
+      filter: "operator",
+      words: catalog.operatorWords
+    }
+  ];
+}
+
+function renderHighlightCoverageTable(rows) {
+  const body = rows.map((row) => {
+    const statusClass = row.status === "unmatched" ? "blocked" : row.status === "covered" ? "completed" : "checked";
+    return `
+      <tr>
+        <td>${highlightFilterChip(row.filter, row.label, row.key, `Filter ${row.label}`)}<div class="muted">catalog ${escapeHtml(String(row.catalogCount))}</div></td>
+        <td><span class="status-pill ${statusClass}">${escapeHtml(row.status)}</span></td>
+        <td>${escapeHtml(String(row.sourceWords.length))}</td>
+        <td>${highlightFilterButton(row.filter, String(row.highlightCount))}</td>
+        <td>${renderCoverageWordChips(row.highlightedWords, row.key, "No highlighted source words")}</td>
+        <td>${renderCoverageWordChips(row.missingWords, "missing", "None")}</td>
+      </tr>
+    `;
+  }).join("");
+  return `
+    <table class="var-table highlight-coverage-table">
+      <thead><tr><th>Domain</th><th>Status</th><th>Source Words</th><th>Highlighted Ranges</th><th>Examples</th><th>Unmatched Source Words</th></tr></thead>
+      <tbody>${body || `<tr><td colspan="6" class="muted">No highlight coverage summary for the current check.</td></tr>`}</tbody>
+    </table>
+  `;
+}
+
+function renderCoverageWordChips(words, kind, emptyText) {
+  const items = arrayOrEmpty(words);
+  if (!items.length) return `<span class="muted">${escapeHtml(emptyText)}</span>`;
+  const visible = items.slice(0, 8);
+  const chips = visible.map((word) => highlightFilterChip(word, word, kind, `Filter ${word}`)).join(" ");
+  const hidden = items.length > visible.length
+    ? ` <span class="muted">+${escapeHtml(String(items.length - visible.length))}</span>`
+    : "";
+  return `${chips}${hidden}`;
+}
 function renderCaretHighlightSummary(caret, tokenCurrent) {
   if (!tokenCurrent) {
     return `<div class="empty-state">Check current file to refresh highlight data.</div>`;
@@ -6078,6 +6189,50 @@ function semanticTokenSearchText(token) {
   ].map((part) => String(part ?? "").toLowerCase()).join(" ");
 }
 
+function semanticTokenTextCounts(tokens) {
+  const counts = new Map();
+  for (const token of arrayOrEmpty(tokens)) {
+    const key = normalizedCatalogWord(semanticTokenText(token));
+    if (!key || key === "-") continue;
+    counts.set(key, (counts.get(key) || 0) + 1);
+  }
+  return counts;
+}
+
+function sourceCatalogWords(words, options = {}) {
+  const source = String(state.highlightSource || "");
+  if (!source) return [];
+  return uniqueStrings(words)
+    .filter((word) => sourceContainsCatalogWord(source, word, options))
+    .sort((left, right) => left.localeCompare(right));
+}
+
+function sourceContainsCatalogWord(source, word, options = {}) {
+  const value = String(word || "");
+  if (!value) return false;
+  let index = source.indexOf(value);
+  while (index >= 0) {
+    if (catalogWordBoundaryOk(source, index, value.length, options)) return true;
+    index = source.indexOf(value, index + value.length);
+  }
+  return false;
+}
+
+function catalogWordBoundaryOk(source, index, length, options = {}) {
+  const left = index > 0 ? source[index - 1] : "";
+  const right = index + length < source.length ? source[index + length] : "";
+  const leftOk = !isCatalogWordChar(left) || (options.allowNumericPrefix && /[0-9.]/.test(left));
+  const rightOk = !isCatalogWordChar(right);
+  return leftOk && rightOk;
+}
+
+function isCatalogWordChar(char) {
+  return /[A-Za-z0-9_-]/.test(String(char || ""));
+}
+
+function normalizedCatalogWord(value) {
+  return String(value || "").trim().toLowerCase();
+}
 function arrayOrEmpty(value) {
   return Array.isArray(value) ? value : [];
 }
@@ -6313,6 +6468,23 @@ function bindSourceTokenCopyButtons(root) {
   });
 }
 
+async function copyHighlightSummary() {
+  const tokens = Array.isArray(semanticTokenPayload().tokens) ? semanticTokenPayload().tokens : [];
+  const copied = await copyTextToClipboard(highlightSummaryCopyText(highlightCoverageRows(tokens)));
+  setStatus(copied ? "Copied highlight summary" : "Copy failed");
+}
+
+function highlightSummaryCopyText(rows) {
+  const current = state.source === state.highlightSource ? "current" : "check needed";
+  const lines = [
+    `file: ${state.currentPath || "-"}`,
+    `highlight_data: ${current}`
+  ];
+  for (const row of rows) {
+    lines.push(`${row.label}: ${row.status}; source_words=${row.sourceWords.length}; highlighted_ranges=${row.highlightCount}; matched=${row.highlightedWords.join(", ") || "-"}; unmatched=${row.missingWords.join(", ") || "-"}`);
+  }
+  return lines.join("\n");
+}
 async function copyVisibleHighlights() {
   const tokens = Array.isArray(semanticTokenPayload().tokens) ? semanticTokenPayload().tokens : [];
   const visible = filteredSemanticTokens(tokens);
