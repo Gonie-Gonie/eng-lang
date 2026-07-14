@@ -192,13 +192,44 @@ function createCommandHandlers(options = {}) {
   }
 
   async function showProblemAtCursor() {
+    const target = activeEngEditorOrWarn();
+    if (!target) {
+      return;
+    }
+    const payload = problemCursorPayload(target.document, target.editor.selection.active);
+    const debugDocument = await vscode.workspace.openTextDocument({
+      language: "json",
+      content: JSON.stringify(payload, null, 2)
+    });
+    await vscode.window.showTextDocument(debugDocument, { preview: false });
+  }
+
+  async function copyProblemAtCursor() {
+    const target = activeEngEditorOrWarn();
+    if (!target) {
+      return;
+    }
+    const payload = problemCursorPayload(target.document, target.editor.selection.active);
+    const copyReady = payload.summary.copy_ready;
+    if (!copyReady) {
+      vscode.window.showInformationMessage(payload.summary.status);
+      return;
+    }
+    await vscode.env.clipboard.writeText(JSON.stringify(copyReady, null, 2));
+    vscode.window.showInformationMessage("EngLang problem copied to clipboard.");
+  }
+
+  function activeEngEditorOrWarn() {
     const editor = vscode.window.activeTextEditor;
     const document = editor?.document;
     if (!editor || !document || !isEngDocument(document)) {
       vscode.window.showWarningMessage("Open an EngLang .eng file first.");
-      return;
+      return undefined;
     }
-    const cursor = editor.selection.active;
+    return { editor, document };
+  }
+
+  function problemCursorPayload(document, cursor) {
     const diagnosticsAvailable = typeof diagnosticsCollection?.get === "function";
     const diagnosticRows = diagnosticsAvailable
       ? Array.from(diagnosticsCollection.get(document.uri) ?? [])
@@ -223,7 +254,7 @@ function createCommandHandlers(options = {}) {
         left.cursor_distance - right.cursor_distance || Number(left.zero_based_character ?? 0) - Number(right.zero_based_character ?? 0)
       )
       .slice(0, 3);
-    const payload = {
+    return {
       source: document.uri.fsPath,
       diagnostics_collection_status: diagnosticsAvailable ? "available" : "unavailable",
       cursor: {
@@ -249,11 +280,6 @@ function createCommandHandlers(options = {}) {
       all_problems: allProblems.slice(0, 50),
       omitted_problem_count: Math.max(0, allProblems.length - 50)
     };
-    const debugDocument = await vscode.workspace.openTextDocument({
-      language: "json",
-      content: JSON.stringify(payload, null, 2)
-    });
-    await vscode.window.showTextDocument(debugDocument, { preview: false });
   }
 
   async function reviewActiveFile(context) {
@@ -1593,6 +1619,7 @@ function createCommandHandlers(options = {}) {
     switchProblemsSource: switchDiagnosticsMode,
     showToolingStatus,
     showProblemAtCursor,
+    copyProblemAtCursor,
     reviewActiveFile,
     openReviewPanel,
     showSemanticTokensDebug,

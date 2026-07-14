@@ -74,6 +74,8 @@ embedding compiler logic in JavaScript.
   or live unsaved-buffer checks from the Command Palette
 - `EngLang: Refresh Problems` for rerunning the active-file linter from the
   Command Palette or `.eng` editor context menu
+- `EngLang: Copy Problem at Cursor` for copying the current or nearest same-line
+  diagnostic payload without opening the inspector JSON
 - `EngLang: Show Tooling Status` for inspecting a summary-first JSON status view
   with the active check/run and live editor tool paths, fallback/source labels,
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
@@ -209,9 +211,10 @@ are controlled by `englang.lintOnSave`; live typing diagnostics are controlled b
 `englang.lintOnChange`. Use `EngLang: Inspect Problem at Cursor` to open a
 focused JSON view of diagnostics covering the caret, nearest same-line
 diagnostics, source labels, codes, severity, range text, the underlined source
-text, and the full source line for copy-ready reports. If diagnostics cannot
-parse editor JSON, run `EngLang: Show Tooling Status` to inspect the selected
-paths. When the selected
+text, and the full source line for copy-ready reports. Use `EngLang: Copy Problem
+at Cursor` to copy that current or nearest same-line diagnostic payload directly
+to the clipboard. If diagnostics cannot parse editor JSON, run `EngLang: Show
+Tooling Status` to inspect the selected paths. When the selected
 tool exits without editor JSON, the Problems entry includes a short
 `Tool failure:` reason and the EngLang output channel keeps stderr/stdout
 details. Set `englang.lintOnChange = false` to disable live typing checks while

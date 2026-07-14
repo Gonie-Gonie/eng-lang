@@ -3353,6 +3353,9 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("the underlined source") -or -not $VscodeReadmeSource.Contains("full source line") -or -not $VscodeReadmeSource.Contains("copy-ready reports")) {
         throw "VS Code README must document problem inspector source text payloads"
     }
+    if (-not $VscodeReadmeSource.Contains("EngLang: Copy Problem at Cursor") -or -not $VscodeReadmeSource.Contains("nearest same-line diagnostic payload") -or -not $VscodeReadmeSource.Contains("clipboard")) {
+        throw "VS Code README must document the copy-ready problem cursor command"
+    }
     foreach ($ForbiddenPublicMemberCatalogWording in @("seed-only suggestions", "non-executable placeholder suggestions")) {
         if ($VscodeReadmeSource.Contains($ForbiddenPublicMemberCatalogWording)) {
             throw "VS Code README must not describe public member catalogs as $ForbiddenPublicMemberCatalogWording"
@@ -3581,6 +3584,7 @@ function Assert-VscodeExtensionContract {
         "englang.switchDiagnosticsMode",
         "englang.showToolingStatus",
         "englang.showProblemAtCursor",
+        "englang.copyProblemAtCursor",
         "englang.reviewFile",
         "englang.openReviewPanel",
         "englang.openReport",
@@ -3632,6 +3636,7 @@ function Assert-VscodeExtensionContract {
         @{ Command = "englang.refreshProblems"; Text = "Refresh Problems" },
         @{ Command = "englang.showToolingStatus"; Text = "Show Tooling Status" },
         @{ Command = "englang.showProblemAtCursor"; Text = "Inspect Problem at Cursor" },
+        @{ Command = "englang.copyProblemAtCursor"; Text = "Copy Problem at Cursor" },
         @{ Command = "englang.showSemanticTokensDebug"; Text = "Inspect Highlight Tokens" },
         @{ Command = "englang.showSemanticTokenAtCursor"; Text = "Inspect Highlight Token at Cursor" }
     )) {
@@ -3641,7 +3646,7 @@ function Assert-VscodeExtensionContract {
         }
     }
     $EditorContextMenu = @($Package.contributes.menus."editor/context")
-    foreach ($RequiredEditorContextMenu in @("englang.refreshProblems", "englang.showProblemAtCursor", "englang.showSemanticTokenAtCursor")) {
+    foreach ($RequiredEditorContextMenu in @("englang.refreshProblems", "englang.showProblemAtCursor", "englang.copyProblemAtCursor", "englang.showSemanticTokenAtCursor")) {
         $MenuItem = @($EditorContextMenu | Where-Object { $_.command -eq $RequiredEditorContextMenu }) | Select-Object -First 1
         if ($null -eq $MenuItem -or [string]$MenuItem.when -ne "editorLangId == englang") {
             throw "VS Code editor context menu must expose $RequiredEditorContextMenu only for EngLang editors"
@@ -4354,6 +4359,11 @@ function Assert-VscodeExtensionContract {
     }
     foreach ($RequiredProblemCursorInspectorToken in @(
         "async function showProblemAtCursor()",
+        "async function copyProblemAtCursor()",
+        "function activeEngEditorOrWarn()",
+        "function problemCursorPayload(document, cursor)",
+        "vscode.env.clipboard.writeText(JSON.stringify(copyReady, null, 2))",
+        'showInformationMessage("EngLang problem copied to clipboard.")',
         "diagnosticsCollection.get(document.uri)",
         "matching_problems: matchingProblems",
         "nearest_problems: nearestProblems",
@@ -4482,6 +4492,7 @@ function Assert-VscodeExtensionContract {
         "async function switchDiagnosticsMode",
         "async function showToolingStatus",
         "async function showProblemAtCursor",
+        "async function copyProblemAtCursor",
         "async function reviewActiveFile",
         "async function openReviewPanel",
         "async function showSemanticTokensDebug",

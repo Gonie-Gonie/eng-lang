@@ -273,6 +273,7 @@ function activate(context) {
     vscode.commands.registerCommand("englang.switchProblemsSource", refreshAfterDiagnosticsModeCommand),
     vscode.commands.registerCommand("englang.showToolingStatus", () => commandHandlers.showToolingStatus(context)),
     vscode.commands.registerCommand("englang.showProblemAtCursor", () => commandHandlers.showProblemAtCursor()),
+    vscode.commands.registerCommand("englang.copyProblemAtCursor", () => commandHandlers.copyProblemAtCursor()),
     vscode.commands.registerCommand("englang.reviewFile", () => commandHandlers.reviewActiveFile(context)),
     vscode.commands.registerCommand("englang.openReviewPanel", () => commandHandlers.openReviewPanel(context)),
     vscode.commands.registerCommand("englang.openReport", () => artifactOpeners.openLastRunArtifact("report")),
