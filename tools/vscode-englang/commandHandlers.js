@@ -2006,12 +2006,14 @@ function createCommandHandlers(options = {}) {
     ];
     const sourceIssues = toolingStatusNativeWorkflowTextIssues(root, sourceFiles, sourcePatterns, "source");
     const docIssues = toolingStatusNativeWorkflowTextIssues(root, publicDocFiles, docPatterns, "public_doc", staleDocPhrases);
+    const primitiveEvidence = toolingStatusNativeWorkflowPrimitiveEvidence(root);
     const processArtifact = toolingStatusNativeWorkflowProcessArtifact(root);
     const runGraphArtifacts = toolingStatusNativeWorkflowRunGraphArtifacts(root, sourcePatterns);
     const issues = [
       ...missingSources,
       ...sourceIssues,
       ...docIssues,
+      ...primitiveEvidence.issues,
       ...processArtifact.issues,
       ...runGraphArtifacts.issues
     ];
@@ -2023,11 +2025,12 @@ function createCommandHandlers(options = {}) {
       status,
       summary: issues.length > 0
         ? `Native workflow status found ${issues.length} issue${issues.length === 1 ? "" : "s"}.`
-        : `Native workflow source/docs guard passed (${sourceFiles.length} source file${sourceFiles.length === 1 ? "" : "s"}, ${publicDocFiles.length} public doc${publicDocFiles.length === 1 ? "" : "s"}); ${artifactSummary}.`,
+        : `Native workflow source/docs guard passed (${sourceFiles.length} source file${sourceFiles.length === 1 ? "" : "s"}, ${publicDocFiles.length} public doc${publicDocFiles.length === 1 ? "" : "s"}); ${primitiveEvidence.summary}; ${artifactSummary}.`,
       workspace_root: root,
       required_sources: requiredSources,
       source_file_count: sourceFiles.length,
       public_doc_count: publicDocFiles.length,
+      native_primitive_evidence: primitiveEvidence,
       latest_process_artifact: processArtifact,
       latest_run_graph_artifacts: runGraphArtifacts,
       issue_count: issues.length,
@@ -2099,6 +2102,84 @@ function createCommandHandlers(options = {}) {
       }
     }
     return issues;
+  }
+
+  function toolingStatusNativeWorkflowPrimitiveEvidence(root) {
+    const specs = [
+      {
+        name: "01 weather API",
+        source: "examples/workflows/01_weather_api_to_standard_file/main.eng",
+        required: [
+          ["http get", /\bhttp\s+get\b/i],
+          ["offline_response", /\boffline_response\s*=/i],
+          ["promote json", /\bpromote\s+json\b/i],
+          ["check coverage", /\bcheck\s+coverage\b/i],
+          ["write standard_text", /\bwrite\s+standard_text\b/i]
+        ]
+      },
+      {
+        name: "02 surrogate case",
+        source: "examples/workflows/02_native_surrogate_case_workflow/main.eng",
+        required: [
+          ["sample lhs", /\bsample\s+lhs\b/i],
+          ["derive", /\bderive\b/i],
+          ["materialize cases", /\bmaterialize\s+cases\b/i],
+          ["apply over", /\bapply\b[\s\S]*\bover\b/i],
+          ["collect results", /\bcollect\s+results\b/i],
+          ["train regression", /\btrain\s+regression\b/i],
+          ["predict using", /\bpredict\b[\s\S]*\busing\b/i],
+          ["open sqlite", /\bopen\s+sqlite\b/i],
+          ["read sqlite", /\bread\s+sqlite\b/i]
+        ]
+      },
+      {
+        name: "03 uncertain sensor",
+        source: "examples/workflows/03_uncertain_sensor_report/main.eng",
+        required: [
+          ["promote csv", /\bpromote\s+csv\b/i],
+          ["sensor_std", /\bsensor_std\s*=/i],
+          ["integrate", /\bintegrate\s*\(/i],
+          ["mean", /\bmean\s*\(/i],
+          ["max", /\bmax\s*\(/i],
+          ["check coverage", /\bcheck\s+coverage\b/i],
+          ["export summary", /\bexport\s+summary\s+to\s+csv\b/i],
+          ["confidence_band", /\bconfidence_band\s*=/i]
+        ]
+      }
+    ];
+    const issues = [];
+    const workflows = specs.map((spec) => {
+      const sourcePath = path.join(root, ...spec.source.split("/"));
+      const text = fs.existsSync(sourcePath) ? fs.readFileSync(sourcePath, "utf8") : "";
+      const matched = [];
+      const missing = [];
+      if (!text) {
+        issues.push(`native primitive evidence source missing: ${spec.source}`);
+      }
+      for (const [label, regex] of spec.required) {
+        if (regex.test(text)) {
+          matched.push(label);
+        } else {
+          missing.push(label);
+          issues.push(`native primitive evidence missing ${label}: ${spec.name}`);
+        }
+      }
+      return {
+        name: spec.name,
+        source: spec.source,
+        matched,
+        missing,
+        matched_count: matched.length,
+        required_count: spec.required.length,
+        summary: `${spec.name}: ${matched.join(", ")}`
+      };
+    });
+    return {
+      status: issues.length > 0 ? "issues" : "passed",
+      summary: workflows.map((workflow) => workflow.summary).join("; "),
+      workflows,
+      issues
+    };
   }
 
   function toolingStatusNativeWorkflowProcessArtifact(root) {

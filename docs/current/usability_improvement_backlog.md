@@ -1,3 +1,4 @@
+- Batch 928: Added native primitive evidence summaries to workflow-native-status and VS Code Tooling Status so workflow 01/02/03 show concrete native API, sampling/model/DB, and uncertainty/report primitives instead of only no-Python checks.
 - Batch 927: Mirrored domain helper TextMate scopes inside string interpolation so model, uncertainty, TimeSeries, and solver helper calls color before the generic builtin fallback.
 - Batch 926: Colored parent(...), stem(...), and extension(...) as path helper TextMate calls alongside join(...), including interpolation coverage, grammar smoke, and token-scope docs.
 - Batch 925: Colored exists(...) as an external-boundary TextMate helper instead of the last generic builtin first-paint helper, with grammar smoke and token-scope docs updated.

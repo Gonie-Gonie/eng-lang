@@ -1397,6 +1397,61 @@ function Invoke-WorkflowNativeStatus {
             $Issues.Add("source uses legacy select_first_row instead of filter + require_one: $Workflow") | Out-Null
         }
     }
+    $NativePrimitiveSpecs = @(
+        @{
+            Name = "01 weather API"
+            Path = Join-Path $WorkflowRoot "01_weather_api_to_standard_file\main.eng"
+            Required = @(
+                @{ Label = "http get"; Pattern = "\bhttp\s+get\b" },
+                @{ Label = "offline_response"; Pattern = "\boffline_response\s*=" },
+                @{ Label = "promote json"; Pattern = "\bpromote\s+json\b" },
+                @{ Label = "check coverage"; Pattern = "\bcheck\s+coverage\b" },
+                @{ Label = "write standard_text"; Pattern = "\bwrite\s+standard_text\b" }
+            )
+        },
+        @{
+            Name = "02 surrogate case"
+            Path = Join-Path $WorkflowRoot "02_native_surrogate_case_workflow\main.eng"
+            Required = @(
+                @{ Label = "sample lhs"; Pattern = "\bsample\s+lhs\b" },
+                @{ Label = "derive"; Pattern = "\bderive\b" },
+                @{ Label = "materialize cases"; Pattern = "\bmaterialize\s+cases\b" },
+                @{ Label = "apply over"; Pattern = "\bapply\b.*\bover\b" },
+                @{ Label = "collect results"; Pattern = "\bcollect\s+results\b" },
+                @{ Label = "train regression"; Pattern = "\btrain\s+regression\b" },
+                @{ Label = "predict using"; Pattern = "\bpredict\b.*\busing\b" },
+                @{ Label = "open sqlite"; Pattern = "\bopen\s+sqlite\b" },
+                @{ Label = "read sqlite"; Pattern = "\bread\s+sqlite\b" }
+            )
+        },
+        @{
+            Name = "03 uncertain sensor"
+            Path = Join-Path $WorkflowRoot "03_uncertain_sensor_report\main.eng"
+            Required = @(
+                @{ Label = "promote csv"; Pattern = "\bpromote\s+csv\b" },
+                @{ Label = "sensor_std"; Pattern = "\bsensor_std\s*=" },
+                @{ Label = "integrate"; Pattern = "\bintegrate\s*\(" },
+                @{ Label = "mean"; Pattern = "\bmean\s*\(" },
+                @{ Label = "max"; Pattern = "\bmax\s*\(" },
+                @{ Label = "check coverage"; Pattern = "\bcheck\s+coverage\b" },
+                @{ Label = "export summary"; Pattern = "\bexport\s+summary\s+to\s+csv\b" },
+                @{ Label = "confidence_band"; Pattern = "\bconfidence_band\s*=" }
+            )
+        }
+    )
+    $NativePrimitiveEvidence = New-Object System.Collections.Generic.List[string]
+    foreach ($NativePrimitiveSpec in $NativePrimitiveSpecs) {
+        $NativePrimitiveSource = Get-Content -LiteralPath $NativePrimitiveSpec.Path -Raw
+        $NativePrimitiveMatches = New-Object System.Collections.Generic.List[string]
+        foreach ($RequiredPrimitive in $NativePrimitiveSpec.Required) {
+            if ($NativePrimitiveSource -match "(?ims)$($RequiredPrimitive.Pattern)") {
+                $NativePrimitiveMatches.Add([string]$RequiredPrimitive.Label) | Out-Null
+            } else {
+                $Issues.Add("native primitive evidence missing $($RequiredPrimitive.Label): $($NativePrimitiveSpec.Name)") | Out-Null
+            }
+        }
+        $NativePrimitiveEvidence.Add("$($NativePrimitiveSpec.Name): $($NativePrimitiveMatches -join ', ')") | Out-Null
+    }
     foreach ($WorkflowPublicDocPath in $WorkflowPublicDocPaths) {
         $WorkflowPublicDoc = Get-Content -LiteralPath $WorkflowPublicDocPath.FullName -Raw
         if ($WorkflowPublicDoc -match "(?im)\brun\s+command\b") {
@@ -1498,6 +1553,7 @@ function Invoke-WorkflowNativeStatus {
     Write-Host "Native workflow status"
     Write-Host "  source guard: passed ($(@($NativeWorkflowSourceAuditPaths).Count) source file(s), $(@($NativeWorkflowFileAuditPaths).Count) workflow file path(s); no Python/.py/notebook/run-command markers)"
     Write-Host "  public docs guard: passed ($(@($WorkflowPublicDocPaths).Count) doc file(s); no Python/.py/notebook/run-command or stale external-process wording)"
+    Write-Host "  native primitive evidence: $($NativePrimitiveEvidence -join '; ')"
     Write-Host "  latest process artifact: $ProcessArtifactStatus"
     Write-Host "  latest run graph artifact: $RunGraphStatus"
     Write-Host "  full evidence gate: .\dev.bat workflows-test"
@@ -4654,6 +4710,7 @@ function Assert-VscodeExtensionContract {
         "function vscodeInstallPreflight(installFreshness)",
         "function toolingStatusNativeWorkflowProbe(document)",
         "native_workflows: nativeWorkflowProbe",
+        "native_primitive_evidence",
         "latest_process_artifact",
         "latest_run_graph_artifacts",
         "full_evidence_gate",

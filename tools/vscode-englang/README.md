@@ -84,7 +84,7 @@ embedding compiler logic in JavaScript.
   current-file Problems counts and range status, cursor diagnostic inspection and
   copy commands, Problems diagnostics toggles, the first-pass plus role-aware
   highlighting model, highlight inspection and copy commands, highlight coverage
-  summary, theme fallback scope-map coverage, native workflow source/docs, latest
+  summary, theme fallback scope-map coverage, native workflow source/docs and per-workflow native primitive evidence, latest
   zero-process artifact evidence, local VSIX package freshness, install
   freshness, install preflight guidance, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
