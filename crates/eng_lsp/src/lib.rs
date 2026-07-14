@@ -282,6 +282,7 @@ const COMPLETION_KEYWORDS: &[&str] = &[
     "solve",
     "sort",
     "sqlite",
+    "standard_text",
     "state",
     "states",
     "struct",
@@ -2438,6 +2439,11 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
 
     for ml in &program.ml_infos {
         builder.push_on_line(ml.line, &ml.binding, "variable", &["declaration", "model"]);
+        builder.push_keywords_on_line(
+            ml.line,
+            &["from", "on", "using"],
+            &["model", "workflowStep"],
+        );
         if let Some(source) = &ml.source {
             builder.push_on_line(ml.line, source, "variable", &["model"]);
         }
@@ -2937,7 +2943,7 @@ fn with_option_semantic_modifiers(
         | "test_fraction" | "epochs" | "split" | "seed"
             if is_model_with_block(program, block.owner_line) =>
         {
-            &["model"]
+            &["model", "workflowStep"]
         }
         "count" | "seed" | "start" | "end" | "method"
             if is_sample_with_block(program, block.owner_line) =>
@@ -2964,7 +2970,7 @@ fn add_with_option_value_semantic_token(
         && is_model_with_block(program, block.owner_line)
     {
         for value in option_list_value_identifiers(&option.value) {
-            builder.push_on_line(option.line, value, "property", &["model"]);
+            builder.push_on_line(option.line, value, "property", &["model", "workflowStep"]);
         }
         return;
     }
@@ -3115,10 +3121,10 @@ fn with_option_value_semantic_class(
             if is_model_with_block(program, block.owner_line)
                 && matches!(value, "linear" | "regression" | "mlp") =>
         {
-            Some(("keyword", &["model"]))
+            Some(("keyword", &["model", "workflowStep"]))
         }
         "target" | "y" if is_model_with_block(program, block.owner_line) => {
-            Some(("property", &["model"]))
+            Some(("property", &["model", "workflowStep"]))
         }
         "template" if is_template_workflow_with_block(program, block.owner_line) => {
             if matches!(value, "file" | "dir" | "join") {
@@ -5693,7 +5699,7 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         "render" | "template" => &["sideEffect", "workflowStep"],
         "read" | "filter" | "select" | "derive" | "sort" | "require_one" | "column" | "columns"
         | "materialize" | "apply" | "collect" | "promote" | "records" | "results" | "cases"
-        | "text" | "csv" | "json" | "toml" => &["workflowStep"],
+        | "text" | "standard_text" | "csv" | "json" | "toml" => &["workflowStep"],
         "state" => &["declaration", "state"],
         "input" => &["declaration", "input"],
         "output" => &["declaration", "output"],
@@ -7966,11 +7972,6 @@ pub fn completion_items_at(
                     }
                     "Table[Prediction]" => Some(PREDICTION_TABLE_FIELD_COMPLETIONS),
                     value if value.starts_with("Model[") => Some(MODEL_FIELD_COMPLETIONS),
-                    value
-                        if value.starts_with("Table[") || value.starts_with("TableTransform[") =>
-                    {
-                        Some(TABLE_FIELD_COMPLETIONS)
-                    }
                     _ => None,
                 }
             })
@@ -7984,6 +7985,32 @@ pub fn completion_items_at(
             }
             return items;
         }
+        let mut generic_table_member_items = None;
+        if report
+            .semantic_program
+            .typed_bindings
+            .iter()
+            .any(|binding| {
+                receiver_matches_binding_name(&receiver, &binding.name)
+                    && (binding.semantic_type.quantity_kind.starts_with("Table[")
+                        || binding
+                            .semantic_type
+                            .quantity_kind
+                            .starts_with("TableTransform["))
+            })
+        {
+            let mut seen = BTreeMap::new();
+            let mut items = Vec::new();
+            for (field, detail) in TABLE_FIELD_COMPLETIONS {
+                if prefix.is_empty() || field.starts_with(&prefix) {
+                    push_completion(&mut items, &mut seen, field, "property", detail);
+                }
+            }
+            if !prefix.is_empty() && !items.is_empty() {
+                return items;
+            }
+            generic_table_member_items = Some(items);
+        }
         if let Some(schema_name) = table_row_schema_name(report, &receiver) {
             if let Some(schema) = report
                 .semantic_program
@@ -7991,8 +8018,12 @@ pub fn completion_items_at(
                 .iter()
                 .find(|schema| schema.name == schema_name)
             {
-                let mut seen = BTreeMap::new();
-                let mut items = Vec::new();
+                let mut items = generic_table_member_items.take().unwrap_or_default();
+                let mut seen = items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, completion)| (completion.label.clone(), index))
+                    .collect::<BTreeMap<_, _>>();
                 for column in &schema.columns {
                     if prefix.is_empty() || column.name.starts_with(&prefix) {
                         push_completion(
@@ -8026,8 +8057,12 @@ pub fn completion_items_at(
                 .iter()
                 .find(|schema| schema.name == schema_name)
             {
-                let mut seen = BTreeMap::new();
-                let mut items = Vec::new();
+                let mut items = generic_table_member_items.take().unwrap_or_default();
+                let mut seen = items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, completion)| (completion.label.clone(), index))
+                    .collect::<BTreeMap<_, _>>();
                 for column in &schema.columns {
                     if prefix.is_empty() || column.name.starts_with(&prefix) {
                         push_completion(
@@ -8047,6 +8082,9 @@ pub fn completion_items_at(
                 }
                 return items;
             }
+        }
+        if let Some(items) = generic_table_member_items {
+            return items;
         }
         if let Some(object) = report
             .semantic_program
@@ -13396,10 +13434,26 @@ legacy_station = select_first_row(stations, return_column="station_id")
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,
+            "model = train regression from designs",
+            "from",
+            "keyword",
+            "workflowStep",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
             "model_on = train regression on designs",
             "on",
             "keyword",
             "model",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "model_on = train regression on designs",
+            "on",
+            "keyword",
+            "workflowStep",
         );
         for (line, label) in [
             ("    y = annual_electricity", "y"),
@@ -13419,7 +13473,41 @@ legacy_station = select_first_row(stations, return_column="station_id")
                 &snapshot, source, line, label, "property", "model",
             );
         }
+        for (line, label) in [
+            ("    target = annual_electricity", "target"),
+            ("    features = [people_density]", "features"),
+            ("    test = 0.25", "test"),
+            ("    y = annual_electricity", "y"),
+            ("    x = [people_density]", "x"),
+            ("    test_fraction = 0.25", "test_fraction"),
+            ("    seed = 9", "seed"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "property",
+                "workflowStep",
+            );
+        }
+        for (line, label) in [
+            ("    target = annual_electricity", "annual_electricity"),
+            ("    features = [people_density]", "people_density"),
+            ("    y = annual_electricity", "annual_electricity"),
+            ("    x = [people_density]", "people_density"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                label,
+                "property",
+                "workflowStep",
+            );
+        }
         assert_semantic_token_modifier(&snapshot, source, "using", "model");
+        assert_semantic_token_modifier(&snapshot, source, "using", "workflowStep");
         assert_semantic_token_on_line_with_modifier(
             &snapshot,
             source,

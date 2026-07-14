@@ -836,7 +836,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "keyword.operator.word.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "from",
     "fullMatch": true
   },
@@ -848,7 +848,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "keyword.operator.word.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "on",
     "fullMatch": true
   },
@@ -1140,7 +1140,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "keyword.operator.word.englang",
+    "scope": "keyword.control.workflow.englang",
     "text": "using"
   },
   {

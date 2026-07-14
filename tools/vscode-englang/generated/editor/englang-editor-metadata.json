@@ -1208,6 +1208,12 @@
                              {
                                  "detail":  "EngLang keyword",
                                  "kind":  "keyword",
+                                 "label":  "standard_text",
+                                 "lsp_kind":  14
+                             },
+                             {
+                                 "detail":  "EngLang keyword",
+                                 "kind":  "keyword",
                                  "label":  "state",
                                  "lsp_kind":  14
                              },
@@ -2622,7 +2628,7 @@
                                  "lsp_kind":  11
                              }
                          ],
-    "completion_items_count":  422,
+    "completion_items_count":  423,
     "format":  "eng-lsp-editor-metadata-v2",
     "semantic_token_legend":  {
                                   "token_modifiers":  [
@@ -3284,6 +3290,7 @@
                                             "solve",
                                             "sort",
                                             "sqlite",
+                                            "standard_text",
                                             "state",
                                             "states",
                                             "struct",

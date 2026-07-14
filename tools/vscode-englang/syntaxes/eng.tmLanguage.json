@@ -1687,7 +1687,7 @@
                                                                                          "match":  "\\bmodel\\b(?=\\s+using\\b)"
                                                                                      },
                                                                                      {
-                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "name":  "keyword.control.workflow.englang",
                                                                                          "match":  "\\busing\\b"
                                                                                      },
                                                                                      {
@@ -1721,7 +1721,7 @@
                                                                     "end":  "(?=#|$)",
                                                                     "patterns":  [
                                                                                      {
-                                                                                         "name":  "keyword.operator.word.englang",
+                                                                                         "name":  "keyword.control.workflow.englang",
                                                                                          "match":  "\\b(from|on)\\b"
                                                                                      },
                                                                                      {

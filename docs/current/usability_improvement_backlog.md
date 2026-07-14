@@ -1,5 +1,7 @@
 # Usability Improvement Backlog
 
+- Batch 882: Fixed CSV promotion member completion so schema columns remain reachable when generic table fields do not match the typed member prefix.
+- Batch 881: Promoted model workflow connectors (`from`, `on`, `using`) and model with-block options to workflow-aware highlighting in TextMate and LSP semantic tokens.
 - Batch 880: Set the VS Code and native IDE Public fields highlight coverage filter to `property`, matching the semantic token selectors users actually filter in highlight tables.
 - Batch 879: Aligned native IDE Highlight coverage inspection with VS Code by adding Types, Quantities, and Public fields from the shared editor metadata catalog.
 - Batch 878: Expanded VS Code highlight coverage inspection to report Types, Quantities, and Public fields from shared editor metadata, so color gaps outside keyword/unit scopes are easier to see.
