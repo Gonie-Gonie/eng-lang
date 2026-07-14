@@ -5077,6 +5077,46 @@ impl<'a> SemanticTokenBuilder<'a> {
         }
     }
 
+    fn push_phrase_token_on_line(
+        &mut self,
+        line_one_based: usize,
+        phrase: &str,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if phrase.trim().is_empty() || label.trim().is_empty() {
+            return;
+        }
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        let Some(label_offset) = phrase.find(label) else {
+            return;
+        };
+        let mut search_start = 0usize;
+        while search_start <= line.len() {
+            let Some(relative) = line[search_start..].find(phrase) else {
+                break;
+            };
+            let phrase_start = search_start + relative;
+            let phrase_end = phrase_start + phrase.len();
+            search_start = phrase_end;
+            if !is_identifier_boundary(line, phrase_start, phrase_end) {
+                continue;
+            }
+            let token_start = phrase_start + label_offset;
+            if !is_identifier_boundary(line, token_start, token_start + label.len()) {
+                continue;
+            }
+            self.push_byte_range(line_index, token_start, label.len(), token_type, modifiers);
+            return;
+        }
+    }
+
     fn push_identifier_path_on_line(
         &mut self,
         line_one_based: usize,
@@ -5816,8 +5856,20 @@ fn add_command_style_semantic_tokens(
                 return;
             };
             let modifiers = &["validation", "workflowStep", "timeseries"];
-            builder.push_on_line(command.line, "check", "keyword", modifiers);
-            builder.push_on_line(command.line, "coverage", "keyword", modifiers);
+            builder.push_phrase_token_on_line(
+                command.line,
+                "check coverage",
+                "check",
+                "keyword",
+                modifiers,
+            );
+            builder.push_phrase_token_on_line(
+                command.line,
+                "check coverage",
+                "coverage",
+                "keyword",
+                modifiers,
+            );
             push_command_style_identifier_paths(builder, command.line, target, &[], modifiers);
         }
         "fill" => {
@@ -12053,6 +12105,44 @@ comparison = empty == missing
             "keyword",
         );
         assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
+    }
+
+    #[test]
+    fn snapshot_marks_check_coverage_keyword_at_command_phrase() {
+        let source = "coverage = check coverage measured.T_zone\n";
+        let snapshot = snapshot_for_source(Path::new("check_coverage_keyword.eng"), source);
+        let line = source.lines().next().expect("source should contain one line");
+        let first_coverage_start = line.find("coverage").expect("first coverage should exist");
+        let second_coverage_start = line[first_coverage_start + 1..]
+            .find("coverage")
+            .map(|offset| first_coverage_start + 1 + offset)
+            .expect("second coverage should exist");
+
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == 0
+                    && token.start == first_coverage_start
+                    && token.token_type == "variable"
+            }),
+            "left-hand coverage should remain a variable token"
+        );
+        assert!(
+            !snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == 0
+                    && token.start == first_coverage_start
+                    && token.token_type == "keyword"
+            }),
+            "left-hand coverage must not receive the command keyword token"
+        );
+        assert!(
+            snapshot.semantic_tokens.tokens.iter().any(|token| {
+                token.line == 0
+                    && token.start == second_coverage_start
+                    && token.token_type == "keyword"
+                    && token.modifiers.iter().any(|modifier| modifier == "validation")
+            }),
+            "check coverage command keyword should be attached to the command phrase"
+        );
     }
 
     #[test]
