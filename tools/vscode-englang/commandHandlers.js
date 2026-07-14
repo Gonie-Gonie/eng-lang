@@ -766,6 +766,7 @@ function createCommandHandlers(options = {}) {
     const rangeText = semanticTokenRangeText(line, column, length);
     const primarySelector = semanticSelectors[0] ?? sample.type;
     const inspectorPanels = semanticTokenInspectorPanels(sample, semanticSelectors);
+    const themeCoverageStatus = fallbackScopes.length > 0 ? "covered" : "missing_theme_fallback_scope";
     return {
       line: sample.line,
       column,
@@ -777,9 +778,11 @@ function createCommandHandlers(options = {}) {
       type: sample.type,
       modifiers: sample.modifiers,
       primary_selector: primarySelector,
+      theme_coverage_status: themeCoverageStatus,
       fallback_status: fallbackScopes.length > 0 ? "mapped" : "missing_fallback_scope",
       direct_selector_status: unmappedSelectors.length > 0 ? "missing_direct_scope" : "mapped",
       fallback_scope_count: fallbackScopes.length,
+      theme_fallback_scope_count: fallbackScopes.length,
       semantic_selectors: semanticSelectors,
       unmapped_semantic_selectors: unmappedSelectors,
       fallback_scopes: fallbackScopes,
@@ -860,9 +863,11 @@ function createCommandHandlers(options = {}) {
       modifiers: row?.modifiers ?? [],
       primary_selector: row?.primary_selector ?? row?.type ?? "-",
       semantic_selectors: row?.semantic_selectors ?? [],
+      theme_coverage_status: row?.theme_coverage_status ?? "-",
       fallback_status: row?.fallback_status ?? "-",
       direct_selector_status: row?.direct_selector_status ?? "-",
       fallback_scope_count: row?.fallback_scope_count ?? 0,
+      theme_fallback_scope_count: row?.theme_fallback_scope_count ?? row?.fallback_scope_count ?? 0,
       inspector_panels: row?.inspector_panels ?? [],
       panel_hint: row?.panel_hint ?? null,
       copy_text: row?.copy_text ?? row?.text ?? "",
@@ -1104,7 +1109,9 @@ function createCommandHandlers(options = {}) {
       selector: row.copy_selector ?? row.primary_selector ?? row.type ?? "-",
       inspector_panels: row.inspector_panels ?? [],
       panel_hint: row.panel_hint ?? null,
+      theme_coverage_status: row.theme_coverage_status ?? "-",
       fallback_status: row.fallback_status ?? "-",
+      theme_fallback_scope_count: row.theme_fallback_scope_count ?? row.fallback_scope_count ?? 0,
       direct_selector_status: row.direct_selector_status ?? "-"
     };
   }

@@ -280,7 +280,7 @@ open
 `EngLang: Show Tooling Status` so the selected live editor tool path is visible.
 `EngLang: Inspect Highlight Token at Cursor` opens a cursor status summary, the
 token under the caret when one exists, the nearest highlight tokens, copy-ready
-text/range/selector fields plus panel hints for the selected token,
+text/range/selector/theme-coverage fields plus panel hints for the selected token,
 line overlap rows, and the other highlight tokens on the same line. `EngLang:
 Copy Highlight Token at Cursor` copies the current or nearest same-line role-aware
 highlight token details directly to the clipboard; when the caret is between
