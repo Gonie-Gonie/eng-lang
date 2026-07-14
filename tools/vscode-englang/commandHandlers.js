@@ -872,7 +872,9 @@ function createCommandHandlers(options = {}) {
   }
 
   function highlightCoverageSummary(document, tokenRows) {
-    const tokenCounts = semanticTokenTextCounts(tokenRows);
+    const tokenCounts = semanticTokenTextCounts(tokenRows, (line) =>
+      line > 0 && line <= document.lineCount ? document.lineAt(line - 1).text : ""
+    );
     return highlightCoverageCatalog().map((domain) => {
       const catalogWords = uniqueStrings(domain.words);
       const sourceWords = sourceCatalogWords(document, catalogWords, { allowNumericPrefix: domain.key === "unit" });
@@ -990,14 +992,46 @@ function createCommandHandlers(options = {}) {
     ];
   }
 
-  function semanticTokenTextCounts(tokenRows) {
+  function semanticTokenTextCounts(tokenRows, lineTextForRow = () => "") {
     const counts = new Map();
     for (const row of Array.isArray(tokenRows) ? tokenRows : []) {
       const key = normalizedCatalogWord(row?.text);
       if (!key) continue;
       counts.set(key, (counts.get(key) || 0) + 1);
     }
+    addSemanticTokenPhraseCounts(counts, tokenRows, lineTextForRow);
     return counts;
+  }
+
+  function addSemanticTokenPhraseCounts(counts, tokenRows, lineTextForRow) {
+    const rowsByLine = new Map();
+    for (const row of Array.isArray(tokenRows) ? tokenRows : []) {
+      const line = Number(row?.line);
+      const start = Number(row?.start);
+      const length = Number(row?.length);
+      const key = normalizedCatalogWord(row?.text);
+      if (!key || /\s/.test(key) || !Number.isFinite(line) || line < 1 || !Number.isFinite(start) || !Number.isFinite(length) || length <= 0) {
+        continue;
+      }
+      if (!rowsByLine.has(line)) rowsByLine.set(line, []);
+      rowsByLine.get(line).push({ key, start, end: start + length });
+    }
+    for (const [line, rows] of rowsByLine.entries()) {
+      const sourceLine = String(lineTextForRow(line) || "");
+      const ordered = rows.sort((left, right) => left.start - right.start || left.end - right.end);
+      for (let index = 0; index < ordered.length; index += 1) {
+        let phrase = ordered[index].key;
+        let currentEnd = ordered[index].end;
+        for (let nextIndex = index + 1; nextIndex < Math.min(index + 4, ordered.length); nextIndex += 1) {
+          const next = ordered[nextIndex];
+          const gap = sourceLine.slice(currentEnd, next.start);
+          if (!/^\s+$/.test(gap)) break;
+          phrase = `${phrase} ${next.key}`;
+          counts.set(phrase, (counts.get(phrase) || 0) + 1);
+          currentEnd = next.end;
+        }
+      }
+    }
   }
 
   function sourceCatalogWords(document, words, options = {}) {

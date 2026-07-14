@@ -6297,7 +6297,40 @@ function semanticTokenTextCounts(tokens) {
     if (!key || key === "-") continue;
     counts.set(key, (counts.get(key) || 0) + 1);
   }
+  addSemanticTokenPhraseCounts(counts, tokens);
   return counts;
+}
+
+function addSemanticTokenPhraseCounts(counts, tokens) {
+  const lines = String(state.highlightSource || "").split(/\r\n|\r|\n/);
+  const tokensByLine = new Map();
+  for (const token of arrayOrEmpty(tokens)) {
+    const lineIndex = Number(token?.line);
+    if (!Number.isFinite(lineIndex) || lineIndex < 0) continue;
+    const sourceLine = lines[lineIndex] || "";
+    const range = semanticTokenRange(sourceLine, token);
+    if (!range) continue;
+    const key = normalizedCatalogWord(sourceLine.slice(range.start, range.end));
+    if (!key || key === "-" || /\s/.test(key)) continue;
+    if (!tokensByLine.has(lineIndex)) tokensByLine.set(lineIndex, []);
+    tokensByLine.get(lineIndex).push({ key, start: range.start, end: range.end });
+  }
+  for (const [lineIndex, ranges] of tokensByLine.entries()) {
+    const sourceLine = lines[lineIndex] || "";
+    const ordered = ranges.sort((left, right) => left.start - right.start || left.end - right.end);
+    for (let index = 0; index < ordered.length; index += 1) {
+      let phrase = ordered[index].key;
+      let currentEnd = ordered[index].end;
+      for (let nextIndex = index + 1; nextIndex < Math.min(index + 4, ordered.length); nextIndex += 1) {
+        const next = ordered[nextIndex];
+        const gap = sourceLine.slice(currentEnd, next.start);
+        if (!/^\s+$/.test(gap)) break;
+        phrase = `${phrase} ${next.key}`;
+        counts.set(phrase, (counts.get(phrase) || 0) + 1);
+        currentEnd = next.end;
+      }
+    }
+  }
 }
 
 function sourceCatalogWords(words, options = {}) {
