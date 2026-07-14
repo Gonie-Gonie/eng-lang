@@ -9765,6 +9765,27 @@ mod tests {
             .to_path_buf()
     }
 
+    fn eng_files_under(root: &Path) -> Vec<PathBuf> {
+        fn visit(dir: &Path, files: &mut Vec<PathBuf>) {
+            let mut entries = std::fs::read_dir(dir)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", dir.display()))
+                .map(|entry| entry.expect("directory entry should be readable").path())
+                .collect::<Vec<_>>();
+            entries.sort();
+            for path in entries {
+                if path.is_dir() {
+                    visit(&path, files);
+                } else if path.extension().is_some_and(|extension| extension == "eng") {
+                    files.push(path);
+                }
+            }
+        }
+
+        let mut files = Vec::new();
+        visit(root, &mut files);
+        files
+    }
+
     fn read_json_file(path: &Path) -> serde_json::Value {
         let content = std::fs::read_to_string(path)
             .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
@@ -13429,6 +13450,48 @@ ratio = 1
             let snapshot = snapshot_for_source(Path::new(relative), &source);
             assert_no_conflicting_semantic_token_types(&snapshot, &source, relative);
         }
+    }
+
+    #[test]
+    fn example_sources_do_not_emit_generic_keyword_semantic_tokens() {
+        let repo_root = repo_root_for_tests();
+        let examples_root = repo_root.join("examples");
+        let example_files = eng_files_under(&examples_root);
+        assert!(
+            !example_files.is_empty(),
+            "example semantic keyword coverage should have fixtures"
+        );
+
+        let mut generic_keywords = Vec::new();
+        for path in example_files {
+            let source = std::fs::read_to_string(&path)
+                .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+            let snapshot = snapshot_for_source(&path, &source);
+            let lines = source.lines().collect::<Vec<_>>();
+            let relative = path.strip_prefix(&repo_root).unwrap_or(&path);
+            for token in &snapshot.semantic_tokens.tokens {
+                if token.token_type != "keyword" || !token.modifiers.is_empty() {
+                    continue;
+                }
+                let token_text = lines
+                    .get(token.line)
+                    .and_then(|line| line.get(token.start..token.start + token.length))
+                    .unwrap_or("<invalid range>");
+                generic_keywords.push(format!(
+                    "{}:{}:{} `{}`",
+                    relative.display(),
+                    token.line + 1,
+                    token.start + 1,
+                    token_text
+                ));
+            }
+        }
+
+        assert!(
+            generic_keywords.is_empty(),
+            "examples should not emit generic keyword semantic tokens without role modifiers:\n{}",
+            generic_keywords.join("\n")
+        );
     }
 
     #[test]
