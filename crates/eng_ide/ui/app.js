@@ -5265,12 +5265,14 @@ function inspectorTabsForSemanticToken(token, hover = null) {
   const modifierText = modifiers.join(" ").toLowerCase();
   const kind = String(hover?.kind || "").toLowerCase();
   const quantity = String(hover?.quantity_kind || hover?.quantityKind || "").toLowerCase();
+  const tokenText = semanticTokenText(token).toLowerCase();
   const detailText = [
     kind,
     quantity,
     hover?.name,
     hover?.detail,
     token?.type,
+    tokenText,
     modifierText,
     semanticTokenSelectors(token).join(" ")
   ].map((value) => String(value || "").toLowerCase()).join(" ");
@@ -5282,11 +5284,15 @@ function inspectorTabsForSemanticToken(token, hover = null) {
   if (detailText.includes("schema") || kind === "schema_field") add("schema");
   if (modifiers.includes("timeseries") || modifiers.includes("axis") || detailText.includes("timeseries") || detailText.includes("time axis")) add("time");
   if (modifiers.includes("validation") || kind.includes("validation")) add("checks");
+  if (modifiers.includes("workflowStep")) add("workflow");
+  if (modifiers.includes("workflowStep") && /case|materialize|collect|apply/.test(detailText)) add("case");
   if (modifiers.includes("sideEffect")) add("effects");
   if (modifiers.includes("external")) {
     add("effects");
     if (/http|network|cache|response|download|url/.test(detailText)) add("network");
   }
+  if (modifiers.includes("cache") || /cache|cache_key|cachekey|offline_response/.test(detailText)) add("network");
+  if (String(token?.type || "") === "namespace" || modifiers.includes("defaultLibrary") || modifiers.includes("imported") || modifiers.includes("internal") || modifiers.includes("planned") || /\beng\./.test(detailText)) add("modules");
   if (modifiers.includes("db") || quantity.includes("dbconnection") || /sqlite|database|db_/.test(detailText)) add("db");
   if (modifiers.includes("model") || kind.includes("model") || kind.includes("prediction")) add("model");
   if (modifiers.includes("report") || /report|plot|artifact/.test(detailText)) add("review");

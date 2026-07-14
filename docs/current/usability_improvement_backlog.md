@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 820: Routed native IDE Highlight/Caret action buttons for workflow-step, cache, case, and module/namespace semantic tokens to the matching Workflow, Network, Case, and Modules inspector panels.
 - Batch 819: Fixed model target semantic-token placement so `train_test_split` source operands stay variables while named `target=` values are model properties, clearing conflicting token types across all 126 example sources.
 - Batch 818: Added LSP semantic-token guards for workflow 01/02/03 and the previous overlap fixture so editor highlighting cannot emit conflicting token types for the same source range.
 - Batch 817: Replaced the component residual graph Jacobian status placeholder with sparsity_metadata and cleaned internal component/domain docs so current structured artifact fields are not described as placeholders or seed-only paths.
