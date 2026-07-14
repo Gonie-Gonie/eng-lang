@@ -6371,7 +6371,10 @@ function Assert-VscodeSemanticFallbackCoverage {
     }
     $ScopeSelectors = @{}
     foreach ($ScopeProperty in @($SemanticScopeRule.scopes.PSObject.Properties)) {
-        $ScopeSelectors[$ScopeProperty.Name] = $true
+        $FallbackScopes = @($ScopeProperty.Value |
+            ForEach-Object { [string]$_ } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        $ScopeSelectors[$ScopeProperty.Name] = $FallbackScopes
     }
 
     $SnapshotRoots = @(
@@ -6388,6 +6391,8 @@ function Assert-VscodeSemanticFallbackCoverage {
 
     $ObservedSelectors = @{}
     $MissingSelectors = @{}
+    $EmptyFallbackSelectors = @{}
+    $TokenCount = 0
     foreach ($SourceFile in $SourceFiles) {
         $SnapshotOutput = & $LspExecutable "--snapshot" $SourceFile.FullName
         if ($LASTEXITCODE -ne 0) {
@@ -6395,6 +6400,7 @@ function Assert-VscodeSemanticFallbackCoverage {
         }
         $Snapshot = ($SnapshotOutput | Out-String).Trim() | ConvertFrom-Json
         foreach ($Token in @($Snapshot.semantic_tokens.tokens)) {
+            $TokenCount += 1
             $TokenType = [string]$Token.type
             if ([string]::IsNullOrWhiteSpace($TokenType)) {
                 continue
@@ -6418,6 +6424,12 @@ function Assert-VscodeSemanticFallbackCoverage {
                     } else {
                         $MissingSelectors[$Selector] = 1
                     }
+                } elseif (@($ScopeSelectors[$Selector]).Count -eq 0) {
+                    if ($EmptyFallbackSelectors.ContainsKey($Selector)) {
+                        $EmptyFallbackSelectors[$Selector] = [int]$EmptyFallbackSelectors[$Selector] + 1
+                    } else {
+                        $EmptyFallbackSelectors[$Selector] = 1
+                    }
                 }
             }
         }
@@ -6432,7 +6444,14 @@ function Assert-VscodeSemanticFallbackCoverage {
             ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ", "
         throw "VS Code semantic token scope fallback map is missing observed selector(s): $MissingSummary"
     }
-    Write-Host "VS Code semantic fallback coverage passed. Checked $(@($SourceFiles).Count) snapshot(s), $($ObservedSelectors.Count) selector(s)."
+    if ($EmptyFallbackSelectors.Count -gt 0) {
+        $EmptyFallbackSummary = ($EmptyFallbackSelectors.GetEnumerator() |
+            Sort-Object -Property Value -Descending |
+            Select-Object -First 20 |
+            ForEach-Object { "$($_.Name)=$($_.Value)" }) -join ", "
+        throw "VS Code semantic token scope fallback map has observed selector(s) with no fallback scopes: $EmptyFallbackSummary"
+    }
+    Write-Host "VS Code semantic fallback coverage passed. Checked $(@($SourceFiles).Count) snapshot(s), $($ObservedSelectors.Count) selector(s), $TokenCount semantic token(s)."
 }
 
 function Invoke-LspCheck {
@@ -7100,6 +7119,7 @@ function Invoke-VscodePackage {
         exit 1
     }
     Invoke-Native $cargo "build" "--release" "-p" "eng_cli" "-p" "eng_lsp"
+    Assert-VscodeSemanticFallbackCoverage -LspExecutable (Join-Path $RepoRoot "target\release\eng-lsp.exe")
     $PackageRoot = Join-Path $RepoRoot "dist\local-vscode"
     New-Item -ItemType Directory -Force -Path $PackageRoot | Out-Null
     Invoke-IdePackage -PackageRoot $PackageRoot

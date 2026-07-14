@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 815: Promoted observed semantic-token fallback coverage into VS Code packaging, so every selector emitted by real examples and grammar fixtures must have at least one fallback scope before a local VSIX is built.
 - Batch 814: Added explicit user-facing hover labels for compiler-owned coverage-result and generic table public-member fields in both VS Code and the native IDE, with dev gates preventing those new hover kinds from falling back to raw payload ids.
 - Batch 813: Strengthened CLI native workflow smoke so workflow 01/02/03 must parse both static and executed run graphs and reject process, run-command, Python, notebook, or legacy helper markers in node and edge metadata, in addition to zero-process process_results.json.
 - Batch 812: Added compiler-owned coverage result and generic table public-member editor catalogs, wired them through VS Code/native IDE completion and TextMate grammar fallback, and locked actual workflow examples such as `coverage.actual_count`, `weather.rows`, `db.tables_written`, and `sensor.rows` into grammar smoke.
