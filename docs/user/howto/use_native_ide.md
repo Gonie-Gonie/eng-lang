@@ -193,9 +193,9 @@ Code CLI with an ignored temporary user-data directory for CLI logs while
 installing into the normal user extension directory.
 
 After installing, run `EngLang: Show Tooling Status` in VS Code to open a
-summary-first JSON status view with the extension version, selected `eng.exe`
-and `eng-lsp.exe` paths, configured-path fallback status, diagnostics mode,
-saved-file/live Problems diagnostics toggles, and semantic-highlighting setting.
+summary-first JSON status view with the extension version, selected check/run
+and live editor tool paths, configured-path fallback status, diagnostics mode,
+saved-file/live Problems diagnostics toggles, and role-aware highlighting setting.
 
 The VS Code extension defaults to quieter file checks for the Problems panel.
 Run `EngLang: Switch Diagnostics Mode...` and choose `live`, or set
@@ -206,6 +206,6 @@ unsaved active buffer until the file is saved. Direct settings changes to
 diagnostics mode or Problems settings also refresh or clear the active EngLang editor.
 
 The extension shares the same compiler-backed diagnostics, hover, completion,
-and semantic highlighting data as the native IDE. It is useful when you prefer
+and role-aware highlighting data as the native IDE. It is useful when you prefer
 VS Code, while `eng-ide.exe` remains the primary no-install review path for the
 current release.

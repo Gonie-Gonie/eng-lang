@@ -96,7 +96,7 @@ Additional review examples:
 - `examples/official/13_file_operations/main.eng`: constrained file operation
   metadata.
 - `examples/official/19_class_object/main.eng`: typed engineering objects,
-  validation, object summaries, and IDE/LSP metadata.
+  validation, object summaries, and editor metadata.
 
 Solver-heavy examples under `examples/advanced_solver` are advanced smoke
 examples. They are useful for inspecting typed TimeSeries and solver artifacts,

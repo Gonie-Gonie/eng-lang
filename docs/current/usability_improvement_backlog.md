@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 841: Reworded user-facing IDE/VS Code docs from executable/LSP and semantic-highlighting internals toward check/run tool, live editor tool, role-aware highlighting, and editor metadata wording.
 - Batch 840: Reworded public user diagnostics and standalone bundle docs away from internal snapshot phrasing, using live editor analysis and source file copy wording instead.
 - Batch 839: Added `.eng` editor context menu entries for the Problems-at-cursor and Highlight-token-at-cursor inspectors, with package contract coverage so linter/highlight inspection is discoverable outside the Command Palette.
 - Batch 838: Added the Problems cursor inspector to the top-level `EngLang: Show Tooling Status` command summary so the status JSON exposes the linter inspection path alongside highlight inspectors.
