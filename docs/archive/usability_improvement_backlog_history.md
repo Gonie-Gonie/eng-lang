@@ -5852,3 +5852,48 @@ Status: archived from the current usability backlog to keep the active file focu
 - Batch 743: Tightened LSP semantic highlighting for process and network with-block options so process policy keys carry side-effect/external modifiers and network cache keys carry cache/external modifiers.
 - Batch 744: Clarified workflow 01 docs so `args.pinned_response_file` is the public pinned-response API while `offline_response` remains the language-level HTTP replay option, with a guard against regressing to fixture-style wording.
 - Batch 745: Made LSP semantic highlighting propagate network/process owner context onto `cache = true` option values, not only the cache option keys.
+- Batch 746: Added LSP and VS Code local quick fixes for `E-NET-BODY-POLICY` so unsupported secret request bodies can be replaced with an explicit string-literal body from either editor backend.
+- Batch 747: Added LSP and VS Code local quick fixes for `E-SOLVE-SOLVER-UNSUPPORTED`, using `solver = fixed_point` so solve-block solver diagnostics are actionable like simulation solver diagnostics.
+- Batch 748: Added `dev.bat vscode-status` so local VS Code extension install/package readiness can be checked without triggering a reinstall or failing on open VS Code windows.
+- Batch 749: Expanded `dev.bat vscode-status` with built-VSIX version, size, update time, and installed extension package version summaries.
+- Batch 750: Added LSP and VS Code local quick fixes for `E-WRITE-STANDARD-TEXT-OUTPUT`, inserting the native `output = join(args.output, "standard_weather_file.txt")` option when `write standard_text` lacks an output path.
+- Batch 751: Added LSP and VS Code local quick fixes for `E-WRITE-STANDARD-TEXT-001`, changing scalar `write standard_text` statements to `write text` when the writer target is not a typed table.
+- Batch 752: Added LSP and VS Code local quick fixes for `E-WRITE-002`, replacing unsupported `write <format>` tokens with `text`, `json`, or `standard_text` without touching export-to-CSV syntax.
+- Batch 753: Restored the Celsius `degree-C` alias text in compiler tests and public syntax docs, and added a docs-check guard against recurring Celsius mojibake.
+- Batch 754: Extended VS Code TextMate unit highlighting from ASCII-only labels to all compiler-owned unit labels, including degree-C aliases, with fixture/golden coverage.
+- Batch 755: Added VS Code TextMate first-paint unit highlighting inside function parameter and return type annotations such as `Conductance [W/K]` and `HeatRate [W]`.
+- Batch 756: Tightened `dev.bat workflows-test` so workflow 02 native LHS sample tables must expose generated row hash previews and row value previews with per-parameter numeric payloads.
+- Batch 757: Added LSP and VS Code local quick fixes for `E-ML-SOURCE-001/002`, inserting native ML source-chain skeletons or split adapters when model workflows reference missing or wrong-type sources.
+- Batch 758: Added LSP and VS Code local quick fixes for `E-SAMPLING-RANGE-UNIT` when one `uniform(lower, upper)` endpoint is missing the other endpoint's unit.
+- Batch 759: Added stdio, VS Code contract, and module-registry coverage for `W-NET-RESPONSE-STATUS-ALIAS` so `response.status` consistently quick-fixes to `response.response_source`.
+- Batch 760: Exposed `E-LOG-LEVEL-001` through the `eng.log` module registry, current workflow-module table, and CLI diagnostics reference instead of hiding it as `none_current`.
+- Batch 761: Added `E-PROCESS-BINDING-002` to the `eng.process` module registry and generated workflow-module table so process binding collision diagnostics are visible in docs and IDE module metadata.
+- Batch 762: Added `E-GOLDEN-001` LSP/VS Code quick fixes and exposed the full `eng.test` assertion/golden diagnostic set in registry and public diagnostics docs.
+- Batch 763: Removed placeholder/status words from module-registry diagnostic lists and added registry/docs-check guards so diagnostics must be real `E-`/`W-` codes.
+- Batch 764: Added CLI reference coverage for every module-registry diagnostic and a docs-check guard so future registry diagnostics cannot lack public CLI wording.
+- Batch 765: Exposed the real file-operation syntax diagnostics `E-FS-001/002/003` through the `eng.fs` module registry, workflow-module table, and public CLI/syntax diagnostics docs.
+- Batch 766: Exposed write/export diagnostics through `eng.io` module metadata and filled the missing public syntax/CLI wording for those codes.
+- Batch 767: Exposed the legacy `select_first_row` compatibility warning through `eng.table` module metadata and public syntax diagnostics docs.
+- Batch 768: Added LSP and VS Code local quick fixes for simple `E-CMD-UNKNOWN-VERB` diagnostics, converting clause-bearing command-style calls such as `median Q_plot over Time` into `median(Q_plot, over=Time)`.
+- Batch 769: Added `solver_plan.jacobian_sparsity` as the preferred solver-plan artifact field while keeping `jacobian_seed` as a compatibility alias, and reworded component residual source reasons away from seed-only terminology.
+- Batch 770: Extended the preferred `jacobian_sparsity` solver-plan name into compiler/report Rust structs while retaining `jacobian_seed` as a compatibility field.
+- Batch 771: Expanded VS Code TextMate grammar smoke coverage so generated keyword, operator, and constant catalogs must have exact scoped token expectations, reducing first-paint highlighting gaps.
+- Batch 772: Aligned LSP semantic highlighting with the generated VS Code syntax catalog, added `index` as a schema modifier completion, and guarded keyword/operator/constant catalog labels against semantic-token gaps.
+- Batch 773: Promoted `solver_plan.jacobian_sparsity` to the required artifact-schema field, kept `jacobian_seed` as an optional compatibility alias, and taught artifact golden checks to validate both names separately.
+- Batch 774: Replaced Workflow 01's token-only native API/cache smoke with structured JSON assertions for HTTP query metadata, response hashes, cache records, output-manifest network entries, and run-log events.
+- Batch 775: Added direct VS Code `method.cache` selector coverage and tightened cache semantic fallback/theme guards so cache helpers, keys, option values, and records stay consistently colored.
+- Batch 776: Archived current backlog batches 701-745 into the historical log so active docs stay focused on recent workflow/API/IDE cleanup.
+- Batch 777: Clarified network replay wording so workflow args use pinned response files, language syntax uses `offline_response`, and legacy `fixture` is described only as a migration alias.
+- Batch 778: Split Native IDE semantic highlight colors for axis vs TimeSeries, validation vs report, and side-effect vs external roles, with a guard against regrouping those role colors.
+- Batch 779: Expanded Native IDE lexical completion fallback coloring for property, method, variable, constant/value, operator, and module completion kinds so options and public fields stay colored before semantic tokens arrive.
+- Batch 780: Added a Native IDE per-token Copy Selector action in the Highlight panel so users can report or compare exact semantic selector mappings without copying the full highlight table.
+- Batch 781: Added `dev.bat vscode-status` install freshness reporting so local VS Code users can see whether the built VSIX is newer than the installed EngLang extension before closing editor windows.
+- Batch 782: Added `dev.bat vscode-status` package freshness reporting so source or release-binary changes that require rebuilding the local VSIX are visible separately from install freshness.
+- Batch 783: Made `EngLang: Switch Diagnostics Mode...` refresh the active EngLang editor immediately after changing file/live Problems mode so live linting starts without waiting for another edit.
+- Batch 784: Made `dev.bat workflows-test` print an explicit native workflow Python/process guard summary so users can see workflow 01/02/03 source and public docs were scanned before smoke execution.
+- Batch 785: Cleared stale `eng/live` Problems and semantic/risk decorations when switching an unsaved active editor back to file diagnostics mode, so VS Code linter state matches the selected mode.
+- Batch 786: Cleared cached live review data when switching dirty editors back to file diagnostics mode so stale risk or semantic decorations cannot reappear from `reviewCache`.
+- Batch 787: Routed direct VS Code diagnostics setting changes through the same active-editor refresh/clear path as `EngLang: Switch Diagnostics Mode...`, keeping Problems aligned with `diagnosticsMode`, `lintOnSave`, and `lintOnChange`.
+- Batch 788: Split VS Code EngLang theme colors inside model, DB, and cache semantic role families so keywords, helpers, bindings, and public members remain visually distinct after semantic tokens arrive.
+- Batch 789: Reworded public uncertainty docs away from seed-centered Monte Carlo workflow phrasing while preserving explicit seed option policy, and added docs-check guards against that wording returning.
+- Batch 790: Linked native IDE caret highlight actions to related inspector tabs, so checked schema, TimeSeries, validation, side-effect, external, model, DB, unit, and variable tokens can jump from the editor meta bar into the matching review panel.
