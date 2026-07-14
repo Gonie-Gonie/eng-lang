@@ -2163,7 +2163,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
     }
 
     for integration in &program.integrations {
-        builder.push_keywords_on_line(integration.line, &["integrate", "over"], &["solver"]);
+        builder.push_keywords_on_line(integration.line, &["over"], &["solver"]);
         builder.push_on_line(
             integration.line,
             &integration.source,
@@ -2400,7 +2400,7 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
         if let Some(algorithm) = &ml.algorithm {
             builder.push_on_line(ml.line, "algorithm", "property", &["model"]);
             if is_simple_identifier_segment(algorithm) {
-                builder.push_on_line(ml.line, algorithm, "keyword", &["model"]);
+                builder.push_on_line_unless_call(ml.line, algorithm, "keyword", &["model"]);
             }
         }
         if ml.test_fraction.is_some() {
@@ -4712,6 +4712,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                         modifiers,
                     );
                 } else if COMPLETION_KEYWORDS.contains(&token) {
+                    if next_non_whitespace_after(line, index) == Some('(') {
+                        continue;
+                    }
                     self.push_byte_range(
                         line_index,
                         token_start,
@@ -5071,6 +5074,43 @@ impl<'a> SemanticTokenBuilder<'a> {
         for candidate in candidates {
             if let Some(start) = find_token_in_line(line, &candidate) {
                 self.push_byte_range(line_index, start, candidate.len(), token_type, modifiers);
+                return;
+            }
+        }
+    }
+
+    fn push_on_line_unless_call(
+        &mut self,
+        line_one_based: usize,
+        label: &str,
+        token_type: &str,
+        modifiers: &[&str],
+    ) {
+        if label.trim().is_empty() {
+            return;
+        }
+        let Some(line_index) = line_one_based.checked_sub(1) else {
+            return;
+        };
+        let Some(line) = self.lines.get(line_index).copied() else {
+            return;
+        };
+        for candidate in token_candidates(label) {
+            let mut search_start = 0usize;
+            while search_start <= line.len() {
+                let Some(relative) = line[search_start..].find(&candidate) else {
+                    break;
+                };
+                let token_start = search_start + relative;
+                let token_end = token_start + candidate.len();
+                search_start = token_end;
+                if !is_identifier_boundary(line, token_start, token_end) {
+                    continue;
+                }
+                if next_non_whitespace_after(line, token_end) == Some('(') {
+                    continue;
+                }
+                self.push_byte_range(line_index, token_start, candidate.len(), token_type, modifiers);
                 return;
             }
         }
@@ -12104,6 +12144,32 @@ comparison = empty == missing
             "keyword",
         );
         assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
+    }
+
+    #[test]
+    fn snapshot_keeps_call_style_helpers_as_functions_not_keywords() {
+        let source = r#"E_call = integrate(Q_series, over=Time)
+E_cmd = integrate Q_series over Time
+neural_model = mlp(split, hidden=[8], epochs=20)
+report {
+    plot histogram(Q_series)
+    plot line(Q_series)
+    plot residuals(reg_eval)
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("call_style_helpers.eng"), source);
+
+        for (line, label) in [
+            ("E_call = integrate", "integrate"),
+            ("neural_model = mlp", "mlp"),
+            ("    plot histogram", "histogram"),
+            ("    plot line", "line"),
+            ("    plot residuals", "residuals"),
+        ] {
+            assert_semantic_token_on_line_type(&snapshot, source, line, label, "function");
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, label, "keyword");
+        }
+        assert_semantic_token_on_line_type(&snapshot, source, "E_cmd = integrate", "integrate", "keyword");
     }
 
     #[test]
