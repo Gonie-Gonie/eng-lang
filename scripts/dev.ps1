@@ -4313,6 +4313,14 @@ function Assert-VscodeExtensionContract {
         }
         return ($SemanticColorValue | ConvertTo-Json -Compress)
     }
+    function Get-TextMateThemeColorKey {
+        param($Theme, [string] $Scope)
+        $Rule = @($Theme.tokenColors | Where-Object { @($_.scope) -contains $Scope }) | Select-Object -First 1
+        if ($null -eq $Rule -or $null -eq $Rule.settings) {
+            return ""
+        }
+        return Get-SemanticThemeColorKey $Rule.settings
+    }
     $RoleColorFamilies = @(
         @{ Label = "base callable/member"; Selectors = @("function", "method", "property"); MinimumDistinct = 3 },
         @{ Label = "unit"; Selectors = @("type.unit", "property.unit"); MinimumDistinct = 2 },
@@ -4370,6 +4378,13 @@ function Assert-VscodeExtensionContract {
             if ($RoleColorKeys.Count -lt $MinimumDistinctRoleColors) {
                 throw "VS Code extension theme $($RequiredTheme.Label) must keep $($RoleColorFamily.Label) semantic role colors visually distinct"
             }
+        }
+        $FirstPaintScopes = @("entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang", "variable.other.member.englang", "variable.other.public-member.englang")
+        $FirstPaintColorKeys = @($FirstPaintScopes | ForEach-Object {
+            Get-TextMateThemeColorKey $RequiredTheme.Theme $_
+        } | Sort-Object -Unique)
+        if ($FirstPaintColorKeys.Count -lt 5 -or $FirstPaintColorKeys -contains "") {
+            throw "VS Code extension theme $($RequiredTheme.Label) must keep first-paint function, call, builtin, member, and public-member colors visually distinct"
         }
     }
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {

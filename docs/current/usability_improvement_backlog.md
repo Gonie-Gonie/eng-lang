@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 874: Split VS Code first-paint theme colors for function declarations, calls, built-in helpers, member fields, and public members so code is more readable before role-aware semantic colors arrive.
 - Batch 873: Split base VS Code EngLang theme colors for functions, methods, and properties so generic calls and member fields remain visually distinct before domain-specific role colors apply.
 - Batch 872: Removed the remaining raw internal metadata wording from the native IDE how-to and guarded against that phrase returning in user-facing IDE docs.
 - Batch 871: Reworded LSP/VS Code read text/json/toml completion details from raw read wording to direct read wording, regenerated editor metadata, and added guards against the older completion details returning.

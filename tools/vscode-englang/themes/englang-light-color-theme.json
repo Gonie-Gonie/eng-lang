@@ -49,8 +49,16 @@
       "settings": { "foreground": "#007C91" }
     },
     {
-      "scope": ["entity.name.function.englang", "entity.name.function.call.englang", "support.function.builtin.englang"],
+      "scope": ["entity.name.function.englang"],
       "settings": { "foreground": "#005CC5" }
+    },
+    {
+      "scope": ["entity.name.function.call.englang"],
+      "settings": { "foreground": "#6F42C1" }
+    },
+    {
+      "scope": ["support.function.builtin.englang"],
+      "settings": { "foreground": "#7E57C2" }
     },
     {
       "scope": ["entity.name.function.solver.englang"],
@@ -142,7 +150,7 @@
     },
     {
       "scope": ["variable.other.member.englang"],
-      "settings": { "foreground": "#005CC5" }
+      "settings": { "foreground": "#007EA7" }
     },
     {
       "scope": ["variable.other.public-member.englang"],
