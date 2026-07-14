@@ -1,3 +1,4 @@
+- Batch 923: Reworded VS Code README model source-chain quick-fix coverage from skeleton repairs to starter-code repairs and guarded against skeleton-repair wording returning.
 - Batch 922: Added theme fallback scope summary aliases to VS Code highlight inspector and Tooling Status probe payloads, keeping legacy fallback_scope_status fields for compatibility.
 - Batch 921: Reworded internal_planned stdlib module labels/details from Internal planned and target-surface wording to Internal target and explicit public stdlib API boundaries, then regenerated VS Code editor metadata.
 - Batch 920: Added theme_coverage_status and theme_fallback_scope_count to VS Code highlight inspector/copy payloads while keeping fallback_status compatibility fields, with README and contract coverage.

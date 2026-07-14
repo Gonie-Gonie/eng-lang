@@ -51,7 +51,7 @@ embedding compiler logic in JavaScript.
   process binding conflicts and command/env/cwd values, pinned
   response SHA-256 mismatches, sampling count/seed/range-unit values, missing repro-profile
   sampling seeds, simulation/solver option repairs, model source-chain
-  skeleton repairs, model option fallback repairs for invalid test splits, seeds, hidden layers, and epochs,
+  starter-code repairs, model option fallback repairs for invalid test splits, seeds, hidden layers, and epochs,
   unsupported regression algorithm repairs, unsupported command-style call conversions,
   legacy `select_first_row` migration edits,
   uncertainty constructor argument repairs, direct uncertainty comparison repairs,

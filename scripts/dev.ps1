@@ -4472,7 +4472,7 @@ function Assert-VscodeExtensionContract {
     if (-not $TokenScopesDoc.Contains("EngLang Dark") -or -not $TokenScopesDoc.Contains("EngLang Light") -or -not $VscodeReadmeSource.Contains("EngLang Dark") -or -not $VscodeReadmeSource.Contains("EngLang Light")) {
         throw "VS Code docs must mention the optional EngLang color themes"
     }
-    foreach ($ForbiddenVscodeReadmeWording in @("promotion skeletons", "migration skeletons")) {
+    foreach ($ForbiddenVscodeReadmeWording in @("promotion skeletons", "migration skeletons", "skeleton repairs")) {
         if ($VscodeReadmeSource.Contains($ForbiddenVscodeReadmeWording)) {
             throw "VS Code README should describe quick fixes as edits or repairs, not '$ForbiddenVscodeReadmeWording'"
         }
