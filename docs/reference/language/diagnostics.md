@@ -7,8 +7,8 @@ line.
 ## How Diagnostics Are Surfaced
 
 - `eng.exe check <file.eng>` prints diagnostics for files on disk.
-- The VS Code extension and native IDE use `eng-lsp` snapshots for diagnostics
-  on saved and unsaved buffers.
+- The VS Code extension and native IDE use the same live editor analysis for
+  diagnostics on saved and unsaved buffers.
 - Quick fixes are offered where a repair is local and deterministic, such as
   syntax migrations, missing sample seeds, expected hashes, and known option
   renames.

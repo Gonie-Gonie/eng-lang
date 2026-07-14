@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 840: Reworded public user diagnostics and standalone bundle docs away from internal snapshot phrasing, using live editor analysis and source file copy wording instead.
 - Batch 839: Added `.eng` editor context menu entries for the Problems-at-cursor and Highlight-token-at-cursor inspectors, with package contract coverage so linter/highlight inspection is discoverable outside the Command Palette.
 - Batch 838: Added the Problems cursor inspector to the top-level `EngLang: Show Tooling Status` command summary so the status JSON exposes the linter inspection path alongside highlight inspectors.
 - Batch 837: Added `EngLang: Inspect Problem at Cursor` so VS Code users can inspect the diagnostic source, code, severity, exact range, nearest same-line Problems, and copy-ready payload for the caret position.

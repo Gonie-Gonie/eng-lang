@@ -208,7 +208,7 @@ dist/main-standalone/run.bat
 ```
 
 The standalone bundle contains the runner, compiled package files, lock/review
-metadata, source snapshot, and required source data. It writes normal
+metadata, a source file copy, and required source data. It writes normal
 `build/result` artifacts inside the standalone folder.
 
 ## Current Boundaries
