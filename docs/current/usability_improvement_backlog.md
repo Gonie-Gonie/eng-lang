@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 845: Kept the VS Code EngLang Problems status bar scoped to the active editor when background `.eng` documents open, change, or save, so linter mode/counts do not jump to another file.
 - Batch 844: Added `EngLang: Refresh Problems` as a VS Code command and `.eng` editor context-menu action so users can rerun the active-file linter without knowing that `Check Current File` refreshes Problems.
 - Batch 843: Added a VS Code EngLang Problems status bar item that shows the active `.eng` file's diagnostics mode and current Problems counts, with a click-through to Tooling Status and package/doc coverage.
 - Batch 842: Archived current backlog batches 791-820 into the historical log, keeping the active API/IDE/workflow cleanup backlog focused on recent linter, highlighting, workflow, and docs work.

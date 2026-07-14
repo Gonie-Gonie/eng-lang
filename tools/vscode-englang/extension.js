@@ -195,17 +195,32 @@ function activate(context) {
     diagnosticsStatusBar.show();
   }
 
+  function updateDiagnosticsStatusBarForDocument(document) {
+    const activeDocument = vscode.window.activeTextEditor?.document;
+    if (activeDocument && document?.uri.toString() !== activeDocument.uri.toString()) {
+      updateDiagnosticsStatusBar(activeDocument);
+      return;
+    }
+    updateDiagnosticsStatusBar(document);
+  }
+
   context.subscriptions.push(output, diagnostics, diagnosticsStatusBar, semanticTokensProvider);
   context.subscriptions.push(...decorationController.disposables);
 
   context.subscriptions.push(
-    vscode.workspace.onDidOpenTextDocument((document) => diagnosticController.maybeCheck(document)),
+    vscode.workspace.onDidOpenTextDocument((document) => {
+      diagnosticController.maybeCheck(document);
+      updateDiagnosticsStatusBarForDocument(document);
+    }),
     vscode.workspace.onDidChangeTextDocument((event) => {
       clearCachedEditorSnapshot(event.document);
       diagnosticController.scheduleChangedCheck(event.document);
-      updateDiagnosticsStatusBar(event.document);
+      updateDiagnosticsStatusBarForDocument(event.document);
     }),
-    vscode.workspace.onDidSaveTextDocument((document) => diagnosticController.maybeCheck(document)),
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      diagnosticController.maybeCheck(document);
+      updateDiagnosticsStatusBarForDocument(document);
+    }),
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (
         event.affectsConfiguration("englang.diagnosticsMode") ||

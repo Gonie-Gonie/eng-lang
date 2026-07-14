@@ -4141,11 +4141,12 @@ function Assert-VscodeExtensionContract {
         'diagnosticsStatusBar.name = "EngLang Problems"',
         'diagnosticsStatusBar.command = "englang.showToolingStatus"',
         "function updateDiagnosticsStatusBar",
+        "function updateDiagnosticsStatusBarForDocument",
         "diagnosticSeverityCounts",
         "diagnosticsStatusBarCountText",
         "diagnosticsStatusBarUpdateState",
         "vscode.languages.onDidChangeDiagnostics",
-        "updateDiagnosticsStatusBar(event.document)",
+        "updateDiagnosticsStatusBarForDocument(event.document)",
         "updateDiagnosticsStatusBar(editor?.document)",
         'EngLang Problems: ${countText}',
         "Click to open EngLang: Show Tooling Status."
