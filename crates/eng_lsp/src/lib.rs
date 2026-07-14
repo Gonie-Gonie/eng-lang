@@ -5334,7 +5334,7 @@ fn is_status_or_policy_literal(value: &str) -> bool {
 }
 
 fn is_workflow_status_role_literal(value: &str) -> bool {
-    is_workflow_status_literal(value) && value != "empty"
+    is_workflow_status_literal(value)
 }
 
 fn language_constant_modifiers(keyword: &str) -> &'static [&'static str] {
@@ -11875,6 +11875,14 @@ operator A: LinearOperator[RoomState -> Derivative[RoomState]] = [[-0.012 1/min]
                 assert_semantic_token_on_line_type(&snapshot, &source, &line, &label, "keyword");
             }
         }
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            &source,
+            " = empty",
+            "empty",
+            "keyword",
+            "workflowStep",
+        );
     }
 
     #[test]
