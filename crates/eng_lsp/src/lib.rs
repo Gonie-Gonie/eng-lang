@@ -5755,8 +5755,9 @@ fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
         | "distribution" | "parity" | "residuals" => &["report"],
         "validate" | "check" | "assert" | "golden" | "test" | "matches" | "within"
         | "constraints" | "missing" | "interpolate" | "monotonic" | "between" => &["validation"],
-        "simulate" | "solve" | "connect" | "conservation" | "equation" | "operator" | "states"
-        | "inputs" | "outputs" => &["solver"],
+        "eq" | "simulate" | "solve" | "connect" | "conservation" | "equation" | "operator"
+        | "states" | "inputs" | "outputs" => &["solver"],
+        "of" => &["timeseries"],
         "script" | "struct" => &["deprecated"],
         _ => &[],
     }
@@ -13264,6 +13265,40 @@ connect pump.supply to pipe.inlet
         assert_no_conflicting_semantic_token_types(&snapshot, source, "connect_endpoints.eng");
     }
 
+    #[test]
+    fn snapshot_marks_equation_and_timeseries_operator_words_role_aware() {
+        let source = r#"system RoomThermal {
+    state T: AbsoluteTemperature = 20 degC
+    equation balance:
+        C * der(T) eq 0 K/s
+}
+Q_series: TimeSeries[Time] of HeatRate [kW] = 5 kW
+"#;
+        let snapshot =
+            snapshot_for_source(Path::new("equation_timeseries_operator_words.eng"), source);
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "C * der(T) eq",
+            "eq",
+            "keyword",
+            "solver",
+        );
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot,
+            source,
+            "TimeSeries[Time] of HeatRate",
+            "of",
+            "keyword",
+            "timeseries",
+        );
+        assert_no_conflicting_semantic_token_types(
+            &snapshot,
+            source,
+            "equation_timeseries_operator_words.eng",
+        );
+    }
     #[test]
     fn snapshot_marks_declaration_keywords_as_declarations() {
         let source = r#"domain Thermal package "eng.std.domains.thermal" version "0.1.0" {
