@@ -5747,6 +5747,9 @@ fn keyword_modifiers_for_line(
     if is_object_copy_with_keyword(line, keyword, token_start) {
         return &["model"];
     }
+    if is_domain_conservation_shared_keyword(line, keyword, token_start) {
+        return &["solver"];
+    }
     if is_rmse_comparison_keyword(line, keyword, token_start) {
         return RMSE_COMPARISON_MODIFIERS;
     }
@@ -6890,6 +6893,16 @@ fn object_copy_ranges(line: &str) -> Option<(usize, usize, usize)> {
         return None;
     }
     Some((source_start, source_end, with_start))
+}
+
+fn is_domain_conservation_shared_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    keyword == "is"
+        && line
+            .get(..token_start)
+            .is_some_and(|prefix| prefix.trim_start().starts_with("conservation "))
+        && line
+            .get(token_start + "is".len()..)
+            .is_some_and(|suffix| suffix.trim_start().starts_with("shared at connected ports"))
 }
 
 fn is_rmse_comparison_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
@@ -13745,6 +13758,24 @@ with {
             &snapshot,
             source,
             "contextual_constant_literals.eng",
+        );
+    }
+
+    #[test]
+    fn snapshot_marks_domain_conservation_shared_keyword_role_aware() {
+        let source = r#"domain PositionOnly {
+    across x: Length [m]
+    conservation x is shared at connected ports
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("domain_conservation_shared.eng"), source);
+        let line = "conservation x is shared at connected ports";
+
+        assert_semantic_token_on_line_with_modifier(
+            &snapshot, source, line, "is", "keyword", "solver",
+        );
+        assert_no_semantic_token_on_line_with_empty_modifiers(
+            &snapshot, source, line, "is", "keyword",
         );
     }
 
