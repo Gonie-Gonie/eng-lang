@@ -358,6 +358,12 @@ function diagnosticFallbackRangeForCode(lineText, item, sourceColumn) {
   if (code === "E-NET-INVALID-URL") {
     return netUrlLiteralRange(lineText, searchStart);
   }
+  if (code === "E-UNC-ARGS-002") {
+    const uncertaintyRange = uncertaintyArgumentDiagnosticRange(lineText, item);
+    if (uncertaintyRange) {
+      return uncertaintyRange;
+    }
+  }
   const formatRange = formatInterpolationDiagnosticRange(lineText, item);
   if (formatRange) {
     return formatRange;
@@ -402,6 +408,12 @@ function diagnosticOptionNames(code) {
       return ["cache_ttl"];
     case "E-WITH-UNIT-001":
       return ["unit y", "unit x", "display_unit", "unit"];
+    case "E-WITH-UNCERTAINTY-POLICY-001":
+      return ["uncertainty"];
+    case "E-WITH-UNCERTAINTY-SAMPLES-001":
+      return ["samples"];
+    case "E-WITH-UNCERTAINTY-SEED-001":
+      return ["seed"];
     case "E-SIM-TIMESTEP-INVALID":
     case "E-SOLVE-TIMESTEP-INVALID":
       return ["timestep"];
@@ -689,6 +701,57 @@ function stringLiteralRangeAt(text, quoteStart) {
 function diagnosticBacktickRange(lineText, item) {
   return backtickPayloadRange(lineText, item?.message)
     ?? backtickPayloadRange(lineText, item?.help);
+}
+
+function uncertaintyArgumentDiagnosticRange(lineText, item) {
+  const message = String(item?.message ?? "");
+  if (message.includes("sample count")) {
+    return namedArgumentValueRange(lineText, ["samples", "n"]);
+  }
+  if (message.includes("standard deviation")) {
+    return namedArgumentValueRange(lineText, ["std", "sigma", "uncertainty"]);
+  }
+  if (message.includes("relative error")) {
+    return namedArgumentValueRange(lineText, ["error", "relative_error"]);
+  }
+  if (message.includes("scale/gain")) {
+    return namedArgumentValueRange(lineText, ["scale", "gain"]);
+  }
+  if (message.includes("offset/bias")) {
+    return namedArgumentValueRange(lineText, ["offset", "bias"]);
+  }
+  if (message.includes("lower bound") && message.includes("upper bound")) {
+    return namedArgumentValueRange(lineText, ["lower", "min"])
+      ?? namedArgumentValueRange(lineText, ["upper", "max"]);
+  }
+  return undefined;
+}
+
+function namedArgumentValueRange(lineText, names) {
+  const code = stripLineComment(lineText);
+  for (const name of names) {
+    const pattern = new RegExp(`(^|[^A-Za-z0-9_])(${escapeRegExp(name)})(\\s*=\\s*)`, "g");
+    let match;
+    while ((match = pattern.exec(code)) !== null) {
+      const nameStart = match.index + match[1].length;
+      const valueStart = nameStart + name.length + match[3].length;
+      let valueEnd = valueStart;
+      while (valueEnd < code.length && code[valueEnd] !== "," && code[valueEnd] !== ")") {
+        valueEnd += 1;
+      }
+      while (valueEnd > valueStart && /\s/.test(code[valueEnd - 1])) {
+        valueEnd -= 1;
+      }
+      if (valueEnd > valueStart) {
+        return { start: valueStart, end: valueEnd };
+      }
+    }
+  }
+  return undefined;
+}
+
+function escapeRegExp(text) {
+  return String(text).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function formatInterpolationDiagnosticRange(lineText, item) {
