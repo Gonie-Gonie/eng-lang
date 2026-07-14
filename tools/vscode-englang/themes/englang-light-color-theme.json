@@ -69,6 +69,10 @@
       "settings": { "foreground": "#9C1FA8" }
     },
     {
+      "scope": ["support.function.timeseries.englang"],
+      "settings": { "foreground": "#3A8F3F" }
+    },
+    {
       "scope": ["entity.name.function.solver.englang"],
       "settings": { "foreground": "#00796B" }
     },

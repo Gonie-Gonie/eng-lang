@@ -2613,7 +2613,7 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "integrate"
   },
   {
@@ -2642,19 +2642,19 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "mean",
     "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "min",
     "fullMatch": true
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "max",
     "fullMatch": true
   },
@@ -2970,12 +2970,12 @@
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "time_weighted_mean"
   },
   {
     "fixture": "07_report_uncertainty_solver.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "p90"
   },
   {
@@ -3476,7 +3476,7 @@
   },
   {
     "fixture": "01_core_workflow.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.timeseries.englang",
     "text": "mean",
     "fullMatch": true
   },

@@ -456,6 +456,7 @@
             "variable.other.property.englang"
           ],
           "function.timeseries": [
+            "support.function.timeseries.englang",
             "entity.name.function.englang",
             "support.function.builtin.englang"
           ],

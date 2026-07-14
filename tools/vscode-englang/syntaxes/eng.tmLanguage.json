@@ -2220,7 +2220,7 @@
                                                                     "begin":  "\\b(integrate)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.timeseries.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"
@@ -2300,7 +2300,7 @@
                                                                     "begin":  "\\b(mean|max|min|sum)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.timeseries.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"
@@ -2428,6 +2428,10 @@
                                                                                      },
                                                                                      {
                                                                                          "include":  "#units"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "support.function.timeseries.englang",
+                                                                                         "match":  "\\b(mean|min|max|sum|time_weighted_mean|p\\d{1,2})\\b"
                                                                                      },
                                                                                      {
                                                                                          "include":  "#builtins"
