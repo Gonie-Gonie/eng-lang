@@ -1,3 +1,4 @@
+- Batch 912: Split the remaining workflow-step, solver, and path helper TextMate scopes so `apply(...)`, `run_case`, `der(...)`, and `join(...)` no longer use generic builtin first-pass colors.
 - Batch 911: Added an external-boundary helper TextMate scope so `file(...)`, `url(...)`, `env(...)`, and `secret env(...)` use external-boundary first-pass colors instead of generic builtin colors.
 - Batch 910: Added a TimeSeries/statistic helper TextMate scope so `integrate(...)`, `mean(...)`, `time_weighted_mean`, and `p90` use TimeSeries-specific first-pass colors instead of generic builtin colors.
 - Batch 909: Added an uncertainty helper function TextMate scope so `measured(...)`, `uniform(...)`, `propagate(...)`, and `probability(...)` use uncertainty-specific first-pass colors instead of generic builtin colors.

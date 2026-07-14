@@ -2010,7 +2010,7 @@
                                                                     "begin":  "\\b(apply)\\s*(\\()",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "support.function.builtin.englang"
+                                                                                                    "name":  "support.function.workflow-step.englang"
                                                                                                 },
                                                                                           "2":  {
                                                                                                     "name":  "punctuation.section.parens.begin.englang"
@@ -3213,6 +3213,18 @@
                                                          {
                                                              "name":  "support.function.external-boundary.englang",
                                                              "match":  "\\b(file|url|env|secret)\\b"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.path.englang",
+                                                             "match":  "\\bjoin\\b(?=\\s*\\()"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.solver.englang",
+                                                             "match":  "\\bder\\b"
+                                                         },
+                                                         {
+                                                             "name":  "support.function.workflow-step.englang",
+                                                             "match":  "\\brun_case\\b"
                                                          },
                                                          {
                                                              "name":  "support.function.builtin.englang",

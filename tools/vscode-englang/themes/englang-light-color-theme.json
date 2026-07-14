@@ -77,6 +77,18 @@
       "settings": { "foreground": "#B45309" }
     },
     {
+      "scope": ["support.function.workflow-step.englang"],
+      "settings": { "foreground": "#3B5BDB" }
+    },
+    {
+      "scope": ["support.function.solver.englang"],
+      "settings": { "foreground": "#00897B" }
+    },
+    {
+      "scope": ["support.function.path.englang"],
+      "settings": { "foreground": "#007C91" }
+    },
+    {
       "scope": ["entity.name.function.solver.englang"],
       "settings": { "foreground": "#00796B" }
     },

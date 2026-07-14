@@ -571,6 +571,7 @@
             "variable.other.property.englang"
           ],
           "function.solver": [
+            "support.function.solver.englang",
             "keyword.control.solver.englang",
             "support.function.builtin.englang",
             "entity.name.function.solver.englang"
@@ -708,6 +709,7 @@
             "support.function.builtin.englang"
           ],
           "function.workflowStep": [
+            "support.function.workflow-step.englang",
             "entity.name.function.workflow-step.englang",
             "support.function.builtin.englang"
           ],

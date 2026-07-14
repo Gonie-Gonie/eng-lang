@@ -96,6 +96,9 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `support.function.uncertain.englang` | Uncertainty helper calls such as `measured(...)`, `uniform(...)`, `propagate(...)`, and `probability(...)`. |
 | `support.function.timeseries.englang` | TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `time_weighted_mean`, and `p90`. |
 | `support.function.external-boundary.englang` | External boundary constructors such as `file(...)`, `url(...)`, `env(...)`, and `secret env(...)`. |
+| `support.function.workflow-step.englang` | Workflow-step helper calls such as `apply(...)` and step values such as `run_case`. |
+| `support.function.solver.englang` | Solver helper calls such as `der(...)`. |
+| `support.function.path.englang` | Path helper calls such as `join(...)`. |
 | `support.namespace.module.englang` | Module namespaces such as `eng.table`. |
 | `constant.numeric*.englang` | Numeric literals and format precision fragments. |
 | `constant.other.unit*.englang` | Unit literals. |
@@ -130,7 +133,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
-Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `evaluate(...)`, and `model_card(...)` use `support.function.model.englang`; uncertainty helper calls such as `measured(...)`, `uniform(...)`, `propagate(...)`, and `probability(...)` use `support.function.uncertain.englang`; TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `time_weighted_mean`, and `p90` use `support.function.timeseries.englang`; external boundary constructors such as `file(...)`, `url(...)`, `env(...)`, and `secret env(...)` use `support.function.external-boundary.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. Other call-style helpers such as `apply(...)` stay under `support.function.builtin.englang`.
+Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; model helper calls such as `regression(...)`, `train_test_split(...)`, `evaluate(...)`, and `model_card(...)` use `support.function.model.englang`; uncertainty helper calls such as `measured(...)`, `uniform(...)`, `propagate(...)`, and `probability(...)` use `support.function.uncertain.englang`; TimeSeries/statistic helper calls such as `integrate(...)`, `mean(...)`, `time_weighted_mean`, and `p90` use `support.function.timeseries.englang`; external boundary constructors such as `file(...)`, `url(...)`, `env(...)`, and `secret env(...)` use `support.function.external-boundary.englang`; workflow-step helpers such as `apply(...)` and `run_case` use `support.function.workflow-step.englang`; solver helpers such as `der(...)` use `support.function.solver.englang`; path helpers such as `join(...)` use `support.function.path.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. Other generic call-style helpers stay under `support.function.builtin.englang`.
 
 `#members` must appear before generic `args.*` and dotted-path fallbacks inside expression contexts so TextMate first-paint tokenization can split roots, dots, and member segments before broad property regexes match the whole path. Grammar smoke also requires begin/end workflow phrase scopes to include `#members`, so operand-oriented phrases cannot regress to uncolored dotted paths.
 
@@ -459,6 +462,9 @@ support.function.model.englang
 support.function.uncertain.englang
 support.function.timeseries.englang
 support.function.external-boundary.englang
+support.function.workflow-step.englang
+support.function.solver.englang
+support.function.path.englang
 support.namespace.module.englang
 support.type.englang
 variable.other.definition.englang

@@ -481,7 +481,7 @@
   },
   {
     "fixture": "03_side_effects.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.path.englang",
     "text": "join",
     "fullMatch": true
   },
@@ -1213,7 +1213,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.workflow-step.englang",
     "text": "apply"
   },
   {
@@ -1271,7 +1271,7 @@
   },
   {
     "fixture": "05_sampling_model.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.workflow-step.englang",
     "text": "run_case",
     "fullMatch": true
   },
@@ -4166,7 +4166,7 @@
   },
   {
     "fixture": "04_system_component.eng",
-    "scope": "support.function.builtin.englang",
+    "scope": "support.function.solver.englang",
     "text": "der",
     "fullMatch": true
   },
@@ -5385,6 +5385,12 @@
     "fixture": "06_declarations_native_workflow.eng",
     "scope": "constant.language.englang",
     "text": "trapezoidal",
+    "fullMatch": true
+  },
+  {
+    "fixture": "01_core_workflow.eng",
+    "scope": "support.function.builtin.englang",
+    "text": "exists",
     "fullMatch": true
   }
 ]
