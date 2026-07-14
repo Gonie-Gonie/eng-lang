@@ -4703,7 +4703,9 @@ impl<'a> SemanticTokenBuilder<'a> {
                         modifiers,
                     );
                 } else if COMPLETION_KEYWORDS.contains(&token) {
-                    if next_non_whitespace_after(line, index) == Some('(') {
+                    if next_non_whitespace_after(line, index) == Some('(')
+                        || is_model_value_operand(line, token, token_start, index)
+                    {
                         continue;
                     }
                     self.push_byte_range(
@@ -6314,6 +6316,26 @@ fn is_identifier_label_token(line: &str, end: usize) -> bool {
         Some(b'=') => bytes.get(index + 1).copied() != Some(b'='),
         _ => false,
     }
+}
+
+fn is_model_value_operand(line: &str, token: &str, start: usize, end: usize) -> bool {
+    if token != "model" {
+        return false;
+    }
+    if previous_identifier_before(line, start) == Some("predict")
+        && next_identifier_after(line, end) == Some("using")
+    {
+        return true;
+    }
+    matches!(previous_non_whitespace_before(line, start), Some('(' | ','))
+        && matches!(next_non_whitespace_after(line, end), Some(')' | ','))
+}
+
+fn previous_non_whitespace_before(line: &str, start: usize) -> Option<char> {
+    line.get(..start)?
+        .chars()
+        .rev()
+        .find(|character| !character.is_whitespace())
 }
 
 fn member_receiver_boundary(line: &str, start: usize) -> bool {
@@ -12135,6 +12157,35 @@ comparison = empty == missing
             "keyword",
         );
         assert_semantic_token_on_line_type(&snapshot, source, "comparison =", "empty", "keyword");
+    }
+
+    #[test]
+    fn snapshot_keeps_model_operands_as_variables_not_keywords() {
+        let source = r#"model = train regression designs
+metrics = evaluate(model)
+card = model_card(model)
+predictions = predict model using designs
+catalog_probe = model
+"#;
+        let snapshot = snapshot_for_source(Path::new("model_operands.eng"), source);
+
+        for line in [
+            "metrics = evaluate(model)",
+            "card = model_card(model)",
+            "predictions = predict model using designs",
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, "model", "variable", "model",
+            );
+            assert_no_semantic_token_on_line_type(&snapshot, source, line, "model", "keyword");
+        }
+        assert_semantic_token_on_line_type(
+            &snapshot,
+            source,
+            "catalog_probe = model",
+            "model",
+            "keyword",
+        );
     }
 
     #[test]
