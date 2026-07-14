@@ -2618,6 +2618,12 @@ fn semantic_tokens(report: &CheckReport, source: &str) -> LspSemanticTokens {
             "class",
             &["defaultLibrary"],
         );
+        if object.construction == "copy_with" {
+            if let Some(source_object) = &object.source_object {
+                builder.push_on_line(object.line, source_object, "variable", &["model"]);
+            }
+            builder.push_keywords_on_line(object.line, &["with"], &["model"]);
+        }
         for field in &object.fields {
             builder.push_on_line(field.line, &field.name, "property", &["declaration"]);
         }
@@ -4893,6 +4899,16 @@ impl<'a> SemanticTokenBuilder<'a> {
                 if is_identifier_label_token(line, index) {
                     continue;
                 }
+                if is_object_copy_source_token(line, token_start, index) {
+                    self.push_byte_range(
+                        line_index,
+                        token_start,
+                        index - token_start,
+                        "variable",
+                        &["model"],
+                    );
+                    continue;
+                }
                 if WORKFLOW_BUILTIN_KEYWORDS.contains(&token) {
                     let (token_type, modifiers) = workflow_builtin_semantic_class(
                         line,
@@ -5727,6 +5743,9 @@ fn keyword_modifiers_for_line(
     }
     if is_report_clause_keyword(line, keyword, token_start) {
         return &["report"];
+    }
+    if is_object_copy_with_keyword(line, keyword, token_start) {
+        return &["model"];
     }
     if is_rmse_comparison_keyword(line, keyword, token_start) {
         return RMSE_COMPARISON_MODIFIERS;
@@ -6844,6 +6863,33 @@ fn is_return_statement_keyword(line: &str, keyword: &str, token_start: usize) ->
         && line
             .get(..token_start)
             .is_some_and(|prefix| prefix.trim().is_empty())
+}
+
+fn is_object_copy_with_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    keyword == "with"
+        && object_copy_ranges(line).is_some_and(|(_, _, with_start)| with_start == token_start)
+}
+
+fn is_object_copy_source_token(line: &str, start: usize, end: usize) -> bool {
+    object_copy_ranges(line)
+        .is_some_and(|(source_start, source_end, _)| start == source_start && end == source_end)
+}
+
+fn object_copy_ranges(line: &str) -> Option<(usize, usize, usize)> {
+    let equals = line.find('=')?;
+    let binding = line.get(..equals)?.trim();
+    if !is_simple_identifier_segment(binding) {
+        return None;
+    }
+    let (source_start, source_end) = identifier_after(line, equals + 1)?;
+    let (with_start, with_end) = identifier_after(line, source_end)?;
+    if line.get(with_start..with_end) != Some("with") {
+        return None;
+    }
+    if next_non_whitespace_after(line, with_end) != Some('{') {
+        return None;
+    }
+    Some((source_start, source_end, with_start))
 }
 
 fn is_rmse_comparison_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
@@ -16304,6 +16350,47 @@ where {
         assert!(hover.detail.contains("owner line 2"));
         assert!(hover.detail.contains("Q_for_energy"));
         assert!(hover.detail.contains("= Q_coil"));
+    }
+
+    #[test]
+    fn snapshot_marks_object_copy_with_semantic_modifiers() {
+        let source = r#"class Construction {
+    u_value: Conductance [W/K]
+}
+
+wall = Construction {
+    u_value = 120 W/K
+}
+
+better_wall = wall with {
+    u_value = 100 W/K
+}
+
+copy_missing = nope with {
+    u_value = 90 W/K
+}
+"#;
+        let snapshot = snapshot_for_source(Path::new("object_copy_with_modifiers.eng"), source);
+
+        for (line, source_object) in [
+            ("better_wall = wall with", "wall"),
+            ("copy_missing = nope with", "nope"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot,
+                source,
+                line,
+                source_object,
+                "variable",
+                "model",
+            );
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, "with", "keyword", "model",
+            );
+            assert_no_semantic_token_on_line_with_empty_modifiers(
+                &snapshot, source, line, "with", "keyword",
+            );
+        }
     }
 
     #[test]

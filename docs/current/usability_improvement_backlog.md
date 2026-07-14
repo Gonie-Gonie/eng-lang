@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 901: Marked class/object copy-with headers so `source with {` keeps the source object and `with` in the model semantic color family, including invalid in-progress copy expressions before semantic object info is available.
 - Batch 900: Colored measured-vs-simulated RMSE comparison expressions so `rmse measured.T vs simulated.T` marks `vs` and both dotted operands with report/timeseries/validation semantic modifiers instead of generic keyword/property colors.
 - Batch 899: Marked statement-leading `return` keywords with the local semantic modifier so function return lines use role-aware editor coloring without repainting catalog literals named `return`.
 - Batch 898: Marked validation/filter condition words such as `is`, `none`, `or`, and range `and` with validation semantic modifiers so schema constraints and `where` filters no longer leave boolean condition syntax as generic keyword colors.
