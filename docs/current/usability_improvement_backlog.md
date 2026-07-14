@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 890: Marked export-summary field connectors as report-aware semantic tokens so `as` and `with` in summary CSV field rows use report role colors instead of generic keyword coloring.
 - Batch 889: Clarified workflow 02 case status wording by separating initial CaseTable manifest state from final CaseResultCollection status in bindings, prints, and docs.
 - Batch 888: Made VS Code saved-file uncertainty argument diagnostics underline invalid named argument values such as `samples=many` instead of the uncertainty constructor name.
 - Batch 887: Routed VS Code saved-file `E-WITH-UNIT-001` diagnostics through option-value fallback ranges so incompatible report display units underline the requested unit value.
