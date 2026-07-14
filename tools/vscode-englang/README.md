@@ -83,7 +83,9 @@ embedding compiler logic in JavaScript.
   diagnostics mode, the `eng/file` or `eng/live` Problems source label,
   current-file Problems counts and range status, cursor diagnostic inspection and
   copy commands, Problems diagnostics toggles, the TextMate-plus-semantic highlighting
-  model, highlight inspection and copy commands, fallback scope-map coverage,`n  native workflow source/docs and latest zero-process artifact evidence, and`n  extension version
+  model, highlight inspection and copy commands, highlight coverage summary,
+  fallback scope-map coverage, native workflow source/docs, latest zero-process
+  artifact evidence, and extension version
 - `EngLang: Switch Execution Profile...` for choosing the `normal`, `safe`, or
   `repro` profile used by `EngLang: Run Current File`
 
@@ -262,8 +264,10 @@ highlighting; changing this setting refreshes the current editor colors and
 planned/internal symbol markers immediately. Maintainer-facing color mapping
 rules live in `docs/internal/editor/token_scopes.md`.
 `EngLang: Inspect Highlight Tokens` opens a highlight data view with a plain
-status summary, legend, selector/type/detail counts, overall scope-map coverage
-from the generated semantic legend, representative source-text samples,
+status summary, legend, selector/type/detail counts, domain coverage summary for
+keywords, workflow words, options, units, constants, and operators, overall
+scope-map coverage from the generated semantic legend, representative source-text
+samples,
 normalized highlight rows with primary selector, mapped/missing fallback status,
 direct selector coverage, status text that names both fallback-scope and
 direct-selector mapping gaps, inspector panel hints, overlapping highlight ranges,

@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 855: Added VS Code highlight coverage summaries to Inspect Highlight Tokens and Tooling Status so keyword/workflow/option/unit/operator color gaps are visible from the editor JSON reports.
 - Batch 854: Added a native IDE Highlight coverage summary with domain counts, unmatched source-word visibility, and copy-ready summary output so inconsistent keyword/workflow/unit coloring is easier to diagnose from the IDE.
 - Batch 853: Added native IDE Workflow panel evidence for zero external processes, process-results status, run graph counts, graph hashes, and direct process-results artifact access.
 - Batch 852: Added native workflow source/docs and latest zero-process artifact evidence to VS Code Tooling Status so workflow 01/02/03 native-only status is visible from the editor.

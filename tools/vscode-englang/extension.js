@@ -86,6 +86,7 @@ function activate(context) {
     isEngDocument,
     semanticTokenTypes: SEMANTIC_TOKEN_TYPES,
     semanticTokenModifiers: SEMANTIC_TOKEN_MODIFIERS,
+    syntaxCatalog: editorMetadata.syntaxCatalog,
     updateSemanticSymbolDecorations: decorationController.updateSemanticSymbolDecorations
   });
   const diagnosticController = new EngDiagnosticsController(context, diagnostics, {

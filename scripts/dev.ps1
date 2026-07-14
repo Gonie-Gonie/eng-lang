@@ -3555,8 +3555,8 @@ function Assert-VscodeExtensionContract {
     if (-not $VscodeReadmeSource.Contains("completion_items") -or $VscodeReadmeSource.Contains("completion_seed") -or -not $VscodeReadmeSource.Contains("static completion fallback") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_unit_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_builtin_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.legacy_workflow_option_aliases") -or -not $VscodeReadmeSource.Contains("syntax_catalog.model_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.prediction_table_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.coverage_result_fields") -or -not $VscodeReadmeSource.Contains("syntax_catalog.table_fields") -or -not $VscodeReadmeSource.Contains("public member API") -or -not $VscodeReadmeSource.Contains("runtime-backed public fields") -or -not $VscodeReadmeSource.Contains("editor-only placeholders") -or -not $VscodeReadmeSource.Contains("highlight-only compatibility aliases")) {
         throw "VS Code README must document completion_items as the editor metadata completion catalog, public member field catalogs, and legacy aliases as highlight-only metadata without completion_seed"
     }
-    if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows")) {
-        throw "VS Code README must document highlight overlap rows in user-facing terms"
+    if (-not $VscodeReadmeSource.Contains("overlapping highlight ranges") -or -not $VscodeReadmeSource.Contains("line overlap rows") -or -not $VscodeReadmeSource.Contains("domain coverage summary")) {
+        throw "VS Code README must document highlight overlap rows and coverage summary in user-facing terms"
     }
     if (-not $VscodeReadmeSource.Contains("status bar") -or -not $VscodeReadmeSource.Contains("EngLang Problems mode") -or -not $VscodeReadmeSource.Contains("error/warning/info/hint counts")) {
         throw "VS Code README must document the EngLang Problems status bar in user-facing terms"
@@ -4519,6 +4519,11 @@ function Assert-VscodeExtensionContract {
         "Current-file highlight probing is unavailable because live editor checks are not configured.",
         "function toolingHighlightProbeSummary(tokenCount, rangeOverlapCount)",
         "range_overlap_status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length)",
+        "const coverageSummary = highlightCoverageSummary(document, tokenRows)",
+        "coverage_status: coverageStatus",
+        "highlight_coverage_status: coverageStatus",
+        "coverage_summary: coverageSummary",
+        "highlight_coverage: coverageSummary",
         "Current file returned no role-aware highlight tokens.",
         "with no overlapping ranges.",
         "function executableStatus",
@@ -5101,12 +5106,27 @@ function Assert-VscodeExtensionContract {
         "copy_selector: primarySelector",
         "semanticTokenRange(document, token)?.contains(cursor)",
         "semanticTokenScopeMapFromPackage",
+        "const syntaxCatalog = options.syntaxCatalog ?? {}",
         "semantic_highlighting_enabled",
         "summary: {",
         "status: highlightInspectionStatus(tokenCount, tokensWithoutFallbackScope, tokensWithUnmappedSelectors, rangeOverlaps.length)",
         "fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope)",
         "direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors)",
         "range_overlap_status: highlightRangeOverlapStatus(tokenCount, rangeOverlaps.length)",
+        "const coverageSummary = highlightCoverageSummary(document, tokenRows)",
+        "const coverageStatus = highlightCoverageStatus(coverageSummary)",
+        "highlight_coverage_status: coverageStatus",
+        "coverage_status: coverageStatus",
+        "coverage_summary: coverageSummary",
+        "highlight_coverage: coverageSummary",
+        "highlight_coverage_summary: coverageSummary",
+        "function highlightCoverageSummary(document, tokenRows)",
+        "function highlightCoverageStatus(rows)",
+        "function highlightCoverageCatalog()",
+        "matched_source_words",
+        "unmatched_source_words",
+        "catalogItemLabels(syntaxCatalog.workflow_options)",
+        "sourceContainsCatalogWord(source, word, options)",
         "token_count: tokenCount",
         "counts_by_type: tokenCounts",
         "counts_by_modifier: modifierCounts",
@@ -5156,6 +5176,9 @@ function Assert-VscodeExtensionContract {
         if (-not $CommandHandlersSource.Contains($RequiredSemanticDebugToken)) {
             throw "VS Code semantic highlight inspection output missing contract token $RequiredSemanticDebugToken"
         }
+    }
+    if (-not $ExtensionSource.Contains("syntaxCatalog: editorMetadata.syntaxCatalog")) {
+        throw "VS Code extension must pass generated syntax catalog metadata into command handlers"
     }
     if (-not $ExtensionSource.Contains('require("./semanticTokensProvider")') -or -not $SemanticTokensProviderSource.Contains("EngSemanticTokensProvider") -or -not $SemanticTokensProviderSource.Contains("snapshotDocumentSource")) {
         throw "VS Code extension must load semantic token provider orchestration from semanticTokensProvider.js"

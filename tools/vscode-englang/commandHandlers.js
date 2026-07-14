@@ -54,6 +54,7 @@ function createCommandHandlers(options = {}) {
   const semanticTokenScopeMap = options.semanticTokenScopeMap ?? DEFAULT_SEMANTIC_TOKEN_SCOPE_MAP;
   const semanticTokenTypes = options.semanticTokenTypes ?? [];
   const semanticTokenModifiers = options.semanticTokenModifiers ?? [];
+  const syntaxCatalog = options.syntaxCatalog ?? {};
   const isEngDocument = options.isEngDocument ?? (() => true);
   const updateSemanticSymbolDecorations =
     options.updateSemanticSymbolDecorations ?? (() => undefined);
@@ -500,6 +501,8 @@ function createCommandHandlers(options = {}) {
     const tokenRows = (semanticTokens.tokens ?? [])
       .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
     const rangeOverlaps = semanticTokenRangeOverlaps(document, tokenRows);
+    const coverageSummary = highlightCoverageSummary(document, tokenRows);
+    const coverageStatus = highlightCoverageStatus(coverageSummary);
     const tokenCount = semanticTokens.tokens?.length ?? 0;
     const scopeMapStatus = semanticScopeMapStatus(
       semanticTokenScopeMap,
@@ -514,6 +517,9 @@ function createCommandHandlers(options = {}) {
         fallback_scope_status: highlightFallbackStatus(tokenCount, tokensWithoutFallbackScope),
         direct_selector_status: highlightDirectSelectorStatus(tokenCount, tokensWithUnmappedSelectors),
         range_overlap_status: highlightRangeOverlapStatus(tokenCount, rangeOverlaps.length),
+        highlight_coverage_status: coverageStatus,
+        coverage_status: coverageStatus,
+        coverage_summary: coverageSummary,
         token_count: tokenCount,
         scope_map_status: scopeMapStatus.status,
         counts_by_type: tokenCounts,
@@ -535,6 +541,9 @@ function createCommandHandlers(options = {}) {
       },
       tokens: tokenRows,
       range_overlaps: rangeOverlaps,
+      highlight_coverage_status: coverageStatus,
+      highlight_coverage: coverageSummary,
+      highlight_coverage_summary: coverageSummary,
       raw: {
         semantic_tokens: semanticTokens
       },
@@ -860,6 +869,158 @@ function createCommandHandlers(options = {}) {
     };
   }
 
+  function highlightCoverageSummary(document, tokenRows) {
+    const tokenCounts = semanticTokenTextCounts(tokenRows);
+    return highlightCoverageCatalog().map((domain) => {
+      const catalogWords = uniqueStrings(domain.words);
+      const sourceWords = sourceCatalogWords(document, catalogWords, { allowNumericPrefix: domain.key === "unit" });
+      const matchedSourceWords = sourceWords.filter((word) => (tokenCounts.get(normalizedCatalogWord(word)) || 0) > 0);
+      const unmatchedSourceWords = sourceWords.filter((word) => (tokenCounts.get(normalizedCatalogWord(word)) || 0) === 0);
+      const highlightedRangeCount = catalogWords.reduce((total, word) => total + (tokenCounts.get(normalizedCatalogWord(word)) || 0), 0);
+      const status = unmatchedSourceWords.length ? "unmatched" : sourceWords.length ? "covered" : "not_used";
+      return {
+        domain: domain.key,
+        label: domain.label,
+        status,
+        filter_query: domain.filter,
+        catalog_word_count: catalogWords.length,
+        source_word_count: sourceWords.length,
+        highlighted_range_count: highlightedRangeCount,
+        matched_source_words: matchedSourceWords,
+        unmatched_source_words: unmatchedSourceWords
+      };
+    });
+  }
+
+  function highlightCoverageStatus(rows) {
+    const items = Array.isArray(rows) ? rows : [];
+    const unmatchedCount = items.reduce((total, row) => total + (row.unmatched_source_words?.length ?? 0), 0);
+    if (unmatchedCount > 0) {
+      return `unmatched_source_words:${unmatchedCount}`;
+    }
+    if (items.some((row) => (row.source_word_count ?? 0) > 0)) {
+      return "covered";
+    }
+    return "not_used";
+  }
+
+  function highlightCoverageCatalog() {
+    const keywordGroups = syntaxCatalog.keyword_groups ?? {};
+    const keywordGroupWords = Object.values(keywordGroups).flatMap((items) => Array.isArray(items) ? items : []);
+    return [
+      {
+        key: "keyword",
+        label: "Keywords",
+        filter: "keyword",
+        words: [...arrayOrEmpty(syntaxCatalog.keywords), ...keywordGroupWords]
+      },
+      {
+        key: "workflow",
+        label: "Workflow",
+        filter: "workflow",
+        words: [
+          ...arrayOrEmpty(syntaxCatalog.workflow_builtins),
+          ...arrayOrEmpty(syntaxCatalog.hyphenated_workflow_builtins),
+          ...arrayOrEmpty(syntaxCatalog.legacy_workflow_builtin_aliases),
+          ...arrayOrEmpty(syntaxCatalog.workflow_status_literals)
+        ]
+      },
+      {
+        key: "option",
+        label: "Options",
+        filter: "option",
+        words: [
+          ...catalogItemLabels(syntaxCatalog.workflow_options),
+          ...arrayOrEmpty(syntaxCatalog.legacy_workflow_option_aliases)
+        ]
+      },
+      {
+        key: "unit",
+        label: "Units",
+        filter: "unit",
+        words: [
+          ...catalogItemLabels(syntaxCatalog.units),
+          ...arrayOrEmpty(syntaxCatalog.legacy_unit_aliases)
+        ]
+      },
+      {
+        key: "constant",
+        label: "Constants",
+        filter: "constant",
+        words: [...arrayOrEmpty(syntaxCatalog.constants), ...arrayOrEmpty(syntaxCatalog.workflow_status_literals)]
+      },
+      {
+        key: "operator",
+        label: "Operators",
+        filter: "operator",
+        words: arrayOrEmpty(syntaxCatalog.operator_words)
+      }
+    ];
+  }
+
+  function semanticTokenTextCounts(tokenRows) {
+    const counts = new Map();
+    for (const row of Array.isArray(tokenRows) ? tokenRows : []) {
+      const key = normalizedCatalogWord(row?.text);
+      if (!key) continue;
+      counts.set(key, (counts.get(key) || 0) + 1);
+    }
+    return counts;
+  }
+
+  function sourceCatalogWords(document, words, options = {}) {
+    const source = document?.getText?.() ?? "";
+    if (!source) return [];
+    return uniqueStrings(words)
+      .filter((word) => sourceContainsCatalogWord(source, word, options))
+      .sort((left, right) => left.localeCompare(right));
+  }
+
+  function sourceContainsCatalogWord(source, word, options = {}) {
+    const value = String(word || "");
+    if (!value) return false;
+    let index = source.indexOf(value);
+    while (index >= 0) {
+      if (catalogWordBoundaryOk(source, index, value.length, options)) return true;
+      index = source.indexOf(value, index + value.length);
+    }
+    return false;
+  }
+
+  function catalogWordBoundaryOk(source, index, length, options = {}) {
+    const left = index > 0 ? source[index - 1] : "";
+    const right = index + length < source.length ? source[index + length] : "";
+    const leftOk = !isCatalogWordChar(left) || (options.allowNumericPrefix && /[0-9.]/.test(left));
+    const rightOk = !isCatalogWordChar(right);
+    return leftOk && rightOk;
+  }
+
+  function isCatalogWordChar(char) {
+    return /[A-Za-z0-9_-]/.test(String(char || ""));
+  }
+
+  function catalogItemLabels(items) {
+    return (Array.isArray(items) ? items : [])
+      .map((item) => {
+        if (typeof item === "string") return item;
+        return typeof item?.label === "string" ? item.label : undefined;
+      })
+      .filter((label) => typeof label === "string" && label.length > 0);
+  }
+
+  function uniqueStrings(items) {
+    return [...new Set((Array.isArray(items) ? items : [])
+      .map((item) => String(item || "").trim())
+      .filter(Boolean))];
+  }
+
+  function arrayOrEmpty(value) {
+    return Array.isArray(value) ? value : [];
+  }
+
+  function normalizedCatalogWord(value) {
+    return String(value || "").trim().toLowerCase();
+  }
   function semanticTokenRangeText(line, column, length) {
     if (!Number.isFinite(line) || !Number.isFinite(column) || !Number.isFinite(length) || length <= 0) {
       return null;
@@ -1743,6 +1904,8 @@ function createCommandHandlers(options = {}) {
       const tokenRows = (semanticTokens.tokens ?? [])
         .map((token) => semanticTokenDebugRow(document, token, semanticTokenScopeMap));
       const rangeOverlaps = semanticTokenRangeOverlaps(document, tokenRows);
+      const coverageSummary = highlightCoverageSummary(document, tokenRows);
+      const coverageStatus = highlightCoverageStatus(coverageSummary);
       return {
         source: document.uri.fsPath,
         status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
@@ -1750,6 +1913,10 @@ function createCommandHandlers(options = {}) {
         token_count: tokenRows.length,
         range_overlap_count: rangeOverlaps.length,
         range_overlap_status: highlightRangeOverlapStatus(tokenRows.length, rangeOverlaps.length),
+        coverage_status: coverageStatus,
+        highlight_coverage_status: coverageStatus,
+        coverage_summary: coverageSummary,
+        highlight_coverage: coverageSummary,
         inspection_commands: {
           current_file: "EngLang: Inspect Highlight Tokens",
           cursor: "EngLang: Inspect Highlight Token at Cursor",
