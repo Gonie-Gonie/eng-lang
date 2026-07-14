@@ -1716,17 +1716,17 @@
                                                                     "begin":  "\\b(predict)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.model.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
                                                                     "patterns":  [
                                                                                      {
-                                                                                         "name":  "keyword.control.workflow.englang",
+                                                                                         "name":  "keyword.control.model.englang",
                                                                                          "match":  "\\bmodel\\b(?=\\s+using\\b)"
                                                                                      },
                                                                                      {
-                                                                                         "name":  "keyword.control.workflow.englang",
+                                                                                         "name":  "keyword.control.model.englang",
                                                                                          "match":  "\\busing\\b"
                                                                                      },
                                                                                      {
@@ -1751,16 +1751,16 @@
                                                                     "begin":  "\\b(train)\\s+(regression)\\b",
                                                                     "beginCaptures":  {
                                                                                           "1":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.model.englang"
                                                                                                 },
                                                                                           "2":  {
-                                                                                                    "name":  "keyword.control.workflow.englang"
+                                                                                                    "name":  "keyword.control.model.englang"
                                                                                                 }
                                                                                       },
                                                                     "end":  "(?=#|$)",
                                                                     "patterns":  [
                                                                                      {
-                                                                                         "name":  "keyword.control.workflow.englang",
+                                                                                         "name":  "keyword.control.model.englang",
                                                                                          "match":  "\\b(from|on)\\b"
                                                                                      },
                                                                                      {

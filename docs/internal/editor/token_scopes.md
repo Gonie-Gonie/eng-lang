@@ -126,7 +126,7 @@ TextMate scopes should stay stable and broadly theme-compatible:
 | `invalid.deprecated.englang` | High-risk fallback mapping. |
 | `markup.warning.englang` | Medium-risk fallback mapping. |
 
-Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `predict`, `train`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. Call-style helpers such as `apply(...)`, `integrate(...)`, and `mean(...)` stay under `support.function.builtin.englang`.
+Command-style workflow and review verbs such as `sample`, `filter`, `derive`, `require_one`, `integrate`, and `mean` use `keyword.control.*.englang`; model workflow phrases such as `predict ... using ...` and `train regression ...` use `keyword.control.model.englang`; TimeSeries quality verbs such as `fill`, `align`, and `resample` use validation-colored fallback scopes to match their phrase scopes. Call-style helpers such as `apply(...)`, `integrate(...)`, `mean(...)`, and `regression(...)` stay under `support.function.builtin.englang`.
 
 `#members` must appear before generic `args.*` and dotted-path fallbacks inside expression contexts so TextMate first-paint tokenization can split roots, dots, and member segments before broad property regexes match the whole path. Grammar smoke also requires begin/end workflow phrase scopes to include `#members`, so operand-oriented phrases cannot regress to uncolored dotted paths.
 
@@ -157,10 +157,11 @@ Table and case operation phrases such as `filter`, `derive`, `sort`, `join`,
 member-aware fallbacks so dotted table and case operands stay split on first
 paint.
 
-Predict, train, and apply phrases such as `predict <model> using <table>`,
-`train regression <table>`, `apply <step> over <table>`, and `apply(...,
-over=...)` keep local workflow-step coloring while routing dotted model, table,
-step, and case operands through member-aware fallbacks.
+Predict and train phrases such as `predict <model> using <table>` and
+`train regression <table>` keep model-colored first-paint keywords while routing
+dotted model and table operands through member-aware fallbacks. Apply phrases such
+as `apply <step> over <table>` and `apply(..., over=...)` keep workflow-step
+coloring for step/case orchestration and use the same member-aware operand split.
 
 Integrate/statistical calls such as `integrate(<series>, over=<axis>)` and
 `mean(<series>, axis=<axis>)`, plus summary export fields like `<value> as

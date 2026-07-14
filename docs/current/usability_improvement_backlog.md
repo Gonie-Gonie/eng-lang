@@ -1,3 +1,4 @@
+- Batch 907: Colored model workflow phrase keywords such as `predict ... using ...` and `train regression ...` with the model TextMate scope so first-pass VS Code colors match LSP model roles sooner.
 - Batch 906: Added TextMate first-paint coverage for class object construction and copy-with headers so object source names and `with` use model-colored scopes before semantic tokens arrive.
 # Usability Improvement Backlog
 
