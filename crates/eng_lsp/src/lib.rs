@@ -5718,8 +5718,12 @@ fn keyword_modifiers_for_line(
     if is_file_operation_to_clause(line, keyword) {
         return &["sideEffect", "external"];
     }
+    if is_connect_to_clause_keyword(line, keyword, token_start) {
+        return &["solver"];
+    }
     keyword_modifiers(keyword)
 }
+
 fn keyword_modifiers(keyword: &str) -> &'static [&'static str] {
     match keyword {
         "open" | "sqlite" => &["sideEffect", "external", "db"],
@@ -6663,6 +6667,8 @@ fn dotted_identifier_segment_modifiers_for_line(
 ) -> &'static [&'static str] {
     if is_db_table_target_segment(line, start, end) {
         &["db", "external"]
+    } else if is_connect_endpoint_segment(line, start, end) {
+        &["solver"]
     } else {
         &[]
     }
@@ -6689,6 +6695,14 @@ fn is_db_read_clause_keyword(line: &str, keyword: &str, token_start: usize) -> b
 fn is_file_operation_to_clause(line: &str, keyword: &str) -> bool {
     keyword == "to"
         && (line.trim_start().starts_with("copy ") || line.trim_start().starts_with("move "))
+}
+
+fn is_connect_to_clause_keyword(line: &str, keyword: &str, token_start: usize) -> bool {
+    keyword == "to"
+        && is_connect_phrase(line)
+        && line
+            .get(..token_start)
+            .is_some_and(|prefix| prefix.contains("connect "))
 }
 
 fn is_db_table_target_segment(line: &str, start: usize, end: usize) -> bool {
@@ -6733,6 +6747,37 @@ fn is_db_read_sqlite_table_phrase(line: &str) -> bool {
     let rest = &line[read_start..];
     rest.contains(".table(") && rest.contains(" as ")
 }
+
+fn is_connect_endpoint_segment(line: &str, start: usize, end: usize) -> bool {
+    let Some((left_start, left_end, right_start, right_end)) = connect_endpoint_ranges(line) else {
+        return false;
+    };
+    (start >= left_start && end <= left_end) || (start >= right_start && end <= right_end)
+}
+
+fn is_connect_phrase(line: &str) -> bool {
+    connect_endpoint_ranges(line).is_some()
+}
+
+fn connect_endpoint_ranges(line: &str) -> Option<(usize, usize, usize, usize)> {
+    let leading = line.len().saturating_sub(line.trim_start().len());
+    let rest = line.get(leading..)?;
+    let after_connect = rest.strip_prefix("connect ")?;
+    let left_start = leading + "connect ".len();
+    let to_relative = after_connect.find(" to ")?;
+    let left_end = left_start + to_relative;
+    let right_start = left_end + " to ".len();
+    let right_tail = line.get(right_start..)?;
+    let right_len = right_tail
+        .find(|character: char| character.is_whitespace() || character == '{')
+        .unwrap_or(right_tail.len());
+    let right_end = right_start + right_len;
+    if left_start >= left_end || right_start >= right_end {
+        return None;
+    }
+    Some((left_start, left_end, right_start, right_end))
+}
+
 fn is_identifier_label_token(line: &str, end: usize) -> bool {
     let bytes = line.as_bytes();
     let mut index = end;
@@ -10740,6 +10785,7 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn diagnostic_json_uses_source_token_ranges() {
         let source = "schema SensorData {\n    m_dot = 1 kg/s\n}\n";
@@ -13138,6 +13184,31 @@ copy file("data/template.txt") to file("outputs/template.txt")
             "partial_db_table_targets.eng",
         );
     }
+
+    #[test]
+    fn snapshot_marks_connect_endpoints_as_solver_fallback() {
+        let source = r#"connect zone.heat to ambient.heat
+connect pump.supply to pipe.inlet
+"#;
+        let snapshot = snapshot_for_source(Path::new("connect_endpoints.eng"), source);
+
+        for (line, label, token_type) in [
+            ("connect zone.heat to ambient.heat", "to", "keyword"),
+            ("connect zone.heat to ambient.heat", "zone", "variable"),
+            ("connect zone.heat to ambient.heat", "heat", "property"),
+            ("connect zone.heat to ambient.heat", "ambient", "variable"),
+            ("connect pump.supply to pipe.inlet", "pump", "variable"),
+            ("connect pump.supply to pipe.inlet", "supply", "property"),
+            ("connect pump.supply to pipe.inlet", "pipe", "variable"),
+            ("connect pump.supply to pipe.inlet", "inlet", "property"),
+        ] {
+            assert_semantic_token_on_line_with_modifier(
+                &snapshot, source, line, label, token_type, "solver",
+            );
+        }
+        assert_no_conflicting_semantic_token_types(&snapshot, source, "connect_endpoints.eng");
+    }
+
     #[test]
     fn snapshot_keeps_export_summary_and_plot_and_as_keywords_not_variables() {
         let source = r#"Q: HeatRate [kW] = 1 kW
@@ -14506,6 +14577,7 @@ gap = coverage.max_gap_hours
             .iter()
             .any(|modifier| modifier == "workflowStep"));
     }
+
     #[test]
     fn snapshot_exposes_case_table_member_fields() {
         let source = "samples = sample lhs\nwith {\n    count = 2\n    seed = 42\n    cooling_cop = uniform(2.5, 5.0)\n}\n\ncases = materialize cases samples\ncase_inputs = apply case_input_template over cases\nwith {\n    template = file(\"model/native_case_template.txt\")\n    output = \"{case_dir}/input.txt\"\n}\ncase_results = collect results case_inputs\n\npending = cases.pending_count\nexpected = case_inputs.expected_count\nrendered = case_inputs.rendered_count\ncollected = case_results.collected_count\n";
