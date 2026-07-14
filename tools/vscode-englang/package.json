@@ -927,6 +927,20 @@
         "command": "englang.showSemanticTokenAtCursor",
         "title": "EngLang: Inspect Highlight Token at Cursor"
       }
-    ]
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "englang.showProblemAtCursor",
+          "when": "editorLangId == englang",
+          "group": "navigation@40"
+        },
+        {
+          "command": "englang.showSemanticTokenAtCursor",
+          "when": "editorLangId == englang",
+          "group": "navigation@41"
+        }
+      ]
+    }
   }
 }

@@ -25,8 +25,9 @@ embedding compiler logic in JavaScript.
 - subtle review-risk line and overview-ruler markers for high and medium risks
 - highlight-token inspection command for checking how the current file is
   colored
-- Problems-at-cursor inspection command for checking the diagnostic source,
-  code, severity, and exact range under the caret
+- Problems-at-cursor inspection command, available from the Command Palette or
+  `.eng` editor context menu, for checking the diagnostic source, code,
+  severity, and exact range under the caret
 - hover from compiler review metadata
 - position-aware completion from compiler/editor metadata
 - current-file go-to-definition from document symbols

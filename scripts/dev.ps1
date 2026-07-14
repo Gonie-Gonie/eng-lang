@@ -3629,6 +3629,13 @@ function Assert-VscodeExtensionContract {
             throw "VS Code command $($RequiredTitle.Command) must expose clearer title text containing '$($RequiredTitle.Text)'"
         }
     }
+    $EditorContextMenu = @($Package.contributes.menus."editor/context")
+    foreach ($RequiredEditorContextMenu in @("englang.showProblemAtCursor", "englang.showSemanticTokenAtCursor")) {
+        $MenuItem = @($EditorContextMenu | Where-Object { $_.command -eq $RequiredEditorContextMenu }) | Select-Object -First 1
+        if ($null -eq $MenuItem -or [string]$MenuItem.when -ne "editorLangId == englang") {
+            throw "VS Code editor context menu must expose $RequiredEditorContextMenu only for EngLang editors"
+        }
+    }
     $Properties = $Package.contributes.configuration.properties
     foreach ($RequiredProperty in @("englang.runtimePath", "englang.lspPath", "englang.diagnosticsMode", "englang.executionProfile", "englang.lintOnSave", "englang.lintOnChange", "englang.semanticHighlighting.enabled", "englang.reviewRiskDecorations.enabled")) {
         if ($null -eq $Properties.$RequiredProperty) {
