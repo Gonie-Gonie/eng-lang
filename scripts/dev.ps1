@@ -6461,6 +6461,11 @@ function Invoke-IdeCheck {
         "semanticTokenSearchText",
         "semanticTokenText",
         "highlightFilterChip",
+        "highlightChipRoleClass",
+        "semanticTokenTypeClass",
+        "semanticTokenModifierClass",
+        "semanticTokenSelectorClass",
+        '`token-${safeKind}`',
         "semanticTokenLegendChip",
         "<th>Text</th>",
         "semanticTokenPayload",
@@ -6767,7 +6772,7 @@ function Invoke-IdeCheck {
         throw "Native IDE unit fallback must use syntax_catalog.units and syntax_catalog.legacy_unit_aliases instead of a hardcoded JS list"
     }
     $IdeUiStyles = Get-Content -LiteralPath $TauriUiStylesPath -Raw
-    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line")) {
+    foreach ($RequiredIdeStyle in @("run-history-table", "status-pill", "status-pill.completed", "status-pill.blocked", "problem-query", "problem-row", "problem-message", "problem-actions", "problem-copy-button", "module-toolbar", "module-query", "editor-highlight", "hl-keyword", "hl-interpolation", "hl-constant", "hl-punctuation", "hl-mod-unit", "hl-mod-solver", "hl-mod-validation", "hl-mod-report", "hl-mod-sideEffect", "hl-mod-external", "hl-mod-riskHigh", "semantic-token-table", "highlight-coverage-table", ".semantic-token-table th:last-child", "token-chip", "--token-role-color", "token-filter-chip", "token-missing", "token-range-button", "cursor-insight", "variable-source-line")) {
         if (-not $IdeUiStyles.Contains($RequiredIdeStyle)) {
             throw "Native IDE UI missing contract style $RequiredIdeStyle"
         }

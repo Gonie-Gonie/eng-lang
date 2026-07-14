@@ -1077,15 +1077,44 @@ button:hover {
   align-items: center;
   min-height: 20px;
   max-width: 100%;
-  border: 1px solid #d3dce8;
+  border: 1px solid var(--token-role-border, #d3dce8);
   border-radius: 3px;
-  background: #f7f9fc;
-  color: #344054;
+  background: var(--token-role-bg, #f7f9fc);
+  color: var(--token-role-color, #344054);
   padding: 1px 6px;
   font: 11px Consolas, "Cascadia Mono", monospace;
   overflow-wrap: anywhere;
 }
 
+
+.token-chip.hl-keyword { --token-role-color: #135fc2; --token-role-border: #b8d4ff; --token-role-bg: #eef6ff; }
+.token-chip.hl-string { --token-role-color: #14714f; --token-role-border: #b9e4d0; --token-role-bg: #eefbf5; }
+.token-chip.hl-number { --token-role-color: #7c3aed; --token-role-border: #d8c7ff; --token-role-bg: #f5f0ff; }
+.token-chip.hl-constant { --token-role-color: #6d28d9; --token-role-border: #d4c2ff; --token-role-bg: #f4f0ff; }
+.token-chip.hl-operator { --token-role-color: #5b21b6; --token-role-border: #cbb9ff; --token-role-bg: #f3efff; }
+.token-chip.hl-type,
+.token-chip.hl-class,
+.token-chip.hl-interface { --token-role-color: #08727f; --token-role-border: #a9dfe6; --token-role-bg: #edfafd; }
+.token-chip.hl-function,
+.token-chip.hl-method { --token-role-color: #9b2c6a; --token-role-border: #e5b8d2; --token-role-bg: #fff0f7; }
+.token-chip.hl-namespace { --token-role-color: #4f46e5; --token-role-border: #c7c3ff; --token-role-bg: #f1f0ff; }
+.token-chip.hl-property { --token-role-color: #8a4b0f; --token-role-border: #e4c08f; --token-role-bg: #fff7ed; }
+.token-chip.hl-variable { --token-role-color: #274060; --token-role-border: #c3cfdd; --token-role-bg: #f3f7fb; }
+.token-chip.hl-parameter { --token-role-color: #6b4e16; --token-role-border: #d5c28f; --token-role-bg: #fff9e9; }
+.token-chip.hl-mod-unit { --token-role-color: #b45309; --token-role-border: #f0c38a; --token-role-bg: #fff7ed; }
+.token-chip.hl-mod-quantity { --token-role-color: #0f766e; --token-role-border: #a5ddd5; --token-role-bg: #effdfb; }
+.token-chip.hl-mod-axis { --token-role-color: #2563eb; --token-role-border: #bcd0ff; --token-role-bg: #eef4ff; }
+.token-chip.hl-mod-timeseries { --token-role-color: #15803d; --token-role-border: #b7dfc5; --token-role-bg: #f0fdf4; }
+.token-chip.hl-mod-uncertain { --token-role-color: #a16207; --token-role-border: #dfc48d; --token-role-bg: #fffbeb; }
+.token-chip.hl-mod-validation { --token-role-color: #9a3412; --token-role-border: #efb99d; --token-role-bg: #fff4ed; }
+.token-chip.hl-mod-report { --token-role-color: #7c3aed; --token-role-border: #d4c1ff; --token-role-bg: #f5f0ff; }
+.token-chip.hl-mod-solver { --token-role-color: #0369a1; --token-role-border: #abd9f4; --token-role-bg: #eef8ff; }
+.token-chip.hl-mod-sideEffect { --token-role-color: #b42318; --token-role-border: #efb1ab; --token-role-bg: #fff1f0; }
+.token-chip.hl-mod-external { --token-role-color: #c2410c; --token-role-border: #f2b08d; --token-role-bg: #fff3ea; }
+.token-chip.hl-mod-workflowStep { --token-role-color: #0b6bcb; --token-role-border: #b6d4f8; --token-role-bg: #eef6ff; }
+.token-chip.hl-mod-model { --token-role-color: #9b2c6a; --token-role-border: #e3b5cf; --token-role-bg: #fff0f7; }
+.token-chip.hl-mod-db { --token-role-color: #6d4c0f; --token-role-border: #d6c08f; --token-role-bg: #fff8e8; }
+.token-chip.hl-mod-cache { --token-role-color: #166534; --token-role-border: #b4d7bd; --token-role-bg: #f0fdf4; }
 .token-modifier {
   margin: 1px 2px 1px 0;
   border-color: #c7d7ee;

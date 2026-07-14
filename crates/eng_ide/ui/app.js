@@ -1810,8 +1810,75 @@ function highlightFilterButton(query, label) {
 
 function highlightFilterChip(query, label, kind, title = "") {
   const safeKind = String(kind || "selector").replace(/[^A-Za-z0-9_-]/g, "") || "selector";
+  const roleClass = highlightChipRoleClass(kind, query || label);
+  const className = ["token-chip", `token-${safeKind}`, roleClass, "token-filter-chip"].filter(Boolean).join(" ");
   const chipTitle = title || `Filter ${label}`;
-  return `<button class="token-chip token-${escapeAttr(safeKind)} token-filter-chip" data-highlight-token-filter="${escapeAttr(query)}" title="${escapeAttr(chipTitle)}">${escapeHtml(label)}</button>`;
+  return `<button class="${escapeAttr(className)}" data-highlight-token-filter="${escapeAttr(query)}" title="${escapeAttr(chipTitle)}">${escapeHtml(label)}</button>`;
+}
+
+
+function highlightChipRoleClass(kind, query) {
+  const value = String(query || "").trim();
+  if (!value || value === "-") return "";
+  const normalizedKind = String(kind || "").trim();
+  if (normalizedKind === "type") return semanticTokenTypeClass(value);
+  if (normalizedKind === "modifier") return semanticTokenModifierClass(value);
+  if (normalizedKind === "selector") return semanticTokenSelectorClass(value);
+  switch (normalizedKind) {
+    case "keyword": return "hl-keyword";
+    case "option": return "hl-property";
+    case "unit": return "hl-mod-unit";
+    case "quantity": return "hl-mod-quantity";
+    case "workflow": return "hl-mod-workflowStep";
+    case "constant": return "hl-constant";
+    case "operator": return "hl-operator";
+    case "axis": return "hl-mod-axis";
+    case "timeseries": return "hl-mod-timeseries";
+    case "uncertain": return "hl-mod-uncertain";
+    case "validation": return "hl-mod-validation";
+    case "report": return "hl-mod-report";
+    case "solver": return "hl-mod-solver";
+    case "sideEffect": return "hl-mod-sideEffect";
+    case "external": return "hl-mod-external";
+    case "model": return "hl-mod-model";
+    case "db": return "hl-mod-db";
+    case "cache": return "hl-mod-cache";
+    default: return "";
+  }
+}
+
+function semanticTokenTypeClass(type) {
+  switch (String(type || "").trim()) {
+    case "namespace": return "hl-namespace";
+    case "type": return "hl-type";
+    case "class": return "hl-class";
+    case "interface": return "hl-interface";
+    case "parameter": return "hl-parameter";
+    case "variable": return "hl-variable";
+    case "property": return "hl-property";
+    case "function": return "hl-function";
+    case "method": return "hl-method";
+    case "keyword": return "hl-keyword";
+    case "modifier": return "hl-modifier";
+    case "string": return "hl-string";
+    case "number": return "hl-number";
+    case "operator": return "hl-operator";
+    case "comment": return "hl-comment";
+    default: return "";
+  }
+}
+
+function semanticTokenModifierClass(modifier) {
+  const value = String(modifier || "").trim();
+  return value ? `hl-mod-${safeCssToken(value)}` : "";
+}
+
+function semanticTokenSelectorClass(selector) {
+  const parts = String(selector || "").split(".").map((part) => part.trim()).filter(Boolean);
+  if (!parts.length) return "";
+  return [semanticTokenTypeClass(parts[0]), ...parts.slice(1).map(semanticTokenModifierClass)]
+    .filter(Boolean)
+    .join(" ");
 }
 
 function semanticTokenTypeChip(type) {

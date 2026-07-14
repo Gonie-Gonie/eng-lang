@@ -103,9 +103,9 @@ Right Sidebar
   conversions, TimeSeries ranges/statistics, metrics, validations, uncertainty
   summaries/propagation metadata, time alignments, artifact paths, and JSON
   artifact outlines are summarized in tables. The Highlight tab shows a current
-  or check-needed status, filtered count, domain coverage summary, highlight
-  categories, token counts, source ranges, and per-token copy actions from the
-  current check. The Network
+  or check-needed status, filtered count, color-coded domain coverage summary,
+  highlight categories, token counts, source ranges, and per-token copy actions
+  from the current check. The Network
   tab summarizes network boundaries, network events, cache events, hashes, and
   cache keys for workflows that use `eng.net` or `eng.cache`. Uncertain scalar
   bindings also appear in the variable view with their representation and

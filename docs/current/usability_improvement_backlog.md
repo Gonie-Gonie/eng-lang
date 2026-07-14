@@ -1,5 +1,6 @@
 # Usability Improvement Backlog
 
+- Batch 860: Color-coded native IDE Highlight panel chips for token categories, details, selectors, and coverage domains so the inspector mirrors the editor's role colors instead of showing mostly generic chips.
 - Batch 859: Reworded VS Code and native IDE user-facing highlighting settings/docs from compiler-backed implementation phrasing to checked-code and role-aware wording, with guards against the older wording returning.
 - Batch 858: Split VS Code EngLang theme colors across unit, quantity, TimeSeries, workflow, validation, report, side-effect, external, solver, model, DB, and cache role families so role-aware highlighting is more colorful without collapsing each family into one color.
 - Batch 857: Reworded VS Code highlighting docs away from TextMate/semantic implementation phrasing toward first-pass syntax colors and role-aware colors, with a guard against the older wording returning.
